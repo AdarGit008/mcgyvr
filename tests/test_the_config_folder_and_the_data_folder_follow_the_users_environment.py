@@ -1,13 +1,20 @@
 """The config folder and the data folder follow the user's environment.
 
-Promise: mcgyvr keeps its settings in one config folder and its own files in
-one data folder, and the user moves either one by naming it in the
+Promise: mcgyvr keeps its settings in one config folder, and names one data
+folder for its own files; the user moves either one by naming it in the
 environment: ``$MCGYVR_HOME`` for the config folder, ``$MCGYVR_DATA`` for the
 data folder. Each moves alone. With nothing named, both sit under the user's
 home folder, the data folder where the XDG base directory convention keeps
-state. A value that could name a different folder from each working directory
-is refused by the variable's name, never used; an empty value is no value. A
-test never inherits either variable from the shell that ran it.
+state. A value that could name a different folder from each working directory,
+or that names no folder at all, is refused by the variable's name, never used;
+an empty value is no value. Moving the config folder never unguards its
+default: a server started without the variable still reads its fleets there.
+A test never inherits either variable from the shell that ran it.
+
+What follows the config folder here is everything kept in it: the live
+fleets, the pointer naming the live one, and the user's own numbers. Only the
+data folder's place is settled here: nothing is read or written through it
+yet.
 """
 
 from __future__ import annotations
@@ -38,11 +45,10 @@ def test_with_nothing_named_the_config_folder_is_the_default_under_home(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _unset(monkeypatch)
-    assert roots.home() == Path(roots.HOME_DIR).expanduser()
-    assert roots.home().is_relative_to(Path.home())
+    assert roots.home() == Path.home() / ".mcgyvr"
 
 
-def test_every_setting_follows_the_config_folder_the_user_names(
+def test_everything_kept_in_the_config_folder_follows_the_folder_the_user_names(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _unset(monkeypatch)
@@ -53,8 +59,32 @@ def test_every_setting_follows_the_config_folder_the_user_names(
     assert roots.fleets_dir().parent == moved
     assert roots.live_file().parent == moved
     assert derived.overrides_path().parent == moved
+
+
+def test_moving_the_config_folder_keeps_both_it_and_its_default_guarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _unset(monkeypatch)
+    moved = tmp_path / "settings"
+    monkeypatch.setenv("MCGYVR_HOME", str(moved))
+
     assert roots.is_live(moved / "fleets" / "any")
-    assert not roots.is_live(Path(roots.HOME_DIR).expanduser())
+    assert roots.is_live(Path.home() / ".mcgyvr" / "fleets" / "any")
+    assert not roots.is_live(tmp_path / "elsewhere")
+
+
+def test_a_config_folder_named_through_a_link_is_guarded_as_the_folder_it_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _unset(monkeypatch)
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+    monkeypatch.setenv("MCGYVR_HOME", str(link))
+
+    assert roots.is_live(real / "fleets" / "any")
+    assert roots.is_live(link / "fleets" / "any")
 
 
 def test_a_config_folder_named_from_the_users_home_is_expanded(
@@ -69,8 +99,7 @@ def test_with_nothing_named_the_data_folder_is_the_default_under_home(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _unset(monkeypatch)
-    assert roots.data_home() == Path(roots.DATA_DIR).expanduser()
-    assert roots.data_home().is_relative_to(Path.home())
+    assert roots.data_home() == Path.home() / ".local" / "state" / "mcgyvr"
 
 
 def test_the_data_folder_follows_the_folder_the_user_names(
@@ -96,15 +125,16 @@ def test_with_no_data_folder_named_it_sits_under_the_users_state_folder(
 ) -> None:
     _unset(monkeypatch)
     monkeypatch.setenv(STATE, str(tmp_path / "state"))
-    assert roots.data_home() == tmp_path / "state" / roots.DATA_NAME
+    assert roots.data_home() == tmp_path / "state" / "mcgyvr"
 
 
+@pytest.mark.parametrize("state", ["state", "~/state"])
 def test_a_state_folder_that_is_not_absolute_is_ignored_as_the_convention_says(
-    monkeypatch: pytest.MonkeyPatch,
+    state: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _unset(monkeypatch)
-    monkeypatch.setenv(STATE, "state")
-    assert roots.data_home() == Path(roots.DATA_DIR).expanduser()
+    monkeypatch.setenv(STATE, state)
+    assert roots.data_home() == Path.home() / ".local" / "state" / "mcgyvr"
 
 
 def test_each_folder_moves_alone(
@@ -129,14 +159,31 @@ def test_an_empty_value_is_no_value(name: str, monkeypatch: pytest.MonkeyPatch) 
     assert (roots.home(), roots.data_home()) == (config, data)
 
 
+@pytest.mark.parametrize("value", ["relative/folder", "~nosuchuser_zz/x"])
 @pytest.mark.parametrize("name", MOVED)
 def test_a_folder_that_is_not_absolute_is_refused_by_its_variables_name(
-    name: str, monkeypatch: pytest.MonkeyPatch
+    name: str, value: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _unset(monkeypatch)
-    monkeypatch.setenv(name, "relative/folder")
+    monkeypatch.setenv(name, value)
     with pytest.raises(roots.FolderError, match=name):
         roots.home() if name == "MCGYVR_HOME" else roots.data_home()
+
+
+def test_a_folder_refusal_is_caught_where_an_unresolvable_home_is() -> None:
+    """Code that already survives a HOME it cannot resolve survives this too."""
+    assert issubclass(roots.FolderError, RuntimeError)
+
+
+def test_a_refused_data_folder_names_the_folder_unsetting_it_would_use(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _unset(monkeypatch)
+    monkeypatch.setenv(STATE, str(tmp_path / "state"))
+    monkeypatch.setenv("MCGYVR_DATA", "relative/folder")
+    with pytest.raises(roots.FolderError) as refused:
+        roots.data_home()
+    assert str(tmp_path / "state" / "mcgyvr") in str(refused.value)
 
 
 #: The test the inner run holds: it passes only when the shared fixtures

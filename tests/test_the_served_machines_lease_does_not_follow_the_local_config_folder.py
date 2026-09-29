@@ -36,7 +36,8 @@ LEASE = gatelib.Lease(
 
 
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Every lease script a run sends: read, take, stamp and release."""
+    """Every lease script a run sends: read, take a free machine, take over a
+    held lease, stamp and release."""
     sent: list[str] = []
 
     def machine(
@@ -48,6 +49,7 @@ def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.setattr(gatelib, "_over_ssh", machine)
     gatelib.lease_read(HOST)
     gatelib.lease_take(HOST, LEASE, held=None)
+    gatelib.lease_take(HOST, LEASE, held=LEASE)
     gatelib.lease_stamp(HOST, LEASE, "run-1")
     gatelib.lease_release(HOST, LEASE.lease_id)
     return sent
@@ -65,7 +67,7 @@ def test_moving_the_config_folder_leaves_every_lease_script_as_it_was(
     after = _sent(monkeypatch)
 
     assert after == before
-    assert len(after) == 4
+    assert len(after) == 5
     assert all(gatelib.LEASE_FILE in script for script in after), after
     assert not any(str(moved) in script for script in after), after
 
