@@ -116,3 +116,39 @@ def test_the_two_layers_say_different_things_about_themselves(
     assert "To use your own value" in estimate.says()
     assert str(derived.overrides_path()) in override.says()
     assert "To use your own value" not in override.says()
+
+
+#: Values whose shortest spelling is long, whole, tiny or inexact, by unit.
+_SPELLINGS: dict[str, tuple[float, ...]] = {
+    "GiB": (123456789.123, 48.0, 1e-07, 0.1 + 0.2, 1e20),
+    "percent": (48.0, 99.99999999, 1e-07, 0.1 + 0.2),
+}
+
+
+@pytest.mark.parametrize(
+    ("unit", "value"),
+    [(unit, value) for unit, values in _SPELLINGS.items() for value in values],
+)
+def test_an_answer_states_its_value_as_its_setting_does(
+    unit: str,
+    value: float,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    nf.use_invented_spaces(monkeypatch)
+    space = sorted(nf.KEY_SPACES)[0]
+    key = nf.KEY_SPACES[space][0]
+    entry = nf.Entry(id="invented_spelling", unit=unit, key=space, values={key: value})
+    shipped = nf.write_json(tmp_path / "shipped.json", nf.document([entry]))
+    estimate = derived.lookup(entry.id, key, path=shipped)
+    nf.write_user_file(tmp_path_factory, {entry.id: {key: value}})
+    override = derived.lookup(entry.id, key, path=shipped)
+
+    for number in (estimate, override):
+        says = number.says()
+        setting = says.split("\n\n")[-1]
+        spelled = setting.splitlines()[1].split(": ", 1)[1]
+        assert yaml.safe_load(spelled) == value
+        assert f" is {spelled} {unit}," in says
+    assert f"in place of {spelled}:" in estimate.says()
