@@ -321,6 +321,37 @@ def test_init_names_the_card_it_sized_against_and_the_cards_it_could_not(
         assert unit.get("room_mib", 0) <= card_mib, name
 
 
+def test_a_card_of_undetermined_size_is_named_without_a_claim_about_remote_rungs(
+    tmp_path: Path,
+) -> None:
+    """A card of undetermined size sits beside a card big enough to size
+    against, and a backend on another machine holds nothing the table knows.
+    Every rung below is local, so the undetermined card's own line does not
+    speak of remote rungs — unlike the sizing card's line, which may still
+    carry that claim from ``has_remote_backend`` alone."""
+    table = load_table()
+    measured = tuple(m.id for m in table.models if m.is_measured)
+    found = Detection(
+        gpus=(
+            Gpu("Inventa Q-20", 20.0, "invented"),
+            Gpu("Inventa Shared V", NO_SIZE, "invented"),
+        ),
+        backends=(
+            Backend("llama-server", "http://localhost:8080", "openai", measured, "probe"),
+            Backend(
+                "vllm-far", "http://elsewhere:9000", "openai", (), "probe",
+                host="elsewhere",
+            ),
+        ),
+    )
+    assert found.has_remote_backend
+
+    result = initialize(tmp_path / "setup", detection=found, table=table)
+    unsized = [d for d in result.decisions if d.startswith("GPU Inventa Shared V ")]
+    assert len(unsized) == 1
+    assert "remote rungs" not in unsized[0]
+
+
 # --- the detect command prints every card and every note --------------------
 
 
