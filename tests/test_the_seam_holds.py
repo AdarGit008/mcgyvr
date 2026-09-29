@@ -79,8 +79,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
-#: The semantic gate's resolver engine: vendored source, not a module of the package.
-_VENDORED_ENGINE = SRC / "gate" / "_engine"
 RED_PORT = Path(__file__).resolve().parent / "red_port"
 
 #: ``mcgyvr.runner``'s own words: "the first code below the seam
@@ -143,8 +141,9 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: ladder (route, escalate, drive, consensus, deterministic, rename, repair,
 #: verify, deliver, cleanup), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
-#: scope), and what the run leaves behind for the caller (result, session,
-#: telemetry).
+#: scope, and the semantic gate's resolver engine under gate._engine, which is
+#: staged into the sandbox and imports only itself and the standard library),
+#: and what the run leaves behind for the caller (result, session, telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.cleanup",
     "mcgyvr.consensus",
@@ -156,6 +155,10 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.drive",
     "mcgyvr.escalate",
     "mcgyvr.gate",
+    "mcgyvr.gate._engine.ghostcall",
+    "mcgyvr.gate._engine.ghostcall.checker",
+    "mcgyvr.gate._engine.ghostcall.parser",
+    "mcgyvr.gate._engine.ghostcall.suggest",
     "mcgyvr.gate.acceptance",
     "mcgyvr.gate.adapter",
     "mcgyvr.gate.adapters",
@@ -280,17 +283,8 @@ def _the_tree() -> set[str]:
     calls itself "never imported by mcgyvr ... read as text and staged" in its
     own docstring, but it *is* a legal module name, so it is classified like
     everything else rather than skipped.
-
-    The resolver engine under ``gate/_engine/`` is skipped: it is third-party
-    source copied byte for byte and staged as data, it imports itself as
-    ``ghostcall`` and never as ``mcgyvr.*``, and no module of the package
-    imports it.
     """
-    return {
-        name
-        for path in SRC.rglob("*.py")
-        if not path.is_relative_to(_VENDORED_ENGINE) and (name := _dotted_name(path))
-    }
+    return {name for path in SRC.rglob("*.py") if (name := _dotted_name(path))}
 
 
 def _imports_in(source: str, package: str = "mcgyvr") -> set[str]:
