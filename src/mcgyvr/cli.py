@@ -408,7 +408,7 @@ def _detect(args: argparse.Namespace) -> int:
     if found.gpus:
         print("GPU:")
         for gpu in found.gpus:
-            print(f"  {gpu.name} — {gpu.vram_gb:g} GB  ({gpu.how})")
+            print(f"  {gpu.name} — {gpu.size}  ({gpu.how})")
         if found.has_remote_backend:
             print("  (this machine's card — the remote backends below have their own)")
     else:

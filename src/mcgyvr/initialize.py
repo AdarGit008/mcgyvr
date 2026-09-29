@@ -205,11 +205,13 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
     else:
         situation = "No local backend answered on any default endpoint."
 
-    vram = (
-        f"{detection.largest_vram_gb:g} GB of VRAM"
-        if detection.largest_vram_gb is not None
-        else "no GPU this build can see"
-    )
+    if detection.largest_vram_gb is not None:
+        vram = f"{detection.largest_vram_gb:g} GB of VRAM"
+    elif detection.gpus:
+        cards = ", ".join(gpu.name for gpu in detection.gpus)
+        vram = f"a GPU whose memory size was not determined ({cards})"
+    else:
+        vram = "no GPU this build can see"
     return (
         f"Refusing to write a config that cannot load.\n\n"
         f"{situation} With {vram}, no unit can be proposed, and a config "
@@ -512,9 +514,7 @@ def _decisions(
             if detection.has_remote_backend
             else ""
         )
-        decisions.append(
-            f"GPU {gpu.name} with {gpu.vram_gb:g} GB, via {gpu.how}{scope}."
-        )
+        decisions.append(f"GPU {gpu.name} with {gpu.size}, via {gpu.how}{scope}.")
     for backend in detection.backends:
         where = "here" if backend.is_local else f"on {backend.host}"
         decisions.append(

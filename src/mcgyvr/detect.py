@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import math
 import os
 import platform
 import re
@@ -160,11 +161,34 @@ def targets_for(
 DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = targets_for()
 
 
+#: How a note begins for a card that is listed but whose memory size the card
+#: tool printed as not available: the card is there, its size is not known.
+GPU_SIZE_UNDETERMINED = "GPU: memory size not determined"
+#: How a note begins for a row the card tool printed that could not be read as
+#: a card at all. The note quotes the row, so the card is named, not dropped.
+GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
+
+
 @dataclass(frozen=True)
 class Gpu:
+    """One card. ``vram_gb`` is ``None`` when its size could not be determined.
+
+    A card of undetermined size is still a card: it is listed, and a note says
+    its size is unknown. It takes no part in sizing (see
+    :attr:`Detection.largest_vram_gb`), because a size nobody read is not a
+    size to fit a model against.
+    """
+
     name: str
-    vram_gb: float
+    vram_gb: float | None
     how: str
+
+    @property
+    def size(self) -> str:
+        """The card's memory as a reader should see it."""
+        if self.vram_gb is None:
+            return "memory size not determined"
+        return f"{self.vram_gb:g} GB"
 
 
 @dataclass(frozen=True)
@@ -224,13 +248,19 @@ class Detection:
 
     @property
     def largest_vram_gb(self) -> float | None:
-        """VRAM of the biggest single card, or None when there is no GPU.
+        """VRAM of the biggest single card whose size is known, else None.
 
-        Deliberately not a sum: a model runs on one card, so two 6 GB cards
-        are two 6 GB decisions, not one 12 GB decision. Multi-GPU sharding
-        would change that and is not something this detects.
+        Deliberately not a sum: a model runs on one card, so two cards are two
+        decisions, not one decision of their total. Multi-GPU sharding would
+        change that and is not something this detects.
+
+        A card of undetermined size takes no part: it is not the largest, and
+        with no card of known size this is None, as for a machine without a
+        card. The card is still in :attr:`gpus` and named in :attr:`notes`.
         """
-        return max((g.vram_gb for g in self.gpus), default=None)
+        return max(
+            (g.vram_gb for g in self.gpus if g.vram_gb is not None), default=None
+        )
 
     def backend(self, name: str) -> Backend | None:
         return next((b for b in self.backends if b.name == name), None)
@@ -333,8 +363,25 @@ def probe_all(
     return tuple(b for b in results if b is not None)
 
 
+def _is_not_available(value: str) -> bool:
+    """Whether the card tool printed a field as a value it could not give.
+
+    It prints those bracketed — ``[N/A]``, ``[Not Supported]`` — in place of
+    the number, and a bracketed field is never a number.
+    """
+    return value.startswith("[") and value.endswith("]")
+
+
 def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
-    """Detect NVIDIA GPUs. Anything else is reported as undetermined."""
+    """Detect NVIDIA GPUs. Anything else is reported as undetermined.
+
+    Every row the card tool prints becomes a card or a note. A row is anchored
+    at its end, where the size is: the last field is the size and everything
+    before it is the name, commas and all. A size printed as not available
+    makes a card of undetermined size, with a note. A row with no size field,
+    or a size that is neither a number nor not available, is quoted in a note.
+    """
+    how = "nvidia-smi --query-gpu=name,memory.total"
     output = _run(
         [
             "nvidia-smi",
@@ -350,24 +397,39 @@ def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
         )
 
     gpus: list[Gpu] = []
+    notes: list[str] = []
     for line in output.strip().splitlines():
+        if not line.strip():
+            continue
         parts = [p.strip() for p in line.split(",")]
-        if len(parts) != 2:
+        name, size = ", ".join(parts[:-1]), parts[-1]
+        if len(parts) >= 2 and name and _is_not_available(size):
+            gpus.append(Gpu(name=name, vram_gb=None, how=how))
+            notes.append(
+                f"{GPU_SIZE_UNDETERMINED} for {name}: nvidia-smi printed its "
+                f"memory.total as {size}. The card is listed, but it is not "
+                f"sized against; bind VRAM by hand for it."
+            )
             continue
         try:
-            mib = float(parts[1])
+            mib = float(size) if len(parts) >= 2 and name else math.nan
         except ValueError:
-            continue
-        gpus.append(
-            Gpu(
-                name=parts[0],
-                vram_gb=round(mib / MIB_PER_GB, 1),
-                how="nvidia-smi --query-gpu=name,memory.total",
+            mib = math.nan
+        if not math.isfinite(mib) or mib < 0:
+            notes.append(
+                f"{GPU_ROW_UNREAD}, so that card is missing from the list: "
+                f"{line.strip()!r}. Read the card list as incomplete, not short."
             )
-        )
-    if not gpus:
+            continue
+        gpus.append(Gpu(name=name, vram_gb=round(mib / MIB_PER_GB, 1), how=how))
+    if not gpus and not notes:
         return (), ("GPU: nvidia-smi ran but reported no device.",)
-    return tuple(gpus), ()
+    if not gpus:
+        return (), (
+            "GPU: nvidia-smi ran but reported no device this could read.",
+            *notes,
+        )
+    return tuple(gpus), tuple(notes)
 
 
 def detect_ram_gb() -> tuple[float | None, str]:
