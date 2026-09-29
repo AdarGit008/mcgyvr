@@ -27,7 +27,9 @@ it:
 - every card is also in sysfs, numbered by its place in the shape; there a
   ``vendor-b`` card publishes its name and memory and a ``vendor-a`` card
   neither. The reader takes from sysfs the cards of a vendor no tool answered
-  for.
+  for; under this model the tool of that vendor is then not installed, so a
+  card of it whose size sysfs does not publish is one the reading names
+  unsized (:func:`expected_unsized`).
 
 :func:`expected_cards` and :func:`expected_unread` say what the reader must
 report for a shape under that model, computed from the shape, never from a run.
@@ -81,21 +83,26 @@ PCI_VENDOR: Mapping[str, str] = {"vendor-a": "0x10de", "vendor-b": "0x1002"}
 ELEVATION = ("sudo", "su", "pkexec", "doas", "runuser", "dmidecode")
 
 #: The programs the reader always has on its PATH besides the stubs.
-PROGRAMS = ("bash", "sha256sum")
+PROGRAMS = ("bash", "sha256sum", "tr", "head")
 
 MIB = 1024 * 1024
 
 
 @dataclass(frozen=True, kw_only=True)
 class SysfsCard:
-    """One ``/sys/class/drm/cardN`` entry. ``None`` leaves a file out."""
+    """One ``/sys/class/drm/cardN`` entry. ``None`` leaves a file out.
+
+    ``raw`` maps a file name under ``device/`` to bytes written as they are,
+    over what the other fields would write.
+    """
 
     number: int
-    vendor: str
+    vendor: str | None
     device: str
     product_name: str | None = None
     vram_total_bytes: int | None = None
     vram_used_bytes: int | None = None
+    raw: Mapping[str, bytes] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -107,8 +114,12 @@ class Staged:
     not in it is answered with an error. ``containers`` is the container
     tool's listing, ``ID|NAME|PROJECT`` per line. ``first_tool_waits`` makes
     the first tool wait instead of answering; ``first_tool_reads_stdin`` makes
-    it read its standard input to the end before it answers.
-    ``tool_seconds`` is the bound the reader is told to put on each tool call.
+    it read its standard input to the end before it answers;
+    ``first_tool_leaves_child`` makes it start a child that holds its output
+    open for half a minute, and answer. ``tool_seconds`` is the bound the
+    reader is told to put on each tool call. The machine-id file and the host
+    name are written with a line break after them when given as text, and as
+    they are when given as bytes. ``environment`` is added to the reader's.
     """
 
     first_tool: bytes | None = None
@@ -116,18 +127,20 @@ class Staged:
     first_tool_processes: Mapping[int, tuple[bytes, int]] = field(default_factory=dict)
     first_tool_waits: bool = False
     first_tool_reads_stdin: bool = False
+    first_tool_leaves_child: bool = False
     second_tool: bytes | None = None
     second_tool_exit: int = 0
     sysfs: tuple[SysfsCard, ...] = ()
     containers: bytes | None = b""
     containers_exit: int = 0
     restarts: Mapping[str, bytes] = field(default_factory=dict)
-    machine_id_file: str | None = "0123456789abcdef0123456789abcdef"
+    machine_id_file: str | bytes | None = "0123456789abcdef0123456789abcdef"
     dbus_machine_id_file: str | None = None
-    hostname: str | None = "box-1.example"
+    hostname: str | bytes | None = "box-1.example"
     python: bool = True
     timeout_program: bool = True
     tool_seconds: int | None = None
+    environment: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -246,6 +259,10 @@ def _write(path: Path, content: bytes | str) -> None:
         path.write_bytes(content)
 
 
+def _line(content: str | bytes) -> str | bytes:
+    return content if isinstance(content, bytes) else content + "\n"
+
+
 def _program(name: str) -> str:
     found = shutil.which(name)
     assert found, f"no {name} on the test's PATH"
@@ -262,6 +279,9 @@ _WAITS = """exec {sleep} 600
 """
 
 _READS_STDIN = """{cat} > "$here/stdin.seen"
+"""
+
+_LEAVES_CHILD = """( exec {sleep} 30 ) &
 """
 
 _FIRST_TOOL_STUB = """
@@ -337,6 +357,8 @@ def _set_out(
             prelude += _WAITS.format(sleep=_program("sleep"))
         if staged.first_tool_reads_stdin:
             prelude += _READS_STDIN.format(cat=_program("cat"))
+        if staged.first_tool_leaves_child:
+            prelude += _LEAVES_CHILD.format(sleep=_program("sleep"))
         _stub(
             stubs,
             FIRST_TOOL,
@@ -366,7 +388,8 @@ def _set_out(
 
     for card in staged.sysfs:
         device = root / "sys" / "class" / "drm" / f"card{card.number}" / "device"
-        _write(device / "vendor", card.vendor + "\n")
+        if card.vendor is not None:
+            _write(device / "vendor", card.vendor + "\n")
         _write(device / "device", card.device + "\n")
         if card.product_name is not None:
             _write(device / "product_name", card.product_name + "\n")
@@ -374,17 +397,19 @@ def _set_out(
             _write(device / "mem_info_vram_total", f"{card.vram_total_bytes}\n")
         if card.vram_used_bytes is not None:
             _write(device / "mem_info_vram_used", f"{card.vram_used_bytes}\n")
+        for name, content in card.raw.items():
+            _write(device / name, content)
         # A connector entry beside the card, which is not a card.
         (device.parent.parent / f"card{card.number}-HDMI-A-1").mkdir(exist_ok=True)
     if staged.machine_id_file is not None:
-        _write(root / "etc" / "machine-id", staged.machine_id_file + "\n")
+        _write(root / "etc" / "machine-id", _line(staged.machine_id_file))
     if staged.dbus_machine_id_file is not None:
         _write(
             root / "var" / "lib" / "dbus" / "machine-id",
             staged.dbus_machine_id_file + "\n",
         )
     if staged.hostname is not None:
-        _write(root / "proc" / "sys" / "kernel" / "hostname", staged.hostname + "\n")
+        _write(root / "proc" / "sys" / "kernel" / "hostname", _line(staged.hostname))
 
 
 def reader_env(where: Path, staged: Staged) -> dict[str, str]:
@@ -396,6 +421,7 @@ def reader_env(where: Path, staged: Staged) -> dict[str, str]:
     }
     if staged.tool_seconds is not None:
         env[SECONDS_VARIABLE] = str(staged.tool_seconds)
+    env.update(staged.environment)
     return env
 
 
@@ -565,6 +591,23 @@ def expected_unread(shape: Shape, /) -> set[str]:
     if _first_installed(shape) and "vendor-a" not in _covered(shape):
         unread.add(f"cards.{FIRST_TOOL}")
     return unread
+
+
+def expected_unsized(shape: Shape, /) -> tuple[str, ...]:
+    """The cards the reading names unsized for this shape, in reading order.
+
+    A card is unsized when no answering tool covers its vendor, no installed
+    tool reads it, and sysfs publishes no size for it.
+    """
+    covered = _covered(shape)
+    found = []
+    for number, card in enumerate(shape.cards):
+        if card.vendor in covered:
+            continue
+        if card.vendor == "vendor-b" and card.total_mib is not None:
+            continue
+        found.append((TOOL_VENDOR[card.vendor], number))
+    return tuple(f"card.{vendor}.{index}" for vendor, index in sorted(found))
 
 
 def replace(staged: Staged, /, **changes: Any) -> Staged:

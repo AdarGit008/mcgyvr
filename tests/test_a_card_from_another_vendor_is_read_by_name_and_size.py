@@ -151,13 +151,17 @@ def test_sysfs_names_a_cards_vendor_by_the_vendor_table(
     assert (card.vendor, card.index) == (vendor, 3)
 
 
+@pytest.mark.parametrize("bounded", [True, False], ids=["timeout", "no-timeout"])
 def test_code_in_the_working_folder_does_not_read_the_second_tools_json(
-    tmp_path: Path,
+    bounded: bool, tmp_path: Path
 ) -> None:
     """A planted ``json.py`` beside the reader changes nothing in the reading."""
     from mcgyvr.fleet import machine as reader
 
-    staged = stage(next(m for m in shapes() if m.label == "other-vendor"))
+    staged = replace(
+        stage(next(m for m in shapes() if m.label == "other-vendor")),
+        timeout_program=bounded,
+    )
     clean = reader.parse(run(staged, tmp_path / "clean").stdout)
     planted = tmp_path / "planted"
     planted.mkdir()
@@ -171,3 +175,72 @@ def test_code_in_the_working_folder_does_not_read_the_second_tools_json(
     dirty = reader.parse(run(staged, planted).stdout)
     assert dirty.cards == clean.cards
     assert [c.name for c in dirty.cards if c.name == "Planted"] == []
+
+
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [
+        (b"{}", "printed no card"),
+        (
+            json.dumps(
+                {
+                    "card0": {
+                        "Card series": "Example Card Q",
+                        "VRAM Total Memory (B)": str(11_111 * MIB),
+                        "VRAM Total Used Memory (B)": "0",
+                    },
+                    "card1": "flat",
+                }
+            ).encode(),
+            "not a JSON object",
+        ),
+    ],
+    ids=["no-card", "an-entry-that-is-not-an-object"],
+)
+def test_a_second_tool_whose_card_list_may_be_short_gets_no_short_id(
+    text: bytes, said: str, tmp_path: Path
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    reading = reader.parse(run(Staged(second_tool=text), tmp_path).stdout)
+    assert said in {u.field: u.why for u in reading.unread}["cards.rocm-smi"]
+    with pytest.raises(ValueError, match=r"cards\.rocm-smi"):
+        reader.short_id(reading)
+
+
+def test_a_second_tool_size_that_is_not_a_whole_number_says_so(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    text = json.dumps(
+        {
+            "card0": {
+                "Card series": "Example Card Q",
+                "VRAM Total Memory (B)": 11_111.5 * MIB,
+                "VRAM Total Used Memory (B)": "0",
+            }
+        }
+    ).encode()
+    reading = reader.parse(run(Staged(second_tool=text), tmp_path).stdout)
+    why = {u.field: u.why for u in reading.unread}["card.amd.0.total"]
+    assert "not a whole number" in why
+
+
+def test_a_second_tool_name_with_a_no_break_space_is_read_as_it_is(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    text = json.dumps(
+        {
+            "card0": {
+                "Card series": "Example\u00a0Card Q",
+                "VRAM Total Memory (B)": str(11_111 * MIB),
+                "VRAM Total Used Memory (B)": "0",
+            }
+        }
+    ).encode()
+    reading = reader.parse(run(Staged(second_tool=text), tmp_path).stdout)
+    (card,) = reading.cards
+    assert card.name == "Example\u00a0Card Q"

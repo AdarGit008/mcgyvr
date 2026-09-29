@@ -237,3 +237,134 @@ def test_a_blank_first_machine_id_file_gives_way_to_the_second(
 def test_without_a_time_bound_the_reading_says_so(tmp_path: Path) -> None:
     ran = run(Staged(timeout_program=False), tmp_path)
     assert "timeout" in _raw_unread(ran.stdout)["tool_bound"]
+
+
+def test_the_reading_ends_with_its_end_line(tmp_path: Path) -> None:
+    ran = run(stage(shape("several-sizes")), tmp_path)
+    assert ran.stdout.splitlines()[-1] == "end="
+
+
+def test_a_reading_cut_short_names_itself_and_gets_no_short_id(
+    tmp_path: Path,
+) -> None:
+    """Its unread lines come last, so a cut reading may look like a whole one."""
+    from mcgyvr.fleet import machine as reader
+
+    lines = run(stage(shape("several-sizes")), tmp_path).stdout.splitlines()
+    cut = "\n".join(lines[: len(lines) // 2]) + "\n"
+    reading = reader.parse(cut)
+    assert any("end line" in u.why for u in reading.unread if u.field == "reading")
+    with pytest.raises(ValueError, match="reading"):
+        reader.short_id(reading)
+
+
+@pytest.mark.parametrize(
+    ("staged", "field"),
+    [
+        (
+            Staged(
+                first_tool=b"0, 7919, 0, 7919, Exa\x00mple Card\n",
+                first_tool_processes={0: (b"", 0)},
+            ),
+            "card.nvidia.0.name",
+        ),
+        (
+            Staged(
+                first_tool=b"0, 79\x0019, 0, 7919, Example Card\n",
+                first_tool_processes={0: (b"", 0)},
+            ),
+            "card.nvidia.0.total",
+        ),
+        (
+            Staged(
+                sysfs=(
+                    SysfsCard(
+                        number=0,
+                        vendor="0x1002",
+                        device="0x00aa",
+                        product_name="Example Card",
+                        raw={"mem_info_vram_total": b"83\x0088608\n"},
+                    ),
+                )
+            ),
+            "card.amd.0.total",
+        ),
+        (Staged(machine_id_file=b"0123456789ab\x00cdef\n"), "machine_id"),
+        (Staged(hostname=b"box\x00-1.example\n"), "host"),
+        (Staged(containers=b"abc123|na\x00me|proj\n"), "containers"),
+    ],
+    ids=["tool-name", "tool-size", "sysfs-size", "machine-id", "host", "container"],
+)
+def test_a_nul_byte_changes_no_value_it_is_named_unread(
+    staged: Staged, field: str, tmp_path: Path
+) -> None:
+    """A NUL a shell would drop is taken as the control character it is."""
+    ran = run(staged, tmp_path)
+    assert ran.returncode == 0, ran.stderr
+    assert field in _raw_unread(ran.stdout)
+
+
+def test_a_control_character_in_the_machine_id_file_is_named_not_hashed(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    staged = Staged(machine_id_file=b"0123456789ab\x1bcdef\n")
+    reading = reader.parse(run(staged, tmp_path).stdout)
+    assert reading.machine_id is None
+    assert "machine_id" in {u.field for u in reading.unread}
+
+
+def test_a_machine_id_file_with_a_line_too_long_is_named_not_passed_over(
+    tmp_path: Path,
+) -> None:
+    """Passing over it for the host name would give an id `mcgyvr scan` does not."""
+    from mcgyvr.fleet import machine as reader
+
+    staged = Staged(machine_id_file="a" * 5000, hostname="box-2.example")
+    reading = reader.parse(run(staged, tmp_path).stdout)
+    assert reading.machine_id is None
+    assert "longer than" in {u.field: u.why for u in reading.unread}["machine_id"]
+
+
+def test_a_name_file_with_a_line_too_long_names_the_name_unread(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    card = SysfsCard(
+        number=0,
+        vendor="0x1002",
+        device="0x00aa",
+        product_name="N" * 5000,
+        vram_total_bytes=8191 * MIB,
+        vram_used_bytes=0,
+    )
+    reading = reader.parse(run(Staged(sysfs=(card,)), tmp_path).stdout)
+    (read,) = reading.cards
+    assert read.name is None
+    assert "longer than" in {u.field: u.why for u in reading.unread}["card.amd.0.name"]
+
+
+def test_a_zero_time_bound_is_not_taken(tmp_path: Path) -> None:
+    """Zero would mean no bound at all to `timeout`."""
+    ran = run(Staged(tool_seconds=0), tmp_path)
+    assert "above 0" in _raw_unread(ran.stdout)["tool_bound"]
+
+
+def test_an_inherited_option_that_turns_globbing_off_hides_no_card(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.fleet import machine as reader
+
+    card = SysfsCard(
+        number=0,
+        vendor="0x1002",
+        device="0x00aa",
+        product_name="Example Card",
+        vram_total_bytes=8191 * MIB,
+        vram_used_bytes=0,
+    )
+    staged = Staged(sysfs=(card,), environment={"SHELLOPTS": "noglob"})
+    reading = reader.parse(run(staged, tmp_path).stdout)
+    assert [c.key for c in reading.cards] == ["card.amd.0"]

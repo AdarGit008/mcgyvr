@@ -166,6 +166,84 @@ def test_a_tool_that_waits_is_given_up_on_and_named(tmp_path: Path) -> None:
     assert reading.machine_id is not None
 
 
+def test_a_tool_that_leaves_a_child_holding_its_output_is_given_up_on(
+    tmp_path: Path,
+) -> None:
+    """The tool exits, but a child it started keeps its output open."""
+    started = time.monotonic()
+    ran = run(
+        Staged(
+            first_tool=b"0, 7919, 0, 7919, Example Card\n",
+            first_tool_processes={0: (b"", 0)},
+            first_tool_leaves_child=True,
+            tool_seconds=1,
+        ),
+        tmp_path,
+        give_up_after=20,
+    )
+    assert not ran.gave_up
+    assert time.monotonic() - started < 20
+    from mcgyvr.fleet import machine
+
+    reading = machine.parse(ran.stdout)
+    assert "cards.nvidia-smi" in _unread(reading)
+
+
+def test_a_tool_that_prints_more_than_the_byte_bound_is_named(
+    tmp_path: Path,
+) -> None:
+    """The bound is reached long before the line bounds, on lines of 3 KB."""
+    started = time.monotonic()
+    text = "".join(
+        f"{i}, 7919, 0, 7919, Example Card {'X' * 3000}\n" for i in range(100)
+    )
+    reading = _one(text.encode(), tmp_path)
+    assert time.monotonic() - started < 20
+    assert _cards(reading) == {}
+    why = _unread(reading)["cards.nvidia-smi"]
+    assert "more than" in why
+    assert "bytes" in why
+
+
+def test_a_tool_that_prints_more_lines_than_the_bound_is_named(
+    tmp_path: Path,
+) -> None:
+    reading = _one(b"x\n" * 4097, tmp_path)
+    assert _cards(reading) == {}
+    assert "more than 4096 lines" in _unread(reading)["cards.nvidia-smi"]
+
+
+def test_an_idle_card_that_says_so_has_no_holder_and_nothing_unread(
+    tmp_path: Path,
+) -> None:
+    reading = _one(
+        b"0, 7919, 0, 7919, Example Card\n",
+        tmp_path,
+        processes=b"No running processes found\n",
+    )
+    assert _cards(reading)[0].holders == ()
+    assert _unread(reading) == {}
+
+
+@pytest.mark.parametrize("name", ["[N/A]", "N/A"])
+def test_a_name_the_tool_prints_as_not_available_is_unread(
+    name: str, tmp_path: Path
+) -> None:
+    reading = _one(f"0, 7919, 0, 7919, {name}\n".encode(), tmp_path)
+    assert _cards(reading)[0].name is None
+    assert "N/A" in _unread(reading)["card.nvidia.0.name"]
+
+
+def test_a_container_id_that_is_not_one_leaves_the_containers_unread(
+    tmp_path: Path,
+) -> None:
+    """It never becomes a field name the reading cannot hold."""
+    reading = _read(tmp_path, containers=b"abc/def|example-unit|example\n")
+    assert reading.containers is None
+    assert "containers" in _unread(reading)
+    assert "reading" not in _unread(reading)
+
+
 def test_a_caller_that_gives_up_still_holds_the_machine_id_and_host(
     tmp_path: Path,
 ) -> None:
@@ -184,14 +262,16 @@ def test_a_caller_that_gives_up_still_holds_the_machine_id_and_host(
     assert "host=box-1.example" in lines
 
 
+@pytest.mark.parametrize("bounded", [True, False], ids=["timeout", "no-timeout"])
 def test_a_tool_that_reads_standard_input_reads_nothing_of_the_reader(
-    tmp_path: Path,
+    bounded: bool, tmp_path: Path
 ) -> None:
     ran = run(
         Staged(
             first_tool=b"0, 7919, 0, 7919, Example Card\n",
             first_tool_processes={0: (b"", 0)},
             first_tool_reads_stdin=True,
+            timeout_program=bounded,
         ),
         tmp_path,
     )

@@ -7,7 +7,9 @@ cards count twice. It changes when the machine id, a card's name or size, or
 the number of cards changes. Free and used memory, the processes on a card,
 the card indexes and the containers do not move it; the host name moves it
 only through a machine id derived from it. Names are taken in one Unicode form.
-A reading that could not read a covered field, or whose card list may be
+A card the reading names unsized (no installed tool reads it, no source
+publishes its size) is left out, and a value is hashed as it is. A reading that
+could not read a covered field of any other card, or whose card list may be
 short, gets no short id, and the refusal names the field and what the user can
 do.
 """
@@ -103,21 +105,48 @@ def test_the_same_cards_on_two_machines_get_two_short_ids(tmp_path: Path) -> Non
     assert machine.short_id(here) != machine.short_id(there)
 
 
-@pytest.mark.parametrize(
-    ("label", "named"),
-    [
-        ("unreadable-size", "card.nvidia.1.total"),
-        ("no-reader", "card.nvidia.0.total"),
-    ],
-)
 def test_a_reading_missing_a_covered_field_gets_no_short_id_and_names_it(
-    label: str, named: str, tmp_path: Path
+    tmp_path: Path,
 ) -> None:
     from mcgyvr.fleet import machine
 
-    reading = _reading(label, tmp_path)
-    with pytest.raises(ValueError, match=named.replace(".", r"\.")):
+    reading = _reading("unreadable-size", tmp_path)
+    with pytest.raises(ValueError, match=r"card\.nvidia\.1\.total"):
         machine.short_id(reading)
+
+
+def test_a_machine_without_its_card_tool_gets_an_id_over_the_cards_it_sizes(
+    tmp_path: Path,
+) -> None:
+    """Its cards whose size no source publishes are left out, and named so."""
+    from mcgyvr.fleet import machine
+
+    reading = _reading("no-reader", tmp_path)
+    assert reading.unsized
+    left = {key for key in reading.unsized}
+    sized = tuple(c for c in reading.cards if c.key not in left)
+    assert machine.short_id(reading) == machine.short_id(
+        dataclasses.replace(reading, cards=sized, unsized=())
+    )
+
+
+def test_the_short_id_hashes_a_value_as_it_is_never_as_a_stand_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Were the policy to take a card of unread size or name, it would not be
+    hashed as a card of 0 MiB or one named ``None``."""
+    from mcgyvr.fleet import machine
+
+    monkeypatch.setattr(machine, "_policy", lambda reading: ([], frozenset()))
+    reading = _reading("one-card", tmp_path)
+    (card,) = reading.cards
+
+    def with_card(**change: object) -> str:
+        changed = dataclasses.replace(card, **change)  # type: ignore[arg-type]
+        return machine.short_id(dataclasses.replace(reading, cards=(changed,)))
+
+    assert with_card(total_mib=None) != with_card(total_mib=0)
+    assert with_card(name=None) != with_card(name="None")
 
 
 def test_a_card_tool_that_failed_gets_no_short_id(tmp_path: Path) -> None:
@@ -172,7 +201,7 @@ def test_a_name_is_taken_in_one_unicode_form() -> None:
     def one(name: str) -> str:
         reading = machine.parse(
             "machine_id=0123456789abcdef\ncards=nvidia-smi\n"
-            f"card=nvidia,0,7919,0,7919,{name}\n"
+            f"card=nvidia,0,7919,0,7919,{name}\nend=\n"
         )
         return machine.short_id(reading)
 
@@ -187,7 +216,7 @@ def _typed(**change: object) -> object:
 
     reading = machine.parse(
         "machine_id=0123456789abcdef\ncards=nvidia-smi\n"
-        "card=nvidia,0,7919,0,7919,Example Card U\n"
+        "card=nvidia,0,7919,0,7919,Example Card U\nend=\n"
     )
     card = dataclasses.replace(reading.cards[0], **change)  # type: ignore[arg-type]
     return dataclasses.replace(reading, cards=(card,))
@@ -228,12 +257,12 @@ def test_a_card_of_unread_size_is_refused_naming_it_and_what_to_do(
 ) -> None:
     from mcgyvr.fleet import machine
 
-    reading = _reading("no-reader", tmp_path)
+    reading = _reading("unreadable-size", tmp_path)
     with pytest.raises(ValueError) as refused:
         machine.short_id(reading)
     said = str(refused.value)
-    assert "card.nvidia.0.total" in said
-    assert "card tool" in said
+    assert "card.nvidia.1.total" in said
+    assert "read the machine again" in said
 
 
 def test_a_failed_tool_is_refused_naming_it_and_what_to_do(tmp_path: Path) -> None:
