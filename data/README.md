@@ -3,7 +3,7 @@
 Three files ship as data rather than as code:
 `capability-table.json` (estimates, by card class, of what a model costs and
 how well it codes, below), `task-catalog.json` (the vocabulary of what mcgyvr
-can be asked to do, after it) and `numbers.json` (the estimates mcgyvr sizes
+can be asked to do, after it) and `numbers.json` (estimates mcgyvr sizes
 and judges a machine with, and what many other such numbers in its code are,
 at the end of this file).
 
