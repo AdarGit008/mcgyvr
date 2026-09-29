@@ -68,9 +68,9 @@ ESTIMATES_NOTICE = (
 GB_PER_GIB = 1.073741824
 
 # The score a model must reach on a task's dimension before it may be asked for
-# that task. 0.5 is a starting value, not a reading, and it is stated
-# once, as the default of the one function that applies it, rather than as a
-# literal at each call site.
+# that task. 0.5 is a rule over the shipped table's own scores, not a reading
+# of a machine or a model, and it is stated once, as the default of the one
+# function that applies it, rather than as a literal at each call site.
 DIMENSION_FLOOR = 0.5
 
 # The capability dimension each kind of required evidence implies, strongest
