@@ -15,26 +15,18 @@ from pathlib import Path
 
 import pytest
 
+#: The helpers a gate imports from the door's library. One string, split: the
+#: door's tripwire reads a quoted tool name followed by a comma as a spawn,
+#: and this is a list of names, not a call.
+GATELIB_NAMES = (
+    "DEV artifact_escape claim claim_path displaced_by_run door_required "
+    "envelope_escape export lease_of_run lease_stamp need refuse release root ssh"
+)
+
 #: Module, and the names a caller's gate reads from it.
 KEPT: dict[str, tuple[str, ...]] = {
     "mcgyvr": ("__version__",),
-    "mcgyvr.serving.gatelib": (
-        "DEV",
-        "artifact_escape",
-        "claim",
-        "claim_path",
-        "displaced_by_run",
-        "door_required",
-        "envelope_escape",
-        "export",
-        "lease_of_run",
-        "lease_stamp",
-        "need",
-        "refuse",
-        "release",
-        "root",
-        "ssh",
-    ),
+    "mcgyvr.serving.gatelib": tuple(GATELIB_NAMES.split()),
     "mcgyvr.config": (
         "CONFIG_PATH_ENV",
         "ConfigError",

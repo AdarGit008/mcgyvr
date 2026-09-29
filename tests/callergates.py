@@ -198,7 +198,7 @@ def stub_machine(tmp_path: Path) -> tuple[Path, Path]:
     """
     stubs = tmp_path / "stubs"
     calls = tmp_path / "machine-calls.log"
-    for name in ("ssh", "docker"):
+    for name in run.SHIMS:
         executable(
             stubs / name,
             "#!/usr/bin/env python3\n"
