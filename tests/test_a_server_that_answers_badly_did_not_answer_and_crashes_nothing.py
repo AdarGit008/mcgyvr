@@ -79,6 +79,9 @@ DEEPLY_NESTED = _reply(DEEPLY_NESTED_BODY)
 #: A status line tens of kilobytes long, under the length the HTTP client
 #: refuses outright, so it is quoted back in the error it raises.
 LONG_BAD_STATUS_LINE = b"NOT A STATUS " + b"x" * 60_000 + b"\r\n\r\n"
+#: A status line carrying terminal control characters: an escape sequence and a
+#: bell.
+CONTROL_STATUS_LINE = b"NOT A STATUS \x1b[2J\x07 \x1b]0;title\x07\r\n\r\n"
 
 #: Replies that can never be read as JSON, whatever the reader wanted from them.
 UNREADABLE = {
@@ -232,6 +235,17 @@ def test_a_harness_error_quotes_a_bounded_part_of_what_the_server_sent() -> None
     said = str(raised.value)
     assert url in said
     assert len(said) <= len(url) + harness.REPLY_QUOTED_AT_MOST + 100
+
+
+def test_a_harness_error_escapes_what_the_server_sent() -> None:
+    """No control character a server sends reaches the terminal as it is."""
+    with answering(CONTROL_STATUS_LINE) as base:
+        url = f"{base}/v1/models"
+        with pytest.raises(harness.HarnessError) as raised:
+            harness.HttpTransport().get(url, TIMEOUT_S)
+    said = str(raised.value)
+    assert "NOT A STATUS" in said
+    assert said.isprintable(), repr(said)
 
 
 @pytest.mark.parametrize("reply", UNREADABLE.values(), ids=UNREADABLE.keys())

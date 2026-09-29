@@ -20,6 +20,7 @@ Every card here is invented, in name and in size.
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +31,9 @@ from mcgyvr.capability import load as load_table
 from mcgyvr.config import FLEET_FILENAME
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import Backend, Detection, Gpu
-from mcgyvr.initialize import InitError, initialize
-from tests.machine_shapes import detection, shape, with_server
+from mcgyvr.initialize import InitError, _sources_for, initialize
+from mcgyvr.propose import propose
+from tests.machine_shapes import Server, detection, shape, with_server
 
 MIB = detect.MIB_PER_GB
 #: The size of a card whose size is not determined. Typed loosely so this file
@@ -101,6 +103,8 @@ def test_a_card_whose_size_is_not_available_is_listed_without_a_size(
     said = [n for n in notes if n.startswith(detect.GPU_SIZE_UNDETERMINED)]
     assert len(said) == 1
     assert "Inventa Shared V" in said[0]
+    assert "by hand" in said[0]
+    assert "room_mib" in said[0], "the note says how, as the refusal does"
 
 
 def test_a_card_of_undetermined_size_takes_no_part_in_sizing() -> None:
@@ -353,3 +357,116 @@ def test_the_detect_command_prints_every_card_and_every_note(
     assert any(n.startswith(detect.GPU_ROW_NOT_READ) for n in notes)
     for note in notes:
         assert f"  - {note}" in printed
+
+
+# --- the refusal says what is true of each backend and each card ------------
+
+
+def _refusal(tmp_path: Path, found: Detection) -> str:
+    with pytest.raises(InitError) as refused:
+        initialize(tmp_path / "setup", detection=found, table=load_table())
+    return str(refused.value)
+
+
+def test_a_refusal_over_a_remote_holder_says_why_its_model_is_not_bound(
+    tmp_path: Path,
+) -> None:
+    """A backend on another machine is not "on this machine", and its card is
+    not why nothing was bound: the refusal gives the reason the proposal gave."""
+    table = load_table()
+    model = next(m for m in table.models if m.is_measured and m.requires_backend)
+    kind, port, _ = next(
+        c for c in detect.PORT_CONVENTIONS if c[0] != model.requires_backend
+    )
+    far = shape("bare-remote-server")
+    machine = dataclasses.replace(
+        far,
+        servers=(Server(kind=kind, host=far.host, port=port, models=(model.id,)),),
+    )
+    found = detection(machine)
+    assert found.backends and not any(b.is_local for b in found.backends)
+    rejected = {
+        r.model: r.reason
+        for r in propose(
+            table, vram_gb=found.largest_vram_gb, sources=_sources_for(found)
+        ).rejected
+    }
+
+    text = _refusal(tmp_path, found)
+    assert "on this machine" not in text
+    assert model.id in text
+    assert rejected[model.id] in text
+
+
+def _holders(*names_and_ports: tuple[str, int]) -> tuple[Backend, ...]:
+    table = load_table()
+    held = tuple(m.id for m in table.models if m.is_measured)
+    return tuple(
+        Backend(name, f"http://localhost:{port}", "openai", held, "probe")
+        for name, port in names_and_ports
+    )
+
+
+def test_the_refusal_speaks_of_one_or_several_holders_and_cards(
+    tmp_path: Path,
+) -> None:
+    one = _refusal(
+        tmp_path / "one",
+        Detection(
+            gpus=(Gpu("Inventa P", NO_SIZE, "invented"),),
+            backends=_holders(("llama-server", 8080)),
+        ),
+    )
+    assert "llama-server reports holding" in one
+    assert "the memory size of Inventa P was not determined" in one
+    assert "against it." in one
+
+    several = _refusal(
+        tmp_path / "several",
+        Detection(
+            gpus=(
+                Gpu("Inventa P", NO_SIZE, "invented"),
+                Gpu("Inventa Q", NO_SIZE, "invented"),
+            ),
+            backends=_holders(("llama-server", 8080), ("lmstudio", 1234)),
+        ),
+    )
+    assert "llama-server and lmstudio report holding" in several
+    assert "the memory sizes of Inventa P and Inventa Q were not determined" in (
+        several
+    )
+    assert "against them." in several
+    assert "reports holding" not in several
+
+
+def test_the_by_hand_fix_is_offered_beside_a_card_too_small(tmp_path: Path) -> None:
+    """A sized card too small for any model, and a card of undetermined size:
+    the unsized card is named, and a unit may be bound to it by hand."""
+    table = load_table()
+    smallest = min(m.vram_gb_working for m in table.models)
+    found = Detection(
+        gpus=(
+            Gpu("Inventa Tiny", smallest / 4, "invented"),
+            Gpu("Inventa Shared V", NO_SIZE, "invented"),
+        ),
+        backends=_holders(("llama-server", 8080)),
+    )
+    text = _refusal(tmp_path, found)
+    assert "Inventa Shared V" in text
+    assert "room_mib" in text
+    assert "by hand" in text
+
+
+def test_the_by_hand_fix_is_offered_with_no_card_and_a_local_holder(
+    tmp_path: Path,
+) -> None:
+    text = _refusal(tmp_path, Detection(backends=_holders(("llama-server", 8080))))
+    assert "room_mib" in text
+    assert "by hand" in text
+
+
+def test_the_by_hand_fix_is_not_offered_with_no_card_and_no_backend(
+    tmp_path: Path,
+) -> None:
+    text = _refusal(tmp_path, Detection())
+    assert "room_mib" not in text
