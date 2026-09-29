@@ -359,6 +359,12 @@ def test_a_licence_counts_only_beside_the_file_or_one_folder_up(
     assert not _licensed(path, tmp_path)
     (tmp_path / "LICENSE").write_text("a licence at the root\n", encoding="utf-8")
     assert not _licensed(path, tmp_path), (
+        "a licence two folders above the file does not count"
+    )
+    assert not _licensed("vendor/module.py", tmp_path), (
+        "a licence at the package root would pass every file as third-party"
+    )
+    assert not _licensed("module.py", tmp_path), (
         "a licence at the package root would pass every file as third-party"
     )
     (tmp_path / "vendor" / "author" / "LICENSE").write_text("x\n", encoding="utf-8")
