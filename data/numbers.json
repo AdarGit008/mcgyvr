@@ -33,7 +33,7 @@
     "runtime_resident_gb": {
       "kind": "estimate",
       "estimates": "Host memory, in GiB, that a llama.cpp server holds beyond the expert weights it keeps in host memory.",
-      "used_for": "Added to the host memory a unit is sized to need when some of its experts stay in host memory; charged only then.",
+      "used_for": "Added to the host memory a llama.cpp unit is sized to need when some of its experts stay in host memory; charged only then, and never to a unit of another engine.",
       "unit": "GiB",
       "key": "engine",
       "values": {

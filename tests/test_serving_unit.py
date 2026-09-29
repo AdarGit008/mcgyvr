@@ -12,6 +12,7 @@ model's own GGUF geometry (``tests/fixtures/gguf_geometry.json``, one
 
 from __future__ import annotations
 
+import functools
 import json
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -19,6 +20,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr import serving
 from mcgyvr.config import Config, Ladder, Unit
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
@@ -26,11 +28,16 @@ from mcgyvr.serving import (
     ModelSpec,
     UnitError,
     Width,
-    _placement,
-    fit,
     unit_for,
     units_for,
 )
+
+#: The engine every fit and placement here is told, bound once: these units
+#: are llama.cpp's, as every ``unit_for`` below says, and what a spill costs
+#: host memory beyond the experts is a figure of the unit's own engine.
+ENGINE = "llama.cpp"
+_placement = functools.partial(serving._placement, engine=ENGINE)
+fit = functools.partial(serving.fit, engine=ENGINE)
 
 
 @dataclass

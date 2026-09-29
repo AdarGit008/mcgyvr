@@ -145,9 +145,13 @@ def test_a_unit_carries_the_higher_floor_and_the_head_in_its_card_figure() -> No
 
 
 def test_the_fit_says_the_head_is_on_the_card() -> None:
-    sized = fit(card(), scanned("mtp"), width=1, ctx_per_slot=WINDOW)
+    sized = fit(
+        card(), scanned("mtp"), width=1, engine="llama.cpp", ctx_per_slot=WINDOW
+    )
     assert sized.fits, sized.why
     assert "MTP head" in sized.why
     assert "816" in sized.why
-    plain = fit(card(), scanned("none"), width=1, ctx_per_slot=WINDOW)
+    plain = fit(
+        card(), scanned("none"), width=1, engine="llama.cpp", ctx_per_slot=WINDOW
+    )
     assert "MTP head" not in plain.why

@@ -119,6 +119,11 @@ CHOICE_REASONS: tuple[str, ...] = (
 RUNTIME_RESIDENT = "runtime_resident_gb"
 RUNTIME_RESIDENT_KEY = "llama.cpp"
 
+#: The engines whose host memory figure is to be read on the user's machine and
+#: is never shipped: no layer is asked for it, nothing is charged for it until
+#: it is read, and every sizing of a unit of one of them says so.
+RUNTIME_RESIDENT_READ: tuple[str, ...] = ("vllm",)
+
 
 #: How a refusal spells a value it was given: a few levels, items and characters
 #: of it, never all of it, so a value the YAML reader builds far larger than its
@@ -494,13 +499,28 @@ def lookup(number: str, key: str, *, path: Path | None = None) -> Number:
 def runtime_resident_gb(host: str | None = None, *, path: Path | None = None) -> float:
     """The host memory, in GiB, a llama.cpp server holds beyond its host-side experts.
 
-    What a sizing adds to the spilled experts when a model keeps expert blocks
-    in host memory. The number is keyed by the engine, never by the machine:
-    ``host`` only names, in a refusal, the machine that was being sized, and
-    never changes the answer.
+    What a sizing adds to the spilled experts when a llama.cpp unit keeps
+    expert blocks in host memory. The number is keyed by the engine, never by
+    the machine: ``host`` only names, in a refusal, the machine that was being
+    sized, and never changes the answer.
     """
     asked = (RUNTIME_RESIDENT, RUNTIME_RESIDENT_KEY)
     return _resolve([asked], path, sizing=host)[asked].value
+
+
+def user_setting(number: str, key: str, *, path: Path | None = None) -> Path | None:
+    """The user's own file when it sets ``number`` for ``key``, else ``None``.
+
+    It says only that the user's file sets it, never the value, and asks the
+    shipped layer for nothing but what the user's file is checked against.
+    The sizing asks it of an engine of :data:`RUNTIME_RESIDENT_READ`,
+    whose figure no layer answers, to say that a setting of it is not used.
+    The whole file is checked as on every read: one that cannot be read is
+    refused by name.
+    """
+    _, shipped = _load_shipped(path)
+    where, settings = _load_overrides(shipped)
+    return where if (number, key) in settings else None
 
 
 #: A judged field -> the number that states its percent per tolerance class.

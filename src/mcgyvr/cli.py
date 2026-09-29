@@ -2412,6 +2412,12 @@ def _emit(args: argparse.Namespace) -> int:
         units = units_for(
             config, scans, specs=_model_specs(), ctx_per_slot=args.ctx_per_slot
         )
+        # What each unit's sizing says beside its answer (`Fit.notes`), such as
+        # a host memory figure it has not read; a fitting unit's `why` reaches
+        # no one else. Before `hold_together`, which may refuse the set.
+        for unit in sorted(units, key=lambda u: u.key.slug):
+            for note in unit.fit.notes:
+                print(f"note: {unit.key.slug}: {note}", file=sys.stderr)
         # `hold_together` returns a sentence for each host it cut into
         # alternatives; they are printed as warnings below so the cut is not
         # only a second `wrote ...` line.
