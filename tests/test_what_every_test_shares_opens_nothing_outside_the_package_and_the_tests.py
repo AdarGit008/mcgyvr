@@ -38,9 +38,12 @@ every fixture the conftest defines, found by reading the conftest.
 
 Every inner run gets its own ``--basetemp`` under the outer test's
 ``tmp_path``, so pytest's clean-up of old numbered temp folders elsewhere on
-the machine never runs inside the audit. Time: each inner run is bounded by
-:data:`INNER_TIMEOUT_S`; collecting the whole tree is the slowest, about half a
-minute on a developer machine, since it imports every test module once.
+the machine never runs inside the audit. Time: how long the
+inner runs take depends on the machine and its load; collecting the whole tree
+is the slowest, since it imports every test module once. Each inner run is
+capped at :data:`INNER_TIMEOUT_S` seconds, and a run over the cap fails the
+test with ``subprocess.TimeoutExpired``, whose message says the command timed
+out after that many seconds.
 """
 
 from __future__ import annotations
