@@ -1199,7 +1199,7 @@ def _encoded(content: str) -> bytes:
     entire claim is that the bytes a string carries are the bytes it resumes.
 
     A *lone* surrogate is a different animal and does not round-trip anything.
-    ``\ud800`` is a legal JSON escape, so it survives ``json.loads`` into a
+    ``\\ud800`` is a legal JSON escape, so it survives ``json.loads`` into a
     completion and passes ``parse_reply`` as ordinary content, and it denotes no
     byte sequence at all. The caller answers the
     :class:`UnicodeEncodeError` with a refusal, because inventing bytes for it
