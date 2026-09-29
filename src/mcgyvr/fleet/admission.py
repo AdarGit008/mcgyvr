@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet.admit import LiveRefusedError, Plan, admit_live
@@ -47,7 +46,7 @@ def admit(reader: Reader | None = None) -> Admission:
     """Read each rig of the live fleet through the door, and hold it to the lock."""
     from mcgyvr.fleet import read
     from mcgyvr.fleet.probe import journal_dir
-    from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+    from mcgyvr.fleet.roots import LiveFleetError, live_file, live_fleet
     from mcgyvr.serving.run import mint_read_id
 
     try:
@@ -55,7 +54,11 @@ def admit(reader: Reader | None = None) -> Admission:
     except LiveFleetError as exc:
         raise LiveRefusedError(str(exc)) from exc
     if named is None:
-        admit_live(Path(), {}, None, {})
+        # The pointer looked for, by the path read: the config folder may have
+        # been moved, and the default's pointer may name another fleet.
+        raise LiveRefusedError(
+            f"no fleet is live: {live_file()} names none (`mcgyvr fleet use`)"
+        )
     try:
         fleet = read.live()
     except read.ReadError as exc:
