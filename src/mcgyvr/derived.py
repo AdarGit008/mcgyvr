@@ -74,9 +74,18 @@ UNITS: tuple[str, ...] = tuple(_BOUNDS)
 #: the shipped file's ``constants`` block says of each one still written in
 #: code: a fact (true on any machine), a choice of the product, or an estimate
 #: (a starting value that another machine may prove wrong). The loader reads
-#: only the ``numbers`` block; the ``constants`` and ``covered`` blocks are held
-#: to these lists by the check that every such number says what it is.
+#: only the ``numbers`` block; the ``constants`` block is held to these lists by
+#: the check that every such number says what it is.
 NUMBER_KINDS: tuple[str, ...] = ("fact", "choice", "estimate")
+
+#: What makes a fact true on any machine. Every fact names one of these, so no
+#: number becomes a fact by saying so.
+FACT_REASONS: tuple[str, ...] = (
+    "a definition or arithmetic",
+    "the specification of a format, protocol or tool",
+    "where a count starts",
+    "the layout of the package or its checkout",
+)
 
 #: Where a user sets a choice, or an estimate still in code: a key of the
 #: config, a field of a contract, or a command line flag. An entry's ``set_by``
@@ -91,21 +100,13 @@ DUPLICATE_REASON = "a duplicate of another entry"
 CHOICE_REASONS: tuple[str, ...] = (
     "a protocol or tool default",
     "a code or version other programs or files read",
-    "an internal bound or default no user meets",
-    "fixed so a reading compares with the stored ones",
+    "the method a stored reading was made with",
     "a rule over the product's own shipped data",
+    "what a caller that names none gets; the product's callers name one",
+    "how much of a text is shown, carried or read, and at what width",
+    "a weight, threshold or cut of the product's own ranking",
+    "how often or how many times the product tries its own step again",
     DUPLICATE_REASON,
-)
-
-#: What the ``covered`` block says of a file whose numbers are classified.
-JUDGING = "judging"
-
-#: Why a file of the package is not judged, the only other thing ``covered``
-#: may say of it.
-NOT_JUDGING_REASONS: tuple[str, ...] = (
-    "holds no number that sizes or judges",
-    "changing now; covered after that change lands",
-    "third-party code kept as its author wrote it",
 )
 
 

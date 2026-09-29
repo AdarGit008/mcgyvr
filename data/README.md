@@ -191,27 +191,30 @@ written in its code. The `constants` block says what each of them is, under
 where it lives (the file, then the name, the class and attribute, or the
 function and its parameter):
 
-- a **fact**: true on any machine, such as how many bytes make a GiB or the
-  port an engine listens on when told nothing else;
+- a **fact**: true on any machine, and it names what makes it so from a short
+  closed list (a definition or arithmetic, such as how many bytes make a GiB;
+  the specification of a format, protocol or tool, such as the port an engine
+  listens on when told nothing else; where a count starts; or the layout of
+  the package or its checkout);
 - a **choice** of mcgyvr: the setting that changes it (a config key, a
   contract field or a command line flag), or, when there is none, a reason
-  from a short closed list (a protocol or tool default, a code other programs
-  read, an internal bound nobody meets, a method stored readings were made
-  with, a rule over mcgyvr's own shipped data, or a duplicate of another
-  entry, which it names);
+  from a short closed list (a protocol or tool default; a code or version
+  other programs or files read; the method a stored reading was made with; a
+  rule over mcgyvr's own shipped data; what a caller that names none gets,
+  where mcgyvr's own callers name one; how much of a text is shown, carried
+  or read, and at what width; a weight, threshold or cut of mcgyvr's own
+  ranking; how often or how many times mcgyvr tries its own step again; or a
+  duplicate of another entry, which it names);
 - an **estimate**: a value another machine may prove wrong. Each one still in
   code names the number it will become in the `numbers` block, where it can
   be set in your `numbers.yaml` like the others, and the setting that changes
   it today where one exists. Until it moves, `numbers.yaml` cannot set it.
 
-The `covered` block names every file of mcgyvr's code once: `judging` when its
-numbers are classified in `constants`, or why not (it holds no number that
-sizes or judges, it is being changed and is covered after that change, or it
-is third-party code kept as its author wrote it).
-
-A test parses every judging file and fails on a number `constants` does not
-classify, on an entry that no longer matches the code, and on a file of the
-package `covered` does not name. It sees numbers named at the top of a file,
-in a class, or as a parameter's default; a number written inside a function
-where it is used is not seen, and the way to bring it under the check is to
-name it. The kinds and reasons are listed in `mcgyvr.derived`.
+A test parses the files of mcgyvr's code and fails on a number `constants`
+does not classify, on an entry that no longer matches the code, and on a file
+of the package it has not been told about. Which files it judges, and why the
+others are not judged, is kept beside that test and does not ship. It sees
+numbers named at the top of a file, in a class, or as a parameter's default; a
+number written inside a function where it is used is not seen, and the way to
+bring it under the check is to name it. The kinds and reasons are listed in
+`mcgyvr.derived`.
