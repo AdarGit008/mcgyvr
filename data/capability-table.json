@@ -118,7 +118,7 @@
       "requires_backend": "llama-server",
       "throughput_tok_s": [
         { "value": 13.0, "card_class": "6gb", "backend": "llama-server", "note": "-ngl 10 partial GPU offload" },
-        { "value": 24.19, "card_class": "12gb", "backend": "ollama", "note": "Q4, 8.9 GB" }
+        { "value": 24.19, "card_class": "12gb", "backend": "ollama", "note": "Q4, through the tag (CAV-02)" }
       ],
       "not_for_fit": "its memory figure is the resident part under partial offload, not the file",
       "notes": "Requires an explicit GGUF quant under llama-server."
@@ -185,7 +185,7 @@
     {
       "id": "CON-04",
       "summary": "Continuous batching scaled sublinearly, to 8.5x at 16 concurrent requests.",
-      "detail": "Qwen2.5-Coder-7B-AWQ under vLLM on one card of the finding's class: 1 req 68 tok/s, 2 req 127 (1.9x), 4 req 168 (2.6x), 8 req 289 (4.7x), 12 req 402 (6.6x), 16 req 489 (8.5x). The top figure was attributed to memory bandwidth rather than compute; no card's memory bandwidth was read. Per-request latency stayed within 0.39-2.01 s throughout.",
+      "detail": "Qwen2.5-Coder-7B-AWQ under vLLM on one card of the finding's class: 1 req 68 tok/s, 2 req 127 (1.9x), 4 req 168 (2.6x), 8 req 289 (4.7x), 12 req 402 (6.6x), 16 req 489 (8.5x). Per-request latency stayed within 0.39-2.01 s throughout.",
       "consequence": "Per-source parallel capacity on a batching server can raise aggregate speed, with sublinear returns.",
       "card_class": "12gb"
     },
@@ -200,7 +200,7 @@
       "id": "CON-06",
       "summary": "A batching server can free nearly all the card memory it holds and return in about six seconds.",
       "detail": "Sleep 4.74 s, offloading the weights to host RAM and freeing nearly all the card memory the server held; wake 1.09 s. The endpoint stays up throughout; a container restart for the same effect took ~60 s. KV cache AND prefix cache are discarded on wake.",
-      "consequence": "Makes two differently-sized rungs viable on one card. The discarded caches are the catch: a swap resets exactly the CON-05 benefit, so swapping mid-batch trades one optimization for another.",
+      "consequence": "Can make two differently-sized rungs viable on one card. The discarded caches are the catch: a swap resets exactly the CON-05 benefit, so swapping mid-batch trades one optimization for another.",
       "card_class": "12gb"
     },
     {

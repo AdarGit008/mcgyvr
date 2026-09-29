@@ -34,8 +34,8 @@ machine.
   quantisation type; a reading's `note` says when it was not. That file is
   not necessarily the one you will serve.
 - **Ratios more than absolutes.** Read the speed figures as ratios between
-  models (which is faster, and by roughly how much; how much a marginal fit
-  costs) rather than as the speed your card will reach.
+  models (which is faster, and by roughly how much) rather than as the speed
+  your card will reach.
 - **No provenance here.** Where and when the figures were taken is not
   recorded in the product.
 - **No quality figure.** The table says what a model costs to serve, never
