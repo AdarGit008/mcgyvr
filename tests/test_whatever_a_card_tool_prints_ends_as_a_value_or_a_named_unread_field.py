@@ -149,7 +149,9 @@ def test_a_process_name_with_spaces_and_commas_is_read_exactly(
         tmp_path,
         processes=b"4242, 300, /opt/example tool/serve --flag a,b\n",
     )
-    (holder,) = _cards(reading)[0].holders
+    holders = _cards(reading)[0].holders
+    assert holders is not None
+    (holder,) = holders
     assert (holder.pid, holder.mib, holder.name) == (
         4242,
         300,
@@ -165,7 +167,9 @@ def test_a_process_whose_memory_is_not_available_names_it_unread(
         tmp_path,
         processes=b"4242, [N/A], example-process\n",
     )
-    (holder,) = _cards(reading)[0].holders
+    holders = _cards(reading)[0].holders
+    assert holders is not None
+    (holder,) = holders
     assert (holder.pid, holder.mib) == (4242, None)
     assert "card.nvidia.0.holder.4242.mib" in _unread(reading)
 
@@ -182,6 +186,7 @@ def test_a_process_listing_that_is_not_one_leaves_the_holders_unread(
     card = _cards(reading)[0]
     assert card.name == "Example Card"
     if b"bad" in processes:
+        assert card.holders is not None
         (holder,) = card.holders
         assert holder.name is None
         assert "card.nvidia.0.holder.12.name" in _unread(reading)

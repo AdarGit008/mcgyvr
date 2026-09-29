@@ -40,6 +40,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from tests.machine_shapes import Card, Shape, card_reader_text
 
@@ -157,16 +158,16 @@ def _second_tool_text(cards: tuple[Card, ...]) -> bytes:
 def _sysfs(shape: Shape) -> tuple[SysfsCard, ...]:
     found = []
     for number, card in enumerate(shape.cards):
-        publishes = card.vendor == "vendor-b" and card.total_mib is not None
+        total = card.total_mib if card.vendor == "vendor-b" else None
         found.append(
             SysfsCard(
                 number=number,
                 vendor=PCI_VENDOR[card.vendor],
                 device=_device_id(card.name),
                 product_name=card.name if card.vendor == "vendor-b" else None,
-                vram_total_bytes=card.total_mib * MIB if publishes else None,
+                vram_total_bytes=None if total is None else total * MIB,
                 vram_used_bytes=(
-                    _second_tool_used_mib(card) * MIB if publishes else None
+                    None if total is None else _second_tool_used_mib(card) * MIB
                 ),
             )
         )
@@ -463,6 +464,6 @@ def expected_unread(shape: Shape, /) -> set[str]:
     return unread
 
 
-def replace(staged: Staged, /, **changes: object) -> Staged:
+def replace(staged: Staged, /, **changes: Any) -> Staged:
     """A copy of ``staged`` with ``changes``."""
     return dataclasses.replace(staged, **changes)
