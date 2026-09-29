@@ -63,11 +63,6 @@
       "says": "Card memory, in decimal GB, a model needs past its working set so that a close fit does not run degraded; the default of the table's own fit.",
       "moves_to": "vram_headroom_gb"
     },
-    "capability.py:DIMENSION_FLOOR": {
-      "kind": "choice",
-      "says": "The score a model must reach on a task's dimension of the shipped capability table before it may be asked for that task.",
-      "reason": "a rule over the product's own shipped data"
-    },
     "capability.py:GB_PER_GIB": {
       "kind": "fact",
       "says": "How many decimal gigabytes make one GiB, to carry the table's decimal figures into sizing done in GiB.",
