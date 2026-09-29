@@ -274,6 +274,10 @@ READING_LISTS = (
 #: Two places hold names that are data rather than keys, and are not declared:
 #: under ``backends`` every key but the block's own notes names a backend, and a
 #: model row's ``capabilities`` maps a dimension name to a score.
+#:
+#: A declared key that is not one of its level's :data:`CONTAINER_KEYS` holds a
+#: value, never an object and never a list holding one, and the loader refuses
+#: it otherwise: an object there would carry keys no level declares.
 DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "table": frozenset(
@@ -331,6 +335,26 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
 )
 
 
+#: The declared keys whose value holds the entries of another level, or a
+#: ``capabilities`` map, level by level. Every other declared key holds a value.
+CONTAINER_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
+    {
+        **{level: frozenset[str]() for level in DECLARED_KEYS},
+        "table": frozenset(
+            {
+                "quality_metric",
+                "card_classes",
+                "harness_caveats",
+                "models",
+                "backends",
+                "concurrency_findings",
+            }
+        ),
+        "model row": frozenset({*READING_LISTS, "capabilities"}),
+    }
+)
+
+
 def _kind(value: Any) -> str:
     """What a JSON value is, in the words a refusal uses."""
     if value is None:
@@ -367,6 +391,24 @@ def _closed(entry: Mapping[str, Any], level: str, path: Path, where: str) -> Non
             f"this code does not declare for a {level} (declared: "
             f"{', '.join(sorted(DECLARED_KEYS[level]))})"
         )
+    _values(entry, level, path, where)
+
+
+def _holds_object(value: Any) -> bool:
+    if isinstance(value, dict):
+        return True
+    return isinstance(value, list) and any(_holds_object(item) for item in value)
+
+
+def _values(entry: Mapping[str, Any], level: str, path: Path, where: str) -> None:
+    """Refuse an object, at any depth, under a key ``level`` gives a value."""
+    for key in sorted(DECLARED_KEYS[level] - CONTAINER_KEYS[level]):
+        if key in entry and _holds_object(entry[key]):
+            raise CapabilityTableError(
+                f"{path}: {where} has an object under {key!r}; a {level}'s "
+                f"{key!r} holds a value, not entries, and an object there would "
+                f"carry keys this code does not declare"
+            )
 
 
 def _text(value: Any) -> bool:
@@ -476,6 +518,7 @@ def _check_shape(raw: Mapping[str, Any], path: Path) -> tuple[CardClass, ...]:
     for index, value in enumerate(_entries(raw.get("models", []), path, "models")):
         _check_readings(index, value, declared, path)
     backends = _object(raw.get("backends", {}), path, "backends")
+    _values(backends, "backends block", path, "backends")
     for name, value in backends.items():
         if name in DECLARED_KEYS["backends block"]:
             continue

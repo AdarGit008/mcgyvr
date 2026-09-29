@@ -15,7 +15,10 @@ Promises:
   its nominal memory as a positive number; one that leaves any of these out,
   or gives one of another shape, is refused by the name of the entry.
 * A key the code does not declare for its level is refused by name, at every
-  level of the table: the loader ignores nothing silently.
+  level of the table: the loader ignores nothing silently. An object stands
+  only where the table holds entries; under a key that holds a value it is
+  refused by that key, at every level and however deep in a list, since its
+  own keys would be keys nobody declared.
 * Every refusal names the file it refused, and none is a raw ``TypeError`` or
   ``ValueError`` out of the loader's insides.
 
@@ -347,7 +350,7 @@ NESTED_OBJECTS: dict[str, Callable[[], Any]] = {
 
 
 def test_every_container_is_a_declared_key_of_its_level() -> None:
-    containers = capability.CONTAINER_KEYS  # type: ignore[attr-defined]
+    containers = capability.CONTAINER_KEYS
 
     assert set(containers) == set(capability.DECLARED_KEYS)
     for level, keys in containers.items():
@@ -361,7 +364,7 @@ def test_an_object_under_a_key_that_holds_a_value_is_refused_at_every_level(
 ) -> None:
     """Every declared key of the level that is not a container, one at a time:
     were an object accepted there, its keys would be keys nobody declared."""
-    containers = capability.CONTAINER_KEYS[level]  # type: ignore[attr-defined]
+    containers = capability.CONTAINER_KEYS[level]
     values = sorted(capability.DECLARED_KEYS[level] - containers)
     assert values, level
     for key in values:
