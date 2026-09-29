@@ -146,7 +146,7 @@ SEEN: dict[str, tuple[str, ...]] = {
         "on a 20-GiB GPU",
         "a card with 40 GB",
         "not viable below ~10 GB",
-        "an 8 GB class nobody declared",
+        "a 32 GB class nobody declared",
         "needs ≥20 GB",
     ),
     "an amount of a card's memory a server held": (
@@ -175,9 +175,9 @@ SEEN: dict[str, tuple[str, ...]] = {
 #: a qualitative share of a card, and a card named by its class.
 UNSEEN: tuple[str, ...] = (
     "a weight set of ~40 GB, not the file this row describes",
-    "runs with ~5 GB on the card under partial offload",
+    "runs with ~7 GB on the card under partial offload",
     "Q4, 20.5 GB",
-    "aggregate at 16 concurrent requests, 7.2x a single one",
+    "aggregate at 32 concurrent requests, 5.3x a single one",
     "prefix caching returned a 40.0% hit rate",
     "every worker receives the same <=4 KB system prompt",
     "92 tok/s against 40 tok/s",
