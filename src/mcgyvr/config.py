@@ -404,7 +404,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "one process.",
         required=True,
-        bind_hint="e.g. http://srv2:8002",
+        bind_hint="e.g. http://box.example:8080",
     ),
     Field(
         "model",
@@ -442,7 +442,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "The rig this unit runs on, by the name fleet.yaml uses. Units that \
 "
         "share a rig and an address are served by one process.",
-        bind_hint="e.g. srv2",
+        bind_hint="e.g. box.example",
     ),
     Field(
         "width",
@@ -502,13 +502,13 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "The attention backend this vLLM unit pins, because the card decides \
 "
         "what is valid.",
-        bind_hint="e.g. FLASH_ATTN, or TRITON_ATTN on cc 7.5",
+        bind_hint="e.g. FLASH_ATTN: the backend the unit's own log names",
     ),
     Field(
         "container",
         "str",
         "The container name this unit runs under.",
-        bind_hint="e.g. mcgyvr-srv2-srv2_7b",
+        bind_hint="e.g. `mcgyvr-<host>-<unit>`",
     ),
     Field(
         "hf_cache",
@@ -539,9 +539,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "floor rises, and a scan with no nextn block refuses the \
 "
-        "declaration. Whether it pays depends on the card and the width: \
+        "declaration. Whether it pays depends on the card and the width. \
 "
-        "records/evidence/2026-08-28-mtp-ornith/. A vLLM unit \
+        "A vLLM unit \
 "
         "declaring `mtp` is refused: its speculative decoding is \
 "
@@ -616,7 +616,7 @@ SCHEMA: tuple[Field, ...] = (
         "How many times each unit may be tried before escalation moves on.",
         default=None,
         min_value=1,
-        bind_hint="e.g. {srv2_7b: 2}",
+        bind_hint="e.g. `{<unit>: 2}`",
     ),
     Field(
         "draws",
@@ -629,7 +629,7 @@ SCHEMA: tuple[Field, ...] = (
         "effective number where it exceeds one.",
         default=None,
         min_value=1,
-        bind_hint="e.g. {srv2_7b: 3}",
+        bind_hint="e.g. `{<unit>: 3}`",
     ),
     Field(
         "max_escalations",
