@@ -39,8 +39,11 @@ import mcgyvr
 PACKAGE = Path(mcgyvr.__file__).resolve().parent
 
 #: Run in a child interpreter: import every module the package's walk finds,
-#: print one line per failure, and exit non-zero when there was any.
-_IMPORT_ALL = """
+#: print one line per failure, and exit non-zero when there was any. A module
+#: that ends the interpreter at import is a failure like any other, so the
+#: walk catches that too, and its last line says the walk reached its end.
+_WALK_ENDED = "the walk reached its end"
+_IMPORT_ALL = f"""
 import importlib
 import pkgutil
 import sys
@@ -48,16 +51,22 @@ import sys
 import mcgyvr
 
 failed = []
+tried = 0
 for info in pkgutil.walk_packages(
     mcgyvr.__path__, "mcgyvr.", onerror=lambda name: failed.append(name)
 ):
+    tried += 1
     try:
         importlib.import_module(info.name)
-    except Exception as exc:
-        failed.append(f"{info.name}: {type(exc).__name__}: {exc}")
+    except BaseException as exc:
+        failed.append(f"{{info.name}}: {{type(exc).__name__}}: {{exc}}")
 print("\\n".join(failed))
+print(f"{_WALK_ENDED}: {{tried}} modules tried")
 sys.exit(1 if failed else 0)
 """
+
+#: The longest the walk may take. It imports every module once in one process.
+_WALK_TIMEOUT_S = 300
 
 _DOCUMENTED = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
 
@@ -78,13 +87,19 @@ def test_every_module_of_the_package_imports_on_this_python(tmp_path: Path) -> N
     done = subprocess.run(
         [sys.executable, "-c", _IMPORT_ALL],
         cwd=tmp_path,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=False,
+        timeout=_WALK_TIMEOUT_S,
     )
     assert done.returncode == 0, (
         f"on Python {sys.version.split()[0]} these modules do not import:\n"
         f"{done.stdout}{done.stderr}"
+    )
+    assert _WALK_ENDED in done.stdout, (
+        f"on Python {sys.version.split()[0]} the walk ended before it had tried "
+        f"every module:\n{done.stdout}{done.stderr}"
     )
 
 
