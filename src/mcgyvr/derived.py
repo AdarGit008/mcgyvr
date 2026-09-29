@@ -103,8 +103,11 @@ CHOICE_REASONS: tuple[str, ...] = (
     "the method a stored reading was made with",
     "a rule over the product's own shipped data",
     "what a caller that names none gets; the product's callers name one",
-    "how much of a text is shown, carried or read, and at what width",
-    "a weight, threshold or cut of the product's own ranking",
+    (
+        "how much of a text the product itself shows, carries or reads, and at "
+        "what width (never a cap on a model's reply or on its input)"
+    ),
+    "a weight, threshold or cut of the product's own ranking of files and symbols",
     "how often or how many times the product tries its own step again",
     DUPLICATE_REASON,
 )
@@ -185,8 +188,8 @@ def shipped_path() -> Path:
         return checkout
     raise DerivedNumbersError(
         f"shipped numbers not found: neither {packaged} (the package's own copy) "
-        f"nor {checkout} (a checkout's) is a file; no number of that file has a "
-        "default in code"
+        f"nor {checkout} (a checkout's) is a file; no number of its `numbers` "
+        "block has a default in code"
     )
 
 

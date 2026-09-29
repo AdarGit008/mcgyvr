@@ -201,12 +201,13 @@ function and its parameter):
   from a short closed list (a protocol or tool default; a code or version
   other programs or files read; the method a stored reading was made with; a
   rule over mcgyvr's own shipped data; what a caller that names none gets,
-  where mcgyvr's own callers name one; how much of a text is shown, carried
-  or read, and at what width; a weight, threshold or cut of mcgyvr's own
-  ranking; how often or how many times mcgyvr tries its own step again; or a
+  where mcgyvr's own callers name one; how much of a text mcgyvr itself
+  shows, carries or reads, and at what width, never a cap on a model's reply
+  or on its input; a weight, threshold or cut of mcgyvr's own ranking of files and
+  symbols; how often or how many times mcgyvr tries its own step again; or a
   duplicate of another entry, which it names);
 - an **estimate**: a value another machine may prove wrong. Each one still in
-  code names the number it will become in the `numbers` block, where it can
+  code names the number id planned for it in the `numbers` block, where it can
   be set in your `numbers.yaml` like the others, and the setting that changes
   it today where one exists. Until it moves, `numbers.yaml` cannot set it.
 

@@ -1,5 +1,5 @@
 {
-  "_doc": "The numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. The `numbers` block holds them, and every entry of it is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in mcgyvr's own folder (~/.mcgyvr/numbers.yaml), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number of this block that neither file states is refused by name: none of them falls back to a default in code. The `constants` block says what each number still written in mcgyvr's code is, for every number that sizes, judges, refuses, waits or picks: a fact (with what makes it one), a choice of mcgyvr (with the setting that changes it, or why there is none), or an estimate (with the number it will become in the `numbers` block).",
+  "_doc": "The numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. The `numbers` block holds them, and every entry of it is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in mcgyvr's own folder (~/.mcgyvr/numbers.yaml), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number of this block that neither file states is refused by name: none of them falls back to a default in code. The `constants` block says what each number still written in mcgyvr's code is, for every number that sizes, judges, refuses, waits or picks: a fact (with what makes it one), a choice of mcgyvr (with the setting that changes it, or why there is none), or an estimate (with the number id planned for it in the `numbers` block).",
   "schema": 1,
   "numbers": {
     "warm_decode_class_pct": {
@@ -56,7 +56,7 @@
     "availability.py:_LIST_BODY_BYTES": {
       "kind": "choice",
       "says": "How much of a model listing is read; a listing is a handful of ids, and a longer answer is treated as unreadable.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "capability.py:CapabilityTable.fitting(headroom_gb)": {
       "kind": "estimate",
@@ -196,7 +196,7 @@
     "derived.py:_SHOWN": {
       "kind": "choice",
       "says": "How much of a refused value a refusal spells out: a few levels, items and characters, never all of it.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "detect.py:COMMAND_TIMEOUT_S": {
       "kind": "estimate",
@@ -356,17 +356,17 @@
     "gate/acceptance.py:_MAX_EXCERPT_CHARS": {
       "kind": "choice",
       "says": "How many characters of a failing command's output are carried, taken from its end.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "gate/acceptance.py:_MAX_EXCERPT_LINES": {
       "kind": "choice",
       "says": "How many lines of a failing command's output are carried, taken from its end.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "gate/adapter.py:_DETAIL_LIMIT": {
       "kind": "choice",
       "says": "How many characters of a failed tool's own words a finding carries.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "gate/adapters/javascript.py:_ESLINT_ERROR": {
       "kind": "fact",
@@ -421,7 +421,7 @@
     "initialize.py:COMMENT_WIDTH": {
       "kind": "choice",
       "says": "The width comments in a written setup file are wrapped to.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/cache.py:CACHE_VERSION": {
       "kind": "choice",
@@ -441,7 +441,7 @@
     "orchestrator/context.py:_HINT_BOOST": {
       "kind": "choice",
       "says": "How much a caller's hint lifts a candidate in the ranking, kept below the lead a resolved leader has.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/decompose.py:_DEFAULT_MAX_INPUT_TOKENS": {
       "kind": "estimate",
@@ -451,17 +451,17 @@
     "orchestrator/decompose.py:_ID_DIGEST_BYTES": {
       "kind": "choice",
       "says": "How many bytes of a digest a contract id carries: short enough to read in a log line, and a collision is refused.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/index.py:DEFAULT_MAX_FILE_BYTES": {
       "kind": "choice",
       "says": "The size in bytes past which a file is not read into the index, and the skip reported; a source file is far smaller.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/index.py:_BINARY_SNIFF_BYTES": {
       "kind": "choice",
       "says": "How much of a file is read for a NUL byte before it is judged binary.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/read.py:Exploration.saved": {
       "kind": "fact",
@@ -476,77 +476,77 @@
     "orchestrator/read.py:_DEFAULT_CONTEXT": {
       "kind": "choice",
       "says": "How many lines a region read around a match spans.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/read.py:_LEAD": {
       "kind": "choice",
       "says": "How many lines of a region sit above the line that matched.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/read.py:_MAX_TEXT_ANCHORS": {
       "kind": "choice",
       "says": "How many text matches per candidate are taken before regions are merged.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/resolve.py:_DOMINANCE": {
       "kind": "choice",
       "says": "By how much a leading candidate must beat the runner-up for a query to count as resolved rather than tied.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_KIND_BONUS": {
       "kind": "choice",
       "says": "The ranking nudge an export or a top-level definition gets over a method.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_S_PATH": {
       "kind": "choice",
       "says": "The ranking weight of one query token landing on a path component.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_S_STEM": {
       "kind": "choice",
       "says": "The ranking weight of one query token landing on a file name.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_S_SYMBOL": {
       "kind": "choice",
       "says": "The ranking weight of one query token landing on a symbol name.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_TEST_DEMOTION": {
       "kind": "choice",
       "says": "How much a test file is demoted in the ranking, so it does not crowd out the code it tests.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_W_COVERAGE": {
       "kind": "choice",
       "says": "The ranking reward for a candidate that accounts for more of the query.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_W_PATH_EXACT": {
       "kind": "choice",
       "says": "The ranking weight of a query that names a path outright.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_W_STEM_EXACT": {
       "kind": "choice",
       "says": "The ranking weight of a query that names a file's stem outright.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_W_SYMBOL_EXACT": {
       "kind": "choice",
       "says": "The ranking weight of a query that names a symbol outright.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "orchestrator/resolve.py:_top_evidence(keep)": {
       "kind": "choice",
       "says": "How many evidence lines a candidate shows, best first.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "orchestrator/resolve.py:resolve(limit)": {
       "kind": "choice",
       "says": "How many candidates a resolution keeps, best first, when its caller names no limit, as a decomposition does.",
-      "reason": "a weight, threshold or cut of the product's own ranking"
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "propose.py:DEFAULT_HEADROOM_GB": {
       "kind": "estimate",
@@ -718,7 +718,7 @@
       "kind": "estimate",
       "says": "How many sequences a vLLM unit is started with when no width is written; the engine's cache decides how many actually run.",
       "set_by": "config units.width",
-      "moves_to": "default_seqs"
+      "moves_to": "default_parallel_sequences"
     },
     "serving/__init__.py:_BYTES_PER_GIB": {
       "kind": "fact",
@@ -802,7 +802,7 @@
     "strict_yaml.py:_KEY": {
       "kind": "choice",
       "says": "How much of a refused key a refusal of a YAML file spells out: a real key in full, and only the start of a value that aliases build far larger than the file.",
-      "reason": "how much of a text is shown, carried or read, and at what width"
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a cap on a model's reply or on its input)"
     },
     "verify.py:REVIEW_OUTPUT_TOKENS": {
       "kind": "estimate",
