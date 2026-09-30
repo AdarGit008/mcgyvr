@@ -1,5 +1,5 @@
 {
-  "_doc": "The numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. The `numbers` block holds some of them, and every entry of it is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in mcgyvr's own folder (~/.mcgyvr/numbers.yaml), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number of this block that neither file states is refused by name: none of them falls back to a default in code. The `constants` block says what many of the numbers still written in mcgyvr's code are, among those that size, judge, refuse, wait or pick: a fact (with what makes it one), a choice of mcgyvr (with the setting that changes it, or why there is none), or an estimate (with the number id planned for it in the `numbers` block).",
+  "_doc": "The numbers mcgyvr sizes and judges a machine with that it cannot read off the machine or the model. The `numbers` block holds some of them, and every entry of it is an estimate: a starting value shipped with mcgyvr, not a reading of your machine. Each is keyed by something every machine has (an engine, a unit's tolerance class), never by a machine's name. To use your own value, write it in numbers.yaml in the config folder ($MCGYVR_HOME, default ~/.mcgyvr), under the number's name and then its key, for example `prefill_class_pct:` and below it `vllm: 12`; your value replaces the estimate. A number of this block that neither file states is refused by name: none of them falls back to a default in code. The `constants` block says what many of the numbers still written in mcgyvr's code are, among those that size, judge, refuse, wait or pick: a fact (with what makes it one), a choice of mcgyvr (with the setting that changes it, or why there is none), or an estimate (with the number id planned for it in the `numbers` block).",
   "schema": 1,
   "numbers": {
     "warm_decode_class_pct": {
@@ -62,11 +62,6 @@
       "kind": "estimate",
       "says": "Card memory, in decimal GB, a model needs past its working set so that a close fit does not run degraded; the default of the table's own fit.",
       "moves_to": "vram_headroom_gb"
-    },
-    "capability.py:DIMENSION_FLOOR": {
-      "kind": "choice",
-      "says": "The score a model must reach on a task's dimension of the shipped capability table before it may be asked for that task.",
-      "reason": "a rule over the product's own shipped data"
     },
     "capability.py:GB_PER_GIB": {
       "kind": "fact",

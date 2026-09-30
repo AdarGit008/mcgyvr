@@ -1389,14 +1389,17 @@ def named_config_path() -> Path | None:
 def config_path() -> Path:
     """Locate the config directory: the override, then cwd, then the live fleet.
 
-    The live fleet is the folder ``~/.mcgyvr/live.json`` names
-    (:func:`mcgyvr.fleet.roots.live_fleet_dir`): written by ``mcgyvr fleet
+    The live fleet is the folder the config folder's ``live.json`` names
+    (:func:`mcgyvr.fleet.roots.live_fleet_dir`; the config folder is
+    ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written by ``mcgyvr fleet
     promote``, named by ``mcgyvr fleet use``. With no override, no
     ``fleet.yaml`` here and no fleet named live, the answer is the working
     directory: where ``mcgyvr init`` writes and where a missing config is
     reported. A path that depends on an environment variable only some shells
     export is a config that is found from one terminal and not another, so
-    nothing else is consulted.
+    no fourth place is consulted; the two variables that move these places,
+    ``$MCGYVR_CONFIG`` and ``$MCGYVR_HOME``, are named in the version line's
+    config path.
     """
     override = named_config_path()
     if override is not None:
@@ -1641,8 +1644,8 @@ def load(path: Path | None = None) -> Config:
 
     A setup is a directory holding ``fleet.yaml`` and ``policy.yaml``:
     ``path`` names that directory, and ``None`` locates it (the environment
-    override, then the working directory, then the live fleet folder
-    ``~/.mcgyvr/live.json`` names). A policy
+    override, then the working directory, then the live fleet folder the
+    config folder's ``live.json`` names). A policy
     file is optional — a fleet with one unit and no policy is the smallest
     working install — but a fleet file is not.
     """

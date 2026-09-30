@@ -378,7 +378,7 @@ def test_a_live_run_with_no_fleet_named_is_refused_before_any_read_or_dispatch(
     code, err = climb(tmp_path, monkeypatch, capsys, events, "unnamed", config=folder)
 
     assert code == Exit.REFUSED, err
-    assert "no fleet named" in err
+    assert "no fleet is live" in err
     assert door.calls == [] and dispatched(events) == []
 
 

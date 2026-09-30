@@ -106,10 +106,13 @@ def test_lint_attributes_to_added_lines(tmp_path: Path) -> None:
 def test_an_unsorted_import_block_is_not_demoted_with_i001(tmp_path: Path) -> None:
     """I001 stays rejecting when its line is not a deprecated typing import.
 
-    The I001 demotion is keyed on the source line, not on the code: ruff
-    reports ``from typing import Mapping`` twice (UP035 and I001), and only
-    that I001 is style. An ordinary unsorted import block is still a lint
-    finding, so demoting I001 wholesale is the regression this pins against.
+    The I001 demotion is keyed on the source line, not on the code. ruff
+    reports I001 on the first line of an import block that is unsorted or
+    unformatted, so ``from typing import Mapping`` with one blank line before
+    a function draws UP035 and I001 on the same line; under the shipped
+    default only an I001 on such a line is reported rather than refused. An
+    ordinary unsorted import block is still a lint finding, so demoting I001
+    wholesale is the regression this pins against.
     """
     write(tmp_path, "s.py", "import os\nimport sys\nimport json\n")
 

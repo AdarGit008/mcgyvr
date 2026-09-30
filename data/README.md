@@ -1,11 +1,11 @@
 # Shipped data
 
 Three files ship as data rather than as code:
-`capability-table.json` (estimates, by card class, of what a model costs and
-how well it codes, below), `task-catalog.json` (the vocabulary of what mcgyvr
-can be asked to do, after it) and `numbers.json` (estimates mcgyvr sizes
-and judges a machine with, and what many other such numbers in its code are,
-at the end of this file).
+`capability-table.json` (estimates, by card class, of what a model costs to
+serve, below), `task-catalog.json` (the vocabulary of what mcgyvr can be
+asked to do, after it) and `numbers.json` (estimates mcgyvr sizes and judges
+a machine with, and what many other such numbers in its code are, at the end
+of this file).
 
 ## Capability data
 
@@ -22,7 +22,7 @@ turn an install into a benchmarking session.
 Every figure in the table is an **estimate**. None is a reading of your
 machine.
 
-- **A card class.** Each quality and speed figure names the card class it is
+- **A card class.** Each speed figure names the card class it is
   given for (`card_class`), and each class is declared once in
   `card_classes` with an id, a label and the nominal memory of its cards.
 - **One card per class.** One card was read for each class, so a class is a
@@ -34,47 +34,31 @@ machine.
   quantisation type; a reading's `note` says when it was not. That file is
   not necessarily the one you will serve.
 - **Ratios more than absolutes.** Read the speed figures as ratios between
-  models (which is faster, and by roughly how much; how much a marginal fit
-  costs) rather than as the speed your card will reach.
+  models (which is faster, and by roughly how much) rather than as the speed
+  your card will reach.
 - **No provenance here.** Where and when the figures were taken is not
   recorded in the product.
+- **No quality figure.** The table says what a model costs to serve, never
+  how well it does the work, so it ranks no model above another.
 
-Quality is HumanEval+ pass@1, greedy decoding, EvalPlus v0.4.0.dev44, 164
-tasks. Speed is generation rate in tokens per second; a figure's `note` says
+Speed is generation rate in tokens per second; a figure's `note` says
 when it is not a single request (one vLLM figure is an aggregate at 16
 concurrent requests).
 
-A model with no valid quality figure carries an empty `quality` array rather
-than a guess, and is never proposed.
+A row that carries `not_for_fit` is never listed as fitting a card
+(`mcgyvr capabilities --vram`), and `mcgyvr capabilities` marks it; the key's
+text says why, for example that the row's memory figure is not the model's
+own footprint.
 
-## What the table is not
+## Harness caveats
 
-HumanEval+ ranks models on short, self-contained function synthesis. It is a
-usable proxy for "can this worker execute a tightly-scoped contract" and a
-poor proxy for anything else. It says nothing about a model's behaviour on a
-repository it can see, on multi-hunk edits, or on instruction adherence
-under a constrained output protocol. Treat it as an ordering, not a
-prediction.
+The table carries a `harness_caveats` block: ways a naive run of a reading
+or a benchmark goes wrong. They are kept rather than deleted because
+the failures are instructive and repeatable, and `mcgyvr capabilities` prints
+each one's summary. One of them bears on the fit listing:
 
-## Known-bad figures
-
-The table carries a `harness_caveats` block, and models carry
-`invalid_measurements` / `disputed_measurements` arrays alongside their valid
-figures. These are kept rather than deleted because the failures are
-instructive and repeatable:
-
-- **CAV-01** — Ollama's `/api/generate` returns invalid HumanEval+ scores for
-  Qwen2.5-Coder 7B and larger (32.3% vs a true 84.1%). Anyone revising these
-  estimates through that path will silently produce a table that routes away
-  from the best models available.
-- **CAV-02** — `qwen3-coder-30b-a3b` left to Ollama's tag resolution spills
-  to CPU on a 12 GB card and scores 3.7%; the model must be bound to an
-  explicit GGUF quant under llama-server.
-- **CAV-03** — the published gpt-oss-20b score is attributed to an
-  insufficient output budget in the harness rather than to the model, and is
-  therefore not used.
-- **CAV-04** — a marginal VRAM fit degrades rather than failing, which makes
-  it look like a working binding.
+- **CAV-04** — a marginal fit on a card can run markedly slower rather than
+  fail, which makes it look like a working binding.
 
 ## Revising the estimates
 
@@ -113,12 +97,13 @@ that is not decided here.
 ## How the inherited vocabulary was validated
 
 The starting list came from local-ai's triage map and was inherited, not
-validated. The evidence available to judge it is the capability table above,
-and its limits decide most of the answers: HumanEval+ ranks models on short,
+validated. The evidence available to judge it was coding-benchmark scores,
+and their limits decide most of the answers: such a benchmark scores short,
 self-contained function synthesis against a stated signature, and says nothing
 about multi-hunk edits or about behaviour on a repository the model can see.
+The product ships no such score.
 
-So `function_implementation` is the one entry the measurements directly warrant
+So `function_implementation` is the one entry such scores bear on directly
 — it is that shape exactly — and `docstring` is warranted by measurement only
 weakly, leaning on `no_semantic_change`, a structural comparison the gate makes
 without running anything. Every other entry is carried on a *structural*
@@ -137,7 +122,7 @@ plausible one that lands.
 ## What was removed, and why
 
 Removals live in the `excluded` block rather than being deleted, for the same
-reason the capability table keeps its known-bad measurements: the next person to
+reason the capability table keeps its harness caveats: the next person to
 reach for `multi_file_refactor` should find out why it is absent instead of
 rediscovering it. Both the loader and `mcgyvr catalog <name>` surface the reason
 rather than reporting "unknown type".
@@ -181,7 +166,7 @@ starting value shipped with mcgyvr, not a reading of your machine. Keys come
 from closed spaces the code names (the tolerance classes, the engines a unit
 may name), so no entry is keyed by a machine's name, and any machine has a key.
 
-Your own value replaces an estimate. Write it in `~/.mcgyvr/numbers.yaml`,
+Your own value replaces an estimate. Write it in `numbers.yaml` in the config folder (`$MCGYVR_HOME`, default `~/.mcgyvr`),
 under the number's name and then its key:
 
 ```yaml

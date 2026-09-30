@@ -212,7 +212,7 @@ def parse(text: str) -> Reading:
 
 @dataclass(frozen=True)
 class Live:
-    """The fleet ``~/.mcgyvr/live.json`` names, and its folder.
+    """The fleet the config folder's ``live.json`` names, and its folder.
 
     Or, with ``locked`` false, a fleet of a dev setup named by ``read --fleet``:
     its folder is the setup, and it holds no lock.
