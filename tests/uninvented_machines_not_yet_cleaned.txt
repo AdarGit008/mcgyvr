@@ -119,6 +119,7 @@ tests/test_a_llamacpp_unit_may_declare_mtp_and_a_gguf_without_a_head_is_refused.
 tests/test_a_load_runs_thirty_seconds_then_gives_its_verdict.py	dev-pointer=1
 tests/test_a_locked_fleet_emits_its_hashed_launch.py	home-path=5	host=3
 tests/test_a_locked_fleet_loads_as_the_run_config.py	host=1	identity=2
+tests/test_a_machines_short_id_covers_its_id_and_every_cards_name_and_size.py	identity=2
 tests/test_a_measured_scratch_is_used_only_at_the_ubatch_it_was_read_at.py	dev-pointer=4
 tests/test_a_promoted_fleet_carries_the_date_of_its_lock_in_its_name.py	dev-pointer=2	host=1
 tests/test_a_pull_warning_names_its_unit_and_a_row_its_own_time.py	dev-pointer=1	host=5
@@ -196,10 +197,12 @@ tests/test_the_index_says_who_applied_a_correction.py	dev-pointer=1
 tests/test_the_journal_is_one_place_and_a_copy_is_the_callers.py	dev-pointer=3
 tests/test_the_live_ladder_serves_vllm_and_carries_extra_flags.py	dev-pointer=1	host=2
 tests/test_the_lock_pins_each_combinations_headroom_card_peak_backend_and_prefill.py	card-model=2	dev-pointer=6	host=1
+tests/test_the_reading_parser_refuses_what_its_fields_do_not_take.py	identity=3
 tests/test_the_two_ram_gates_hold_back_different_margins.py	dev-pointer=1	host=1
 tests/test_two_models_on_one_url_are_alternatives.py	dev-pointer=1	host=9
 tests/test_two_rungs_on_one_rig_are_two_bounds.py	host=5
 tests/test_verify_b1_b9.py	dev-pointer=1
+tests/test_whatever_a_card_tool_prints_ends_as_a_value_or_a_named_unread_field.py	identity=1
 # Section 2: kept on purpose. A file here needs such strings as its inputs;
 # a person moves an entry here and says why in the change that moves it.
 tests/test_init_names_no_machine_the_user_did_not_name.py	address=6	host=8
