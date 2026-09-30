@@ -48,7 +48,6 @@ src/mcgyvr/fleet/probe.py	dev-pointer=5
 src/mcgyvr/fleet/promote.py	dev-pointer=2
 src/mcgyvr/fleet/read.py	dev-pointer=2
 src/mcgyvr/fleet/roots.py	dev-pointer=3
-src/mcgyvr/gate/adapters/python.py	dev-pointer=1
 src/mcgyvr/gate/preflight.py	dev-pointer=2
 src/mcgyvr/prompts/javascript.md	dev-pointer=1
 src/mcgyvr/prompts/python.md	dev-pointer=2
@@ -80,6 +79,7 @@ src/mcgyvr/weights.py	dev-pointer=1
 src/mcgyvr/worker/bundle.py	dev-pointer=4
 src/mcgyvr/worker/prompt.py	dev-pointer=1
 src/mcgyvr/worker/reply.py	dev-pointer=1
+tests/callergates.py	dev-pointer=1
 tests/livejournal.py	dev-pointer=1
 tests/lockfleets_window.py	dev-pointer=6
 tests/onedoor.py	card-model=2	dev-pointer=20	host=2
@@ -126,7 +126,6 @@ tests/test_a_read_measures_before_it_judges_and_loads_a_unit.py	host=2
 tests/test_a_read_probes_a_unit_of_a_named_setup_fleet_without_its_lock.py	host=1
 tests/test_a_read_without_a_lock_never_pulls_a_live_unit.py	dev-pointer=1
 tests/test_a_release_takes_its_notes_from_the_changelog_or_is_refused.py	dev-pointer=1
-tests/test_a_repo_without_a_ruff_config_is_judged_by_a_basic_default.py	dev-pointer=1
 tests/test_a_request_timeout_is_the_runs_own_not_a_constant.py	dev-pointer=1
 tests/test_a_rig_can_be_served_down_twice_in_one_day.py	dev-pointer=1
 tests/test_a_rig_is_named_by_the_snapshot_it_prints.py	dev-pointer=5	host=1	identity=1
