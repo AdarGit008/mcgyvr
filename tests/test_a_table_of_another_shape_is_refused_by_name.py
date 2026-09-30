@@ -19,9 +19,8 @@ Promises:
   only where the table holds entries; under a key that holds a value it is
   refused by that key, at every level and however deep in a list, since its
   own keys would be keys nobody declared.
-* A model row or a caveat without a key it needs, and a figure, a model's
-  size or a capability score that is not a number, are refused by the name of
-  the entry and the key.
+* A model row or a caveat without a key it needs, and a figure or a model's
+  size that is not a number, are refused by the name of the entry and the key.
 * Every refusal names the file it refused, and none is a raw ``TypeError`` or
   ``ValueError`` out of the loader's insides.
 
@@ -82,9 +81,7 @@ def test_a_table_of_the_shape_this_code_reads_loads_with_its_classes(
         (c["id"], c["label"], c["memory_gb"]) for c in classes
     ]
     declared = {c.id for c in table.card_classes}
-    readings = [
-        m for model in table.models for m in (*model.quality, *model.throughput)
-    ]
+    readings = [m for model in table.models for m in model.throughput]
     assert readings
     assert {m.card_class for m in readings} == declared
 
@@ -134,8 +131,7 @@ def test_a_reading_keyed_by_an_undeclared_class_is_refused_by_that_name(
 ) -> None:
     assert STRAY not in {c["id"] for c in CLASSES}
     model = row("invented-model-a")
-    figure = "value" if field == "throughput_tok_s" else "humaneval_plus_pass1"
-    model[field] = [*model.get(field, []), reading(STRAY, **{figure: 0.5})]
+    model[field] = [*model.get(field, []), reading(STRAY, value=0.5)]
 
     said = _refusal(tmp_path, table_document(rows=[model]))
 
@@ -146,7 +142,7 @@ def test_a_reading_keyed_by_an_undeclared_class_is_refused_by_that_name(
 
 def test_a_reading_that_names_no_class_is_refused(tmp_path: Path) -> None:
     model = row("invented-model-a")
-    del model["quality"][0]["card_class"]
+    del model["throughput_tok_s"][0]["card_class"]
 
     said = _refusal(tmp_path, table_document(rows=[model]))
 
@@ -155,19 +151,19 @@ def test_a_reading_that_names_no_class_is_refused(tmp_path: Path) -> None:
 
 
 def _class_as_list(model: dict[str, Any]) -> None:
-    model["quality"][0]["card_class"] = [CLASSES[0]["id"]]
+    model["throughput_tok_s"][0]["card_class"] = [CLASSES[0]["id"]]
 
 
 def _class_as_number(model: dict[str, Any]) -> None:
-    model["quality"][0]["card_class"] = 5
+    model["throughput_tok_s"][0]["card_class"] = 5
 
 
 def _reading_as_number(model: dict[str, Any]) -> None:
-    model["quality"] = [0.5]
+    model["throughput_tok_s"] = [0.5]
 
 
 def _readings_as_null(model: dict[str, Any]) -> None:
-    model["quality"] = None
+    model["throughput_tok_s"] = None
 
 
 def _readings_as_object(model: dict[str, Any]) -> None:
@@ -302,11 +298,10 @@ def _entry_at(level: str, document: dict[str, Any]) -> dict[str, Any]:
     model = document["models"][0]
     entries: dict[str, Any] = {
         "table": document,
-        "quality metric": document["quality_metric"],
         "card class": document["card_classes"][0],
         "harness caveat": document["harness_caveats"][0],
         "model row": model,
-        "reading": model["disputed_measurements"][0],
+        "reading": model["throughput_tok_s"][0],
         "backends block": document["backends"],
         "backend": document["backends"]["some-server"],
         "concurrency finding": document["concurrency_findings"][0],
@@ -391,12 +386,7 @@ NOT_NUMBERS: dict[str, Any] = {
 }
 
 #: The figure a reading of each list carries.
-FIGURE = {
-    "quality": "humaneval_plus_pass1",
-    "throughput_tok_s": "value",
-    "invalid_measurements": "humaneval_plus_pass1",
-    "disputed_measurements": "humaneval_plus_pass1",
-}
+FIGURE = {"throughput_tok_s": "value"}
 
 
 @pytest.mark.parametrize("given", sorted(NOT_NUMBERS))
@@ -428,39 +418,13 @@ def test_a_model_size_that_is_not_a_number_is_refused_by_its_row(
     assert repr(key) in said, said
 
 
-@pytest.mark.parametrize("given", sorted(NOT_NUMBERS))
-def test_a_capability_score_that_is_not_a_number_is_refused_by_its_row(
-    tmp_path: Path, given: str
-) -> None:
-    model = row("invented-model-a", capabilities={"invented": NOT_NUMBERS[given]})
-
-    said = _refusal(tmp_path, table_document(rows=[model]))
-
-    assert "models[0] ('invented-model-a')" in said, said
-    assert "'invented'" in said, said
-
-
-def test_capabilities_given_as_a_list_is_refused_by_its_row(tmp_path: Path) -> None:
-    model = row("invented-model-a", capabilities=[0.5])
-
-    said = _refusal(tmp_path, table_document(rows=[model]))
-
-    assert "models[0] ('invented-model-a')" in said, said
-    assert "capabilities" in said, said
-
-
 def test_a_model_with_numbers_where_it_carries_numbers_loads(tmp_path: Path) -> None:
-    """The control: whole numbers, fractions and a capability score all load."""
-    model = row(
-        "invented-model-a",
-        params_b=5,
-        active_params_b=1.5,
-        capabilities={"invented": 0.4, "another": 1},
-    )
+    """The control: whole numbers and fractions both load."""
+    model = row("invented-model-a", params_b=5, active_params_b=1.5)
 
     loaded = load(write_table(tmp_path, table_document(rows=[model])))
 
-    assert loaded.models[0].capabilities == {"invented": 0.4, "another": 1.0}
+    assert loaded.models[0].params_b == 5.0
 
 
 @pytest.mark.parametrize(

@@ -133,7 +133,7 @@ class Excluded:
     """An inherited type that did not survive validation, kept with its reason.
 
     Removals are recorded rather than deleted for the same reason the capability
-    table keeps its known-bad measurements: the next person to reach for
+    table keeps its harness caveats: the next person to reach for
     ``multi_file_refactor`` should find out why it is absent instead of
     rediscovering it.
     """
@@ -388,9 +388,9 @@ def catalog() -> Catalog:
     The file ships with the package and cannot change under a running process,
     so re-reading it per contract would be cost with no meaning.
 
-    Memoised rather than held in a module variable, for the reason
-    :func:`mcgyvr.capability.shipped_table` gives and one more that is specific
-    to this file: contract digest identity is derived from the catalog, and
+    Memoised rather than held in a module variable, so no assignable name can
+    replace the catalog under a running process, and for one more reason
+    specific to this file: contract digest identity is derived from the catalog, and
     ``tools/instruments.py`` pins ``sha256(dumps(contract))`` as the evidence
     that a recorded run was run against a declared instrument. A module variable
     holding the catalog is therefore an assignable name that silently re-keys

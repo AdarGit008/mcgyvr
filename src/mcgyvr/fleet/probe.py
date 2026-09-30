@@ -82,9 +82,9 @@ from mcgyvr.fleet.harness import Transport as Transport
 from mcgyvr.fleet.harness import measure_llamacpp as measure_llamacpp
 from mcgyvr.fleet.harness import measure_vllm as measure_vllm
 from mcgyvr.fleet.roots import (
-    LIVE_FILE_SHOWN,
     LiveFleetError,
     layout_of,
+    live_file,
     live_fleet,
     live_fleet_dir,
 )
@@ -228,7 +228,7 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
         raise ProbeError(str(exc)) from exc
     if name is None or folder is None:
         raise ProbeError(
-            f"no fleet is live: {LIVE_FILE_SHOWN} names none (`mcgyvr fleet use`)"
+            f"no fleet is live: {live_file()} names none (`mcgyvr fleet use`)"
         )
     try:
         fleet = load_fleet((folder / "fleet.yaml").read_text(encoding="utf-8"))
@@ -238,7 +238,7 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
     if layout not in fleet.get("fleets", {}):
         raise ProbeError(
             f"{folder / 'fleet.yaml'} holds no fleet {layout!r} "
-            f"({LIVE_FILE_SHOWN} names {name!r})"
+            f"({live_file()} names {name!r})"
         )
     return layout, folder, fleet
 
