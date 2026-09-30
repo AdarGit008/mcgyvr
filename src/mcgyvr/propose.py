@@ -28,8 +28,9 @@ from dataclasses import dataclass
 LOCAL = "local"
 API = "api"
 
-# CAV-04: a marginal fit degrades rather than failing, which makes it look
-# like a working binding. Absolute, not a fraction — see CapabilityTable.
+# CAV-04: a marginal fit can run markedly slower rather than fail, which
+# makes it look like a working binding. Absolute, not a fraction — see
+# CapabilityTable.
 DEFAULT_HEADROOM_GB = 2.0
 
 #: What the proposal says when no model server answered at all.

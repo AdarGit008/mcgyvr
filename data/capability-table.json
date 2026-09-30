@@ -17,7 +17,7 @@
       "id": "CAV-02",
       "severity": "high",
       "summary": "One server program resolved qwen3-coder-30b-a3b's tag to a weight set of ~18 GB, not the Q2_K file this row describes.",
-      "detail": "That set spills ~59% to CPU on a 12 GB card and runs ~100 s/task. The same model as a Q2_K GGUF under llama-server runs with ~3 GB on the card under partial offload.",
+      "detail": "On a card with less memory than that set needs, part of it spills to host memory, so a reading taken through the tag is of that set and its spill, not of this row's file. This row's Q2_K file was read under llama-server with some of its layers on the card (partial offload), and the row's memory figure is that resident part.",
       "consequence": "Bind an explicit quantised file under llama-server."
     },
     {
@@ -30,9 +30,9 @@
     {
       "id": "CAV-04",
       "severity": "medium",
-      "summary": "A model that fits VRAM only marginally thrashes rather than failing.",
-      "detail": "qwen2.5-coder:7b (~5 GB) on a 6 GB card ran at 30.4 tok/s against 57.6 tok/s on a 12 GB card — a 1.9x penalty from a card with 2.5x fewer cores, indicating memory pressure rather than compute limits.",
-      "consequence": "Propose a binding only where the model's footprint leaves headroom for KV cache; marginal fits are a worse experience than the tier below."
+      "summary": "A model that fits a card's memory only marginally can run markedly slower rather than fail, so a marginal fit can look like a working one.",
+      "detail": "qwen2.5-coder:7b, read on a card with little memory left beside it, ran markedly slower than on a card of a larger class. The two cards differ in more than memory, so the cause is not isolated.",
+      "consequence": "A fit listing (`mcgyvr capabilities --vram`) keeps headroom for the KV cache above a model's memory figure, so a marginal fit is not listed as fitting."
     }
   ],
   "models": [
@@ -118,7 +118,7 @@
       "requires_backend": "llama-server",
       "throughput_tok_s": [
         { "value": 13.0, "card_class": "6gb", "backend": "llama-server", "note": "-ngl 10 partial GPU offload" },
-        { "value": 24.19, "card_class": "12gb", "backend": "ollama", "note": "Q4, 8.9 GB" }
+        { "value": 24.19, "card_class": "12gb", "backend": "ollama", "note": "Q4, through the tag (CAV-02)" }
       ],
       "not_for_fit": "its memory figure is the resident part under partial offload, not the file",
       "notes": "Requires an explicit GGUF quant under llama-server."
@@ -150,7 +150,7 @@
         { "value": 489.0, "card_class": "12gb", "backend": "vllm", "note": "aggregate at 16 concurrent (CON-04)" }
       ],
       "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint",
-      "notes": "Same weights as qwen2.5-coder:7b in a different quantization and server. vram_gb_working is the server's CONFIGURED allocation (gpu-memory-utilization 0.90 of a 12 GB card), not an intrinsic footprint — the fit rule's assumptions do not transfer to this backend unchanged."
+      "notes": "vram_gb_working is the server's configured allocation, which its gpu-memory-utilization setting gives as a share of the card, not an intrinsic footprint — the fit rule's assumptions do not transfer to this backend unchanged."
     },
     {
       "id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
@@ -164,11 +164,11 @@
         { "value": 19.5, "card_class": "12gb", "backend": "vllm", "caveat": "CAV-04" }
       ],
       "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint",
-      "notes": "A second, independent instance of CAV-04 and a useful one: at 11.6 GB allocated on a 12 GB card it ran 19-20 tok/s against 32.2 tok/s for the same model class under a simpler server — the batching backend was 38% SLOWER because it had no memory to batch with, and required eager execution. A marginal fit does not merely lose its backend's advantages; it inverts them."
+      "notes": "Its reading carries CAV-04: it was taken with the server set to allocate nearly all of the card, and with eager execution."
     }
   ],
   "backends": {
-    "_doc": "Backend choice is a function of VRAM, not preference. A batching server needs headroom to batch; below that it is strictly worse than a simple one.",
+    "_doc": "What each server program offers and where it is limited.",
     "ollama": {
       "wire_protocol": "ollama",
       "strengths": ["multiple distinct models resident concurrently", "GGUF native", "setup in one command"],
@@ -177,16 +177,16 @@
     "vllm": {
       "wire_protocol": "openai",
       "strengths": ["continuous batching (8.5x at 16 concurrent, CON-04)", "JSON-schema structured output", "prefix caching", "sleep/wake model swap (CON-06)"],
-      "limits": ["one model per process", "VRAM allocation is configured, not intrinsic — footprint is gpu-memory-utilization, not weight size", "needs Docker on newer glibc", "not viable below ~8 GB: no batching headroom"],
+      "limits": ["one model per process", "VRAM allocation is configured, not intrinsic — footprint is gpu-memory-utilization, not weight size", "needs Docker on newer glibc", "a card with little memory to spare beside the weights leaves it little room to batch in (CAV-04)"],
       "card_class": "12gb"
     }
   },
   "concurrency_findings": [
     {
       "id": "CON-04",
-      "summary": "Continuous batching scales 8.5x to 16 concurrent requests, then plateaus at memory bandwidth.",
-      "detail": "Qwen2.5-Coder-7B-AWQ under vLLM on a 12 GB card: 1 req 68 tok/s, 2 req 127 (1.9x), 4 req 168 (2.6x), 8 req 289 (4.7x), 12 req 402 (6.6x), 16 req 489 (8.5x). Ceiling ~490 tok/s, bounded by 360 GB/s memory bandwidth, not compute. Per-request latency stayed within 0.39-2.01 s throughout.",
-      "consequence": "Per-source parallel capacity is worth setting high on a batching backend, but returns are sublinear and plateau — capacity beyond the knee buys latency variance, not throughput.",
+      "summary": "Continuous batching scaled sublinearly, to 8.5x at 16 concurrent requests.",
+      "detail": "Qwen2.5-Coder-7B-AWQ under vLLM on one card of the finding's class: 1 req 68 tok/s, 2 req 127 (1.9x), 4 req 168 (2.6x), 8 req 289 (4.7x), 12 req 402 (6.6x), 16 req 489 (8.5x). Per-request latency stayed within 0.39-2.01 s throughout.",
+      "consequence": "Per-source parallel capacity on a batching server can raise aggregate speed, with sublinear returns.",
       "card_class": "12gb"
     },
     {
@@ -198,15 +198,15 @@
     },
     {
       "id": "CON-06",
-      "summary": "A batching server can free 97.9% of its VRAM and return in about six seconds.",
-      "detail": "Sleep 4.74 s freeing 11.8 GB to 251 MB (weights offloaded to host RAM), wake 1.09 s. The endpoint stays up throughout; a container restart for the same effect takes ~60 s. KV cache AND prefix cache are discarded on wake.",
-      "consequence": "Makes two differently-sized rungs viable on one card. The discarded caches are the catch: a swap resets exactly the CON-05 benefit, so swapping mid-batch trades one optimization for another.",
+      "summary": "A batching server can free nearly all the card memory it holds and return in about six seconds.",
+      "detail": "Sleep 4.74 s, offloading the weights to host RAM and freeing nearly all the card memory the server held; wake 1.09 s. The endpoint stays up throughout; a container restart for the same effect took ~60 s. KV cache AND prefix cache are discarded on wake.",
+      "consequence": "Can make two differently-sized rungs viable on one card. The discarded caches are the catch: a swap resets exactly the CON-05 benefit, so swapping mid-batch trades one optimization for another.",
       "card_class": "12gb"
     },
     {
       "id": "CON-01",
-      "summary": "Distinct models run genuinely concurrently on one GPU.",
-      "detail": "Three models (1.5B + 3B + 16B MoE) completed in 23.6 s wall against ~44 s serial, each holding its solo throughput, at 11.8 GB total on a 12 GB card.",
+      "summary": "Distinct models can run concurrently on one card.",
+      "detail": "Three models (1.5B + 3B + 16B MoE), resident together on one card, completed in 23.6 s wall against ~44 s serial, each holding its solo throughput.",
       "card_class": "12gb"
     },
     {
@@ -216,8 +216,8 @@
     },
     {
       "id": "CON-03",
-      "summary": "Aggregate throughput across separate machines degrades 0–15%.",
-      "detail": "Separate GPUs share no bus; a pool spanning hosts is close to additive."
+      "summary": "Aggregate throughput across separate machines came close to the sum of each machine's own.",
+      "detail": "Separate machines share no bus, so requests on one do not contend with requests on another for it."
     }
   ]
 }
