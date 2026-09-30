@@ -8,8 +8,8 @@ and the short id leaves it out: the id of a card beside it is the id of that
 card alone, and a machine whose only card is such an adapter gets the id of a
 machine with no card. A card of a vendor whose tool is installed, and a card
 whose size file is there but cannot be taken, keep the refusal. A display
-entry that gives no PCI vendor id is such an adapter too, and is named as one
-without a vendor id.
+entry that gives no PCI vendor id is named as one without a vendor id, and,
+since no tool reads it, is left out when it publishes no size.
 """
 
 from __future__ import annotations
@@ -151,7 +151,9 @@ def test_a_display_entry_with_no_vendor_id_is_named_as_one_and_left_out(
 def test_a_name_file_that_is_there_but_not_readable_falls_back_to_the_pci_name(
     tmp_path: Path,
 ) -> None:
-    """A card whose name file is there but not readable keeps its id by the name the PCI ids give."""
+    """A card whose name file is there but not readable keeps its id by the
+    name the PCI ids give.
+    """
     from mcgyvr.fleet import machine
 
     card = SysfsCard(

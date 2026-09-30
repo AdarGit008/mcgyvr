@@ -15,7 +15,8 @@
 # control character before anything else is done, so it is named, never
 # dropped. A value that is not what its field takes is named unread and not
 # printed: a size that is not a whole number; a name or container value with
-# an ASCII control character, over its length bound, or `[N/A]`; a line longer
+# an ASCII control character or over its length bound; a name that is `[N/A]`;
+# a line longer
 # than LINE_MAX; a call's output over BYTES_MAX. Bytes above 127 are passed on
 # as they are: this script does not decode them, and the parser after it
 # refuses a name that does not decode as text.
@@ -63,7 +64,8 @@
 # Two variables are for the product's tests only. MCGYVR_TEST_MACHINE_ROOT: every
 # file this script reads is read under that folder, and the `hostname` program
 # is not asked. MCGYVR_TEST_TOOL_SECONDS: the bound on each tool call; a value
-# that is not a whole number of seconds above 0 is not taken, and is named.
+# that is not 1 to 6 digits giving a whole number of seconds above 0 is not
+# taken, and is named.
 set -u
 # Options a caller's environment may pass in (SHELLOPTS, BASHOPTS) that would
 # change what a file pattern finds.
@@ -107,7 +109,7 @@ BOUND_S=20
 bound=${MCGYVR_TEST_TOOL_SECONDS:-}
 if [ -n "$bound" ]; then
     if [[ $bound == *[!0-9]* ]] || [ ${#bound} -gt 6 ] || [ $((10#$bound)) -eq 0 ]; then
-        unread tool_bound "MCGYVR_TEST_TOOL_SECONDS is not a whole number of seconds above 0; the bound is $BOUND_S s"
+        unread tool_bound "MCGYVR_TEST_TOOL_SECONDS is not 1 to 6 digits giving a whole number of seconds above 0; the bound is $BOUND_S s"
     else
         BOUND_S=$((10#$bound))
     fi
@@ -625,7 +627,7 @@ sysfs() {
         pname= named=
         if read_file "$dev/product_name"; then
             pname=$FILE
-        elif [ "$WHY" != "is not there" ]; then
+        elif [ "$WHY" != "is not there" ] && [ "$WHY" != "is not readable" ]; then
             unread "$key.name" "sysfs: device/product_name $WHY"
             named=1
         fi
@@ -747,7 +749,7 @@ host_name() {
     if read_file "$ROOT/$HOSTNAME_FILE"; then
         got=$FILE
     elif [ -z "$ROOT" ] && command -v hostname >/dev/null 2>&1; then
-        run_tool hostname hostname && { trim "$TOOL_OUT"; got=$TRIM; }
+        run_tool hostname hostname && [ ${#TOOL_OUT} -le $LINE_MAX ] && { trim "$TOOL_OUT"; got=$TRIM; }
     fi
     if [ -z "$got" ]; then
         unread host "the host name is unread (/$HOSTNAME_FILE, hostname)"

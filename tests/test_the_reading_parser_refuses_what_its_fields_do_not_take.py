@@ -3,9 +3,11 @@
 What the parser reads may not come from this machine reader, so it holds its
 own checks and does not lean on the reader's: a value a field does not take is
 left empty and named unread, a line it does not understand, a card printed
-twice or a reading without its end line is named, a value the reading itself
-names unread is dropped, and a reading that holds any of these gets no short
-id. The short id holds the same checks for a reading built without the parser.
+twice or a reading without its end line is named, and a value the reading
+itself names unread is dropped. The short id is refused by a machine id or a
+card's name or size not read, a card source that failed or may be short, a
+card printed twice, or a line not taken. The short id holds the machine-id,
+name and size checks for a reading built without the parser.
 """
 
 from __future__ import annotations

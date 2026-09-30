@@ -420,7 +420,12 @@ def parse(text: str) -> Reading:
     elif not sources and cards:
         state.note("cards", "the reader printed cards and said it found none")
 
-    containers: tuple[Container, ...] | None = tuple(state.containers)
+    containers: tuple[Container, ...] | None = tuple(
+        dataclasses.replace(c, restarts=None)
+        if f"container.{c.id}.restarts" in unread_by_reader
+        else c
+        for c in state.containers
+    )
     if "containers" in unread_by_reader or state.containers_refused:
         containers = None
 
@@ -541,7 +546,9 @@ _REMEDY_SIZE = (
     "machine should give it (its vendor's card tool is installed, or sysfs "
     "publishes a size that was not taken); once it does, read the machine again"
 )
-_REMEDY_SIZE_TYPE = "the card's memory size is not a whole number of MiB"
+_REMEDY_SIZE_TYPE = (
+    "the card's memory size is not a whole number of MiB of at most 18 digits"
+)
 _REMEDY_CARDS = (
     "the list of cards may be short: see the reason. Once the tool answers, "
     "read the machine again; a tool left over on a machine with no card of its "
