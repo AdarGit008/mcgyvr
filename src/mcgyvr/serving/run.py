@@ -8,8 +8,9 @@
 Nothing else opens an ssh to srv1/srv2 or starts a container on one. A caller
 that wants rig time writes its own script and names it as ``--step``, or takes
 the shipped ``gate-scripts/default-step.sh``; the door runs the gates around
-it. The step is the only part a caller supplies, and it is the only part that
-is not fixed here.
+it. The step is the one part of a campaign run a caller supplies; ``serve``
+and ``read`` take a caller's own gates too (A CALLER'S GATES, below), which
+run inside the door's fixed order and never in place of any of it.
 
 HOW THE DOOR IS THE ONLY WAY IN. The environment a gate or a step runs under
 has ``gate-scripts/bin`` first on PATH, where ``ssh`` and ``docker`` are shims
@@ -69,28 +70,63 @@ declared one and before the step, because a placement derived against the
 wrong machine is worse than no placement. Gates 7-8 run after the step
 whatever it did.
 
-THE CONTRACT WITH A GATE SCRIPT. It is an executable under ``gate-scripts/``.
-It reads the run from the environment (:data:`EXPORTED`), writes anything it
-learned as ``KEY=VALUE`` lines on the descriptor ``RUN_EXPORT_FD`` names, and exits 0 to
-admit or non-zero having said why. It is not imported: a gate that could be
-imported could be monkeypatched, and the seam that lets a test stub a gate is
-the seam that lets a caller do it.
+A CALLER'S GATES. ``serve`` and ``read`` take ``--gates FILE``: a JSON object
+naming a ``root`` folder and a list of gates, each ``{path, why, phase,
+exports[, timeout_s]}``. The door runs them inside its own run and never
+instead of any part of it; a ``before`` or ``after`` gate that refuses ends
+the run like a door gate that refuses. ``before`` runs after the door's
+profile gate, which reads no machine, and before anything is sent to one. On
+``serve``, ``after``
+runs after the identity and daemon gates and before the envelope and the
+step, and ``always`` after gates 7 and 8, before the lease is released, and
+only when the run got as far as gate 5. On ``read``, ``after`` runs after the
+reading gate has read the machine and filed what it read, and only when that
+gate exited 0; it cannot stop the filing. ``always`` is refused on a read,
+which has no teardown and no lease. The list is read and held to
+:func:`load_gate_list` before any gate runs, and each gate's path is checked
+again just before it starts. A caller's gate is run by the door's Python from
+its list's root, which it sees as ``RUN_ROOT``, in a session and a process
+group of its own. At its ``timeout_s`` (:data:`CALLER_GATE_TIMEOUT_S` when the
+list gives none, at most :data:`CALLER_GATE_MOST_S`) the door sends TERM to
+that group, KILL when the group is still there :data:`GROUP_GRACE_S` later,
+and then waits up to :data:`GROUP_GONE_S` for it to be empty
+(:func:`_end_group`). In a session of its own, the gate is outside every
+signal sent to the door's process group: the door ends it on INT or TERM,
+except a gate the signal reaches while the door is starting it, which can be
+left running past the lease release (see :func:`_run_entry`); a door that is
+killed or hung up leaves it running with no bound. It may
+export only the ``RUN_`` names its list declares, none of them a name the
+door sets (:data:`DOOR_NAMES`), in at most :data:`MAX_EXPORT_BYTES`.
+
+THE CONTRACT WITH A GATE SCRIPT. The door's own gates are executables under
+``gate-scripts/``; a caller's gates are the executables its list names.
+A gate reads the run from the environment (:data:`EXPORTED`), writes anything
+it learned as ``KEY=VALUE`` lines on the descriptor ``RUN_EXPORT_FD`` names,
+and exits 0 to admit or non-zero having said why. It is not imported: a gate
+that could be imported could be monkeypatched, and the seam that lets a test
+stub a gate is the seam that lets a caller do it.
 """
 
 from __future__ import annotations
 
 import argparse
+import codecs
+import contextlib
+import json
+import math
 import os
 import re
 import secrets
+import select
 import signal
 import subprocess
 import sys
+import time
 import types
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.serving import gatelib
@@ -171,6 +207,14 @@ class Entry:
     why: str
     status: int = 2
     exports: tuple[str, ...] = ()
+    #: Empty for the door's own entries. For a caller's gate, the root its
+    #: gate list names: the gate runs there and sees it as ``RUN_ROOT``, and
+    #: ``script`` is the absolute path the list names, resolved and held to
+    #: the root again just before the gate starts.
+    root: str = ""
+    #: A caller's gate's time bound in seconds. The door's own entries have
+    #: none (0).
+    timeout_s: float = 0.0
 
 
 #: THE RUN. Order is enforced, membership is enforced, and neither is
@@ -376,6 +420,387 @@ EXPORTED = (
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
+#: Every name the door sets for its own gates: the vocabulary above, what the
+#: read's entries export, and the export descriptor's own name. A caller's
+#: gate may not export one of these, because a door gate would read it.
+DOOR_NAMES = frozenset(
+    {
+        *EXPORTED,
+        *(name for entry in (*READ_SEQUENCE, LEASE_RELEASE) for name in entry.exports),
+        "RUN_EXPORT_FD",
+    }
+)
+#: The names a caller's gate may export: the door's own prefix, so no value
+#: can be inherited under one (see :func:`_ambient`) and none is a variable
+#: that changes how a program runs (``PATH``, ``LD_PRELOAD``, ...).
+CALLER_EXPORT = re.compile(r"RUN_[A-Z0-9_]+")
+#: The phases of a caller's gate list.
+PHASES = ("before", "after", "always")
+#: Where each phase runs, as the door entry it follows. ``before`` follows the
+#: profile gate, which reads no machine, so it runs before the first gate that
+#: reaches one. ``always`` is not here: on ``serve`` it runs after
+#: :data:`ALWAYS`, and a read has no such phase.
+SERVE_PHASES = {"before": "01-round.py", "after": "03-image.py"}
+READ_PHASES = {"before": "read-01-profile.py", "after": "read-02-rig.py"}
+#: The keys of a gate list, and of one gate in it. Anything else is refused.
+GATE_LIST_KEYS = frozenset({"root", "gates"})
+GATE_KEYS = frozenset({"path", "why", "phase", "exports", "timeout_s"})
+#: How long a caller's gate may run when its list gives no ``timeout_s``.
+CALLER_GATE_TIMEOUT_S = 600.0
+#: The longest bound a list may give a gate: a day. A longer one is refused
+#: when the list is read, before any gate runs.
+CALLER_GATE_MOST_S = 86400.0
+#: The most gates a list may hold. Far above any list a caller writes by
+#: hand. The list is read whole (at most :data:`MAX_LIST_BYTES`) and parsed
+#: before its gates are counted.
+MAX_GATES = 256
+#: The most bytes of a gate list the door reads: far above a list of
+#: :data:`MAX_GATES` gates written by hand. A larger file is refused before it
+#: is parsed.
+MAX_LIST_BYTES = 1024 * 1024
+#: How long the door waits, after TERM to a caller's gate's process group,
+#: for the group to be empty before it sends KILL (see :func:`_end_group`).
+GROUP_GRACE_S = 5.0
+#: How long the door waits, after KILL, for that group to be empty.
+GROUP_GONE_S = 5.0
+#: The most a caller's gate may write on its export descriptor. A gate that
+#: writes more is ended with its process group and refused by name. It is
+#: well under the 128 KiB Linux lets one environment string hold (with 4 KiB
+#: pages), so one value that passes can still start a process. What all gates
+#: export together must fit in the environment a process starts with too;
+#: when it does not, the next gate cannot start, and the door refuses naming
+#: that gate.
+MAX_EXPORT_BYTES = 64 * 1024
+#: The package's own folder, where the door's own scripts are. A list whose
+#: root is or lies inside it is refused, and so is a gate that resolves
+#: inside it: either could run the door's scripts out of the door's order. A
+#: root may hold it (a project with the package in its virtual environment).
+#: Paths are compared by their spelling, after links are resolved: on a file
+#: system that ignores case, a path spelled in another case is not caught. A
+#: copy or a hard link of a door script outside the package is not caught.
+PACKAGE = HERE.parent
+
+
+@dataclass(frozen=True)
+class GateList:
+    """A caller's gates, by phase, as :func:`load_gate_list` admitted them."""
+
+    source: Path
+    root: Path
+    before: tuple[Entry, ...] = ()
+    after: tuple[Entry, ...] = ()
+    always: tuple[Entry, ...] = ()
+
+    @property
+    def exports(self) -> frozenset[str]:
+        """Every name a gate of this list may export."""
+        return frozenset(
+            name
+            for entry in (*self.before, *self.after, *self.always)
+            for name in entry.exports
+        )
+
+
+class _TwiceError(ValueError):
+    """A JSON object names one key twice."""
+
+    def __init__(self, key: str) -> None:
+        super().__init__(key)
+        self.key = key
+
+
+def _once(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    held: dict[str, object] = {}
+    for key, value in pairs:
+        if key in held:
+            raise _TwiceError(key)
+        held[key] = value
+    return held
+
+
+def _printable(text: str) -> str:
+    """``text`` as a terminal can print it.
+
+    A refusal quotes the caller's list, and a list may carry a NUL, a
+    terminal escape or a lone surrogate; each character that is not
+    printable is written as its escape (``\\x1b``), never raw.
+    """
+    return "".join(
+        char if char.isprintable() else char.encode("unicode_escape").decode("ascii")
+        for char in text
+    )
+
+
+def _brief(value: object, most: int = 80) -> str:
+    """``value`` quoted, cut to its first ``most`` characters when it is longer."""
+    if isinstance(value, str):
+        return _start_of(value, most)
+    quoted = repr(value)
+    if len(quoted) <= most + 2:
+        return quoted
+    return f"{quoted[:most]}... ({len(quoted)} characters)"
+
+
+def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
+    """Read the gate list ``named``, or refuse it naming the file and the entry.
+
+    A gate list is input the door does not trust. Refused here, before any
+    gate runs: an empty name; a name relative to a working folder the door
+    cannot name; a file that is not a regular file of at most
+    :data:`MAX_LIST_BYTES` of UTF-8 JSON, with no byte order mark (too deep, a
+    number JSON will not read and a key given twice included) holding an
+    object of ``root`` and ``gates``; a key the door does not know; a root
+    that is not an existing folder named by an absolute path, or that is or
+    lies inside :data:`PACKAGE`; more than :data:`MAX_GATES` gates; a gate
+    whose path cannot be a path, is missing, is not an executable file, or
+    resolves (through ``..`` or a link) outside the root or inside
+    :data:`PACKAGE`; a phase not in ``phases``; a ``timeout_s`` that is not a
+    positive number of seconds up to :data:`CALLER_GATE_MOST_S`; an export that
+    is not a ``RUN_`` name, is one of :data:`DOOR_NAMES`, or is declared by two
+    gates. A refusal quotes a field of the list by its first characters only
+    (:func:`_brief`).
+    """
+    if not named:
+        _refuse(
+            2,
+            "--gates names no file. A launcher that meant to pass a list and "
+            "passed an empty name would otherwise run without its gates",
+        )
+    source = Path(named)
+    if not source.is_absolute():
+        try:
+            source = Path.cwd() / source
+        except OSError as escape:
+            which = (
+                "is gone"
+                if isinstance(escape, FileNotFoundError)
+                else "the door cannot name"
+            )
+            _refuse(
+                2,
+                _printable(
+                    f"--gates {named}: the list is named relative to the working "
+                    f"folder, which {which} ({escape.strerror or repr(escape)}); "
+                    "name it by an absolute path"
+                ),
+            )
+
+    def no(where: str, why: str) -> NoReturn:
+        _refuse(2, _printable(f"--gates {source}: {where} {why}"))
+
+    try:
+        regular = source.is_file()
+    except (OSError, ValueError) as escape:
+        no("the list", f"cannot be read ({escape})")
+    if not regular:
+        no("the list", "cannot be read: it is not a regular file")
+    try:
+        with source.open("rb") as handle:
+            raw = handle.read(MAX_LIST_BYTES + 1)
+    except OSError as escape:
+        no("the list", f"cannot be read ({escape.strerror or repr(escape)})")
+    if len(raw) > MAX_LIST_BYTES:
+        no(
+            "the list",
+            f"is larger than {MAX_LIST_BYTES} bytes, the most the door reads",
+        )
+    if raw.startswith(codecs.BOM_UTF8):
+        no("the list", "starts with a byte order mark; the door reads UTF-8 with none")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as bad:
+        no("the list", f"is not UTF-8 (at byte {bad.start + 1})")
+    try:
+        doc = json.loads(text, object_pairs_hook=_once)
+    except _TwiceError as twice:
+        no(f"key {_brief(twice.key)}", "is given twice; a list states each key once")
+    except json.JSONDecodeError as escape:
+        no(
+            "the list",
+            f"is not JSON the door reads ({escape.msg.removesuffix(' at')}, "
+            f"at line {escape.lineno}, column {escape.colno})",
+        )
+    except RecursionError:
+        no("the list", "is not JSON the door reads (it nests deeper than it reads)")
+    except ValueError as escape:
+        no(
+            "the list",
+            "holds a number with more digits than the door reads"
+            if "digits" in str(escape)
+            else f"is not JSON the door reads ({type(escape).__name__})",
+        )
+    if not isinstance(doc, dict):
+        no("the list", "is not a JSON object of `root` and `gates`")
+    for key in sorted(set(doc) - GATE_LIST_KEYS):
+        no(
+            f"key {_brief(key)}",
+            "is not a gate list key; a list holds `root` and `gates`",
+        )
+    raw_root = doc.get("root")
+    root = Path(raw_root) if isinstance(raw_root, str) and raw_root else None
+    try:
+        usable = root is not None and root.is_absolute() and root.is_dir()
+    except PermissionError as escape:
+        no("root", f"{_brief(raw_root)} cannot be reached ({escape.strerror})")
+    except (OSError, ValueError):
+        usable = False
+    if root is None or not usable:
+        no(
+            "root",
+            f"{_brief(raw_root)} is not an existing folder named by an absolute path; "
+            "a caller's gates run there and read it as RUN_ROOT",
+        )
+    root = root.resolve()
+    if root.is_relative_to(PACKAGE.resolve()):
+        no(
+            "root",
+            f"{root} is or lies inside the package's own folder "
+            f"{PACKAGE.resolve()}; a list could then run the door's own scripts "
+            "out of the door's order",
+        )
+    gates = doc.get("gates")
+    if not isinstance(gates, list):
+        no("gates", "is not a list")
+    if len(gates) > MAX_GATES:
+        no("gates", f"holds {len(gates)} gates; a list holds at most {MAX_GATES}")
+
+    held: dict[str, list[Entry]] = {phase: [] for phase in PHASES}
+    declared: dict[str, str] = {}
+    for index, gate in enumerate(gates):
+        where = f"gates[{index}]"
+        if not isinstance(gate, dict):
+            no(where, "is not an object of path, why, phase and exports")
+        path = gate.get("path")
+        if isinstance(path, str) and path:
+            where = f"{where} ({_brief(path)})"
+        for key in sorted(set(gate) - GATE_KEYS):
+            no(where, f"carries {_brief(key)}, which is not a gate key")
+        if not isinstance(path, str) or not path:
+            no(where, "names no path")
+        why = gate.get("why")
+        if not isinstance(why, str) or not why.strip():
+            no(where, "says no `why`; a gate that refuses must say what it holds")
+        phase = gate.get("phase")
+        if phase not in phases:
+            no(
+                where,
+                f"asks for phase {_brief(phase)}; this run has "
+                f"{', '.join(phases)} and no other"
+                + (
+                    " (a read has no teardown and no lease for an `always` "
+                    "gate to follow)"
+                    if phase == "always"
+                    else ""
+                ),
+            )
+        bound = gate.get("timeout_s", CALLER_GATE_TIMEOUT_S)
+        try:
+            seconds = (
+                float(bound)
+                if isinstance(bound, int | float) and not isinstance(bound, bool)
+                else math.nan
+            )
+        except OverflowError:
+            seconds = math.nan
+        if not math.isfinite(seconds) or not 0 < seconds <= CALLER_GATE_MOST_S:
+            no(
+                where,
+                f"gives timeout_s {_brief(bound)}; a bound is a positive number of "
+                f"seconds, at most {CALLER_GATE_MOST_S:g}",
+            )
+        exports = gate.get("exports", [])
+        if not isinstance(exports, list) or not all(
+            isinstance(name, str) for name in exports
+        ):
+            no(where, "`exports` is not a list of names")
+        target = Path(path)
+        target = target if target.is_absolute() else root / target
+        why_not, _ = _outside(target, root)
+        if why_not is not None:
+            no(where, why_not)
+        for name in exports:
+            if CALLER_EXPORT.fullmatch(name) is None:
+                no(
+                    where,
+                    f"exports {_brief(name)}; a caller's gate exports RUN_ names only",
+                )
+            if name in DOOR_NAMES:
+                no(where, f"exports {name!r}, a name the door sets for its own gates")
+            if name in declared:
+                no(where, f"exports {name!r}, which {declared[name]} exports too")
+            declared[name] = where
+        held[phase].append(
+            Entry(
+                str(target),
+                why,
+                status=1 if phase == "always" else 2,
+                exports=tuple(exports),
+                root=str(root),
+                timeout_s=seconds,
+            )
+        )
+    return GateList(
+        source=source,
+        root=root,
+        before=tuple(held["before"]),
+        after=tuple(held["after"]),
+        always=tuple(held["always"]),
+    )
+
+
+def _outside(target: Path, root: Path) -> tuple[str | None, Path]:
+    """Why ``target`` cannot run as a gate of ``root`` (None when it can), and
+    the path it resolves to, which is the one to run.
+
+    A root may hold the package's folder (a project with the package in its
+    virtual environment); a gate may not resolve inside it, since the door's
+    own scripts are there and a list must not run them out of order. The
+    comparison is by spelling: on a file system that ignores case, a path
+    spelled in another case is not caught.
+    """
+    try:
+        script = target.resolve(strict=True)
+    except FileNotFoundError:
+        return "is not there", target
+    except OSError as escape:
+        return f"cannot be reached ({escape.strerror or escape})", target
+    except (RuntimeError, ValueError) as escape:
+        return f"cannot be reached ({escape})", target
+    if not script.is_relative_to(root):
+        return (
+            f"resolves to {script}, outside the list's root {root}; a gate runs "
+            "from inside its root or not at all",
+            script,
+        )
+    if script.is_relative_to(PACKAGE.resolve()):
+        return (
+            f"resolves to {script}, inside the package's own folder; a gate "
+            "that resolves inside the package is refused",
+            script,
+        )
+    try:
+        runnable = script.is_file() and os.access(script, os.X_OK)
+    except (OSError, ValueError):
+        runnable = False
+    if not runnable:
+        return f"is not an executable file ({script})", script
+    return None, script
+
+
+def _following(
+    entry: Entry, anchors: dict[str, str], gates: GateList | None
+) -> tuple[Entry, ...]:
+    """The caller's gates that run right after the door's ``entry``."""
+    if gates is None:
+        return ()
+    return tuple(
+        gate
+        for phase, anchor in anchors.items()
+        if anchor == entry.script
+        for gate in getattr(gates, phase)
+    )
+
+
 #: `KEY=VALUE`, where VALUE runs to end of line. Anything else on the export
 #: descriptor is a
 #: gate trying to say something the door has no vocabulary for.
@@ -521,29 +946,64 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     to 3, so a gate writing to a hardcoded 3 writes to whatever happens to sit
     there — which it did, silently, while still exiting 0. The declared-exports
     check below is what caught it.
+
+    A caller's gate is started by the path :func:`_outside` resolved and
+    checked, opened by name again at the spawn: the gate file, or a folder on
+    its path, swapped between the check and the spawn is not caught. A signal
+    to the door that lands while a caller's gate is being started, before the
+    door waits on it in :func:`_collect_bounded`, raises past it, and that gate
+    is left running; a burst of signals can land there. Both are known limits,
+    held to be acceptable while the caller is the user.
     """
+    # A caller's gate runs from its own root and sees it as RUN_ROOT; what it
+    # exports still lands in the door's ``env``. Its path is held to its root
+    # again here: the list was checked when it was read, and a gate that ran
+    # since could have swapped this one's file for a link out of the root.
+    # A caller's gate is named by the list's own text; what the door prints
+    # of it is escaped (see :func:`_printable`).
+    name = _printable(entry.script) if entry.root else entry.script
+    if entry.root:
+        why_not, script = _outside(Path(entry.script), Path(entry.root))
+        if why_not is not None:
+            _refuse(2, _printable(f"{entry.script} {why_not}, since the list was read"))
+        child = dict(env, RUN_ROOT=entry.root)
+        # The handlers to set back once the gate's group is ended, taken
+        # before the gate starts: ending it sets both signals aside.
+        restore = {sig: signal.getsignal(sig) for sig in UNSTOPPABLE}
+    else:
+        script = GATE_SCRIPTS / entry.script
+        child = env
     read_fd, write_fd = os.pipe()
     try:
-        proc = subprocess.Popen(
-            [sys.executable, str(GATE_SCRIPTS / entry.script), *(args or [])],
-            cwd=env.get("RUN_ROOT") or ROOT,
-            env=dict(env, RUN_EXPORT_FD=str(write_fd)),
-            pass_fds=(write_fd,),
-        )
+        try:
+            proc = subprocess.Popen(
+                [sys.executable, str(script), *(args or [])],
+                cwd=child.get("RUN_ROOT") or ROOT,
+                env=dict(child, RUN_EXPORT_FD=str(write_fd)),
+                pass_fds=(write_fd,),
+                start_new_session=bool(entry.root),
+            )
+        except (OSError, ValueError) as escape:
+            _refuse(2, _printable(f"{entry.script} could not be started: {escape}"))
         os.close(write_fd)
         write_fd = -1
-        with os.fdopen(read_fd, "r", encoding="utf-8", errors="replace") as pipe:
-            read_fd = -1
-            try:
-                reported = pipe.read()
-                status = proc.wait()
-            except KeyboardInterrupt:
-                # The entry is ended BEFORE the door moves on: gate 7 re-reads
-                # the rig and looks for containers, and a step still running
-                # under it would make both readings lies. A terminal's Ctrl-C
-                # already reached the child; a bare `kill` of the door did not.
-                _end(proc)
-                raise
+        if entry.root:
+            fd, read_fd = read_fd, -1
+            reported, status = _collect_bounded(entry, proc, fd, restore)
+        else:
+            with os.fdopen(read_fd, "r", encoding="utf-8", errors="replace") as pipe:
+                read_fd = -1
+                try:
+                    reported = pipe.read()
+                    status = proc.wait()
+                except KeyboardInterrupt:
+                    # The entry is ended BEFORE the door moves on: gate 7
+                    # re-reads the rig and looks for containers, and a step
+                    # still running under it would make both readings lies. A
+                    # terminal's Ctrl-C already reached the child; a bare
+                    # `kill` of the door did not.
+                    _end(proc)
+                    raise
     finally:
         for fd in (read_fd, write_fd):
             if fd >= 0:
@@ -556,17 +1016,25 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
         if match is None:
             _refuse(
                 2,
-                f"{entry.script} wrote {line!r} on RUN_EXPORT_FD, which is not "
+                f"{name} wrote {_start_of(line) if entry.root else repr(line)} "
+                "on RUN_EXPORT_FD, which is not "
                 "KEY=VALUE; the door passes named facts between gates and "
                 "nothing else",
             )
         key, value = match.group(1), match.group(2)
+        if "\x00" in value:
+            _refuse(
+                2,
+                f"{name} exported {key} with a NUL byte in its value; no "
+                "process can start with it in its environment",
+            )
         if key not in entry.exports:
             _refuse(
                 2,
-                f"{entry.script} exported {key}, which it does not declare in "
-                "SEQUENCE. The door knows the whole vocabulary before anything "
-                "runs, so a gate cannot introduce a variable a later gate reads",
+                f"{name} exported {key}, which it does not declare in "
+                f"{'its gate list' if entry.root else 'SEQUENCE'}. The door knows "
+                "the whole vocabulary before anything runs, so a gate cannot "
+                "introduce a variable a later gate reads",
             )
         env[key] = value
 
@@ -574,7 +1042,7 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     if status == 0 and missing:
         _refuse(
             2,
-            f"{entry.script} exited 0 without exporting {', '.join(missing)}; "
+            f"{name} exited 0 without exporting {', '.join(missing)}; "
             "an entry that admits the run must produce what it declares, or a "
             "later gate reads an empty value as a fact",
         )
@@ -637,6 +1105,166 @@ def _end(proc: subprocess.Popen[bytes]) -> None:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
+
+
+def _start_of(line: str, most: int = 80) -> str:
+    """``line`` quoted, cut to its first ``most`` characters when it is longer."""
+    if len(line) <= most:
+        return repr(line)
+    return f"{line[:most]!r}... ({len(line)} characters)"
+
+
+def _end_group(
+    proc: subprocess.Popen[bytes], restore: dict[signal.Signals, Any]
+) -> None:
+    """End a caller's gate and its process group, and wait for the group to be gone.
+
+    TERM goes to the gate's process group. The door waits up to
+    :data:`GROUP_GRACE_S` for the group to be empty, so a process of it that
+    cleans up on TERM gets to finish, and sends KILL to what is left of it
+    only then; after KILL it waits up to :data:`GROUP_GONE_S` for the group
+    to be empty. A process stays in its group until it is reaped. The door
+    reaps the gate, and any process of the group that has become its own
+    child (a door running as PID 1 or as a child subreaper adopts the ones
+    the gate left); any other is reaped by whoever adopted it. When the bound
+    after KILL passes with the group not yet empty (a process KILL cannot end
+    at once, or one nobody has reaped), the door goes on: the lease release
+    still runs, with those processes still in the group. A process the gate
+    started in a group or a session of its own is outside the group and is
+    not ended.
+
+    INT and TERM are ignored while it runs, and set back to ``restore`` when
+    it returns. A signal that landed in a wait would otherwise raise out of
+    it: the caller would call it again, which sends TERM again and starts the
+    grace over, and a gate ended at its bound would be reported as an
+    interrupted run (130) rather than refused (2). A signal already pending
+    when it is called can raise before they are ignored; the caller calls it
+    again until it returns (see :func:`_collect_bounded`).
+    """
+    try:
+        for sig in UNSTOPPABLE:
+            signal.signal(sig, signal.SIG_IGN)
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(proc.pid, signal.SIGTERM)
+        if not _group_gone(proc, GROUP_GRACE_S):
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(proc.pid, signal.SIGKILL)
+            _group_gone(proc, GROUP_GONE_S)
+    finally:
+        for sig, handler in restore.items():
+            signal.signal(sig, handler)
+
+
+def _group_gone(proc: subprocess.Popen[bytes], within: float) -> bool:
+    """Whether the gate's process group is empty within ``within`` seconds.
+
+    The gate is reaped as it ends. Once it is, a process of its group that is
+    the door's child now is reaped too: only a process the door adopted can
+    be, since the gate was the door's one child in the group.
+    """
+    until = time.monotonic() + within
+    while True:
+        if proc.poll() is not None:
+            with contextlib.suppress(ChildProcessError):
+                while os.waitpid(-proc.pid, os.WNOHANG)[0]:
+                    pass
+        try:
+            os.killpg(proc.pid, 0)
+        except (ProcessLookupError, PermissionError):
+            return True
+        if time.monotonic() >= until:
+            return False
+        time.sleep(0.02)
+
+
+def _collect_bounded(
+    entry: Entry,
+    proc: subprocess.Popen[bytes],
+    fd: int,
+    restore: dict[signal.Signals, Any],
+) -> tuple[str, int]:
+    """What a caller's gate exported and its status, within its time bound.
+
+    The export pipe is read until every writer has closed it and the gate has
+    exited, or until the bound, and is waited on with ``poll``, which takes a
+    descriptor of any number. At the bound the gate's process group is ended
+    (:func:`_end_group`) and the gate refused, whether the gate still runs or
+    exited and left a process holding the descriptor open; the refusal says
+    which. A gate that writes more than :data:`MAX_EXPORT_BYTES` on it is
+    ended and refused the same way, and one that writes bytes that are not
+    UTF-8 is refused: carried on, each would grow into three.
+
+    A KeyboardInterrupt ends the group the same way before it goes on. A
+    second signal can land before :func:`_end_group` has set both aside, and
+    raise out of it; the door calls it again until it returns, and it sets
+    the handlers back to ``restore``, taken before the gate started.
+    """
+    deadline = time.monotonic() + entry.timeout_s
+    chunks: list[bytes] = []
+    held = 0
+
+    def ended(why: str) -> NoReturn:
+        _end_group(proc, restore)
+        _refuse(2, _printable(f"{entry.script} {why}"))
+
+    def over() -> NoReturn:
+        bound = f"{entry.timeout_s:g} s"
+        if proc.poll() is None:
+            ended(f"ran past its bound of {bound} and was ended with its process group")
+        ended(
+            "exited, but a process it left held its export descriptor past the "
+            f"bound of {bound}; what was left of its process group was ended"
+        )
+
+    try:
+        try:
+            poller = select.poll()
+            poller.register(fd, select.POLLIN)
+            while True:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    over()
+                if poller.poll(math.ceil(left * 1000)):
+                    data = os.read(fd, 65536)
+                    if not data:
+                        break
+                    held += len(data)
+                    if held > MAX_EXPORT_BYTES:
+                        wrote = (
+                            f"wrote more than {MAX_EXPORT_BYTES} bytes on "
+                            "RUN_EXPORT_FD, more than the door reads from a gate"
+                        )
+                        if proc.poll() is None:
+                            ended(f"{wrote}, and was ended with its process group")
+                        ended(
+                            f"{wrote}, and exited; what was left of its process "
+                            "group was ended"
+                        )
+                    chunks.append(data)
+            try:
+                status = proc.wait(timeout=max(deadline - time.monotonic(), 0.0))
+            except subprocess.TimeoutExpired:
+                over()
+        except KeyboardInterrupt:
+            while True:
+                try:
+                    _end_group(proc, restore)
+                    break
+                except KeyboardInterrupt:
+                    continue
+            raise
+    finally:
+        os.close(fd)
+    try:
+        return b"".join(chunks).decode("utf-8"), status
+    except UnicodeDecodeError as bad:
+        _refuse(
+            2,
+            _printable(
+                f"{entry.script} wrote bytes that are not UTF-8 on RUN_EXPORT_FD "
+                f"(at byte {bad.start + 1}); the door passes text between gates"
+            ),
+        )
 
 
 #: What a `--model` may contain: an absolute path of ordinary path characters.
@@ -754,6 +1382,47 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
+    parser.add_argument(
+        "--gates",
+        default=None,
+        metavar="FILE",
+        help=(
+            "a caller's gate list (JSON: root, gates of path, why, phase, "
+            "exports, timeout_s), each gate run by the door's Python from the "
+            "root, in a session of its own. At a gate's timeout_s (default "
+            f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
+            "door sends TERM to its process group, KILL when the group is still "
+            f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
+            "for the group to be empty, and refuses the gate; there is no bound "
+            "over the whole list, each gate has its own. A signal to the door's "
+            "process group does not reach a gate: the door ends it on INT or "
+            "TERM, except a gate the signal reaches while the door is starting "
+            "it, which can be left running past the lease release; a door that "
+            "is killed or hung up leaves it running with no bound. A process "
+            "a gate leaves behind after ending within its "
+            "bound outlives the door, unless it holds the gate's export "
+            "descriptor open: then the door waits up to the bound for it to "
+            "close it, and if it has not, refuses the gate and ends the gate's "
+            "process group, which ends that process only while it is in the "
+            "group. One in a group or a session of its own outlives the door "
+            "even while it holds the descriptor. A gate may write at most "
+            f"{MAX_EXPORT_BYTES // 1024} KiB of UTF-8 on its export descriptor; "
+            "one that writes more is ended and refused. What all gates export "
+            "together must fit in the environment a process starts with: when "
+            "it does not, the next gate cannot start, and the door refuses "
+            "naming that gate. "
+            "`before` gates run after the "
+            "profile and before anything is sent to the machine; `after` gates "
+            "after the identity and daemon gates and before the envelope and "
+            "the step; `always` gates after gates 7 and 8 and before the lease "
+            "is released, and only when the run got as far as gate 5. A "
+            "`before` or `after` gate that refuses, runs past its bound or dies "
+            "ends the run as a door gate's refusal does: the door's gates after "
+            "it do not run, and the lease is still released. An `always` gate "
+            "that refuses does not stop the next. A caller's gate never runs in "
+            "place of a door gate or moves one"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -794,6 +1463,11 @@ def _serve(argv: list[str]) -> int:
     except servelib.ComposeError as escape:
         print(f"run.py: REFUSED — {escape}", file=sys.stderr)
         return 2
+    try:
+        gates = load_gate_list(opts.gates) if opts.gates is not None else None
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
 
     env = dict(os.environ)
     env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
@@ -827,6 +1501,10 @@ def _serve(argv: list[str]) -> int:
                     if entry.script != "06-step.py":
                         return _stop(entry, status, env)
                     step_status = status
+                for gate in _following(entry, SERVE_PHASES, gates):
+                    status = _run_entry(gate, env)
+                    if status != 0:
+                        return _stop_caller(gate, status)
         except RefusedError as refusal:
             print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
             return refusal.status
@@ -838,7 +1516,7 @@ def _serve(argv: list[str]) -> int:
                 file=sys.stderr,
             )
 
-        after = _always(env)
+        after = _always(env, gates.always if gates else ())
         if interrupted:
             return 130
         return step_status or after
@@ -848,7 +1526,7 @@ def _serve(argv: list[str]) -> int:
         # past. Releasing twice is releasing once: `gatelib.release`
         # unlinks `missing_ok`.
         _release_claim(env)
-        _release_lease(env)
+        _release_lease(env, gates.exports if gates else frozenset())
 
 
 def _read_parse(argv: list[str]) -> argparse.Namespace:
@@ -901,6 +1579,45 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         default="",
         help="the id the read's rows are filed under (default: minted)",
     )
+    parser.add_argument(
+        "--gates",
+        default=None,
+        metavar="FILE",
+        help=(
+            "a caller's gate list (JSON: root, gates of path, why, phase, "
+            "exports, timeout_s), each gate run by the door's Python from the "
+            "root, in a session of its own. At a gate's timeout_s (default "
+            f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
+            "door sends TERM to its process group, KILL when the group is still "
+            f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
+            "for the group to be empty, and refuses the gate; there is no bound "
+            "over the whole list, each gate has its own. A signal to the door's "
+            "process group does not reach a gate: the door ends it on INT or "
+            "TERM, except a gate the signal reaches while the door is starting "
+            "it, which can be left running past the lease release; a door that "
+            "is killed or hung up leaves it running with no bound. A process "
+            "a gate leaves behind after ending within its "
+            "bound outlives the door, unless it holds the gate's export "
+            "descriptor open: then the door waits up to the bound for it to "
+            "close it, and if it has not, refuses the gate and ends the gate's "
+            "process group, which ends that process only while it is in the "
+            "group. One in a group or a session of its own outlives the door "
+            "even while it holds the descriptor. A gate may write at most "
+            f"{MAX_EXPORT_BYTES // 1024} KiB of UTF-8 on its export descriptor; "
+            "one that writes more is ended and refused. What all gates export "
+            "together must fit in the environment a process starts with: when "
+            "it does not, the next gate cannot start, and the door refuses "
+            "naming that gate. "
+            "`before` gates run after the "
+            "profile and before anything is sent to the machine. `after` gates "
+            "run after the machine is read and what was read is filed, so they "
+            "cannot stop that filing, and only when the reading gate exited 0: "
+            "it exits non-zero when it refused, and also after filing when a "
+            "probe or a load on the rig failed, or when a read under the dev "
+            "profile raised an alert. A read has no `always` phase, and a list "
+            "that asks for one is refused"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -939,6 +1656,12 @@ def _read(argv: list[str]) -> int:
         return 2
     try:
         root = run_root()
+        # A read has no teardown and no lease, so no `always` phase to run in.
+        gates = (
+            load_gate_list(opts.gates, tuple(READ_PHASES))
+            if opts.gates is not None
+            else None
+        )
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -966,6 +1689,10 @@ def _read(argv: list[str]) -> int:
                 return _stop(entry, status, env)
             if status != 0:
                 return status
+            for gate in _following(entry, READ_PHASES, gates):
+                status = _run_entry(gate, env)
+                if status != 0:
+                    return _stop_caller(gate, status)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -1106,16 +1833,28 @@ def main(argv: list[str] | None = None) -> int:
 UNSTOPPABLE = (signal.SIGINT, signal.SIGTERM)
 
 
-def _always(env: dict[str, str]) -> int:
-    """Gates 7 and 8, to completion, whatever signal arrives meanwhile.
+def _always(env: dict[str, str], callers: tuple[Entry, ...] = ()) -> int:
+    """Gates 7 and 8, then ``callers``, to completion, whatever signal arrives.
 
     A signal handled here would end the entry that was running — gate 7
     mid-read of the rig, gate 8 mid-parse — and the run's end state would be
     exactly as unknown as if neither had run. So both signals are ignored
     for the whole phase and restored after it; a run interrupted before this
     phase still exits 130 (the caller keeps that), and one interrupted
-    during it exits with what 7 and 8 decided. The claim gate 5 took on the
-    RUN_ID is released last, on every path out of here.
+    during it exits with what 7 and 8 decided. ``callers`` are a caller's
+    ``always`` gates, run after 7 and 8: a refusal in one does not stop the
+    next, but a signal to the door ends the one that is running (it is the
+    caller's code, with a time bound of its own, and the lease waits on it),
+    and counts as its refusal. One the signal reaches while the door is
+    starting it is not ended and can run on past the lease release; the door
+    cannot tell the two apart, and its message says either may be so. INT
+    and TERM are set to end a caller's gate
+    only while it runs, and set aside again before the door says how it
+    ended; a signal that lands in between is caught and they are set aside
+    again (:func:`_aside`), so it neither stops the next gate nor escapes the
+    door. One more signal landing in the few instructions between catching a
+    signal and setting them aside can still escape. The claim gate 5 took on
+    the RUN_ID is released last, on every path out of here.
     """
     if "RUN_ID" not in env:
         return 0  # gate 5 never minted a run: nothing was started to tear down
@@ -1130,11 +1869,68 @@ def _always(env: dict[str, str]) -> int:
             except RefusedError as refusal:
                 print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
                 after = refusal.status
+        for entry in callers:
+            status: int | None = None
+            refused: RefusedError | None = None
+            ended = False
+            try:
+                try:
+                    for sig in UNSTOPPABLE:
+                        signal.signal(sig, _sigterm)
+                    status = _run_entry(entry, env)
+                except RefusedError as refusal:
+                    refused = refusal
+                except KeyboardInterrupt:
+                    ended = True
+                finally:
+                    _aside()
+            except KeyboardInterrupt:
+                # One more signal, landed before INT and TERM were set aside.
+                _aside()
+                ended = ended or (status is None and refused is None)
+            if refused is not None:
+                print(f"run.py: REFUSED — {refused.rule}", file=sys.stderr)
+                after = refused.status
+            elif ended:
+                print(
+                    _printable(
+                        f"run.py: {entry.script} is refused: a signal reached "
+                        "the door while it ran or was being started (one the "
+                        "door was waiting on is ended with its process group; "
+                        f"one being started may still run) — {entry.why}"
+                    ),
+                    file=sys.stderr,
+                )
+                after = entry.status
+            elif status:
+                print(
+                    _printable(
+                        f"run.py: {entry.script} ({_ended(status)}) — {entry.why}"
+                    ),
+                    file=sys.stderr,
+                )
+                after = entry.status
     finally:
         for sig, handler in previous.items():
             signal.signal(sig, handler)
         _release_claim(env)
     return after
+
+
+def _aside() -> None:
+    """Set INT and TERM to be ignored, whatever signal lands while it does so.
+
+    A signal that arrives while a handler is still the door's raises
+    KeyboardInterrupt; it is caught and the setting done again, so once this
+    returns neither signal raises.
+    """
+    while True:
+        try:
+            for sig in UNSTOPPABLE:
+                signal.signal(sig, signal.SIG_IGN)
+        except KeyboardInterrupt:
+            continue
+        return
 
 
 def _release_claim(env: dict[str, str]) -> None:
@@ -1144,26 +1940,49 @@ def _release_claim(env: dict[str, str]) -> None:
         gatelib.release(Path(out_dir), run_id)
 
 
-def _release_lease(env: dict[str, str]) -> None:
+def _release_lease(env: dict[str, str], callers: frozenset[str] = frozenset()) -> None:
     """Release the rig's lease, if gate 2 took one for this run.
 
     Through a script and not in-process: the door itself is not *under* the
     door — the shims prove an ancestor — so its own ssh would be refused,
     and rightly. Signals are ignored for the duration, as for gates 7 and
     8: a Ctrl-C that landed on the release would leave a lease a rig cannot
-    tell from a live one. Released once: the variable is dropped after.
+    tell from a live one. Released once: the variable is dropped after. The
+    release starts with the door's names only: ``callers``, the names a
+    caller's gates may have exported, are left out of its environment.
     """
     if not env.get(gatelib.LEASE_VAR):
         return
     previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
     try:
-        _run_entry(LEASE_RELEASE, env)
+        _run_entry(LEASE_RELEASE, {k: v for k, v in env.items() if k not in callers})
     except RefusedError as refusal:
         print(f"run.py: {refusal.rule}", file=sys.stderr)
     finally:
         for sig, handler in previous.items():
             signal.signal(sig, handler)
         env.pop(gatelib.LEASE_VAR, None)
+
+
+def _ended(status: int) -> str:
+    """How a process ended, from its status."""
+    return f"killed by signal {-status}" if status < 0 else f"exit {status}"
+
+
+def _stop_caller(entry: Entry, status: int) -> int:
+    """A caller's gate refused: say which, how it ended and why, and stop.
+
+    The door stops with its own refusal status, 2, whatever the gate's was:
+    a gate's 130 or a signal that killed it is that gate's refusal, never the
+    door's own interrupt (130).
+    """
+    print(
+        _printable(
+            f"run.py: REFUSED at {entry.script} ({_ended(status)}) — {entry.why}"
+        ),
+        file=sys.stderr,
+    )
+    return 2
 
 
 def _stop(entry: Entry, status: int, env: dict[str, str]) -> int:
