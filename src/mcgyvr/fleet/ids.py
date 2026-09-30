@@ -73,7 +73,10 @@ RIG_HARDWARE: tuple[str, ...] = (
     "gpu_name",
     "gpu_vram_mib",
     "gpu_cc",
+    "gpu_slot",
 )
+#: The one field naming the rig's cards beyond device 0, hashed only when set.
+RIG_EXTRA_CARDS = "gpu_others"
 #: A rig's system, as ``rig-snapshot.sh`` names each reading.
 RIG_SYSTEM: tuple[str, ...] = ("os_machine_id", "kernel", "driver", "docker")
 
@@ -81,11 +84,11 @@ RIG_SYSTEM: tuple[str, ...] = ("os_machine_id", "kernel", "driver", "docker")
 def rig_id(snapshot: Mapping[str, str]) -> str:
     """``rig-`` = H{ host, hardware, system } over one ``rig-snapshot.sh`` reading.
 
-    Owner, 2026-09-15 (D1): the values are hashed exactly as the snapshot prints
-    them — tokenized strings, ``host`` its ``hostname=`` — and nowhere else is a
-    rig id spelled, so the lock and live admission name a rig the same way. A
-    reading missing a field is refused by name and never hashed
-    (``mcgyvr-lab/records/plans/fleet-identity.md`` §1, ID-1).
+    The values are hashed exactly as the snapshot prints them — tokenized
+    strings, ``host`` its ``hostname=`` — and nowhere else is a rig id spelled,
+    so the lock and live admission name a rig the same way. A reading missing a
+    field is refused by name and never hashed. Cards beyond device 0 are named
+    by the ``gpu_others`` reading, hashed as printed and only when non-empty.
     """
     wanted = ("hostname", *RIG_HARDWARE, *RIG_SYSTEM)
     missing = [key for key in wanted if not str(snapshot.get(key) or "").strip()]
@@ -94,11 +97,15 @@ def rig_id(snapshot: Mapping[str, str]) -> str:
             f"the rig snapshot does not read {', '.join(missing)}, and a rig id "
             "is never hashed over a field that was not read"
         )
+    hardware = {key: str(snapshot[key]) for key in RIG_HARDWARE}
+    extras = str(snapshot.get(RIG_EXTRA_CARDS) or "").strip()
+    if extras:
+        hardware[RIG_EXTRA_CARDS] = extras
     return digest(
         "rig-",
         {
             "host": str(snapshot["hostname"]),
-            "hardware": {key: str(snapshot[key]) for key in RIG_HARDWARE},
+            "hardware": hardware,
             "system": {key: str(snapshot[key]) for key in RIG_SYSTEM},
         },
     )

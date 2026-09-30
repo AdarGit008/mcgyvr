@@ -89,6 +89,7 @@ def snapshot(rig: str, **override: str) -> dict[str, str]:
         "gpu_name": f"Made_Up_Card_{rig}",
         "gpu_vram_mib": vram,
         "gpu_cc": cc,
+        "gpu_slot": "00000000:0" + ("1" if rig == "alpha" else "2") + ":00.0",
         "driver": "580.178.04",
         "gpu_reserve_mib": reserve,
         "gpu_used_mib": "0",

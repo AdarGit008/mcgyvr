@@ -98,20 +98,38 @@ power_limit() {
     printf '%s' "$out"
 }
 
+others_of() {
+    # The cards beyond device 0, as `slot:name:vram_mib:cc` per further card,
+    # `;`-joined and sorted by slot: the same extra card in another slot is a
+    # different rig. One card prints nothing.
+    local out="$1" line slot name vram cc rest busid
+    out=$(printf '%s\n' "$out" | sed -e '1d' -e '/^[[:space:]]*$/d')
+    [ -n "$out" ] || { printf ''; return 0; }
+    while IFS= read -r line; do
+        IFS=, read -r name busid total cc rest <<EOF
+$line
+EOF
+        slot=$(tok "$busid"); name=$(tok "$name"); vram=$(tok "$total"); cc=$(tok "$cc")
+        printf '%s:%s:%s:%s\n' "$slot" "$name" "$vram" "$cc"
+    done <<EOF | LC_ALL=C sort | paste -sd';' -
+$out
+EOF
+}
+
 nvidia() {
-    local out line name total cc drv reserved used free f
+    local out line name busid total cc drv reserved used free f
     command -v nvidia-smi >/dev/null 2>&1 || fail "nvidia-smi is not on PATH; the GPU state is unread"
-    out=$(nvidia-smi --query-gpu=name,memory.total,compute_cap,driver_version,memory.reserved,memory.used,memory.free --format=csv,noheader,nounits 2>/dev/null) || out=
+    out=$(nvidia-smi --query-gpu=name,pci.bus_id,memory.total,compute_cap,driver_version,memory.reserved,memory.used,memory.free --format=csv,noheader,nounits 2>/dev/null) || out=
     if [ -z "$out" ]; then
-        out=$(nvidia-smi --query-gpu=name,memory.total,compute_cap,driver_version --format=csv,noheader,nounits 2>/dev/null) || out=
+        out=$(nvidia-smi --query-gpu=name,pci.bus_id,memory.total,compute_cap,driver_version --format=csv,noheader,nounits 2>/dev/null) || out=
         [ -n "$out" ] || fail "nvidia-smi returned nothing; the GPU state is unread"
         out="$out, [N/A], [N/A], [N/A]"
     fi
     line=$(printf '%s\n' "$out" | head -n 1)
-    IFS=, read -r name total cc drv reserved used free <<EOF
+    IFS=, read -r name busid total cc drv reserved used free <<EOF
 $line
 EOF
-    name=$(tok "$name"); total=$(tok "$total"); cc=$(tok "$cc"); drv=$(tok "$drv")
+    name=$(tok "$name"); busid=$(tok "$busid"); total=$(tok "$total"); cc=$(tok "$cc"); drv=$(tok "$drv")
     reserved=$(tok "${reserved:-}"); used=$(tok "${used:-}"); free=$(tok "${free:-}")
     case $reserved in
         ''|*[!0-9]*)
@@ -124,14 +142,15 @@ EOF
             reserved=$((total - used - free))
             ;;
     esac
-    for f in "$name" "$total" "$cc" "$drv"; do
-        [ -n "$f" ] || fail "nvidia-smi left one of name/memory.total/compute_cap/driver_version empty: '$line'"
+    for f in "$name" "$busid" "$total" "$cc" "$drv"; do
+        [ -n "$f" ] || fail "nvidia-smi left one of name/pci.bus_id/memory.total/compute_cap/driver_version empty: '$line'"
     done
     # used/free are printed too: gate 2 compares only the declared keys, but a
     # placement needs `free` and reading it in the same breath as the rest is
     # what makes it the same card at the same moment.
-    printf 'gpu_name=%s\ngpu_vram_mib=%s\ngpu_cc=%s\ndriver=%s\ngpu_reserve_mib=%s\ngpu_used_mib=%s\ngpu_free_mib=%s\n' \
-        "$name" "$total" "$cc" "$drv" "$reserved" "${used:-NA}" "${free:-NA}"
+    printf 'gpu_name=%s\ngpu_vram_mib=%s\ngpu_cc=%s\ngpu_slot=%s\ndriver=%s\ngpu_reserve_mib=%s\ngpu_used_mib=%s\ngpu_free_mib=%s\n' \
+        "$name" "$total" "$cc" "$busid" "$drv" "$reserved" "${used:-NA}" "${free:-NA}"
+    printf 'gpu_others=%s\n' "$(others_of "$out")"
 }
 
 docker_version() {
