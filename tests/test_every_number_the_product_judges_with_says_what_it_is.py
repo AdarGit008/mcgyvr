@@ -103,7 +103,6 @@ FILES_CHANGING_NOW: frozenset[str] = frozenset(
         "fleet/admission.py",
         "fleet/admit.py",
         "fleet/alerts.py",
-        "fleet/ids.py",
         "fleet/lock.py",
         "fleet/probe.py",
         "fleet/read.py",
