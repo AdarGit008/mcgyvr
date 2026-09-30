@@ -42,7 +42,6 @@ src/mcgyvr/fleet/admit.py	dev-pointer=4
 src/mcgyvr/fleet/alerts.py	dev-pointer=3	identity=1
 src/mcgyvr/fleet/files.py	dev-pointer=1
 src/mcgyvr/fleet/harness.py	dev-pointer=3
-src/mcgyvr/fleet/ids.py	dev-pointer=1
 src/mcgyvr/fleet/lock.py	dev-pointer=6
 src/mcgyvr/fleet/probe.py	dev-pointer=5
 src/mcgyvr/fleet/promote.py	dev-pointer=2
@@ -129,7 +128,7 @@ tests/test_a_read_without_a_lock_never_pulls_a_live_unit.py	dev-pointer=1
 tests/test_a_release_takes_its_notes_from_the_changelog_or_is_refused.py	dev-pointer=1
 tests/test_a_request_timeout_is_the_runs_own_not_a_constant.py	dev-pointer=1
 tests/test_a_rig_can_be_served_down_twice_in_one_day.py	dev-pointer=1
-tests/test_a_rig_is_named_by_the_snapshot_it_prints.py	dev-pointer=5	host=1	identity=1
+tests/test_a_rig_is_named_by_the_snapshot_it_prints.py	dev-pointer=3	host=1	identity=1
 tests/test_a_rig_is_read_through_the_door_without_leasing_it.py	dev-pointer=6	host=2	identity=2
 tests/test_a_rig_that_is_not_the_declared_rig_is_refused.py	dev-pointer=1	host=2
 tests/test_a_rung_whose_model_is_not_resident_does_not_read_as_available.py	host=2

@@ -1,24 +1,24 @@
 """A rig is named by the snapshot it prints, in the spelling the snapshot prints.
 
-Owner ruling D1: ``rig-`` = H{ host, hardware, system }
-(``mcgyvr-lab/records/plans/fleet-identity.md`` §1) is hashed by one product function,
+``rig-`` = H{ host, hardware, system } is hashed by one product function,
 :func:`mcgyvr.fleet.ids.rig_id`, over the fields exactly as
 ``src/mcgyvr/serving/gate-scripts/rig-snapshot.sh`` prints them: tokenized,
 every value a string. The lock and live admission both call it; there is no
 second spelling.
 
-* ``rig_id`` over srv2's snapshot is the id srv2 is locked under.
-* A snapshot missing a field is refused by name, never hashed (§1 ID-1).
+* A moved rig — one whose snapshot names another field value — is named anew.
+* A snapshot missing a field is refused by name, never hashed.
 * ``rig-snapshot.sh`` prints ``os_machine_id``, derived as ``mcgyvr scan``
   derives its machine id: the first 16 hex of the sha256 of
   ``/etc/machine-id`` (``src/mcgyvr/scan.py``).
 * The lock refuses a rig whose dev run's snapshot names another id than the
-  one ``fleet.yaml`` pins.
+  one the lock pins.
 """
 
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import re
 import subprocess
@@ -26,7 +26,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
 from tests import onedoor
 from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
@@ -50,16 +49,34 @@ def srv2_snapshot(**override: str) -> dict[str, str]:
     return dict(line.split("=", 1) for line in text.splitlines() if line)
 
 
-def locked_rig_id(host: str) -> str:
-    fleet = yaml.safe_load((REPO / "fleet-setup" / "fleet.yaml").read_text("utf-8"))
-    return str(fleet["rigs"][host]["rig_id"])
+def _made_up_snapshot(**overrides: str) -> dict[str, str]:
+    """One made-up one-card rig reading, as ``rig-snapshot.sh`` prints it."""
+    values = {
+        "hostname": "invented-box-2.invalid",
+        "cpu_model": "Made_Up_CPU_B",
+        "cpu_max_mhz": "4400",
+        "ram_mt_s": "3200",
+        "pl1_uw": "95000000",
+        "pl2_uw": "120000000",
+        "gpu_name": "Made_Up_Card_B",
+        "gpu_vram_mib": "6144",
+        "gpu_cc": "7.5",
+        "gpu_slot": "00000000:02:00.0",
+        "os_machine_id": hashlib.sha256(b"invented-box-2").hexdigest()[:16],
+        "kernel": "7.0.0-31-madeup",
+        "driver": "580.178.04",
+        "docker": "29.7.2",
+    }
+    values.update(overrides)
+    return values
 
 
 def test_a_moved_rig_is_named_anew() -> None:
     from mcgyvr.fleet.ids import rig_id
 
-    assert rig_id(srv2_snapshot(kernel="7.0.0-32-generic")) != locked_rig_id("srv2")
-    assert rig_id(srv2_snapshot(pl1_uw="4095000000")) != locked_rig_id("srv2")
+    named = rig_id(_made_up_snapshot())
+    assert rig_id(_made_up_snapshot(kernel="7.0.0-32-madeup")) != named
+    assert rig_id(_made_up_snapshot(pl1_uw="3800000000")) != named
 
 
 @pytest.mark.parametrize("missing", ["os_machine_id", "gpu_cc", "hostname", "kernel"])

@@ -1,4 +1,4 @@
-"""A rig's identity is minted by the slot its card sits in, so the same card in another slot is another rig."""
+"""A rig's identity is minted by the slot its card sits in."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ SNAPSHOT_SH = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "rig-snapsh
 def _snapshot(**overrides: str) -> dict[str, str]:
     """One made-up one-card rig reading, as ``rig-snapshot.sh`` prints it."""
     values = {
-        "hostname": "invented-box-1",
+        "hostname": "invented-box-1.invalid",
         "cpu_model": "Made_Up_CPU_A",
         "cpu_max_mhz": "4500",
         "ram_mt_s": "3200",
@@ -41,7 +41,9 @@ def _reader_body(*names: str) -> str:
     text = SNAPSHOT_SH.read_text(encoding="utf-8")
     parts = [text.split("\nuptime_since()", 1)[0]]
     for name in names:
-        match = re.search(rf"^{name}\(\) \{{\n.*?^\}}\n", text, re.MULTILINE | re.DOTALL)
+        match = re.search(
+            rf"^{name}\(\) \{{\n.*?^\}}\n", text, re.MULTILINE | re.DOTALL
+        )
         assert match, f"rig-snapshot.sh defines no {name}() reader"
         parts.append(match.group(0))
     return "\n".join(parts)
@@ -52,12 +54,10 @@ def _stub_smi(path: Path, rows: str) -> None:
     stub = path / "nvidia-smi"
     stub.write_text(
         "#!/usr/bin/env bash\n"
-        "case \"$*\" in\n"
+        'case "$*" in\n'
         "  *query-compute-apps*) exit 0 ;;\n"
         "esac\n"
-        "cat <<'EOF'\n"
-        + rows
-        + "EOF\n",
+        "cat <<'EOF'\n" + rows + "EOF\n",
         encoding="utf-8",
     )
     stub.chmod(0o755)
@@ -93,9 +93,7 @@ def test_gpu_others_is_hashed_only_when_non_empty() -> None:
     absent = rig_id(_snapshot())
     empty = rig_id(_snapshot(gpu_others=""))
     assert empty == absent
-    second = rig_id(
-        _snapshot(gpu_others="00000000:04:00.0:Made_Up_Card_B:12288:8.6")
-    )
+    second = rig_id(_snapshot(gpu_others="00000000:04:00.0:Made_Up_Card_B:12288:8.6"))
     assert second != absent
 
 
