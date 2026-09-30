@@ -21,6 +21,7 @@ import pytest
 
 from tests.machine_shapes import shapes
 from tests.machinereader import (
+    MIB,
     Staged,
     SysfsCard,
     expected_unsized,
@@ -145,6 +146,27 @@ def test_a_display_entry_with_no_vendor_id_is_named_as_one_and_left_out(
     assert "no PCI vendor id" in unread["card.unknown.2.vendor"]
     assert not [f for f in unread if "pci" in f]
     assert machine.short_id(reading) == machine.short_id(alone)
+
+
+def test_a_name_file_that_is_there_but_not_readable_falls_back_to_the_pci_name(
+    tmp_path: Path,
+) -> None:
+    """A card whose name file is there but not readable keeps its id by the name the PCI ids give."""
+    from mcgyvr.fleet import machine
+
+    card = SysfsCard(
+        number=0,
+        vendor="0x1002",
+        device="0x00aa",
+        product_name_dir=True,
+        vram_total_bytes=8192 * MIB,
+        vram_used_bytes=0,
+    )
+    reading = _read(Staged(sysfs=(card,)), tmp_path)
+    (read,) = reading.cards
+    assert read.name == "PCI 0x1002:0x00aa"
+    assert "card.amd.0.name" not in {u.field for u in reading.unread}
+    assert machine.short_id(reading).startswith(machine.SHORT_ID_PREFIX)
 
 
 def test_every_invented_machine_names_exactly_its_unsized_cards(

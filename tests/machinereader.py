@@ -93,13 +93,16 @@ class SysfsCard:
     """One ``/sys/class/drm/cardN`` entry. ``None`` leaves a file out.
 
     ``raw`` maps a file name under ``device/`` to bytes written as they are,
-    over what the other fields would write.
+    over what the other fields would write. ``product_name_dir`` writes
+    ``product_name`` as a folder instead of a file, to model a name file that
+    is there but cannot be read.
     """
 
     number: int
     vendor: str | None
     device: str
     product_name: str | None = None
+    product_name_dir: bool = False
     vram_total_bytes: int | None = None
     vram_used_bytes: int | None = None
     raw: Mapping[str, bytes] = field(default_factory=dict)
@@ -391,7 +394,9 @@ def _set_out(
         if card.vendor is not None:
             _write(device / "vendor", card.vendor + "\n")
         _write(device / "device", card.device + "\n")
-        if card.product_name is not None:
+        if card.product_name_dir:
+            (device / "product_name").mkdir(parents=True, exist_ok=True)
+        elif card.product_name is not None:
             _write(device / "product_name", card.product_name + "\n")
         if card.vram_total_bytes is not None:
             _write(device / "mem_info_vram_total", f"{card.vram_total_bytes}\n")

@@ -54,6 +54,23 @@ def test_a_whole_reading_parses_with_nothing_unread_and_gets_an_id() -> None:
     assert machine.short_id(reading).startswith(machine.SHORT_ID_PREFIX)
 
 
+def test_a_restart_count_the_reading_names_unread_is_dropped() -> None:
+    """A restart count the reading itself names unread is not taken from the line."""
+    from mcgyvr.fleet import machine
+
+    text = (
+        HEAD
+        + "container=example-unit,abc,example-project,3\n"
+        + "unread=container.abc.restarts,docker inspect gave no restart count\n"
+        + END
+    )
+    reading = machine.parse(text)
+    assert reading.containers is not None
+    (container,) = reading.containers
+    assert container.restarts is None
+    assert "container.abc.restarts" in _unread(text)
+
+
 def test_a_card_printed_twice_is_dropped_named_and_refuses_the_id() -> None:
     from mcgyvr.fleet import machine
 
