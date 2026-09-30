@@ -8,8 +8,8 @@ the development repository, in the places and shapes
 each with the hits of each kind it holds; the list may only shrink. Not read:
 the folders that leave the product, while they are in it, and the changelog
 from its first released version's heading on. A name where no rule reads a
-host (prose, a positional argument, other keys) is not seen; the check reads
-shapes and knows no one's own names.
+host (prose, a positional argument, other keys) is not seen; the lab guard
+finds the owner's own names.
 
 The kinds, what passes and what the check cannot see are stated in
 :mod:`tests.uninvented_machines`, which this test and the command that writes
