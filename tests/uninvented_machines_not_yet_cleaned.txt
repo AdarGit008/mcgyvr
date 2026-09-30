@@ -1,0 +1,209 @@
+# Files of the product that name a machine it did not invent, or point into
+# the development repository, in the places and shapes that
+# tests/uninvented_machines.py reads, with how many hits of each kind they
+# hold.
+# Paths and counts only, never the text of a line; a path that is itself a
+# hit is listed as it is. One line per file, sorted by path within its
+# section:
+#     path<TAB>kind=count[<TAB>kind=count ...]
+# The test demands that the scan finds exactly these files, kinds and counts.
+# What that does not hold: a hit replaced by another of the same kind in a
+# listed file keeps the count and passes. On a pull request CI compares this
+# list with the base branch's and fails when a file or a kind was added or a
+# count rose.
+# After cleaning, rewrite the counts with
+#     uv run --no-sync python -m tests.uninvented_machines --write
+# It refuses to add a file or a kind, or to raise a count, unless given
+# --allow-growth; it puts a new file in the first section and never moves an
+# entry between sections, which a person does. A renamed file is a new file
+# to it: rename the entry by hand, in its section and in order.
+# On a merge conflict in this file: take the base branch's list, then run the
+# command above without a flag.
+# Any other comment line, and any line not in this form, is refused.
+#
+# Section 1: not yet cleaned.
+.gitattributes	dev-pointer=2
+.github/workflows/release.yml	dev-pointer=1
+.gitignore	dev-pointer=14
+CHANGELOG.md	dev-pointer=10
+Makefile	dev-pointer=2
+README.md	dev-pointer=9
+eslint.config.mjs	dev-pointer=7
+examples/fleet.yaml	dev-pointer=2
+prettier.config.mjs	dev-pointer=1
+pyproject.toml	dev-pointer=24
+skills/mcgyvr/SETUP.md	dev-pointer=1
+src/mcgyvr/capacity.py	dev-pointer=1
+src/mcgyvr/catalog.py	dev-pointer=1
+src/mcgyvr/cli.py	dev-pointer=11	host=2
+src/mcgyvr/config.py	dev-pointer=1
+src/mcgyvr/emit.py	dev-pointer=2
+src/mcgyvr/fleet/admit.py	dev-pointer=4
+src/mcgyvr/fleet/alerts.py	dev-pointer=3	identity=1
+src/mcgyvr/fleet/files.py	dev-pointer=1
+src/mcgyvr/fleet/harness.py	dev-pointer=3
+src/mcgyvr/fleet/ids.py	dev-pointer=1
+src/mcgyvr/fleet/lock.py	dev-pointer=6
+src/mcgyvr/fleet/probe.py	dev-pointer=5
+src/mcgyvr/fleet/promote.py	dev-pointer=2
+src/mcgyvr/fleet/read.py	dev-pointer=2
+src/mcgyvr/fleet/roots.py	dev-pointer=3
+src/mcgyvr/gate/preflight.py	dev-pointer=2
+src/mcgyvr/prompts/javascript.md	dev-pointer=1
+src/mcgyvr/prompts/python.md	dev-pointer=2
+src/mcgyvr/runner.py	dev-pointer=3
+src/mcgyvr/scan.py	dev-pointer=2
+src/mcgyvr/serving/__init__.py	address=4	card-model=1	dev-pointer=13
+src/mcgyvr/serving/gate-scripts/01-round.py	dev-pointer=5
+src/mcgyvr/serving/gate-scripts/02-rig.py	dev-pointer=6
+src/mcgyvr/serving/gate-scripts/03-image.py	dev-pointer=3
+src/mcgyvr/serving/gate-scripts/04-workload.py	dev-pointer=3
+src/mcgyvr/serving/gate-scripts/05-envelope.py	dev-pointer=7
+src/mcgyvr/serving/gate-scripts/08-parse.py	dev-pointer=2
+src/mcgyvr/serving/gate-scripts/data-10-scan.py	dev-pointer=1
+src/mcgyvr/serving/gate-scripts/data-20-geometry.py	dev-pointer=1
+src/mcgyvr/serving/gate-scripts/data-30-placement.py	dev-pointer=1
+src/mcgyvr/serving/gate-scripts/default-step.sh	dev-pointer=2
+src/mcgyvr/serving/gate-scripts/read-01-profile.py	dev-pointer=1
+src/mcgyvr/serving/gate-scripts/read-02-rig.py	dev-pointer=4
+src/mcgyvr/serving/gate-scripts/rig-snapshot.sh	dev-pointer=1
+src/mcgyvr/serving/gate-scripts/rig-units.sh	dev-pointer=1
+src/mcgyvr/serving/gate-scripts/serve-up.py	dev-pointer=2
+src/mcgyvr/serving/ggufscan.py	dev-pointer=4
+src/mcgyvr/serving/run.py	dev-pointer=9	host=1
+src/mcgyvr/serving/servelib.py	dev-pointer=3
+src/mcgyvr/serving/vramfit.py	dev-pointer=8
+src/mcgyvr/telemetry.py	dev-pointer=17
+src/mcgyvr/wake.py	dev-pointer=6
+src/mcgyvr/weights.py	dev-pointer=1
+src/mcgyvr/worker/bundle.py	dev-pointer=4
+src/mcgyvr/worker/prompt.py	dev-pointer=1
+src/mcgyvr/worker/reply.py	dev-pointer=1
+tests/callergates.py	dev-pointer=1
+tests/livejournal.py	dev-pointer=1
+tests/lockfleets_window.py	dev-pointer=6
+tests/onedoor.py	card-model=2	dev-pointer=20	host=2
+tests/red_port/test_dod_checks_reach_what_they_claim.py	dev-pointer=2
+tests/red_port/test_dod_coresident_start_order.py	host=1
+tests/red_port/test_dod_ollama_is_gone.py	dev-pointer=5	host=1
+tests/red_port/test_dod_one_context_number.py	host=2
+tests/red_port/test_dod_placement_conservatism.py	dev-pointer=1
+tests/red_port/test_dod_profile.py	dev-pointer=1	home-path=1
+tests/red_port/test_dod_release.py	dev-pointer=2
+tests/red_port/test_dod_rig_lease.py	host=1
+tests/red_port/test_dod_run_root.py	home-path=1
+tests/red_port/test_dod_rung_window.py	host=2
+tests/sweeprows.py	dev-pointer=2
+tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py	dev-pointer=2	home-path=1	host=1
+tests/test_a_byline_never_outlives_the_verdict_it_was_given_for.py	dev-pointer=2
+tests/test_a_card_can_be_woken_twice_in_one_day.py	dev-pointer=1
+tests/test_a_card_reserve_that_moves_between_boots_is_the_same_rig.py	dev-pointer=2	host=1
+tests/test_a_co_resident_unit_waits_for_a_healthy_neighbour.py	dev-pointer=1	host=3
+tests/test_a_config_digest_does_not_mint_the_retired_cfg_prefix.py	dev-pointer=2
+tests/test_a_config_resolves_the_geometry_it_names_or_refuses.py	dev-pointer=2
+tests/test_a_config_that_changed_without_re_emitting_is_refused.py	host=1
+tests/test_a_correction_says_how_the_work_landed.py	dev-pointer=2
+tests/test_a_corrupt_wake_cache_does_not_shorten_a_wake.py	host=1
+tests/test_a_dev_round_may_serve_any_launch_spec.py	dev-pointer=2	host=1
+tests/test_a_door_that_takes_an_unknown_campaign_writes_nothing.py	dev-pointer=3	host=1
+tests/test_a_fleet_id_is_a_prefixed_content_digest.py	card-model=2	dev-pointer=1	host=7
+tests/test_a_fleet_of_two_windows_is_emitted_at_both.py	host=4
+tests/test_a_floor_run_is_in_the_corpus_too.py	dev-pointer=1
+tests/test_a_launch_argv_with_spec_flags_passes_admission_unchanged.py	host=1
+tests/test_a_launch_spec_this_config_does_not_plan_is_never_woken.py	host=1
+tests/test_a_live_probe_is_judged_against_its_lock.py	dev-pointer=9	host=6
+tests/test_a_live_row_names_what_answered_it_and_under_which_round.py	dev-pointer=7
+tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py	dev-pointer=2	host=3	identity=2
+tests/test_a_live_run_warns_when_its_step_is_pulled.py	dev-pointer=1
+tests/test_a_llamacpp_unit_may_declare_mtp_and_a_gguf_without_a_head_is_refused.py	dev-pointer=1	host=3
+tests/test_a_load_runs_thirty_seconds_then_gives_its_verdict.py	dev-pointer=1
+tests/test_a_locked_fleet_emits_its_hashed_launch.py	home-path=5	host=3
+tests/test_a_locked_fleet_loads_as_the_run_config.py	host=1	identity=2
+tests/test_a_machines_short_id_covers_its_id_and_every_cards_name_and_size.py	identity=2
+tests/test_a_measured_scratch_is_used_only_at_the_ubatch_it_was_read_at.py	dev-pointer=4
+tests/test_a_promoted_fleet_carries_the_date_of_its_lock_in_its_name.py	dev-pointer=2	host=1
+tests/test_a_pull_warning_names_its_unit_and_a_row_its_own_time.py	dev-pointer=1	host=5
+tests/test_a_read_measures_before_it_judges_and_loads_a_unit.py	host=2
+tests/test_a_read_probes_a_unit_of_a_named_setup_fleet_without_its_lock.py	host=1
+tests/test_a_read_without_a_lock_never_pulls_a_live_unit.py	dev-pointer=1
+tests/test_a_release_takes_its_notes_from_the_changelog_or_is_refused.py	dev-pointer=1
+tests/test_a_request_timeout_is_the_runs_own_not_a_constant.py	dev-pointer=1
+tests/test_a_rig_can_be_served_down_twice_in_one_day.py	dev-pointer=1
+tests/test_a_rig_is_named_by_the_snapshot_it_prints.py	dev-pointer=5	host=1	identity=1
+tests/test_a_rig_is_read_through_the_door_without_leasing_it.py	dev-pointer=6	host=2	identity=2
+tests/test_a_rig_that_is_not_the_declared_rig_is_refused.py	dev-pointer=1	host=2
+tests/test_a_rung_whose_model_is_not_resident_does_not_read_as_available.py	host=2
+tests/test_a_scan_that_could_not_read_the_cards_is_not_a_pulled_card.py	card-model=3
+tests/test_a_served_path_is_the_model_that_is_resident.py	dev-pointer=3	home-path=3	host=2
+tests/test_a_sleeping_rung_is_woken_rather_than_declined.py	card-model=1	dev-pointer=2	host=3
+tests/test_a_sleeping_unit_does_not_read_as_serving.py	dev-pointer=4	host=1
+tests/test_a_stale_note_is_not_this_attempts_note.py	dev-pointer=2
+tests/test_a_tagged_live_fleet_is_admitted_read_and_emitted_as_its_layout.py	dev-pointer=1
+tests/test_a_test_may_name_a_rig_and_may_not_reach_one.py	address=1	host=1
+tests/test_a_unit_states_its_kv_cache_dtype_or_is_refused.py	host=1
+tests/test_a_unit_states_the_seccomp_its_engine_needs.py	dev-pointer=7
+tests/test_a_unit_that_drafts_with_its_own_head_is_judged_by_its_own_class.py	dev-pointer=3
+tests/test_a_unit_with_cpu_experts_in_its_argv_is_judged_as_cpu_experts.py	home-path=4	host=1
+tests/test_a_vllm_backend_read_searches_the_whole_log_and_records_its_line.py	dev-pointer=1
+tests/test_a_vllm_unit_that_declares_mtp_is_refused_by_name.py	dev-pointer=1	host=1
+tests/test_a_wake_is_asked_for_in_the_config_and_bounded_by_its_own_budget.py	dev-pointer=2	host=2
+tests/test_an_alert_pulls_its_combination_until_it_is_revalidated.py	dev-pointer=3
+tests/test_an_mtp_head_is_charged_to_the_card_and_moves_the_floor.py	card-model=1	dev-pointer=1	host=1
+tests/test_an_mtp_unit_emits_its_spec_flags_and_a_plain_unit_renders_as_before.py	host=1
+tests/test_availability.py	address=2
+tests/test_bench_observed.py	dev-pointer=1	host=1
+tests/test_capacity_counts_each_attempt_once_and_never_waits_on_itself.py	host=1
+tests/test_capacity_hostwide.py	host=2
+tests/test_card_contention_and_not_the_port_decides_who_alternates.py	dev-pointer=1	host=10
+tests/test_detect.py	address=1	card-model=5	host=4
+tests/test_dev_and_live_locks_flow_one_way.py	dev-pointer=4
+tests/test_draft_acceptance_is_journaled_when_the_server_reports_it.py	dev-pointer=1
+tests/test_draining_a_source_whose_rung_declares_a_width_does_not_raise.py	dev-pointer=1	host=1
+tests/test_emit.py	address=7
+tests/test_escalate.py	address=5
+tests/test_exit_codes.py	card-model=1	host=2
+tests/test_fleet_lock_reads_fleet_and_policy_as_yaml.py	dev-pointer=1	host=1
+tests/test_four_lenses.py	dev-pointer=8
+tests/test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock.py	dev-pointer=1	host=1
+tests/test_ggufscan_self_contained.py	dev-pointer=1
+tests/test_host_ram_is_summed_across_co_residents.py	dev-pointer=2	host=1
+tests/test_measured_scan.py	card-model=6
+tests/test_measured_sizing.py	card-model=1	dev-pointer=3	host=19
+tests/test_no_landed_test_opens_with_a_red_spec_docstring.py	dev-pointer=1
+tests/test_no_retired_door_names.py	dev-pointer=25
+tests/test_no_stale_pending_citations.py	dev-pointer=6
+tests/test_one_door.py	dev-pointer=11
+tests/test_orchestrator_repo.py	home-path=1	host=2
+tests/test_pattern_b_one_owner.py	dev-pointer=4
+tests/test_pattern_e_boundaries.py	dev-pointer=1
+tests/test_per_rung_width.py	host=12
+tests/test_prefill_is_judged_and_cuda_host_and_the_backend_are_recorded.py	dev-pointer=1
+tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py	dev-pointer=5
+tests/test_remote_scan.py	card-model=1
+tests/test_route.py	address=2
+tests/test_sandbox_docker.py	host=5
+tests/test_sandbox_image.py	host=4
+tests/test_sandbox_tempdir.py	host=2
+tests/test_serving_door_cli.py	host=7
+tests/test_serving_gatelib.py	dev-pointer=1	host=7
+tests/test_serving_unit.py	host=7
+tests/test_serving_vramfit.py	dev-pointer=1
+tests/test_sleeping_a_card_takes_every_rung_it_serves.py	card-model=2	dev-pointer=1
+tests/test_the_constant_steps_once_an_expert_is_on_the_host.py	dev-pointer=2
+tests/test_the_door_serves_a_ladder_and_leaves_it_up.py	host=1
+tests/test_the_fleet_and_its_policy_are_two_files.py	dev-pointer=1	host=2
+tests/test_the_fleet_lock_is_written_only_from_passing_dev_runs.py	dev-pointer=8	host=4
+tests/test_the_index_says_who_applied_a_correction.py	dev-pointer=1
+tests/test_the_journal_is_one_place_and_a_copy_is_the_callers.py	dev-pointer=3
+tests/test_the_live_ladder_serves_vllm_and_carries_extra_flags.py	dev-pointer=1	host=2
+tests/test_the_lock_pins_each_combinations_headroom_card_peak_backend_and_prefill.py	card-model=2	dev-pointer=6	host=1
+tests/test_the_reading_parser_refuses_what_its_fields_do_not_take.py	identity=3
+tests/test_the_two_ram_gates_hold_back_different_margins.py	dev-pointer=1	host=1
+tests/test_two_models_on_one_url_are_alternatives.py	dev-pointer=1	host=9
+tests/test_two_rungs_on_one_rig_are_two_bounds.py	host=5
+tests/test_verify_b1_b9.py	dev-pointer=1
+tests/test_whatever_a_card_tool_prints_ends_as_a_value_or_a_named_unread_field.py	identity=1
+# Section 2: kept on purpose. A file here needs such strings as its inputs;
+# a person moves an entry here and says why in the change that moves it.
+tests/test_init_names_no_machine_the_user_did_not_name.py	address=6	host=8
+tests/test_what_every_test_shares_opens_nothing_outside_the_package_and_the_tests.py	dev-pointer=12

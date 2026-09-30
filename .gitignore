@@ -51,3 +51,7 @@ graphify-out/
 
 # Headless pi agent session logs (transcripts), not project artefacts.
 .pi-sessions/
+
+# The temporary file tests/uninvented_machines.py writes the list through;
+# it is left behind only when a run is killed before it replaces the list.
+tests/.uninvented_machines_not_yet_cleaned.txt.*
