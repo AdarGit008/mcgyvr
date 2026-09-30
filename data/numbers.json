@@ -358,6 +358,16 @@
       "says": "How many tokens the warm-up request of a probe generates before any sample is taken.",
       "reason": "the method a stored reading was made with"
     },
+    "fleet/machine.py:NAME_MAX": {
+      "kind": "choice",
+      "says": "The longest card or process name, in characters, a machine reading takes; a longer one is left empty and named unread.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "fleet/machine.py:_WHY_MAX": {
+      "kind": "choice",
+      "says": "How many characters of the reason for an unread field a machine reading keeps; the rest is cut off.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
     "gate/acceptance.py:DID_NOT_RUN": {
       "kind": "fact",
       "says": "The shell statuses that mean a command could not be run at all, not found or not executable.",

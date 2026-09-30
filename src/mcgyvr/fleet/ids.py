@@ -2,7 +2,8 @@
 
 The shape is a prefix plus the sha256 of a canonical YAML tree — so key order
 is not identity and list order is.
-``unt-`` a unit, ``rig-`` a rig, ``cmb-`` a combination. Every other prefix is
+``unt-`` a unit, ``rig-`` a rig, ``cmb-`` a combination, ``mch-`` a machine by
+its short reading (:func:`mcgyvr.fleet.machine.short_id`). Every other prefix is
 refused, so a record written under a retired design cannot pass for a current
 one.
 """
@@ -16,7 +17,7 @@ from typing import Any
 
 import yaml
 
-IDENTITY_PREFIXES = frozenset({"unt-", "rig-", "cmb-"})
+IDENTITY_PREFIXES = frozenset({"unt-", "rig-", "cmb-", "mch-"})
 _RETIRED_PREFIXES = frozenset({"msp-", "rsh-", "fsh-", "cfg-", "flt-"})
 
 
