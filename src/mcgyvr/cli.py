@@ -2393,12 +2393,8 @@ def _manage(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
-    from mcgyvr import fleet_manager, ladder_manager
-    from mcgyvr import wake as wakelib
-    from mcgyvr.capacity import Capacity, CapacityError
-    from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-    from mcgyvr.pool import source_map
-    from mcgyvr.pressure import Board, Gauge, Pressure, RungCooling
+    from mcgyvr import ladder_manager
+    from mcgyvr.pressure import exclusive
 
     why = ladder_manager.applicable(config)
     if why is not None:
@@ -2407,6 +2403,31 @@ def _manage(args: argparse.Namespace) -> int:
 
     if config.get("profile") == "live" and _admitted_live() is not None:
         return Exit.REFUSED
+
+    # One manager per host: a second would throw switches on the same cards
+    # from streaks and a dwell of its own, sleeping what the first just woke.
+    with exclusive(ladder_manager.MANAGER_LOCK) as held:
+        if held is not True:
+            print(
+                "error: another `mcgyvr manage` is running on this host"
+                if held is False
+                else "error: no lock could be taken under the rendezvous "
+                "directory, so mcgyvr cannot tell whether another `mcgyvr "
+                "manage` is running on this host",
+                file=sys.stderr,
+            )
+            return Exit.REFUSED
+        return _manage_held(args, config)
+
+
+def _manage_held(args: argparse.Namespace, config: Config) -> int:
+    """:func:`_manage` once this process is the host's only ladder manager."""
+    from mcgyvr import fleet_manager, ladder_manager
+    from mcgyvr import wake as wakelib
+    from mcgyvr.capacity import Capacity, CapacityError
+    from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
+    from mcgyvr.pool import source_map
+    from mcgyvr.pressure import Board, Gauge, Pressure, RungCooling
 
     pool = source_map(config)
     fast = fleet_manager.fast_rung(config, pool)

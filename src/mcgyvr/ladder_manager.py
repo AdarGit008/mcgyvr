@@ -93,6 +93,11 @@ ASK_LADDER = "ladder"
 ASK_FANOUT = "fanout"
 ASK_LEAD = "lead"
 
+#: The name one host's ladder manager holds (:func:`mcgyvr.pressure.exclusive`)
+#: while it runs: two managers of one ladder would each sleep what the other
+#: had just woken.
+MANAGER_LOCK = "ladder-manager"
+
 #: The ladder move that changes nothing, and the lead that keeps the order the
 #: config wrote.
 HOLD = "hold"

@@ -331,6 +331,47 @@ class Board:
         return said if isinstance(said, dict) else None
 
 
+@contextmanager
+def exclusive(name: str, directory: Path | None = None) -> Iterator[bool | None]:
+    """Hold ``name`` on this host for the block, if nobody else does.
+
+    Yields ``True`` when this block holds it, ``False`` when another holder
+    already does, and ``None`` when there is no lock to be had: the directory
+    cannot be made or is not ours. ``None`` is not "nobody holds it", and a
+    caller that needs to be the only one refuses on it as on ``False``.
+
+    A ``flock`` on a file named for ``name`` in the rendezvous directory,
+    taken without waiting. The kernel releases it when its holder dies however
+    it dies, so a manager that was killed holds nothing and the file it leaves
+    is only a name.
+    """
+    where = _usable(
+        directory if directory is not None else default_directory(), make=True
+    )
+    if where is None:
+        yield None
+        return
+    try:
+        fd = os.open(
+            where / f"{_stem(name)}.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600
+        )
+    except OSError:
+        yield None
+        return
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            held: bool | None = False
+        except OSError:
+            held = None
+        else:
+            held = True
+        yield held
+    finally:
+        os.close(fd)
+
+
 @dataclass(frozen=True)
 class Reading:
     """What is known about one rung's load right now, each fact as far as it goes.
