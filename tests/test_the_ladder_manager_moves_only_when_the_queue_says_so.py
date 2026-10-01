@@ -123,7 +123,9 @@ def reading(
     waiting: int | None = 0,
     climbed: int | None = 0,
     width: int = 2,
+    full: bool | None = None,
 ) -> Reading:
+    """A reading; ``full`` defaults to what the server's count alone says."""
     return Reading(
         rung=rung,
         awake=awake,
@@ -131,6 +133,7 @@ def reading(
         waiting=waiting,
         climbed=climbed,
         width=width,
+        full=(in_flight or 0) >= width if full is None else full,
     )
 
 
@@ -528,6 +531,32 @@ def test_a_unit_that_is_not_provably_idle_is_never_offered_for_sleep(
     decide = FakeDecide()
     manager(pressure, FakeSwitches(pressure), decide).tick()
     assert decide.asked == [], "only hold is legal, so nothing is asked"
+
+
+def test_a_full_rung_offers_a_wake_though_nothing_waits_here() -> None:
+    """Full is the one check the climb's idle spill makes too.
+
+    Other clients fill the fast rung to its width, which only its server's count
+    can see: nothing is queued on this host's slots, and the manager sent
+    nothing. That is a full local ladder, and a sleeping bigger unit is offered.
+    """
+    pressure = FakePressure(
+        reading(FAST, in_flight=2, waiting=0, climbed=0),
+        reading(BIG, awake=False, in_flight=None),
+    )
+    decide = FakeDecide(ladder="hold")
+    manager(pressure, FakeSwitches(pressure), decide).tick()
+    assert set(decide.asked[0]["ladder"].options) == {"hold", f"wake:{BIG}"}  # type: ignore[union-attr]
+
+
+def test_a_rung_below_width_by_both_counts_offers_no_wake() -> None:
+    pressure = FakePressure(
+        reading(FAST, in_flight=1, waiting=0, full=False),
+        reading(BIG, awake=False, in_flight=None),
+    )
+    decide = FakeDecide()
+    manager(pressure, FakeSwitches(pressure), decide).tick()
+    assert decide.asked == []
 
 
 def test_a_queue_below_keeps_the_big_unit_awake() -> None:

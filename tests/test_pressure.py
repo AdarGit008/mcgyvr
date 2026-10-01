@@ -607,10 +607,10 @@ def test_a_reading_assembles_liveness_load_queue_and_climbers(
             each.join(timeout=30)
 
     assert smart == Reading(
-        rung=SMART, awake=True, in_flight=3, waiting=1, climbed=0, width=2
+        rung=SMART, awake=True, in_flight=3, waiting=1, climbed=0, width=2, full=True
     )
     assert fast == Reading(
-        rung=FAST, awake=True, in_flight=3, waiting=0, climbed=2, width=1
+        rung=FAST, awake=True, in_flight=3, waiting=0, climbed=2, width=1, full=True
     )
     assert asked == [
         f"live http://{SMART_HOST}:8001",
@@ -624,6 +624,28 @@ def _queue_for(capacity: Capacity, pool: Any, rung: str) -> None:
     """One dispatch that waits for a slot and then gives it straight back."""
     with capacity.hold(pool.bind(rung), rung=rung):
         pass
+
+
+@pytest.mark.parametrize(
+    ("server", "full"),
+    [(2, True), (1, False), (None, False)],
+    ids=["server-at-width", "server-below-width", "server-unread"],
+)
+def test_a_reading_is_full_by_the_capacitys_one_check(
+    tmp_path: Path, server: int | None, full: bool
+) -> None:
+    """The manager in its own process has sent nothing, so its load is zero and
+    the server's count decides; one it could not read leaves the rung free."""
+    config = parse(LADDER)
+    reading = Pressure(
+        source_map(config),
+        Capacity.of(config, root=tmp_path / "slots"),
+        Gauge(tmp_path / "gauge"),
+        live=lambda endpoint: True,
+        in_flight=lambda endpoint: server,
+    ).read(SMART)
+
+    assert reading.full is full
 
 
 def test_a_reading_of_a_rung_that_is_down_says_so_and_is_still_a_reading(
