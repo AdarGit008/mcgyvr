@@ -168,3 +168,68 @@ def test_a_run_whose_setup_allows_the_fallback_runs_in_tempdir_and_says_so(
 
     assert code == 0, out
     assert "no daemon answered" in out
+
+
+# --- the inspection command -------------------------------------------------
+#
+# `mcgyvr sandbox` exists to show the mode a run would get here, so it reads
+# the same two keys a run does. With no setup at all it shows the schema's
+# defaults, which on a machine with no daemon is the refusal.
+
+
+def _inspect(repo: Path, capsys: pytest.CaptureFixture[str]) -> str:
+    assert lj.main(["sandbox", str(repo)]) == 0
+    return capsys.readouterr().out
+
+
+@pytest.mark.usefixtures("no_daemon")
+def test_the_inspection_with_no_setup_shows_the_refusal(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = _inspect(repo, capsys)
+    assert "Sandbox mode: refused" in out
+    _says_both_ways_on(out)
+
+
+@pytest.mark.usefixtures("no_daemon")
+def test_the_inspection_shows_tempdir_where_the_setup_names_it(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = lj.make_config(tmp_path / "setup")
+    lj.append_policy(config, "sandbox:\n  mode: tempdir\n")
+    monkeypatch.setenv("MCGYVR_CONFIG", str(config))
+    out = _inspect(repo, capsys)
+    assert "Sandbox mode: tempdir" in out
+    assert "refused" not in out
+
+
+@pytest.mark.usefixtures("no_daemon")
+def test_the_inspection_shows_the_fallback_where_the_setup_allows_it(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = lj.make_config(tmp_path / "setup")
+    lj.append_policy(config, "sandbox:\n  allow_fallback: true\n")
+    monkeypatch.setenv("MCGYVR_CONFIG", str(config))
+    out = _inspect(repo, capsys)
+    assert "Sandbox mode: tempdir" in out
+    assert "sandbox.allow_fallback` is on" in out
+
+
+@pytest.mark.usefixtures("no_daemon")
+def test_the_inspection_reports_a_setup_it_cannot_read(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = lj.make_config(tmp_path / "setup")
+    lj.append_policy(config, "sandbox:\n  allow_fallback: sometimes\n")
+    monkeypatch.setenv("MCGYVR_CONFIG", str(config))
+    assert lj.main(["sandbox", str(repo)]) == 1
+    assert "allow_fallback" in capsys.readouterr().err

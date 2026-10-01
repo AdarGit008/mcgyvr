@@ -15,7 +15,6 @@ other path.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import pytest
@@ -57,11 +56,7 @@ def test_the_secret_scan_reads_nothing_through_the_link(changed: ChangeSet) -> N
 
 
 def test_no_language_adapter_takes_the_link_as_its_file(changed: ChangeSet) -> None:
+    # The host-side checkers are handed what `owned()` returns, so this is
+    # where a link is kept from them. A run of ruff over the link is no pin:
+    # ruff already said nothing about it before the link was dropped here.
     assert PythonAdapter().owned(changed.files) == []
-
-
-@pytest.mark.skipif(shutil.which("ruff") is None, reason="a real ruff is the reader")
-def test_the_linter_on_the_host_reads_nothing_through_the_link(
-    changed: ChangeSet,
-) -> None:
-    assert PythonAdapter().lint(changed.files, changed.repo) == []
