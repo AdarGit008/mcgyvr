@@ -183,7 +183,7 @@ def test_vllm_split_over_two_machines_runs_a_headless_node_on_the_second(
         "shards": shards,
         "tensor_parallel": 2,
         "tensor_table_json": "table.json",
-        "kv_cache_dtype_k": "fp16",
+        "kv_cache_dtype_k": "float16",
     }
     made = config(tmp_path, launch, engine="vllm", hf_cache="/cache")
     head, worker = units_for(made, scans(), specs=(), ctx_per_slot=WINDOW)
@@ -247,7 +247,7 @@ def test_a_vllm_split_without_its_tensor_table_is_told_how_to_read_one(
     shards = [{"rig": "box-a.example", "gpu": 0}, {"rig": "box-a.example", "gpu": 1}]
     made = config(
         tmp_path,
-        {"shards": shards, "kv_cache_dtype_k": "fp16"},
+        {"shards": shards, "kv_cache_dtype_k": "float16"},
         engine="vllm",
         hf_cache="/cache",
     )

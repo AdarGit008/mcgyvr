@@ -2,10 +2,12 @@
 
 Bits-per-weight is a guess; the tensor table is not. The row a checkpoint
 directory yields states the bytes of every tensor, split into each decoder
-block, the input embedding and the rest, with a second count of the tensors a
-tensor-parallel split divides (two dimensions or more), and the parts always
-add up to the whole. A checkpoint in several shards is read in every shard.
-Weights are never read: the checkpoints here hold zero bytes of data.
+block, the input embedding, a multimodal tower apart from the decoder, and the
+rest, with a second count of the tensors a tensor-parallel split divides (two
+dimensions or more), and the parts always add up to the whole. A checkpoint
+whose output head is its input embedding says so. A checkpoint in several
+shards is read in every shard. Weights are never read: the checkpoints here
+hold zero bytes of data.
 """
 
 from __future__ import annotations
@@ -20,7 +22,10 @@ def _invariant(row: dict[str, object]) -> None:
     by_block = row["bytes_by_block"]
     assert isinstance(by_block, dict)
     assert (
-        row["bytes_input"] + row["bytes_output"] + sum(by_block.values())  # type: ignore[operator]
+        row["bytes_input"]  # type: ignore[operator]
+        + row["bytes_output"]
+        + row.get("bytes_tower", 0)
+        + sum(by_block.values())
         == row["bytes_total_tensors"]
     )
 
@@ -149,3 +154,69 @@ def test_a_nested_text_config_supplies_the_geometry_and_the_architecture(
     assert row["arch"] == "example-text"
     assert (row["n_layer"], row["n_embd"], row["n_head"]) == (2, 8, 4)
     assert row["n_head_kv"] == 2
+
+
+def _tower_spec() -> ckpt.Spec:
+    spec = ckpt.decoder_spec(2)
+    for i in range(3):
+        p = f"vision_tower.vision_model.encoder.layers.{i}"
+        spec[f"{p}.self_attn.q_proj.weight"] = ("BF16", [16, 16])
+    spec["vision_tower.vision_model.embeddings.patch_embedding.weight"] = (
+        "BF16",
+        [16, 3, 4, 4],
+    )
+    spec["multi_modal_projector.linear_1.weight"] = ("BF16", [8, 16])
+    return spec
+
+
+def test_a_vision_towers_layers_are_not_summed_into_the_decoders_blocks(
+    tmp_path: Path,
+) -> None:
+    config = {
+        "model_type": "example-multimodal",
+        "text_config": ckpt.base_config(model_type="example-text"),
+    }
+    plain = safetensorscan.scan(
+        str(ckpt.make(tmp_path / "text", ckpt.decoder_spec(2), config))
+    )
+    row = safetensorscan.scan(str(ckpt.make(tmp_path / "mm", _tower_spec(), config)))
+
+    assert row["bytes_by_block"] == plain["bytes_by_block"]
+    assert row["bytes_output"] == plain["bytes_output"]
+    tower = (
+        3 * ckpt.nbytes("BF16", [16, 16])
+        + ckpt.nbytes("BF16", [16, 3, 4, 4])
+        + ckpt.nbytes("BF16", [8, 16])
+    )
+    assert row["bytes_tower"] == tower
+    assert plain["bytes_tower"] == 0
+    _invariant(row)
+
+
+def test_an_untied_checkpoint_says_so(tmp_path: Path) -> None:
+    d = ckpt.make(tmp_path / "untied", ckpt.decoder_spec(2), ckpt.base_config())
+    assert safetensorscan.scan(str(d))["tied_embeddings"] is False
+
+
+def test_a_config_that_ties_the_embeddings_says_so(tmp_path: Path) -> None:
+    config = ckpt.base_config(tie_word_embeddings=True)
+    d = ckpt.make(tmp_path / "tied", ckpt.decoder_spec(2), config)
+    assert safetensorscan.scan(str(d))["tied_embeddings"] is True
+
+
+def test_a_nested_text_config_that_ties_the_embeddings_says_so(tmp_path: Path) -> None:
+    config = {
+        "model_type": "example-multimodal",
+        "text_config": ckpt.base_config(tie_word_embeddings=True),
+    }
+    d = ckpt.make(tmp_path / "nested-tied", ckpt.decoder_spec(2), config)
+    assert safetensorscan.scan(str(d))["tied_embeddings"] is True
+
+
+def test_a_checkpoint_with_no_output_head_is_tied(tmp_path: Path) -> None:
+    spec = ckpt.decoder_spec(2)
+    del spec["lm_head.weight"]
+    d = ckpt.make(tmp_path / "headless", spec, ckpt.base_config())
+    row = safetensorscan.scan(str(d))
+    assert row["tied_embeddings"] is True
+    assert row["bytes_output_matrix"] == 0

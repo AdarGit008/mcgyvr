@@ -23,7 +23,6 @@ from mcgyvr.serving.interconnect import Link
 from mcgyvr.serving.sharding import (
     LLAMACPP_ENGINE,
     SPLIT_LAYER,
-    SPLIT_ROW,
     VLLM_ENGINE,
     Grid,
     ShardingError,
@@ -191,35 +190,13 @@ def test_every_card_is_charged_the_allowance_a_single_card_fit_charges() -> None
     assert [shard.allowance_bytes for shard in made.shards] == [expected, expected]
 
 
-# A row split: a share of every matrix per card.
-
-
-def test_a_row_split_divides_the_matrices_and_keeps_each_norm_whole() -> None:
-    model = table(norms_mib=10)
-    made = sized(model, cards(6, 6), Grid(tensor=2, pipeline=1, split=SPLIT_ROW))
-    matrices = 8 * 390 * MIB + 300 * MIB
-    norms = 8 * 10 * MIB + 2 * MIB
-    total = sum(shard.weights_bytes for shard in made.shards)
-    assert matrices + norms <= total <= matrices + norms + len(made.shards)
-    shares = [count / sum(made.layer_counts) for count in made.layer_counts]
-    for shard, share in zip(made.shards, shares, strict=True):
-        assert shard.weights_bytes >= int(matrices * share)
-
-
-def test_a_row_split_never_reaches_a_card_on_another_machine() -> None:
-    model = table()
-    targets = [*cards(6), *cards(6, host="box-b.example")]
-    with pytest.raises(ShardingError, match="row"):
-        sized(model, targets, Grid(tensor=2, pipeline=1, split=SPLIT_ROW))
-
-
 # vLLM: tensor x pipeline.
 
 
 def vllm(model: dict[str, Any], targets: list[Target], grid: Grid, **kw: Any) -> Any:
     args: dict[str, Any] = {
         "engine": VLLM_ENGINE,
-        "cache_type_k": "fp16",
+        "cache_type_k": "float16",
         "cache_type_v": "",
     }
     args.update(kw)
@@ -266,6 +243,70 @@ def test_vllm_is_never_asked_to_run_unequal_card_counts_on_two_machines() -> Non
 def test_a_vllm_cache_dtype_must_be_spelled_to_be_sized() -> None:
     with pytest.raises(ShardingError, match="auto"):
         vllm(table(), cards(6, 6), Grid(tensor=2, pipeline=1), cache_type_k="auto")
+
+
+def test_a_vllm_cache_dtype_is_spelled_as_vllm_spells_it() -> None:
+    # vLLM's --kv-cache-dtype takes float16 and bfloat16; fp16 and bf16 are
+    # an argparse error at launch, so they are refused before anything starts.
+    for spelled in ("fp16", "bf16"):
+        with pytest.raises(ShardingError, match="float16"):
+            vllm(table(), cards(6, 6), Grid(tensor=2, pipeline=1), cache_type_k=spelled)
+    for spelled in ("float16", "bfloat16", "fp8"):
+        vllm(table(), cards(6, 6), Grid(tensor=2, pipeline=1), cache_type_k=spelled)
+
+
+# Tied embeddings: the output head is the input embedding.
+
+
+def tied(model: dict[str, Any]) -> dict[str, Any]:
+    """``model`` with no output head of its own, as a tied checkpoint has."""
+    model = dict(model)
+    model["tied_embeddings"] = True
+    model["bytes_output"] = 2 * MIB
+    model["bytes_output_matrix"] = 0
+    return model
+
+
+def test_a_vllm_pipelines_last_stage_holds_its_share_of_a_tied_embedding() -> None:
+    made = vllm(tied(table()), cards(6, 6, 6, 6), Grid(tensor=2, pipeline=2))
+    for shard in made.shards:
+        per_block = 399 * MIB // 2 + 1 * MIB
+        blocks = per_block * len(shard.blocks)
+        if shard.stage == 0:
+            assert shard.weights_bytes == blocks + 300 * MIB // 2
+        else:
+            # vLLM builds embed_tokens on the last rank too, to tie lm_head.
+            assert shard.weights_bytes == blocks + 300 * MIB // 2 + 2 * MIB
+
+
+def test_one_vllm_stage_holds_a_tied_embedding_once() -> None:
+    made = vllm(tied(table()), cards(6, 6), Grid(tensor=2, pipeline=1))
+    for shard in made.shards:
+        assert shard.weights_bytes == 8 * (399 * MIB // 2 + 1 * MIB) + 150 * MIB + (
+            2 * MIB
+        )
+
+
+def test_llamacpp_puts_a_copy_of_a_tied_embedding_on_the_output_layers_card() -> None:
+    made = sized(
+        tied(table()), cards(6, 6), Grid(tensor=1, pipeline=2, split=SPLIT_LAYER)
+    )
+    first, last = made.shards
+    assert first.weights_bytes == 400 * MIB * len(first.blocks)
+    # The input stays in host memory, and the output layer is a copy of it.
+    assert last.weights_bytes == 400 * MIB * len(last.blocks) + 2 * MIB + 300 * MIB
+
+
+# A multimodal tower sits on every vLLM rank, apart from the decoder blocks.
+
+
+def test_a_vision_tower_is_charged_whole_to_every_vllm_rank() -> None:
+    model = table()
+    model["bytes_tower"] = 200 * MIB
+    made = vllm(model, cards(6, 6), Grid(tensor=1, pipeline=2))
+    first, last = made.shards
+    assert first.weights_bytes == 400 * MIB * len(first.blocks) + 300 * MIB + 200 * MIB
+    assert last.weights_bytes == 400 * MIB * len(last.blocks) + 302 * MIB + 200 * MIB
 
 
 # Refusals.

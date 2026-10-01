@@ -14,10 +14,12 @@ The machines are invented, and so are their addresses.
 
 from __future__ import annotations
 
+import ipaddress
+
 import pytest
 
-from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, ROLE_SERVE
-from mcgyvr.serving.sharding import SPLIT_LAYER, SPLIT_ROW, Grid
+from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, ROLE_SERVE, sharding
+from mcgyvr.serving.sharding import SPLIT_LAYER, Grid
 from mcgyvr.serving.shardlaunch import LaunchError
 from tests.invented_split_plans import (
     ADDR_A,
@@ -34,7 +36,9 @@ from tests.invented_split_plans import (
     WEIGHTS,
     card,
     launch,
+    links,
     llama_plan,
+    table,
     two_machines_llama,
     vllm_plan,
 )
@@ -62,7 +66,7 @@ def test_the_server_is_given_the_flags_an_ordinary_llama_cpp_unit_is_given() -> 
 
     assert head.args == {
         "--model": str(WEIGHTS),
-        "-ngl": "99",
+        "-ngl": str(sum(made.layer_counts)),
         "-c": str(made.ctx_per_slot * made.slots),
         "-ub": str(UBATCH),
         "-b": str(UBATCH),
@@ -84,16 +88,26 @@ def test_every_process_numbers_its_cards_by_the_bus() -> None:
         assert process.env["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
 
 
-def test_a_row_split_states_its_mode_and_the_plans_counts() -> None:
-    made = llama_plan(
-        [card(HOST_A, 0), card(HOST_A, 1)],
-        Grid(tensor=2, pipeline=1, split=SPLIT_ROW),
+def test_every_layer_of_a_deep_model_is_offloaded_so_the_counts_hold() -> None:
+    # -ngl 99 would leave the first blocks of a 126-block model on the host
+    # and shift every other block onto a card it was not sized for.
+    deep = sharding.plan(
+        table(blocks=126, block_mib=40),
+        [card(HOST_A, 0, free_gib=12), card(HOST_A, 1, free_gib=12)],
+        Grid(tensor=1, pipeline=2, split=SPLIT_LAYER),
+        engine="llama.cpp",
+        slots=1,
+        ctx_per_slot=4096,
+        cache_type_k="f16",
+        cache_type_v="f16",
+        n_ubatch=UBATCH,
+        name="example-model-deep",
+        links=links,
+        allowance_bytes=256 << 20,
     )
-    (head,) = launch(made)
-
-    assert head.args["--split-mode"] == "row"
-    assert head.args["--tensor-split"] == ",".join(str(c) for c in made.layer_counts)
-    assert head.gpus == (0, 1)
+    (head,) = launch(deep)
+    assert sum(deep.layer_counts) == 127
+    assert head.args["-ngl"] == "127"
 
 
 # llama.cpp across machines.
@@ -176,6 +190,17 @@ def test_a_bind_that_means_every_interface_is_refused() -> None:
 def test_a_bind_that_is_not_an_address_is_refused() -> None:
     made = llama_plan([card(HOST_A, 0), card(HOST_B, 0, bind="box-b.internal")])
     with pytest.raises(LaunchError, match="IPv4 literal"):
+        launch(made)
+
+
+def test_a_bind_reachable_from_the_internet_is_refused_as_unauthenticated() -> None:
+    # Built from a documentation block rather than written, so no machine's
+    # address is named here: the first octet moved out of every private,
+    # shared and documentation range.
+    public = str(ipaddress.IPv4Address("198.51.100.20") + (1 << 24))
+    assert ipaddress.IPv4Address(public).is_global
+    made = llama_plan([card(HOST_A, 0), card(HOST_B, 0, bind=public)])
+    with pytest.raises(LaunchError, match="no authentication"):
         launch(made)
 
 
