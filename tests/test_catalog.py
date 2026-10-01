@@ -122,6 +122,15 @@ def test_evidence_baseline_routes_each_kind_to_the_slot_that_can_satisfy_it(
             assert kind.baseline == "pass"  # the default; no baseline run exists
 
 
+def test_the_media_and_agent_evidence_kinds_are_declared(shipped: Catalog) -> None:
+    """The new use cases judge by the gate's own tools, not contract commands."""
+    by_name = {e.name: e for e in shipped.evidence_kinds}
+    for name in ("media_valid", "safety_pass", "asr_wer", "grounded"):
+        assert name in by_name, f"{name} is not a declared evidence kind"
+        assert not by_name[name].needs_commands, f"{name} needs a contract command"
+        assert by_name[name].baseline == "pass"
+
+
 def test_the_command_needing_properties_split_by_baseline(shipped: Catalog) -> None:
     bug_fix = shipped.require("bug_fix")
     assert bug_fix.needs_demonstration_commands  # failing_test_first

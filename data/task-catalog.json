@@ -82,6 +82,26 @@
       "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit. Carried in the contract's `demonstration` list, not `acceptance`: the two lists have opposite baseline expectations, and one flat list cannot say which command is which (#183).",
       "needs_commands": true,
       "baseline": "fail"
+    },
+    {
+      "name": "media_valid",
+      "doc": "The output artifact is a valid file of the declared media kind — correct format, dimensions or duration. A structural check the gate makes itself, so it needs no contract command.",
+      "needs_commands": false
+    },
+    {
+      "name": "safety_pass",
+      "doc": "A deterministic safety classifier passes on the output. One kind serves media and text outputs alike — the gate runs it, the contract does not.",
+      "needs_commands": false
+    },
+    {
+      "name": "asr_wer",
+      "doc": "An ASR pass transcribes the audio output and its word-error-rate against the transcript stays under the contract's threshold. The transcript is the contract's own target, so the gate judges it without a human.",
+      "needs_commands": false
+    },
+    {
+      "name": "grounded",
+      "doc": "Every claim the reply makes cites a source the contract provided, so nothing is asserted that the corpus did not carry. A structural check, not a judgement.",
+      "needs_commands": false
     }
   ],
 
