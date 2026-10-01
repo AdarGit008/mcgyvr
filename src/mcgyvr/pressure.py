@@ -74,7 +74,8 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict, probe_endpoint
 from mcgyvr.cooldown import COOLDOWN_S, Cooldown
 from mcgyvr.runner import unit_in_flight
-from mcgyvr.wake import _ours
+from mcgyvr.serving import host_of
+from mcgyvr.wake import _ours, resting
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -429,7 +430,16 @@ class Reading:
 
 
 def _probed(endpoint: Endpoint) -> bool:
-    """Whether the endpoint answers — :mod:`mcgyvr.availability`'s own probe."""
+    """Whether the endpoint serves: it answers, and mcgyvr did not rest its card.
+
+    :mod:`mcgyvr.availability`'s own probe, and one fact it cannot see. A card
+    slept at vLLM's level 2 keeps its process and answers the probe, then
+    hangs on real work; :func:`mcgyvr.wake.resting` is mcgyvr's own record that
+    it did that, and it reads as asleep here. The probe is not asked then: the
+    answer is already known, and a resting unit is not one to wait on.
+    """
+    if resting(host_of(endpoint.base_url)):
+        return False
     return probe_endpoint(endpoint, PROBE_TIMEOUT_S).live
 
 

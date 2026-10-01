@@ -133,7 +133,12 @@ def main() -> int:
     # not a licence, and anything up at all is named.
     serve = os.environ.get("RUN_SERVE", "")
     expected = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
-    before = set() if serve == "down" else _ids(pre.get("containers"))
+    # `sleep` and `wake` open on a serving rig as `down` does, and end with
+    # the declared containers running as `up` does: the units keep their
+    # process through both.
+    opened_busy = serve in ("down", "sleep", "wake")
+    keeps = serve in ("up", "sleep", "wake")
+    before = set() if opened_busy else _ids(pre.get("containers"))
     # What this live run displaced at gate 2 (R1). A container of that run
     # that came back during the step — its step retrying a launch — is torn
     # down again here, by the name its lease gave it, and is not this run's
@@ -142,14 +147,14 @@ def main() -> int:
     # they share its `mcgyvr-` prefix, and are left running.
     displaced = displaced_by_run()
     if displaced is not None and displaced.run_id != "none":
-        keep = frozenset(expected) if serve == "up" else frozenset()
+        keep = frozenset(expected) if keeps else frozenset()
         _rig.teardown_displaced(need("RUN_HOST"), displaced, "gate 7", keep)
     up = _containers_up()
     if up is None:
         status = 1
     else:
         left = {ident: name for ident, name in up.items() if ident not in before}
-        if serve == "up":
+        if keeps:
             serving = {ident: name for ident, name in left.items() if name in expected}
             left = {ident: name for ident, name in left.items() if name not in expected}
             missing = sorted(expected - set(serving.values()))
@@ -158,7 +163,7 @@ def main() -> int:
                 print(f"gate 7: serving, as declared: {names}")
             if missing:
                 print(
-                    "gate 7: serve up ended with declared units not running: "
+                    f"gate 7: serve {serve} ended with declared units not running: "
                     f"{' '.join(missing)} — the ladder is not up, and the run is "
                     "not green",
                     file=sys.stderr,

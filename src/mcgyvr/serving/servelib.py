@@ -280,6 +280,39 @@ def sleep(host: str, port: int, level: int) -> bool:
     return done.returncode == 0
 
 
+def wake(host: str, port: int) -> bool:
+    """Wake the unit on ``host``:``port`` from the level-2 sleep :func:`sleep` made.
+
+    Level 2 discarded the weights, so vLLM's wake is three calls and their
+    order is the point: map the weights' memory back, have every worker read
+    the weights from disk into it, then map the KV cache back. A wake that only
+    called ``/wake_up`` would leave a unit that answers with no weights in it.
+
+    ``False`` as soon as one call fails or the rig cannot be reached; the
+    caller's health poll (:func:`wait_for`) is what says whether the unit came
+    back. The weights are read from disk, so the second call takes as long as a
+    load does, and its budget is the one a compose start gets.
+    """
+    calls = (
+        (f"curl -sf -X POST 'http://localhost:{port}/wake_up?tags=weights'", 60),
+        (
+            f"curl -sf -X POST 'http://localhost:{port}/collective_rpc' "
+            "-H 'Content-Type: application/json' "
+            '-d \'{"method": "reload_weights"}\'',
+            900,
+        ),
+        (f"curl -sf -X POST 'http://localhost:{port}/wake_up?tags=kv_cache'", 60),
+    )
+    for command, budget in calls:
+        try:
+            done = ssh(host, command, timeout=budget)
+        except subprocess.TimeoutExpired:
+            return False
+        if done.returncode != 0:
+            return False
+    return True
+
+
 def wait_for(host: str, service: Service) -> dict[str, object]:
     """Poll one unit until it is serving, or the budget is spent.
 

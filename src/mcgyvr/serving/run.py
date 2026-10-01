@@ -159,9 +159,13 @@ READERS = (
 #: The door's own serve steps, one per direction. Shipped beside the gates
 #: because, like the default step, they belong to no campaign: a live ladder
 #: is not an experiment, and the envelope it files under is the host's.
+#: ``sleep`` and ``wake`` are vLLM's level-2 sleep and its wake: the containers
+#: stay up through both, and only the card's memory is given back and taken.
 SERVE_STEPS = {
     "up": GATE_SCRIPTS / "serve-up.py",
     "down": GATE_SCRIPTS / "serve-down.py",
+    "sleep": GATE_SCRIPTS / "serve-sleep.py",
+    "wake": GATE_SCRIPTS / "serve-wake.py",
 }
 #: The door's vocabulary, and the daemon's: neither may be inherited.
 MINTED_PREFIXES = ("RUN_", "DOCKER_")
@@ -1371,7 +1375,9 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
         prog="python -m mcgyvr.serving.run serve",
         description="start a live ladder on a rig and leave it running, or stop it",
     )
-    parser.add_argument("mode", choices=sorted(SERVE_STEPS), help="up | down")
+    parser.add_argument(
+        "mode", choices=sorted(SERVE_STEPS), help="up | down | sleep | wake"
+    )
     parser.add_argument(
         "--host", required=True, help="srv1 | srv2, as declared in hosts.json"
     )

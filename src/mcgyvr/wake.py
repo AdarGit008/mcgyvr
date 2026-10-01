@@ -39,7 +39,10 @@ the dispatch itself reports for free, which is the cost
 
 **One door and nothing else.** A wake is
 ``python -m mcgyvr.serving.run serve up --host H --compose FILE --suffix S``,
-spawned as a subprocess, and a sleep is the same with ``down``. Nothing here
+spawned as a subprocess, and a sleep is the same with ``down``. The ladder
+manager also uses ``sleep`` and ``wake``, vLLM's level 2 and its way back,
+where the process stays up (see :class:`CardSwitches` and :func:`resting`).
+Nothing here
 runs ``docker`` or ``ssh``: under the door those two names resolve to shims that
 "admit exactly the host the door was opened for and refuse any process the door
 did not start" (:mod:`mcgyvr.serving.run`), and ``tests/test_one_door.py`` bans
@@ -79,7 +82,7 @@ from mcgyvr.serving import Card, cards
 #
 # Imported rather than restated: two spellings of one door is a door that can
 # be half-renamed. `gatelib` is the definition and this is the reader.
-from mcgyvr.serving.gatelib import DOOR_MODULE
+from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE
 
 #: What one dispatch answers with. Named so that :meth:`Waker.dispatching`
 #: hands back exactly what the call it wrapped would have, which is what lets it
@@ -295,6 +298,55 @@ def _remember(made: Wake) -> None:
         return
 
 
+def _rest_mark(host: str) -> Path:
+    return _clock_dir() / f"{_safe(host)}.resting"
+
+
+def resting(host: str) -> bool:
+    """Whether mcgyvr put ``host``'s card to sleep with its process kept.
+
+    A card slept at vLLM's level 2 keeps its containers and answers
+    ``/v1/models``, and then hangs on a real request. So it never gives the
+    instant refusal fail-first waits for, and liveness reads it as up. This
+    mark is what mcgyvr knows instead: written when a ``serve sleep`` of the
+    card worked, and removed by any wake or stop of it that worked. Reading it
+    is a file lookup and no network, so a dispatch that finds no mark costs
+    what it cost before.
+
+    Host-wide, beside the wake history and for the same reason: the manager
+    that slept the card and the task that next climbs to it are different
+    processes. A directory that is not ours is no mark.
+    """
+    where = _clock_dir()
+    return _ours(where) and _rest_mark(host).exists()
+
+
+def _note_rest(made: Wake) -> None:
+    """Keep the resting mark in step with a door run that worked; best-effort."""
+    if not made.ok:
+        return
+    try:
+        where = _clock_dir()
+        where.mkdir(parents=True, mode=0o700, exist_ok=True)
+        if not _ours(where):
+            return
+        if made.direction == "sleep":
+            _rest_mark(made.host).touch()
+        else:
+            _rest_mark(made.host).unlink(missing_ok=True)
+    except OSError:
+        return
+
+
+def _wake_direction(card: Card) -> str:
+    """``wake`` for a card resting with its process kept, ``up`` for one stopped.
+
+    ``serve up`` opens only on an idle rig, and a resting card's containers are
+    running, so the door would refuse it; ``serve wake`` is the route back.
+    """
+    return "wake" if resting(card.host) else "up"
+
+
 def compose_for(card: Card) -> Path | None:
     """The launch spec that would bring this card back, if there is exactly one.
 
@@ -374,6 +426,7 @@ def _run_door(config: Config, card: Card, direction: str, compose: Path) -> Wake
         code=code,
     )
     _remember(made)
+    _note_rest(made)
     said = made.deviation
     if said is not None:
         print(f"warning: {said}", file=sys.stderr)
@@ -422,6 +475,17 @@ class Waker:
         left where the operator can read it, and the run reports the transport
         fault it actually had.
         """
+        card = self._cards.get(rung)
+        if card is not None and resting(card.host):
+            # Slept with its process kept: it would answer and then hang, so
+            # the refusal fail-first waits for never comes. The mark is that
+            # refusal, and the wake is the same one a refusal earns.
+            if not self.wake_for(rung, refused_at=time.monotonic()):
+                raise RefusedConnectionError(
+                    f"{rung}: its card {card.host} was put to sleep with its "
+                    "process kept, and could not be woken"
+                )
+            return send()
         try:
             return send()
         except RefusedConnectionError as refused:
@@ -492,7 +556,7 @@ class Waker:
                 self._woken[card.host] = (False, time.monotonic())
                 print(f"warning: {_why_not_one(card)}", file=sys.stderr)
             return False
-        ok = _run_door(self._config, card, "up", compose).ok
+        ok = _run_door(self._config, card, _wake_direction(card), compose).ok
         self._woken[card.host] = (ok, time.monotonic())
         return ok
 
@@ -561,7 +625,7 @@ def wake(config: Config, host: str) -> Wake:
         # would be sizing and starting in one act. Several specs is D2's gap:
         # mcgyvr holds the files and not the answer to which.
         raise WakeError(_why_not_one(card))
-    return _run_door(config, card, "up", compose)
+    return _run_door(config, card, _wake_direction(card), compose)
 
 
 def drain_timeout(config: Config, card: Card) -> float | None:
@@ -591,10 +655,13 @@ class CardSwitches:
 
     :class:`mcgyvr.ladder_manager.Switches` is a protocol over rung names; this
     is its answer, and it adds nothing to what a person typing ``mcgyvr serve``
-    can do: a wake is the door's ``up`` for the card's one launch spec, a sleep
-    is the door's ``down`` after a drain — the card's containers are stopped and
-    its weights leave memory, so the next wake loads them from disk again — and
-    both are gated by ``serving.enable_sleep_wake``
+    can do. A sleep comes after a drain. For a card whose units are all vLLM
+    it is the door's ``sleep``: vLLM's level 2, which keeps the process and
+    drops the weights and KV cache. For any other card, and for a vLLM card
+    with no sleep route, it is the door's ``down``: the containers stop. A wake
+    is the door's ``wake`` for a card resting at level 2, which reads the
+    weights back into the same process, and ``up`` for one that was stopped.
+    Both verbs are gated by ``serving.enable_sleep_wake``
     — the switch exists so that mcgyvr takes no card down or up on its own
     unless asked, and this is the "on its own" (``mcgyvr serve`` is the person
     asking, and is not gated).
@@ -652,9 +719,35 @@ class CardSwitches:
                 # and wake it again. Not now, then; and no reading is not zero.
                 if self._capacity.queued(card.sources) != 0:
                     return False
-                return sleep(self._config, card.host).ok
+                return self._put_down(card)
         except (SlotUnavailableError, WakeError):
             return False
+
+    def _put_down(self, card: Card) -> bool:
+        """Sleep a vLLM card at level 2, and stop any other; inside the drain.
+
+        A card all of whose units are vLLM is asked to sleep first (``serve
+        sleep``): the process stays, the weights and KV cache leave the card,
+        and the wake reads them back without a container start. One that turns
+        out to have no sleep route — vLLM run without its development routes
+        — is left exactly as it was by that run, which says so with
+        :data:`~mcgyvr.serving.gatelib.NO_SLEEP_ROUTE`, and is stopped
+        instead. Any other engine has no sleep to ask for and is stopped.
+        """
+        if self._all_vllm(card):
+            compose = compose_for(card)
+            if compose is None:
+                return False
+            asked = _run_door(self._config, card, "sleep", compose)
+            if asked.code != NO_SLEEP_ROUTE:
+                return asked.ok
+        return sleep(self._config, card.host).ok
+
+    def _all_vllm(self, card: Card) -> bool:
+        units = [self._config.units.get(name) for name in card.sources]
+        return bool(units) and all(
+            unit is not None and unit.engine == "vllm" for unit in units
+        )
 
     def room_for(self, rung: str) -> tuple[str, ...]:
         """Always ``()``: a card goes up whole, so no wake needs another unit's room."""

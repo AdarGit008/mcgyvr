@@ -49,12 +49,15 @@ different model on a card, never changes a unit or a fleet: a flood that only a
 model it cannot wake would answer, or a wake that needs room held by a unit it
 may not sleep, is printed as a recommendation for a person to act on.
 
-**What a sleep costs.** "Sleep" is what ``mcgyvr serve sleep`` has always meant:
-the card's containers are stopped, and its weights leave memory with them. A
-wake starts the containers again from the card's launch spec, and the server
-loads the same weights from disk before it answers. So every switch is a stop
-or a full load, and ``dwell_s`` should be longer than the wake time
-``mcgyvr serve wake`` prints.
+**What a sleep is.** A card whose units are all vLLM, run with sleep mode, is
+slept at vLLM's level 2: the process and its container stay up, the weights and
+the KV cache leave the card, and a wake reads the weights back from disk into
+the same process through vLLM's wake route — no container start. Any other
+card, and a vLLM card with no sleep route, is stopped instead, as ``mcgyvr
+serve sleep`` stops it: its containers go down, and a wake starts them from the
+launch spec and loads the model from disk. Either way a wake is a load from
+disk, so ``dwell_s`` should be longer than the wake time ``mcgyvr serve wake``
+prints.
 
 * It never sleeps the card Jev itself runs on, and always leaves an awake rung
   below the unit it sleeps — the ladder keeps a floor.
