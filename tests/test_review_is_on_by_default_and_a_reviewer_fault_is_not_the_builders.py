@@ -435,12 +435,14 @@ def test_the_driver_falls_back_to_prose_on_the_picked_rung(
 ) -> None:
     _worker_replies(monkeypatch, ACCEPTED)
     prose = _prose_reviews(monkeypatch, _completion("APPROVE — VALUE is 1."))
-    _typed(monkeypatch, raises=DecisionError("no top_logprobs"))
+    typed = _typed(monkeypatch, raises=DecisionError("no top_logprobs"))
 
     judgement = _attempt_on(repo, TWO_RUNGS, "small", "acme-coder:7b")
 
     assert judgement.assurance is Assurance.VERIFIED, judgement.detail
     assert [rung for rung, _ in prose] == ["big"]
+    # The gate's typed checks and the verdict share one refused request.
+    assert len(typed) == 1, f"a unit with no probabilities was asked {typed}"
 
 
 def test_the_top_rung_is_accepted_unverified_and_says_why(
@@ -521,3 +523,174 @@ def test_an_unverified_acceptance_is_said_on_stderr_and_in_the_result(
     written = json.loads(result.read_text(encoding="utf-8"))
     assert written["assurance"] == "unverified"
     assert written["detail"], "the result does not say why the work is unverified"
+
+
+# --- what a review costs, and what it tells the builder ----------------------
+
+
+def _attempt_with(repo: Path, text: str, contract_text: str) -> Any:
+    """One attempt on the cheapest rung with ``contract_text`` as the contract."""
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.sandbox.tempdir import TempDirSandbox
+    from mcgyvr.verify import reviewers_for
+
+    config = parse_config(text)
+    pool = source_map(config)
+    contract = load_contract(contract_text)
+    with TempDirSandbox(repo) as sandbox:
+        attempt = worker_attempt(
+            config, pool, contract, sandbox, reviewers=reviewers_for(config, pool)
+        )
+        return attempt(
+            Try(rung=Rung(name="small", model="acme-coder:7b"), attempt=1, of=1)
+        )
+
+
+def _jev_asks(typed: list[tuple[str, tuple[str, ...]]]) -> list[str]:
+    return [rung for rung, names in typed if "satisfies_task" in names]
+
+
+def test_a_draw_the_gate_rejects_costs_the_reviewer_nothing(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _worker_replies(monkeypatch, ACCEPTED)
+    prose = _prose_reviews(monkeypatch)
+    typed = _typed(monkeypatch)
+
+    failing = CONTRACT.replace("sys.exit(0)", "sys.exit(1)")
+    judgement = _attempt_with(repo, TWO_RUNGS, failing)
+
+    assert judgement.verdict is Verdict.FAILED, judgement.detail
+    assert typed == [], f"a rejected draw spent reviewer requests: {typed}"
+    assert prose == []
+
+
+def test_the_typed_checks_are_asked_of_the_winning_draw_only(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _worker_replies(monkeypatch, ACCEPTED, ACCEPTED)
+    _prose_reviews(monkeypatch)
+    typed = _typed(monkeypatch)
+
+    two_draws = TWO_RUNGS + "breadth:\n  draws: 2\n  temperature: 0.7\n"
+    judgement = _attempt_with(repo, two_draws, CONTRACT)
+
+    assert judgement.assurance is Assurance.VERIFIED, judgement.detail
+    assert _jev_asks(typed) == ["big"], f"typed checks asked per draw: {typed}"
+
+
+def test_a_reviewer_that_answered_an_http_error_is_not_asked_again_in_prose() -> None:
+    from mcgyvr.runner import BackendError
+    from mcgyvr.verify import verify
+
+    def decide(state: Any) -> Decision:
+        raise BackendError("HTTP 503 from the reviewer: the model is loading")
+
+    asked: list[str] = []
+
+    def ask(prompt: str) -> str:
+        asked.append(prompt)
+        return "APPROVE — the value is set."
+
+    review = verify(
+        load_contract(CONTRACT),
+        family=LOCAL,
+        gate=GateResult(),
+        change="VALUE = 1\n",
+        builder="acme-coder:7b",
+        reviewer="zeta-coder:32b",
+        ask=ask,
+        decide=decide,
+    )
+    assert review.opinion is Opinion.UNUSABLE
+    assert asked == [], "a backend that just errored was asked a second time"
+
+
+def test_a_reviewer_without_probabilities_is_refused_once_per_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr.verify import Reviewer, reviewers_for
+
+    typed = _typed(monkeypatch, raises=DecisionError("no top_logprobs"))
+    config = parse_config(TWO_RUNGS)
+    chosen = reviewers_for(config, source_map(config))("small")
+    assert isinstance(chosen, Reviewer) and chosen.decide is not None
+
+    for _ in range(3):
+        with pytest.raises(DecisionError):
+            chosen.decide({"change": "VALUE = 1\n"})
+    assert len(typed) == 1, "a unit with no probabilities was asked again"
+
+
+def test_an_http_error_does_not_switch_the_typed_verdict_off_for_the_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr.runner import BackendError
+    from mcgyvr.verify import Reviewer, reviewers_for
+
+    typed = _typed(monkeypatch, raises=BackendError("HTTP 503"))
+    config = parse_config(TWO_RUNGS)
+    chosen = reviewers_for(config, source_map(config))("small")
+    assert isinstance(chosen, Reviewer) and chosen.decide is not None
+
+    for _ in range(2):
+        with pytest.raises(BackendError):
+            chosen.decide({"change": "VALUE = 1\n"})
+    assert len(typed) == 2, "one HTTP error switched the typed verdict off"
+
+
+def test_a_typed_refusal_tells_the_retry_what_the_reviewer_found(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _worker_replies(monkeypatch, ACCEPTED)
+    prose = _prose_reviews(monkeypatch)
+    _typed(monkeypatch, verdict=False, jev_yes=False)
+
+    judgement = _attempt_with(repo, TWO_RUNGS, CONTRACT)
+
+    assert judgement.verdict is Verdict.FAILED, judgement.detail
+    assert judgement.retry is not None
+    lines = "\n".join(judgement.retry.lines)
+    assert "satisfies_task" in lines, f"the retry was told only: {lines!r}"
+    assert prose == [], "a refusal was paid for twice"
+
+
+def test_a_picked_reviewer_on_a_sleeping_card_is_woken(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mcgyvr.drive as drive
+    import mcgyvr.verify as verify
+    from mcgyvr.runner import RefusedConnectionError
+
+    awake: set[str] = set()
+
+    class Waker:
+        def dispatching(self, rung, send):  # type: ignore[no-untyped-def]
+            try:
+                return send()
+            except RefusedConnectionError:
+                awake.add(rung)
+                return send()
+
+    monkeypatch.setattr(drive, "wake_for_config", lambda config: Waker())
+
+    def sleepy(source_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
+        if rung not in awake:
+            raise RefusedConnectionError(f"nothing listens for {rung!r}")
+        answers: dict[str, Any] = {}
+        for name, question in questions.items():
+            answers[name] = (
+                BoolAnswer(True, 0.9, 0.8)
+                if isinstance(question, Noul)
+                else ScoreAnswer(level=0.0, probabilities={"low": 1.0}, confidence=0.8)
+            )
+        return Decision(answers=answers)
+
+    monkeypatch.setattr(verify, "classify_rung", sleepy)
+    _worker_replies(monkeypatch, ACCEPTED)
+    _prose_reviews(monkeypatch)
+
+    judgement = _attempt_with(repo, TWO_RUNGS, CONTRACT)
+
+    assert awake == {"big"}, "the reviewer's card was never woken"
+    assert judgement.assurance is Assurance.VERIFIED, judgement.detail
