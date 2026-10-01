@@ -298,6 +298,11 @@
       "says": "How long, in seconds, a unit takes to read its weights and take its card, which depends on the disk and the model; the container runtime does not call a unit unhealthy before this.",
       "moves_to": "unit_load_time_s"
     },
+    "emit.py:_locked_service(cards)": {
+      "kind": "choice",
+      "says": "The card a locked unit reserves when its caller names none: card 0, the one a locked unit that names no card in launch.shards has always reserved.",
+      "reason": "what a caller that names none gets; the product's callers name one"
+    },
     "escalate.py:Judgement.draw": {
       "kind": "fact",
       "says": "A verdict that names no draw is about the first, and draws are numbered from zero.",

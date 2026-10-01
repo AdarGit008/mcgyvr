@@ -38,6 +38,17 @@ first and from ``text_config`` only when the top level states none. A missing
 Hugging Face config's own convention (multi-head attention), stated here and
 not invented. A refusal of a row is ``{"file": ..., "error": ...}``, as
 ggufscan's is.
+
+A multimodal checkpoint's towers -- a vision or audio encoder, its projector --
+are not the language model's: an encoder's ``layers.5`` is not decoder block 5.
+A tensor whose name has a part naming a tower (:func:`_in_tower`) is summed
+into ``bytes_tower`` and nowhere else, and vLLM builds a tower on every rank,
+which is where the sizer charges it.
+
+Whether the output head is the input embedding is ``tied_embeddings``: the
+config says so (``tie_word_embeddings``, from ``text_config`` first), or the
+checkpoint has no ``lm_head`` tensor at all. vLLM then builds the embedding on
+the last pipeline stage too and loads no head, which the sizer charges.
 """
 
 from __future__ import annotations
@@ -192,6 +203,23 @@ def _block_of(name: str) -> int | None:
     return None
 
 
+#: Name parts that begin a multimodal tower's tensors rather than the
+#: language model's (``vision_tower``, ``vision_model``, ``visual``,
+#: ``audio_tower``, ``image_newline``...), and the projectors that feed it.
+_TOWER_STARTS = ("vision", "visual", "audio", "image")
+_TOWER_PARTS = frozenset(
+    {"multi_modal_projector", "mm_projector", "embed_vision", "embed_audio"}
+)
+
+
+def _in_tower(name: str) -> bool:
+    """Whether a tensor belongs to a multimodal tower, not the language model."""
+    return any(
+        part.startswith(_TOWER_STARTS) or part in _TOWER_PARTS
+        for part in name.split(".")
+    )
+
+
 def _config(directory: str) -> dict[str, Any]:
     path = os.path.join(directory, "config.json")
     if not os.path.isfile(path):
@@ -310,7 +338,8 @@ def _scan(directory: str) -> dict[str, Any]:
     seen: dict[str, str] = {}
     by_block: dict[int, int] = {}
     matrix_by_block: dict[int, int] = {}
-    total = bytes_input = bytes_output = bytes_output_matrix = 0
+    total = bytes_input = bytes_output = bytes_output_matrix = bytes_tower = 0
+    has_head = False
     by_dtype: dict[str, int] = {}
     for shard in shards:
         for name, dtype, shape, n in _tensors(shard):
@@ -322,6 +351,11 @@ def _scan(directory: str) -> dict[str, Any]:
             seen[name] = shard
             total += n
             by_dtype[dtype] = by_dtype.get(dtype, 0) + n
+            if _in_tower(name):
+                bytes_tower += n
+                continue
+            if name.split(".")[0] == "lm_head":
+                has_head = True
             block = _block_of(name)
             if block is not None:
                 by_block[block] = by_block.get(block, 0) + n
@@ -334,6 +368,9 @@ def _scan(directory: str) -> dict[str, Any]:
                 if len(shape) >= 2:
                     bytes_output_matrix += n
     blocks = sorted(by_block)
+    tie_key = "tie_word_embeddings"
+    tie_stated = cfg.get(tie_key) if tie_key in cfg else root.get(tie_key)
+    tied = tie_stated is True or not has_head
 
     quant = root.get("quantization_config")
     if quant is None:
@@ -356,6 +393,8 @@ def _scan(directory: str) -> dict[str, Any]:
         "bytes_input": bytes_input,
         "bytes_output": bytes_output,
         "bytes_output_matrix": bytes_output_matrix,
+        "bytes_tower": bytes_tower,
+        "tied_embeddings": tied,
         "dtype_bytes": by_dtype,
         "kv_layers": _kv_layers(cfg, n_layer, n_head_kv, head_dim),
         "sliding_window": cfg.get("sliding_window"),

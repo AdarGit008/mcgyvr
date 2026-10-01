@@ -2,7 +2,7 @@
 
 A model too large for one card is not a model the fleet cannot serve: it can be
 split across the cards of one machine, or across machines. There are two ways
-to split it, and both engines offer both.
+to split it.
 
 ``pipeline`` (llama.cpp's ``--split-mode layer``, vLLM's
 ``--pipeline-parallel-size``)
@@ -10,13 +10,17 @@ to split it, and both engines offer both.
     cache and their state. A token visits the cards in turn, and what crosses
     between two of them is one hidden state per token.
 
-``tensor`` (llama.cpp's ``--split-mode row``, vLLM's
-``--tensor-parallel-size``)
+``tensor`` (vLLM's ``--tensor-parallel-size``)
     Every card holds a slice of every block's matrices. A token is computed on
     all of them at once, and they meet twice in every block to add their
     partial results up (an all-reduce).
 
 vLLM can do both at once: ``pipeline`` stages of ``tensor`` cards each.
+llama.cpp is split by layer only. Its ``--split-mode row`` needs the
+backend's split buffer type, which the CUDA backend no longer exports, so a
+server told ``row`` throws at load; it is refused by name. Its newer
+``--split-mode tensor`` is experimental and per architecture, and is not
+sized here.
 
 **Every byte here is read off the tensor table, never off a bits-per-weight
 figure**: a bits-per-weight figure is a guess. A shard is charged the blocks
@@ -27,17 +31,25 @@ its compute scratch and context, because every card runs its own. A split never
 moves part of a block off a card into host memory: a sharded unit keeps every
 block it was given on its cards, so no ``--n-cpu-moe`` is derived here.
 
+**Which split is taken is a placement rule, stated.** When a unit leaves its
+split to the product: the cards of one machine share every block (a tensor
+split, as wide as the heads divide), and the machines are pipeline stages.
+That is vLLM's own guidance -- tensor parallel inside a node, pipeline across
+nodes -- because a tensor split meets twice in every block and wants the bus,
+while a pipeline passes one hidden state per stage and tolerates the network.
+A split that does not fit is never taken; when the rule's split does not fit,
+the next one in the rule's order that does is. What a unit states always wins.
+
 **What crosses between cards is an estimate, and says so.** The cost of a token
 crossing a link is priced from the link's bandwidth and latency
 (:mod:`mcgyvr.serving.interconnect`): a shipped estimate by link class until
-the user's own reading or setting replaces it. It decides between splits that
-fit -- never whether one fits, which is the card's memory alone.
+the user's own reading or setting replaces it. It is reported with every plan
+so a user sees what a split costs, and it chooses nothing: pricing it against
+what a tensor split saves would need each card's memory bandwidth, which
+nothing here reads.
 
-Two terms are this module's choices and are stated where they are used: blocks
-are given to cards so that the fullest card is as empty as it can be, and among
-the splits that fit, the one that adds the least time crossing links per token
-is chosen. What a tensor split buys in compute is not priced here, because no
-card's memory bandwidth is read; a unit that wants it states its split.
+Blocks are given to cards so that the fullest card is as empty as it can be;
+that is this module's other choice, stated where it is used.
 """
 
 from __future__ import annotations
@@ -58,10 +70,20 @@ LLAMACPP_ENGINE = "llama.cpp"
 VLLM_ENGINE = "vllm"
 ENGINES = (LLAMACPP_ENGINE, VLLM_ENGINE)
 
-#: llama.cpp's two ways of splitting across several cards.
+#: The ways llama.cpp is split across several cards here: by layer.
 SPLIT_LAYER = "layer"
-SPLIT_ROW = "row"
-SPLITS = (SPLIT_LAYER, SPLIT_ROW)
+SPLITS = (SPLIT_LAYER,)
+#: llama.cpp split modes that are refused, each with why.
+REFUSED_SPLITS = {
+    "row": (
+        "llama.cpp's --split-mode row needs the backend's split buffers, which "
+        "the CUDA backend no longer has, so the server throws at load"
+    ),
+    "tensor": (
+        "llama.cpp's --split-mode tensor is experimental and per architecture, "
+        "and what each card holds under it is not sized here"
+    ),
+}
 
 #: What one element of a hidden state weighs as it crosses from card to card.
 #: llama.cpp computes its graph's activations in 32-bit floats and copies them
@@ -74,13 +96,12 @@ ACTIVATION_BYTES = {LLAMACPP_ENGINE: 4, VLLM_ENGINE: 2}
 ALL_REDUCES_PER_BLOCK = 2
 
 #: Bytes per cache element under each ``--kv-cache-dtype`` vLLM takes that
-#: names a width. ``auto`` follows the model's dtype and is refused: a cache is
-#: sized at the dtype it launches with, spelled.
+#: names a width, spelled as vLLM's ``CacheDType`` spells it (``fp16`` is an
+#: argparse error there). ``auto`` follows the model's dtype and is refused: a
+#: cache is sized at the dtype it launches with, spelled.
 VLLM_CACHE_ELEM_BYTES = {
     "float16": 2.0,
-    "fp16": 2.0,
     "bfloat16": 2.0,
-    "bf16": 2.0,
     "fp8": 1.0,
     "fp8_e4m3": 1.0,
     "fp8_e5m2": 1.0,
@@ -337,17 +358,17 @@ def choose(
     links: Links | None = None,
     allowance_bytes: int | None = None,
 ) -> Plan:
-    """The split of ``table`` over every one of ``targets`` that fits and crosses least.
+    """The split of ``table`` over every one of ``targets`` the placement rule takes.
 
     What the unit stated is honoured and only the rest is chosen: a llama.cpp
     unit's ``split``, a vLLM unit's ``tensor`` and ``pipeline`` (one of the two
     is enough; the other is the card count over it). Every card the unit names
     is used: the unit named them.
 
-    Among the splits that fit, the one whose tokens spend the least estimated
-    time crossing links wins; a tie goes to llama.cpp's own default, the layer
-    split, and for vLLM to the wider tensor split. Refused, naming every
-    candidate's fullest card, when none fits.
+    Among the splits that fit, :func:`_preference` takes the one the placement
+    rule puts first (module docstring): tensor groups inside one machine before
+    any that crosses machines, and among those the widest. Refused, naming
+    every candidate's fullest card, when none fits.
     """
     grids = _grids(
         table,
@@ -396,9 +417,19 @@ def choose(
     return min(candidates, key=_preference)
 
 
-def _preference(made: Plan) -> tuple[float, int, int]:
-    layer_first = 0 if made.grid.split in (None, SPLIT_LAYER) else 1
-    return (made.comm_s_per_token, layer_first, -made.grid.tensor)
+def _preference(made: Plan) -> tuple[int, int]:
+    """The placement rule, as a sort key: smaller is preferred.
+
+    First, whether any stage's tensor group crosses machines (it should not:
+    its all-reduces want the bus); then the tensor width, widest first, so the
+    cards of a machine share every block and the machines are the stages. The
+    crossing cost is not in the key: it is reported, and chooses nothing.
+    """
+    hosts: dict[int, set[str]] = {}
+    for shard in made.shards:
+        hosts.setdefault(shard.stage, set()).add(shard.target.host.lower())
+    crosses = any(len(stage) > 1 for stage in hosts.values())
+    return (int(crosses), -made.grid.tensor)
 
 
 def _grid_words(grid: Grid, engine: str) -> str:
@@ -425,27 +456,19 @@ def _grids(
         if tensor is not None or pipeline is not None:
             raise ShardingError(
                 f"{name}: tensor_parallel and pipeline_parallel are vLLM's; "
-                f"llama.cpp is told `split: layer` or `split: row`"
+                f"llama.cpp is told `split: layer`"
+            )
+        if split in REFUSED_SPLITS:
+            raise ShardingError(
+                f"{name}: split {split!r} is refused: {REFUSED_SPLITS[split]}; "
+                f"use split: layer"
             )
         if split is not None and split not in SPLITS:
             raise ShardingError(
                 f"{name}: split {split!r} is not one llama.cpp offers "
                 f"({', '.join(SPLITS)})"
             )
-        wanted = (split,) if split is not None else SPLITS
-        grids = []
-        for mode in wanted:
-            if mode == SPLIT_ROW:
-                if split is None and cards == 1:
-                    continue
-                grids.append(Grid(tensor=cards, pipeline=1, split=SPLIT_ROW))
-            else:
-                grids.append(Grid(tensor=1, pipeline=cards, split=SPLIT_LAYER))
-        if split is None and _spans_machines(targets):
-            # A row split needs every card's split buffer in one process, so
-            # it never crosses to a card reached over RPC (see _llama_plan).
-            grids = [grid for grid in grids if grid.split != SPLIT_ROW]
-        return grids
+        return [Grid(tensor=1, pipeline=cards, split=SPLIT_LAYER)]
     if split is not None:
         raise ShardingError(
             f"{name}: `split` is llama.cpp's; vLLM is told tensor_parallel and "
@@ -476,10 +499,6 @@ def _heads_divide(table: Mapping[str, Any], tensor: int) -> bool:
     except ShardingError:
         return False
     return True
-
-
-def _spans_machines(targets: Sequence[Target]) -> bool:
-    return len({target.host.lower() for target in targets}) > 1
 
 
 def _no_card_twice(targets: Sequence[Target], *, name: str) -> None:
@@ -530,6 +549,11 @@ class _Sizing:
     @property
     def n_layer(self) -> int:
         return int(self.table["n_layer"])
+
+    @property
+    def tied(self) -> bool:
+        """Whether the output head is the input embedding (the scan says)."""
+        return self.table.get("tied_embeddings") is True
 
     def block(self, b: int) -> int:
         return int(self.table["bytes_by_block"].get(str(b), 0))
@@ -721,81 +745,62 @@ def _llama_order(targets: Sequence[Target]) -> list[Target]:
 def _llama_plan(
     sizing: _Sizing, targets: Sequence[Target], grid: Grid, links: Links
 ) -> Plan:
-    """llama.cpp over several cards: a layer split or a row split.
+    """llama.cpp over several cards: a layer split.
 
     The engine assigns layer ``il`` (and the output layer, as index
     ``n_layer``) to the first device whose cumulative ``--tensor-split`` share
     exceeds ``il / (n_layer + 1)``, so stating the split as whole layer counts
     that sum to ``n_layer + 1`` lands every block exactly where this plan puts
     it. The input embedding stays in host memory on every split and is charged
-    to no card.
-
-    Under ``row`` the same counts also set each card's share of every matrix,
-    the output head's included; the norms, the cache and the state of a layer
-    stay with the card its count gives it. A row split needs the backend's
-    split buffers in one process, so a card reached over RPC refuses it.
+    to no card. A model whose output head is its input embedding (``tied``) has
+    the embedding copied onto the output layer's card (llama.cpp creates
+    ``output`` from ``token_embd`` as a duplicate there), so that card is
+    charged it.
     """
-    ordered = _llama_order(targets)
-    head = targets[0].host.lower()
-    if grid.split == SPLIT_ROW and any(t.host.lower() != head for t in ordered):
+    if grid.split != SPLIT_LAYER:
         raise ShardingError(
-            f"{sizing.name}: --split-mode row splits every matrix with the "
-            f"backend's split buffers, which a card reached over RPC does not "
-            f"have; use split: layer to span machines"
+            f"{sizing.name}: llama.cpp is split by layer here, not {grid.split!r}"
         )
+    ordered = _llama_order(targets)
     n = sizing.n_layer
     items = n + 1  # the blocks, then the output layer
     output = int(sizing.table["bytes_output"])
-    output_matrix = int(sizing.table["bytes_output_matrix"])
-    matrices = sum(sizing.matrix(b) for b in range(n)) + output_matrix
+    if sizing.tied:
+        output += int(sizing.table["bytes_input"])
     devices = len(ordered)
 
-    if grid.split == SPLIT_ROW:
-        counts = _by_free_share(items, ordered, name=sizing.name)
-    else:
-        prefix_weights = _prefix([sizing.block(b) for b in range(n)] + [output])
-        kv_each = [sizing.kv([b]) for b in range(n)] + [0]
-        state_each = [sizing.state([b]) for b in range(n)] + [0]
-        prefix_kv = _prefix(kv_each)
-        prefix_state = _prefix(state_each)
+    prefix_weights = _prefix([sizing.block(b) for b in range(n)] + [output])
+    kv_each = [sizing.kv([b]) for b in range(n)] + [0]
+    state_each = [sizing.state([b]) for b in range(n)] + [0]
+    prefix_kv = _prefix(kv_each)
+    prefix_state = _prefix(state_each)
 
-        def fullness(stage: int, lo: int, hi: int) -> float:
-            asked = (
-                prefix_weights[hi]
-                - prefix_weights[lo]
-                + prefix_kv[hi]
-                - prefix_kv[lo]
-                + prefix_state[hi]
-                - prefix_state[lo]
-                + sizing.allowance
-            )
-            free = ordered[stage].free_bytes
-            return asked / free if free > 0 else math.inf
+    def fullness(stage: int, lo: int, hi: int) -> float:
+        asked = (
+            prefix_weights[hi]
+            - prefix_weights[lo]
+            + prefix_kv[hi]
+            - prefix_kv[lo]
+            + prefix_state[hi]
+            - prefix_state[lo]
+            + sizing.allowance
+        )
+        free = ordered[stage].free_bytes
+        return asked / free if free > 0 else math.inf
 
-        counts = _partition(items, devices, fullness, name=sizing.name)
+    counts = _partition(items, devices, fullness, name=sizing.name)
 
     shards: list[Shard] = []
     start = 0
-    total = sum(counts)
     for index, (target, held) in enumerate(zip(ordered, counts, strict=True)):
         blocks = tuple(b for b in range(start, start + held) if b < n)
         has_output = start + held > n
-        if grid.split == SPLIT_ROW:
-            share = held / total
-            weights = (
-                sum(sizing.block(b) - sizing.matrix(b) for b in blocks)
-                + math.ceil(matrices * share)
-                + ((output - output_matrix) if has_output else 0)
-            )
-        else:
-            weights = sum(sizing.block(b) for b in blocks) + (
-                output if has_output else 0
-            )
+        weights = sum(sizing.block(b) for b in blocks) + (output if has_output else 0)
         shards.append(
             Shard(
                 target=target,
-                stage=index if grid.split == SPLIT_LAYER else 0,
-                rank=0 if grid.split == SPLIT_LAYER else index,
+                stage=index,
+                rank=0,
                 blocks=blocks,
                 weights_bytes=weights,
                 kv_bytes=sizing.kv(blocks),
@@ -816,33 +821,6 @@ def _llama_plan(
         ctx_per_slot=sizing.ctx_per_slot,
         head=targets[0].host,
     )
-
-
-def _by_free_share(
-    items: int, ordered: Sequence[Target], *, name: str
-) -> tuple[int, ...]:
-    """``items`` shared out in proportion to free memory, each card at least one.
-
-    llama.cpp's own default split, by free memory, stated as whole counts by
-    the largest remainder so the argv says it and the engine does not decide
-    it again at load against memory that may have moved.
-    """
-    if len(ordered) > items:
-        raise ShardingError(
-            f"{name}: {len(ordered)} cards cannot share {items} layer(s)"
-        )
-    free = [max(target.free_bytes, 0) for target in ordered]
-    whole = sum(free)
-    if whole <= 0:
-        return tuple([1] * (len(ordered) - 1) + [items - len(ordered) + 1])
-    spare = items - len(ordered)
-    raw = [spare * f / whole for f in free]
-    counts = [1 + int(r) for r in raw]
-    left = items - sum(counts)
-    order = sorted(range(len(raw)), key=lambda i: (-(raw[i] - int(raw[i])), i))
-    for i in order[:left]:
-        counts[i] += 1
-    return tuple(counts)
 
 
 def _prefix(values: Sequence[int]) -> list[int]:
@@ -902,25 +880,15 @@ def _llama_comm(
 ) -> tuple[float, tuple[Link, ...]]:
     """What one token spends crossing links under llama.cpp's split.
 
-    Layer split: the hidden state passes from each card to the next. Every
-    byte to or from a card reached over RPC goes through the head, so a step
-    between two such cards on other machines is two network crossings, and
-    the first card, when remote, is reached from the head where the input
-    embedding is computed. Row split: every block's matrix products meet
-    across the cards twice per token, priced as all-reduces on the bus.
+    The hidden state passes from each card to the next. Every byte to or from
+    a card reached over RPC goes through the head, so a step between two such
+    cards on other machines is two network crossings, and the first card, when
+    remote, is reached from the head where the input embedding is computed.
     """
     book = _LinkBook(links)
     payload = int(sizing.table["n_embd"]) * ACTIVATION_BYTES[LLAMACPP_ENGINE]
     if len(ordered) < 2:
         return 0.0, ()
-    if grid.split == SPLIT_ROW:
-        link = book.of_class(PCIE)
-        total = (
-            sizing.n_layer
-            * ALL_REDUCES_PER_BLOCK
-            * _all_reduce_s(link, payload, len(ordered))
-        )
-        return total, book.used
 
     def remote(target: Target) -> bool:
         return target.host.lower() != head.lower()
@@ -979,6 +947,12 @@ def _vllm_plan(
     its blocks and the whole of every norm, ``1 / tensor`` of the KV heads,
     and the first stage holds its share of the input embedding, the last its
     share of the output head plus the final norm.
+
+    A model whose output head is its input embedding (``tied``) has vLLM build
+    the embedding on the last stage too, to tie its head to, and load no head
+    of its own; so the last stage holds its share of the embedding in place of
+    the head's. A multimodal tower (``bytes_tower``) is built on every rank
+    whatever its stage, and is charged whole to each.
     """
     ordered = _vllm_order(targets, name=sizing.name)
     t, p = grid.tensor, grid.pipeline
@@ -987,16 +961,21 @@ def _vllm_plan(
     output = int(sizing.table["bytes_output"])
     output_matrix = int(sizing.table["bytes_output_matrix"])
     inp = int(sizing.table["bytes_input"])
+    tower = int(sizing.table.get("bytes_tower") or 0)
 
     def block_on_rank(b: int) -> int:
         return math.ceil(sizing.matrix(b) / t) + sizing.block(b) - sizing.matrix(b)
 
     def ends(stage: int) -> int:
-        held = 0
+        held = tower
         if stage == 0:
             held += math.ceil(inp / t)
         if stage == p - 1:
-            held += math.ceil(output_matrix / t) + output - output_matrix
+            held += output - output_matrix
+            if not sizing.tied:
+                held += math.ceil(output_matrix / t)
+            elif stage != 0:
+                held += math.ceil(inp / t)
         return held
 
     def rank_weights(stage: int, blocks: Sequence[int]) -> int:

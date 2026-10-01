@@ -143,9 +143,10 @@ def scan(path):
     # placing whole blocks on cards. A split across cards moves blocks, never
     # an average of them: llama.cpp's layer split hands each card a run of
     # blocks, and a pipeline stage holds its run of blocks entire. Of each
-    # block the tensors of two or more dimensions are counted again apart,
-    # because they are what a row or tensor split divides between cards; a
-    # one-dimensional norm or bias is held whole by every card running it.
+    # block the two-dimensional tensors are counted again apart, because they
+    # are what a tensor split divides between cards; a one-dimensional norm or
+    # bias is held whole by every card running it, and so is a 3D expert
+    # tensor (llama.cpp's CUDA backend never split 3D/4D matrices, #13919).
     #
     # The tensors outside every block are kept apart by what holds them.
     # `token_embd` is the input: llama.cpp's load_tensors keeps the input
@@ -160,12 +161,12 @@ def scan(path):
         if parts[0]=="blk" and len(parts)>1 and parts[1].isdigit():
             b=int(parts[1])
             by_block[b]=by_block.get(b,0)+t[3]
-            matrix_by_block[b]=matrix_by_block.get(b,0)+(t[3] if t[4]>=2 else 0)
+            matrix_by_block[b]=matrix_by_block.get(b,0)+(t[3] if t[4]==2 else 0)
         elif parts[0]=="token_embd":
             b_input+=t[3]
         else:
             b_output+=t[3]
-            if t[4]>=2: b_output_matrix+=t[3]
+            if t[4]==2: b_output_matrix+=t[3]
 
     types={}
     for t in tensors: types[NAME.get(t[2],t[2])]=types.get(NAME.get(t[2],t[2]),0)+t[3]
@@ -318,6 +319,9 @@ def scan(path):
       "bytes_input": b_input,
       "bytes_output": b_output,
       "bytes_output_matrix": b_output_matrix,
+      # No output head of its own: llama.cpp then creates `output` from
+      # `token_embd` as a duplicate on the output layer's device.
+      "tied_embeddings": not any(t[0]=="output.weight" for t in tensors),
       "n_head": n_head,
       "caching_layers": caching,
       "caching_layers_from": caching_from,

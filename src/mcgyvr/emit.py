@@ -48,6 +48,7 @@ from typing import Any
 
 import yaml
 
+from mcgyvr.fleet.spans import SpanError, spans
 from mcgyvr.serving import (
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
@@ -768,8 +769,17 @@ def _planned_locked(
     resolves the path against the compose file's own directory and reads it
     there. It is planned like any other file, so ``--check`` compares it and a
     re-emit rewrites it.
+
+    A unit reserves the cards its ``launch.shards`` name on the rig being
+    rendered (:mod:`mcgyvr.fleet.spans`), and card 0 when it names none. A
+    locked launch is one argv, its head's, so a unit that spans rigs is
+    refused by name: on a worker's rig it would start a second head.
     """
     units = fleet.get("units") or {}
+    try:
+        found = spans(fleet)
+    except SpanError as exc:
+        raise LockedLaunchError(str(exc)) from exc
     planned: list[tuple[Path, str]] = []
     profiles: dict[str, Path] = {}
     for fleet_name, block in sorted((fleet.get("fleets") or {}).items()):
@@ -784,7 +794,22 @@ def _planned_locked(
                         f"{fleet_name}: {name} is in the {host} layout and "
                         "fleet.yaml declares no such unit"
                     )
-                service = _locked_service(name, unit)
+                span = found.get(name)
+                if span is not None and len(span.rigs) > 1:
+                    raise LockedLaunchError(
+                        f"{name}: spans {', '.join(span.rigs)}, and a locked "
+                        f"launch states one argv, its head's on {span.head}; "
+                        f"rendered on {host} it would be a second head, not a "
+                        "worker. A locked unit split across rigs is not "
+                        "rendered until each worker's launch is stated"
+                    )
+                cards = span.cards.get(host, ()) if span is not None else (0,)
+                if not cards:
+                    raise LockedLaunchError(
+                        f"{fleet_name}: {name} is in the {host} layout and its "
+                        f"launch.shards name no card there"
+                    )
+                service = _locked_service(name, unit, cards)
                 stated = (unit.get("launch") or {}).get("seccomp")
                 if isinstance(stated, str) and stated.strip():
                     source = _profile_source(name, stated, setup)
@@ -816,8 +841,14 @@ def _planned_locked(
     return tuple(sorted(planned, key=lambda pair: pair[0].name))
 
 
-def _locked_service(name: str, unit: Mapping[str, Any]) -> dict[str, object]:
-    """One locked unit as a compose service: its stated launch, verbatim."""
+def _locked_service(
+    name: str, unit: Mapping[str, Any], cards: tuple[int, ...] = (0,)
+) -> dict[str, object]:
+    """One locked unit as a compose service: its stated launch, verbatim.
+
+    ``cards`` are the card indices it reserves on this rig; card 0 for a unit
+    that names none.
+    """
     launch = unit.get("launch") or {}
     argv = launch.get("argv")
     env = launch.get("env", {})
@@ -854,8 +885,7 @@ def _locked_service(name: str, unit: Mapping[str, Any]) -> dict[str, object]:
         "environment": dict(env),
         "network_mode": "host",
         "restart": "unless-stopped",
-        # Card 0: a locked unit states no card index.
-        "deploy": _reservation(0),
+        "deploy": _reservation(*cards),
     }
     if isinstance(seccomp, str) and seccomp.strip():
         # Compose resolves a profile path against the PROJECT directory — the

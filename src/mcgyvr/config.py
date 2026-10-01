@@ -577,9 +577,11 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "machine listens on, and `room_mib`, that card's room for the lock), \
 "
-        "the first on the machine the address names; `split` (`layer` | \
+        "the first on the machine the address names; `split` (`layer`, \
 "
-        "`row`, llama.cpp); `tensor_parallel` and `pipeline_parallel` \
+        "llama.cpp's one split here: its `row` mode has no split buffers on \
+"
+        "CUDA and is refused); `tensor_parallel` and `pipeline_parallel` \
 "
         "(vLLM); `rpc_port` and `master_port`, the first port of llama.cpp's \
 "
@@ -589,9 +591,13 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "mcgyvr.serving.safetensorscan` row. Each card is sized from the \
 "
-        "tensor table; what crossing between cards costs is an estimate by \
+        "tensor table. A split left to mcgyvr is tensor across one machine's \
 "
-        "link class until your own reading or setting replaces it.",
+        "cards and pipeline across machines; what crossing between cards \
+"
+        "costs is reported, as an estimate by link class until your own \
+"
+        "reading or setting replaces it.",
         bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe, "
         "speculative",
     ),

@@ -13,8 +13,9 @@ workers on two ports. The head is told ``--split-mode``, ``--tensor-split`` (the
 plan's whole-layer counts, in the engine's device order, which is the order the
 plan's shards are already in) and ``--rpc`` with the workers in that same order.
 The workers' listeners are the plan's ``bind`` and nothing else: ``rpc-server``
-is unauthenticated, so a name that is not an address, or the address that means
-"every interface", is refused here rather than started.
+is unauthenticated, so a name that is not an address, the address that means
+"every interface", or an address reachable from the internet is refused here
+rather than started.
 
 **vLLM** runs one process per machine under its own multiprocessing backend:
 every node is told the grid, and when there is more than one every node is also
@@ -160,7 +161,10 @@ def _bind(target: Target, *, model: str) -> str:
     the address is the one the unit stated or the host when that already is one.
     A name is not guessed into an address (resolving it would answer with
     whatever the resolver says today), and the address that means every
-    interface is the one thing this must never be.
+    interface is the one thing this must never be. Nor is a globally routable
+    one: whoever reached it would have the card's memory and compute. A private
+    (RFC 1918), shared (RFC 6598, as overlay networks use) or link-local
+    address is accepted.
     """
     stated = target.bind if target.bind is not None else target.host
     where = f"card {target.gpu} of {target.host}"
@@ -182,6 +186,13 @@ def _bind(target: Target, *, model: str) -> str:
             f"{model}: {where} would bind {stated}, and a worker on another "
             f"machine must listen on the one address the head reaches it at, "
             f"never every interface and never loopback; state it as `bind`"
+        )
+    if address.is_global:
+        raise LaunchError(
+            f"{model}: {where} would bind {stated}, an address reachable from "
+            f"the internet, and rpc-server has no authentication: anyone who "
+            f"reaches it can use the card. Bind a private or overlay-network "
+            f"address the head reaches it at"
         )
     return str(address)
 
@@ -230,7 +241,10 @@ def _llama(
     # its cards.
     args: dict[str, str] = {
         "--model": str(weights),
-        "-ngl": "99",
+        # Every layer, the output layer included, is on a card: the counts
+        # below are stated over all of them, and a smaller -ngl would leave
+        # the first blocks on the host and shift every other one.
+        "-ngl": str(sum(plan.layer_counts)),
         "-c": str(plan.ctx_per_slot * plan.slots),
         "-ub": str(n_ubatch),
         "-b": str(n_ubatch),

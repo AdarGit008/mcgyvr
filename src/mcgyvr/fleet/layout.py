@@ -9,9 +9,6 @@
   names. It is commanded at fleet level and carried out per rig and per slot:
   slot k of the source pairs with slot k of the target, and a leaving slot's
   stop precedes its arrival's start.
-* A switch of a unit that spans rigs is ordered across them
-  (:func:`ordered_actions`): its workers start before its head and its head
-  stops before its workers. Each rig's own order is never changed.
 * A switch's dev run is keyed by its **rig move** (the rig, the combination it
   starts from and the actions), so one run proves every fleet switch that
   derives the same move.
@@ -20,13 +17,9 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from mcgyvr.fleet import ids
-
-if TYPE_CHECKING:
-    from mcgyvr.fleet.spans import Span
 
 AWAKE = "awake"
 ASLEEP = "asleep"
@@ -146,78 +139,6 @@ def actions(
     for rig in _union_keys(before, after):
         out.extend(_rig_actions(rig, before.get(rig, []), after.get(rig, [])))
     return out
-
-
-#: The verbs that bring a unit up, and the verbs that take it down.
-_BRINGING_UP = frozenset({"start", "wake"})
-_TAKING_DOWN = frozenset({"drain", "stop", "sleep"})
-
-
-def ordered_actions(
-    before: dict[str, list[Any]],
-    after: dict[str, list[Any]],
-    spans: Mapping[str, Span],
-) -> list[tuple[str, str, str]]:
-    """The verbs of :func:`actions`, ordered across the rigs a unit spans.
-
-    A head answers only while its workers listen, and a worker must not vanish
-    under a head that is serving. So for each unit that spans rigs, its workers'
-    ``start`` and ``wake`` come before its head's, and its head's ``drain``,
-    ``stop`` and ``sleep`` come before its workers'. That is the only thing
-    added: a rig's own actions keep the order :func:`actions` gave them (a
-    leaving slot's stop still precedes its arrival's start), and anything the
-    spans do not constrain keeps its place.
-
-    The order is a stable topological sort: the earliest action whose
-    predecessors are done goes next. Two spanning units whose slots sit in
-    opposite orders on two rigs can ask for a cycle; a rig's own order is then
-    kept and the cross-rig preference given up, since a slot's own order is the
-    one thing a switch cannot break.
-    """
-    plan = actions(before, after)
-    chain: dict[int, set[int]] = {i: set() for i in range(len(plan))}
-    last_on_rig: dict[str, int] = {}
-    for index, (rig, _verb, _unit) in enumerate(plan):
-        if rig in last_on_rig:
-            chain[index].add(last_on_rig[rig])
-        last_on_rig[rig] = index
-
-    cross: dict[int, set[int]] = {i: set() for i in range(len(plan))}
-    for unit, span in spans.items():
-        if len(span.rigs) < 2:
-            continue
-        mine = [
-            (index, rig, verb)
-            for index, (rig, verb, name) in enumerate(plan)
-            if name == unit
-        ]
-        for index, rig, verb in mine:
-            for other, other_rig, other_verb in mine:
-                workers_first = (
-                    verb in _BRINGING_UP
-                    and other_verb in _BRINGING_UP
-                    and rig == span.head
-                    and other_rig != span.head
-                )
-                head_first = (
-                    verb in _TAKING_DOWN
-                    and other_verb in _TAKING_DOWN
-                    and rig != span.head
-                    and other_rig == span.head
-                )
-                if workers_first or head_first:
-                    cross[index].add(other)
-
-    done: set[int] = set()
-    order: list[int] = []
-    while len(order) < len(plan):
-        pending = [i for i in range(len(plan)) if i not in done]
-        ready = [i for i in pending if (chain[i] | cross[i]) <= done]
-        if not ready:
-            ready = [i for i in pending if chain[i] <= done]
-        done.add(ready[0])
-        order.append(ready[0])
-    return [plan[i] for i in order]
 
 
 #: One rig's part of a switch: the rig, the combination it starts from, and
