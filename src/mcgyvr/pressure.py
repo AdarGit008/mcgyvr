@@ -72,7 +72,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict, probe_endpoint
-from mcgyvr.cooldown import COOLDOWN_S, Cooldown
+from mcgyvr.cooldown import COOLDOWN_S, Cooldown, SharedHold
 from mcgyvr.runner import unit_in_flight
 from mcgyvr.serving import host_of
 from mcgyvr.wake import _ours, resting
@@ -364,6 +364,75 @@ class Board:
         return said if isinstance(said, dict) else None
 
 
+class HostCooling:
+    """The host-wide cooldown record: which units are held out, and until when.
+
+    :class:`mcgyvr.cooldown.SharedHold` over small files beside the gauge's
+    markers, one per source, each holding the wall-clock time its hold ends. A
+    process whose own streak earns a source the sentence writes it; every
+    process's cooldown reads it, so a unit that failed for the ladder manager
+    is held out from the tasks, and one that failed for a task from the
+    manager.
+
+    The board's rules, for the board's reasons: a directory only this user can
+    have written into, a write made under a scratch name and renamed into
+    place whole — a scratch file a dead writer left is swept by
+    :meth:`Gauge.count` — and anything unreadable is no hold. The wall clock
+    and not a monotonic one, because the processes that read it do not share a
+    monotonic clock. A hold never shortens one already written: the longer
+    sentence stands. Two writers racing can each keep their own; the next
+    failure re-arms it, and nothing here is worth a lock of its own.
+    """
+
+    def __init__(
+        self, directory: Path | None = None, clock: Callable[[], float] = time.time
+    ) -> None:
+        self._directory = directory if directory is not None else default_directory()
+        self._clock = clock
+
+    def _file(self, where: Path, source: str) -> Path:
+        return where / f"held.{_stem(source)}.json"
+
+    def hold(self, source: str, seconds: float) -> None:
+        """Hold ``source`` out for ``seconds`` from now, unless already held longer."""
+        where = _usable(self._directory, make=True)
+        if where is None:
+            return
+        until = self._clock() + seconds
+        if (self._until(where, source) or 0.0) >= until:
+            return
+        target = self._file(where, source)
+        scratch = where / f"{target.name}.{os.getpid()}.{_next_number()}.tmp"
+        try:
+            fd = os.open(scratch, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps({"source": source, "until": until}))
+            os.replace(scratch, target)
+        except OSError:
+            _quietly_remove(scratch)
+
+    def held(self, source: str) -> float | None:
+        """Seconds ``source`` is still held out for, or ``None`` if it is not."""
+        where = _usable(self._directory, make=False)
+        if where is None:
+            return None
+        until = self._until(where, source)
+        if until is None:
+            return None
+        left = until - self._clock()
+        return left if left > 0 else None
+
+    def _until(self, where: Path, source: str) -> float | None:
+        try:
+            said = json.loads(self._file(where, source).read_text(encoding="utf-8"))
+        except (OSError, ValueError, RecursionError):
+            return None
+        until = said.get("until") if isinstance(said, dict) else None
+        if isinstance(until, bool) or not isinstance(until, (int, float)):
+            return None
+        return float(until)
+
+
 @contextmanager
 def exclusive(name: str, directory: Path | None = None) -> Iterator[bool | None]:
     """Hold ``name`` on this host for the block, if nobody else does.
@@ -564,8 +633,9 @@ class RungCooling:
     sentence shorter than that would expire before it could keep the manager
     from anything. The dispatch cooldown's own sentence is the floor.
 
-    The record lives in the manager's process. A task's own cooldown learns
-    from the task's dispatches, and does not see what the manager learned here.
+    ``shared`` is the host-wide record (:class:`HostCooling`): a unit the
+    manager's switches failed is held out from the tasks too, and one the
+    tasks' dispatches failed is held out from the manager.
     """
 
     def __init__(
@@ -575,6 +645,7 @@ class RungCooling:
         *,
         hold_s: float | None = None,
         clock: Callable[[], float] = time.monotonic,
+        shared: SharedHold | None = None,
     ) -> None:
         self._pool = pool
         if cooldown is None:
@@ -582,6 +653,7 @@ class RungCooling:
                 probe=_asleep_is_not_down,
                 clock=clock,
                 cooldown_s=COOLDOWN_S if hold_s is None else max(COOLDOWN_S, hold_s),
+                shared=shared,
             )
         self._cooldown = cooldown
 

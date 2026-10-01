@@ -96,6 +96,7 @@ from mcgyvr.config import Ladder
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
+    from mcgyvr.cooldown import SharedHold
     from mcgyvr.pool import SourceMap
     from mcgyvr.pressure import Gauge, Reading
 
@@ -878,6 +879,9 @@ class ForTask:
     gauge: Gauge | None = None
     presence: Callable[[str], AbstractContextManager[object]] | None = None
     note: str | None = None
+    #: The host-wide cooldown record a managed ladder's tasks share with the
+    #: manager (:class:`mcgyvr.pressure.HostCooling`), or ``None``.
+    held: SharedHold | None = None
 
 
 def for_task(
@@ -902,11 +906,14 @@ def for_task(
             f"the ladder manager's choice applies to this task: fanout "
             f"{chosen.ladder.fanout}, ladder {', '.join(chosen.ladder.names)}"
         )
+    from mcgyvr.pressure import HostCooling
+
     return ForTask(
         config=chosen,
         gauge=gauge,
         presence=presence_for(chosen, gauge),
         note=note,
+        held=HostCooling(),
     )
 
 

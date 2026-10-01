@@ -1619,7 +1619,7 @@ def _climb(
             elapsed_s=0.0,
         )
 
-    cooldown = Cooldown(probe=_always_live)
+    cooldown = Cooldown(probe=_always_live, shared=managed.held)
     try:
         route = ascent(config, pool, contract, capacity=capacity)
     except RouteError as exc:
@@ -2433,7 +2433,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
     from mcgyvr.pool import source_map
-    from mcgyvr.pressure import Board, Gauge, Pressure, RungCooling
+    from mcgyvr.pressure import Board, Gauge, HostCooling, Pressure, RungCooling
 
     pool = source_map(config)
     fast = fleet_manager.fast_rung(config, pool)
@@ -2461,7 +2461,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
             fast.name,
             timeout_s=DEFAULT_REQUEST_TIMEOUT_S if stated is None else stated,
         ),
-        cooling=RungCooling(pool, hold_s=bounds.dwell_s),
+        cooling=RungCooling(pool, hold_s=bounds.dwell_s, shared=HostCooling()),
         say=print,
         publish=board.publish,
     )
