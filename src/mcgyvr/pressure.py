@@ -20,7 +20,9 @@ files on this host's filesystem that the kernel keeps honest.
   Removal is the counter's, and it is safe to do there because a marker is
   renamed into place only *after* it is locked — a file that exists under its
   final name and is unlocked can only be one whose holder died, never one whose
-  holder has not got to it yet.
+  holder has not got to it yet. A scratch file whose maker died before the
+  rename is removed by the same count, told apart by the maker's pid in its
+  name.
 * **A gauge must never fail the work it is attached to.** It is bookkeeping for
   somebody else's decision. Every way the filesystem can refuse — no space, no
   permission, a path that is a file — leaves the body running unmarked, and the
@@ -86,6 +88,9 @@ _SLUG = re.compile(r"[^A-Za-z0-9.-]+")
 
 # The file the manager's published choice lives in, beside the markers.
 _BOARD = "pipeline.json"
+#: A scratch file :meth:`Gauge.present` or :meth:`Board.publish` makes before
+#: renaming it into place: ``<name>.<pid>.<n>.tmp``, the pid its maker's.
+_SCRATCH = re.compile(r"^.+\.(\d+)\.\d+\.tmp$")
 
 # Marker and scratch names must not collide between threads of one process, and
 # the process id separates the processes; a counter and the lock that makes
@@ -242,7 +247,34 @@ class Gauge:
             names = os.listdir(where)
         except OSError:
             return None
+        _sweep_scratch(where, names)
         return sum(1 for name in names if mine.match(name) and _held(where / name))
+
+
+def _sweep_scratch(where: Path, names: list[str]) -> None:
+    """Remove the scratch files whose maker is no longer running.
+
+    A scratch file is renamed into place moments after it is made, so one
+    still here belongs either to a process that is making it now or to one that
+    died in between — and nothing else will ever name the second kind. The pid
+    in its name tells them apart; a pid that was reused since leaves a file
+    that waits for the next sweep, which is harmless.
+    """
+    for name in names:
+        found = _SCRATCH.match(name)
+        if found is not None and not _running(int(found.group(1))):
+            _quietly_remove(where / name)
+
+
+def _running(pid: int) -> bool:
+    """Whether a process with this pid exists, as far as this user can tell."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
 
 
 def _held(marker: Path) -> bool:
