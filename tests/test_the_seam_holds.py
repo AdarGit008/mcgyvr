@@ -158,6 +158,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.docgen",
     "mcgyvr.drive",
     "mcgyvr.escalate",
+    "mcgyvr.fleet_manager",
     "mcgyvr.gate",
     "mcgyvr.gate._engine.ghostcall",
     "mcgyvr.gate._engine.ghostcall.checker",

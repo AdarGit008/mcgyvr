@@ -1001,6 +1001,7 @@ def escalate(
     *,
     capacity: Capacity | None = None,
     floor: Family | None = None,
+    wake_hook: Callable[[Contract], str | None] | None = None,
 ) -> Delivered | Halted:
     """Climb the ascent until something is accepted or a rule ends the task.
 
@@ -1008,6 +1009,16 @@ def escalate(
     prompt, dispatches, applies, gates and calls :func:`judge`. Keeping it a
     parameter is what lets every rule here be asserted without a model, a
     backend or a sandbox.
+
+    ``wake_hook`` is the fleet-manager seam: a caller-supplied judgment that
+    is consulted once, when a resident family is spent and the next family up
+    is the api family. It names an asleep smarter rung to wake and route to
+    before the api is entered, or ``None`` to escalate as today. It is asked
+    only at that boundary, never before a family has actually been tried, and
+    never while a cheaper move is still on the ladder — the judgment costs a
+    model call, and paying it before a family is spent would charge every task
+    for an answer the climb may not need. ``None`` disables the seam entirely,
+    which is the ordinary install that did not ask for a fleet manager.
 
     Both ceilings are enforced through :func:`~mcgyvr.route.climb`'s ``permit``
     rather than by trimming the plan, because a decline costs nothing and a
@@ -1113,8 +1124,51 @@ def escalate(
         judged.append(attempted(this.rung.name, this.attempt, result))
         return result
 
+    def raised_to_halted(raised: _AttemptError) -> Halted:
+        """The one shape an attempt that raised takes, whichever plan it was in."""
+        detail = (
+            f"rung {raised.rung!r} raised {type(raised.cause).__name__}: {raised.cause}"
+        )
+        history.extend(judged)
+        history.append(
+            Attempted(
+                rung=raised.rung,
+                attempt=raised.attempt,
+                verdict=Verdict.FAILED,
+                detail=detail,
+                raised=True,
+                draw=raised.draw,
+                draws=raised.draws,
+                rows=raised.rows,
+            )
+        )
+        return Halted(
+            outcome=Outcome.ERROR,
+            entered=tuple(entered),
+            history=tuple(history),
+            attempts_spent=attempts_spent,
+            escalations=max(0, len(spent_rungs) - 1),
+            detail=detail,
+        )
+
+    def finish_accepted(family: Family, rung: str) -> Delivered:
+        assert accepted_judgement is not None  # set by `observed` on PASSED
+        return Delivered(
+            family=family,
+            rung=rung,
+            # An attempt that passed without saying what its acceptance
+            # rests on is read as unverified. Defaulting the other way is
+            # how a result comes to be reported as more assured than it is.
+            assurance=accepted_judgement.assurance or Assurance.UNVERIFIED,
+            judgement=accepted_judgement,
+            entered=tuple(entered),
+            history=tuple(history),
+            attempts_spent=attempts_spent,
+            escalations=max(0, len(spent_rungs) - 1),
+        )
+
     try:
-        for each in route.plans:
+        for index, each in enumerate(route.plans):
             if not each.climbable:
                 # Not entered, and its reason is kept for the halt detail. The
                 # test is `climbable` rather than truthiness because the two
@@ -1134,65 +1188,41 @@ def escalate(
                     each, observed, capacity=capacity, permit=permit, claimed=taking
                 )
             except _AttemptError as raised:
-                detail = (
-                    f"rung {raised.rung!r} raised "
-                    f"{type(raised.cause).__name__}: {raised.cause}"
-                )
-                # Every attempt judged before the raise, then the raise. The
-                # judged ones dispatched and were counted; the raising one is
-                # in the history too, because a record that omitted it would
-                # show a climb that never touched the rung it died on.
-                history.extend(judged)
-                history.append(
-                    Attempted(
-                        rung=raised.rung,
-                        attempt=raised.attempt,
-                        verdict=Verdict.FAILED,
-                        detail=detail,
-                        raised=True,
-                        # Copied from the raise site and never inferred here.
-                        # `draws` is the breadth the attempt asked for and
-                        # means that on every entry; `rows` is how many of
-                        # those draws left a journal row, which is what the
-                        # caller corrects; `draw` is the one it died in, or
-                        # `None` when no row of it is the culprit. The
-                        # dataclass defaults say "draw 0 of 1", which is a
-                        # claim and not "unknown". See `DispatchRaisedError`
-                        # for why a driver is the only party that can say any
-                        # of them.
-                        draw=raised.draw,
-                        draws=raised.draws,
-                        rows=raised.rows,
-                    )
-                )
-                return Halted(
-                    outcome=Outcome.ERROR,
-                    entered=tuple(entered),
-                    history=tuple(history),
-                    attempts_spent=attempts_spent,
-                    escalations=max(0, len(spent_rungs) - 1),
-                    detail=detail,
-                )
+                return raised_to_halted(raised)
             history.extend(result.history)
             if result.history:
                 entered.append(each.family)
             if isinstance(result, Accepted):
-                assert accepted_judgement is not None  # set by `observed` on PASSED
-                return Delivered(
-                    family=result.family,
-                    rung=result.rung,
-                    # An attempt that passed without saying what its acceptance
-                    # rests on is read as unverified. Defaulting the other way is
-                    # how a result comes to be reported as more assured than it is.
-                    assurance=accepted_judgement.assurance or Assurance.UNVERIFIED,
-                    judgement=accepted_judgement,
-                    entered=tuple(entered),
-                    history=tuple(history),
-                    attempts_spent=attempts_spent,
-                    escalations=max(0, len(spent_rungs) - 1),
-                )
+                return finish_accepted(result.family, result.rung)
             if result.reason is Exhaustion.WITHHELD:
                 break
+            # The fleet-manager seam: a resident family spent, the api family
+            # next. Ask once whether an asleep smarter rung should be woken and
+            # routed to before the api is entered, and climb it if so. Nothing
+            # is consulted on the way *up* within a family or across any other
+            # boundary — the judgment costs a model call, and it is only the
+            # api crossing that is worth paying it for.
+            if wake_hook is not None and _next_is_api(route.plans, index):
+                woken = wake_hook(contract)
+                if woken is not None:
+                    extra = _single_rung_plan(
+                        config, pool, contract, woken, each.family
+                    )
+                    if extra is not None:
+                        judged.clear()
+                        try:
+                            extra_result = climb(
+                                extra, observed, capacity=capacity, permit=permit
+                            )
+                        except _AttemptError as raised:
+                            return raised_to_halted(raised)
+                        history.extend(extra_result.history)
+                        if extra_result.history:
+                            entered.append(extra.family)
+                        if isinstance(extra_result, Accepted):
+                            return finish_accepted(
+                                extra_result.family, extra_result.rung
+                            )
     finally:
         # Unreachable by the argument above, and kept anyway: the cost of that
         # argument being wrong one day is not a wrong answer, it is a source
@@ -1301,6 +1331,39 @@ def _handed_down(route: Ascent, entry: Entry) -> str | None:
     for each in route.plans:
         if each.family == entry.family:
             return entry.rung if entry.rung in each.rungs else None
+    return None
+
+
+def _next_is_api(plans: tuple[Plan, ...], index: int) -> bool:
+    """Whether the plan after ``index`` is the api family — the climb's next stop.
+
+    The fleet-manager seam fires only here: a resident family spent, and the
+    next family up is the api. Nothing earlier on the walk crosses this line,
+    so the judgment is never paid before a family has actually been tried.
+    """
+    if index + 1 >= len(plans):
+        return False
+    return plans[index + 1].family.name == "api"
+
+
+def _single_rung_plan(
+    config: Config,
+    pool: SourceMap,
+    contract: Contract,
+    rung: str,
+    family: Family,
+) -> Plan | None:
+    """A one-rung plan for ``rung``, cut out of the family it belongs to.
+
+    Reuses :func:`mcgyvr.route.plan` so the step carries the same attempts and
+    machine the family's own climb would have used — the hook routes, it does
+    not re-declare budget. ``None`` when ``rung`` is not on that family's plan,
+    a hook naming a rung the ladder does not offer.
+    """
+    full = plan(config, pool, contract, family=family)
+    for step in full.climbable:
+        if step.rung.name == rung:
+            return Plan(family=family, steps=(step,), fanout=Fanout.NONE)
     return None
 
 

@@ -166,6 +166,12 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # `SourceProbe` exactly as it consults availability, handing endpoints down and
 # getting back a mapping of source name to reason.
 #
+# `decision.py` (the Jev primitive) is the sixth, and its argument is the
+# same as availability's: it takes an endpoint and sends it a logprobs request
+# over the network, and it reuses the runner's transport so a decision and a
+# dispatch reach a unit identically. Nothing travels upward either — it hands
+# back a `Decision`, a mapping of answers, and never an endpoint.
+#
 # It is on this list rather than off it because the alternative was worse. The
 # same import spelled `from mcgyvr.availability import Endpoint` — a re-export —
 # would satisfy this guard while changing nothing about the dependency, which is
