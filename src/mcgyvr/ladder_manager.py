@@ -26,13 +26,15 @@ lead rung. A question with one legal answer is not asked, so a quiet ladder
 costs no decision at all.
 
 **What is legal is decided here, and is the hysteresis band.** A wake is
-offered only while the dearest awake local rung has work waiting beyond its
-width; a sleep only for a unit whose whole card has read idle — nothing in
-flight, nothing waiting and nothing climbed — for at least ``dwell_s`` without
-a break, over a ladder with no queue anywhere. Between the two bands only
-"hold" is legal. Then Jev must give the same answer ``confirm`` times in a row
-before anything moves, and no two switches are closer than ``dwell_s``, so a
-queue that flickers across one band does not flap the ladder.
+offered only while the dearest awake local rung is full — its server's own
+count at its width, by the one check the climb's idle spill makes too
+(:meth:`mcgyvr.capacity.Capacity.judge`); a sleep only for a unit whose whole
+card has read idle — nothing in flight, nothing waiting and nothing climbed —
+for at least ``dwell_s`` without a break, over a ladder with no queue
+anywhere. Between the two bands only "hold" is legal. Then Jev must give the
+same answer ``confirm`` times in a row before anything moves, and no two
+switches are closer than ``dwell_s``, so a queue that flickers across one band
+does not flap the ladder.
 
 **A switch somebody else made counts as one.** A task that climbs to a sleeping
 unit wakes it itself, through the dispatch-side door
@@ -250,6 +252,13 @@ def _queued(reading: Reading) -> int:
     return (reading.waiting or 0) + overflow
 
 
+def _load(reading: Reading) -> str:
+    """A rung's load in words, for a recommendation a person reads."""
+    in_flight = "unread" if reading.in_flight is None else str(reading.in_flight)
+    waiting = "unread" if reading.waiting is None else str(reading.waiting)
+    return f"{in_flight} in flight of {reading.width}, {waiting} waiting"
+
+
 def _idle(reading: Reading) -> bool:
     """Provably idle: every count read, and every one of them zero."""
     return reading.in_flight == 0 and reading.waiting == 0 and reading.climbed == 0
@@ -321,8 +330,14 @@ class Manager:
         cooled: frozenset[str],
         top: str | None,
     ) -> tuple[list[_Move], str | None]:
-        """The legal wakes, and the recommendation a flood with none earns."""
-        if top is None or _queued(readings[top]) <= 0:
+        """The legal wakes, and the recommendation a flood with none earns.
+
+        A flood is the dearest awake local rung being **full** — the one
+        definition, :meth:`mcgyvr.capacity.Capacity.judge`, that the climb's
+        idle spill reads too: its server's own count at width, which sees every
+        client, or this process's load, which here is nothing.
+        """
+        if top is None or not readings[top].full:
             return [], None
         moves: list[_Move] = []
         blocked: list[str] = []
@@ -347,9 +362,9 @@ class Manager:
             return moves, None
         why = "; ".join(blocked) or "no sleeping unit above it can be woken"
         return [], (
-            f"recommend: {top} has {_queued(readings[top])} waiting beyond its "
-            f"width and {why}. Answering it takes loading or swapping a model, "
-            f"which the ladder manager leaves to you."
+            f"recommend: {top} is full ({_load(readings[top])}) and {why}. "
+            f"Answering it takes loading or swapping a model, which the ladder "
+            f"manager leaves to you."
         )
 
     def _may_sleep(
@@ -682,6 +697,7 @@ class Manager:
                     "climbed": readings[rung].climbed,
                     "width": readings[rung].width,
                     "queued": _queued(readings[rung]),
+                    "full": readings[rung].full,
                     "cooling": rung in cooled,
                     "idle_s": (
                         None

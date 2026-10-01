@@ -418,7 +418,10 @@ class Reading:
     reports serving. ``waiting`` is the host-wide count of dispatches queued for
     its slots, and ``climbed`` the host-wide count of tasks working on it after
     climbing from a cheaper rung. ``width`` is the number of slots it enforces,
-    which is what the other three are to be read against.
+    which is what the other three are to be read against. ``full`` is
+    :meth:`mcgyvr.capacity.Capacity.judge`'s answer for the rung with
+    ``in_flight`` as the server's count: the one definition of a full local
+    rung, which the climb's idle spill reads as well.
     """
 
     rung: str
@@ -427,6 +430,7 @@ class Reading:
     waiting: int | None
     climbed: int | None
     width: int
+    full: bool = False
 
 
 def _probed(endpoint: Endpoint) -> bool:
@@ -491,14 +495,38 @@ class Pressure:
         """
         endpoint = self._pool.bind(rung)
         awake = self._live(endpoint)
+        in_flight = self._in_flight(endpoint) if awake else None
         return Reading(
             rung=rung,
             awake=awake,
-            in_flight=self._in_flight(endpoint) if awake else None,
+            in_flight=in_flight,
             waiting=self._capacity.waiting(endpoint.source, rung),
             climbed=self._gauge.count(climbed_key(rung)),
             width=self._capacity.limit(endpoint.source, rung),
+            full=self._capacity.judge(endpoint.source, rung, in_flight).full,
         )
+
+
+def server_counts(pool: SourceMap) -> Callable[[str], int | None]:
+    """What each unit's own server says it has in flight, by source; ``None`` unread.
+
+    The reader :class:`~mcgyvr.capacity.Capacity` is handed for
+    :meth:`~mcgyvr.capacity.Capacity.fullness`: the runner's own status read
+    (:func:`mcgyvr.runner.unit_in_flight`) at the unit's address. A source the
+    pool does not bind is unread, not refused: a capacity bounds every unit of
+    a config, and only the ladder's are on the pool.
+    """
+
+    from mcgyvr.pool import UnknownRungError
+
+    def count(source: str) -> int | None:
+        try:
+            endpoint = pool.bind(source)
+        except UnknownRungError:
+            return None
+        return _status(endpoint)
+
+    return count
 
 
 def _asleep_is_not_down(endpoint: Endpoint, timeout_s: float) -> AvailabilityVerdict:

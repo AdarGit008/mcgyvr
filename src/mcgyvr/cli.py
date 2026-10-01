@@ -1591,9 +1591,14 @@ def _climb(
     # rig. Its slot files are a host-wide rendezvous, which is what makes this
     # bound hold across concurrent `mcgyvr run` processes and not merely
     # within one — the case it exists for, since a single contract dispatches
-    # one request at a time and never contends with itself.
+    # one request at a time and never contends with itself. Its server reader
+    # is what lets `fanout: idle` count a client that is not mcgyvr: a rung is
+    # full by either count (Capacity.judge), and it is read only where that
+    # question is asked.
+    from mcgyvr.pressure import server_counts
+
     try:
-        capacity = Capacity.of(config, gauge=managed.gauge)
+        capacity = Capacity.of(config, gauge=managed.gauge, busy=server_counts(pool))
     except CapacityError as exc:
         return _error(report, str(exc))
 

@@ -656,6 +656,14 @@ class Ascent:
         Comparing one rung's load against another's width reports an idle
         narrow rung as full and spends money climbing past it.
 
+        **Free is free by both counts.** A rung is full when this batch's load
+        is at its width *or* its server's own busy count is
+        (:meth:`~mcgyvr.capacity.Capacity.judge`, the one definition the ladder
+        manager reads too): another client's work fills a rung this process's
+        counters cannot see. A server that cannot be read leaves the load to
+        decide alone. The servers are read before the snapshot below, because
+        a read of a machine is not a counter read.
+
         The load is read here rather than stored when the ascent was built,
         because a reading taken before the batch started is only true until the
         batch starts; this is the closest a caller can get to the moment it acts.
@@ -753,19 +761,34 @@ class Ascent:
         """
         if self.fanout is not Fanout.IDLE or self.capacity is None:
             return None
+        # Each server's own busy count, read before the decision is taken: it is
+        # a read of a machine, and nothing slow runs inside `deciding`.
+        servers = {
+            step.rung.name: step.machine.server(self.capacity)
+            for each in self.plans
+            for step in each.climbable
+            if step.machine is not None
+        }
         with self.capacity.deciding():
             for each in self.plans:
                 for step in each.climbable:
                     machine = step.machine
                     width = self.widths.get(step.rung.name)
-                    load = (
+                    # Free by both counts (Capacity.judge): this batch's own
+                    # load, and the server's busy count, which sees the clients
+                    # this process does not.
+                    full = (
                         None
                         if machine is None
-                        else machine.load(self.capacity, step.rung.name)
+                        else machine.full(
+                            self.capacity,
+                            step.rung.name,
+                            servers.get(step.rung.name),
+                        )
                     )
-                    if machine is None or width is None or load is None:
+                    if machine is None or width is None or full is None:
                         return None
-                    if load < width:
+                    if not full:
                         if reserve and self._raises(each.family):
                             machine.claim(self.capacity, step.rung.name)
                         return each.family, step.rung.name, machine

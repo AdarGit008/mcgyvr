@@ -242,6 +242,42 @@ def _default_lock_dir() -> Path:
     return Path(tempfile.gettempdir()) / f"mcgyvr-capacity-{os.getuid()}"
 
 
+@dataclass(frozen=True)
+class Fullness:
+    """Whether a rung is full, and the two counts that said so.
+
+    :meth:`Capacity.judge` is where it is made; this is what it read.
+    """
+
+    #: This process's slots granted plus attempts reserved (:meth:`Capacity.load`).
+    load: int
+    #: What the unit's server says it has in flight; ``None`` where it was not read.
+    server: int | None
+    #: The rung's width (:meth:`Capacity.limit`).
+    width: int
+
+    @property
+    def full(self) -> bool:
+        """Full when either count is at width; free only when both are below it."""
+        if self.load >= self.width:
+            return True
+        return self.server is not None and self.server >= self.width
+
+    @property
+    def server_read(self) -> bool:
+        return self.server is not None
+
+    @property
+    def why(self) -> str:
+        """The two counts in words, saying when the server was not read."""
+        server = (
+            "the server was not read"
+            if self.server is None
+            else f"the server has {self.server} in flight"
+        )
+        return f"{self.load} of {self.width} here; {server}"
+
+
 def _waiting_key(stem: str) -> str:
     """The gauge key a dispatch waiting on the slot files of ``stem`` is counted under.
 
@@ -475,6 +511,7 @@ class Capacity:
         urls: Mapping[str, str] | None = None,
         queue_timeout_s: float | None = None,
         gauge: Gauge | None = None,
+        busy: Callable[[str], int | None] | None = None,
     ) -> None:
         for source, limit in limits.items():
             if limit < 1:
@@ -584,6 +621,10 @@ class Capacity:
         # nothing is announced and nothing is written, so a capacity that was
         # not given one is exactly what it was; see :meth:`waiting`.
         self._gauge = gauge
+        # What a unit's own server says it has in flight, by source, for
+        # :meth:`fullness`. Absent, no server is read and this process's load
+        # decides alone — which is what every capacity did before.
+        self._busy = busy
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         # Re-entrant because :meth:`deciding` lends this lock to a caller, and a
         # caller inside it reads :meth:`load` and calls :meth:`reserve`, which
@@ -628,6 +669,7 @@ class Capacity:
         probe: WidthProbe | SourceWidthProbe | None = None,
         root: Path | None = None,
         gauge: Gauge | None = None,
+        busy: Callable[[str], int | None] | None = None,
     ) -> Capacity:
         """The capacities this config declares, checked against ``probe`` if given.
 
@@ -667,6 +709,9 @@ class Capacity:
         so that :meth:`waiting` can say how many are queued across every process
         on this host. It is passed through and is not asked about here: the
         bound is the flock and is the same with or without one.
+
+        ``busy`` reads what a unit's own server says it has in flight, for
+        :meth:`fullness`; passed through, and asked nothing here.
         """
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
@@ -706,6 +751,7 @@ class Capacity:
             # queued at every one of them could still wait three ceilings.
             queue_timeout_s=float(config.get("task_timeout_s")),
             gauge=gauge,
+            busy=busy,
         )
 
     @property
@@ -969,6 +1015,48 @@ class Capacity:
             # cannot say a bound is emptier than what is provably held.
             waiting = self._reserved[bound] - self._covered[bound]
             return self._in_use[bound] + max(0, waiting)
+
+    def fullness(self, source: str, rung: str | None = None) -> Fullness:
+        """Whether ``source`` — or ``rung`` — is full, reading its server for it.
+
+        The server's busy count is read through the reader this capacity was
+        given, once per question; without one, it is not read. See
+        :meth:`judge` for the rule.
+        """
+        return self.judge(source, rung, self.server_busy(source))
+
+    def server_busy(self, source: str) -> int | None:
+        """What ``source``'s own server says it has in flight; ``None`` unread.
+
+        One read through the reader this capacity was given, and ``None``
+        without one. Separate from :meth:`judge` so that a caller holding
+        :meth:`deciding` — where nothing slow may run — can read first and
+        judge inside.
+        """
+        self._bounded(source)
+        return None if self._busy is None else self._busy(source)
+
+    def judge(self, source: str, rung: str | None, server: int | None) -> Fullness:
+        """The one definition of a full rung, for a server count already in hand.
+
+        Full when **either** count is at the rung's width: this process's
+        :meth:`load`, which sees a batch that is still choosing and nothing
+        anyone else sent, or ``server``, the unit's own busy count, which sees
+        every client and no attempt that has not arrived yet. Free only when
+        both say free. ``server`` is ``None`` where it could not be read, and
+        then the load decides alone; the answer keeps that, so a reader can see
+        which kind of answer it got.
+
+        Reads nothing: a caller that has just read the server — the ladder
+        manager's pressure reading — hands the count in rather than asking
+        twice.
+        """
+        self._bounded(source)
+        return Fullness(
+            load=self.load(source, rung),
+            server=server,
+            width=self.limit(source, rung),
+        )
 
     def reserve(self, source: str, rung: str | None = None) -> None:
         """Count one attempt as headed for that bound, before it has a slot.
