@@ -103,14 +103,7 @@ from mcgyvr.decision import (
 from mcgyvr.escalate import GATE_ONLY, Opinion, Review, required_policy
 from mcgyvr.gate.jev import JEV_QUESTIONS, JevCheck, jev_check_for
 from mcgyvr.route import by_family
-from mcgyvr.runner import (
-    BackendError,
-    Completion,
-    ProtocolError,
-    Request,
-    dispatch,
-    dispatch_role,
-)
+from mcgyvr.runner import Completion, Request, dispatch, dispatch_role
 from mcgyvr.weights import WEIGHTS_SUFFIXES
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -157,11 +150,14 @@ VERDICT_QUESTION = Noul(
 )
 
 #: What a typed ask raises when the reviewer *answered* but not with
-#: probabilities: no logprobs in the reply, a request for them refused, a body
-#: that is not the protocol. Each says the unit does not serve a typed verdict,
-#: which is the one reason to ask it in prose instead. An unreachable reviewer
-#: is not on the list — asking it a second way would only fail a second time.
-_NOT_TYPED: tuple[type[Exception], ...] = (DecisionError, BackendError, ProtocolError)
+#: probabilities: a reply with no logprobs, or none of the labels among them.
+#: That says the unit does not serve a typed verdict, which is the one reason
+#: to ask it in prose instead. An HTTP error status is not on the list: it is
+#: raised for a rate limit, a model still loading and a server fault alike,
+#: and asking the backend that just answered one a second way only spends a
+#: second request on it — so it is unusable, like an unreachable reviewer, and
+#: it is not remembered: the next ask may find the backend recovered.
+_NOT_TYPED: tuple[type[Exception], ...] = (DecisionError,)
 
 
 class ReviewerUnavailableError(RuntimeError):
@@ -843,6 +839,9 @@ class Reviewer:
     typed verdict, asked first; ``jev`` the gate's typed-question rung
     (:class:`~mcgyvr.gate.jev.JevCheck`) bound to the same reviewer. ``where``
     says which part of the config chose it, for the sentence an operator reads.
+    ``unit`` is the unit every one of those dispatches to, so the driver can
+    send them through its waker as it sends the builder's
+    (:meth:`mcgyvr.wake.Waker.dispatching`).
     """
 
     model: str
@@ -850,6 +849,7 @@ class Reviewer:
     decide: Decide | None = None
     jev: JevCheck | None = None
     where: str = ""
+    unit: str | None = None
 
 
 @dataclass(frozen=True)
@@ -937,6 +937,7 @@ def reviewers_for(
             decide=memory.guard(decide) if decide is not None else None,
             jev=JevCheck(decide=memory.guard(jev.decide)) if jev is not None else None,
             where=f"`verifier.unit` {unit!r}",
+            unit=str(unit),
         )
         return lambda builder: named
 
@@ -1002,6 +1003,7 @@ def _on_rung(
         decide=memory.guard(decide),
         jev=JevCheck(decide=memory.guard(checks)),
         where=f"rung {rung!r}",
+        unit=rung,
     )
 
 

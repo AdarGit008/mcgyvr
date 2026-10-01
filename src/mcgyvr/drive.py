@@ -76,11 +76,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.cooldown import Cooldown
+    from mcgyvr.decision import Decision
     from mcgyvr.deterministic import ToolStep
     from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.pool import SourceMap
     from mcgyvr.sandbox.base import CommandResult, Sandbox
     from mcgyvr.verify import Ask, Reviewers
+    from mcgyvr.wake import Waker
     from mcgyvr.worker.prompt import WorkerPrompt
 
 
@@ -606,10 +608,13 @@ def worker_attempt(
     sentence reaches the judgement. Each reviewer is asked for a typed verdict
     first and in prose where it serves no probabilities, and the same typed
     seam is the gate's Jev rung (:class:`~mcgyvr.gate.jev.JevCheck`): its
-    questions are asked of the reviewer over each draw's added lines, and its
-    answers arrive as observations, which reject nothing. ``reviewer`` is the
-    older, prose-only spelling and is used only when ``reviewers`` is not
-    given.
+    questions are asked of the reviewer over the added lines of the change
+    the gate accepted — once, never of a draw the gate rejected or of one that
+    lost — and its answers arrive as observations, which reject nothing. A
+    reviewer's dispatches go through the same waker as the builder's, so a
+    reviewer on a sleeping card is woken rather than counted unusable.
+    ``reviewer`` is the older, prose-only spelling and is used only when
+    ``reviewers`` is not given.
 
     The pre-change file goes with it, read off the workspace in the moment
     between the reset and the first draw. A reviewer shown only the new content
@@ -672,13 +677,14 @@ def worker_attempt(
 
     def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
-        # Who reviews this rung's work, read before anything is dispatched:
-        # the typed checks the reviewer answers run inside the gate, so the
-        # gate has to know them before the first draw is judged.
+        # Who reviews this rung's work, read before anything is dispatched.
+        # Its dispatches go through the waker, as the builder's do below: a
+        # reviewer on a card that is asleep refuses the connection, and
+        # without the wake every review on such an install is unusable.
         chosen: Reviewer | NoReviewer | None = (
             reviewers(this.rung.name) if reviewers is not None else None
         )
-        reviewing = chosen if isinstance(chosen, Reviewer) else None
+        reviewing = _through(waker, chosen) if isinstance(chosen, Reviewer) else None
         jev = _jev_for(this.rung.model, reviewing)
         if cooldown is not None:
             # Ask before a prompt is built or a sandbox is opened: a rung on a
@@ -711,13 +717,11 @@ def worker_attempt(
             # a sandbox and nowhere else. `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
-            result = gate_workspace(
-                contract, space, adapters=adapters, config=config, jev=jev
-            )
+            result = gate_workspace(contract, space, adapters=adapters, config=config)
             if result.accepted or not tidying:
                 return result
             return _repair_and_regate(
-                contract, space, result, adapters=adapters, config=config, jev=jev
+                contract, space, result, adapters=adapters, config=config
             )
 
         # Before the writes rather than after the last one, which is the same
@@ -921,14 +925,13 @@ def worker_attempt(
             gate, bound = picked.gate, picked.winner
             if tidying:
                 gate, bound = _cleaned(
-                    contract,
-                    sandbox,
-                    gate,
-                    bound,
-                    adapters=adapters,
-                    config=config,
-                    jev=jev,
+                    contract, sandbox, gate, bound, adapters=adapters, config=config
                 )
+            # The reviewer's typed checks, asked once, of the change that is
+            # delivered, and only once the gate has accepted it: each is a
+            # request to the reviewer, so neither a draw the gate rejected nor
+            # a draw that lost to another is worth one.
+            gate, bound = _typed_checks(contract, sandbox, gate, bound, jev)
             judgement = judge(
                 contract,
                 family,
@@ -1006,6 +1009,70 @@ def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
     if reviewing is None or not independent(builder, reviewing.model):
         return None
     return reviewing.jev
+
+
+def _through(waker: Waker | None, reviewer: Reviewer) -> Reviewer:
+    """``reviewer`` with every seam sent through ``waker``, as a builder's is.
+
+    The same :meth:`~mcgyvr.wake.Waker.dispatching` the builder's dispatch
+    goes through, keyed by the unit the reviewer runs on: a refused port wakes
+    that card once and the ask is sent again. ``waker`` is ``None`` for a
+    config that did not enable sleep and wake, and then nothing changes.
+    """
+    if waker is None or reviewer.unit is None:
+        return reviewer
+    unit = reviewer.unit
+    ask, decide, jev = reviewer.ask, reviewer.decide, reviewer.jev
+
+    def woken_ask(prompt: str) -> str:
+        return waker.dispatching(unit, lambda: ask(prompt))
+
+    def woken(seam: Callable[[Any], Decision]) -> Callable[[Any], Decision]:
+        return lambda state: waker.dispatching(unit, lambda: seam(state))
+
+    return replace(
+        reviewer,
+        ask=woken_ask,
+        decide=woken(decide) if decide is not None else None,
+        jev=replace(jev, decide=woken(jev.decide)) if jev is not None else None,
+    )
+
+
+def _typed_checks(
+    contract: Contract,
+    sandbox: Sandbox,
+    gate: GateResult,
+    bound: Accepted,
+    jev: JevCheck | None,
+) -> tuple[GateResult, Accepted]:
+    """Ask the reviewer's typed checks of the accepted change, once.
+
+    The gate's Jev rung, run here rather than inside every draw's gate: each
+    question is a request to the reviewer, and a draw the gate rejected, or
+    one that lost to another draw, is not worth one. Nothing is asked of a
+    change the gate did not accept.
+
+    The winning bytes are written back into the workspace — ``best_of`` has
+    restored it after every draw — so the rung reads the added lines from the
+    tree, as it does inside the gate, and the binding is minted again from that
+    tree with the answers in it, the verdict and its bytes moving together as
+    :func:`_cleaned` moves them.
+    """
+    if jev is None or not gate.accepted:
+        return gate, bound
+    sandbox.reset()
+    target = inside(sandbox.workspace, contract.target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(bound.content.encode("utf-8", "surrogateescape"))
+    report = jev.run(ChangeSet.detect(sandbox.workspace), contract.prose)
+    asked = replace(
+        gate,
+        findings=(*gate.findings, *report.findings),
+        observations=(*gate.observations, *report.observations),
+        environment_issues=(*gate.environment_issues, *report.environment_issues),
+        jev=report,
+    )
+    return asked, Accepted.read(repo=sandbox.workspace, contract=contract, result=asked)
 
 
 def _temperature_of(draw: int, sampled: float) -> float:
@@ -1144,7 +1211,6 @@ def _cleaned(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
-    jev: JevCheck | None = None,
 ) -> tuple[GateResult, Accepted]:
     """Tidy the winning draw, and re-judge it when the tidy-up changed it.
 
@@ -1182,7 +1248,7 @@ def _cleaned(
     if not cleanup.regate:
         return result, bound
     regated = gate_in_sandbox(
-        contract, sandbox, cleanup.content, adapters=adapters, config=config, jev=jev
+        contract, sandbox, cleanup.content, adapters=adapters, config=config
     )
     return regated, Accepted.read(
         repo=sandbox.workspace, contract=contract, result=regated
@@ -1196,7 +1262,6 @@ def _repair_and_regate(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
-    jev: JevCheck | None = None,
 ) -> GateResult:
     """Repair and re-gate, on the same rung and with no model retry.
 
@@ -1231,9 +1296,7 @@ def _repair_and_regate(
                 ),
             )
         return rejected
-    regated = gate_workspace(
-        contract, sandbox, adapters=adapters, config=config, jev=jev
-    )
+    regated = gate_workspace(contract, sandbox, adapters=adapters, config=config)
     noted = tuple(
         Finding(
             check=STYLE,
@@ -1257,7 +1320,6 @@ def gate_in_sandbox(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
-    jev: JevCheck | None = None,
 ) -> GateResult:
     """Write ``content`` as the contract's target in ``sandbox`` and gate it.
 
@@ -1281,7 +1343,7 @@ def gate_in_sandbox(
     target = inside(sandbox.workspace, contract.target)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content.encode("utf-8", "surrogateescape"))
-    return gate_workspace(contract, sandbox, adapters=adapters, config=config, jev=jev)
+    return gate_workspace(contract, sandbox, adapters=adapters, config=config)
 
 
 def task_ceiling(config: Config | None = None) -> float | None:
@@ -1342,7 +1404,6 @@ def gate_workspace(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
-    jev: JevCheck | None = None,
 ) -> GateResult:
     """Judge whatever is in ``sandbox`` right now against ``contract``.
 
@@ -1362,12 +1423,6 @@ def gate_workspace(
     With no ``adapters`` handed in, the gate's are the ones ``config`` asks for
     (:func:`gate_adapters`), built here rather than handed down by the driver:
     the adapters :func:`worker_attempt` holds also decide what a worker is sent.
-
-    ``jev`` is the gate's typed-question rung, bound by the driver to the
-    reviewer of the work being judged; ``None`` — the deterministic floor, an
-    install with review switched off, a builder with no independent reviewer —
-    is a gate that does not run it. It never rejects: its answers arrive as
-    observations, and a reviewer that cannot answer is an environment issue.
     """
     nested = nested_git(sandbox.workspace)
     if nested is not None:
@@ -1400,7 +1455,6 @@ def gate_workspace(
         # `TypeCheck.declared_command`, so the absence is not a rejection.
         typecheck=TypeCheck(repo=sandbox.workspace),
         semantic=SemanticCheck(sandbox=sandbox),
-        jev=jev,
         contract_text=contract.prose,
     )
 

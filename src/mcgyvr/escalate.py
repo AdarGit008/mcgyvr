@@ -428,12 +428,12 @@ def judge(
             verdict=Verdict.FAILED,
             policy=policy,
             upgraded=upgraded,
-            # The gate passed, so there is nothing of its to repeat: the
-            # refusal is the whole of what failed, and it is what a retry has
-            # to act on.
-            retry=RetryNotes(
-                checks=("verifier",), lines=(f"verifier: {review.detail}",)
-            ),
+            # The gate passed, so none of its findings are repeated: the
+            # refusal is what failed, and it is what a retry has to act on.
+            # What the same reviewer answered to the gate's typed checks goes
+            # with it — they are observations elsewhere, but here they are the
+            # only reasons a typed refusal has, and they are already paid for.
+            retry=_refusal_notes(review, gate),
             detail=f"the verifier refused the change: {review.detail}",
         )
     # The reviewer's fault, never the builder's: the gate accepted this change
@@ -450,6 +450,25 @@ def judge(
             f"accepted on the deterministic gate alone: the verifier produced "
             f"no usable verdict ({review.detail}), so the acceptance is "
             f"labelled unverified rather than verified."
+        ),
+    )
+
+
+def _refusal_notes(review: Review, gate: GateResult) -> RetryNotes:
+    """What a retry is told after the verifier refused an accepted change.
+
+    The refusal itself, and then the reviewer's answers to the gate's typed
+    checks (:attr:`~mcgyvr.gate.GateResult.jev`). Those are the per-file
+    reasons a typed verdict does not carry, asked of the same reviewer over the
+    same change, so the builder is told what was found without a second
+    request being spent to find out.
+    """
+    reasons = () if gate.jev is None else (*gate.jev.findings, *gate.jev.observations)
+    return RetryNotes(
+        checks=("verifier", *(("jev",) if reasons else ())),
+        lines=(
+            f"verifier: {review.detail}",
+            *(finding.for_model() for finding in reasons),
         ),
     )
 
