@@ -56,6 +56,7 @@ from mcgyvr.serving import (
     DEFAULT_SPEC_DRAFT_N_MAX,
     DEFAULT_UBATCH,
     gatelib,
+    vramfit,
 )
 
 #: The filename of the shipped HuggingFace catalog, and the schema version
@@ -240,13 +241,41 @@ def _free_vram_bytes(scan: Scan) -> int:
     return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
 
 
-def _fits(scan: Scan, header: Mapping[str, Any]) -> bool:
-    """Whether ``header``'s checkpoint can load on the machine ``scan`` read.
+def _slot_bytes(header: Mapping[str, Any], users: int) -> int | None:
+    """KV and recurrent-state bytes for ``users`` slots, from the measured header.
+
+    ``n_ctx_train`` is the measured context the checkpoint declares and is used
+    as the total context across slots; ``users`` is the slot count the placement
+    serves. Returns None when the header lacks the geometry the cache law
+    needs, which :func:`_fits` reads as "does not fit" rather than guessing.
+    """
+    n_ctx_train = header.get("n_ctx_train")
+    if not isinstance(n_ctx_train, int) or n_ctx_train <= 0:
+        return None
+    geometry = dict(header)
+    try:
+        kv = vramfit.kv_bytes(
+            geometry,
+            n_ctx_train,
+            n_seq_max=users,
+            n_ubatch=DEFAULT_UBATCH,
+        )
+        rs = vramfit.rs_bytes(geometry, n_seq_max=users)
+    except (KeyError, TypeError, ValueError):
+        return None
+    return kv["total"] + rs["total"]
+
+
+def _fits(scan: Scan, header: Mapping[str, Any], users: int) -> bool:
+    """Whether ``header``'s checkpoint can load for ``users`` slots on ``scan``.
 
     An MoE spills its experts to host RAM, so the part that must fit on the
-    card is the non-expert weights; a dense checkpoint must fit whole. Both
-    figures come from the header (measured) and the free VRAM comes from the
-    scan (measured); no stored spec and no estimate stand in for either.
+    card is the non-expert weights; a dense checkpoint must fit whole. To that
+    weight term the cache law adds the KV cache and the recurrent state the
+    header implies for ``users`` concurrent slots, so a wider placement is
+    priced as a wider process, not as the same weights. Every figure comes from
+    the header or the scan (measured); no stored spec and no estimate stand in
+    for any of them.
     """
     free = _free_vram_bytes(scan)
     if free <= 0:
@@ -256,7 +285,10 @@ def _fits(scan: Scan, header: Mapping[str, Any]) -> bool:
         if header.get("placeable_blocks")
         else int(header.get("size_bytes") or 0)
     )
-    return needed <= free
+    slots = _slot_bytes(header, users)
+    if slots is None:
+        return False
+    return needed + slots <= free
 
 
 def _measured(scan: Scan) -> dict[str, Any]:
@@ -296,12 +328,13 @@ def _measured(scan: Scan) -> dict[str, Any]:
     }
 
 
-def _llamacpp_flags(*, checkpoint: str | None, mtp: bool) -> dict[str, str]:
+def _llamacpp_flags(*, checkpoint: str | None, mtp: bool, users: int) -> dict[str, str]:
     """The llama.cpp flags, all shipped constants or the measured checkpoint.
 
     ``mtp`` is only ever true when the checkpoint's own header carried a
     ``nextn_blocks`` entry, so ``--spec-type draft-mtp`` is never assumed from
-    a name.
+    a name. ``users`` above one states ``--parallel``, the width the fit was
+    priced at.
     """
     flags = dict(_LLAMACPP_FLAGS)
     if checkpoint is not None:
@@ -309,6 +342,8 @@ def _llamacpp_flags(*, checkpoint: str | None, mtp: bool) -> dict[str, str]:
     if mtp:
         flags["--spec-type"] = "draft-mtp"
         flags["--spec-draft-n-max"] = str(DEFAULT_SPEC_DRAFT_N_MAX)
+    if users > 1:
+        flags["--parallel"] = str(users)
     return flags
 
 
@@ -316,7 +351,9 @@ def _has_mtp(header: Mapping[str, Any]) -> bool:
     return bool(header.get("nextn_blocks"))
 
 
-def _local_candidates(scan: Scan, header: Mapping[str, Any]) -> tuple[Candidate, ...]:
+def _local_candidates(
+    scan: Scan, header: Mapping[str, Any], users: int
+) -> tuple[Candidate, ...]:
     """The placements a fitting local checkpoint can be served under.
 
     A local store holds ``.gguf`` files, so llama.cpp is the engine that serves
@@ -344,7 +381,7 @@ def _local_candidates(scan: Scan, header: Mapping[str, Any]) -> tuple[Candidate,
                 model_id=None,
                 quant=None,
                 size_bytes=size_bytes,
-                flags=_llamacpp_flags(checkpoint=checkpoint, mtp=mtp),
+                flags=_llamacpp_flags(checkpoint=checkpoint, mtp=mtp, users=users),
                 wake=wake,
             )
         )
@@ -364,7 +401,7 @@ def _catalog_fits(scan: Scan, size_bytes: int) -> bool:
 
 
 def _catalog_candidates(
-    scan: Scan, catalog: Mapping[str, Any]
+    scan: Scan, catalog: Mapping[str, Any], users: int
 ) -> tuple[Candidate, ...]:
     """The downloadable placements the shipped catalog offers.
 
@@ -385,7 +422,7 @@ def _catalog_candidates(
             continue
         for engine in entry.get("engines") or ():
             if engine == "llama.cpp":
-                flags = _llamacpp_flags(checkpoint=None, mtp=False)
+                flags = _llamacpp_flags(checkpoint=None, mtp=False, users=users)
             else:
                 # vLLM's ceiling figures need a declared context and cache
                 # dtype this command does not have; an empty flag set is the
@@ -544,8 +581,8 @@ def plan(
         for directory in dict.fromkeys(model_stores):
             for checkpoint in _discover(host, str(directory)):
                 header = _read_header(host, checkpoint)
-                if _fits(found, header):
-                    local_candidates.extend(_local_candidates(found, header))
+                if _fits(found, header, users):
+                    local_candidates.extend(_local_candidates(found, header, users))
 
     if model_stores and local_candidates:
         candidates = tuple(local_candidates)
@@ -555,7 +592,7 @@ def plan(
         candidates = tuple(
             candidate
             for host, found in scans.items()
-            for candidate in _catalog_candidates(found, catalog)
+            for candidate in _catalog_candidates(found, catalog, users)
         )
         source = "hf-catalog"
 
@@ -567,6 +604,7 @@ def plan(
 
     state: dict[str, Any] = {
         "profile": profile,
+        "users": users,
         "hosts": [str(host) for host in dict.fromkeys(hosts)],
         "measured": rigs,
         "candidates": [

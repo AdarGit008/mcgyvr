@@ -183,6 +183,27 @@ def fake_header(path: str, size_bytes: int = SIZE_BYTES) -> dict[str, Any]:
     }
 
 
+def recurrent_header(path: str, size_bytes: int = SIZE_BYTES) -> dict[str, Any]:
+    """An invented recurrent checkpoint header: per-slot state priced by slots.
+
+    The recurrent state is sized so one slot fits the invented card and four
+    slots do not, which is what makes ``--users`` change the fit.
+    """
+    header = fake_header(path, size_bytes)
+    header.update(
+        {
+            "recurrent_blocks": list(range(24)),
+            "n_recurrent": 24,
+            "ssm_inner_size": 4096,
+            "ssm_state_size": 4096,
+            "ssm_conv_kernel": 0,
+            "ssm_group_count": 0,
+            "ssm_params_from": "ssm.* keys",
+        }
+    )
+    return header
+
+
 def _numbers(document: Any) -> frozenset[int | float]:
     """Every number nested in a parsed plan, never a bool."""
     found: set[int | float] = set()
@@ -243,10 +264,15 @@ class RecordedSsh:
     as the reader running on the rig would print it.
     """
 
-    def __init__(self, *reachable: str) -> None:
+    def __init__(
+        self,
+        *reachable: str,
+        header_builder: Any = fake_header,
+    ) -> None:
         self.reachable = set(reachable or (HOST,))
         self.ggufs = [CHECKPOINT]
         self.header_sizes: dict[str, int] = {}
+        self.header_builder = header_builder
         self.commands: list[tuple[str, str]] = []
 
     def __call__(self, host: str, command: str) -> str:
@@ -259,7 +285,7 @@ class RecordedSsh:
             return "\n".join(self.ggufs) + "\n"
         if _is_header_read(command):
             path = _header_path(command)
-            header = fake_header(path, self.header_sizes.get(path, SIZE_BYTES))
+            header = self.header_builder(path, self.header_sizes.get(path, SIZE_BYTES))
             return json.dumps([header]) + "\n"
         raise AssertionError(f"unexpected ssh command: {command!r}")
 
@@ -768,3 +794,38 @@ def test_recommend_plan_distinguishes_the_three_scan_failure_modes(
     assert plan["no_scanner"] == ["python-only-rig"]
     assert plan["scan_failed"] == ["bad-scan-rig"]
     assert [rig["host"] for rig in plan["rigs"]] == ["ok-rig"]
+
+
+def test_users_budget_the_placement_and_change_the_flags(
+    monkeypatch: pytest.MonkeyPatch,
+    classify: Any,
+    probe: Any,
+    catalog: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``--users single`` and ``--users 4`` budget different processes.
+
+    The recurrent checkpoint's per-slot state fits one slot and does not fit
+    four, so four users fall back to the catalog and carry ``--parallel 4``;
+    one user stays on the local checkpoint without ``--parallel``.
+    """
+    monkeypatch.setattr(
+        scan_module,
+        "_ssh",
+        RecordedSsh(HOST, header_builder=recurrent_header),
+    )
+    classify()
+    probe(live=False)
+    catalog()
+
+    single_code, single_plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    four_code, four_plan = run_and_parse(capsys, "coding", "4", STORE_DIR)
+
+    assert single_code == 0
+    assert four_code == 0
+    assert single_plan["source"] == "local-store"
+    assert single_plan["placement"]["checkpoint"] == CHECKPOINT
+    assert "--parallel" not in single_plan["placement"]["flags"]
+    assert four_plan["source"] == "hf-catalog"
+    assert four_plan["placement"]["model_id"] == "invented-org/invented-dense"
+    assert four_plan["placement"]["flags"]["--parallel"] == "4"
