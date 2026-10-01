@@ -669,6 +669,66 @@ def test_manage_holds_a_cooled_unit_out_for_its_dwell(
     capsys.readouterr()
 
     assert [kwargs.get("hold_s") for kwargs in built] == [600.0]
+    assert isinstance(built[0].get("shared"), pressure.HostCooling), (
+        "the manager's cooldown is not shared with the host's tasks"
+    )
+
+
+def test_a_managed_run_shares_its_cooldown_and_an_unmanaged_one_does_not(
+    tmp_path: Path, home: Path
+) -> None:
+    import mcgyvr.ladder_manager as ladder_manager
+    import mcgyvr.pressure as pressure
+
+    managed = parse(ladder_text(write_spec(tmp_path)))
+    unmanaged = parse(ladder_text(None))
+
+    def nothing_published() -> None:
+        return None
+
+    shared = ladder_manager.for_task(managed, read_board=nothing_published).held
+    assert isinstance(shared, pressure.HostCooling)
+    assert ladder_manager.for_task(unmanaged, read_board=nothing_published).held is None
+
+
+def test_a_run_builds_its_cooldown_on_the_shared_record(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import mcgyvr.cooldown as cooldown
+    import mcgyvr.ladder_manager as ladder_manager
+    import mcgyvr.pressure as pressure
+
+    config = config_on_disk(tmp_path, ladder_text(None))
+    built: list[dict[str, Any]] = []
+    real = cooldown.Cooldown
+
+    def recording(*args: Any, **kwargs: Any) -> Any:
+        built.append(kwargs)
+        return real(*args, **kwargs)
+
+    record = pressure.HostCooling(tmp_path / "shared")
+    real_for_task = ladder_manager.for_task
+
+    def managed(config: Config, **kwargs: Any) -> Any:
+        import dataclasses
+
+        return dataclasses.replace(real_for_task(config, **kwargs), held=record)
+
+    monkeypatch.setattr(cooldown, "Cooldown", recording)
+    monkeypatch.setattr(ladder_manager, "for_task", managed)
+    lj.patch_backend(
+        monkeypatch, lambda model, request: lj.completion(lj.GOOD_REPLY, request)
+    )
+    repo = lj.make_repo(tmp_path / "repo")
+    contract = lj.make_contract(tmp_path / "impl.yaml")
+
+    lj.main(lj.run_args(contract, repo, config))
+    capsys.readouterr()
+
+    assert [kwargs.get("shared") for kwargs in built] == [record]
 
 
 def test_a_sleeping_unit_is_never_read_as_cooling_for_being_asleep(
