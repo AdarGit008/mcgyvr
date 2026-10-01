@@ -178,6 +178,7 @@ tests/test_pattern_e_boundaries.py	dev-pointer=1
 tests/test_per_rung_width.py	host=12
 tests/test_prefill_is_judged_and_cuda_host_and_the_backend_are_recorded.py	dev-pointer=1
 tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py	dev-pointer=5
+tests/test_recommend.py	host=1
 tests/test_remote_scan.py	card-model=1
 tests/test_route.py	address=2
 tests/test_sandbox_docker.py	host=5

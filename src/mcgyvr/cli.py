@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
 from mcgyvr import __version__
+from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import (
@@ -2415,6 +2416,41 @@ def _scan(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
+def _users_count(value: str) -> int:
+    """``single`` or a positive count — the two spellings ``recommend`` takes."""
+    if value == "single":
+        return 1
+    try:
+        count = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"users must be `single` or a number, not {value!r}"
+        ) from None
+    if count < 1:
+        raise argparse.ArgumentTypeError(f"users must be at least 1, not {count}")
+    return count
+
+
+def _recommend(args: argparse.Namespace) -> int:
+    """Print one JSON plan: which checkpoint and engine serve ``args.profile``.
+
+    Read-only: the rigs are re-read over the sanctioned detection ssh path and
+    nothing is written, woken or slept. The plan is the only thing on stdout.
+    """
+    try:
+        made = recommend_module.plan(
+            profile=args.profile,
+            users=args.users,
+            hosts=args.host,
+            model_stores=args.model_store,
+        )
+    except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    sys.stdout.write(json.dumps(made, indent=2, sort_keys=True) + "\n")
+    return Exit.OK
+
+
 def _serve(args: argparse.Namespace) -> int:
     """Hand a card back, or take it back, by name.
 
@@ -3534,6 +3570,42 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         ),
     )
     sca.set_defaults(func=_scan)
+
+    rec = sub.add_parser(
+        "recommend",
+        help="print one JSON plan: which checkpoint and engine serve a profile",
+    )
+    rec.add_argument(
+        "--profile",
+        required=True,
+        choices=recommend_module.PROFILES,
+        help="the usage profile to place for",
+    )
+    rec.add_argument(
+        "--users",
+        required=True,
+        type=_users_count,
+        metavar="N|single",
+        help="how many users the placement serves: `single` or a positive number",
+    )
+    rec.add_argument(
+        "--host",
+        action="append",
+        required=True,
+        metavar="RIG",
+        help="a rig to re-read over ssh and place on (repeatable)",
+    )
+    rec.add_argument(
+        "--model-store",
+        action="append",
+        default=[],
+        metavar="DIR",
+        help=(
+            "a directory on the rig holding *.gguf checkpoints (repeatable); "
+            "when any fits, recommend only from it"
+        ),
+    )
+    rec.set_defaults(func=_recommend)
 
     srv = sub.add_parser(
         "serve",

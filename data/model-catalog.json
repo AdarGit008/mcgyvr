@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "_purpose": "The HuggingFace catalog `mcgyvr recommend` falls back to when no local model store fits. Each entry is a downloadable checkpoint: a repository id, the quantisation the pick asks for, the size of that quantisation in bytes as shipped in this catalog (not re-read here; a local store's header is the measured path), and the engines that can serve it. This file is data: adding a model is an edit here, not a code change.",
+  "models": [
+    {
+      "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
+      "quant": "Q4_K_M",
+      "size_bytes": 4683575296,
+      "engines": ["llama.cpp", "vllm"]
+    },
+    {
+      "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct",
+      "quant": "Q4_K_M",
+      "size_bytes": 8998459392,
+      "engines": ["llama.cpp", "vllm"]
+    },
+    {
+      "model_id": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
+      "quant": "Q4_K_M",
+      "size_bytes": 9558623232,
+      "engines": ["llama.cpp"]
+    }
+  ]
+}

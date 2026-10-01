@@ -576,21 +576,22 @@ def measure_bandwidth(
 
 
 def _ssh(host: str, command: str) -> str:
-    """Run one command on another machine, or say the machine is not there.
+    """Run one read-only detection command on another machine, or say it is not there.
 
-    Through :func:`mcgyvr.serving.gatelib.ssh`, the one place this repository
-    opens an ssh: outside ``mcgyvr.serving.run``, or to a host the door was
-    not opened for, it refuses (exit 2) and that refusal propagates — a remote
-    scan is a rig read, and a rig is read through the door. ``BatchMode`` in
-    it keeps a host whose key is not set up from parking the sweep on a
-    password prompt: no credentials means unreachable, which is an outcome
-    this can report.
+    Through :func:`mcgyvr.serving.gatelib.ssh_read_only`, the sanctioned
+    read-only ssh path: it admits only the remote scan line and the ``*.gguf``
+    discovery line, and refuses (exit 2) anything else. A remote scan is a rig
+    read, and only the door's read-only detection commands are admitted here;
+    launch, sleep and wake still go through :func:`mcgyvr.serving.gatelib.ssh`
+    under the door. ``BatchMode`` keeps a host whose key is not set up from
+    parking the sweep on a password prompt: no credentials means unreachable,
+    which is an outcome this can report.
     """
     # Imported here and not at the top: `mcgyvr.serving` imports this module.
     from mcgyvr.serving import gatelib
 
     try:
-        done = gatelib.ssh(host, command, timeout=SSH_TIMEOUT_S)
+        done = gatelib.ssh_read_only(host, command, timeout=SSH_TIMEOUT_S)
     except (OSError, subprocess.SubprocessError):
         raise Unreachable(host) from None
     if done.returncode != 0:

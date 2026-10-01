@@ -4,40 +4,45 @@ PROMISE
 -------
 ``mcgyvr recommend`` is a read-only planner. It re-reads the rigs it is pointed
 at over ssh — measuring free VRAM, available RAM, disk and bandwidth at that
-moment rather than trusting any stored spec — reads each named checkpoint's own
-header (tensor table, expert bytes, KV layout, MTP head) rather than trusting
-its filename, and, for the ``coding`` profile, assembles candidate placements
-from those measured inputs and lets :func:`mcgyvr.decision.classify` name one.
-Every number in the emitted plan is a measurement the rig or the header made,
-or a shipped constant; none is invented. The other three profiles
-(``chatting``, ``media_gen``, ``other``) are accepted as scaffolds that make no
-placement.
+moment rather than trusting any stored spec — and, for the ``coding`` profile,
+assembles candidate placements from those measured inputs and lets
+:func:`mcgyvr.decision.classify` name one. Every number in the emitted plan is
+a measurement the rig or the checkpoint header made, or a shipped constant;
+none is invented. The other three profiles (``chatting``, ``media_gen``,
+``other``) are accepted as scaffolds that make no placement.
 
 WHAT THIS TEST PINS
 -------------------
-Three behaviours, all through the real CLI entry point ``mcgyvr.cli.main`` and
-invented machines only (invented in shape, not only in name):
+The command is read-only: it reads a rig over the (read-only) ssh scan path —
+``mcgyvr.scan.scan_over``'s transport, seen here as ``mcgyvr.scan._ssh`` — and
+its plan carries the numbers that transport just measured, never the numbers of
+a stored scan.
 
-1. ``recommend`` reads a rig over the (to-be-exposed) ssh scan path —
-   ``mcgyvr.scan.scan_over``'s transport, seen here as ``mcgyvr.scan._ssh`` —
-   and its plan carries the numbers that transport just measured, never the
-   numbers of a stored scan.
-2. The plan's numbers come from measured inputs: the free VRAM and available
-   RAM the rig reported, and the ``size_bytes`` the checkpoint header reported.
-3. ``--profile coding`` makes a real placement (an engine and a checkpoint are
-   chosen and the decision seam is consulted); the other three values are
-   accepted but scaffolded (no engine, no decision).
+Models to place come from exactly one of two places:
 
-The three seams this test substitutes are existing module attributes, chosen so
-the command can be exercised without owning hardware:
+* ``--model-store <dir>`` — checkpoint files are discovered (``*.gguf`` in that
+  directory, over the same read-only ssh seam) and each header is read through
+  ``mcgyvr.serving.ggufscan.scan``. When a discovered checkpoint fits, the plan
+  recommends **only** from that store.
+* no store, or nothing local fits — the plan recommends from a shipped
+  HuggingFace catalog, injected here through ``mcgyvr.recommend.load_catalog``,
+  and marks those picks downloadable (``model_id``, ``quant``, ``size_bytes``).
 
-* ``mcgyvr.scan._ssh`` — the ssh scan transport (the same seam
+``--profile coding`` makes a real placement (an engine and a checkpoint are
+chosen and the decision seam is consulted); the other three values are accepted
+but scaffolded (no engine, no decision).
+
+The seams this test substitutes are existing module attributes, chosen so the
+command can be exercised without owning hardware:
+
+* ``mcgyvr.scan._ssh`` — the ssh scan/detection transport (the same seam
   ``tests/test_remote_scan.py`` stubs);
 * ``mcgyvr.serving.ggufscan.scan`` — the checkpoint-header reader (resolved as
   a module attribute, so the command must reach it that way);
 * ``mcgyvr.decision.classify`` — the placement decision (resolved as a module
   attribute, so the command must reach it that way, as ``tests/test_compose.py``
-  does for ``mcgyvr.compose.classify``).
+  does for ``mcgyvr.compose.classify``);
+* ``mcgyvr.recommend.load_catalog`` — the shipped HuggingFace catalog loader.
 
 The plan is the only thing printed to stdout, as one JSON document, and the
 command exits 0.
@@ -52,6 +57,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import cli, decision
+from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.serving import ggufscan as ggufscan_module
 
@@ -62,11 +68,33 @@ FREE_MIB = 9001
 STALE_MIB = 1111
 AVAILABLE_RAM_GB = 48.0
 HOST = "box-7"
-CHECKPOINT = "/models/invented/invented-moe.gguf"
+STORE_DIR = "/models/store"
+CHECKPOINT = f"{STORE_DIR}/invented-moe.gguf"
+OTHER = f"{STORE_DIR}/invented-dense.gguf"
 SIZE_BYTES = 9_876_543_210
 
 ENGINES = ("llama.cpp", "vllm")
 PROFILES = ("coding", "chatting", "media_gen", "other")
+
+#: An invented HuggingFace catalog, the same shape ``load_catalog`` returns
+#: from ``data/model-catalog.json``. The test injects it through the seam.
+FAKE_CATALOG: dict[str, Any] = {
+    "schema_version": 1,
+    "models": [
+        {
+            "model_id": "invented-org/invented-moe",
+            "quant": "Q4_K_M",
+            "size_bytes": SIZE_BYTES,
+            "engines": ["llama.cpp", "vllm"],
+        },
+        {
+            "model_id": "invented-org/invented-dense",
+            "quant": "Q4_K",
+            "size_bytes": 4_000_000_000,
+            "engines": ["llama.cpp"],
+        },
+    ],
+}
 
 
 def scan_json(host: str, free_mib: int) -> str:
@@ -167,17 +195,27 @@ def _text(document: Any) -> str:
 
 
 class RecordedSsh:
-    """A stand-in for ``mcgyvr.scan._ssh``: reachable hosts answer the invented scan."""
+    """A stand-in for ``mcgyvr.scan._ssh``: scans and store discovery answer.
+
+    The scan command returns the invented scan; a ``find ... *.gguf`` discovery
+    command returns the checkpoint paths this recorder was told are in the
+    store.
+    """
 
     def __init__(self, *reachable: str) -> None:
         self.reachable = set(reachable or (HOST,))
+        self.ggufs = [CHECKPOINT]
         self.commands: list[tuple[str, str]] = []
 
     def __call__(self, host: str, command: str) -> str:
         self.commands.append((host, command))
         if host not in self.reachable:
             raise scan_module.Unreachable(host)
-        return scan_json(host, FREE_MIB)
+        if command == "mcgyvr scan --json":
+            return scan_json(host, FREE_MIB)
+        if command.startswith("find ") and "*.gguf" in command:
+            return "\n".join(self.ggufs) + "\n"
+        raise AssertionError(f"unexpected ssh command: {command!r}")
 
 
 class RecordedHeader:
@@ -185,10 +223,11 @@ class RecordedHeader:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.sizes: dict[str, int] = {}
 
     def __call__(self, path: str) -> dict[str, Any]:
         self.calls.append(path)
-        return fake_header(path)
+        return fake_header(path, self.sizes.get(path, SIZE_BYTES))
 
 
 class RecordedClassify:
@@ -240,8 +279,20 @@ def classify(monkeypatch: pytest.MonkeyPatch) -> Any:
     return install
 
 
+@pytest.fixture
+def catalog(monkeypatch: pytest.MonkeyPatch) -> Any:
+    def install() -> dict[str, Any]:
+        monkeypatch.setattr(recommend_module, "load_catalog", lambda: FAKE_CATALOG)
+        return FAKE_CATALOG
+
+    return install
+
+
 def run_and_parse(
-    capsys: pytest.CaptureFixture[str], profile: str, users: str, *checkpoints: str
+    capsys: pytest.CaptureFixture[str],
+    profile: str,
+    users: str,
+    *model_stores: str,
 ) -> tuple[int, Any]:
     """Drive the command, then parse the plan it printed to stdout."""
     argv: list[str] = [
@@ -253,8 +304,8 @@ def run_and_parse(
         "--host",
         HOST,
     ]
-    for checkpoint in checkpoints:
-        argv += ["--checkpoint", checkpoint]
+    for store in model_stores:
+        argv += ["--model-store", store]
     code = cli.main(argv)
     return code, json.loads(capsys.readouterr().out)
 
@@ -271,7 +322,7 @@ def test_recommend_accepts_every_profile(
     header()
     classify()
     for profile in PROFILES:
-        code, plan = run_and_parse(capsys, profile, "single", CHECKPOINT)
+        code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
         assert code == 0
         assert plan["profile"] == profile
         assert plan["users"] == 1
@@ -283,7 +334,7 @@ def test_recommend_accepts_a_numeric_user_count(
     ssh()
     header()
     classify()
-    code, plan = run_and_parse(capsys, "coding", "3", CHECKPOINT)
+    code, plan = run_and_parse(capsys, "coding", "3", STORE_DIR)
     assert code == 0
     assert plan["users"] == 3
 
@@ -307,7 +358,7 @@ def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
     stale = scan_module.Scan.from_json(scan_json(HOST, STALE_MIB))
     monkeypatch.setattr(scan_module, "load_prior", lambda *a: stale)
 
-    code, plan = run_and_parse(capsys, "coding", "single", CHECKPOINT)
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
     assert code == 0
     assert (HOST, "mcgyvr scan --json") in recorder.commands
 
@@ -316,6 +367,77 @@ def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
     assert AVAILABLE_RAM_GB in numbers
     assert SIZE_BYTES in numbers
     assert STALE_MIB not in numbers
+
+
+def test_recommend_prefers_the_local_store_over_the_catalog(
+    ssh: Any,
+    header: Any,
+    classify: Any,
+    catalog: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A fitting local checkpoint wins; the catalog is not consulted for it."""
+    ssh()
+    headers = header()
+    classify()
+    catalog()
+
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    assert code == 0
+    rendered = _text(plan)
+    assert plan["source"] == "local-store"
+    assert CHECKPOINT in rendered
+    assert CHECKPOINT in headers.calls
+    for model in FAKE_CATALOG["models"]:
+        assert model["model_id"] not in rendered
+
+
+def test_recommend_falls_back_to_the_catalog_when_no_store_is_given(
+    ssh: Any,
+    header: Any,
+    classify: Any,
+    catalog: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Without ``--model-store`` the shipped catalog is the only source."""
+    ssh()
+    headers = header()
+    classify()
+    catalog()
+
+    code, plan = run_and_parse(capsys, "coding", "single")
+    assert code == 0
+    assert plan["source"] == "hf-catalog"
+    assert headers.calls == []
+    numbers = _numbers(plan)
+    assert SIZE_BYTES in numbers
+
+    placement = plan["placement"]
+    assert placement["model_id"] in {
+        model["model_id"] for model in FAKE_CATALOG["models"]
+    }
+    assert placement["quant"]
+    assert placement["size_bytes"] == SIZE_BYTES
+
+
+def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
+    ssh: Any,
+    header: Any,
+    classify: Any,
+    catalog: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A store whose only checkpoint cannot fit is not a source of a placement."""
+    ssh()
+    headers = header()
+    headers.sizes[CHECKPOINT] = 50_000_000_000
+    classify()
+    catalog()
+
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    assert code == 0
+    assert CHECKPOINT in headers.calls
+    assert plan["source"] == "hf-catalog"
 
 
 def test_coding_places_and_the_other_profiles_are_scaffolded(
@@ -328,10 +450,10 @@ def test_coding_places_and_the_other_profiles_are_scaffolded(
     nothing.
     """
     ssh()
-    header()
+    headers = header()
     decisions = classify()
 
-    code, plan = run_and_parse(capsys, "coding", "single", CHECKPOINT)
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
     assert code == 0
     rendered = _text(plan)
     assert CHECKPOINT in rendered
@@ -340,23 +462,26 @@ def test_coding_places_and_the_other_profiles_are_scaffolded(
 
     for profile in ("chatting", "media_gen", "other"):
         decisions.calls.clear()
-        code, plan = run_and_parse(capsys, profile, "single", CHECKPOINT)
+        headers.calls.clear()
+        code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
         assert code == 0
         rendered = _text(plan)
         assert not any(engine in rendered for engine in ENGINES)
         assert not decisions.calls
+        assert plan["placement"] is None
+        assert headers.calls == []
 
 
 def test_recommend_reads_each_checkpoint_header_it_is_asked_about(
     ssh: Any, header: Any, classify: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Each ``--checkpoint`` is read from its header, not trusted by name."""
-    ssh()
+    """Every checkpoint discovered in ``--model-store`` is read from its header."""
+    recorder = ssh()
+    recorder.ggufs = [CHECKPOINT, OTHER]
     headers = header()
     classify()
 
-    other = "/models/invented/invented-dense.gguf"
-    code, _ = run_and_parse(capsys, "coding", "single", CHECKPOINT, other)
+    code, _ = run_and_parse(capsys, "coding", "single", STORE_DIR)
     assert code == 0
     assert CHECKPOINT in headers.calls
-    assert other in headers.calls
+    assert OTHER in headers.calls

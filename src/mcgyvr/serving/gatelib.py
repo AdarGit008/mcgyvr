@@ -12,6 +12,12 @@ else, so a hand-set ``RUN_*`` environment admits nothing. Everything else
 that decides whether a run may proceed belongs in a gate, where the door can
 see it in :data:`~mcgyvr.serving.run.SEQUENCE`.
 
+One narrow exception is named, not hidden: :func:`ssh_read_only` opens a rig
+for a read-only detection command — the remote scan and the ``*.gguf``
+discovery ``mcgyvr recommend`` runs — without the door. It admits only those
+two command shapes, so launch, sleep, wake and every step still require the
+door through :func:`ssh`.
+
 Nothing here runs at import. A product module imports this, and a module that
 read the environment or touched a descriptor on import would make "import
 gatelib" an action.
@@ -207,8 +213,9 @@ def ssh(
 ) -> subprocess.CompletedProcess[str]:
     """How everything in this repository reaches a rig.
 
-    The one other ssh spawn is the shims' own lease check
-    (:func:`_direct_ssh`), which applies the same rule. Refuses — exit 2,
+    The other ssh spawns are the shims' own lease check (:func:`_direct_ssh`),
+    which applies the same door rule, and :func:`ssh_read_only`, the one
+    sanctioned read-only detection path. This function refuses — exit 2,
     naming the door — unless this process descends from
     ``mcgyvr.serving.run`` and ``host`` is the one it was opened for.
     ``BatchMode=yes`` so a host that wants a password fails in seconds instead
@@ -232,6 +239,70 @@ def ssh(
             command,
         ],
         input=input,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+#: The fixed read-only remote line a detection command runs without the door.
+READ_ONLY_SCAN_COMMAND = "mcgyvr scan --json"
+
+
+def _read_only_command(command: str) -> bool:
+    """Whether ``command`` is a sanctioned read-only detection line.
+
+    Two shapes are admitted, and nothing else:
+
+    * the remote scan line, exactly ``mcgyvr scan --json``;
+    * the model-store discovery line ``mcgyvr recommend`` builds,
+      ``find '<dir>' -maxdepth 1 -name '*.gguf' -print``, whose directory is
+      one single-quoted token with no embedded quote. The quote is what makes
+      the directory a filename argument on the far shell and never a command,
+      so the sanction refuses a directory it could not prove was quoted.
+    """
+    if command == READ_ONLY_SCAN_COMMAND:
+        return True
+    prefix = "find "
+    suffix = " -maxdepth 1 -name '*.gguf' -print"
+    if not command.startswith(prefix) or not command.endswith(suffix):
+        return False
+    directory = command[len(prefix) : -len(suffix)]
+    if len(directory) < 2 or directory[0] != "'" or directory[-1] != "'":
+        return False
+    return "'" not in directory[1:-1] and bool(directory[1:-1])
+
+
+def ssh_read_only(
+    host: str,
+    command: str,
+    timeout: float | None = 120.0,
+) -> subprocess.CompletedProcess[str]:
+    """Open ssh for a sanctioned read-only detection command, outside the door.
+
+    The ONE exception to the door rule, and it is narrow: ``command`` must be
+    the remote scan line or the single discovery shape
+    :func:`_read_only_command` admits. Nothing that launches, sleeps, wakes,
+    writes, or runs a step is admitted here; those all still require the door
+    through :func:`ssh`. The door's launch/sleep/wake path is untouched.
+    """
+    if not _read_only_command(command):
+        refuse(
+            "ssh_read_only refused: the command is not a sanctioned read-only "
+            "detection line (only the remote scan and the *.gguf discovery are "
+            f"admitted), not {shlex.quote(command)[:80]}"
+        )
+    return subprocess.run(
+        [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            host,
+            command,
+        ],
         capture_output=True,
         text=True,
         timeout=timeout,

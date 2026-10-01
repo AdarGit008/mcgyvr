@@ -196,6 +196,13 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # (`availability`'s own probe) and what does the unit say it has in flight (the
 # runner's own status read) — and hands back a `Reading` of numbers and a flag.
 # Nothing travels upward: no endpoint, and no credential, leaves it.
+#
+# `recommend.py` is the same argument for the read-only placement planner:
+# it assembles a keyless decision endpoint and hands it to
+# `mcgyvr.decision.classify`, which is what dispatches the decision. It never
+# dispatches through the endpoint itself, and it lives below the seam — its
+# candidates are sized from the rig and the checkpoint header before any model
+# is consulted.
 BELOW_THE_SEAM = {
     "pool.py",
     "runner.py",
@@ -207,6 +214,7 @@ BELOW_THE_SEAM = {
     "initialize.py",
     "pressure.py",
     "triage.py",
+    "recommend.py",
 }
 
 

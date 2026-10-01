@@ -126,6 +126,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.pool",
     "mcgyvr.pressure",
     "mcgyvr.propose",
+    "mcgyvr.recommend",
     "mcgyvr.rig",
     "mcgyvr.rig.agent",
     "mcgyvr.rig.commands",
