@@ -101,6 +101,65 @@ def test_a_source_needing_a_key_is_not_local_only() -> None:
     assert config.units["ceiling"].requires_credential
 
 
+def test_users_defaults_to_a_single_user() -> None:
+    """The orchestrator serves one session per user; one is the working default."""
+    assert parse(LOCAL_ONLY).get("users") == 1
+
+
+def test_users_is_the_orchestrator_slot_count() -> None:
+    config = parse(
+        cfg(
+            """\
+            users: 4
+            units:
+              cheap:
+                address: http://localhost:8080
+                model: qwen2.5-coder:7b
+                rig: local
+            ladder:
+            - cheap
+            """
+        )
+    )
+    assert config.get("users") == 4
+
+
+def test_zero_users_is_refused_not_guessed() -> None:
+    with pytest.raises(ConfigSchemaError, match="users"):
+        parse(
+            cfg(
+                """\
+                users: 0
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: qwen2.5-coder:7b
+                    rig: local
+                ladder:
+                - cheap
+                """
+            )
+        )
+
+
+def test_a_boolean_is_not_a_user_count() -> None:
+    with pytest.raises(ConfigSchemaError, match="users"):
+        parse(
+            cfg(
+                """\
+                users: true
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: qwen2.5-coder:7b
+                    rig: local
+                ladder:
+                - cheap
+                """
+            )
+        )
+
+
 # --- a missing binding is named ------------------------------------------
 
 

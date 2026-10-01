@@ -685,6 +685,18 @@ SCHEMA: tuple[Field, ...] = (
         bind_hint="a share between 0 and 1",
     ),
     Field(
+        "users",
+        "int",
+        "Users this install serves at once, and therefore the slot count the "
+        "local orchestrator unit is served at: one session per user. A "
+        "written `width` on the orchestrator's unit wins. `1` is a "
+        "single-user install, which for a local-only non-chat use case is "
+        "flagged, not refused — the resident orchestrator consumes the card "
+        "the ladder would otherwise use.",
+        default=1,
+        min_value=1,
+    ),
+    Field(
         "orchestrator",
         "block",
         "Which unit turns a prompt plus a repository into contracts.",

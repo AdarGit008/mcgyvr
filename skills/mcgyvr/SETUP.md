@@ -83,6 +83,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
 | `max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a unit's context window one contract may claim. To bind it: a share between 0 and 1. |
+| `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only non-chat use case is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
 | `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts. |
 | `verifier` | block | no | — | Which unit reads an applied diff in fresh context. |
 | `sandbox` | block | no | — | Where a task's commands run. |

@@ -551,7 +551,7 @@ def build(
     return {
         # Written at its default so the file says which setup it is. The
         # value is the schema's, never spelled here (see `_defaults`).
-        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s"),
+        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s", "users"),
         "units": units,
         # Local rungs first, hosted ones last. A ladder is written
         # cheapest-first, and a rung is `api` exactly when its unit declares a

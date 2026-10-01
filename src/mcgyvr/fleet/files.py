@@ -64,6 +64,7 @@ _POLICY_KEYS = frozenset(
         "max_attempts",
         "task_timeout_s",
         "max_window_fraction",
+        "users",
         "breadth",
         "cleanup",
         "gate",
