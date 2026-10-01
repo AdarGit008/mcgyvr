@@ -31,10 +31,14 @@ being silently skipped.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.catalog import TaskType
+from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question, classify_role
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
+from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 from mcgyvr.runner import Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
@@ -349,3 +353,235 @@ def proposer_for(
         return proposals_from_reply(completion.text)
 
     return propose
+
+
+#: How decisively the model must commit before a choice is acted on.
+#: :func:`~mcgyvr.decision.confidence` is 0 for a flat answer and 1 for a
+#: certain one; below this the proposer refuses rather than guessing, and the
+#: caller falls back to the agent or a stronger proposer.
+MIN_CONFIDENCE = 0.5
+
+#: The option key that says "no specific symbol" — the whole target is the work.
+_NO_SYMBOL = ""
+
+#: How many options one :class:`~mcgyvr.decision.Choice` may carry, matching the
+#: decision primitive's 62 single-token labels. Candidate lists are capped at
+#: this; the symbol question keeps one label free for the no-symbol sentinel.
+_MAX_CHOICE_OPTIONS = 62
+
+
+@dataclass(frozen=True)
+class ClassifierProposer:
+    """A proposer whose judgment is typed single-token choices, never prose.
+
+    Where :func:`proposer_for` asks the orchestrator role for a free-text JSON
+    reply and parses it, this proposer asks three
+    :class:`~mcgyvr.decision.Choice` questions through
+    :func:`~mcgyvr.decision.classify` — the task type over the servable
+    vocabulary, the target file over the resolver's ranked shortlist, and the
+    symbol the task works on over that target's definitions — and builds one
+    proposal from the answers. The model's contribution is *relevance*; the
+    repository supplies the facts downstream in
+    :func:`~mcgyvr.orchestrator.decompose.decompose` exactly as before.
+
+    ``classify`` is the bound decision call the factory supplies: it already
+    knows the endpoint and model, so this type holds neither — which is what
+    keeps it above the seam. On low confidence in any answer the proposer
+    returns nothing, a refusal the caller answers by falling back to the agent
+    or a stronger proposer, rather than by guessing.
+    """
+
+    classify: Callable[[Any, Mapping[str, Question]], Decision]
+    confidence: float = MIN_CONFIDENCE
+
+    def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
+        targets = _candidate_targets(evidence)
+        vocabulary = evidence.vocabulary
+        if not targets or not vocabulary:
+            return ()
+
+        state = _state(evidence, targets)
+        decision = self.classify(
+            state,
+            {
+                "kind": Choice(
+                    instructions="Which task type does this request call for?",
+                    options={task.name: task.doc for task in vocabulary},
+                ),
+                "target": Choice(
+                    instructions="Which file should the change land in?",
+                    options={path: path for path in targets},
+                ),
+            },
+        )
+        kind_answer = _choice(decision, "kind")
+        target_answer = _choice(decision, "target")
+        if kind_answer is None or target_answer is None:
+            return ()
+        if (
+            kind_answer.confidence < self.confidence
+            or target_answer.confidence < self.confidence
+        ):
+            return ()
+        kind = _kind_for(kind_answer.choice, vocabulary)
+        if kind is None:  # the model answered with a name not on offer
+            return ()
+        target = target_answer.choice
+
+        symbols = _symbols_of(evidence, target)
+        symbol_decision = self.classify(
+            state,
+            {
+                "symbol": Choice(
+                    instructions=f"Which symbol in {target} does the task work on?",
+                    options=_symbol_options(symbols),
+                )
+            },
+        )
+        symbol_answer = _choice(symbol_decision, "symbol")
+        if symbol_answer is None or symbol_answer.confidence < self.confidence:
+            return ()
+        symbol = None if symbol_answer.choice == _NO_SYMBOL else symbol_answer.choice
+
+        return (
+            Proposal(
+                task_type=kind.name,
+                task=_directive(kind, target, symbol),
+                target=target,
+                stop_conditions=_stop_condition(kind, target, symbol),
+            ),
+        )
+
+
+def classifier_proposer_for(
+    source_map: SourceMap,
+    *,
+    capacity: Capacity | None = None,
+    confidence: float = MIN_CONFIDENCE,
+) -> Proposer | None:
+    """The install's orchestrator role as a typed :class:`Proposer`, or ``None``.
+
+    The same ``None`` contract as :func:`proposer_for`: a keyless install has no
+    orchestrator, answered with :data:`NO_ORCHESTRATOR_ROLE` rather than a
+    failure. The decisions are dispatched through
+    :func:`~mcgyvr.decision.classify_role`, below the seam, so this factory
+    holds no endpoint and the proposer it returns holds none either.
+    """
+    if source_map.role_model(ORCHESTRATOR_ROLE) is None:
+        return None
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        decision = classify_role(
+            source_map,
+            ORCHESTRATOR_ROLE,
+            state,
+            questions,
+            capacity=capacity,
+        )
+        if decision is None:  # the role was bound a moment ago
+            raise OrchestratorUnavailableError(
+                f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
+            )
+        return decision
+
+    return ClassifierProposer(classify=classify, confidence=confidence)
+
+
+# --- the typed decisions, assembled ----------------------------------------
+
+
+def _choice(decision: Decision, name: str) -> ChoiceAnswer | None:
+    """The ``name`` answer as a :class:`ChoiceAnswer`, or ``None`` if unreadable."""
+    answer = decision.answers.get(name)
+    return answer if isinstance(answer, ChoiceAnswer) else None
+
+
+def _candidate_targets(evidence: Evidence) -> tuple[str, ...]:
+    """The paths the model may pick as the target, best-first.
+
+    The resolver's ranked shortlist, then any file a bounded read actually
+    opened, de-duplicated in that order. Capped at the decision primitive's
+    :class:`~mcgyvr.decision.Choice` limit.
+    """
+    paths: list[str] = []
+    seen: set[str] = set()
+    for candidate in evidence.resolution.candidates:
+        if candidate.path not in seen:
+            seen.add(candidate.path)
+            paths.append(candidate.path)
+    for read in evidence.exploration.reads:
+        if read.path not in seen:
+            seen.add(read.path)
+            paths.append(read.path)
+    return tuple(paths[:_MAX_CHOICE_OPTIONS])
+
+
+def _symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
+    """The symbols defined in ``target``, in discovery order."""
+    return tuple(
+        symbol
+        for symbol in evidence.index.symbols.all()
+        if symbol.path == target and symbol.kind is SymbolKind.DEFINITION
+    )
+
+
+def _symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
+    """The symbols the model may pick, plus the no-symbol sentinel.
+
+    Keyed by name with the symbol's detail as the description; a name defined
+    twice keeps the first. One label is held back for the sentinel, so the
+    choice stays within the primitive's 62-option bound.
+    """
+    options: dict[str, str] = {}
+    for symbol in symbols[: _MAX_CHOICE_OPTIONS - 1]:
+        if symbol.name not in options:
+            options[symbol.name] = symbol.detail or "symbol"
+    options[_NO_SYMBOL] = "no specific symbol — the whole file is the work"
+    return options
+
+
+def _kind_for(name: str, vocabulary: Sequence[TaskType]) -> TaskType | None:
+    """The vocabulary entry the model's answer names, or ``None``."""
+    return next((task for task in vocabulary if task.name == name), None)
+
+
+def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
+    """The worker's directive, rendered from the relevance the model decided.
+
+    The model decided which kind, which file, which symbol; this is that triple
+    spelled as one imperative sentence, not new prose the model authored, so the
+    directive cannot say something the typed decisions did not.
+    """
+    return f"{kind.doc.split('.', 1)[0]}: {_subject(target, symbol)}."
+
+
+def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
+    """The stop condition a model-executed type must carry, or none for a tool.
+
+    A deterministic type is executed by a tool that cannot guess, so it has no
+    trigger to report BLOCKED. A model-executed type must name one — the loader
+    refuses a model type with none — and the one this proposer writes is the
+    honest default: stop rather than decide anything the typed choices did not
+    already settle.
+    """
+    if kind.deterministic:
+        return ()
+    subject = _subject(target, symbol)
+    return (
+        f"{kind.name} on {subject} would require deciding something the "
+        "contract does not state — report BLOCKED rather than guess",
+    )
+
+
+def _subject(target: str, symbol: str | None) -> str:
+    """How the worker's directive names what it works on."""
+    return target if symbol is None else f"{symbol} in {target}"
+
+
+def _state(evidence: Evidence, targets: tuple[str, ...]) -> dict[str, Any]:
+    """The state the decision prompt carries: the request and what was shortlisted."""
+    return {
+        "request": evidence.prompt,
+        "candidates": list(targets),
+        "task_types": [task.name for task in evidence.vocabulary],
+    }
