@@ -64,15 +64,18 @@ import sys
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import Config
 from mcgyvr.runner import RefusedConnectionError
-from mcgyvr.serving import Card, cards
+from mcgyvr.serving import Card, cards, port_of
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.scan import Scan
 
 # The module the door is spelled as -- an ``-m`` and never a path, because the
 # door mints its own ``RUN_*`` vocabulary, refuses to start under an inherited
@@ -113,7 +116,12 @@ def spawn_door(argv: Sequence[str], **kwargs: object) -> int:
 
 
 def door_argv(
-    *, direction: str, host: str, compose: Path, suffix: str
+    *,
+    direction: str,
+    host: str,
+    compose: Path,
+    suffix: str,
+    units: Sequence[str] = (),
 ) -> tuple[str, ...]:
     """The one command a wake or a sleep is.
 
@@ -122,6 +130,9 @@ def door_argv(
     same one, so without a suffix two wakes on one day collide with each other
     and with an operator's hand-run ``serve up``. It is derived from the waker's
     pid and clock, so every wake gets an envelope of its own.
+
+    ``units`` names the containers a ``sleep`` or ``wake`` acts on alone
+    (``--unit``), the rest of the card left as it is; empty is the whole card.
     """
     return (
         sys.executable,
@@ -135,6 +146,7 @@ def door_argv(
         str(compose),
         "--suffix",
         suffix,
+        *(part for unit in units for part in ("--unit", unit)),
     )
 
 
@@ -161,6 +173,9 @@ class Wake:
     seconds: float
     predicted_s: float | None
     code: int
+    #: The ports of the units this run acted on: the whole card's, or the one
+    #: unit a ``--unit`` sleep or wake named.
+    ports: tuple[int, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -298,12 +313,16 @@ def _remember(made: Wake) -> None:
         return
 
 
-def _rest_mark(host: str) -> Path:
-    return _clock_dir() / f"{_safe(host)}.resting"
+def _rest_mark(host: str, port: int) -> Path:
+    return _clock_dir() / f"{_safe(host)}-{port}.resting"
 
 
-def resting(host: str) -> bool:
-    """Whether mcgyvr put ``host``'s card to sleep with its process kept.
+def resting(host: str, port: int | None = None) -> bool:
+    """Whether mcgyvr put a unit on ``host`` to sleep with its process kept.
+
+    Per unit, by the port it serves on: a card's co-resident vLLM units each
+    sleep on their own, one to make room for another. ``port`` omitted asks
+    whether any unit of the card is resting.
 
     A card slept at vLLM's level 2 keeps its containers and answers
     ``/v1/models``, and then hangs on a real request. So it never gives the
@@ -318,7 +337,21 @@ def resting(host: str) -> bool:
     processes. A directory that is not ours is no mark.
     """
     where = _clock_dir()
-    return _ours(where) and _rest_mark(host).exists()
+    if not _ours(where):
+        return False
+    if port is not None:
+        return _rest_mark(host, port).exists()
+    prefix, suffix = f"{_safe(host)}-", ".resting"
+    try:
+        names = os.listdir(where)
+    except OSError:
+        return False
+    return any(
+        name.startswith(prefix)
+        and name.endswith(suffix)
+        and name[len(prefix) : -len(suffix)].isdigit()
+        for name in names
+    )
 
 
 def _note_rest(made: Wake) -> None:
@@ -330,21 +363,95 @@ def _note_rest(made: Wake) -> None:
         where.mkdir(parents=True, mode=0o700, exist_ok=True)
         if not _ours(where):
             return
-        if made.direction == "sleep":
-            _rest_mark(made.host).touch()
-        else:
-            _rest_mark(made.host).unlink(missing_ok=True)
+        for port in made.ports:
+            if made.direction == "sleep":
+                _rest_mark(made.host, port).touch()
+            else:
+                _rest_mark(made.host, port).unlink(missing_ok=True)
     except OSError:
         return
 
 
-def _wake_direction(card: Card) -> str:
-    """``wake`` for a card resting with its process kept, ``up`` for one stopped.
+def _wake_direction(card: Card, ports: Sequence[int] = ()) -> str:
+    """``wake`` for units resting with their process kept, ``up`` for a card stopped.
 
-    ``serve up`` opens only on an idle rig, and a resting card's containers are
+    ``serve up`` opens only on an idle rig, and a resting unit's container is
     running, so the door would refuse it; ``serve wake`` is the route back.
+    ``ports`` are the units asked about; none is the whole card.
     """
+    if ports:
+        return "wake" if any(resting(card.host, port) for port in ports) else "up"
     return "wake" if resting(card.host) else "up"
+
+
+def _ports(config: Config, rungs: Sequence[str]) -> tuple[int, ...]:
+    """The ports the named rungs' units serve on, from the config."""
+    return tuple(
+        port_of(config.units[rung].address) for rung in rungs if rung in config.units
+    )
+
+
+def _all_vllm(config: Config, card: Card) -> bool:
+    """Whether every unit of the card is vLLM, so each can sleep at level 2."""
+    units = [config.units.get(name) for name in card.sources]
+    return bool(units) and all(
+        unit is not None and unit.engine == "vllm" for unit in units
+    )
+
+
+def _unit_containers(
+    config: Config, card: Card, compose: Path, rungs: Sequence[str]
+) -> tuple[str, ...] | None:
+    """The containers that serve ``rungs`` in the card's launch spec, or ``None``.
+
+    Matched by port: a unit's address names the port, and the spec's command
+    names it too (the door reads both the same way, :func:`servelib.services`).
+    ``None`` when the spec cannot be read that way or does not hold a rung's
+    port — then nothing can act on one unit alone, and the card acts whole.
+    """
+    from mcgyvr.serving import servelib
+
+    try:
+        by_port = {
+            service.port: service.container for service in servelib.services(compose)
+        }
+    except (servelib.ComposeError, OSError):
+        return None
+    found: list[str] = []
+    for port in _ports(config, rungs):
+        if port not in by_port:
+            return None
+        found.append(by_port[port])
+    return tuple(found) if len(found) == len(rungs) else None
+
+
+def _per_unit(config: Config, card: Card) -> bool:
+    """Whether this card's units sleep and wake one at a time.
+
+    A card of co-resident vLLM units, each its own container in the card's one
+    launch spec: each can sleep at level 2 alone, so one can make room for
+    another. Every other card acts whole.
+    """
+    if len(card.rungs) < 2 or not _all_vllm(config, card):
+        return False
+    compose = compose_for(card)
+    return compose is not None and (
+        _unit_containers(config, card, compose, card.rungs) is not None
+    )
+
+
+def card_rooms(scans: Mapping[str, Scan]) -> dict[str, int]:
+    """Each scanned host's card memory in MiB, where the host has exactly one card.
+
+    The figure ``emit`` sizes a card against, from the scan ``mcgyvr scan``
+    recorded. A host with several cards is left out: the config says which host
+    a unit is on and not which card, so its card's size is not known.
+    """
+    return {
+        host: scan.gpus[0].vram.total_mib
+        for host, scan in scans.items()
+        if len(scan.gpus) == 1
+    }
 
 
 def compose_for(card: Card) -> Path | None:
@@ -406,8 +513,26 @@ def _why_not_one(card: Card) -> str:
     )
 
 
-def _run_door(config: Config, card: Card, direction: str, compose: Path) -> Wake:
+def _run_door(
+    config: Config,
+    card: Card,
+    direction: str,
+    compose: Path,
+    *,
+    only: Sequence[str] = (),
+) -> Wake:
+    """One door run for ``card``; ``only`` names the rungs a sleep or wake acts on.
+
+    ``only`` empty, or rungs whose containers the spec does not name, is the
+    whole card.
+    """
     predicted = predicted_wake_s(card)
+    containers = (
+        _unit_containers(config, card, compose, only)
+        if only and direction in ("sleep", "wake")
+        else None
+    )
+    acting = tuple(only) if containers is not None else card.rungs
     started = time.monotonic()
     code = spawn_door(
         door_argv(
@@ -415,6 +540,7 @@ def _run_door(config: Config, card: Card, direction: str, compose: Path) -> Wake
             host=card.host,
             compose=compose,
             suffix=_suffix(),
+            units=containers or (),
         )
     )
     made = Wake(
@@ -424,6 +550,7 @@ def _run_door(config: Config, card: Card, direction: str, compose: Path) -> Wake
         seconds=time.monotonic() - started,
         predicted_s=predicted,
         code=code,
+        ports=_ports(config, acting),
     )
     _remember(made)
     _note_rest(made)
@@ -476,7 +603,9 @@ class Waker:
         fault it actually had.
         """
         card = self._cards.get(rung)
-        if card is not None and resting(card.host):
+        if card is not None and any(
+            resting(card.host, port) for port in _ports(self._config, (rung,))
+        ):
             # Slept with its process kept: it would answer and then hang, so
             # the refusal fail-first waits for never comes. The mark is that
             # refusal, and the wake is the same one a refusal earns.
@@ -515,11 +644,15 @@ class Waker:
         with self._lock:
             card_lock = self._card_locks.setdefault(card.host, threading.Lock())
         with card_lock:
-            return self._wake_for(card, refused_at)
+            return self._wake_for(card, refused_at, rung)
 
-    def _wake_for(self, card: Card, refused_at: float | None) -> bool:
-        if card.host in self._woken:
-            ok, ended = self._woken[card.host]
+    def _wake_for(self, card: Card, refused_at: float | None, rung: str) -> bool:
+        # A card of co-resident vLLM units wakes one unit at a time, so a run
+        # remembers each unit's wake; any other card wakes whole, once.
+        alone = _per_unit(self._config, card)
+        key = f"{card.host}:{rung}" if alone else card.host
+        if key in self._woken:
+            ok, ended = self._woken[key]
             return ok and refused_at is not None and refused_at < ended
         # Live wakes only along a listed switch, and a switch exists only on a
         # locked fleet. With no live lock naming this rig — the lock of the
@@ -553,11 +686,16 @@ class Waker:
             # a reason only the filesystem holds is the silence this whole
             # module exists to stop.
             if card.specs:
-                self._woken[card.host] = (False, time.monotonic())
+                self._woken[key] = (False, time.monotonic())
                 print(f"warning: {_why_not_one(card)}", file=sys.stderr)
             return False
-        ok = _run_door(self._config, card, _wake_direction(card), compose).ok
-        self._woken[card.host] = (ok, time.monotonic())
+        if alone:
+            direction = _wake_direction(card, _ports(self._config, (rung,)))
+            only: tuple[str, ...] = (rung,) if direction == "wake" else ()
+        else:
+            direction, only = _wake_direction(card), ()
+        ok = _run_door(self._config, card, direction, compose, only=only).ok
+        self._woken[key] = (ok, time.monotonic())
         return ok
 
 
@@ -681,16 +819,31 @@ class CardSwitches:
     went down and wake it straight back up. A door that fails, or refuses, is
     ``False`` as well.
 
-    **A card goes whole.** Sleep evicts the entire card and wake brings the
-    entire launch spec back, which was sized whole by ``emit``. So there is no
-    case where one unit's wake displaces a neighbour and :meth:`room_for` is
-    always empty; that is the product's rule, not a gap.
+    **A card goes whole, except a card of co-resident vLLM units.** Sleep
+    evicts the entire card and wake brings the entire launch spec back, which
+    was sized whole by ``emit``. A card whose co-resident units are all vLLM is
+    the exception: each unit is its own process and sleeps at level 2 alone
+    (``serve sleep --unit``), so :meth:`card_of` is the unit and one unit can
+    make room for another.
+
+    **Room is arithmetic on facts already held.** :meth:`room_for` adds each
+    unit's ``room_mib`` and compares the sum with the card's memory, from the
+    host's recorded scan (``card_mib``, :func:`card_rooms`). Where the unit
+    waking does not fit beside its awake neighbours, the smallest of them sleep
+    first until it does. A missing figure is no answer, and no room is made.
     """
 
-    def __init__(self, config: Config, capacity: Capacity) -> None:
+    def __init__(
+        self,
+        config: Config,
+        capacity: Capacity,
+        *,
+        card_mib: Mapping[str, int] | None = None,
+    ) -> None:
         self._config = config
         self._capacity = capacity
         self._cards = cards(config)
+        self._card_mib = dict(card_mib or {})
 
     def _allowed(self) -> bool:
         return bool(
@@ -710,20 +863,23 @@ class CardSwitches:
         card = self._cards.get(rung)
         if card is None or compose_for(card) is None:
             return False
+        alone = _per_unit(self._config, card)
+        # One unit of a shared vLLM card drains alone; any other card whole.
+        sources = (rung,) if alone else card.sources
         try:
             with self._capacity.drain(
-                card.sources, timeout=drain_timeout(self._config, card)
+                sources, timeout=drain_timeout(self._config, card)
             ):
                 # The drain holds every slot, so anyone queued now is a dispatch
                 # that would take one the moment the card went down, be refused,
                 # and wake it again. Not now, then; and no reading is not zero.
-                if self._capacity.queued(card.sources) != 0:
+                if self._capacity.queued(sources) != 0:
                     return False
-                return self._put_down(card)
+                return self._put_down(card, (rung,) if alone else ())
         except (SlotUnavailableError, WakeError):
             return False
 
-    def _put_down(self, card: Card) -> bool:
+    def _put_down(self, card: Card, only: tuple[str, ...]) -> bool:
         """Sleep a vLLM card at level 2, and stop any other; inside the drain.
 
         A card all of whose units are vLLM is asked to sleep first (``serve
@@ -733,27 +889,56 @@ class CardSwitches:
         — is left exactly as it was by that run, which says so with
         :data:`~mcgyvr.serving.gatelib.NO_SLEEP_ROUTE`, and is stopped
         instead. Any other engine has no sleep to ask for and is stopped.
+        ``only`` is the one unit of a shared vLLM card to sleep; the fallback
+        stops the whole card, which is the only stop there is.
         """
-        if self._all_vllm(card):
+        if _all_vllm(self._config, card):
             compose = compose_for(card)
             if compose is None:
                 return False
-            asked = _run_door(self._config, card, "sleep", compose)
+            asked = _run_door(self._config, card, "sleep", compose, only=only)
             if asked.code != NO_SLEEP_ROUTE:
                 return asked.ok
         return sleep(self._config, card.host).ok
 
-    def _all_vllm(self, card: Card) -> bool:
-        units = [self._config.units.get(name) for name in card.sources]
-        return bool(units) and all(
-            unit is not None and unit.engine == "vllm" for unit in units
-        )
-
     def room_for(self, rung: str) -> tuple[str, ...]:
-        """Always ``()``: a card goes up whole, so no wake needs another unit's room."""
-        return ()
+        """The co-resident units that must sleep before ``rung`` can wake.
+
+        Only on a card of co-resident vLLM units, and only from figures held:
+        every unit's ``room_mib`` and the card's memory. Where the waking unit
+        and all its neighbours do not fit, the smallest neighbours are named
+        first until the rest would. ``()`` where they fit, or where a figure is
+        missing.
+        """
+        card = self._cards.get(rung)
+        if card is None or not _per_unit(self._config, card):
+            return ()
+        size = self._card_mib.get(card.host)
+        rooms: dict[str, int] = {}
+        for name in card.rungs:
+            unit = self._config.units.get(name)
+            if unit is None or unit.room_mib is None:
+                return ()
+            rooms[name] = unit.room_mib
+        if size is None or rung not in rooms:
+            return ()
+        others = sorted(
+            (r for r in card.rungs if r != rung), key=lambda r: (rooms[r], r)
+        )
+        total = rooms[rung] + sum(rooms[r] for r in others)
+        making: list[str] = []
+        for other in others:
+            if total <= size:
+                break
+            making.append(other)
+            total -= rooms[other]
+        return tuple(making)
 
     def card_of(self, rung: str) -> tuple[str, ...]:
-        """Every rung the card serves, or the rung alone where it has no card."""
+        """The rungs a sleep of ``rung`` takes down: the unit alone on a card of
+        co-resident vLLM units, every rung the card serves otherwise, and the
+        rung alone where it has no card."""
         card = self._cards.get(rung)
-        return tuple(card.rungs) if card is not None else (rung,)
+        if card is None:
+            return (rung,)
+        return (rung,) if _per_unit(self._config, card) else tuple(card.rungs)

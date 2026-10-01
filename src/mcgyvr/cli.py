@@ -2426,6 +2426,24 @@ def _manage(args: argparse.Namespace) -> int:
         return _manage_held(args, config)
 
 
+def _card_mib(config: Config) -> dict[str, int]:
+    """Each card's memory in MiB from the recorded scans, for room-making.
+
+    The scans ``emit`` sizes against, resolved to the hosts this ladder names
+    (:func:`_resolve_hosts`); a host with no scan, or with several cards, is not
+    in the answer, and the ladder manager then makes no room on it.
+    """
+    from mcgyvr import wake as wakelib
+    from mcgyvr.serving import cards
+
+    hosts = {card.host for card in cards(config).values()}
+    try:
+        scans = _resolve_hosts(_scans(scan_module.default_root()), hosts)
+    except OSError:
+        return {}
+    return wakelib.card_rooms({host: scans[host] for host in hosts if host in scans})
+
+
 def _manage_held(args: argparse.Namespace, config: Config) -> int:
     """:func:`_manage` once this process is the host's only ladder manager."""
     from mcgyvr import fleet_manager, ladder_manager
@@ -2455,7 +2473,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
         view,
         bounds,
         pressure=Pressure(pool, capacity, gauge),
-        switches=wakelib.CardSwitches(config, capacity),
+        switches=wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config)),
         decide=ladder_manager.decide_on(
             pool,
             fast.name,

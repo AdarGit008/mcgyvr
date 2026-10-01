@@ -17,11 +17,16 @@ sleep, so nothing is asked of any unit and the step exits
 not be read is not a route either; nothing is guessed on a live rig.
 
 A unit asked to sleep that does not then say it is asleep is exit 1, a result.
+
+`serve sleep --unit C` (RUN_SERVE_ONLY) sleeps only the named containers: a
+card's co-resident vLLM units are separate processes, and one can sleep to
+make room for another. The rest of the card is not asked anything.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -48,6 +53,9 @@ def main() -> int:
         )
         return 2
 
+    # `--unit`: the units to sleep, the rest of the card left as it is.
+    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
+    units = tuple(s for s in units if not only or s.container in only)
     before = {s.container: servelib.sleeping(host, s.port) for s in units}
     routeless = sorted(
         name for name, said in before.items() if not isinstance(said, bool)
@@ -81,6 +89,7 @@ def main() -> int:
         "host": host,
         "mode": "sleep",
         "compose_file": str(compose_file),
+        "only": sorted(only),
         "sleeping_before": before,
         "no_sleep_route": routeless,
         "units": rows,

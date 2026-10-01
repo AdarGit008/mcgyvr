@@ -74,7 +74,7 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict, probe_endpoint
 from mcgyvr.cooldown import COOLDOWN_S, Cooldown, SharedHold
 from mcgyvr.runner import unit_in_flight
-from mcgyvr.serving import host_of
+from mcgyvr.serving import host_of, port_of
 from mcgyvr.wake import _ours, resting
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -511,7 +511,7 @@ def _probed(endpoint: Endpoint) -> bool:
     it did that, and it reads as asleep here. The probe is not asked then: the
     answer is already known, and a resting unit is not one to wait on.
     """
-    if resting(host_of(endpoint.base_url)):
+    if resting(host_of(endpoint.base_url), port_of(endpoint.base_url)):
         return False
     return probe_endpoint(endpoint, PROBE_TIMEOUT_S).live
 

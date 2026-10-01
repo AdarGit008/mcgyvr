@@ -348,7 +348,12 @@ class Manager:
             if rung in cooled:
                 blocked.append(f"{rung} is cooling down")
                 continue
-            room = self._switches.room_for(rung)
+            # A neighbour already asleep holds no room: nothing to sleep for it.
+            room = tuple(
+                unit
+                for unit in self._switches.room_for(rung)
+                if unit not in readings or readings[unit].awake
+            )
             refused = [
                 unit for unit in room if not self._may_sleep(unit, readings, room=True)
             ]

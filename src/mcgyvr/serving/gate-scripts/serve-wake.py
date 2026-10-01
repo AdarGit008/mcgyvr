@@ -9,11 +9,15 @@ polls after a start. No container is started: a unit that is not running is
 not one this step can wake, and the poll reports it as not answering.
 
 Exit 1 when a wake call failed or a unit did not come back to serving.
+
+`serve wake --unit C` (RUN_SERVE_ONLY) wakes and polls only the named
+containers; a neighbour put to sleep to make room for this one stays asleep.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -40,6 +44,9 @@ def main() -> int:
         )
         return 2
 
+    # `--unit`: the units to wake, the rest of the card left as it is.
+    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
+    units = tuple(s for s in units if not only or s.container in only)
     woken: dict[str, bool | None] = {}
     for service in units:
         if servelib.sleeping(host, service.port) is True:
@@ -59,6 +66,7 @@ def main() -> int:
         "host": host,
         "mode": "wake",
         "compose_file": str(compose_file),
+        "only": sorted(only),
         "woken": woken,
         "units": rows,
         "card_after": servelib.card(host),

@@ -414,6 +414,8 @@ EXPORTED = (
     "RUN_SERVE",
     "RUN_COMPOSE",
     "RUN_SERVE_EXPECTED",
+    # `serve sleep|wake --unit`: the containers the step acts on, empty for all.
+    "RUN_SERVE_ONLY",
     # The read run's own four: the id its rows are filed under, the units it
     # runs the lock's harness for on the rig, the load it runs on them, and
     # the setup fleet it reads in place of the live one (`--fleet`).
@@ -1389,6 +1391,17 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
     parser.add_argument(
+        "--unit",
+        action="append",
+        default=[],
+        metavar="CONTAINER",
+        help=(
+            "sleep and wake only: act on this container of the compose file and "
+            "leave the card's other units as they are (repeatable); a card's "
+            "co-resident units each sleep at level 2 on their own"
+        ),
+    )
+    parser.add_argument(
         "--gates",
         default=None,
         metavar="FILE",
@@ -1469,6 +1482,23 @@ def _serve(argv: list[str]) -> int:
     except servelib.ComposeError as escape:
         print(f"run.py: REFUSED — {escape}", file=sys.stderr)
         return 2
+    # `--unit` is read against the same reading, for the same reason: the
+    # step acts only on containers the door named from the file.
+    if opts.unit and opts.mode not in ("sleep", "wake"):
+        print(
+            f"run.py: REFUSED — serve {opts.mode} acts on a whole card and takes "
+            "no --unit; only serve sleep and serve wake act on one unit",
+            file=sys.stderr,
+        )
+        return 2
+    unknown = sorted(set(opts.unit) - {unit.container for unit in units})
+    if unknown:
+        print(
+            f"run.py: REFUSED — the compose file names no container "
+            f"{', '.join(unknown)}; --unit names a container the file declares",
+            file=sys.stderr,
+        )
+        return 2
     try:
         gates = load_gate_list(opts.gates) if opts.gates is not None else None
     except RefusedError as refusal:
@@ -1492,6 +1522,7 @@ def _serve(argv: list[str]) -> int:
         RUN_SERVE=opts.mode,
         RUN_COMPOSE=str(compose_file.resolve()),
         RUN_SERVE_EXPECTED=" ".join(unit.container for unit in units),
+        RUN_SERVE_ONLY=" ".join(sorted(set(opts.unit))),
     )
     if opts.date:
         env["RUN_DATE"] = opts.date
