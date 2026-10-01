@@ -124,10 +124,12 @@ def config_on_disk(tmp_path: Path, text: str, name: str = "c.yaml") -> Path:
 
 
 def switches_for(config: Config) -> Any:
+    """The manager's switches, over a capacity that can see who is waiting."""
     from mcgyvr.capacity import Capacity
+    from mcgyvr.pressure import Gauge
     from mcgyvr.wake import CardSwitches
 
-    return CardSwitches(config, Capacity.of(config))
+    return CardSwitches(config, Capacity.of(config, gauge=Gauge()))
 
 
 def verb(argv: list[str]) -> str:
@@ -185,6 +187,45 @@ def test_a_sleep_with_a_dispatch_still_running_is_not_done_and_runs_no_door(
         slept = switches_for(config).sleep(BIG_A)
 
     assert slept is False
+    assert spawned == [], spawned
+
+
+def test_a_sleep_with_a_dispatch_queued_for_the_card_is_not_done_and_runs_no_door(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dispatch that queued while the drain held the slots would get one the
+    moment the card went down, be refused, and wake the card again: down and up
+    back to back, with the task waiting through both."""
+    from mcgyvr.capacity import Capacity, _slot_stem, _waiting_key
+    from mcgyvr.pressure import Gauge
+    from mcgyvr.wake import CardSwitches
+
+    specs = write_spec(tmp_path)
+    config = parse(ladder_text(specs))
+    spawned = door_log(monkeypatch)
+    gauge = Gauge()
+    switches = CardSwitches(config, Capacity.of(config, gauge=gauge))
+    queued = _waiting_key(_slot_stem(f"http://{BIG_HOST}:8002"))
+
+    with gauge.present(queued):
+        slept = switches.sleep(BIG_A)
+
+    assert slept is False
+    assert spawned == [], spawned
+
+
+def test_a_sleep_that_cannot_see_who_is_waiting_is_not_done(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No gauge is no reading, and no reading is not an empty queue."""
+    from mcgyvr.capacity import Capacity
+    from mcgyvr.wake import CardSwitches
+
+    specs = write_spec(tmp_path)
+    config = parse(ladder_text(specs))
+    spawned = door_log(monkeypatch)
+
+    assert CardSwitches(config, Capacity.of(config)).sleep(BIG_A) is False
     assert spawned == [], spawned
 
 
