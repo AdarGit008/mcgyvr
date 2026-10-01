@@ -905,6 +905,37 @@ class Capacity:
         stem = _slot_stem(self._urls.get(source, source), bound[1])
         return self._gauge.count(_waiting_key(stem))
 
+    def queued(self, sources: Iterable[str]) -> int | None:
+        """How many dispatches, host-wide, are queued for any slot of ``sources``.
+
+        Every bound of the named sources — each rung bound as well as the
+        source's own pool, the set :meth:`drain` takes — counted once per slot
+        identity, so two units that share an address are one queue. This is the
+        question a sleep asks *inside* its drain: the drain holds every slot, so
+        whoever is counted here is a dispatch that would take one the moment the
+        card went down and hit a dead port.
+
+        ``None`` without a gauge, or where any of the counts has no reading:
+        what nobody was told is not zero.
+        """
+        named = set(sources)
+        for source in named:
+            self._bounded(source)
+        if self._gauge is None:
+            return None
+        stems = {
+            _slot_stem(self._urls.get(source, source), rung)
+            for source, rung in self._bounds
+            if source in named
+        }
+        total = 0
+        for stem in sorted(stems):
+            count = self._gauge.count(_waiting_key(stem))
+            if count is None:
+                return None
+            total += count
+        return total
+
     def load(self, source: str, rung: str | None = None) -> int:
         """How busy ``source`` — or ``rung`` — is: slots granted plus reserved.
 

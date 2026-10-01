@@ -606,8 +606,11 @@ class CardSwitches:
     **A sleep is a drain and then the door.** The card's slots are taken before
     its containers are stopped (:meth:`~mcgyvr.capacity.Capacity.drain`), and a
     dispatch that is still running is a sleep that does not happen now: ``False``,
-    and the manager asks again on a later tick. A door that fails, or refuses,
-    is ``False`` as well.
+    and the manager asks again on a later tick. So is a dispatch that queued for
+    the card while the drain held it (:meth:`~mcgyvr.capacity.Capacity.queued`),
+    and a capacity with no gauge to say: either would take a slot as the card
+    went down and wake it straight back up. A door that fails, or refuses, is
+    ``False`` as well.
 
     **A card goes whole.** Sleep evicts the entire card and wake brings the
     entire launch spec back, which was sized whole by ``emit``. So there is no
@@ -642,6 +645,11 @@ class CardSwitches:
             with self._capacity.drain(
                 card.sources, timeout=drain_timeout(self._config, card)
             ):
+                # The drain holds every slot, so anyone queued now is a dispatch
+                # that would take one the moment the card went down, be refused,
+                # and wake it again. Not now, then; and no reading is not zero.
+                if self._capacity.queued(card.sources) != 0:
+                    return False
                 return sleep(self._config, card.host).ok
         except (SlotUnavailableError, WakeError):
             return False
