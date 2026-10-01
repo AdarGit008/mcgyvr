@@ -71,6 +71,7 @@ from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.runner import TransportError
+from mcgyvr.serving import gatelib
 from mcgyvr.serving import ggufscan as ggufscan_module
 
 # Invented, and shaped so the test can tell a measurement from a stored spec and
@@ -110,7 +111,7 @@ FAKE_CATALOG: dict[str, Any] = {
 
 
 def scan_json(host: str, free_mib: int) -> str:
-    """An invented rig's scan, as ``mcgyvr scan --json`` would print it.
+    """An invented rig's scan, as the shipped self-contained scanner prints it.
 
     The card totals close (``total == reserved + used + free``), so
     ``Scan.from_json`` round-trips it, and every number here is invented.
@@ -209,6 +210,11 @@ def _text(document: Any) -> str:
 _HEADER_READ_MIDDLE = " | base64 -d | python3 - "
 
 
+def _is_scan_read(command: str) -> bool:
+    """Whether a recorded ssh command is the shipped-scan line."""
+    return command == gatelib.scan_read_command()
+
+
 def _is_header_read(command: str) -> bool:
     """Whether a recorded ssh command is the shipped-reader header-read line."""
     return command.startswith("echo ") and _HEADER_READ_MIDDLE in command
@@ -247,7 +253,7 @@ class RecordedSsh:
         self.commands.append((host, command))
         if host not in self.reachable:
             raise scan_module.Unreachable(host)
-        if command == "mcgyvr scan --json":
+        if _is_scan_read(command):
             return scan_json(host, FREE_MIB)
         if command.startswith("find ") and "*.gguf" in command:
             return "\n".join(self.ggufs) + "\n"
@@ -357,6 +363,7 @@ def run_and_parse(
     profile: str,
     users: str,
     *model_stores: str,
+    hosts: tuple[str, ...] = (HOST,),
 ) -> tuple[int, Any]:
     """Drive the command, then parse the plan it printed to stdout."""
     argv: list[str] = [
@@ -365,9 +372,9 @@ def run_and_parse(
         profile,
         "--users",
         users,
-        "--host",
-        HOST,
     ]
+    for host in hosts:
+        argv += ["--host", host]
     for store in model_stores:
         argv += ["--model-store", store]
     code = cli.main(argv)
@@ -424,7 +431,7 @@ def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
 
     code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
     assert code == 0
-    assert (HOST, "mcgyvr scan --json") in recorder.commands
+    assert any(_is_scan_read(command) for _host, command in recorder.commands)
 
     numbers = _numbers(plan)
     assert FREE_MIB in numbers
@@ -678,3 +685,86 @@ def test_recommend_with_a_reachable_backend_records_model_and_endpoint(
     assert plan["decision"] == "model"
     assert plan["decision_endpoint"] == "http://127.0.0.1:8080"
     assert decisions.calls
+
+
+def test_recommend_ships_the_scan_and_does_not_require_mcgyvr(
+    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The remote scan is the shipped ``python3 -`` script, not ``mcgyvr scan``.
+
+    A fresh rig has ``python3`` but no mcgyvr installed; the scan must ship to
+    the far end as bytes and answer through the same seam, so ``recommend``
+    succeeds against a rig that only has python3.
+    """
+    recorder = ssh()
+    classify()
+    probe()
+
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    assert code == 0
+    scan_commands = [
+        command for _host, command in recorder.commands if _is_scan_read(command)
+    ]
+    assert scan_commands, recorder.commands
+    assert not any(
+        command == "mcgyvr scan --json" for _host, command in recorder.commands
+    )
+    assert plan["unreachable"] == []
+    assert plan["no_scanner"] == []
+    assert plan["scan_failed"] == []
+
+
+class ScanFailuresSsh:
+    """A stand-in for ``mcgyvr.scan._ssh`` that answers per host by failure mode."""
+
+    def __init__(self, modes: dict[str, str]) -> None:
+        self.modes = modes
+        self.commands: list[tuple[str, str]] = []
+
+    def __call__(self, host: str, command: str) -> str:
+        self.commands.append((host, command))
+        mode = self.modes[host]
+        if mode == "unreachable":
+            raise scan_module.Unreachable(host)
+        if mode == "no_scanner":
+            raise scan_module.ScannerMissing(host)
+        if mode == "scan_failed":
+            return "not a scan\n"
+        return scan_json(host, FREE_MIB)
+
+
+def test_recommend_plan_distinguishes_the_three_scan_failure_modes(
+    monkeypatch: pytest.MonkeyPatch,
+    classify: Any,
+    probe: Any,
+    catalog: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """ssh failure, no scanner and a failed scan land in different plan fields."""
+    monkeypatch.setattr(
+        scan_module,
+        "_ssh",
+        ScanFailuresSsh(
+            {
+                "ok-rig": "ok",
+                "down-rig": "unreachable",
+                "python-only-rig": "no_scanner",
+                "bad-scan-rig": "scan_failed",
+            }
+        ),
+    )
+    classify()
+    probe(live=False)
+    catalog()
+
+    code, plan = run_and_parse(
+        capsys,
+        "coding",
+        "single",
+        hosts=("ok-rig", "down-rig", "python-only-rig", "bad-scan-rig"),
+    )
+    assert code == 0
+    assert plan["unreachable"] == ["down-rig"]
+    assert plan["no_scanner"] == ["python-only-rig"]
+    assert plan["scan_failed"] == ["bad-scan-rig"]
+    assert [rig["host"] for rig in plan["rigs"]] == ["ok-rig"]

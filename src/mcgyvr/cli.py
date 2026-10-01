@@ -2351,17 +2351,12 @@ def _scan(args: argparse.Namespace) -> int:
 
     ``--json`` exits :attr:`Exit.OK` even when the scan disagrees with the
     record, and that asymmetry is the point rather than an oversight.
-    ``--json`` is not a quieter mode of this command for a person; it is the
-    far end of an ssh pipe, and the only thing that reads it is
-    :func:`mcgyvr.scan.scan_over` → ``_ssh``, which treats *any* non-zero
-    status as "this host did not answer" and raises ``Unreachable``.
-    Exiting 4 down that channel would take the one event exit 4 exists to
-    surface — a rig that lost a DIMM or a card — and make that rig disappear
-    from ``scan_all`` altogether, discarding a perfectly good measurement that
-    is already sitting on stdout. So the wire format's job is to deliver the
-    measurement: the mismatch goes to stderr, where the operator still reads it
-    and the parser never does. The exit-code channel belongs to the
-    human-facing command, which keeps exit 4.
+    ``--json`` is not a quieter mode of this command for a person; it prints
+    the wire format that :func:`mcgyvr.scan.Scan.from_json` reads — the same
+    shape the shipped self-contained scanner prints on a rig. The exit-code
+    channel belongs to the human-facing command, which keeps exit 4: a rig
+    that lost a DIMM or a card still delivers its measurement down the wire
+    and the mismatch goes to stderr, where the operator reads it.
     """
     measured = scan_module.scan()
     root = scan_module.default_root()
@@ -2374,10 +2369,10 @@ def _scan(args: argparse.Namespace) -> int:
     path = scan_module.write_scan(measured, root)
 
     if args.json:
-        # stdout is the wire format: `mcgyvr scan --json` is what the far end
-        # of an ssh pipe runs and `Scan.from_json` is what reads it back
-        # (mcgyvr.scan.scan_over). One banner line here and the remote scan
-        # stops parsing, so everything a person would read goes to stderr.
+        # stdout is the wire format `Scan.from_json` reads — the same shape the
+        # shipped self-contained scanner prints on the rig. One banner line
+        # here and the scan stops parsing, so everything a person would read
+        # goes to stderr.
         sys.stdout.write(measured.to_json())
         _report_mismatches(drift, sys.stderr)
         return Exit.OK

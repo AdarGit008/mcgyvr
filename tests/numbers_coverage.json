@@ -140,6 +140,7 @@
     "serving/ggufscan.py": "judging",
     "serving/interconnect.py": "judging",
     "serving/linktime.py": "judging",
+    "serving/rigscan.py": "changing now; covered after that change lands",
     "serving/run.py": "changing now; covered after that change lands",
     "serving/safetensorscan.py": "judging",
     "serving/servelib.py": "judging",

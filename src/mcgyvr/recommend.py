@@ -50,7 +50,7 @@ from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.pool import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
-from mcgyvr.scan import Reach, Scan, Unreachable
+from mcgyvr.scan import Reach, Scan, ScanFailed, ScannerMissing, Unreachable
 from mcgyvr.serving import (
     DEFAULT_PORT,
     DEFAULT_SPEC_DRAFT_N_MAX,
@@ -507,10 +507,18 @@ def plan(
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
+    no_scanner: list[str] = []
+    scan_failed: list[str] = []
     scans: dict[str, Scan] = {}
     for host in dict.fromkeys(hosts):
         try:
             found = _scan_host(str(host))
+        except ScannerMissing:
+            no_scanner.append(str(host))
+            continue
+        except ScanFailed:
+            scan_failed.append(str(host))
+            continue
         except Unreachable:
             unreachable.append(str(host))
             continue
@@ -524,6 +532,8 @@ def plan(
             "source": "scaffold",
             "hosts": [str(host) for host in dict.fromkeys(hosts)],
             "unreachable": unreachable,
+            "no_scanner": no_scanner,
+            "scan_failed": scan_failed,
             "rigs": rigs,
             "placement": None,
             "decision": None,
@@ -576,6 +586,8 @@ def plan(
         "source": source,
         "hosts": [str(host) for host in dict.fromkeys(hosts)],
         "unreachable": unreachable,
+        "no_scanner": no_scanner,
+        "scan_failed": scan_failed,
         "rigs": rigs,
         "placement": _placement_document(selected, source),
         "decision": decision_source,

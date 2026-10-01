@@ -462,14 +462,41 @@ def _shipped_reader_blob() -> str:
     return base64.b64encode(Path(ggufscan.__file__).read_bytes()).decode("ascii")
 
 
+def _shipped_scan_blob() -> str:
+    """The base64 payload the scan line ships, from the one scanner."""
+    import base64
+
+    from mcgyvr.serving import rigscan
+
+    return base64.b64encode(Path(rigscan.__file__).read_bytes()).decode("ascii")
+
+
 def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
-    assert gatelib._read_only_command("mcgyvr scan --json")
+    assert gatelib._read_only_command(gatelib.scan_read_command())
     assert gatelib._read_only_command(
         "find '/models/store' -maxdepth 1 -name '*.gguf' -print"
     )
     assert not gatelib._read_only_command(
         "find /models/store -maxdepth 1 -name '*.gguf' -print"
     )
+    assert not gatelib._read_only_command("mcgyvr scan --json")
+
+
+def test_scan_read_command_is_the_sanctioned_shape() -> None:
+    command = gatelib.scan_read_command()
+    assert gatelib._read_only_command(command)
+    assert "echo " in command
+    assert command.endswith(" | base64 -d | python3 -")
+
+
+def test_scan_read_command_embeds_only_the_shipped_scanner() -> None:
+    command = gatelib.scan_read_command()
+    expected = f"echo {_shipped_scan_blob()} | base64 -d | python3 -"
+    assert command == expected
+
+
+def test_read_only_command_refuses_a_scan_with_another_payload() -> None:
+    assert not gatelib._read_only_command("echo ZXZpbA== | base64 -d | python3 -")
 
 
 def test_header_read_command_is_the_sanctioned_shape() -> None:

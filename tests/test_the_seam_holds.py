@@ -162,6 +162,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.ggufscan",
     "mcgyvr.serving.interconnect",
     "mcgyvr.serving.linktime",
+    "mcgyvr.serving.rigscan",
     "mcgyvr.serving.run",
     "mcgyvr.serving.safetensorscan",
     "mcgyvr.serving.servelib",

@@ -23,11 +23,11 @@ Three rules follow from that, and they shape everything here.
    :func:`compare` flags only the second kind, because an alarm that fires
    every time someone opens a browser is an alarm nobody reads.
 3. **A scan runs where it describes.** A laptop cannot see a rig's free VRAM,
-   so the remote transport ships this same code to the far end
-   (``mcgyvr scan --json``) and parses what comes back, instead of inferring
-   hardware from the models a backend says it is holding. Local and SSH differ
-   in access only; the answer has one shape, and no access yields a smaller
-   answer rather than a wrong one.
+   so the remote transport ships a self-contained copy of this scan to the far
+   end as ``python3 -`` (:mod:`mcgyvr.serving.rigscan`) and parses what comes
+   back, instead of inferring hardware from the models a backend says it is
+   holding. Local and SSH differ in access only; the answer has one shape, and
+   no access yields a smaller answer rather than a wrong one.
 
 The seams onto the outside world — :func:`_run`, :func:`_read_meminfo`,
 :func:`_free_bytes`, :func:`measure_bandwidth`, :func:`_ssh` — are module-level
@@ -56,9 +56,9 @@ from mcgyvr.detect import COMMAND_TIMEOUT_S, MIB_PER_GB
 # budget is for a rig that is up and working, not for one that is gone.
 SSH_TIMEOUT_S = 60.0
 
-# What a remote host is asked to run. It is this module, over there: the whole
-# point is that the far end measures itself.
-REMOTE_COMMAND = "mcgyvr scan --json"
+# What a remote host is asked to run is the shipped self-contained scanner
+# (:func:`_remote_scan_command`), not ``mcgyvr scan --json``: the far end may
+# have python3 and nothing else, and it still measures itself.
 
 NVIDIA_SMI_QUERY = "index,name,memory.total,memory.used,memory.free"
 KB_PER_GB = 1024.0 * 1024.0
@@ -105,10 +105,31 @@ _Notes = tuple[str, ...]
 # an unreachable host is a fact a sweep records and hands back in
 # ``Sweep.unreachable``, not a failure of the sweep.
 class Unreachable(Exception):  # noqa: N818
-    """A host that could not be scanned. Carries which one, for the report."""
+    """A host whose ssh transport could not be reached. Carries which one."""
 
     def __init__(self, host: str) -> None:
         super().__init__(f"{host}: no answer over ssh")
+        self.host = host
+
+
+class ScannerMissing(Exception):  # noqa: N818
+    """A rig that answered ssh but could not run the shipped scan command.
+
+    This is the modern spelling of "no mcgyvr installed": the rig is up and
+    reachable, but the far end has no python3 (or the shipped command failed
+    for another reason), so no measurement came back.
+    """
+
+    def __init__(self, host: str) -> None:
+        super().__init__(f"{host}: no scanner over ssh")
+        self.host = host
+
+
+class ScanFailed(Exception):  # noqa: N818
+    """A rig that ran the shipped scan but printed no parseable scan."""
+
+    def __init__(self, host: str) -> None:
+        super().__init__(f"{host}: the shipped scan printed no parseable scan")
         self.host = host
 
 
@@ -579,14 +600,15 @@ def _ssh(host: str, command: str) -> str:
     """Run one read-only detection command on another machine, or say it is not there.
 
     Through :func:`mcgyvr.serving.gatelib.ssh_read_only`, the sanctioned
-    read-only ssh path: it admits only the remote scan line, the ``*.gguf``
+    read-only ssh path: it admits only the shipped-scan line, the ``*.gguf``
     discovery line and the shipped-reader header-read line, and refuses (exit
     2) anything else. A remote scan is a rig read, and only the door's
     read-only detection commands are admitted here; launch, sleep and wake
     still go through :func:`mcgyvr.serving.gatelib.ssh` under the door.
     ``BatchMode`` keeps a host whose key is not set up from parking the sweep
-    on a password prompt: no credentials means unreachable, which is an
-    outcome this can report.
+    on a password prompt: no credentials means unreachable. A rig that answers
+    ssh but whose remote command fails is a different outcome, reported as
+    :class:`ScannerMissing` rather than a lost ssh connection.
     """
     # Imported here and not at the top: `mcgyvr.serving` imports this module.
     from mcgyvr.serving import gatelib
@@ -596,7 +618,7 @@ def _ssh(host: str, command: str) -> str:
     except (OSError, subprocess.SubprocessError):
         raise Unreachable(host) from None
     if done.returncode != 0:
-        raise Unreachable(host)
+        raise ScannerMissing(host)
     return done.stdout
 
 
@@ -1041,16 +1063,31 @@ def compare(scan: Scan, prior: Scan | None) -> tuple[Mismatch, ...]:
     return tuple(found)
 
 
+def _remote_scan_command() -> str:
+    """The read-only line that ships the self-contained scanner to the rig."""
+    # Imported here and not at the top: `mcgyvr.serving` imports this module.
+    from mcgyvr.serving import gatelib
+
+    return gatelib.scan_read_command()
+
+
 def scan_over(reach: Reach) -> Scan:
     """Scan the machine ``reach`` reaches, whichever side of the wire it is on.
 
-    The remote branch runs this same module over there and reads its answer
-    back, which is the only way the numbers can be measured rather than
-    inferred — and the reason the two branches return one type.
+    The remote branch ships the self-contained scanner to the far end as
+    ``python3 -`` and reads its answer back, which is the only way the numbers
+    can be measured rather than inferred — and the reason the two branches
+    return one type. A rig that answers ssh but cannot run the scanner raises
+    :class:`ScannerMissing`; one that runs it but prints no parseable scan
+    raises :class:`ScanFailed`.
     """
     if reach.host is None:
         return scan()
-    return Scan.from_json(_ssh(reach.host, REMOTE_COMMAND))
+    text = _ssh(reach.host, _remote_scan_command())
+    try:
+        return Scan.from_json(text)
+    except (ValueError, KeyError, TypeError):
+        raise ScanFailed(reach.host) from None
 
 
 def scan_all(hosts: Sequence[str] = ()) -> Sweep:
@@ -1065,6 +1102,6 @@ def scan_all(hosts: Sequence[str] = ()) -> Sweep:
     for host in dict.fromkeys(hosts):
         try:
             scans.append(scan_over(Reach.ssh(host)))
-        except Unreachable:
+        except (Unreachable, ScannerMissing, ScanFailed):
             unreachable.append(host)
     return Sweep(scans=tuple(scans), unreachable=tuple(unreachable))
