@@ -115,6 +115,7 @@ executes in an order the config file does not show.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
@@ -1002,6 +1003,7 @@ def escalate(
     capacity: Capacity | None = None,
     floor: Family | None = None,
     wake_hook: Callable[[Contract], str | None] | None = None,
+    presence: Callable[[str], AbstractContextManager[object]] | None = None,
 ) -> Delivered | Halted:
     """Climb the ascent until something is accepted or a rule ends the task.
 
@@ -1019,6 +1021,21 @@ def escalate(
     model call, and paying it before a family is spent would charge every task
     for an answer the climb may not need. ``None`` disables the seam entirely,
     which is the ordinary install that did not ask for a fleet manager.
+
+    ``presence`` is the seam a ladder manager reads pressure through: a
+    caller-supplied context manager made per rung, which an attempt runs inside
+    when — and only when — it *climbed*: it is on a rung other than the one the
+    first attempt was spent on, reached after attempts were spent there. That is
+    the evidence a manager wants, tasks that outgrew a cheaper rung and are now
+    working on this one, and it is marked for the length of the attempt under the
+    rung's name. An attempt on the first rung is not, a rung reached past a
+    decline is not (a decline spends nothing, so nothing was tried below it), and
+    a raised entry under ``fanout: idle`` is not: nothing failed to put work
+    there, which is the same reason it is free of an escalation (see
+    :func:`_idle_entry`). The marking is the caller's to make best-effort — a
+    gauge must never fail the work it watches — and an exception raised by the
+    attempt leaves the presence the way a verdict does. ``None`` is exactly the
+    climb that has no such caller.
 
     Both ceilings are enforced through :func:`~mcgyvr.route.climb`'s ``permit``
     rather than by trimming the plan, because a decline costs nothing and a
@@ -1105,8 +1122,20 @@ def escalate(
 
     def observed(this: Try) -> Result:
         nonlocal attempts_spent, accepted_judgement
+        # Reached after attempts were spent on a cheaper rung: a climb. Read
+        # before the attempt, because the attempt is what adds to `spent_rungs`.
+        climbed = (
+            presence is not None
+            and bool(spent_rungs)
+            and this.rung.name != spent_rungs[0]
+        )
         try:
-            judgement = attempt(this)
+            with (
+                presence(this.rung.name)
+                if presence is not None and climbed
+                else nullcontext()
+            ):
+                judgement = attempt(this)
         except Exception as exc:
             # An exception is not a verdict. `climb` lets a raising attempt
             # propagate so it is not misread as "this family cannot do the

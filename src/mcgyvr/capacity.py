@@ -190,6 +190,16 @@ the reservations of the thread that started the batch. One reservation covers
 at most one slot at a time, however many draws are sent for it, and a hold on a
 thread that reserved nothing, and was started by none that did, consumes
 nothing and counts in full.
+
+**A queue is countable host-wide, when somebody asked for it to be.** Reservations
+are this process's bookkeeping, and the bound is the flock; neither can say how
+many dispatches in *other* processes are standing in line for a rig, which is what
+a manager deciding whether to wake a second one needs. Given a
+:class:`~mcgyvr.pressure.Gauge`, a dispatch that finds every slot taken is
+present in it for as long as it waits, and :meth:`Capacity.waiting` is that count.
+It is deliberately narrow: a dispatch granted at once is not demand, a drain is
+not demand, and without a gauge the answer is ``None`` and nothing is written —
+a capacity that was not given one is exactly what it was.
 """
 
 from __future__ import annotations
@@ -204,7 +214,7 @@ import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -213,6 +223,7 @@ from typing import Protocol as TypingProtocol
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.pool import Endpoint
+    from mcgyvr.pressure import Gauge
 
 # How often a waiter re-tries the slot files while blocked. Coarse enough to
 # cost nothing against dispatches measured in seconds to minutes; fine enough
@@ -229,6 +240,16 @@ _SLUG = re.compile(r"[^A-Za-z0-9.-]+")
 def _default_lock_dir() -> Path:
     """The per-user rendezvous directory for this host's slot files."""
     return Path(tempfile.gettempdir()) / f"mcgyvr-capacity-{os.getuid()}"
+
+
+def _waiting_key(stem: str) -> str:
+    """The gauge key a dispatch waiting on the slot files of ``stem`` is counted under.
+
+    Derived from the slot stem and not from the unit's name, so that the key a
+    waiter writes and the key :meth:`Capacity.waiting` reads are one decision
+    about which queue a dispatch is in.
+    """
+    return f"wait.{stem}"
 
 
 def _slot_stem(base_url: str, rung: str | None = None) -> str:
@@ -453,6 +474,7 @@ class Capacity:
         rungs: Mapping[str, RungWidth] | None = None,
         urls: Mapping[str, str] | None = None,
         queue_timeout_s: float | None = None,
+        gauge: Gauge | None = None,
     ) -> None:
         for source, limit in limits.items():
             if limit < 1:
@@ -557,6 +579,11 @@ class Capacity:
         # bounded by the same ceiling that bounds the rest of its task: a wait
         # nobody is going to end is a command with no output and no end.
         self._queue_timeout = queue_timeout_s
+        # Where a dispatch that has to wait says so, for whoever is counting.
+        # Absent — the way every capacity was built before there was a gauge —
+        # nothing is announced and nothing is written, so a capacity that was
+        # not given one is exactly what it was; see :meth:`waiting`.
+        self._gauge = gauge
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         # Re-entrant because :meth:`deciding` lends this lock to a caller, and a
         # caller inside it reads :meth:`load` and calls :meth:`reserve`, which
@@ -600,6 +627,7 @@ class Capacity:
         *,
         probe: WidthProbe | SourceWidthProbe | None = None,
         root: Path | None = None,
+        gauge: Gauge | None = None,
     ) -> Capacity:
         """The capacities this config declares, checked against ``probe`` if given.
 
@@ -634,6 +662,11 @@ class Capacity:
         ``lock_dir``, named for what it is to a caller building from a config:
         the rendezvous every mcgyvr process on this host must agree on. Omitted,
         it is the per-user temp directory, which is the agreement by default.
+
+        ``gauge`` is where a dispatch that has to wait for a slot announces it,
+        so that :meth:`waiting` can say how many are queued across every process
+        on this host. It is passed through and is not asked about here: the
+        bound is the flock and is the same with or without one.
         """
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
@@ -672,6 +705,7 @@ class Capacity:
             # bounds each hold and not their sum: a climb of three rungs that
             # queued at every one of them could still wait three ceilings.
             queue_timeout_s=float(config.get("task_timeout_s")),
+            gauge=gauge,
         )
 
     @property
@@ -842,6 +876,34 @@ class Capacity:
         self._bounded(source)
         with self._lock:
             return self._in_use[self._bound(source, rung)]
+
+    def waiting(self, source: str, rung: str | None = None) -> int | None:
+        """How many dispatches, on any process of this host, are queued for a slot.
+
+        Counted for the bound a dispatch to ``source`` on ``rung`` would wait on,
+        by the same slot-file identity :meth:`hold` keys its files by — so two
+        units that share an address are one queue here as they are there. A
+        dispatch is counted from the moment it finds every slot taken and is
+        about to wait, until it is granted one or gives up, and not before: one
+        that is granted a slot at once is never counted, because a reader that
+        saw it would read a busy rig as a queued one. A claim with no queueing
+        (``timeout=0``) never waits and so is never counted, and a
+        :meth:`drain` is not counted either — it waits for the card to empty so
+        that it can be taken down, which is the opposite of demand for it.
+
+        ``None`` without a gauge: this capacity was not given a place to say
+        so, and what nobody was told is not zero. It is also ``None`` where the
+        gauge has no reading (see :meth:`mcgyvr.pressure.Gauge.count`).
+
+        Refuses a source this capacity does not bound, in :meth:`_bounded`'s
+        words, for the reason :meth:`in_flight` does.
+        """
+        self._bounded(source)
+        if self._gauge is None:
+            return None
+        bound = self._bound(source, rung)
+        stem = _slot_stem(self._urls.get(source, source), bound[1])
+        return self._gauge.count(_waiting_key(stem))
 
     def load(self, source: str, rung: str | None = None) -> int:
         """How busy ``source`` — or ``rung`` — is: slots granted plus reserved.
@@ -1274,28 +1336,42 @@ class Capacity:
         the waiter sleeps briefly and sweeps again. The files are created on
         first use and never deleted — see the module docstring for the unlink
         race that rule prevents.
+
+        When a gauge was given, the waiter is *present* in it from the first
+        sweep that found nothing free until it is granted a slot or the deadline
+        raises — which is what :meth:`waiting` counts. A caller that is granted
+        on its first sweep never enters it, and neither does one whose deadline
+        has already passed, because neither of them waits. :meth:`_acquire_one`,
+        which a drain uses, does not do this at all: a drain is not demand.
         """
         directory = self._lock_dir
         directory.mkdir(parents=True, exist_ok=True)
         stem = _slot_stem(base_url, rung)
         deadline = None if timeout is None else time.monotonic() + timeout
-        while True:
-            for index in range(limit):
-                fd = os.open(directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT)
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except OSError:
-                    os.close(fd)
-                    continue
-                return fd
-            if deadline is not None and time.monotonic() >= deadline:
-                raise SlotUnavailableError(
-                    f"{where} has all {limit} declared slot(s) in use "
-                    f"host-wide and none freed within {timeout}s. The bound "
-                    f"counts every mcgyvr process on this host; a longer or "
-                    f"absent timeout queues instead of refusing."
-                )
-            time.sleep(_POLL_SECONDS)
+        with ExitStack() as queued:
+            announced = False
+            while True:
+                for index in range(limit):
+                    fd = os.open(
+                        directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT
+                    )
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except OSError:
+                        os.close(fd)
+                        continue
+                    return fd
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise SlotUnavailableError(
+                        f"{where} has all {limit} declared slot(s) in use "
+                        f"host-wide and none freed within {timeout}s. The bound "
+                        f"counts every mcgyvr process on this host; a longer or "
+                        f"absent timeout queues instead of refusing."
+                    )
+                if self._gauge is not None and not announced:
+                    queued.enter_context(self._gauge.present(_waiting_key(stem)))
+                    announced = True
+                time.sleep(_POLL_SECONDS)
 
     def _bounded(self, source: str) -> None:
         """Refuse a source this capacity does not bound, by name.
