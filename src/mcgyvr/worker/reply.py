@@ -530,6 +530,11 @@ def parse_pinned(
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
+    if output_schema == PROSE:
+        # The same sibling short-circuit as parse_reply: a pinned schema never
+        # turns prose into a fence hunt. A caller that pins one asks for the
+        # reply's shape, not its kind — prose is the raw text, schema or no.
+        return ParsedFile(content=_prose(text))
 
     field = _schema_field(response_schema)
     info = ""

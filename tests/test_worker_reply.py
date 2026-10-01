@@ -19,7 +19,7 @@ from __future__ import annotations
 import pytest
 
 from mcgyvr.runner import StopReason
-from mcgyvr.worker.reply import ParsedFile, ReplyError, parse_reply
+from mcgyvr.worker.reply import ParsedFile, ReplyError, parse_pinned, parse_reply
 
 GOOD = """Here is the implementation.
 
@@ -189,6 +189,34 @@ def test_prose_still_refuses_an_incomplete_reply() -> None:
         "a partial answer", output_schema="prose", stop_reason=StopReason.TRUNCATED
     )
     assert error.code == "incomplete-reply"
+
+
+def test_a_pinned_schema_does_not_make_prose_a_fence_hunt() -> None:
+    """prose is the raw text whether or not the request pinned a schema.
+
+    ``parse_pinned`` must short-circuit prose before its fence hunt, exactly as
+    ``parse_reply`` does — otherwise the first prose contract that also pins a
+    ``response_schema`` turns into a no-fenced-block refusal, or returns only
+    an incidental fenced block inside the answer as the answer.
+    """
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+    text = "The answer is ```inline code``` and nothing is fenced."
+    result = parse_pinned(text, response_schema=schema, output_schema="prose")
+    assert isinstance(result, ParsedFile), result
+    assert result.content == text
+    assert result.info_string == ""
+
+
+def test_a_pinned_prose_reply_still_refuses_an_incomplete_reply() -> None:
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+    result = parse_pinned(
+        "a partial answer",
+        response_schema=schema,
+        output_schema="prose",
+        stop_reason=StopReason.TRUNCATED,
+    )
+    assert isinstance(result, ReplyError), result
+    assert result.code == "incomplete-reply"
 
 
 # --- refusals dressed as file content --------------------------------------
