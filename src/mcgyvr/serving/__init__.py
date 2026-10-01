@@ -879,7 +879,7 @@ def units_for(
     specs: Iterable[ModelSpec],
     ctx_per_slot: int | None,
 ) -> tuple[Unit, ...]:
-    """The processes a ladder implies: one per port on one host, not one per rung.
+    """The processes a ladder implies, plus the local role units beside it.
 
     Tiers are grouped, not iterated: every rung that resolves to the same
     process is collected onto the one :class:`Unit` that serves it, and the
@@ -938,7 +938,31 @@ def units_for(
     #: one process is a disagreement to report rather than one to resolve.
     windows: dict[UnitKey, dict[int, list[str]]] = {}
 
-    for name in config.ladder.names:
+    users = config.get("users", 1)
+
+    def _local(name: str | None) -> bool:
+        unit = config.units.get(name) if name else None
+        return unit is not None and not unit.requires_credential
+
+    # The role units enter the serving plan when they are local. The
+    # orchestrator joins the ladder as its dearest rung; the verifier is
+    # served beside the ladder, never on it.
+    served = list(config.ladder.names)
+    orchestrator_name = config.get("orchestrator.unit")
+    if (
+        orchestrator_name
+        and _local(orchestrator_name)
+        and orchestrator_name not in served
+    ):
+        served.append(orchestrator_name)
+    role_extra: list[str] = []
+    verifier_name = (
+        config.get("verifier.unit") if config.get("verifier.enabled") else None
+    )
+    if verifier_name and _local(verifier_name) and verifier_name not in served:
+        role_extra.append(verifier_name)
+
+    for name in (*served, *role_extra):
         unit = config.units.get(name)
         if unit is None:
             raise UnitError(f"{name}: no unit named {name!r}")
@@ -977,6 +1001,10 @@ def units_for(
             # One process, one slot count. Two units asking for different
             # widths get the larger.
             widths[key] = max(widths.get(key, 0), unit.width)
+        elif name == orchestrator_name:
+            # The local orchestrator's slot count is the user count when
+            # nobody wrote a width on the unit: one session per user.
+            widths[key] = max(widths.get(key, 0), users)
 
     units = tuple(
         replace(

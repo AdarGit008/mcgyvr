@@ -195,6 +195,7 @@ tests/test_the_fleet_lock_is_written_only_from_passing_dev_runs.py	dev-pointer=8
 tests/test_the_index_says_who_applied_a_correction.py	dev-pointer=1
 tests/test_the_journal_is_one_place_and_a_copy_is_the_callers.py	dev-pointer=3
 tests/test_the_live_ladder_serves_vllm_and_carries_extra_flags.py	dev-pointer=1	host=2
+tests/test_the_local_role_units_are_served.py	host=3
 tests/test_the_lock_pins_each_combinations_headroom_card_peak_backend_and_prefill.py	card-model=2	dev-pointer=6	host=1
 tests/test_the_reading_parser_refuses_what_its_fields_do_not_take.py	identity=3
 tests/test_the_two_ram_gates_hold_back_different_margins.py	dev-pointer=1	host=1
