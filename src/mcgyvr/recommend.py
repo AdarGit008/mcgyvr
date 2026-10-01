@@ -12,17 +12,23 @@ placements are assembled before :func:`mcgyvr.decision.classify` is consulted,
 from the numbers the rig and the checkpoint header just measured or from
 shipped constants, and the decision is asked only to name one candidate. What
 the decision returns that can reach the plan is a choice among what was already
-assembled, never a figure.
+assembled, never a figure. When no decision backend is reachable, the choice is
+made deterministically — the largest checkpoint among the candidates that
+already fit the measured machine — and the plan says so.
 
 Models to place come from exactly one of two places, and the plan says which:
 
 * ``--model-store <dir>`` — checkpoint files are discovered (``*.gguf`` in that
   directory, over the same read-only ssh seam :func:`mcgyvr.scan._ssh` uses)
-  and each header is read through :func:`mcgyvr.serving.ggufscan.scan`. When a
-  discovered checkpoint fits, the plan recommends **only** from that store.
+  and each header is read ON the rig, over the same seam, by shipping
+  :mod:`mcgyvr.serving.ggufscan` to the rig as ``python3 -`` (the blob never
+  comes back). When a discovered checkpoint fits, the plan recommends **only**
+  from that store.
 * no store, or nothing local fits — the plan recommends from the shipped
   HuggingFace catalog ``data/model-catalog.json`` (:func:`load_catalog`), and
-  marks those picks downloadable (``model_id``, ``quant``, ``size_bytes``).
+  marks those picks downloadable (``model_id``, ``quant``, ``size_bytes``). A
+  catalog pick has no header, so it fits only when its shipped ``size_bytes``
+  fits the measured free VRAM.
 
 Only ``coding`` makes a placement. ``chatting``, ``media_gen`` and ``other``
 are accepted as scaffolds: the rigs are still read, but no checkpoint is
@@ -32,24 +38,24 @@ chosen and no decision is consulted.
 from __future__ import annotations
 
 import json
-import shlex
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import decision
+from mcgyvr import availability, decision
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.runner import RunnerError
 from mcgyvr.scan import Reach, Scan, Unreachable
 from mcgyvr.serving import (
     DEFAULT_PORT,
     DEFAULT_SPEC_DRAFT_N_MAX,
     DEFAULT_UBATCH,
-    ggufscan,
+    gatelib,
 )
 
 #: The filename of the shipped HuggingFace catalog, and the schema version
@@ -108,12 +114,18 @@ class Candidate:
 def discover_command(directory: str) -> str:
     """The one read-only remote line that lists ``*.gguf`` under ``directory``.
 
-    ``shlex.quote`` is the whole safety story: the directory travels as one
-    single-quoted token, so a metacharacter in it reaches the rig as a filename
-    character and never as a command. The read-only ssh sanction refuses a
-    discovery line whose directory is not quoted exactly that way.
+    The directory travels as one single-quoted token, so a metacharacter in it
+    reaches the rig as a filename character and never as a command. The
+    read-only ssh sanction admits a discovery line only when the directory is
+    quoted exactly that way, so a directory with an embedded single quote is
+    refused rather than shipped in a shape the sanction cannot prove.
     """
-    return f"find {shlex.quote(directory)}{_DISCOVER_SUFFIX}"
+    if "'" in directory:
+        raise RecommendError(
+            "a model-store directory with an embedded single quote cannot be "
+            "read read-only"
+        )
+    return f"find '{directory}'{_DISCOVER_SUFFIX}"
 
 
 def catalog_path() -> Path:
@@ -169,12 +181,39 @@ def load_catalog() -> dict[str, Any]:
     return raw
 
 
-def _read_header(path: str) -> Mapping[str, Any]:
-    """Read one checkpoint's header, via the module seam the test substitutes."""
-    # ggufscan is the vendored, byte-comparable reader; its own mypy override
-    # ignores it, so the call is explicitly untyped here rather than annotated
-    # in a way that would drift from the evidence copy.
-    return ggufscan.scan(path)  # type: ignore[no-any-return,no-untyped-call]
+def _read_header(host: str, path: str) -> Mapping[str, Any]:
+    """Read one checkpoint's header ON ``host``, over the read-only ssh seam.
+
+    The reader (:mod:`mcgyvr.serving.ggufscan`) ships to the rig as ``python3
+    -`` through :func:`mcgyvr.serving.gatelib.header_read_command` and reads
+    the header there; the blob never comes back and nothing lands on the
+    rig's disk. ``mcgyvr.scan._ssh`` is the same read-only ssh seam the scan
+    and the discovery use, so a test substitutes the transport once and all
+    three answer through it.
+    """
+    try:
+        command = gatelib.header_read_command(path)
+    except ValueError as exc:
+        raise RecommendError(str(exc)) from exc
+    listing = scan_module._ssh(host, command)
+    try:
+        rows = json.loads(listing)
+    except json.JSONDecodeError as exc:
+        raise RecommendError(
+            f"the rig's header reader printed no JSON for {path}: {exc}"
+        ) from exc
+    if not isinstance(rows, list) or not rows:
+        raise RecommendError(f"the rig's header reader reported no header for {path}")
+    header = rows[0]
+    if not isinstance(header, dict):
+        raise RecommendError(
+            f"the rig's header reader reported a non-object header for {path}"
+        )
+    if "error" in header:
+        raise RecommendError(
+            f"the rig's header reader refused {path}: {header['error']}"
+        )
+    return header
 
 
 def _discover(host: str, directory: str) -> tuple[str, ...]:
@@ -312,14 +351,27 @@ def _local_candidates(scan: Scan, header: Mapping[str, Any]) -> tuple[Candidate,
     return tuple(candidates)
 
 
+def _catalog_fits(scan: Scan, size_bytes: int) -> bool:
+    """Whether a catalog entry fits the measured machine.
+
+    A catalog pick has no header, so no MoE split is known; the conservative
+    bound is the whole shipped size against the roomiest card's free VRAM. It
+    fails closed: a checkpoint that might not fit is left out rather than
+    placed from an assumed split.
+    """
+    free = _free_vram_bytes(scan)
+    return free > 0 and size_bytes <= free
+
+
 def _catalog_candidates(
     scan: Scan, catalog: Mapping[str, Any]
 ) -> tuple[Candidate, ...]:
     """The downloadable placements the shipped catalog offers.
 
-    A catalog pick has no local header and download is out of scope, so the
-    flags carry only shipped constants; nothing is invented to stand in for a
-    context the command was never given.
+    Only entries that fit the measured free VRAM are assembled; a catalog pick
+    has no local header and download is out of scope, so the flags carry only
+    shipped constants and nothing is invented to stand in for a context the
+    command was never given.
     """
     wake = not scan.gpus
     candidates: list[Candidate] = []
@@ -329,6 +381,8 @@ def _catalog_candidates(
         model_id = str(entry.get("model_id") or "")
         quant = str(entry.get("quant") or "")
         size_bytes = int(entry.get("size_bytes") or 0)
+        if not _catalog_fits(scan, size_bytes):
+            continue
         for engine in entry.get("engines") or ():
             if engine == "llama.cpp":
                 flags = _llamacpp_flags(checkpoint=None, mtp=False)
@@ -359,8 +413,8 @@ def _decision_endpoint() -> Endpoint:
     ``mcgyvr recommend`` is read-only and has no config, so it cannot resolve a
     ladder rung the way :mod:`mcgyvr.compose` does. The least it can name
     without inventing a machine is the keyless local backend at llama.cpp's
-    shipped default port. Flagged: a production decision source must be
-    declared, not assumed from the port convention.
+    shipped default port. When that backend is not reachable, the plan does
+    not consult it: the pick is deterministic, and the plan says so.
     """
     return Endpoint(
         source="recommend",
@@ -371,15 +425,34 @@ def _decision_endpoint() -> Endpoint:
     )
 
 
-def _pick(candidates: tuple[Candidate, ...], state: Mapping[str, Any]) -> Candidate:
-    """Ask :func:`mcgyvr.decision.classify` to name one candidate.
+def _deterministic_pick(candidates: tuple[Candidate, ...]) -> Candidate:
+    """The deterministic fallback: the largest checkpoint among the candidates.
 
-    The decision may return nothing readable; the first candidate in a
-    deterministic order is then the answer, which is still a choice among what
-    was already assembled and never a figure the decision supplied.
+    Every candidate here already fit the measured machine when it was
+    assembled — local store by :func:`_fits`, catalog by :func:`_catalog_fits`
+    — so "largest" is "largest that fits", and no model and no invented
+    number stand in for the measurements. Ties keep the assembly order.
     """
-    if len(candidates) == 1:
-        return candidates[0]
+    return max(candidates, key=lambda candidate: candidate.size_bytes)
+
+
+def _decide(
+    candidates: tuple[Candidate, ...], state: Mapping[str, Any]
+) -> tuple[Candidate, str]:
+    """Name one candidate, and say where the choice came from.
+
+    When no decision backend is reachable the pick is deterministic
+    (:func:`_deterministic_pick`) and the answer is ``"deterministic"``. When
+    a backend answers, :func:`mcgyvr.decision.classify` names one candidate and
+    the answer is ``"model"``. A backend that answers without a readable
+    placement also falls back deterministically, because the actual choice
+    still came from the fixed rule.
+    """
+    endpoint = _decision_endpoint()
+    verdict = availability.probe_endpoint(endpoint)
+    if not verdict.live:
+        return _deterministic_pick(candidates), "deterministic"
+
     by_name = {candidate.name: candidate for candidate in candidates}
     question = {
         "placement": Choice(
@@ -390,17 +463,20 @@ def _pick(candidates: tuple[Candidate, ...], state: Mapping[str, Any]) -> Candid
             options={candidate.name: candidate.description for candidate in candidates},
         )
     }
-    answered = decision.classify(
-        _decision_endpoint(),
-        "recommend-decision",
-        dict(state),
-        question,
-        timeout_s=DEFAULT_REQUEST_TIMEOUT_S,
-    )
+    try:
+        answered = decision.classify(
+            endpoint,
+            "recommend-decision",
+            dict(state),
+            question,
+            timeout_s=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    except (RunnerError, decision.DecisionError):
+        return _deterministic_pick(candidates), "deterministic"
     answer = answered.answers.get("placement")
     if isinstance(answer, ChoiceAnswer) and answer.choice in by_name:
-        return by_name[answer.choice]
-    return candidates[0]
+        return by_name[answer.choice], "model"
+    return _deterministic_pick(candidates), "deterministic"
 
 
 def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
@@ -450,13 +526,14 @@ def plan(
             "unreachable": unreachable,
             "rigs": rigs,
             "placement": None,
+            "decision": None,
         }
 
     local_candidates: list[Candidate] = []
     for host, found in scans.items():
         for directory in dict.fromkeys(model_stores):
             for checkpoint in _discover(host, str(directory)):
-                header = _read_header(checkpoint)
+                header = _read_header(host, checkpoint)
                 if _fits(found, header):
                     local_candidates.extend(_local_candidates(found, header))
 
@@ -492,8 +569,8 @@ def plan(
             for candidate in candidates
         ],
     }
-    selected = _pick(candidates, state)
-    return {
+    selected, decision_source = _decide(candidates, state)
+    plan: dict[str, Any] = {
         "profile": profile,
         "users": users,
         "source": source,
@@ -501,4 +578,9 @@ def plan(
         "unreachable": unreachable,
         "rigs": rigs,
         "placement": _placement_document(selected, source),
+        "decision": decision_source,
+        "decision_endpoint": (
+            _decision_endpoint().base_url if decision_source == "model" else None
+        ),
     }
+    return plan

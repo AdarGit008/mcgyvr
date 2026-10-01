@@ -579,13 +579,14 @@ def _ssh(host: str, command: str) -> str:
     """Run one read-only detection command on another machine, or say it is not there.
 
     Through :func:`mcgyvr.serving.gatelib.ssh_read_only`, the sanctioned
-    read-only ssh path: it admits only the remote scan line and the ``*.gguf``
-    discovery line, and refuses (exit 2) anything else. A remote scan is a rig
-    read, and only the door's read-only detection commands are admitted here;
-    launch, sleep and wake still go through :func:`mcgyvr.serving.gatelib.ssh`
-    under the door. ``BatchMode`` keeps a host whose key is not set up from
-    parking the sweep on a password prompt: no credentials means unreachable,
-    which is an outcome this can report.
+    read-only ssh path: it admits only the remote scan line, the ``*.gguf``
+    discovery line and the shipped-reader header-read line, and refuses (exit
+    2) anything else. A remote scan is a rig read, and only the door's
+    read-only detection commands are admitted here; launch, sleep and wake
+    still go through :func:`mcgyvr.serving.gatelib.ssh` under the door.
+    ``BatchMode`` keeps a host whose key is not set up from parking the sweep
+    on a password prompt: no credentials means unreachable, which is an
+    outcome this can report.
     """
     # Imported here and not at the top: `mcgyvr.serving` imports this module.
     from mcgyvr.serving import gatelib

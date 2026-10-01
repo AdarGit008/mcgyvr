@@ -145,8 +145,9 @@ ALLOWED: dict[str, str] = {
         "read and the serving harness (contract.ssh) all go through it — the "
         "shims' own lease check, which admits the same way, and "
         "gatelib.ssh_read_only, the sanctioned read-only detection path "
-        "(`mcgyvr scan --json` and the `*.gguf` discovery `mcgyvr recommend` "
-        "runs) that admits nothing else"
+        "(`mcgyvr scan --json`, the `*.gguf` discovery, and the "
+        "shipped-reader header read `mcgyvr recommend` runs) that admits "
+        "nothing else"
     ),
     "src/mcgyvr/serving/gate-scripts/bin/ssh": (
         "the `ssh` on the PATH the door exports: admits the door's host through "

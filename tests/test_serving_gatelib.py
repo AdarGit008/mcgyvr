@@ -446,3 +446,58 @@ def test_the_ssh_shim_reads_a_bundled_jump_the_way_ssh_does(
     with pytest.raises(SystemExit):
         gatelib.shim_ssh(["-vJ", "srv1", "srv2", "true"], own=tmp_path)
     assert "-J" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------
+# ssh_read_only: the sanctioned read-only detection command shapes
+# --------------------------------------------------------------------------
+
+
+def _shipped_reader_blob() -> str:
+    """The base64 payload the header-read line ships, from the one reader."""
+    import base64
+
+    from mcgyvr.serving import ggufscan
+
+    return base64.b64encode(Path(ggufscan.__file__).read_bytes()).decode("ascii")
+
+
+def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
+    assert gatelib._read_only_command("mcgyvr scan --json")
+    assert gatelib._read_only_command(
+        "find '/models/store' -maxdepth 1 -name '*.gguf' -print"
+    )
+    assert not gatelib._read_only_command(
+        "find /models/store -maxdepth 1 -name '*.gguf' -print"
+    )
+
+
+def test_header_read_command_is_the_sanctioned_shape() -> None:
+    command = gatelib.header_read_command("/models/store/x.gguf")
+    assert gatelib._read_only_command(command)
+    assert "echo " in command
+    assert " | base64 -d | python3 - '/models/store/x.gguf'" in command
+
+
+def test_header_read_command_embeds_only_the_shipped_reader() -> None:
+    command = gatelib.header_read_command("/models/store/x.gguf")
+    expected = (
+        f"echo {_shipped_reader_blob()} | base64 -d | python3 - '/models/store/x.gguf'"
+    )
+    assert command == expected
+
+
+def test_read_only_command_refuses_a_header_read_with_another_payload() -> None:
+    assert not gatelib._read_only_command(
+        "echo ZXZpbA== | base64 -d | python3 - '/tmp/x'"
+    )
+
+
+def test_read_only_command_refuses_a_header_read_whose_path_is_not_quoted() -> None:
+    bad = f"echo {_shipped_reader_blob()} | base64 -d | python3 - /tmp/x"
+    assert not gatelib._read_only_command(bad)
+
+
+def test_header_read_command_refuses_an_embedded_quote() -> None:
+    with pytest.raises(ValueError):
+        gatelib.header_read_command("/models/store/it's.gguf")
