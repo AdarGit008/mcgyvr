@@ -84,6 +84,7 @@ HOST = "box-7"
 STORE_DIR = "/models/store"
 CHECKPOINT = f"{STORE_DIR}/invented-moe.gguf"
 OTHER = f"{STORE_DIR}/invented-dense.gguf"
+MISSING_STORE_DIR = "/models/missing"
 SIZE_BYTES = 9_876_543_210
 
 ENGINES = ("llama.cpp", "vllm")
@@ -248,6 +249,17 @@ def _header_path(command: str) -> str:
     return tail[1:-1]
 
 
+_FIND_SUFFIX = " -maxdepth 1 -name '*.gguf' -print"
+
+
+def _find_dir(command: str) -> str:
+    """The single-quoted store directory in a discovery line."""
+    assert command.startswith("find ") and command.endswith(_FIND_SUFFIX), command
+    directory = command[len("find ") : -len(_FIND_SUFFIX)]
+    assert directory.startswith("'") and directory.endswith("'"), command
+    return directory[1:-1]
+
+
 def _refuses_in_process_header_read(path: str) -> dict[str, Any]:
     """The reader must run on the rig; an in-process read is a contract break."""
     raise AssertionError(
@@ -268,11 +280,13 @@ class RecordedSsh:
         self,
         *reachable: str,
         header_builder: Any = fake_header,
+        missing_dirs: tuple[str, ...] = (),
     ) -> None:
         self.reachable = set(reachable or (HOST,))
         self.ggufs = [CHECKPOINT]
         self.header_sizes: dict[str, int] = {}
         self.header_builder = header_builder
+        self.missing_dirs = set(missing_dirs)
         self.commands: list[tuple[str, str]] = []
 
     def __call__(self, host: str, command: str) -> str:
@@ -281,7 +295,9 @@ class RecordedSsh:
             raise scan_module.Unreachable(host)
         if _is_scan_read(command):
             return scan_json(host, FREE_MIB)
-        if command.startswith("find ") and "*.gguf" in command:
+        if command.startswith("find ") and command.endswith(_FIND_SUFFIX):
+            if _find_dir(command) in self.missing_dirs:
+                raise scan_module.ScannerMissing(host)
             return "\n".join(self.ggufs) + "\n"
         if _is_header_read(command):
             path = _header_path(command)
@@ -829,3 +845,32 @@ def test_users_budget_the_placement_and_change_the_flags(
     assert four_plan["source"] == "hf-catalog"
     assert four_plan["placement"]["model_id"] == "invented-org/invented-dense"
     assert four_plan["placement"]["flags"]["--parallel"] == "4"
+
+
+def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
+    ssh: Any,
+    classify: Any,
+    probe: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A store directory that does not exist on the rig contributes nothing.
+
+    ``find '<missing>' ...`` exits non-zero, which the read-only ssh seam maps to
+    ``ScannerMissing``. Discovery must read that as "this directory holds no
+    checkpoints" and keep going with the store that does exist, never crash the
+    whole plan the way a missing directory did before.
+    """
+    recorder = ssh()
+    recorder.missing_dirs = {MISSING_STORE_DIR}
+    classify()
+    probe(live=False)
+
+    code, plan = run_and_parse(
+        capsys, "coding", "single", MISSING_STORE_DIR, STORE_DIR
+    )
+    assert code == 0
+    assert plan["source"] == "local-store"
+    assert plan["placement"]["checkpoint"] == CHECKPOINT
+    assert plan["unreachable"] == []
+    assert plan["no_scanner"] == []
+    assert plan["scan_failed"] == []

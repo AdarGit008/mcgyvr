@@ -222,8 +222,16 @@ def _discover(host: str, directory: str) -> tuple[str, ...]:
 
     Read over the same ssh seam the scan uses, so a test substitutes the
     transport once and both the scan and the discovery answer through it.
+    A directory that does not exist on the rig makes ``find`` exit non-zero,
+    which the seam reports as :class:`ScannerMissing`; that is absence — this
+    store holds zero checkpoints — and never a failure. A rig that stops
+    answering ssh still raises :class:`Unreachable` here, so a lost connection
+    is never read as an empty store.
     """
-    listing = scan_module._ssh(host, discover_command(directory))
+    try:
+        listing = scan_module._ssh(host, discover_command(directory))
+    except ScannerMissing:
+        return ()
     return tuple(
         line for line in (part.strip() for part in listing.splitlines()) if line
     )
