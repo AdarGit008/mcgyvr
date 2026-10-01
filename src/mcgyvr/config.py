@@ -623,7 +623,7 @@ MANAGER_FIELDS: tuple[Field, ...] = (
         "interval_s",
         "int",
         "How often the ladder manager asks its small model for a decision, in "
-        "seconds. The default of 30 is a choice, not a measurement: nothing "
+        "seconds. The default of 30 is an estimate, not a measurement: nothing "
         "here has timed how fast a queue builds or drains on your units. Lower "
         "it to react sooner, at the price of more questions asked of a model "
         "that is itself running on the ladder's hardware; raise it to ask "
@@ -640,7 +640,7 @@ MANAGER_FIELDS: tuple[Field, ...] = (
         "int",
         "How many consecutive identical answers the manager must get before it "
         "acts on one, so a single odd answer from a small model moves nothing. "
-        "The default of 3 is a choice, not a measurement: it lets one stray "
+        "The default of 3 is an estimate, not a measurement: it lets one stray "
         "answer fail to act alone, and it has not been tuned "
         "against any real queue. With the default interval it means about "
         "a minute and a half of the same answer before anything happens. Set "
@@ -659,7 +659,7 @@ MANAGER_FIELDS: tuple[Field, ...] = (
         "and keeps its process; any other unit's containers are stopped. "
         "Either way a wake loads the model from disk again, so every switch "
         "costs a full load. "
-        "The default of 600 is a choice, not a measurement. Set it above the "
+        "The default of 600 is an estimate, not a measurement. Set it above the "
         "time your sleeping units take to wake -- `mcgyvr serve wake` prints "
         "that time -- or the manager can be asking for a unit back before the "
         "last wake has finished. 0 allows a switch on every decision.",
