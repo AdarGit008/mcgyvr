@@ -28,7 +28,8 @@ Models to place come from exactly one of two places, and the plan says which:
   HuggingFace catalog ``data/model-catalog.json`` (:func:`load_catalog`), and
   marks those picks downloadable (``model_id``, ``quant``, ``size_bytes``). A
   catalog pick has no header, so it fits only when its shipped ``size_bytes``
-  fits the measured free VRAM.
+  plus the KV and recurrent state its shipped geometry prices for ``--users``
+  slots fit the measured free VRAM.
 
 Only ``coding`` makes a placement. ``chatting``, ``media_gen`` and ``other``
 are accepted as scaffolds: the rigs are still read, but no checkpoint is
@@ -145,8 +146,10 @@ def load_catalog() -> dict[str, Any]:
     """The shipped HuggingFace catalog, parsed and validated.
 
     A dict with ``schema_version`` and ``models``; each model entry carries
-    ``model_id``, ``quant``, ``size_bytes`` and ``engines``. The command reads
-    it as data, so a test can substitute a fake catalog through this seam.
+    ``model_id``, ``quant``, ``size_bytes``, ``context_length``,
+    ``kv_bytes_per_token``, ``recurrent_bytes_per_slot`` and ``engines``. The
+    command reads it as data, so a test can substitute a fake catalog through
+    this seam.
     """
     path = catalog_path()
     try:
@@ -167,13 +170,35 @@ def load_catalog() -> dict[str, Any]:
     for entry in models:
         if not isinstance(entry, dict):
             raise CatalogError(f"{path}: a model entry is not an object")
-        for key in ("model_id", "quant", "size_bytes"):
+        for key in (
+            "model_id",
+            "quant",
+            "size_bytes",
+            "context_length",
+            "kv_bytes_per_token",
+        ):
             if key not in entry:
                 raise CatalogError(f"{path}: a model entry has no {key!r}")
-        if not isinstance(entry.get("size_bytes"), int) or isinstance(
-            entry.get("size_bytes"), bool
-        ):
-            raise CatalogError(f"{path}: a model entry's size_bytes is not an int")
+        for key in ("size_bytes", "context_length", "kv_bytes_per_token"):
+            value = entry.get(key)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise CatalogError(f"{path}: a model entry's {key} is not an int")
+        if entry["context_length"] <= 0:
+            raise CatalogError(
+                f"{path}: model {entry.get('model_id')!r} declares a non-positive "
+                "context_length"
+            )
+        if entry["kv_bytes_per_token"] <= 0:
+            raise CatalogError(
+                f"{path}: model {entry.get('model_id')!r} declares a non-positive "
+                "kv_bytes_per_token"
+            )
+        recurrent = entry.get("recurrent_bytes_per_slot", 0)
+        if not isinstance(recurrent, int) or isinstance(recurrent, bool) or recurrent < 0:
+            raise CatalogError(
+                f"{path}: model {entry.get('model_id')!r} declares a negative or "
+                "non-integer recurrent_bytes_per_slot"
+            )
         engines = entry.get("engines")
         if not isinstance(engines, list) or not engines:
             raise CatalogError(
@@ -396,16 +421,54 @@ def _local_candidates(
     return tuple(candidates)
 
 
-def _catalog_fits(scan: Scan, size_bytes: int) -> bool:
+def _catalog_slot_bytes(entry: Mapping[str, Any], users: int) -> int | None:
+    """KV + recurrent-state bytes for ``users`` slots, from the shipped entry.
+
+    Mirrors :func:`_slot_bytes` as far as a catalog entry (no measured header)
+    allows: the cache is the shipped ``context_length`` priced across ``users``
+    slots at the shipped ``kv_bytes_per_token`` width, and recurrent state is
+    the shipped ``recurrent_bytes_per_slot`` per slot. Returns None when the
+    entry lacks any figure, which :func:`_catalog_fits` reads as "does not fit".
+    """
+    ctx = entry.get("context_length")
+    kv_per_token = entry.get("kv_bytes_per_token")
+    recurrent = entry.get("recurrent_bytes_per_slot", 0)
+    if (
+        not isinstance(ctx, int)
+        or isinstance(ctx, bool)
+        or ctx <= 0
+        or not isinstance(kv_per_token, int)
+        or isinstance(kv_per_token, bool)
+        or kv_per_token <= 0
+        or not isinstance(recurrent, int)
+        or isinstance(recurrent, bool)
+        or recurrent < 0
+    ):
+        return None
+    try:
+        cells = vramfit.context_per_sequence(ctx, users)
+    except ValueError:
+        return None
+    return cells * users * kv_per_token + recurrent * users
+
+
+def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
     """Whether a catalog entry fits the measured machine.
 
     A catalog pick has no header, so no MoE split is known; the conservative
-    bound is the whole shipped size against the roomiest card's free VRAM. It
-    fails closed: a checkpoint that might not fit is left out rather than
-    placed from an assumed split.
+    bound is the whole shipped size plus the KV and recurrent state the entry's
+    shipped geometry prices for ``users`` slots, all against the roomiest
+    card's free VRAM. It fails closed: an entry whose geometry is missing or
+    does not fit is left out rather than placed from an assumed split.
     """
     free = _free_vram_bytes(scan)
-    return free > 0 and size_bytes <= free
+    if free <= 0:
+        return False
+    size_bytes = int(entry.get("size_bytes") or 0)
+    slots = _catalog_slot_bytes(entry, users)
+    if slots is None:
+        return False
+    return size_bytes + slots <= free
 
 
 def _catalog_candidates(
@@ -413,10 +476,10 @@ def _catalog_candidates(
 ) -> tuple[Candidate, ...]:
     """The downloadable placements the shipped catalog offers.
 
-    Only entries that fit the measured free VRAM are assembled; a catalog pick
-    has no local header and download is out of scope, so the flags carry only
-    shipped constants and nothing is invented to stand in for a context the
-    command was never given.
+    Only entries whose shipped size plus their shipped KV/state budget fit the
+    measured free VRAM are assembled; a catalog pick has no local header and
+    download is out of scope, so the flags carry only shipped constants and
+    nothing is invented to stand in for a context the command was never given.
     """
     wake = not scan.gpus
     candidates: list[Candidate] = []
@@ -426,7 +489,7 @@ def _catalog_candidates(
         model_id = str(entry.get("model_id") or "")
         quant = str(entry.get("quant") or "")
         size_bytes = int(entry.get("size_bytes") or 0)
-        if not _catalog_fits(scan, size_bytes):
+        if not _catalog_fits(scan, entry, users):
             continue
         for engine in entry.get("engines") or ():
             if engine == "llama.cpp":

@@ -99,12 +99,45 @@ FAKE_CATALOG: dict[str, Any] = {
             "model_id": "invented-org/invented-moe",
             "quant": "Q4_K_M",
             "size_bytes": SIZE_BYTES,
+            "context_length": 32768,
+            "kv_bytes_per_token": 1000,
+            "recurrent_bytes_per_slot": 0,
             "engines": ["llama.cpp", "vllm"],
         },
         {
             "model_id": "invented-org/invented-dense",
             "quant": "Q4_K",
             "size_bytes": 4_000_000_000,
+            "context_length": 4096,
+            "kv_bytes_per_token": 1000,
+            "recurrent_bytes_per_slot": 0,
+            "engines": ["llama.cpp"],
+        },
+    ],
+}
+
+#: A catalog whose large entry fits on size alone but not once the KV cache it
+#: prices is added: ``context_length * kv_bytes_per_token`` pushes it past the
+#: invented card's free VRAM.
+KV_HEAVY_CATALOG: dict[str, Any] = {
+    "schema_version": 1,
+    "models": [
+        {
+            "model_id": "invented-org/kv-heavy",
+            "quant": "Q4_K_M",
+            "size_bytes": 4_000_000_000,
+            "context_length": 32768,
+            "kv_bytes_per_token": 200_000,
+            "recurrent_bytes_per_slot": 0,
+            "engines": ["llama.cpp"],
+        },
+        {
+            "model_id": "invented-org/small",
+            "quant": "Q4_K",
+            "size_bytes": 3_000_000_000,
+            "context_length": 1024,
+            "kv_bytes_per_token": 1000,
+            "recurrent_bytes_per_slot": 0,
             "engines": ["llama.cpp"],
         },
     ],
@@ -874,3 +907,28 @@ def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
     assert plan["unreachable"] == []
     assert plan["no_scanner"] == []
     assert plan["scan_failed"] == []
+
+
+def test_recommend_catalog_budgets_kv_on_top_of_size(
+    monkeypatch: pytest.MonkeyPatch,
+    ssh: Any,
+    classify: Any,
+    probe: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A catalog entry that fits by size alone but not with its KV cache is out.
+
+    ``kv-heavy`` is 4 GB, under the invented card's free VRAM, so a size-only
+    fit would admit it; its shipped 32768-token KV budget pushes the total over,
+    so the deterministic pick must name the smaller entry whose size+KV fits.
+    """
+    ssh()
+    classify()
+    probe(live=False)
+    monkeypatch.setattr(recommend_module, "load_catalog", lambda: KV_HEAVY_CATALOG)
+
+    code, plan = run_and_parse(capsys, "coding", "single")
+    assert code == 0
+    assert plan["source"] == "hf-catalog"
+    assert plan["placement"]["model_id"] == "invented-org/small"
+    assert "invented-org/kv-heavy" not in _text(plan)
