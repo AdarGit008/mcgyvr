@@ -150,6 +150,11 @@ class Field:
     refused, so the config cannot resolve to it."""
 
 
+#: The fan-out modes, spelled once. ``fanout`` takes one of them and
+#: ``manager.fanouts`` lists the ones the ladder manager may choose between, so
+#: the two cannot name different sets.
+FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
+
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
@@ -600,6 +605,73 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     *ROLE_UNIT_FIELDS,
 )
 
+MANAGER_FIELDS: tuple[Field, ...] = (
+    Field(
+        "interval_s",
+        "int",
+        "How often the ladder manager asks its small model for a decision, in "
+        "seconds. The default of 30 is a choice, not a measurement: nothing "
+        "here has timed how fast a queue builds or drains on your units. Lower "
+        "it to react sooner, at the price of more questions asked of a model "
+        "that is itself running on the ladder's hardware; raise it to ask "
+        "less. The manager runs only under `mcgyvr manage`, and only when "
+        "`serving.enable_sleep_wake` is on and the ladder has units that can "
+        "sleep and wake. Everything it sees that falls outside what this "
+        "block lets it change, it prints as a recommendation and does not "
+        "do.",
+        default=30,
+        min_value=1,
+    ),
+    Field(
+        "confirm",
+        "int",
+        "How many consecutive identical answers the manager must get before it "
+        "acts on one, so a single odd answer from a small model moves nothing. "
+        "The default of 3 is a choice, not a measurement: it lets one stray "
+        "answer fail to act alone, and it has not been tuned "
+        "against any real queue. With the default interval it means about "
+        "a minute and a half of the same answer before anything happens. Set "
+        "1 to act on every answer.",
+        default=3,
+        min_value=1,
+    ),
+    Field(
+        "dwell_s",
+        "int",
+        "The least time between two switches the manager makes, in seconds, "
+        "so it cannot sleep a unit and wake it again in a loop. "
+        "The default of 600 is a choice, not a measurement. Set it above the "
+        "time your sleeping units take to wake -- `mcgyvr serve wake` prints "
+        "that time -- or the manager can be asking for a unit back before the "
+        "last wake has finished. 0 allows a switch on every decision.",
+        default=600,
+        min_value=0,
+    ),
+    Field(
+        "fanouts",
+        "str_list",
+        "The fan-out modes the manager may choose between, each one of "
+        "`none`, `idle` or `full` as `fanout` spells them, each listed once. "
+        "The manager changes `fanout` only among these, and fewer than two "
+        "means there is nothing to choose between, so it is never asked. "
+        "Empty by default: a manager that was not told which modes it may use "
+        "leaves `fanout` as the file says.",
+        default=(),
+        choices=FANOUT_CHOICES,
+    ),
+    Field(
+        "leads",
+        "str_list",
+        "The local units the manager may move to the front of the local "
+        "family, each listed once. Each must be on the `ladder` and must need "
+        "no credential: a unit that is not on the ladder is not one work "
+        "climbs, and a unit with an `api_key_env` is hosted, not local. Empty "
+        "by default, which means the manager is never asked which unit "
+        "should lead and the ladder's own order stands.",
+        default=(),
+    ),
+)
+
 SCHEMA: tuple[Field, ...] = (
     Field(
         "profile",
@@ -632,7 +704,7 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Whether a batch of contracts spreads across units or queues on one.",
         default="none",
-        choices=("none", "idle", "full"),
+        choices=FANOUT_CHOICES,
     ),
     Field(
         "attempts",
@@ -728,6 +800,17 @@ SCHEMA: tuple[Field, ...] = (
         "HuggingFace cache is a fact about that unit and lives on it, not "
         "here: only the policy of starting and stopping a card is a setting.",
         block=SERVING_FIELDS,
+    ),
+    Field(
+        "manager",
+        "block",
+        "What the ladder manager may do on its own. It runs only under "
+        "`mcgyvr manage`, and only when `serving.enable_sleep_wake` is on and "
+        "the ladder has units that can sleep and wake. Within this block it "
+        "sleeps and wakes those units, changes `fanout` and changes which "
+        "local unit leads; everything else it notices it prints as a "
+        "recommendation and leaves alone.",
+        block=MANAGER_FIELDS,
     ),
     Field(
         "journal",
@@ -1592,6 +1675,8 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
             "Raise `breadth.temperature`, or set the draws back to 1."
         )
 
+    _cross_validate_manager(data, units)
+
     for role in ("orchestrator", "verifier"):
         bound = data[role].get("unit")
         if bound is not None and bound not in units:
@@ -1607,6 +1692,54 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
             "`verifier.enabled: false` to accept on the deterministic gate "
             "alone."
         )
+
+
+def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
+    """Refuse a ``manager`` block that asks for more than the ladder can give.
+
+    The bounds are checked here, at load, because the manager acts on a shared
+    rig and a bound it cannot honour is found only when it is acted on. A mode
+    must be one ``fanout`` could be set to; a lead must be a unit the ladder
+    climbs and one that needs no credential, since the manager moves *local*
+    units and a hosted one is not in that family. A name listed twice is one
+    step listed twice, refused the way the ladder refuses it.
+    """
+    manager = data["manager"]
+
+    seen_modes: set[str] = set()
+    for index, mode in enumerate(manager["fanouts"]):
+        if mode not in FANOUT_CHOICES:
+            raise ConfigSchemaError(
+                f"manager.fanouts.{index}: {mode!r} is not a fan-out mode. "
+                f"Valid: {', '.join(FANOUT_CHOICES)}"
+            )
+        if mode in seen_modes:
+            raise ConfigSchemaError(
+                f"manager.fanouts.{index}: {mode!r} is listed more than once. "
+                f"A mode is one choice for the manager."
+            )
+        seen_modes.add(mode)
+
+    on_ladder = tuple(data["ladder"])
+    seen_leads: set[str] = set()
+    for index, name in enumerate(manager["leads"]):
+        if name in seen_leads:
+            raise ConfigSchemaError(
+                f"manager.leads.{index}: {name!r} is listed more than once. "
+                f"A unit is one choice for the manager."
+            )
+        seen_leads.add(name)
+        if name not in on_ladder:
+            raise ConfigSchemaError(
+                f"manager.leads.{index}: {name!r} is not on the ladder. "
+                f"On the ladder: {', '.join(on_ladder)}"
+            )
+        if units[name]["api_key_env"] is not None:
+            raise ConfigSchemaError(
+                f"manager.leads.{index}: {name!r} needs a credential, so it is "
+                f"not a local unit and cannot lead the local family. Name a "
+                f"unit without `api_key_env`."
+            )
 
 
 def _absent_remedy(path: Path | None) -> str:
