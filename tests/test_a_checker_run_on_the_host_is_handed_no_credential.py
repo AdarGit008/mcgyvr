@@ -39,13 +39,18 @@ CREDENTIALS = {
 }
 
 #: Every module that runs a checker or a fixer on the host over a workspace.
+#: The type checker, eslint and prettier reach the host through the runner in
+#: ``gate/adapter.py`` (``HostRunner``), and only where no sandbox is open.
 HOST_CHECKERS = (
+    "gate/adapter.py",
     "gate/adapters/python.py",
-    "gate/adapters/javascript.py",
     "gate/typecheck.py",
     "repair.py",
     "cleanup.py",
 )
+
+#: The ``subprocess`` functions that start a process.
+_STARTS = frozenset({"run", "Popen", "call", "check_call", "check_output"})
 
 
 @pytest.fixture
@@ -75,6 +80,7 @@ def _subprocess_calls(source: str) -> list[ast.Call]:
         and isinstance(node.func, ast.Attribute)
         and isinstance(node.func.value, ast.Name)
         and node.func.value.id == "subprocess"
+        and node.func.attr in _STARTS
     ]
 
 

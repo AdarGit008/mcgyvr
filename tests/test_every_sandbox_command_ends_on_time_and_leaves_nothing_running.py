@@ -335,6 +335,7 @@ class _RecordingSandbox(Sandbox):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
         self.timeouts.append(timeout)
         return CommandResult(command=tuple(command), exit_code=0, stdout="", stderr="")
