@@ -173,10 +173,20 @@
       "says": "The highest top_logprobs value the OpenAI-compatible servers agree to return; a choice over more options cannot enumerate in one call.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "delegate.py:MIN_CONFIDENCE": {
+      "kind": "choice",
+      "says": "How decisively the model must commit to a typed choice before a proposer acts on it; below this the proposer refuses rather than guessing, and a caller building a proposer may name its own confidence.",
+      "reason": "what a caller that names none gets; the product's callers name one"
+    },
     "delegate.py:ORCHESTRATOR_OUTPUT_TOKENS": {
       "kind": "estimate",
       "says": "How many tokens the orchestrator's model spends on a decomposition, a short list of proposals, including any reasoning it writes before them; a reply cut short loses the whole decomposition.",
       "moves_to": "decomposition_reply_tokens"
+    },
+    "delegate.py:_MAX_CHOICE_OPTIONS": {
+      "kind": "fact",
+      "says": "How many options one typed Choice may carry — the decision primitive's 62 single-token labels — so candidate and symbol lists are capped at it and a classification cannot overrun the label scheme.",
+      "reason": "the specification of a format, protocol or tool"
     },
     "deliver.py:_BRANCH_ATTEMPTS": {
       "kind": "choice",
