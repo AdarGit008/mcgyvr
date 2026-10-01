@@ -45,6 +45,7 @@ from mcgyvr.serving import (
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
     HF_CACHE_MOUNT,
+    MEDIA_ENGINES_NOT_WIRED,
     Unit,
     launch_specs,
     port_of,
@@ -80,6 +81,21 @@ class EmitError(Exception):
     """A launch spec could not be rendered — for a host, an engine or a path."""
 
 
+def _media_engine_not_wired(unit: Unit) -> str:
+    """Why a media engine's unit is refused before it is rendered.
+
+    The diffusers image engine (and the media engines after it) lands with the
+    P2 media backends. Until it does there is no command line and no image for
+    it, and mcgyvr will not render a media unit with another engine's flags.
+    """
+    return (
+        f"{unit.key.slug}: engine {unit.engine!r} is not wired in this build. "
+        "The diffusers image engine lands with the P2 media backends; until "
+        "it does, mcgyvr refuses to render a media unit rather than emit a "
+        "launch spec for another engine."
+    )
+
+
 def argv(unit: Unit) -> tuple[str, ...]:
     """The launch arguments, once, so the two renderings cannot drift.
 
@@ -104,6 +120,8 @@ def argv(unit: Unit) -> tuple[str, ...]:
     because the first already had 8080. Written here, in the one argv, so the
     compose file and the pasted command cannot disagree about it.
     """
+    if unit.engine in MEDIA_ENGINES_NOT_WIRED:
+        raise EmitError(_media_engine_not_wired(unit))
     flags = {**unit.args, "--port": str(unit.port)}
     # vLLM takes the model as its first positional argument, and it is the
     # model id — a repository path the cache resolves — never a file. Then
@@ -519,6 +537,8 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
 def _command(unit: Unit) -> tuple[str, ...]:
     command = ENGINE_COMMANDS.get(unit.engine)
     if command is None:
+        if unit.engine in MEDIA_ENGINES_NOT_WIRED:
+            raise EmitError(_media_engine_not_wired(unit))
         raise EmitError(
             f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"
         )
@@ -530,6 +550,8 @@ def _image(unit: Unit) -> str:
         return unit.image
     image = ENGINE_IMAGES.get(unit.engine)
     if image is None:
+        if unit.engine in MEDIA_ENGINES_NOT_WIRED:
+            raise EmitError(_media_engine_not_wired(unit))
         raise EmitError(
             f"{unit.key.slug}: no container image is known for engine {unit.engine!r}"
         )

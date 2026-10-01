@@ -111,6 +111,10 @@ def table_document_with_every_block(
     """
     first = str(classes[0]["id"])
     model = row("invented-model-a", card_class=first, not_for_fit="an invented reason")
+    from mcgyvr.capability import READING_LISTS
+
+    for field in READING_LISTS:
+        model[field] = [reading(first, value=17.0)]
     model["throughput_tok_s"][0]["caveat"] = "CAV-X"
     document = table_document(classes=classes, rows=[model])
     document["harness_caveats"] = [

@@ -58,6 +58,13 @@ from mcgyvr.serving import vramfit
 # and llama-server both speak ``openai`` and take entirely different argv.
 DEFAULT_ENGINE = "llama.cpp"
 
+#: Media engines this build names at the serving seam but does not yet size or
+#: render. A unit declaring one is refused by name rather than sized with a
+#: text engine's law or rendered into another engine's launch spec.
+#: ``diffusers`` lands first, with the P2 media backends; ComfyUI and the TTS
+#: engines follow and slot in here.
+MEDIA_ENGINES_NOT_WIRED = ("diffusers",)
+
 # There is no module-level context number. ``ctx_per_slot`` is threaded from
 # the run's own declaration through every reader that prices a cache against
 # it -- :func:`units_for`, :func:`unit_for`, :func:`fit`, :func:`_placement` --
@@ -527,6 +534,12 @@ def fit(
     Never raises. An unmeasurable machine is a machine nothing is claimed
     about — the same rule :mod:`mcgyvr.scan` runs on.
     """
+    if engine in MEDIA_ENGINES_NOT_WIRED:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=_media_engine_not_wired(spec.name, engine),
+        )
     sized = _sized(scan, spec, engine=engine, width=width, ctx_per_slot=ctx_per_slot)
     notes = _host_figure_notes(engine)
     if not notes:
@@ -729,6 +742,22 @@ def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
     return kv_k, kv_v
 
 
+def _media_engine_not_wired(name: str, engine: str) -> str:
+    """Why a media engine's unit is refused, never sized or rendered as text.
+
+    The diffusers image engine (and the media engines after it) lands with the
+    P2 media backends. Until it does, mcgyvr will not size a media unit with
+    llama.cpp's or vLLM's law, and will not invent a number so a launch spec
+    looks measured when none was.
+    """
+    return (
+        f"{name}: engine {engine!r} is not wired in this build. The diffusers "
+        "image engine lands with the P2 media backends; until it does, mcgyvr "
+        "refuses to size or render a media unit rather than apply a text "
+        "engine's law or invent a number nobody measured."
+    )
+
+
 def unit_for(
     scan: Scan,
     spec: ModelSpec,
@@ -754,6 +783,8 @@ def unit_for(
     ``--max-model-len`` on vLLM — and the same number priced the cache the fit
     approved, which is what makes the launch and the law one number.
     """
+    if engine in MEDIA_ENGINES_NOT_WIRED:
+        raise UnitError(_media_engine_not_wired(spec.name, engine))
     cache_type_k, cache_type_v = _require_cache_types(engine, spec)
     if engine == "vllm" and spec.speculative != SPECULATIVE_NONE:
         raise UnitError(
