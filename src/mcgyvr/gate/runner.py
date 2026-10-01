@@ -23,12 +23,17 @@ scope, and stopping saves the expensive subprocesses.
 6. **semantic resolution** — do the names the worker called exist in the
    environment this repository declares? (#123) This one needs the per-task
    sandbox, because answering it means importing the target's own packages.
-7. **acceptance commands** — the contract's own suite (#38), also in the
+7. **Jev verifier rung** — typed questions answered by the decision primitive
+   over the added lines and the contract. Non-blocking: its findings arrive
+   as observations, and a model that cannot be reached is an environment
+   issue.
+8. **acceptance commands** — the contract's own suite (#38), also in the
    sandbox.
 
 Both sandboxed rungs are injected rather than constructed, and the cheaper of
 the two goes first: a sub-second resolution pass has no business queueing
-behind a test suite.
+behind a test suite. The Jev rung is injected the same way — the gate receives
+it, it does not build it.
 
 Every finding is attributed to a worker-added line wherever the check can know
 one. A tool that is not installed is recorded as an *environment* issue, not a
@@ -53,6 +58,7 @@ from mcgyvr.gate.adapter import (
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
+from mcgyvr.gate.jev import JevCheck, JevReport
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 from mcgyvr.gate.structured import validate_structured_data
@@ -125,6 +131,13 @@ class GateResult:
     did, and ``resolved`` says how much it saw.
     """
 
+    jev: JevReport | None = field(default=None)
+    """The Jev verifier rung's own report, or ``None`` where it did not run.
+
+    Non-blocking by default, so its findings arrive as ``observations``; the
+    same ``None``-means-not-run convention as ``semantic``.
+    """
+
     @property
     def accepted(self) -> bool:
         return not self.findings and not self.inconclusive
@@ -152,6 +165,7 @@ class Gate:
         scope: Scope | None = None,
         *,
         semantic: SemanticCheck | None = None,
+        jev: JevCheck | None = None,
         acceptance: Acceptance | None = None,
         typecheck: TypeCheck | None = None,
         contract_text: str = "",
@@ -237,7 +251,18 @@ class Gate:
             observations.extend(semantic_report.observations)
             env_issues.extend(semantic_report.environment_issues)
 
-        # 7 — acceptance commands (#38): the strongest signal but the most
+        # 7 — Jev verifier rung: typed questions answered by the decision
+        # primitive over the added lines and the contract. Non-blocking by
+        # default — its findings arrive as observations — and a model that
+        # cannot be reached is an environment issue, never a rejection.
+        jev_report: JevReport | None = None
+        if jev is not None and not findings:
+            jev_report = jev.run(changeset, contract_text)
+            findings.extend(jev_report.findings)
+            observations.extend(jev_report.observations)
+            env_issues.extend(jev_report.environment_issues)
+
+        # 8 — acceptance commands (#38): the strongest signal but the most
         # expensive, needing the sandbox (E4). It runs last and only when
         # nothing cheaper already rejected the change — there is no value in
         # spinning a suite for a diff that already fails lint or leaks a key.
@@ -253,6 +278,7 @@ class Gate:
             observations=tuple(observations),
             inconclusive=tuple(inconclusive),
             semantic=semantic_report,
+            jev=jev_report,
         )
 
     def _run_adapter(

@@ -51,6 +51,7 @@
     "gate/adapters/python.py": "judging",
     "gate/changeset.py": "holds no number that sizes or judges",
     "gate/findings.py": "holds no number that sizes or judges",
+    "gate/jev.py": "judging",
     "gate/preflight.py": "judging",
     "gate/runner.py": "holds no number that sizes or judges",
     "gate/secrets.py": "judging",

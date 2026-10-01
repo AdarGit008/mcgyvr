@@ -176,6 +176,13 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # same import spelled `from mcgyvr.availability import Endpoint` — a re-export —
 # would satisfy this guard while changing nothing about the dependency, which is
 # defeating the guard by spelling instead of making the argument it asks for.
+#
+# `decision.py` is the sixth, and it is the runner's own argument again: it asks
+# a unit a question and reads the answer from next-token probabilities, so it
+# takes an `Endpoint` exactly as a runner does and sends exactly one request
+# shape through the same transport (`runner._post_json`). Nothing travels
+# upward — `delegate.py` calls it through `classify_role`, below the seam, and
+# the typed proposer it returns holds no endpoint.
 BELOW_THE_SEAM = {
     "pool.py",
     "runner.py",
