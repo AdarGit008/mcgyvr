@@ -67,14 +67,15 @@
     },
     "shard_allowance_gib": {
       "kind": "estimate",
-      "estimates": "Card memory, in GiB, that a vLLM rank holds beyond its share of the weights and its KV pool: its CUDA context, activation peak, graph pools and collective buffers.",
-      "used_for": "Added to the weights and cache of each shard of a vLLM unit split across cards when the shard's card room is sized; charged to each rank, and never to a unit of another engine.",
+      "estimates": "Card memory, in GiB, that each card of a tensor split holds beyond its share of the weights and its cache: its CUDA context, compute scratch, and the buffers its all-reduces go through. For vLLM, each rank of any split; for llama.cpp, each card of its --split-mode tensor.",
+      "used_for": "Added to the weights and cache of each shard of a vLLM unit split across cards, and of each card of a llama.cpp unit under --split-mode tensor, when the shard's card room is sized. A llama.cpp layer split charges the single-card allowance instead.",
       "unit": "GiB",
       "key": "engine",
       "values": {
-        "vllm": 1.5
+        "vllm": 1.5,
+        "llama.cpp": 1.0
       },
-      "note": "A starting value, not a reading of your machine. It may differ with the model, the context size, the engine version and the width of the split. Set your own value in numbers.yaml when your own reading of a rank's card memory differs."
+      "note": "A starting value, not a reading of your machine. It may differ with the model, the context size, the batch, the engine version and the width of the split. llama.cpp's is its single-card scratch and context bound (768 MiB) with room for the meta device's reduction buffers. Set your own value in numbers.yaml when your own reading of a card's memory differs."
     }
   },
   "constants": {
@@ -412,6 +413,16 @@
       "kind": "choice",
       "says": "How many tokens the warm-up request of a probe generates before any sample is taken.",
       "reason": "the method a stored reading was made with"
+    },
+    "fleet/linkread.py:DOOR_WAIT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a link run through the door takes past the timer's own bound to start and reach the rig; one slower than this is ended and its link not read.",
+      "moves_to": "link_run_timeout_s"
+    },
+    "fleet/linkread.py:MOST_TRANSFERS": {
+      "kind": "choice",
+      "says": "How many timed transfers a link timer's answer is read for; a longer answer is refused as no reading.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "fleet/machine.py:NAME_MAX": {
       "kind": "choice",
@@ -815,6 +826,11 @@
       "says": "A placement that declares no prediction head charges none for it.",
       "reason": "a definition or arithmetic"
     },
+    "serving/gate-scripts/link-01-time.py:TIMER": {
+      "kind": "fact",
+      "says": "Where the link timer sits: beside the door that ships it, one folder up from the gate.",
+      "reason": "the layout of the package or its checkout"
+    },
     "serving/ggufscan.py:NAME": {
       "kind": "fact",
       "says": "The name of each tensor type the GGUF format numbers.",
@@ -839,6 +855,56 @@
       "kind": "fact",
       "says": "How many microseconds make one second, to state a fitted latency in microseconds.",
       "reason": "a definition or arithmetic"
+    },
+    "serving/linktime.py:ACCEPT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a link timer's sink waits for the sender on the other rig to connect; a sender later than this gets no reading.",
+      "moves_to": "link_sink_accept_s"
+    },
+    "serving/linktime.py:CONNECT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a link timer's sender keeps trying to reach the sink on the other rig before the link is not read.",
+      "moves_to": "link_send_connect_s"
+    },
+    "serving/linktime.py:HEADROOM_BYTES": {
+      "kind": "estimate",
+      "says": "Card memory, in bytes, a card must still have free past a payload before the link timer copies to it, so the timer never takes room a unit on that card is about to need.",
+      "moves_to": "link_timer_headroom_mib"
+    },
+    "serving/linktime.py:IDLE_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, either end of a timed exchange waits for one message or its answer; a link slower than this is not read.",
+      "moves_to": "link_message_timeout_s"
+    },
+    "serving/linktime.py:LINK_PORT": {
+      "kind": "choice",
+      "says": "The port a link timer's sink listens on at the worker's bind address when the probe names none.",
+      "reason": "a protocol or tool default"
+    },
+    "serving/linktime.py:NETWORK_PAYLOADS": {
+      "kind": "choice",
+      "says": "The payload sizes, in bytes, a link between two rigs is timed with: a small one, where latency is most of the time, and two larger, where bandwidth is.",
+      "reason": "the method a stored reading was made with"
+    },
+    "serving/linktime.py:PEER_PAYLOADS": {
+      "kind": "choice",
+      "says": "The payload sizes, in bytes, a link between two cards of a rig is timed with: a small one, where latency is most of the time, and two larger, where bandwidth is.",
+      "reason": "the method a stored reading was made with"
+    },
+    "serving/linktime.py:REPEATS": {
+      "kind": "choice",
+      "says": "How many times each payload of a link timing is timed.",
+      "reason": "the method a stored reading was made with"
+    },
+    "serving/linktime.py:SINK_MOST_BYTES": {
+      "kind": "fact",
+      "says": "The most a link timer's sink reads before it ends the exchange: every payload the sender sends, each repeat and its warm-up.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/linktime.py:WHOLE_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a whole link timing may take on a rig, whatever it waits on; one longer than this is ended and not read.",
+      "moves_to": "link_timer_bound_s"
     },
     "serving/safetensorscan.py:_DTYPE_BYTES": {
       "kind": "fact",

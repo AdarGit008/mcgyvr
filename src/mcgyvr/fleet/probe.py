@@ -39,10 +39,12 @@ judged.
 every rig it spans, but one process answers at one address: the head's. So it is
 probed, filed and judged once, against the head rig's lock record, and never once
 per rig. Every rig it spans is still read through the door, workers included.
-Given a ``link_reader``, each distinct (head, worker) pair of an awake spanning
-unit has its link read as well
-(:func:`mcgyvr.serving.interconnect.read_link`), and what that recorded is
-:attr:`Report.links`.
+Given a ``link_reader``, the links the awake split units cross are timed too
+-- at most one between two cards of a rig and one between two rigs
+(:func:`link_ends`) -- and kept as the user's own reading of that link class
+(:func:`mcgyvr.serving.interconnect.read_link`); what each recorded is
+:attr:`Report.links`. ``mcgyvr fleet probe`` times them through the door
+(:mod:`mcgyvr.fleet.linkread`), and only when such a unit is awake.
 
 **Card memory and restarts are read through the door.** Both are rig reads,
 and a rig is reached only behind the door (``tests/test_one_door.py``). Given a
@@ -90,6 +92,7 @@ from mcgyvr.fleet.harness import HttpTransport as HttpTransport
 from mcgyvr.fleet.harness import Transport as Transport
 from mcgyvr.fleet.harness import measure_llamacpp as measure_llamacpp
 from mcgyvr.fleet.harness import measure_vllm as measure_vllm
+from mcgyvr.fleet.linkread import LinkEnds, worker_address
 from mcgyvr.fleet.roots import (
     LiveFleetError,
     layout_of,
@@ -97,7 +100,7 @@ from mcgyvr.fleet.roots import (
     live_fleet,
     live_fleet_dir,
 )
-from mcgyvr.fleet.spans import SpanError, spans
+from mcgyvr.fleet.spans import Span, SpanError, spans
 from mcgyvr.fleet.tolerance import CLASS_VLLM, tolerance_class
 
 #: Where the probe files, under the config's ``journal.dir``.
@@ -258,9 +261,10 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
     return layout, folder, fleet
 
 
-#: Times transfers between two hosts: ``(host_a, host_b) -> [(bytes, seconds)]``
-#: (:data:`mcgyvr.serving.interconnect.LinkReader`).
-LinkReader = Callable[[str, str], Sequence[tuple[int, float]]]
+#: Times one link: its two ends -> ``[(bytes, seconds)]``
+#: (:data:`mcgyvr.fleet.linkread.LinkTimer`; ``mcgyvr fleet probe`` passes
+#: :func:`mcgyvr.fleet.linkread.door_timer`).
+LinkReader = Callable[[LinkEnds], Sequence[tuple[int, float]]]
 #: What a link read says it was taken by, kept with the reading.
 LINK_HOW = "mcgyvr fleet probe"
 #: A read of one rig through the door: ``(rig, run id, units to probe) -> exit``.
@@ -323,45 +327,78 @@ def _from_the_rig(report: Report, unit: str, row: Mapping[str, Any]) -> None:
         report.failed[unit] = str(failed)
 
 
+def link_ends(
+    spanning: Mapping[str, Span], measured: Sequence[tuple[str, str]]
+) -> list[LinkEnds]:
+    """The links to time: at most one card-to-card and one machine-to-machine.
+
+    Each awake unit that spans two cards of one rig crosses that rig's bus, and
+    each that spans rigs crosses the network from its head to each worker. A
+    reading is kept for its link's class, not for the pair it was taken
+    between (:mod:`mcgyvr.serving.interconnect`), so one link of each class is
+    timed, the first in sorted order: the probe stays bounded however many
+    units are split.
+    """
+    found: dict[str, list[LinkEnds]] = {}
+    for unit in sorted({unit for _, unit in measured if unit in spanning}):
+        span = spanning[unit]
+        cards = span.cards
+        for rig in sorted(cards):
+            gpus = cards[rig]
+            if len(gpus) >= 2:
+                ends = LinkEnds(rig, gpus[0], rig, gpus[1])
+                found.setdefault(ends.link_class, []).append(ends)
+        for worker in span.workers:
+            shard = span.shards_on(worker)[0]
+            ends = LinkEnds(
+                span.head,
+                cards[span.head][0],
+                worker,
+                shard.gpu,
+                worker_address(worker, shard.bind),
+            )
+            found.setdefault(ends.link_class, []).append(ends)
+    return [
+        sorted(candidates, key=lambda ends: ends.key)[0]
+        for _, candidates in sorted(found.items())
+    ]
+
+
 def _read_links(
     link_reader: LinkReader,
-    spanning: Mapping[str, Any],
+    spanning: Mapping[str, Span],
     measured: Sequence[tuple[str, str]],
     moment: datetime,
     report: Report,
 ) -> None:
-    """Read each (head, worker) link an awake spanning unit joins, once.
+    """Time each link :func:`link_ends` names and keep it as the user's reading.
 
-    Several units joining the same two rigs share one link, so a pair is read
-    once. :mod:`mcgyvr.serving.interconnect` is imported here, not at the top:
-    only a probe asked to read links needs it. A link that cannot be read is
-    named in :attr:`Report.links_failed` and fails the probe, like a unit.
+    :mod:`mcgyvr.serving.interconnect` is imported here, not at the top: only
+    a probe that reads links needs it. A link that cannot be read is named in
+    :attr:`Report.links_failed` and fails the probe, like a unit.
     """
     from mcgyvr.serving import interconnect
 
     refused = (ValueError, OSError, interconnect.InterconnectError)
-    pairs = sorted(
-        {
-            (spanning[unit].head, worker)
-            for _, unit in measured
-            if unit in spanning
-            for worker in spanning[unit].workers
-        }
-    )
-    for head, worker in pairs:
-        key = f"{head} -> {worker}"
+    for ends in link_ends(spanning, measured):
+
+        def timed(
+            _a: str, _b: str, ends: LinkEnds = ends
+        ) -> Sequence[tuple[int, float]]:
+            return link_reader(ends)
+
         try:
             link = interconnect.read_link(
-                head,
-                worker,
-                link_reader,
+                ends.host_a,
+                ends.host_b,
+                timed,
                 how=LINK_HOW,
                 at=f"{moment:%Y-%m-%dT%H:%M:%S}",
             )
         except refused as exc:
-            report.links_failed[key] = str(exc)
+            report.links_failed[ends.key] = str(exc)
             continue
-        report.links[key] = str(link.says())
+        report.links[ends.key] = str(link.says())
 
 
 def run(
@@ -380,8 +417,8 @@ def run(
     fleet, an unreadable folder, a unit named that is not awake in it); a unit
     whose own probe cannot run is in :attr:`Report.failed`. With ``reader``,
     every rig is read through the door first (module docstring). With
-    ``link_reader``, the link of each (head, worker) pair of an awake spanning
-    unit is read and kept.
+    ``link_reader``, the links the awake split units cross are timed and kept
+    as the user's reading (:func:`link_ends`).
     """
     name, folder, fleet = _live(units)
     transport = transport if transport is not None else HttpTransport()

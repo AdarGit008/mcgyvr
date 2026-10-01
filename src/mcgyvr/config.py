@@ -577,11 +577,13 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "machine listens on, and `room_mib`, that card's room for the lock), \
 "
-        "the first on the machine the address names; `split` (`layer`, \
+        "the first on the machine the address names; `split` (`layer` | \
 "
-        "llama.cpp's one split here: its `row` mode has no split buffers on \
+        "`tensor`, llama.cpp; `tensor` spans one machine's cards, and `row` \
 "
-        "CUDA and is refused); `tensor_parallel` and `pipeline_parallel` \
+        "has no split buffers on CUDA and is refused); `tensor_parallel` and \
+"
+        "`pipeline_parallel` \
 "
         "(vLLM); `rpc_port` and `master_port`, the first port of llama.cpp's \
 "
@@ -597,7 +599,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "costs is reported, as an estimate by link class until your own \
 "
-        "reading or setting replaces it.",
+        "reading replaces it (`mcgyvr fleet probe` times the links an awake \
+"
+        "split unit crosses) or your setting outranks both.",
         bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe, "
         "speculative",
     ),

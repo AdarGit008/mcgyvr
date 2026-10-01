@@ -11,7 +11,9 @@ card. The cards of other machines are reached over RPC: each is lent by its own
 ``rpc-server`` worker, one card per worker, so two cards of one machine are two
 workers on two ports. The head is told ``--split-mode``, ``--tensor-split`` (the
 plan's whole-layer counts, in the engine's device order, which is the order the
-plan's shards are already in) and ``--rpc`` with the workers in that same order.
+plan's shards are already in; under ``--split-mode tensor``, which spans one
+machine's cards and nothing else, an even share each) and ``--rpc`` with the
+workers in that same order.
 The workers' listeners are the plan's ``bind`` and nothing else: ``rpc-server``
 is unauthenticated, so a name that is not an address, the address that means
 "every interface", or an address reachable from the internet is refused here
@@ -241,10 +243,10 @@ def _llama(
     # its cards.
     args: dict[str, str] = {
         "--model": str(weights),
-        # Every layer, the output layer included, is on a card: the counts
-        # below are stated over all of them, and a smaller -ngl would leave
-        # the first blocks on the host and shift every other one.
-        "-ngl": str(sum(plan.layer_counts)),
+        # Every layer, the output layer included, is on a card: a layer
+        # split's counts are stated over all of them, and a smaller -ngl would
+        # leave the first blocks on the host and shift every other one.
+        "-ngl": str(len({b for shard in plan.shards for b in shard.blocks}) + 1),
         "-c": str(plan.ctx_per_slot * plan.slots),
         "-ub": str(n_ubatch),
         "-b": str(n_ubatch),

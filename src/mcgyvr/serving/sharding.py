@@ -10,17 +10,20 @@ to split it.
     cache and their state. A token visits the cards in turn, and what crosses
     between two of them is one hidden state per token.
 
-``tensor`` (vLLM's ``--tensor-parallel-size``)
+``tensor`` (llama.cpp's ``--split-mode tensor``, vLLM's
+``--tensor-parallel-size``)
     Every card holds a slice of every block's matrices. A token is computed on
     all of them at once, and they meet twice in every block to add their
     partial results up (an all-reduce).
 
 vLLM can do both at once: ``pipeline`` stages of ``tensor`` cards each.
-llama.cpp is split by layer only. Its ``--split-mode row`` needs the
-backend's split buffer type, which the CUDA backend no longer exports, so a
-server told ``row`` throws at load; it is refused by name. Its newer
-``--split-mode tensor`` is experimental and per architecture, and is not
-sized here.
+llama.cpp runs one split mode for the whole process, so its tensor split is
+one machine's cards and nothing else; it is the engine's experimental meta
+device, refused by name for the architectures, tensor types and head counts
+llama.cpp's own source refuses (:func:`_llama_tensor_refusal`). Its
+``--split-mode row`` needs the backend's split buffer type, which the CUDA
+backend no longer exports, so a server told ``row`` throws at load; it is
+refused by name.
 
 **Every byte here is read off the tensor table, never off a bits-per-weight
 figure**: a bits-per-weight figure is a guess. A shard is charged the blocks
@@ -70,20 +73,62 @@ LLAMACPP_ENGINE = "llama.cpp"
 VLLM_ENGINE = "vllm"
 ENGINES = (LLAMACPP_ENGINE, VLLM_ENGINE)
 
-#: The ways llama.cpp is split across several cards here: by layer.
+#: The ways llama.cpp is split across several cards here: by layer, and by
+#: tensor (its experimental meta device) across the cards of one machine.
 SPLIT_LAYER = "layer"
-SPLITS = (SPLIT_LAYER,)
+SPLIT_TENSOR = "tensor"
+SPLITS = (SPLIT_LAYER, SPLIT_TENSOR)
 #: llama.cpp split modes that are refused, each with why.
 REFUSED_SPLITS = {
     "row": (
         "llama.cpp's --split-mode row needs the backend's split buffers, which "
         "the CUDA backend no longer has, so the server throws at load"
     ),
-    "tensor": (
-        "llama.cpp's --split-mode tensor is experimental and per architecture, "
-        "and what each card holds under it is not sized here"
-    ),
 }
+#: The architectures llama.cpp refuses ``--split-mode tensor`` for
+#: (``llm_arch_supports_sm_tensor`` in ``src/llama-arch.cpp``, as the GGUF names
+#: them): the server throws "LLAMA_SPLIT_MODE_TENSOR not implemented for
+#: architecture" at load.
+LLAMA_TENSOR_REFUSED_ARCHS = frozenset(
+    {
+        "grok",
+        "mpt",
+        "plamo2",
+        "minicpm3",
+        "gemma3n",
+        "mamba",
+        "mamba2",
+        "jamba",
+        "falcon-h1",
+        "olmo2",
+        "olmoe",
+        "deepseek2",
+        "deepseek32",
+        "hy_v4",
+        "dots3note",
+        "glm-dsa",
+        "bitnet",
+        "t5",
+        "nemotron_h",
+        "nemotron_h_moe",
+        "granitehybrid",
+        "minimax-01",
+        "minimax-m2",
+        "minimax-m3",
+        "mistral4",
+        "kimi-linear",
+        "bailingmoe3",
+        "kimi-k3",
+        "glm5-next",
+        "qwen3tts",
+    }
+)
+#: What a scan must carry for a llama.cpp tensor split to be sized from it.
+LLAMA_TENSOR_KEYS = (
+    "bytes_tensor_split_by_block",
+    "bytes_output_tensor_split",
+    "tensor_split_refused",
+)
 
 #: What one element of a hidden state weighs as it crosses from card to card.
 #: llama.cpp computes its graph's activations in 32-bit floats and copies them
@@ -217,8 +262,9 @@ class Plan:
     ``shards`` are in the order the engine numbers its devices: llama.cpp puts
     the cards it reaches over RPC first and its own after them, and vLLM
     numbers ranks machine by machine. ``layer_counts`` is the split as the
-    engine is told it: per card for llama.cpp (``--tensor-split``, the last
-    card's count including the output layer), per stage for vLLM
+    engine is told it: per card for llama.cpp (``--tensor-split``: under a
+    layer split each card's layer count, the last including the output layer;
+    under a tensor split an even share, 1 each), per stage for vLLM
     (``VLLM_PP_LAYER_PARTITION``). ``comm_s_per_token`` is the estimated time
     one token spends crossing links, and ``links`` the links it was priced
     over, each saying where its figures came from.
@@ -323,7 +369,9 @@ def plan(
     allowance = (
         allowance_bytes
         if allowance_bytes is not None
-        else _allowance_bytes(table, engine=engine, n_ubatch=n_ubatch, name=name)
+        else _allowance_bytes(
+            table, engine=engine, n_ubatch=n_ubatch, name=name, split=grid.split
+        )
     )
     sizing = _Sizing(
         table=table,
@@ -456,19 +504,30 @@ def _grids(
         if tensor is not None or pipeline is not None:
             raise ShardingError(
                 f"{name}: tensor_parallel and pipeline_parallel are vLLM's; "
-                f"llama.cpp is told `split: layer`"
+                f"llama.cpp is told `split: layer` or `split: tensor`"
             )
         if split in REFUSED_SPLITS:
             raise ShardingError(
                 f"{name}: split {split!r} is refused: {REFUSED_SPLITS[split]}; "
-                f"use split: layer"
+                f"use split: layer, or split: tensor on one machine"
             )
         if split is not None and split not in SPLITS:
             raise ShardingError(
                 f"{name}: split {split!r} is not one llama.cpp offers "
                 f"({', '.join(SPLITS)})"
             )
-        return [Grid(tensor=1, pipeline=cards, split=SPLIT_LAYER)]
+        layer = Grid(tensor=1, pipeline=cards, split=SPLIT_LAYER)
+        whole = Grid(tensor=cards, pipeline=1, split=SPLIT_TENSOR)
+        if split == SPLIT_LAYER:
+            return [layer]
+        why_not = _llama_tensor_refusal(table, targets)
+        if split == SPLIT_TENSOR:
+            if why_not is not None:
+                raise ShardingError(f"{name}: split 'tensor' is refused: {why_not}")
+            return [whole]
+        # The placement rule: a tensor split across one machine's cards when
+        # llama.cpp can run one over them, else the layer split.
+        return [layer] if why_not is not None else [layer, whole]
     if split is not None:
         raise ShardingError(
             f"{name}: `split` is llama.cpp's; vLLM is told tensor_parallel and "
@@ -493,6 +552,52 @@ def _grids(
     ]
 
 
+def _llama_tensor_refusal(
+    table: Mapping[str, Any], targets: Sequence[Target]
+) -> str | None:
+    """Why llama.cpp cannot run ``--split-mode tensor`` over ``targets``, or None.
+
+    Each reason is one the engine itself gives, read from its source: the
+    architecture is on its refusal list; a tensor on the partial axis is not
+    F32; the cards are on more than one machine (the split mode is the whole
+    process's, and a tensor split's all-reduces belong on one machine's bus);
+    the heads cannot be shared out whole. A scan from before the tensor split's
+    sums existed cannot size it at all.
+    """
+    cards = len(targets)
+    if cards < 2:
+        return "a tensor split shares every block between two cards or more"
+    if len({target.host.lower() for target in targets}) > 1:
+        return (
+            "its cards are on more than one machine; llama.cpp runs one split "
+            "mode for the whole process, and a tensor split meets twice in "
+            "every block, so across machines it is split: layer"
+        )
+    arch = str(table.get("arch") or "")
+    if arch in LLAMA_TENSOR_REFUSED_ARCHS:
+        return (
+            f"llama.cpp does not implement it for architecture {arch!r} "
+            "(llm_arch_supports_sm_tensor); use split: layer"
+        )
+    missing = [key for key in LLAMA_TENSOR_KEYS if key not in table]
+    if missing:
+        return (
+            f"its scan has no {', '.join(missing)}; re-scan it: python -m "
+            "mcgyvr.serving.ggufscan <gguf>"
+        )
+    refused = list(table["tensor_split_refused"])
+    if refused:
+        return (
+            f"{', '.join(refused[:3])} must be F32 to be split on llama.cpp's "
+            "partial axis, and is not"
+        )
+    try:
+        _check_heads(table, cards, name="", replicate=False)
+    except ShardingError as exc:
+        return str(exc).removeprefix(": ")
+    return None
+
+
 def _heads_divide(table: Mapping[str, Any], tensor: int) -> bool:
     try:
         _check_heads(table, tensor, name="")
@@ -514,17 +619,25 @@ def _no_card_twice(targets: Sequence[Target], *, name: str) -> None:
 
 
 def _allowance_bytes(
-    table: Mapping[str, Any], *, engine: str, n_ubatch: int, name: str
+    table: Mapping[str, Any],
+    *,
+    engine: str,
+    n_ubatch: int,
+    name: str,
+    split: str | None = None,
 ) -> int:
     """The room each card needs past what it holds: scratch, context, buffers.
 
-    llama.cpp's is :func:`mcgyvr.serving.vramfit.allowance_mib`, the one
-    allowance a single-card fit already charges, once per card because every
-    card runs its own compute buffer and context. vLLM's is the shipped
-    estimate per rank (:func:`mcgyvr.derived.shard_allowance_gib`), which the
-    user's own value replaces.
+    llama.cpp's under a layer split is
+    :func:`mcgyvr.serving.vramfit.allowance_mib`, the one allowance a
+    single-card fit already charges, once per card because every card runs its
+    own compute buffer and context. Under its tensor split, and for every vLLM
+    rank, it is the shipped estimate per card for that engine
+    (:func:`mcgyvr.derived.shard_allowance_gib`), which the user's own value
+    replaces: each card of a tensor split also holds the buffers its
+    all-reduces go through, which no single-card reading saw.
     """
-    if engine == LLAMACPP_ENGINE:
+    if engine == LLAMACPP_ENGINE and split != SPLIT_TENSOR:
         return int(vramfit.allowance_mib(dict(table), n_ubatch=n_ubatch) * _MIB)
     try:
         return int(derived.shard_allowance_gib(engine, sizing=name) * _GIB)
@@ -636,8 +749,15 @@ def _vllm_kv(sizing: _Sizing, rows: Sequence[Mapping[str, Any]]) -> int:
     return math.ceil(per_token * width * sizing.ctx_per_slot * sizing.slots)
 
 
-def _check_heads(table: Mapping[str, Any], tensor: int, *, name: str) -> None:
+def _check_heads(
+    table: Mapping[str, Any], tensor: int, *, name: str, replicate: bool = True
+) -> None:
     """Refuse a ``tensor``-wide split the model's heads cannot be divided over.
+
+    ``replicate`` is vLLM's: it holds a KV head on several cards when there are
+    fewer KV heads than cards. llama.cpp's meta device does not -- it hands
+    each card whole KV heads and a card with none would hold no cache -- so
+    for it the KV heads must divide over the cards evenly.
 
     Heads are divided whole: ``h / tensor`` each when ``tensor`` divides them,
     and one each -- a head held twice -- when the heads divide ``tensor``
@@ -659,7 +779,7 @@ def _check_heads(table: Mapping[str, Any], tensor: int, *, name: str) -> None:
             f"{name}: {n_head} attention heads do not divide over {tensor} cards"
         )
     for h in sorted({int(row["heads"]) for row in rows}):
-        if h < 1 or (h % tensor and tensor % h):
+        if h < 1 or (h % tensor and (tensor % h or not replicate)):
             raise ShardingError(
                 f"{name}: {h} KV heads cannot be split over {tensor} cards"
             )
@@ -745,7 +865,7 @@ def _llama_order(targets: Sequence[Target]) -> list[Target]:
 def _llama_plan(
     sizing: _Sizing, targets: Sequence[Target], grid: Grid, links: Links
 ) -> Plan:
-    """llama.cpp over several cards: a layer split.
+    """llama.cpp over several cards: a layer split (a tensor split is below).
 
     The engine assigns layer ``il`` (and the output layer, as index
     ``n_layer``) to the first device whose cumulative ``--tensor-split`` share
@@ -757,9 +877,12 @@ def _llama_plan(
     ``output`` from ``token_embd`` as a duplicate there), so that card is
     charged it.
     """
+    if grid.split == SPLIT_TENSOR:
+        return _llama_tensor_plan(sizing, targets, grid, links)
     if grid.split != SPLIT_LAYER:
         raise ShardingError(
-            f"{sizing.name}: llama.cpp is split by layer here, not {grid.split!r}"
+            f"{sizing.name}: llama.cpp is split by layer or tensor here, not "
+            f"{grid.split!r}"
         )
     ordered = _llama_order(targets)
     n = sizing.n_layer
@@ -815,6 +938,78 @@ def _llama_plan(
         grid=grid,
         shards=tuple(shards),
         layer_counts=tuple(counts),
+        comm_s_per_token=comm,
+        links=used,
+        slots=sizing.slots,
+        ctx_per_slot=sizing.ctx_per_slot,
+        head=targets[0].host,
+    )
+
+
+def _llama_tensor_plan(
+    sizing: _Sizing, targets: Sequence[Target], grid: Grid, links: Links
+) -> Plan:
+    """llama.cpp's ``--split-mode tensor`` over one machine's cards.
+
+    Its meta device shares every block between all the cards, as vLLM's tensor
+    split does: each card holds ``1 / N`` of every tensor the engine divides
+    (``bytes_tensor_split_by_block``: the attention projections, the attention
+    output, the FFN weights and their experts) and of ``output.weight``, a
+    whole copy of everything else (norms, and every tensor the scan does not
+    know to be divided), ``1 / N`` of the KV heads of every cached layer, and
+    the whole recurrent state, which over-states a card rather than under-state
+    it. The input embedding stays in host memory, as under a layer split; a
+    tied output head is a copy of it on every card. The engine is told an even
+    split, which is what this sizing assumes; the heads are checked to divide
+    evenly before any of it (:func:`_llama_tensor_refusal`).
+    """
+    why_not = _llama_tensor_refusal(sizing.table, targets)
+    if why_not is not None:
+        raise ShardingError(f"{sizing.name}: split 'tensor' is refused: {why_not}")
+    ordered = sorted(targets, key=lambda target: target.gpu)
+    cards = len(ordered)
+    if grid.tensor != cards or grid.pipeline != 1:
+        raise ShardingError(
+            f"{sizing.name}: a llama.cpp tensor split shares every block between "
+            f"all {cards} cards, not {grid.tensor} x {grid.pipeline}"
+        )
+    n = sizing.n_layer
+    split_by_block = sizing.table["bytes_tensor_split_by_block"]
+
+    def divided(whole: int, split: int) -> int:
+        return whole - split + math.ceil(split / cards)
+
+    blocks = tuple(range(n))
+    weights = sum(
+        divided(sizing.block(b), int(split_by_block.get(str(b), 0))) for b in blocks
+    )
+    weights += divided(
+        int(sizing.table["bytes_output"]),
+        int(sizing.table["bytes_output_tensor_split"]),
+    )
+    if sizing.tied:
+        weights += int(sizing.table["bytes_input"])
+    kv = sizing.kv(blocks, tensor=cards)
+    state = sizing.state(blocks)
+    shards = tuple(
+        Shard(
+            target=target,
+            stage=0,
+            rank=rank,
+            blocks=blocks,
+            weights_bytes=weights,
+            kv_bytes=kv,
+            state_bytes=state,
+            allowance_bytes=sizing.allowance,
+        )
+        for rank, target in enumerate(ordered)
+    )
+    comm, used = _llama_comm(sizing, ordered, grid, links, head=targets[0].host)
+    return Plan(
+        engine=LLAMACPP_ENGINE,
+        grid=grid,
+        shards=shards,
+        layer_counts=tuple([1] * cards),
         comm_s_per_token=comm,
         links=used,
         slots=sizing.slots,
@@ -889,6 +1084,10 @@ def _llama_comm(
     payload = int(sizing.table["n_embd"]) * ACTIVATION_BYTES[LLAMACPP_ENGINE]
     if len(ordered) < 2:
         return 0.0, ()
+    if grid.split == SPLIT_TENSOR:
+        # Every block meets across all the cards twice per token, on the bus.
+        each = _all_reduce_s(book.of_class(PCIE), payload, len(ordered))
+        return sizing.n_layer * ALL_REDUCES_PER_BLOCK * each, book.used
 
     def remote(target: Target) -> bool:
         return target.host.lower() != head.lower()

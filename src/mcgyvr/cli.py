@@ -3089,11 +3089,15 @@ def _fleet_probe(args: argparse.Namespace) -> int:
     an alert is printed and filed, and is not a failed probe
     (:mod:`mcgyvr.fleet.probe`).
     """
-    from mcgyvr.fleet import read
+    from mcgyvr.fleet import linkread, read
     from mcgyvr.fleet.probe import ProbeError, run
 
     try:
-        report = run(units=args.units or None, reader=read.spawn_read)
+        report = run(
+            units=args.units or None,
+            reader=read.spawn_read,
+            link_reader=linkread.door_timer(),
+        )
     except ProbeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -3110,8 +3114,12 @@ def _fleet_probe(args: argparse.Namespace) -> int:
         print(f"not judged {unit}: {', '.join(fields)} recorded ({reason})")
     for alert in report.alerts:
         print(f"alert {alert['unit_id']} {alert['field']}")
+    for key, says in report.links.items():
+        print(f"link {key}: {says}")
     for unit, why in report.failed.items():
         print(f"error: {unit}: {why}", file=sys.stderr)
+    for key, why in report.links_failed.items():
+        print(f"error: link {key}: {why}", file=sys.stderr)
     return report.exit_code
 
 

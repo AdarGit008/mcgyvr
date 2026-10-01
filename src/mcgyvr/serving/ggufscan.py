@@ -146,7 +146,7 @@ def scan(path):
     # block the two-dimensional tensors are counted again apart, because they
     # are what a tensor split divides between cards; a one-dimensional norm or
     # bias is held whole by every card running it, and so is a 3D expert
-    # tensor (llama.cpp's CUDA backend never split 3D/4D matrices, #13919).
+    # tensor (llama.cpp's old row split never divided a 3D or 4D matrix).
     #
     # The tensors outside every block are kept apart by what holds them.
     # `token_embd` is the input: llama.cpp's load_tensors keeps the input
@@ -167,6 +167,31 @@ def scan(path):
         else:
             b_output+=t[3]
             if t[4]==2: b_output_matrix+=t[3]
+
+    # What llama.cpp's `--split-mode tensor` divides between cards, by name, as
+    # llama-model.cpp's llama_meta_device_get_split_state names it: the
+    # attention projections and their biases, the attention output, the FFN
+    # up/gate/down weights and their experts (3D included), and output.weight.
+    # Everything else is MIRRORED -- a whole copy on every card -- and so is
+    # every tensor a pattern here misses (a recurrent block's ssm_* tensors
+    # included), which over-states a card and never under-states it.
+    # A tensor on the PARTIAL axis (ffn_down_exps.bias) must be F32
+    # (ggml-backend-meta.cpp asserts it), so any other type is named in
+    # `tensor_split_refused` and the split is refused before a launch.
+    tp={f"{w}.{k}" for w in ("attn_q","attn_k","attn_v","attn_qkv") for k in ("weight","bias")}
+    tp|={"attn_output.weight","attn_gate.weight","ffn_down.weight","ffn_down_exps.weight",
+         "ffn_down_exps.bias","ffn_gate_up.weight","ffn_gate_up_exps.weight"}
+    tp|={f"{w}.{k}" for w in ("ffn_up","ffn_up_exps","ffn_gate","ffn_gate_exps")
+         for k in ("weight","bias")}
+    tp_by_block={}; tp_output=0; tp_refused=[]
+    for t in tensors:
+        parts=t[0].split(".",2)
+        if len(parts)==3 and parts[0]=="blk" and parts[1].isdigit() and parts[2] in tp:
+            b=int(parts[1]); tp_by_block[b]=tp_by_block.get(b,0)+t[3]
+            if t[0].endswith("ffn_down_exps.bias") and t[2]!=0:
+                tp_refused.append(t[0])
+        elif t[0] in ("output.weight","output.bias"):
+            tp_output+=t[3]
 
     types={}
     for t in tensors: types[NAME.get(t[2],t[2])]=types.get(NAME.get(t[2],t[2]),0)+t[3]
@@ -322,6 +347,9 @@ def scan(path):
       # No output head of its own: llama.cpp then creates `output` from
       # `token_embd` as a duplicate on the output layer's device.
       "tied_embeddings": not any(t[0]=="output.weight" for t in tensors),
+      "bytes_tensor_split_by_block": {str(b): tp_by_block.get(b,0) for b in sorted(by_block)},
+      "bytes_output_tensor_split": tp_output,
+      "tensor_split_refused": tp_refused,
       "n_head": n_head,
       "caching_layers": caching,
       "caching_layers_from": caching_from,
