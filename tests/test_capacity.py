@@ -539,6 +539,44 @@ def test_every_declared_source_is_covered_not_only_the_laddered_ones() -> None:
         assert capacity.in_use("spare") == 1
 
 
+ORCHESTRATOR = """\
+users: 4
+units:
+  orch:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
+ladder:
+- orch
+orchestrator:
+  unit: orch
+  model: qwen2.5-coder:7b
+"""
+
+
+def test_the_local_orchestrator_reserves_one_slot_for_the_role() -> None:
+    """The serving plan runs the orchestrator unit at `users` slots, and one
+    of them stays the orchestration role's: the ladder sees `users - 1`."""
+    capacity = Capacity.of(parse(ORCHESTRATOR))
+
+    assert capacity.limits["orch"] == 3
+    assert capacity.limit("orch") == 3
+    assert capacity.limit("orch", "orch") == 3
+    assert capacity.declared("orch") == 4, "the role's slot is still the unit's"
+    assert capacity.total == 4
+
+
+def test_the_orchestrators_endpoint_agrees_with_its_reserved_capacity() -> None:
+    """`hold` checks an endpoint against the declaration it was built with,
+    so the role's endpoint must carry the served width, not the one slot the
+    role is bounded to."""
+    pool = source_map(parse(ORCHESTRATOR))
+    role = pool.role("orchestrator")
+
+    assert role is not None
+    assert role.endpoint.max_parallel == 4
+
+
 # --- and from the machine, when the machine will say -------------------------
 
 
