@@ -608,6 +608,221 @@
       "says": "The exit statuses with which the linter says it did its job: clean, or with findings left.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "rig/agent.py:Backoff.cap_s": {
+      "kind": "choice",
+      "says": "The longest wait, in seconds, between a rig agent's sessions with its hub, however many have ended lost.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/agent.py:Backoff.factor": {
+      "kind": "choice",
+      "says": "How many times longer each wait between a rig agent's sessions is than the last, while sessions keep ending lost.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/agent.py:Backoff.first_s": {
+      "kind": "choice",
+      "says": "The wait, in seconds, before a rig agent's first new session after one ends lost.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/agent.py:Backoff.steady_s": {
+      "kind": "choice",
+      "says": "How long, in seconds, a rig agent's session must hold after its hello is acked for the wait between sessions to start over.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/agent.py:Channel.close(code)": {
+      "kind": "fact",
+      "says": "The websocket close code of a normal close.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/agent.py:DEFAULT_HEARTBEAT_S": {
+      "kind": "choice",
+      "says": "The heartbeat interval, in seconds, a rig agent keeps when the hub's hello ack names none: the hub's own default.",
+      "reason": "a protocol or tool default"
+    },
+    "rig/agent.py:FRAMES_PER_SECOND": {
+      "kind": "fact",
+      "says": "Half the frames a second the hub takes on an agent channel, so a rig agent's answers never bring its channel near the hub's cap.",
+      "reason": "a definition or arithmetic"
+    },
+    "rig/agent.py:HELLO_ACK_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a hub takes to ack a rig agent's hello; past it the agent gives up on the channel and starts a new session.",
+      "moves_to": "hub_hello_ack_timeout_s"
+    },
+    "rig/agent.py:MISSED_ACKS": {
+      "kind": "choice",
+      "says": "How many heartbeats in a row a hub may leave unacked before a rig agent gives up on the channel and starts a new session.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/agent.py:RECEIVE_SLICE_S": {
+      "kind": "choice",
+      "says": "The longest single wait, in seconds, a rig agent makes on its channel, so a request to stop is heard within it.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/agent.py:SHOWN_MAX": {
+      "kind": "choice",
+      "says": "How many characters of what a hub says (an error's text, a close's reason, a rig id) a rig agent shows.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/credentials.py:MAX_CREDENTIALS_BYTES": {
+      "kind": "choice",
+      "says": "The largest rig credentials file read back, in bytes; what the agent writes is far smaller, and a larger file is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/hardware.py:READER_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, the machine reader takes on this machine, its card tools included; past it the machine is not reported to the hub.",
+      "moves_to": "machine_read_timeout_s"
+    },
+    "rig/protocol.py:CARD_NAME_MAX": {
+      "kind": "fact",
+      "says": "The longest card name, in characters, the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:CloseCode.POLICY": {
+      "kind": "fact",
+      "says": "The websocket close code the hub ends an agent channel with when it refuses it: a bad token, a bad hello, a machine mismatch, a flood.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:CloseCode.REVOKED": {
+      "kind": "fact",
+      "says": "The close code the hub ends an agent channel with when the rig was deleted or its token rotated.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:CloseCode.SUPERSEDED": {
+      "kind": "fact",
+      "says": "The close code the hub ends an agent channel with when a newer connection for the same rig took over.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:CloseCode.TIMEOUT": {
+      "kind": "fact",
+      "says": "The close code the hub ends an agent channel with when no hello or heartbeat came in time.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:HEARTBEAT_INTERVAL_S": {
+      "kind": "fact",
+      "says": "The lowest and highest heartbeat interval, in seconds, a hub's hello ack may name.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:MAX_CARDS": {
+      "kind": "fact",
+      "says": "The most cards one report of the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:MAX_CARD_INDEX": {
+      "kind": "fact",
+      "says": "The highest card index the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:MAX_ERROR_TEXT": {
+      "kind": "fact",
+      "says": "The longest error text, in characters, of the hub's agent protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:MAX_FRAMES_PER_SECOND": {
+      "kind": "fact",
+      "says": "The most frames a second the hub takes on an agent channel before it closes it.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:MAX_MB": {
+      "kind": "fact",
+      "says": "The bound the hub's agent protocol puts on every size in MiB: a sanity bound, not a limit.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:MAX_MESSAGE_BYTES": {
+      "kind": "fact",
+      "says": "The largest frame, in bytes of UTF-8, either side of the hub's agent protocol sends.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:PROTOCOL_VERSION": {
+      "kind": "choice",
+      "says": "The version of the hub's agent protocol this agent speaks.",
+      "reason": "a code or version other programs or files read"
+    },
+    "rig/verbs.py:CONNECT_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, reaching a hub and upgrading to its agent channel take; past it the session ends lost and is tried again.",
+      "moves_to": "hub_connect_timeout_s"
+    },
+    "rig/websocket.py:CLOSE_WAIT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a server takes to answer a websocket close with its own; past it the connection is dropped.",
+      "moves_to": "websocket_close_wait_s"
+    },
+    "rig/websocket.py:Close.ABNORMAL": {
+      "kind": "fact",
+      "says": "The close code RFC 6455 reserves for a connection that ended without a close frame; it is never sent.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Close.INVALID_DATA": {
+      "kind": "fact",
+      "says": "The close code RFC 6455 gives a message whose data is not of its type, such as text that is not UTF-8.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Close.NORMAL": {
+      "kind": "fact",
+      "says": "The close code RFC 6455 gives a normal close.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Close.NO_STATUS": {
+      "kind": "fact",
+      "says": "The close code RFC 6455 reserves for a close frame that carried no code; it is never sent.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Close.PROTOCOL_ERROR": {
+      "kind": "fact",
+      "says": "The close code RFC 6455 gives a frame that breaks the protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Close.TOO_BIG": {
+      "kind": "fact",
+      "says": "The close code RFC 6455 gives a message too big to take.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:MAX_HANDSHAKE_BYTES": {
+      "kind": "choice",
+      "says": "How much of a server's answer to a websocket upgrade is read, status line and headers; a longer answer is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/websocket.py:Opcode.BINARY": {
+      "kind": "fact",
+      "says": "The opcode of a binary frame (RFC 6455).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Opcode.CLOSE": {
+      "kind": "fact",
+      "says": "The opcode of a close frame (RFC 6455).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Opcode.CONTINUATION": {
+      "kind": "fact",
+      "says": "The opcode of a continuation frame (RFC 6455).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Opcode.PING": {
+      "kind": "fact",
+      "says": "The opcode of a ping frame (RFC 6455).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Opcode.PONG": {
+      "kind": "fact",
+      "says": "The opcode of a pong frame (RFC 6455).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:Opcode.TEXT": {
+      "kind": "fact",
+      "says": "The opcode of a text frame (RFC 6455).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/websocket.py:WebSocket.send_text(timeout)": {
+      "kind": "estimate",
+      "says": "How long, in seconds, one frame takes to be handed to a server's connection; past it the channel is taken as dropped.",
+      "moves_to": "websocket_send_timeout_s"
+    },
+    "rig/websocket.py:_MAX_CONTROL": {
+      "kind": "fact",
+      "says": "The longest payload of a websocket control frame (RFC 6455).",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "route.py:Attempted.draw": {
       "kind": "fact",
       "says": "An entry that names no draw is about the first, and draws are numbered from zero.",

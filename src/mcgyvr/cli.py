@@ -3675,6 +3675,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     falerts.set_defaults(func=_fleet_alerts)
 
+    from mcgyvr.rig import verbs as rig_verbs
+
+    rig_verbs.add_parser(sub)
+
     run = sub.add_parser(
         "run",
         help="execute a contract — on the deterministic floor or up the ladder",

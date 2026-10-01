@@ -1,0 +1,480 @@
+{
+  "$defs": {
+    "Ack": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/AckBody",
+          "default": {
+            "heartbeat_interval_s": null,
+            "rig_id": null
+          }
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Re",
+          "type": "string"
+        },
+        "type": {
+          "const": "ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "re",
+        "type"
+      ],
+      "title": "Ack",
+      "type": "object"
+    },
+    "AckBody": {
+      "properties": {
+        "heartbeat_interval_s": {
+          "anyOf": [
+            {
+              "maximum": 3600,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heartbeat Interval S"
+        },
+        "rig_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rig Id"
+        }
+      },
+      "title": "AckBody",
+      "type": "object"
+    },
+    "AgentMessage": {
+      "description": "A message an agent sends.",
+      "discriminator": {
+        "mapping": {
+          "ack": "#/$defs/Ack",
+          "error": "#/$defs/Error",
+          "heartbeat": "#/$defs/Heartbeat",
+          "hello": "#/$defs/Hello"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Hello"
+        },
+        {
+          "$ref": "#/$defs/Heartbeat"
+        },
+        {
+          "$ref": "#/$defs/Ack"
+        },
+        {
+          "$ref": "#/$defs/Error"
+        }
+      ]
+    },
+    "CardReading": {
+      "properties": {
+        "index": {
+          "exclusiveMaximum": 64,
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "vram_free_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Vram Free Mb",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "vram_free_mb"
+      ],
+      "title": "CardReading",
+      "type": "object"
+    },
+    "CardReport": {
+      "properties": {
+        "index": {
+          "exclusiveMaximum": 64,
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f\\u202a-\\u202e\\u2066-\\u2069]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "vram_free_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Vram Free Mb",
+          "type": "integer"
+        },
+        "vram_total_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Vram Total Mb",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "name",
+        "vram_total_mb",
+        "vram_free_mb"
+      ],
+      "title": "CardReport",
+      "type": "object"
+    },
+    "Envelope": {
+      "description": "What every message looks like, including types added after v1.",
+      "properties": {
+        "body": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Body",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id"
+      ],
+      "title": "Envelope",
+      "type": "object"
+    },
+    "Error": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/ErrorBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "error",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "Error",
+      "type": "object"
+    },
+    "ErrorBody": {
+      "properties": {
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "ErrorBody",
+      "type": "object"
+    },
+    "Heartbeat": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/HeartbeatBody",
+          "default": {
+            "cards": [],
+            "ram_free_mb": null
+          }
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "heartbeat",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type"
+      ],
+      "title": "Heartbeat",
+      "type": "object"
+    },
+    "HeartbeatBody": {
+      "properties": {
+        "cards": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CardReading"
+          },
+          "maxItems": 16,
+          "title": "Cards",
+          "type": "array"
+        },
+        "ram_free_mb": {
+          "anyOf": [
+            {
+              "maximum": 1073741824,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ram Free Mb"
+        }
+      },
+      "title": "HeartbeatBody",
+      "type": "object"
+    },
+    "Hello": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/HelloBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "hello",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "Hello",
+      "type": "object"
+    },
+    "HelloBody": {
+      "properties": {
+        "agent_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}$",
+          "title": "Agent Version",
+          "type": "string"
+        },
+        "cards": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CardReport"
+          },
+          "maxItems": 16,
+          "title": "Cards",
+          "type": "array"
+        },
+        "machine_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "title": "Machine Id",
+          "type": "string"
+        },
+        "ram_free_mb": {
+          "anyOf": [
+            {
+              "maximum": 1073741824,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ram Free Mb"
+        },
+        "ram_total_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Ram Total Mb",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "machine_id",
+        "agent_version",
+        "ram_total_mb"
+      ],
+      "title": "HelloBody",
+      "type": "object"
+    },
+    "HubMessage": {
+      "description": "A message the hub sends.",
+      "discriminator": {
+        "mapping": {
+          "ack": "#/$defs/Ack",
+          "error": "#/$defs/Error"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Ack"
+        },
+        {
+          "$ref": "#/$defs/Error"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/AgentMessage"
+    },
+    {
+      "$ref": "#/$defs/HubMessage"
+    }
+  ],
+  "description": "Hub <-> agent wire protocol, version 1. The one definition of the messages.\n\nThe channel is a websocket at ``/api/v1/agent``; the agent authenticates the\nupgrade request with ``Authorization: Bearer <rig join token>``. Every message\nis one JSON object, one websocket frame::\n\n    {\"v\": 1, \"type\": \"<type>\", \"id\": \"<sender-chosen id>\", \"re\": \"<id>\", \"body\": {}}\n\n``re`` names the message being answered; ``body`` is type-specific.\n\nAgent -> hub: ``hello`` (first message: identity + live hardware report),\n``heartbeat`` (periodic, optional fresh readings), and ``ack``/``error`` (reserved\nfor answering hub commands in later stages). Hub -> agent: ``ack`` and ``error``.\nThe hub acks each hello and heartbeat; the hello ack carries the heartbeat\ninterval. A fatal ``error`` is followed by a close with a ``CloseCode``.\n\nCompatibility rules, so later stages can add hub -> agent commands (start worker,\nstart head, stop, relay a request) without breaking v1 agents:\n\n- additive changes (new message types, new optional fields) keep ``v`` = 1;\n- receivers ignore unknown fields;\n- a receiver answers an unknown ``type`` with ``error`` code ``unsupported_type``\n  and keeps the connection open;\n- error ``code`` is an open set of snake_case strings (``ErrorCode`` lists the\n  current ones); agents must tolerate codes they do not know;\n- breaking changes bump ``v``; a hub rejects versions it does not speak with\n  ``unsupported_version``.\n\nSo a receiver validates every frame against ``Envelope`` (open to future types),\nthen dispatches on ``type`` and validates the types it knows. Send at most\n``MAX_FRAMES_PER_SECOND`` frames per second; the hub closes floods.\n\nThe agent is a separate stdlib-only codebase; it consumes the JSON Schema\nwritten by ``render_json_schema`` (checked in at schemas/protocol.schema.json).",
+  "title": "mcgyvr hub <-> agent protocol",
+  "x-close-codes": {
+    "policy": 1008,
+    "revoked": 4001,
+    "superseded": 4009,
+    "timeout": 4008
+  },
+  "x-max-frames-per-second": 10,
+  "x-max-message-bytes": 65536,
+  "x-protocol-version": 1
+}

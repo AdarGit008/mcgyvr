@@ -45,7 +45,7 @@ mcgyvr --help
 
 ```text
 usage: mcgyvr [-h] [--version]
-              {capabilities,caps,config,pool,catalog,contract,detect,scan,serve,emit,sandbox,init,attach,index,resolve,read,fleet,run,delegate}
+              {capabilities,caps,config,pool,catalog,contract,detect,scan,serve,emit,sandbox,init,attach,index,resolve,read,fleet,rig,run,delegate}
               ...
 
 Offload scoped coding work to a configurable worker ladder.

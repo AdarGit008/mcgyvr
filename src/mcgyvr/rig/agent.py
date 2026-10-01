@@ -1,0 +1,396 @@
+"""The rig agent: one session at a time with the hub, and the reconnects between.
+
+A session reads the machine (:mod:`mcgyvr.rig.hardware`) before it connects,
+so the hub never sees a channel open without a hello. It opens the channel,
+says ``hello`` first and waits for the hub's ``ack``, which names the rig and
+sets the heartbeat interval. Then it sends a heartbeat each interval, each
+with a fresh reading, and hands every frame the hub sends to the dispatcher
+(:mod:`mcgyvr.rig.commands`), sending back what it answers.
+
+A session ends one of three ways, and each is judged once, by
+:func:`_judge`:
+
+* **asked to stop** — the channel is closed with 1000 and the agent ends;
+* **refused** — the hub refused the token at the upgrade, revoked it, bound
+  the rig to another machine, speaks another protocol version, or handed the
+  rig to a newer agent. Asking again would be refused again (or would take
+  the rig back from that newer agent, and so on, forever), so the agent ends
+  and says what the user can do;
+* **lost** — anything else: the channel dropped, the hub timed the agent out
+  or throttled it, the hub could not be reached, the machine could not be
+  read, a hello or :data:`MISSED_ACKS` heartbeats in a row went unacked. The
+  agent waits (:class:`Backoff`) and starts a new session.
+
+The hub is untrusted. Whatever it sends, the agent answers at most
+:data:`FRAMES_PER_SECOND` frames a second, under the hub's own cap, dropping
+answers rather than heartbeats; and what it says (an error's text, a close's
+reason, the rig id) is shown printable and short (:func:`shown`).
+"""
+
+from __future__ import annotations
+
+import random
+import sys
+import threading
+import time
+from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Protocol
+
+from mcgyvr.rig import commands, hardware, protocol, websocket
+
+#: The heartbeat interval when the hub's hello ack names none, in seconds:
+#: the hub's own default.
+DEFAULT_HEARTBEAT_S = 15
+#: How long the agent waits for the hub to ack its hello, in seconds.
+HELLO_ACK_TIMEOUT_S = 15.0
+#: Heartbeats in a row the hub may leave unacked before the agent gives up on
+#: the channel.
+MISSED_ACKS = 3
+#: The most frames the agent sends in any second: half the hub's cap.
+FRAMES_PER_SECOND = protocol.MAX_FRAMES_PER_SECOND // 2
+#: The longest single wait on the channel, in seconds, so a stop is heard.
+RECEIVE_SLICE_S = 1.0
+#: The longest text of the hub's the agent shows, in characters.
+SHOWN_MAX = 200
+
+#: Error codes after which asking again is refused again.
+_REFUSALS = {
+    protocol.ErrorCode.REVOKED: (
+        "the hub revoked this rig's token (the rig was deleted, or its token "
+        "rotated); join again with a token the hub issues now"
+    ),
+    protocol.ErrorCode.MACHINE_MISMATCH: (
+        "the hub has this rig bound to another machine (a rig's token binds to "
+        "the first machine that says hello with it, and a machine whose cards "
+        "changed is another machine); create a rig for this machine on the hub "
+        "and join with its token"
+    ),
+    protocol.ErrorCode.UNSUPPORTED_VERSION: (
+        "the hub speaks another version of the agent protocol; update mcgyvr"
+    ),
+    protocol.ErrorCode.SUPERSEDED: (
+        "another agent with this rig's token took over the rig; this one stops "
+        "so the two do not take it from each other"
+    ),
+    protocol.ErrorCode.EXPECTED_HELLO: (
+        "the hub did not take this agent's hello; update mcgyvr"
+    ),
+}
+
+
+class Channel(Protocol):
+    """What a session needs of a channel: :class:`mcgyvr.rig.websocket.WebSocket`."""
+
+    def send_text(self, text: str) -> None: ...
+
+    def receive(self, timeout: float) -> str | bytes | None: ...
+
+    def close(self, code: int = 1000, reason: str = "") -> None: ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class Backoff:
+    """The wait before a new session: ``first_s``, growing by ``factor`` with
+    each session that ends lost, up to ``cap_s``, with up to half of it drawn
+    at random so many agents do not return at once. A session that held for
+    ``steady_s`` after its hello was acked starts the growth over."""
+
+    first_s: float = 1.0
+    factor: float = 2.0
+    cap_s: float = 60.0
+    steady_s: float = 60.0
+
+    def delay(self, attempt: int, draw: float) -> float:
+        """The wait before attempt ``attempt`` (from 0); ``draw`` in [0, 1]."""
+        ceiling = min(self.cap_s, self.first_s * self.factor ** min(attempt, 64))
+        return ceiling / 2 + draw * ceiling / 2
+
+
+@dataclass(frozen=True, kw_only=True)
+class Ended:
+    """How the agent ended: ``stopped`` when asked to, else refused, and why."""
+
+    stopped: bool
+    why: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class Status:
+    """What the agent knows of its rig now, for ``mcgyvr rig status``."""
+
+    connected: bool
+    rig_id: str | None
+    heartbeat_s: int | None
+    last_ack_at: float | None
+
+
+def shown(text: str) -> str:
+    """The hub's ``text`` as it may be shown: printable, and short."""
+    kept = "".join(c if protocol.CARD_NAME.fullmatch(c) else " " for c in text)
+    kept = " ".join(kept.split())
+    return kept if len(kept) <= SHOWN_MAX else kept[: SHOWN_MAX - 1] + "…"
+
+
+def _say(line: str) -> None:
+    print(line, file=sys.stderr, flush=True)
+
+
+class _LostError(Exception):
+    """The session ended and a new one may be tried."""
+
+
+class _RefusedError(Exception):
+    """The hub refused, and would refuse again."""
+
+
+class _StoppedError(Exception):
+    """The agent was asked to stop."""
+
+
+class _Session:
+    """One channel's state, as the dispatcher reports to it; ``acked`` is told
+    of each ack as it arrives."""
+
+    def __init__(self, acked: Callable[[_Session], None]) -> None:
+        self._told = acked
+        self.acked: set[str] = set()
+        self.rig_id: str | None = None
+        self.interval: int | None = None
+        self.last_error: protocol.Error | None = None
+
+    def on_ack(self, ack: protocol.Ack) -> None:
+        self.acked.add(ack.re)
+        if ack.rig_id is not None:
+            self.rig_id = ack.rig_id
+        if ack.heartbeat_interval_s is not None:
+            self.interval = ack.heartbeat_interval_s
+        self._told(self)
+
+    def on_error(self, error: protocol.Error) -> None:
+        self.last_error = error
+
+
+def _judge(failure: Exception, last_error: protocol.Error | None) -> Exception:
+    """A session's end as :class:`_RefusedError` or :class:`_LostError`."""
+    said = (
+        f" ({shown(last_error.message)})" if last_error and last_error.message else ""
+    )
+    if isinstance(failure, websocket.HandshakeError):
+        if failure.status in (401, 403):
+            return _RefusedError(
+                "the hub refused this rig's token; check the token the hub "
+                "showed when the rig was created, or rotate it and join again"
+            )
+        if failure.status == 404:
+            return _RefusedError(
+                "the hub has no agent channel at this address; check the hub's address"
+            )
+        return _LostError(f"the hub could not be reached: {shown(str(failure))}")
+    if isinstance(failure, websocket.ClosedError):
+        code = failure.code
+        if code == protocol.CloseCode.REVOKED:
+            return _RefusedError(_REFUSALS[protocol.ErrorCode.REVOKED])
+        if code == protocol.CloseCode.SUPERSEDED:
+            return _RefusedError(_REFUSALS[protocol.ErrorCode.SUPERSEDED])
+        if last_error is not None and last_error.code in _REFUSALS:
+            return _RefusedError(_REFUSALS[protocol.ErrorCode(last_error.code)] + said)
+        reason = f": {shown(failure.reason)}" if failure.reason else ""
+        return _LostError(f"the channel closed with {code}{reason}{said}")
+    return _LostError(shown(str(failure)))
+
+
+class Agent:
+    """The agent's loop. :meth:`run` until stopped or refused."""
+
+    def __init__(
+        self,
+        *,
+        connect: Callable[[], Channel],
+        read_hardware: Callable[[], hardware.Report],
+        agent_version: str,
+        clock: Callable[[], float] = time.monotonic,
+        wall: Callable[[], float] = time.time,
+        wait: Callable[[float], bool] | None = None,
+        draw: Callable[[], float] = random.random,
+        say: Callable[[str], None] = _say,
+        backoff: Backoff | None = None,
+        dispatcher: commands.Dispatcher | None = None,
+        on_status: Callable[[Status], None] | None = None,
+    ) -> None:
+        self._connect = connect
+        self._read = read_hardware
+        self._version = agent_version
+        self._clock = clock
+        self._wall = wall
+        self._stopping = threading.Event()
+        self._wait = wait or self._stopping.wait
+        self._draw = draw
+        self._say = say
+        self._backoff = backoff or Backoff()
+        self._dispatcher = dispatcher or commands.Dispatcher()
+        self._on_status = on_status or (lambda status: None)
+        self._sent: deque[float] = deque()
+
+    def stop(self) -> None:
+        """Ask the agent to stop; it closes its channel and :meth:`run` returns."""
+        self._stopping.set()
+
+    def run(self) -> Ended:
+        """Sessions, with backoff between them, until stopped or refused."""
+        attempt = 0
+        try:
+            while True:
+                if self._stopping.is_set():
+                    raise _StoppedError
+                held_from: list[float] = []
+                try:
+                    self._session(held_from)
+                except _LostError as lost:
+                    held = bool(held_from) and (
+                        self._clock() - held_from[0] >= self._backoff.steady_s
+                    )
+                    attempt = 0 if held else attempt
+                    delay = self._backoff.delay(attempt, self._draw())
+                    attempt += 1
+                    self._status(connected=False)
+                    self._say(f"lost the hub: {lost}; trying again in {delay:.1f} s")
+                    if self._wait(delay):
+                        raise _StoppedError from None
+        except _RefusedError as refused:
+            self._status(connected=False)
+            self._say(f"refused: {refused}")
+            return Ended(stopped=False, why=str(refused))
+        except (_StoppedError, KeyboardInterrupt):
+            self._status(connected=False)
+            self._say("stopped")
+            return Ended(stopped=True, why="asked to stop")
+
+    # -- one session --
+
+    def _status(
+        self,
+        *,
+        connected: bool,
+        session: _Session | None = None,
+        acked: float | None = None,
+    ) -> None:
+        self._on_status(
+            Status(
+                connected=connected,
+                rig_id=session.rig_id if session else None,
+                heartbeat_s=session.interval if session else None,
+                last_ack_at=acked,
+            )
+        )
+
+    def _send(self, channel: Channel, frame: str, *, answer: bool) -> bool:
+        """Send ``frame``; an answer is dropped when it would break the rate."""
+        now = self._clock()
+        while self._sent and now - self._sent[0] >= 1.0:
+            self._sent.popleft()
+        if answer and len(self._sent) >= FRAMES_PER_SECOND - 1:
+            return False
+        channel.send_text(frame)
+        self._sent.append(now)
+        return True
+
+    def _session(self, held_from: list[float]) -> None:
+        try:
+            report = self._read()
+        except hardware.HardwareError as exc:
+            raise _LostError(f"this machine could not be read: {exc}") from exc
+        try:
+            channel = self._connect()
+        except (websocket.WebSocketError, OSError) as exc:
+            raise _judge(exc, None) from exc
+        session = _Session(
+            lambda told: self._status(connected=True, session=told, acked=self._wall())
+        )
+        try:
+            self._converse(channel, session, report, held_from)
+        except (websocket.WebSocketError, OSError) as exc:
+            raise _judge(exc, session.last_error) from exc
+        except (_StoppedError, KeyboardInterrupt):
+            channel.close(1000, "agent stopped")
+            raise
+        except _LostError:
+            channel.close(1000, "agent gave up on the channel")
+            raise
+
+    def _pump(
+        self,
+        channel: Channel,
+        session: _Session,
+        until: float,
+        done: Callable[[], bool] = lambda: False,
+    ) -> None:
+        """Handle what the hub sends until ``until`` on the clock, or ``done``."""
+        while not done():
+            if self._stopping.is_set():
+                raise _StoppedError
+            left = until - self._clock()
+            if left <= 0:
+                return
+            raw = channel.receive(timeout=min(left, RECEIVE_SLICE_S))
+            if raw is None:
+                continue
+            answer = self._dispatcher.dispatch(raw, session)
+            if answer is not None:
+                self._send(channel, answer, answer=True)
+
+    def _converse(
+        self,
+        channel: Channel,
+        session: _Session,
+        report: hardware.Report,
+        held_from: list[float],
+    ) -> None:
+        hello_id = protocol.new_id()
+        self._send(
+            channel,
+            hardware.hello_frame(report, hello_id, agent_version=self._version),
+            answer=False,
+        )
+        deadline = self._clock() + HELLO_ACK_TIMEOUT_S
+        while hello_id not in session.acked:
+            if self._clock() >= deadline:
+                raise _LostError(
+                    f"the hub did not ack the hello in {HELLO_ACK_TIMEOUT_S:g} s"
+                )
+            self._pump(
+                channel,
+                session,
+                deadline,
+                done=lambda: hello_id in session.acked,
+            )
+        held_from.append(self._clock())
+        interval = session.interval or DEFAULT_HEARTBEAT_S
+        rig = shown(session.rig_id) if session.rig_id else "a rig"
+        self._say(
+            f"online as {rig}: {len(report.cards)} card(s), "
+            f"{report.ram_total_mb} MiB RAM; a heartbeat every {interval} s"
+        )
+        for note in report.notes:
+            self._say(f"note: {note}")
+        unacked: list[str] = []
+        next_beat = self._clock() + interval
+        while True:
+            self._pump(channel, session, next_beat)
+            if any(beat in session.acked for beat in unacked):
+                unacked.clear()
+            session.acked.clear()  # read; an id is acked once, so none is kept
+            if len(unacked) >= MISSED_ACKS:
+                raise _LostError(
+                    f"the hub acked none of the last {MISSED_ACKS} heartbeats"
+                )
+            beat_id = protocol.new_id()
+            try:
+                frame = hardware.heartbeat_frame(self._read(), beat_id)
+            except hardware.HardwareError as exc:
+                self._say(f"note: this heartbeat carries no reading: {exc}")
+                frame = protocol.heartbeat(beat_id, ram_free_mb=None, cards=())
+            self._send(channel, frame, answer=False)
+            unacked.append(beat_id)
+            next_beat += interval
