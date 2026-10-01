@@ -38,6 +38,13 @@ start of the first non-empty line and returns ``None`` for everything else.
 ``None`` is not a refusal — see the next paragraph — and it is certainly not an
 approval.
 
+**The typed verdict is the new default where the seam exists.** When a
+:data:`Decide` seam is bound, the verdict is a single
+:class:`~mcgyvr.decision.Noul` read through :func:`~mcgyvr.decision.classify_role`
+from next-token probabilities — no prose, no anchor, no substring to misread.
+:func:`read_typed_verdict` reads it, and the free-text :func:`read_verdict`
+path stays for the installs that bind a prose reviewer.
+
 **A reviewer-side failure is never charged to the builder.** An unreadable
 reply, an unreachable backend and a reviewer that is the builder are all
 :attr:`~mcgyvr.escalate.Opinion.UNUSABLE`, which is what
@@ -72,6 +79,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
+from mcgyvr.decision import BoolAnswer, Decision, Noul, classify_role
 from mcgyvr.escalate import GATE_ONLY, Opinion, Review, required_policy
 from mcgyvr.runner import Request, dispatch_role
 
@@ -99,6 +108,20 @@ REVIEW_OUTPUT_TOKENS = 512
 #: everything about *where* it runs is the seam's business, which is what lets
 #: every rule in this module be asserted without a backend.
 type Ask = Callable[[str], str]
+
+#: The typed-verdict seam: the assembled state in, a
+#: :class:`~mcgyvr.decision.Decision` out. Built by :func:`decider_for` from the
+#: verifier role, and the new default for a reviewer whose unit serves
+#: next-token probabilities. The free-text :data:`Ask` path remains for the
+#: installs that still bind a prose reviewer.
+type Decide = Callable[[Any], Decision]
+
+#: The answer key a typed verdict is read from, and the single
+#: :class:`~mcgyvr.decision.Noul` asked for it.
+VERDICT_KEY = "verdict"
+VERDICT_QUESTION = Noul(
+    "Should this change be approved against the contract it was written for?"
+)
 
 
 class ReviewerUnavailableError(RuntimeError):
@@ -216,6 +239,29 @@ def read_verdict(reply: str) -> ReviewVerdict | None:
     return None
 
 
+def read_typed_verdict(decision: Decision) -> Review:
+    """A typed verdict as the :class:`Review` :func:`~mcgyvr.escalate.judge` reads.
+
+    A :class:`~mcgyvr.decision.Noul` is answered as a single ``Yes``/``No``
+    token read from next-token probabilities, so there is no prose to anchor
+    and no substring to misread. ``Yes`` is agreement, ``No`` is refusal, and
+    anything else — an answer key that is absent, an answer that is not a
+    :class:`~mcgyvr.decision.BoolAnswer` — is unusable rather than a guess.
+    """
+    answer = decision.answers.get(VERDICT_KEY)
+    if not isinstance(answer, BoolAnswer):
+        return Review.unusable(
+            "the typed verdict carried no readable answer; a review with no "
+            "readable answer is not an approval."
+        )
+    detail = "typed verdict: approve" if answer.value else "typed verdict: refuse"
+    detail += (
+        f" (probability of approval {answer.probability_true:.2f}, "
+        f"confidence {answer.confidence:.2f})"
+    )
+    return Review.agreed(detail) if answer.value else Review.refused(detail)
+
+
 # --- what the reviewer is shown --------------------------------------------
 
 
@@ -253,6 +299,32 @@ def gate_summary(gate: GateResult) -> str:
         lines.append("Could not run, so this change was never checked for it:")
         lines.extend(f"- {issue}" for issue in gate.environment_issues)
     return "\n".join(lines)
+
+
+def verdict_state(
+    contract: Contract,
+    gate: GateResult,
+    change: str,
+    original: str | None = None,
+) -> dict[str, Any]:
+    """The structured state a typed verdict is asked over.
+
+    The same material the free-text prompt carries — the contract's worker
+    view, the deterministic gate's run, and the change — as JSON the decision
+    primitive serializes. Nothing about how the change was written reaches it,
+    for the same reason :func:`build_prompt` shows none.
+    """
+    view = contract.worker_view()
+    pre = original if original is not None else view["target_content"]
+    return {
+        "task_type": view["task_type"],
+        "task": view["task"],
+        "target": view["target"],
+        "interface": view["interface"],
+        "deterministic_gate": gate_summary(gate),
+        "original": pre,
+        "change": change,
+    }
 
 
 def _contract_block(view: dict[str, Any]) -> str:
@@ -498,6 +570,7 @@ def verify(
     reviewer: str,
     ask: Ask,
     original: str | None = None,
+    decide: Decide | None = None,
 ) -> Review:
     """Ask one independent reviewer about one applied change.
 
@@ -512,6 +585,11 @@ def verify(
     policy, then the identity of the reviewer — because each of them exists to
     prevent a spend, and a check that runs after the request has already been
     sent prevents nothing.
+
+    ``decide`` is the typed verdict: when it is supplied the verdict is read
+    as a :class:`~mcgyvr.decision.Noul` through
+    :func:`~mcgyvr.decision.classify`; when it is ``None`` the free-text
+    ``ask`` path is used, unchanged.
     """
     if required_policy(contract, family) == GATE_ONLY:
         # The deterministic family, on a contract that asked for nothing more:
@@ -527,6 +605,9 @@ def verify(
     fault = _independence_fault(builder, reviewer)
     if fault is not None:
         return Review.unusable(fault)
+
+    if decide is not None:
+        return _typed_verdict(contract, gate, change, reviewer, original, decide)
 
     prompt = build_prompt(contract, gate=gate, change=change, original=original)
     try:
@@ -551,6 +632,61 @@ def verify(
             f"not an approval."
         )
     return verdict.as_review()
+
+
+def _typed_verdict(
+    contract: Contract,
+    gate: GateResult,
+    change: str,
+    reviewer: str,
+    original: str | None,
+    decide: Decide,
+) -> Review:
+    """Read a typed verdict through ``decide``, under the same protection as prose.
+
+    The identity check has already run (:func:`verify` refuses a self-review
+    before this is reached), so this is only the ask and the read. A ``decide``
+    that raises is a reviewer-side failure — the builder is never charged.
+    """
+    state = verdict_state(contract, gate, change, original)
+    try:
+        decision = decide(state)
+    except Exception as exc:
+        return Review.unusable(f"the reviewer {reviewer!r} could not be asked: {exc}")
+    return read_typed_verdict(decision)
+
+
+def decider_for(
+    source_map: SourceMap,
+    *,
+    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+) -> Decide | None:
+    """The install's verifier role as a typed-verdict seam, or ``None``.
+
+    Mirrors :func:`reviewer_for` one seam over: where that one dispatches a
+    prose reply, this one reads a typed :class:`~mcgyvr.decision.Decision`
+    through :func:`~mcgyvr.decision.classify_role`. ``None`` is an ordinary
+    answer — an install with no verifier role bound has no verifier — and a
+    role declared but unusable raises the same way :func:`reviewer_for` does.
+    """
+    if source_map.role_model(VERIFIER_ROLE) is None:
+        return None
+
+    def decide(state: Any) -> Decision:
+        decision = classify_role(
+            source_map,
+            VERIFIER_ROLE,
+            state,
+            {VERDICT_KEY: VERDICT_QUESTION},
+            timeout_s=timeout_s,
+        )
+        if decision is None:  # the role was bound a moment ago
+            raise ReviewerUnavailableError(
+                f"the {VERIFIER_ROLE!r} role has no source to dispatch to"
+            )
+        return decision
+
+    return decide
 
 
 def reviewer_for(

@@ -170,7 +170,7 @@
     },
     "decision.py:_MAX_TOP_LOGPROBS": {
       "kind": "fact",
-      "says": "The highest top_logprobs count the OpenAI-compatible servers agree to return, and the most labels a single decision request asks for; the probabilities of those labels are all a decision reads.",
+      "says": "The highest top_logprobs value the OpenAI-compatible servers agree to return; a choice over more options cannot enumerate in one call.",
       "reason": "the specification of a format, protocol or tool"
     },
     "delegate.py:MIN_CONFIDENCE": {
@@ -417,6 +417,11 @@
       "kind": "fact",
       "says": "Where Python's surrogateescape error handler places an undecodable byte, so the byte can be recovered.",
       "reason": "the specification of a format, protocol or tool"
+    },
+    "gate/jev.py:_REGRESSION_LEVEL": {
+      "kind": "choice",
+      "says": "The expected regression-risk rating (0 low, 2 high) at or above which the Jev verifier rung reports a change; medium and up is reported, a low-risk change stays silent.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "gate/preflight.py:ESTIMATE_RESERVE": {
       "kind": "estimate",

@@ -169,6 +169,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.gate.adapters.python",
     "mcgyvr.gate.changeset",
     "mcgyvr.gate.findings",
+    "mcgyvr.gate.jev",
     "mcgyvr.gate.preflight",
     "mcgyvr.gate.runner",
     "mcgyvr.gate.secrets",
