@@ -27,6 +27,7 @@ from mcgyvr.gate.changeset import (
     FileChange,
 )
 from mcgyvr.gate.findings import Finding
+from mcgyvr.gate.jev import JevCheck, JevReport
 from mcgyvr.gate.preflight import (
     ESTIMATE_RESERVE,
     PreflightIssue,
@@ -55,6 +56,8 @@ __all__ = [
     "GateResult",
     "InconclusiveRung",
     "JavaScriptAdapter",
+    "JevCheck",
+    "JevReport",
     "LanguageAdapter",
     "PreflightIssue",
     "PythonAdapter",
