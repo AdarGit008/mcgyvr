@@ -109,6 +109,7 @@
     "session.py": "changing now; covered after that change lands",
     "strict_yaml.py": "judging",
     "telemetry.py": "changing now; covered after that change lands",
+    "triage.py": "holds no number that sizes or judges",
     "verify.py": "judging",
     "wake.py": "judging",
     "weights.py": "holds no number that sizes or judges",
