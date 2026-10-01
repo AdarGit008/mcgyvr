@@ -602,6 +602,26 @@ def test_a_wake_that_needs_room_sleeps_the_smaller_unit_first_and_gives_it_back(
     assert switches.calls[2:] == [("sleep", BIG), ("wake", MID)]
 
 
+def test_room_a_sleeping_unit_would_hold_is_already_free() -> None:
+    """A unit already asleep holds no room, so it neither blocks the wake nor
+    is slept again for it."""
+    pressure = FakePressure(
+        reading(FAST, in_flight=2, waiting=4),
+        reading(MID, awake=False, in_flight=None),
+        reading(BIG, awake=False, in_flight=None),
+    )
+    switches = FakeSwitches(pressure, room={BIG: (MID,)})
+    run = manager(
+        pressure,
+        switches,
+        FakeDecide(ladder=f"wake:{BIG}"),
+        the_view=view(FAST, MID, BIG, sleepable=(MID, BIG)),
+    )
+    for _ in range(3):
+        run.tick()
+    assert switches.calls == [("wake", BIG)]
+
+
 def test_room_held_by_a_unit_that_cannot_sleep_is_a_recommendation() -> None:
     pressure = FakePressure(
         reading(FAST, in_flight=2, waiting=4),
