@@ -59,6 +59,7 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.jev import JevCheck, JevReport
+from mcgyvr.gate.output import OutputChecks
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 from mcgyvr.gate.structured import validate_structured_data
@@ -168,6 +169,7 @@ class Gate:
         jev: JevCheck | None = None,
         acceptance: Acceptance | None = None,
         typecheck: TypeCheck | None = None,
+        output: OutputChecks | None = None,
         contract_text: str = "",
     ) -> GateResult:
         """Judge one change set. ``contract_text`` is the contract's own prose.
@@ -212,6 +214,16 @@ class Gate:
                 adapter, changeset, env_issues, inconclusive, contract_text
             ):
                 (observations if item.check == STYLE else findings).append(item)
+
+        # 4b — output checks: the structural evidence kinds the gate makes
+        # itself (media_valid, safety_pass, asr_wer, grounded). They judge the
+        # artifact a contract names rather than the diff, and run only when the
+        # contract declared them. A validator that is not wired records an
+        # environment issue, never a clean pass over no bar.
+        if output is not None and not findings:
+            output_report = output.run()
+            findings.extend(output_report.findings)
+            env_issues.extend(output_report.environment_issues)
 
         if typecheck is not None and not findings:
             try:

@@ -16,6 +16,7 @@ import pytest
 from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
+from mcgyvr.gate.output import MEDIA_IMAGE, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.runner import Gate
 from mcgyvr.scope import Scope
 
@@ -218,3 +219,38 @@ def test_subprocess_count_is_flat_across_change_size(
 
     assert counts[0] == 2, f"expected exactly two ruff calls, got {counts[0]}"
     assert counts[0] == counts[1], f"gate subprocess count grew with size: {counts}"
+
+
+def test_the_gate_folds_output_check_findings(tmp_path: Path) -> None:
+    """An output check's finding is a gate finding under the same check name."""
+    repo = repo_with_base(tmp_path)
+    (repo / "out.png").write_bytes(b"not an image")
+    output = OutputChecks(
+        checks=(MEDIA_VALID,),
+        workspace=repo,
+        target="out.png",
+        media_kind=MEDIA_IMAGE,
+    )
+
+    result = Gate().run(ChangeSet.detect(repo), output=output)
+
+    assert not result.accepted
+    assert {f.check for f in result.findings} == {MEDIA_VALID}
+
+
+def test_an_unwired_output_check_is_a_legible_hole_not_a_rejection(
+    tmp_path: Path,
+) -> None:
+    """P1 posture: a validator not wired yet is skipped as a visible hole.
+
+    This is the same rule as a missing linter — absent is not a rejection. P2
+    must make a missing safety or ASR validator *inconclusive* (a rejection),
+    because those bars cannot be reported clean while absent.
+    """
+    repo = repo_with_base(tmp_path)
+    output = OutputChecks(checks=(SAFETY_PASS,), workspace=repo, target="out.png")
+
+    result = Gate().run(ChangeSet.detect(repo), output=output)
+
+    assert result.accepted
+    assert any(SAFETY_PASS in issue for issue in result.environment_issues)

@@ -13,6 +13,7 @@ worker prompt" is only true if there is no other accessor that leaks them.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -610,6 +611,100 @@ def test_every_task_type_is_documented() -> None:
     for kind in task_types():
         assert kind.doc.strip()
         assert kind.name.islower()
+
+
+# --- output evidence parameters (increment 4) -------------------------------
+
+
+def test_output_evidence_parameters_round_trip() -> None:
+    doc = MINIMAL.replace(
+        'acceptance: ["pytest -q"]',
+        'acceptance: ["pytest -q"]\n'
+        "media_kind: image\n"
+        'transcript: "hello"\n'
+        "wer_threshold: 0.25\n"
+        'sources: ["doc/a.md", "doc/b.md"]',
+    )
+    contract = loads(doc)
+    assert contract.media_kind == "image"
+    assert contract.transcript == "hello"
+    assert contract.wer_threshold == 0.25
+    assert contract.sources == ("doc/a.md", "doc/b.md")
+    assert parse(dumps(contract)) == contract
+
+
+def _media_type(*evidence: str) -> SimpleNamespace:
+    """A task type whose evidence declares the four structural kinds.
+
+    The shipped catalog has no media/agent type yet, so the cross-validation
+    is exercised against an invented type, the same way test_catalog.py proves
+    the loader is generic over the vocabulary.
+    """
+    kinds = tuple(
+        SimpleNamespace(name=e, needs_commands=False, baseline="pass") for e in evidence
+    )
+    return SimpleNamespace(
+        name="image_generation",
+        deterministic=False,
+        needs_acceptance_commands=False,
+        needs_demonstration_commands=False,
+        required_evidence=kinds,
+        guarantee="a media artifact is produced",
+    )
+
+
+def _media_contract(*extra: str) -> str:
+    body = "\n".join(extra)
+    return f"""
+id: img
+task_type: function_implementation
+task: Produce an image.
+target: out.png
+stop_conditions: ["No image model is bound."]
+{body}
+scope:
+  allow: ["out.png"]
+"""
+
+
+def test_media_valid_evidence_requires_a_media_kind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.contract.task_type",
+        lambda _name: _media_type("gate", "media_valid"),
+    )
+    with pytest.raises(ContractSchemaError, match="media_kind"):
+        loads(_media_contract())
+    assert loads(_media_contract("media_kind: image")).media_kind == "image"
+
+
+def test_asr_wer_evidence_requires_a_transcript_and_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.contract.task_type",
+        lambda _name: _media_type("gate", "asr_wer"),
+    )
+    with pytest.raises(ContractSchemaError, match="transcript"):
+        loads(_media_contract("wer_threshold: 0.2"))
+    with pytest.raises(ContractSchemaError, match="wer_threshold"):
+        loads(_media_contract('transcript: "hello"'))
+    contract = loads(_media_contract('transcript: "hello"', "wer_threshold: 0.2"))
+    assert contract.transcript == "hello"
+    assert contract.wer_threshold == 0.2
+
+
+def test_grounded_evidence_requires_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.contract.task_type",
+        lambda _name: _media_type("gate", "grounded"),
+    )
+    with pytest.raises(ContractSchemaError, match="sources"):
+        loads(_media_contract())
+    assert loads(_media_contract('sources: ["doc/a.md"]')).sources == ("doc/a.md",)
 
 
 # --- loading from a file ---------------------------------------------------

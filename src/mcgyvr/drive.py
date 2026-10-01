@@ -55,6 +55,7 @@ from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
+from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
@@ -1278,6 +1279,33 @@ def acceptance_for(
     )
 
 
+def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | None:
+    """The gate's output-checks rung, or ``None`` when the contract declares none.
+
+    Only the four structural evidence kinds the gate makes itself are mapped
+    here; the command-producing kinds have their own rungs. Built beside
+    :func:`acceptance_for` rather than inside ``Gate`` because the declared
+    evidence and the workspace are what this layer holds.
+    """
+    declared = {e.name for e in contract.type.required_evidence}
+    checks = tuple(
+        name
+        for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER, GROUNDED)
+        if name in declared
+    )
+    if not checks:
+        return None
+    return OutputChecks(
+        checks=checks,
+        workspace=workspace,
+        target=contract.target,
+        media_kind=contract.media_kind,
+        transcript=contract.transcript,
+        wer_threshold=contract.wer_threshold,
+        sources=contract.sources,
+    )
+
+
 def gate_workspace(
     contract: Contract,
     sandbox: Sandbox,
@@ -1335,6 +1363,7 @@ def gate_workspace(
         # `TypeCheck.declared_command`, so the absence is not a rejection.
         typecheck=TypeCheck(repo=sandbox.workspace),
         semantic=SemanticCheck(sandbox=sandbox),
+        output=output_checks_for(contract, sandbox.workspace),
         contract_text=contract.prose,
     )
 

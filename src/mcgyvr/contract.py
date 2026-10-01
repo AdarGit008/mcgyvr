@@ -562,6 +562,41 @@ SCHEMA: tuple[Field, ...] = (
         worker_facing=True,
     ),
     Field(
+        "media_kind",
+        "enum",
+        "The media kind of the output artifact, for `media_valid`: what a "
+        "valid file of this kind looks like. Stated by the contract so the "
+        "gate knows which header to expect. Only meaningful for a task type "
+        "that requires `media_valid` evidence.",
+        default="",
+        choices=("image", "audio", "video"),
+    ),
+    Field(
+        "transcript",
+        "str",
+        "The target transcript for `asr_wer`: the text the audio output is "
+        "expected to say, so the ASR gate can compare the transcription "
+        "against it. Only meaningful for a type requiring `asr_wer`.",
+        default="",
+    ),
+    Field(
+        "wer_threshold",
+        "float",
+        "The word-error-rate ceiling for `asr_wer`, a share from 0 to 1. A "
+        "transcription whose WER exceeds it is refused. Only meaningful for "
+        "a type requiring `asr_wer`.",
+        default=None,
+        min_value=0.0,
+        max_value=1.0,
+    ),
+    Field(
+        "sources",
+        "str_list",
+        "The corpus the reply may cite, for `grounded`: every claim the reply "
+        "makes must cite one of these. Empty means no grounding is claimed.",
+        default=(),
+    ),
+    Field(
         "context",
         "block",
         "Budgets governing what may be assembled into the worker's prompt.",
@@ -715,6 +750,10 @@ class Contract:
     deps: tuple[Dependency, ...] = ()
     stop_conditions: tuple[str, ...] = ()
     output_schema: str = "whole_file"
+    media_kind: str = ""
+    transcript: str = ""
+    wer_threshold: float | None = None
+    sources: tuple[str, ...] = ()
     max_input_tokens: int = 4096
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
@@ -855,6 +894,14 @@ class Contract:
             ],
             "stop_conditions": list(self.stop_conditions),
             "output_schema": self.output_schema,
+            **({"media_kind": self.media_kind} if self.media_kind else {}),
+            **({"transcript": self.transcript} if self.transcript else {}),
+            **(
+                {"wer_threshold": self.wer_threshold}
+                if self.wer_threshold is not None
+                else {}
+            ),
+            **({"sources": list(self.sources)} if self.sources else {}),
             "context": {"max_input_tokens": self.max_input_tokens},
             "scope": {
                 "allow": list(self.scope.allow),
@@ -949,6 +996,10 @@ def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Cont
         ),
         stop_conditions=tuple(data["stop_conditions"]),
         output_schema=data["output_schema"],
+        media_kind=data["media_kind"],
+        transcript=data["transcript"],
+        wer_threshold=data["wer_threshold"],
+        sources=tuple(data["sources"]),
         max_input_tokens=data["context"]["max_input_tokens"],
         acceptance=tuple(data["acceptance"]),
         demonstration=tuple(data["demonstration"]),
@@ -1253,6 +1304,36 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"cannot both pass and fail on the unchanged tree — put it in "
             f"acceptance if it is a regression signal, demonstration if it "
             f"shows the defect."
+        )
+
+    # Output evidence kinds that name a contract parameter: the gate makes the
+    # check, but the contract must say what to check against. The names live in
+    # gate/output.py — imported lazily because that package imports this one,
+    # so a top-level import would be circular.
+    from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID
+
+    evidence_names = {e.name for e in kind.required_evidence}
+    if MEDIA_VALID in evidence_names and not data["media_kind"]:
+        raise ContractSchemaError(
+            f"media_kind: is empty, but task type {kind.name!r} requires "
+            f"media_valid evidence — the gate must know which media kind to "
+            f"expect. Name image, audio or video."
+        )
+    if ASR_WER in evidence_names and not data["transcript"]:
+        raise ContractSchemaError(
+            f"transcript: is empty, but task type {kind.name!r} requires "
+            f"asr_wer evidence — the ASR gate needs the text the audio is "
+            f"expected to say."
+        )
+    if ASR_WER in evidence_names and data["wer_threshold"] is None:
+        raise ContractSchemaError(
+            f"wer_threshold: is not set, but task type {kind.name!r} requires "
+            f"asr_wer evidence — name the word-error-rate ceiling (0 to 1)."
+        )
+    if GROUNDED in evidence_names and not data["sources"]:
+        raise ContractSchemaError(
+            f"sources: is empty, but task type {kind.name!r} requires grounded "
+            f"evidence — name the corpus the reply may cite."
         )
 
     # A dependency is a join key onto another contract's id, and every way of
