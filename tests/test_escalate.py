@@ -605,11 +605,16 @@ def test_verified_is_unreachable_unless_a_verifier_ran_and_agreed() -> None:
                         f"{declared.verification.policy} on {family.name} with a "
                         f"{label} review reached VERIFIED"
                     )
-                if label in ("refused", "unusable") and verdict.policy == "model":
-                    # Where a verifier was required, its answer is binding. In
+                if label == "refused" and verdict.policy == "model":
+                    # Where a verifier was required, its refusal is binding. In
                     # the deterministic family it is not required, so it is not
                     # asked at all and cannot reject anything.
                     assert verdict.verdict is not Verdict.PASSED
+                if label == "unusable" and verdict.policy == "model":
+                    # A review that produced nothing is the reviewer's failure:
+                    # the gate's acceptance stands, never as verified.
+                    assert verdict.assurance is Assurance.UNVERIFIED
+                    assert verdict.reviewer_failed is True
 
 
 def test_a_keyless_install_is_labelled_unverified_rather_than_accepted_quietly() -> (

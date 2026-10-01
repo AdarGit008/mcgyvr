@@ -133,7 +133,7 @@ Which unit reads an applied diff in fresh context.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `verifier.enabled` | boolean | no | `false` | Model verification of the applied diff, on top of the gate. |
+| `verifier.enabled` | boolean | no | `true` | Model verification of the applied diff, on top of the gate. On unless set to `false`. With no `unit`, the reviewer is the next dearer rung whose model is not the builder's; where there is none, the work is accepted and labelled unverified. |
 | `verifier.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `verifier.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
