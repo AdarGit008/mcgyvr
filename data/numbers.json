@@ -168,6 +168,11 @@
       "says": "A source that has not reached the failure threshold is out until no time at all: it is still offered.",
       "reason": "a definition or arithmetic"
     },
+    "decision.py:_MAX_TOP_LOGPROBS": {
+      "kind": "fact",
+      "says": "The highest top_logprobs count the OpenAI-compatible servers agree to return, and the most labels a single decision request asks for; the probabilities of those labels are all a decision reads.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "delegate.py:ORCHESTRATOR_OUTPUT_TOKENS": {
       "kind": "estimate",
       "says": "How many tokens the orchestrator's model spends on a decomposition, a short list of proposals, including any reasoning it writes before them; a reply cut short loses the whole decomposition.",

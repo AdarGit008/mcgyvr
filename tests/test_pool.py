@@ -176,6 +176,7 @@ BELOW_THE_SEAM = {
     "availability.py",
     "capacity.py",
     "cooldown.py",
+    "decision.py",
 }
 
 

@@ -12,6 +12,7 @@
     "consensus.py": "judging",
     "contract.py": "judging",
     "cooldown.py": "judging",
+    "decision.py": "judging",
     "delegate.py": "judging",
     "deliver.py": "judging",
     "derived.py": "judging",
