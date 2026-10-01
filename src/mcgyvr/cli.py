@@ -1542,6 +1542,7 @@ def _climb(
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import ascent, escalate
+    from mcgyvr.fleet_manager import hook_for as fleet_hook_for
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
@@ -1678,7 +1679,19 @@ def _climb(
             if config.get("profile") == "live":
                 driver = _warning_pulled_steps(driver)
 
-            outcome = escalate(config, pool, contract, driver, capacity=capacity)
+            outcome = escalate(
+                config,
+                pool,
+                contract,
+                driver,
+                capacity=capacity,
+                # The fleet-manager seam: a Jev difficulty judgment that may
+                # route a hard task to an asleep smarter rung before the api.
+                # ``None`` for an install with no asleep smarter rung, or one
+                # that has not enabled sleep-wake — which is every install
+                # that did not ask for the feature.
+                wake_hook=fleet_hook_for(config, pool),
+            )
             return _report_climb(
                 args, contract, sandbox, repo, outcome, recording, report
             )

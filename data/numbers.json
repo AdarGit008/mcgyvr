@@ -170,13 +170,23 @@
     },
     "decision.py:_MAX_TOP_LOGPROBS": {
       "kind": "fact",
-      "says": "The highest top_logprobs count the OpenAI-compatible servers agree to return, and the most labels a single decision request asks for; the probabilities of those labels are all a decision reads.",
+      "says": "The highest top_logprobs value the OpenAI-compatible servers agree to return; a choice over more options cannot enumerate in one call.",
       "reason": "the specification of a format, protocol or tool"
+    },
+    "delegate.py:MIN_CONFIDENCE": {
+      "kind": "choice",
+      "says": "How decisively the model must commit to a typed choice before a proposer acts on it; below this the proposer refuses rather than guessing, and a caller building a proposer may name its own confidence.",
+      "reason": "what a caller that names none gets; the product's callers name one"
     },
     "delegate.py:ORCHESTRATOR_OUTPUT_TOKENS": {
       "kind": "estimate",
       "says": "How many tokens the orchestrator's model spends on a decomposition, a short list of proposals, including any reasoning it writes before them; a reply cut short loses the whole decomposition.",
       "moves_to": "decomposition_reply_tokens"
+    },
+    "delegate.py:_MAX_CHOICE_OPTIONS": {
+      "kind": "fact",
+      "says": "How many options one typed Choice may carry — the decision primitive's 62 single-token labels — so candidate and symbol lists are capped at it and a classification cannot overrun the label scheme.",
+      "reason": "the specification of a format, protocol or tool"
     },
     "deliver.py:_BRANCH_ATTEMPTS": {
       "kind": "choice",
@@ -407,6 +417,11 @@
       "kind": "fact",
       "says": "Where Python's surrogateescape error handler places an undecodable byte, so the byte can be recovered.",
       "reason": "the specification of a format, protocol or tool"
+    },
+    "gate/jev.py:_REGRESSION_LEVEL": {
+      "kind": "choice",
+      "says": "The expected regression-risk rating (0 low, 2 high) at or above which the Jev verifier rung reports a change; medium and up is reported, a low-risk change stays silent.",
+      "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
     "gate/preflight.py:ESTIMATE_RESERVE": {
       "kind": "estimate",
