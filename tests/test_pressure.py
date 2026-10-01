@@ -192,11 +192,38 @@ def test_a_file_still_being_made_is_not_a_mark(tmp_path: Path) -> None:
     where = tmp_path / "gauge"
     gauge = Gauge(where)
     gauge.count("busy")
-    unfinished = where / f"{_stem('busy')}.999999.1.tmp"
+    unfinished = where / f"{_stem('busy')}.{os.getpid()}.1.tmp"
     unfinished.write_text("", encoding="utf-8")
 
     assert gauge.count("busy") == 0
-    assert unfinished.exists(), "nothing here is its to remove"
+    assert unfinished.exists(), "its maker is alive, so it is not its to remove"
+
+
+def a_dead_pid() -> int:
+    """The pid of a process that has exited and been reaped."""
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait(timeout=30)
+    return child.pid
+
+
+def test_scratch_files_a_dead_process_left_are_swept_by_the_next_count(
+    tmp_path: Path,
+) -> None:
+    """A process killed between making a scratch file and renaming it would
+    otherwise leave the file there for good: nothing else ever names it."""
+    where = tmp_path / "gauge"
+    gauge = Gauge(where)
+    gauge.count("busy")
+    dead = a_dead_pid()
+    left = [
+        where / f"{_stem('busy')}.{dead}.1.tmp",
+        where / f"pipeline.json.{dead}.2.tmp",
+    ]
+    for path in left:
+        path.write_text("", encoding="utf-8")
+
+    assert gauge.count("busy") == 0
+    assert [path for path in left if path.exists()] == []
 
 
 def test_counting_makes_the_directory_private_so_a_first_read_is_zero(
