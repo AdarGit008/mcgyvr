@@ -564,27 +564,20 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "media_kind",
         "enum",
-        "The media kind of the output artifact, for `media_valid`: what a "
-        "valid file of this kind looks like. Stated by the contract so the "
-        "gate knows which header to expect. Only meaningful for a task type "
-        "that requires `media_valid` evidence.",
+        "The media kind of the artifact, for `media_valid`: image, audio or video.",
         default="",
         choices=("image", "audio", "video"),
     ),
     Field(
         "transcript",
         "str",
-        "The target transcript for `asr_wer`: the text the audio output is "
-        "expected to say, so the ASR gate can compare the transcription "
-        "against it. Only meaningful for a type requiring `asr_wer`.",
+        "The text the audio output must say, for `asr_wer`.",
         default="",
     ),
     Field(
         "wer_threshold",
         "float",
-        "The word-error-rate ceiling for `asr_wer`, a share from 0 to 1. A "
-        "transcription whose WER exceeds it is refused. Only meaningful for "
-        "a type requiring `asr_wer`.",
+        "The word-error-rate ceiling for `asr_wer`, a share from 0 to 1.",
         default=None,
         min_value=0.0,
         max_value=1.0,
@@ -592,8 +585,7 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "sources",
         "str_list",
-        "The corpus the reply may cite, for `grounded`: every claim the reply "
-        "makes must cite one of these. Empty means no grounding is claimed.",
+        "The corpus the reply may cite, for `grounded`.",
         default=(),
     ),
     Field(
