@@ -7,8 +7,9 @@ users apply: a tensor split meets twice in every block and wants the bus, a
 pipeline passes one hidden state per stage and tolerates the network. A split
 that does not fit is never taken; when the rule's split does not fit, the next
 widest one that does is. What a unit states -- its tensor or pipeline width --
-always wins. llama.cpp is split by layer only: its row split has no split
-buffers on the CUDA backend and is refused by name.
+always wins. llama.cpp follows the same rule with its own two splits (by
+tensor across one machine's cards, by layer otherwise); its row split has no
+split buffers on the CUDA backend and is refused by name.
 
 What a token spends crossing links is still estimated for every plan -- the bus
 for two cards of one machine, the network between machines, each from the
@@ -207,11 +208,12 @@ def test_a_stated_tensor_width_fixes_the_pipeline_to_the_rest_of_the_cards() -> 
     assert stages == {0: "box-a.example", 1: "box-b.example"}
 
 
-# llama.cpp: by layer only.
+# llama.cpp: by layer, or by tensor on one machine.
 
 
-def test_llama_cpp_offers_the_layer_split_alone() -> None:
-    assert list(SPLITS) == [SPLIT_LAYER]
+def test_llama_cpp_offers_a_layer_and_a_tensor_split() -> None:
+    assert list(SPLITS) == [SPLIT_LAYER, "tensor"]
+    # A scan that cannot size its tensor split is split by layer.
     made = chosen(table(), one_machine(2))
     assert made.grid == Grid(tensor=1, pipeline=2, split=SPLIT_LAYER)
 

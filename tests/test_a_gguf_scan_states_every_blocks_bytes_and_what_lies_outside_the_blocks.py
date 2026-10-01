@@ -7,8 +7,12 @@ three-dimensional expert tensor is held whole), the input embedding, and the
 rest outside every block with its own matrix part; the three parts sum to the
 whole table. Each cached layer states the KV heads behind its widths, and a
 model with no output head of its own says its embeddings are tied, because
-llama.cpp then copies the input embedding onto the output layer's card. These
-are what a split across cards is sized from.
+llama.cpp then copies the input embedding onto the output layer's card. It
+also states what llama.cpp's ``--split-mode tensor`` divides between cards, by
+the names its own source divides (the attention and FFN weights, the experts
+among them, and the output head), and names a tensor on its partial axis that is
+not F32, which that mode cannot split. These are what a split across cards is
+sized from.
 
 The GGUF here is written by the test: an invented two-block model whose header
 and tensor table are real GGUF and whose weights are absent, because the scan
@@ -43,7 +47,13 @@ def _tensor(name: str, dims: tuple[int, ...], kind: int) -> bytes:
     return head + struct.pack("<I", kind) + struct.pack("<Q", 0)
 
 
-def write_gguf(path: Path, *, tied: bool = False, experts: bool = False) -> None:
+def write_gguf(
+    path: Path,
+    *,
+    tied: bool = False,
+    experts: bool = False,
+    exps_bias: int | None = None,
+) -> None:
     keys = {
         "general.architecture": "invented",
         "invented.block_count": 2,
@@ -67,6 +77,8 @@ def write_gguf(path: Path, *, tied: bool = False, experts: bool = False) -> None
         ]
         if experts:
             tensors.append((f"blk.{b}.ffn_up_exps.weight", (64, 32, 4), F16))
+        if exps_bias is not None:
+            tensors.append((f"blk.{b}.ffn_down_exps.bias", (64, 4), exps_bias))
     body = b"GGUF" + struct.pack("<I", 3)
     body += struct.pack("<Q", len(tensors)) + struct.pack("<Q", len(keys))
     body += b"".join(_kv(k, v) for k, v in keys.items())
@@ -74,8 +86,9 @@ def write_gguf(path: Path, *, tied: bool = False, experts: bool = False) -> None
     path.write_bytes(body)
 
 
-def scanned(tmp_path: Path, **kw: bool) -> dict[str, Any]:
+def scanned(tmp_path: Path, **kw: Any) -> dict[str, Any]:
     path = tmp_path / "example-model-small.gguf"
+    path.parent.mkdir(parents=True, exist_ok=True)
     write_gguf(path, **kw)
     # The scanner is held untyped on purpose: it ships to a rig as text.
     row: dict[str, Any] = ggufscan.scan(str(path))  # type: ignore[no-untyped-call]
@@ -139,3 +152,25 @@ def test_a_model_with_no_output_head_says_its_embeddings_are_tied(
     row = scanned(tmp_path, tied=True)
     assert row["tied_embeddings"] is True
     assert row["bytes_output_matrix"] == 0
+
+
+def test_what_a_llama_cpp_tensor_split_divides_is_summed_by_name(
+    tmp_path: Path,
+) -> None:
+    row = scanned(tmp_path, experts=True)
+    q = 64 * 64 * 2
+    down = 128 * 64 // 32 * 34
+    up_exps = 64 * 32 * 4 * 2
+    # The norm is mirrored; the projections and the experts are divided.
+    assert row["bytes_tensor_split_by_block"] == {
+        "0": q + down + up_exps,
+        "1": q + down + up_exps,
+    }
+    assert row["bytes_output_tensor_split"] == 64 * 100 // 32 * 34
+    assert row["tensor_split_refused"] == []
+
+
+def test_a_partial_axis_bias_that_is_not_f32_is_named(tmp_path: Path) -> None:
+    assert scanned(tmp_path, exps_bias=F32)["tensor_split_refused"] == []
+    refused = scanned(tmp_path / "f16", exps_bias=F16)["tensor_split_refused"]
+    assert refused == ["blk.0.ffn_down_exps.bias", "blk.1.ffn_down_exps.bias"]

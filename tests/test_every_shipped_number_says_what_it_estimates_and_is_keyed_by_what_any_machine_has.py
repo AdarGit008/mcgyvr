@@ -107,12 +107,14 @@ def test_every_number_the_code_asks_for_is_stated_and_nothing_else_is() -> None:
     for entry in links:
         assert numbers[entry]["key"] == "link_class"
         assert set(numbers[entry]["values"]) == set(LINK_CLASSES), entry
-    # vLLM is the one engine a split charges this allowance to; llama.cpp's
-    # is the single-card allowance, once per card.
-    assert set(numbers[derived.SHARD_ALLOWANCE]["values"]) == {"vllm"}
+    # Every card of a tensor split is charged this allowance: each vLLM rank,
+    # and each card of llama.cpp's --split-mode tensor. llama.cpp's layer split
+    # charges the single-card allowance, once per card.
+    assert set(numbers[derived.SHARD_ALLOWANCE]["values"]) == {"vllm", "llama.cpp"}
     derived.class_tolerances()
     derived.runtime_resident_gb()
     derived.shard_allowance_gib("vllm")
+    derived.shard_allowance_gib("llama.cpp")
 
 
 def test_the_key_spaces_are_the_ones_the_product_already_names() -> None:

@@ -5,9 +5,10 @@ at one address: its head's. So a probe measures it once, at its head, files and
 judges it once against the head rig's lock record, and never once per rig. Every
 rig it spans is still read through the door when a reader is given, workers
 included, because a worker's card and restarts are as much the unit's as the
-head's. Given a link reader, each distinct (head, worker) pair of an awake
-spanning unit has its link read once and what that recorded is in the report; a
-link that cannot be read fails the probe by name.
+head's. Given a link reader, the links an awake split unit crosses are read
+-- one between two cards of a rig and one between two rigs, each once -- and
+what that recorded is in the report; a link that cannot be read fails the probe
+by name.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import pytest
 import yaml
 
 from mcgyvr.fleet import lock, probe
+from mcgyvr.fleet.linkread import LinkEnds
 from mcgyvr.serving import interconnect as links_module
 from tests import span_fleet as sf
 
@@ -180,18 +182,21 @@ def interconnect(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, str, s
     return calls
 
 
-def never(host_a: str, host_b: str) -> Sequence[tuple[int, float]]:
+def never(ends: LinkEnds) -> Sequence[tuple[int, float]]:
     raise AssertionError("the stand-in never calls its reader")
 
 
-def test_each_head_and_worker_pair_has_its_link_read_once(
+def test_one_link_of_each_class_the_split_unit_crosses_is_read_once(
     journal: Path, interconnect: list[tuple[str, str, str, str]]
 ) -> None:
+    # big_model holds cards 0 and 1 of A and card 0 of B: it crosses A's bus
+    # and the network from A to B, and each is read once.
     report = run(FakeUnits(), link_reader=never)
-    assert [call[:2] for call in interconnect] == [(sf.A, sf.B)]
+    assert [call[:2] for call in interconnect] == [(sf.A, sf.B), (sf.A, sf.A)]
     assert interconnect[0][3] == "2026-09-25T12:00:00", "read at the probe's moment"
     assert report.links == {
-        f"{sf.A} -> {sf.B}": f"{sf.A} to {sf.B}: a link of the stand-in"
+        f"{sf.A} -> {sf.B}": f"{sf.A} to {sf.B}: a link of the stand-in",
+        f"{sf.A} card 0 -> card 1": f"{sf.A} to {sf.A}: a link of the stand-in",
     }
     assert report.exit_code == 0
 

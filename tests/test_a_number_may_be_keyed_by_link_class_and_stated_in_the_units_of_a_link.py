@@ -103,5 +103,6 @@ def test_the_shipped_file_states_every_link_number_for_every_class() -> None:
             assert answered.value > 0
 
 
-def test_the_shipped_file_states_a_rank_allowance_for_vllm() -> None:
+def test_the_shipped_file_states_a_card_allowance_for_both_engines() -> None:
     assert derived.shard_allowance_gib("vllm") >= 0
+    assert derived.shard_allowance_gib("llama.cpp") > 0
