@@ -51,9 +51,12 @@ def ladder_text(
     sleep_wake: bool = True,
     timeout_s: float | None = None,
     api: bool = False,
+    engine: str | None = None,
 ) -> str:
-    """A fast rung, and two rungs sharing one big card."""
+    """A fast rung, and two rungs sharing one big card (served by ``engine``)."""
     timeout = "" if timeout_s is None else f"    request_timeout_s: {timeout_s}\n"
+    if engine is not None:
+        timeout += f"    engine: {engine}\n"
     serving = ""
     if compose_dir is not None:
         serving = (
@@ -242,6 +245,133 @@ def test_a_door_that_fails_is_a_sleep_that_did_not_happen(
 
     assert switches.sleep(BIG_A) is False
     assert switches.wake(BIG_A) is False
+
+
+# --- a vLLM card keeps its process -------------------------------------------
+
+
+def door_by_verb(
+    monkeypatch: pytest.MonkeyPatch, codes: dict[str, int] | None = None
+) -> list[str]:
+    """The door, answering each verb with its code in ``codes`` (0 otherwise)."""
+    import mcgyvr.wake as wake
+
+    log: list[str] = []
+
+    def spawn(argv: list[str], **_: Any) -> int:
+        log.append(verb(argv))
+        return (codes or {}).get(verb(argv), 0)
+
+    monkeypatch.setattr(wake, "spawn_door", spawn)
+    return log
+
+
+def test_a_vllm_card_is_put_to_sleep_with_its_process_kept(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Level 2 drops the weights and keeps the server; a cold start is not the cost."""
+    config = parse(ladder_text(write_spec(tmp_path), engine="vllm"))
+    doors = door_by_verb(monkeypatch)
+
+    assert switches_for(config).sleep(BIG_A) is True
+    assert doors == ["sleep"], "a vLLM card's containers were stopped"
+
+
+def test_a_vllm_card_with_no_sleep_route_falls_back_to_stopping_its_containers(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.serving.gatelib import NO_SLEEP_ROUTE
+
+    config = parse(ladder_text(write_spec(tmp_path), engine="vllm"))
+    doors = door_by_verb(monkeypatch, {"sleep": NO_SLEEP_ROUTE})
+
+    assert switches_for(config).sleep(BIG_A) is True
+    assert doors == ["sleep", "down"]
+
+
+def test_a_llamacpp_card_has_no_sleep_to_ask_for_and_is_stopped(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = parse(ladder_text(write_spec(tmp_path)))
+    doors = door_by_verb(monkeypatch)
+
+    assert switches_for(config).sleep(BIG_A) is True
+    assert doors == ["down"]
+
+
+def test_a_card_slept_with_its_process_kept_is_woken_by_its_wake_route(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``serve up`` would be refused on a busy rig, and would start nothing new."""
+    config = parse(ladder_text(write_spec(tmp_path), engine="vllm"))
+    doors = door_by_verb(monkeypatch)
+    switches = switches_for(config)
+
+    assert switches.sleep(BIG_A) is True
+    assert switches.wake(BIG_A) is True
+    assert switches.wake(BIG_A) is True
+    assert doors == ["sleep", "wake", "up"], (
+        "once woken, the card is no longer resting, so the next wake is a start"
+    )
+
+
+def test_a_dispatch_to_a_card_slept_with_its_process_kept_wakes_it_before_sending(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A level-2 sleeper answers and then hangs, so it never gives the refusal
+    a wake waits for. The card's resting mark is that refusal, read for free."""
+    import mcgyvr.wake as wake
+
+    config = parse(ladder_text(write_spec(tmp_path), engine="vllm"))
+    doors = door_by_verb(monkeypatch)
+    assert switches_for(config).sleep(BIG_A) is True
+
+    order: list[str] = []
+    real = wake.spawn_door
+
+    def spawn(argv: list[str], **kwargs: Any) -> int:
+        order.append(f"door {verb(argv)}")
+        return real(argv, **kwargs)
+
+    monkeypatch.setattr(wake, "spawn_door", spawn)
+    waker = wake.for_config(config)
+    assert waker is not None
+
+    def send() -> str:
+        order.append("send")
+        return "answer"
+
+    assert waker.dispatching(BIG_B, send) == "answer"
+    assert order == ["door wake", "send"], order
+    assert doors == ["sleep", "wake"]
+
+
+def test_a_unit_slept_with_its_process_kept_reads_asleep_though_it_answers(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The manager reads the queue through this; awake would read as a wake it
+    did not make, and dwell and sleep would act on a unit that is resting."""
+    import mcgyvr.pressure as pressure
+    from mcgyvr.capacity import Capacity
+    from mcgyvr.pool import source_map
+
+    config = parse(ladder_text(write_spec(tmp_path), engine="vllm"))
+    door_by_verb(monkeypatch)
+
+    class Answers:
+        live = True
+
+    monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    gauge = pressure.Gauge()
+    capacity = Capacity.of(config, gauge=gauge)
+    reader = pressure.Pressure(source_map(config), capacity, gauge)
+
+    assert reader.read(BIG_A).awake is True
+    assert switches_for(config).sleep(BIG_A) is True
+    assert reader.read(BIG_A).awake is False
+    assert reader.read(BIG_B).awake is False, "the card rests whole"
+    assert reader.read(FAST).awake is True
 
 
 # --- the switch --------------------------------------------------------------

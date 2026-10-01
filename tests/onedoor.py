@@ -286,8 +286,25 @@ case $cmd in
   *constraint_0_power_limit_uw*) echo 95000000 ;;
   *constraint_1_power_limit_uw*) echo 120000000 ;;
   *query-compute-apps*) : ;;
+  # vLLM's sleep routes, present only once `sleep-route` exists (a unit run
+  # with sleep mode and the dev routes); `asleep` is the unit's state.
+  *"/sleep?level="*)
+    [ -e "$STUBS/sleep-route" ] || exit 22
+    touch "$STUBS/asleep" ;;
+  *"/wake_up?tags=kv_cache"*)
+    [ -e "$STUBS/sleep-route" ] || exit 22
+    rm -f "$STUBS/asleep" ;;
+  *"/wake_up"*|*"/collective_rpc"*)
+    [ -e "$STUBS/sleep-route" ] || exit 22 ;;
   # No sleep route, as a unit without one answers (owner ruling, FLT-02): 404.
-  *"is_sleeping"*) printf '{"error":"Not Found"}\n404' ;;
+  *"is_sleeping"*)
+    if [ ! -e "$STUBS/sleep-route" ]; then
+      printf '{"error":"Not Found"}\n404'
+    elif [ -e "$STUBS/asleep" ]; then
+      printf '{"is_sleeping": true}\n200'
+    else
+      printf '{"is_sleeping": false}\n200'
+    fi ;;
   *"v1/models"*) echo '{"data":[{"id":"stub-model"}]}' ;;
   *health*) : ;;
   *completion*) echo '{"content":"hi"}' ;;
@@ -991,6 +1008,16 @@ def serving(
     )
     flag = where / "compose-down-sticks"
     if sticks:
+        flag.touch()
+    else:
+        flag.unlink(missing_ok=True)
+
+
+def sleep_route(where: Path, *, asleep: bool = False) -> None:
+    """Give the stubbed units vLLM's sleep routes, asleep or awake."""
+    (where / "sleep-route").touch()
+    flag = where / "asleep"
+    if asleep:
         flag.touch()
     else:
         flag.unlink(missing_ok=True)
