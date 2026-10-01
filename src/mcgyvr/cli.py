@@ -50,6 +50,7 @@ from mcgyvr.emit import (
     unplanned,
     unplanned_locked,
 )
+from mcgyvr.emit import sleep_mode as emit_sleep_mode
 from mcgyvr.exits import Exit
 from mcgyvr.fleet.files import FleetFileError, load_fleet
 from mcgyvr.fleet.roots import (
@@ -2556,6 +2557,9 @@ def _emit(args: argparse.Namespace) -> int:
         return Exit.ERROR
 
     out = Path(args.out) if args.out else Path.cwd()
+    # vLLM's sleep mode and its unauthenticated routes, only where the config
+    # asked mcgyvr to sleep and wake cards (`emit.sleep_mode`).
+    asleep = emit_sleep_mode(config)
 
     # Before the files and before the check, because it is the fact both of
     # them are about: a host that was cut into alternatives has N files where it
@@ -2571,17 +2575,21 @@ def _emit(args: argparse.Namespace) -> int:
     # detecting did.
     if args.check:
         try:
-            drifted = check_all(units, root=out)
+            drifted = check_all(units, root=out, sleep_mode=asleep)
         except UnitError as exc:
             print(f"refused: {exc}", file=sys.stderr)
             return Exit.REFUSED
         except (EmitError, OSError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return Exit.ERROR
-        return _report_drift(drifted, unplanned(units, out), planned_paths(units, out))
+        return _report_drift(
+            drifted,
+            unplanned(units, out, sleep_mode=asleep),
+            planned_paths(units, out, sleep_mode=asleep),
+        )
 
     try:
-        written = emit_all(units, root=out)
+        written = emit_all(units, root=out, sleep_mode=asleep)
     except UnitError as exc:
         # A ladder describing a shape mcgyvr will not stand behind, not a
         # failure to render one: same exit code as `hold_together`'s refusal,
