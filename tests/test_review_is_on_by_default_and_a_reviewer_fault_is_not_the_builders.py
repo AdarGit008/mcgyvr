@@ -5,8 +5,9 @@ The promises, none of which names a machine:
 * **Review is on by default.** A config that does not mention ``verifier``
   reviews model work; only ``verifier.enabled: false`` switches it off. A
   config that names ``verifier.unit`` keeps reviewing on that unit.
-* **With no unit named, the reviewer picks itself.** It is the next dearer rung
-  of the climb whose model is not the builder's. Where no rung qualifies the
+* **With no unit named, the reviewer picks itself.** It is the next dearer
+  local rung of the climb whose model is not the builder's — never a hosted
+  one, which reviews only when ``verifier.unit`` names it. Where no rung qualifies the
   work is still accepted, stamped ``unverified`` where a caller sees it, not
   silently.
 * **The typed verdict is the default.** It is read from a reviewer that serves
@@ -694,3 +695,93 @@ def test_a_picked_reviewer_on_a_sleeping_card_is_woken(
 
     assert awake == {"big"}, "the reviewer's card was never woken"
     assert judgement.assurance is Assurance.VERIFIED, judgement.detail
+
+
+# --- an automatic reviewer is a local one ------------------------------------
+
+#: A keyless rung, then a hosted one serving another model. The hosted rung is
+#: dearer and independent, and it is still never picked by itself: asking it
+#: spends money nobody chose to spend on review.
+LOCAL_THEN_HOSTED = """\
+profile: dev
+units:
+  small:
+    address: http://localhost:18001
+    model: acme-coder:7b
+    rig: bench-a
+    width: 1
+  hosted:
+    address: https://api.example.invalid
+    model: zeta-large
+    rig: cloud
+    api_key_env: ZETA_TEST_KEY
+ladder:
+- small
+- hosted
+"""
+
+
+def test_a_hosted_rung_is_never_picked_as_the_reviewer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr.verify import NoReviewer, reviewer_rung, reviewers_for
+
+    monkeypatch.setenv("ZETA_TEST_KEY", "invented")
+    config = parse_config(LOCAL_THEN_HOSTED)
+    pool = source_map(config)
+    assert pool.get("hosted") is not None, "the hosted rung is not offered"
+
+    assert reviewer_rung(config, pool, "small") is None
+    chosen = reviewers_for(config, pool)("small")
+    assert isinstance(chosen, NoReviewer)
+    assert "local" in chosen.reason, chosen.reason
+
+
+def test_with_no_local_reviewer_the_work_is_unverified_and_nothing_is_asked(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ZETA_TEST_KEY", "invented")
+    _worker_replies(monkeypatch, ACCEPTED)
+    prose = _prose_reviews(monkeypatch)
+    typed = _typed(monkeypatch)
+
+    judgement = _attempt_with(repo, LOCAL_THEN_HOSTED, CONTRACT)
+
+    assert judgement.verdict is Verdict.PASSED, judgement.detail
+    assert judgement.assurance is Assurance.UNVERIFIED
+    assert "local" in judgement.detail, judgement.detail
+    assert typed == [] and prose == [], "a hosted rung was asked to review"
+
+
+def test_a_hosted_unit_named_as_the_verifier_still_reviews(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.verify import Reviewer, reviewers_for
+
+    monkeypatch.setenv("ZETA_TEST_KEY", "invented")
+    named = LOCAL_THEN_HOSTED + "verifier:\n  unit: hosted\n"
+    config = parse_config(named)
+    chosen = reviewers_for(config, source_map(config))("small")
+    assert isinstance(chosen, Reviewer)
+    assert chosen.model == "zeta-large"
+
+
+def test_init_warns_of_review_spend_only_for_a_named_hosted_reviewer() -> None:
+    from types import SimpleNamespace
+
+    from mcgyvr.initialize import ApiUnit, _limits
+
+    hosted = ApiUnit(
+        model="zeta-large",
+        address="https://api.example.invalid",
+        api_key_env="ZETA_TEST_KEY",
+    )
+    said = " ".join(
+        _limits(
+            SimpleNamespace(notes=(), docker=True),  # type: ignore[arg-type]
+            SimpleNamespace(notes=()),  # type: ignore[arg-type]
+            (hosted,),
+        )
+    )
+    assert "may be asked to review" not in said, said
+    assert "local" in said and "verifier.unit" in said, said
