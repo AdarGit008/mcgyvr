@@ -604,7 +604,7 @@ def worker_attempt(
     **``reviewers`` is the same seam, chosen per builder, and it is what
     ``mcgyvr run`` hands in.** :func:`~mcgyvr.verify.reviewers_for` names the
     reviewer of each rung's work — the bound ``verifier`` role, or the next
-    dearer rung with another model — or says why there is none, and that
+    dearer local rung with another model — or says why there is none, and that
     sentence reaches the judgement. Each reviewer is asked for a typed verdict
     first and in prose where it serves no probabilities, and the same typed
     seam is the gate's Jev rung (:class:`~mcgyvr.gate.jev.JevCheck`): its

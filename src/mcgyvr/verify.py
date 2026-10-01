@@ -42,17 +42,19 @@ approval.
 :class:`Reviewer` carries a typed seam, so the verdict is first asked as a
 single :class:`~mcgyvr.decision.Noul` read from next-token probabilities — no
 prose, no anchor, no substring to misread — and :func:`read_typed_verdict`
-reads it. A reviewer whose unit answers without probabilities, or refuses the
-request that asks for them, is asked in prose instead, through
-:func:`read_verdict`. A reviewer that could not be reached is not asked twice:
-that is a reviewer-side failure, whichever way it would have been asked.
+reads it. A reviewer whose unit answers without probabilities is asked in
+prose instead, through :func:`read_verdict`. A reviewer that could not be
+reached, or answered an HTTP error, is not asked twice: that is a
+reviewer-side failure, whichever way it would have been asked.
 
-**Who reviews.** ``verifier.unit`` names the reviewer outright. With no unit
-named, :func:`reviewer_rung` picks one per builder: the next rung of the climb
-dearer than the builder's whose model is not the builder's. Where there is none
-— the builder is the dearest rung, or every dearer rung serves the builder's
-model — there is no independent reviewer, and :class:`NoReviewer` says so in
-words :func:`~mcgyvr.escalate.judge` puts on the acceptance.
+**Who reviews.** ``verifier.unit`` names the reviewer outright, hosted or not.
+With no unit named, :func:`reviewer_rung` picks one per builder: the next local
+rung of the climb dearer than the builder's whose model is not the builder's.
+A hosted rung is never picked, because asking it costs money nobody chose to
+spend on review. Where there is none — the builder is the dearest rung, or
+every dearer local rung serves the builder's model — there is no independent
+reviewer, and :class:`NoReviewer` says so in words
+:func:`~mcgyvr.escalate.judge` puts on the acceptance.
 
 **A reviewer-side failure is never charged to the builder.** An unreadable
 reply, an unreachable backend, a review stopped at its output cap and a reviewer
@@ -120,6 +122,12 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: is spelled differently here than in :mod:`mcgyvr.pool` is a role that is
 #: silently never found.
 VERIFIER_ROLE = "verifier"
+
+#: The one family a reviewer is picked from when no unit is named: a rung
+#: whose unit declares no credential (:meth:`mcgyvr.catalog.Catalog.family_of`).
+#: A hosted rung costs money per request, so review spends it only where
+#: ``verifier.unit`` says to.
+LOCAL_FAMILY = "local"
 
 #: What a review is allowed to write. The protocol is one token and brief notes,
 #: so a large ceiling buys an essay nobody reads. A review that reaches it is
@@ -871,22 +879,24 @@ def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | 
     :func:`~mcgyvr.route.by_family` gives — whose model is not the builder's
     by :func:`model_identity`. A dearer rung serving the builder's model under
     another unit name or another spelling is passed over, because a review is
-    only worth the distance between the two models. Only usable rungs count;
-    ``None`` is the dearest rung, a rung the pool does not offer, or a ladder
-    above the builder that serves nothing but the builder's model.
+    only worth the distance between the two models. Only usable rungs count,
+    and only local ones: a hosted rung costs money to ask, so it reviews only
+    when ``verifier.unit`` names it. ``None`` is the dearest rung, a rung the
+    pool does not offer, or a ladder above the builder whose local rungs serve
+    nothing but the builder's model.
     """
     grouped = by_family(config, source_map)
     climb = [
-        rung
+        (family.name, rung)
         for family in sorted(grouped, key=lambda family: family.rank)
         for rung in grouped[family]
     ]
-    names = [rung.name for rung in climb]
+    names = [rung.name for _, rung in climb]
     if builder not in names:
         return None
-    built_with = climb[names.index(builder)].model
-    for rung in climb[names.index(builder) + 1 :]:
-        if independent(built_with, rung.model):
+    built_with = climb[names.index(builder)][1].model
+    for family, rung in climb[names.index(builder) + 1 :]:
+        if family == LOCAL_FAMILY and independent(built_with, rung.model):
             return rung.name
     return None
 
@@ -966,8 +976,9 @@ def _on_rung(
     offered = source_map.get(rung) if rung is not None else None
     if rung is None or offered is None:
         return NoReviewer(
-            f"no rung dearer than {builder!r} serves a model other than the "
-            f"builder's, so there is no independent reviewer"
+            f"no local rung dearer than {builder!r} serves a model other than "
+            f"the builder's, so there is no independent reviewer; a hosted "
+            f"rung reviews only when `verifier.unit` names it"
         )
 
     def ask(prompt: str) -> str:

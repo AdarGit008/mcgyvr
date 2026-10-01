@@ -595,9 +595,10 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
         "enabled",
         "bool",
         "Model verification of the applied diff, on top of the gate. On unless "
-        "set to `false`. With no `unit`, the reviewer is the next dearer rung "
-        "whose model is not the builder's; where there is none, the work is "
-        "accepted and labelled unverified.",
+        "set to `false`. With no `unit`, the reviewer is the next dearer local "
+        "rung whose model is not the builder's; where there is none, the work "
+        "is accepted and labelled unverified. A hosted unit reviews only when "
+        "`unit` names it.",
         default=True,
     ),
     *ROLE_UNIT_FIELDS,

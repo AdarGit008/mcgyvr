@@ -1619,9 +1619,10 @@ def _climb(
     # whose named verifier cannot serve is refused while refusing is still
     # free. `verifier.enabled` is acted on here — on unless the config says
     # `false` — and `reviewers_for` reads the rest once: the named
-    # `verifier.unit`, or, with none named, the next dearer rung with another
-    # model for each builder. A builder with no independent reviewer is not
-    # refused; its acceptance is labelled unverified and says so.
+    # `verifier.unit`, or, with none named, the next dearer local rung with
+    # another model for each builder (never a hosted one). A builder with no
+    # independent reviewer is not refused; its acceptance is labelled
+    # unverified and says so.
     try:
         reviewers = reviewers_for(config, pool, capacity=capacity)
     except SourceUnavailableError as exc:

@@ -563,7 +563,7 @@ def build(
         "fanout": "none",
         "orchestrator": {"unit": None, "model": None},
         # Written at its default — on — with no unit: the reviewer of each
-        # rung's work is then the next dearer rung serving another model.
+        # rung's work is then the next dearer local rung serving another model.
         "verifier": {
             **_defaults(VERIFIER_UNIT_FIELDS, "enabled"),
             "unit": None,
@@ -677,16 +677,17 @@ def _limits(
             f"Hosted units are bound and every dispatch to one spends money: "
             f"{named}. Each needs its variable exported — `mcgyvr pool` skips "
             f"a rung whose variable is unset and says so. Review is on and "
-            f"picks the next dearer rung with another model, so a hosted rung "
-            f"may be asked to review the rung below it; bind `verifier.unit`, "
-            f"or set `verifier.enabled: false`, to choose otherwise. "
+            f"picks the next dearer local rung with another model; a hosted "
+            f"unit never reviews on its own, and reviews — spending money on "
+            f"every review — only when `verifier.unit` names it. Work with no "
+            f"such local rung above it is accepted and labelled unverified. "
             f"`orchestrator` is still unbound."
         )
     else:
         limits.append(
             "No API provider is configured. This is a supported install: the "
             "deterministic gate is the acceptance bar, and each rung's work is "
-            "reviewed by the next dearer rung serving another model; work with "
+            "reviewed by the next dearer local rung serving another model; work with "
             "no such rung above it is accepted and labelled unverified. Bind "
             "`orchestrator` once you have a key."
         )
