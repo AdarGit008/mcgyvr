@@ -749,6 +749,11 @@
       "says": "How far a stated file size may sit from the scanned one and still be the same figure written to two decimals.",
       "reason": "a definition or arithmetic"
     },
+    "serving/__init__.py:Unit.resident_claim_gb": {
+      "kind": "fact",
+      "says": "A unit that is not the resident orchestrator reserves no card room, so co-residency is summed against the ordinary free figure.",
+      "reason": "a definition or arithmetic"
+    },
     "serving/__init__.py:VLLM_DEFAULT_SEQS": {
       "kind": "estimate",
       "says": "How many sequences a vLLM unit is started with when no width is written; the engine's cache decides how many actually run.",

@@ -1300,8 +1300,9 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
 
     # Output evidence kinds that name a contract parameter: the gate makes the
     # check, but the contract must say what to check against. The names live in
-    # gate/output.py — imported lazily because that package imports this one,
-    # so a top-level import would be circular.
+    # gate/output.py — imported lazily because the gate package's __init__
+    # imports gate.preflight, which imports this module, so a top-level import
+    # here would be circular.
     from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID
 
     evidence_names = {e.name for e in kind.required_evidence}

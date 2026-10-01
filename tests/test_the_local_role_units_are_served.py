@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from mcgyvr.config import parse
 from mcgyvr.scan import Scan
-from mcgyvr.serving import units_for
+from mcgyvr.serving import launch_specs, units_for
 
 HF_CACHE = "/home/someone/.cache/huggingface"
 THREE_B = "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
@@ -102,6 +102,33 @@ def test_the_orchestrator_units_width_is_the_user_count_when_unwritten() -> None
     assert widths[8002] == 4
 
 
+def test_a_written_width_on_the_orchestrator_wins_over_users() -> None:
+    fleet = """\
+users: 4
+units:
+  orch:
+    address: http://srv1:8002
+    model: small
+    rig: srv1
+    width: 2
+    window: 8192
+    launch:
+      vram_gb: 2.0
+      disk_gb: 2.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+ladder:
+- orch
+orchestrator:
+  unit: orch
+"""
+    widths = {
+        unit.port: unit.width.value
+        for unit in units_for(parse(fleet), SCANS, specs=(), ctx_per_slot=None)
+    }
+    assert widths[8002] == 2
+
+
 RESIDENT_RIG = {"srv1": rig("srv1", vram_mib=12288)}
 
 # A scalar (declared) working set, so the card claim is exactly the number
@@ -142,3 +169,12 @@ def test_the_orchestrator_is_sized_first_and_the_ladder_gets_what_is_left() -> N
     by_port = {unit.port: unit for unit in units}
     assert by_port[8080].fit.card_free_gb == 12.0
     assert by_port[8081].fit.card_free_gb == 6.0
+
+
+def test_the_orchestrator_and_its_ladder_co_reside_not_alternate() -> None:
+    """The orchestrator's claim is already inside the ladder's reduced figure,
+    so the two are one launch spec, never mutually-exclusive alternatives."""
+    units = units_for(parse(RESIDENT_FLEET), RESIDENT_RIG, specs=(), ctx_per_slot=None)
+    specs = launch_specs(units)
+    assert len(specs) == 1
+    assert {unit.port for unit in specs[0].units} == {8080, 8081}

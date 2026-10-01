@@ -466,6 +466,11 @@ class Unit:
     #: itself, and ``extra`` is the spec's ``serve_args``, appended verbatim.
     image: str | None = None
     extra: tuple[str, ...] = ()
+    #: The VRAM this unit reserves as a resident, in GiB. Set only on the
+    #: local orchestrator unit: its card figure is claimed before the ladder
+    #: is sized, so co-residency sums against the full card, not the reduced
+    #: figure the ladder recorded (:func:`_card_free_gb`).
+    resident_claim_gb: float = 0.0
 
     @property
     def weights_dir(self) -> Path:
@@ -1004,7 +1009,7 @@ def units_for(
             # One process, one slot count. Two units asking for different
             # widths get the larger.
             widths[key] = max(widths.get(key, 0), unit.width)
-        elif name == orchestrator_name:
+        elif name == orchestrator_name and _local(orchestrator_name):
             # The local orchestrator's slot count is the user count when
             # nobody wrote a width on the unit: one session per user.
             widths[key] = max(widths.get(key, 0), users)
@@ -1039,10 +1044,11 @@ def units_for(
         scan = hosts[key]
         if key.host in claimed:
             scan = _remaining_scan(scan, claimed[key.host])
-        unit = _build(key, rungs, scan)
-        built.append(unit)
+        built_unit = _build(key, rungs, scan)
         if key == orchestrator_key:
-            claimed[key.host] = unit.fit.vram_gb
+            claimed[key.host] = built_unit.fit.vram_gb
+            built_unit = replace(built_unit, resident_claim_gb=built_unit.fit.vram_gb)
+        built.append(built_unit)
     return tuple(built)
 
 
@@ -1085,9 +1091,18 @@ def _card_free_gb(units: Iterable[Unit]) -> float:
     units sized against two readings of one card are held to the tighter of
     them. That happens when a scan is retaken between two ``emit`` runs, and
     the tighter figure is the one that will still be true when both are up.
+
+    One exception: a resident orchestrator's claim is already *inside* the
+    reduced figure every ladder unit on its card recorded, so a set that
+    includes it is summed against the full card — the largest figure — rather
+    than the reduced remainder.
     """
     figures = [unit.fit.card_free_gb for unit in units if unit.fit.card_free_gb > 0]
-    return min(figures) if figures else 0.0
+    if not figures:
+        return 0.0
+    if any(unit.resident_claim_gb > 0 for unit in units):
+        return max(figures)
+    return min(figures)
 
 
 def _co_resident(chosen: tuple[Unit, ...], candidate: Unit) -> bool:
@@ -1827,9 +1842,16 @@ def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
     gpus = list(scan.gpus)
     index = max(range(len(gpus)), key=lambda i: gpus[i].vram.free_mib)
     gpu = gpus[index]
+    taken = min(claim_mib, gpu.vram.free_mib)
+    # The four numbers close on every scan (`total == used + free + reserved`),
+    # so the claim moves from ``free`` to ``used`` rather than vanishing.
     gpus[index] = replace(
         gpu,
-        vram=replace(gpu.vram, free_mib=max(gpu.vram.free_mib - claim_mib, 0)),
+        vram=replace(
+            gpu.vram,
+            used_mib=gpu.vram.used_mib + taken,
+            free_mib=gpu.vram.free_mib - taken,
+        ),
     )
     return replace(scan, gpus=tuple(gpus))
 

@@ -11,8 +11,11 @@ validators on (gate seam 3, P1 generalize-the-core).
 the output file's own header and answers whether the bytes are a file of the
 declared media kind. A worker cannot fake a header, and a wrong-kind or empty
 output is refused by name. The other three name validators that land with P2;
-their check names are pinned here so a contract declaring one never reads as
-clean while no bar was applied.
+their check names are pinned here so a contract declaring one is never
+silently treated as if the bar ran: until P2, each raises and is recorded as
+an environment issue — a legible hole the gate names and still accepts. P2
+must make a *missing* validator inconclusive (a rejection), never a skipped
+issue that accepts.
 """
 
 from __future__ import annotations
@@ -74,23 +77,25 @@ _PREFIXES: dict[str, tuple[bytes, ...]] = {
 _MP4_FTYP = b"ftyp"
 
 
-def media_valid(path: Path, kind: str) -> list[Finding]:
+def media_valid(path: Path, kind: str, label: str = "") -> list[Finding]:
     """One finding unless ``path`` holds a valid file of the declared ``kind``.
 
     ``kind`` is one of :data:`MEDIA_KINDS`, validated by the contract schema
     before it reaches here; an unknown kind is still refused rather than
     guessed at, because a check that judges a kind it does not know is one that
-    reports clean over no bar.
+    reports clean over no bar. ``label`` is the repo-relative name the finding
+    quotes — never the sandbox path the bytes were read from.
     """
     if kind not in MEDIA_KINDS:
         raise ValueError(f"media_valid: unknown media kind {kind!r}")
+    name = label or str(path)
     try:
         data = path.read_bytes()
     except OSError:
         return [
             Finding(
                 check=MEDIA_VALID,
-                path=str(path),
+                path=name,
                 code="unreadable",
                 message=(
                     f"the output could not be read, so it cannot be judged a "
@@ -102,7 +107,7 @@ def media_valid(path: Path, kind: str) -> list[Finding]:
         return [
             Finding(
                 check=MEDIA_VALID,
-                path=str(path),
+                path=name,
                 code="empty",
                 message=f"the output is empty and is not a valid {kind}",
             )
@@ -112,7 +117,7 @@ def media_valid(path: Path, kind: str) -> list[Finding]:
     return [
         Finding(
             check=MEDIA_VALID,
-            path=str(path),
+            path=name,
             code=f"not-{kind}",
             message=(
                 f"the output is not a valid {kind}: its header does not match "
@@ -125,7 +130,11 @@ def media_valid(path: Path, kind: str) -> list[Finding]:
 def _is_kind(data: bytes, kind: str) -> bool:
     """Whether ``data`` opens like a file of ``kind``, header only."""
     if kind == MEDIA_VIDEO and len(data) >= 8 and data[4:8] == _MP4_FTYP:
-        return True
+        box_size = int.from_bytes(data[:4], "big")
+        # ``ftyp`` four bytes in is only a video when the box size in front of
+        # it is a real size: 0 (to EOF) or 1 (the 64-bit extension), or one
+        # that fits the file. Arbitrary bytes before ``ftyp`` are refused.
+        return box_size in (0, 1) or 8 <= box_size <= len(data)
     if data[:4] == b"RIFF" and len(data) >= 12 and _RIFF_FORMS.get(data[8:12]) == kind:
         return True
     return any(data.startswith(prefix) for prefix in _PREFIXES[kind])
@@ -139,9 +148,10 @@ def safety_pass() -> list[Finding]:
 
     A safety check that reported clean while no classifier ran would be the one
     failure a gate must not have, so this raises rather than returning no
-    findings. P2 lands the classifier and its input (the output artifact); a
-    *missing* classifier must then read as inconclusive — a rejection — never
-    as a skipped environment issue that accepts.
+    findings. Until P2 lands the classifier and its input (the output
+    artifact), the raise is recorded as an environment issue: a legible hole
+    the gate names and still accepts. P2 must make a *missing* classifier
+    inconclusive — a rejection — never a skipped issue that accepts.
     """
     raise ToolUnavailableError("safety-classifier")
 
@@ -227,7 +237,9 @@ class OutputChecks:
 def _run_one(name: str, checks: OutputChecks) -> list[Finding]:
     """Dispatch one declared evidence kind to its check function."""
     if name == MEDIA_VALID:
-        return media_valid(checks.workspace / checks.target, checks.media_kind)
+        return media_valid(
+            checks.workspace / checks.target, checks.media_kind, checks.target
+        )
     if name == SAFETY_PASS:
         return safety_pass()
     if name == ASR_WER:

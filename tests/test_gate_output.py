@@ -42,7 +42,7 @@ MP3_FRAME = b"\xff\xfb\x90\x64" + b"\x00" * 16
 FLAC = b"fLaC" + b"\x00" * 16
 OGG = b"OggS" + b"\x00" * 16
 
-MP4 = b"\x00\x00\x00\x18" + b"ftyp" + b"mp42" + b"\x00" * 8
+MP4 = b"\x00\x00\x00\x14" + b"ftyp" + b"mp42" + b"\x00" * 8
 WEBM = b"\x1a\x45\xdf\xa3" + b"\x00" * 16
 AVI = b"RIFF" + b"\x00\x00\x00\x00" + b"AVI " + b"\x00" * 8
 
