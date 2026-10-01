@@ -38,11 +38,14 @@ import json
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-from mcgyvr.pool import Endpoint
+from mcgyvr.pool import Endpoint, SourceMap
 from mcgyvr.runner import _post_json, _url_for
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.capacity import Capacity
 
 #: Single-token labels for a choice, most common first. 26 upper-case letters,
 #: then 26 lower-case, then 10 digits — 62 labels, the most one token can carry
@@ -323,3 +326,38 @@ def classify(
         document = _post_json(url, payload, headers, timeout_s)
         answers[name] = answer_for(question, _top_logprobs(document))
     return Decision(answers=answers)
+
+
+def classify_role(
+    source_map: SourceMap,
+    role: str,
+    state: Any,
+    questions: Mapping[str, Question],
+    *,
+    capacity: Capacity | None = None,
+    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+) -> Decision | None:
+    """Answer ``questions`` on the model a non-ladder ``role`` binds, or ``None``.
+
+    :func:`classify` takes an :class:`~mcgyvr.pool.Endpoint`; this is the same
+    seam crossing :func:`~mcgyvr.runner.dispatch_role` performs for a
+    generation, done here for a decision. ``None`` mirrors
+    :meth:`~mcgyvr.pool.SourceMap.role`: a role with no binding is an ordinary
+    answer, not a failure, and a role declared but unusable still raises.
+
+    ``capacity`` bounds the decision the way a dispatch is bounded — the role
+    is the same machine as the ladder, and holding its source's slot for the
+    length of the decision is what keeps a batch of classifications from
+    describing a different machine than the one under load.
+    """
+    binding = source_map.role(role)
+    if binding is None:
+        return None
+    if capacity is None:
+        return classify(
+            binding.endpoint, binding.model, state, questions, timeout_s=timeout_s
+        )
+    with capacity.hold(binding.endpoint):
+        return classify(
+            binding.endpoint, binding.model, state, questions, timeout_s=timeout_s
+        )
