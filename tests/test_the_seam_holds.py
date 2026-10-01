@@ -186,6 +186,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.context",
     "mcgyvr.orchestrator.decompose",
     "mcgyvr.orchestrator.index",
+    "mcgyvr.orchestrator.local",
     "mcgyvr.orchestrator.read",
     "mcgyvr.orchestrator.repo",
     "mcgyvr.orchestrator.resolve",
