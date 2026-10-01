@@ -73,8 +73,8 @@ CAV-01 and CAV-02 are both consequences of not doing so.
 
 `task-catalog.json` is the vocabulary of what mcgyvr can be asked to do (#15).
 Each entry states what accepting it promises (`guarantee`), which family of the
-ladder it may start on (`starts_on`), and what evidence a contract of that type
-must carry (`required_evidence`).
+ladder it may start on (`starts_on`), which use case it belongs to (`use_case`),
+and what evidence a contract of that type must carry (`required_evidence`).
 
 It is data, not code, for a reason with teeth: adding a task type must be an
 edit to this file and nothing else. `tests/test_catalog.py` proves that by

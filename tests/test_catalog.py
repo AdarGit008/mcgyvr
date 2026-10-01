@@ -78,6 +78,21 @@ def test_every_entry_states_where_it_starts(shipped: Catalog) -> None:
         assert kind.starts_on.name in families
 
 
+def test_every_entry_states_its_use_case(shipped: Catalog) -> None:
+    use_cases = {u.name for u in shipped.use_cases}
+    for kind in shipped.task_types:
+        assert kind.use_case.name in use_cases, f"{kind.name} names no use case"
+
+
+def test_the_use_case_vocabulary_is_the_approved_four(shipped: Catalog) -> None:
+    assert {u.name for u in shipped.use_cases} == {
+        "coding",
+        "chat",
+        "agent",
+        "media-gen",
+    }
+
+
 def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
     for kind in shipped.task_types:
         assert kind.required_evidence, f"{kind.name} requires no evidence"
@@ -182,6 +197,7 @@ def test_a_new_task_type_needs_no_code_change(
         {
             "name": "sql_migration",
             "starts_on": "api",
+            "use_case": "coding",
             "guarantee": "A migration is written and the schema check passes.",
             "required_evidence": ["gate", "tests_pass"],
             "warrant": "invented by a test",
@@ -350,6 +366,26 @@ def test_an_undeclared_starting_family_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "c.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(CatalogError, match="not a declared family"):
+        load(path)
+
+
+def test_an_undeclared_use_case_is_rejected(tmp_path: Path) -> None:
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["task_types"][0]["use_case"] = "teleportation"
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="not a declared use case"):
+        load(path)
+
+
+def test_a_missing_use_case_is_rejected(tmp_path: Path) -> None:
+    """A type that names no use case is incomplete, not defaulted."""
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["task_types"][0]["use_case"] = "coding"
+    raw["task_types"][0].pop("use_case")
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="use_case"):
         load(path)
 
 
