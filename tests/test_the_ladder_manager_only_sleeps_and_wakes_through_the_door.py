@@ -433,6 +433,35 @@ def test_manage_names_the_rungs_it_manages_in_one_header_line(
         assert rung in header, header
 
 
+def test_a_second_manage_on_one_host_is_refused_and_throws_nothing(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Two managers would each sleep what the other just woke."""
+    import mcgyvr.ladder_manager as ladder_manager
+    import mcgyvr.pressure as pressure
+    from mcgyvr.exits import Exit
+
+    reached = refuse_everything(monkeypatch)
+    config = config_on_disk(tmp_path, ladder_text(write_spec(tmp_path)))
+
+    def no_reading(*args: Any) -> Any:
+        raise AssertionError("a refused manager read a rung")
+
+    monkeypatch.setattr(pressure, "probe_endpoint", no_reading)
+
+    with pressure.exclusive(ladder_manager.MANAGER_LOCK) as held:
+        assert held is True
+        code = lj.main(["manage", "--config", str(config), "--once"])
+
+    captured = capsys.readouterr()
+    assert code == Exit.REFUSED, captured.out
+    assert "another" in captured.err and "mcgyvr manage" in captured.err, captured.err
+    assert reached == []
+
+
 def test_manage_is_listed_beside_serve_in_the_help(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

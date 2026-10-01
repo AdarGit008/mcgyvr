@@ -328,6 +328,61 @@ def test_holders_on_many_threads_are_each_counted(tmp_path: Path) -> None:
     assert gauge.count("busy") == 0
 
 
+def test_a_name_is_held_by_one_holder_at_a_time_and_freed_on_leaving(
+    tmp_path: Path,
+) -> None:
+    """Two managers of one ladder would each throw switches on the same card."""
+    where = tmp_path / "gauge"
+    with (
+        pressure.exclusive("manager", where) as first,
+        pressure.exclusive("manager", where) as second,
+    ):
+        assert first is True
+        assert second is False, "a second holder is refused while the first holds"
+    with pressure.exclusive("manager", where) as again:
+        assert again is True, "leaving gives the name back"
+
+
+def test_a_name_held_by_a_killed_process_is_free(tmp_path: Path) -> None:
+    """The lock is the kernel's, so a manager that died holds nothing."""
+    where = tmp_path / "gauge"
+    child = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "from pathlib import Path\n"
+            "from mcgyvr.pressure import exclusive\n"
+            "with exclusive('manager', Path(sys.argv[1])) as held:\n"
+            "    print(held, flush=True)\n"
+            "    sys.stdin.read()\n",
+            str(where),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert child.stdout is not None
+    assert child.stdout.readline().strip() == "True"
+    with pressure.exclusive("manager", where) as held:
+        assert held is False
+    os.kill(child.pid, signal.SIGKILL)
+    child.wait(timeout=30)
+    with pressure.exclusive("manager", where) as held:
+        assert held is True
+
+
+def test_a_name_in_a_directory_that_is_not_ours_cannot_be_held(
+    tmp_path: Path,
+) -> None:
+    where = tmp_path / "gauge"
+    where.mkdir()
+    where.chmod(0o777)
+    with pressure.exclusive("manager", where) as held:
+        assert held is None, "no lock, which is not the same as nobody holding it"
+    assert list(where.iterdir()) == []
+
+
 def test_the_climbed_key_is_per_rung_and_is_not_a_waiting_key() -> None:
     assert climbed_key(FAST) != climbed_key(SMART)
     assert climbed_key(FAST) == climbed_key(FAST)
