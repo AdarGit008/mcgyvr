@@ -569,7 +569,29 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "declaring `mtp` is refused: its speculative decoding is \
 "
-        "`--speculative-config`, a different mechanism.",
+        "`--speculative-config`, a different mechanism. Keys that split a \
+"
+        "unit across cards, of one machine or several: `shards`, a list of \
+"
+        "`{rig, gpu}` (with `bind`, the IPv4 address a worker on another \
+"
+        "machine listens on, and `room_mib`, that card's room for the lock), \
+"
+        "the first on the machine the address names; `split` (`layer` | \
+"
+        "`row`, llama.cpp); `tensor_parallel` and `pipeline_parallel` \
+"
+        "(vLLM); `rpc_port` and `master_port`, the first port of llama.cpp's \
+"
+        "workers and vLLM's rendezvous port, each the engine's own default \
+"
+        "when absent; and `tensor_table_json`, a vLLM unit's `python -m \
+"
+        "mcgyvr.serving.safetensorscan` row. Each card is sized from the \
+"
+        "tensor table; what crossing between cards costs is an estimate by \
+"
+        "link class until your own reading or setting replaces it.",
         bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe, "
         "speculative",
     ),

@@ -81,7 +81,7 @@ def scan(path):
             for d in dims: n*=d
             if tt not in T: return {"file":path,"error":f"unknown ggml type {tt} in {name}"}
             be,bb=T[tt]
-            tensors.append((name,n,tt,n//be*bb))
+            tensors.append((name,n,tt,n//be*bb,nd))
     tot=sum(t[3] for t in tensors)
     # expert tensors: ffn_*_exps  |  shared/dense ffn and attention = the rest
     exp=[t for t in tensors if "_exps" in t[0]]
@@ -138,6 +138,34 @@ def scan(path):
     # subtraction says 46 and doubles the state buffer.
     recurrent=sorted({int(x.split(".")[1]) for x in (t[0] for t in tensors)
                       if x.startswith("blk.") and ".ssm_" in x})
+
+    # Bytes by BLOCK -- every tensor of the block, not only its experts -- for
+    # placing whole blocks on cards. A split across cards moves blocks, never
+    # an average of them: llama.cpp's layer split hands each card a run of
+    # blocks, and a pipeline stage holds its run of blocks entire. Of each
+    # block the tensors of two or more dimensions are counted again apart,
+    # because they are what a row or tensor split divides between cards; a
+    # one-dimensional norm or bias is held whole by every card running it.
+    #
+    # The tensors outside every block are kept apart by what holds them.
+    # `token_embd` is the input: llama.cpp's load_tensors keeps the input
+    # layer on the CPU on every split, and a pipeline gives it to its first
+    # stage. Everything else outside a block -- the output head, the final
+    # norm -- goes with the output layer. The three parts sum to
+    # bytes_total_tensors exactly.
+    by_block={}; matrix_by_block={}
+    b_input=0; b_output=0; b_output_matrix=0
+    for t in tensors:
+        parts=t[0].split(".")
+        if parts[0]=="blk" and len(parts)>1 and parts[1].isdigit():
+            b=int(parts[1])
+            by_block[b]=by_block.get(b,0)+t[3]
+            matrix_by_block[b]=matrix_by_block.get(b,0)+(t[3] if t[4]>=2 else 0)
+        elif parts[0]=="token_embd":
+            b_input+=t[3]
+        else:
+            b_output+=t[3]
+            if t[4]>=2: b_output_matrix+=t[3]
 
     types={}
     for t in tensors: types[NAME.get(t[2],t[2])]=types.get(NAME.get(t[2],t[2]),0)+t[3]
@@ -236,7 +264,10 @@ def scan(path):
         v=(vl_swa if (swa and vl_swa) else vl) or 0
         kv_layers.append({"layer":l,"is_swa":swa,
                           "k_elems":int(h)*int(k),
-                          "v_elems":0 if mla_absorbed else int(h)*int(v)})
+                          "v_elems":0 if mla_absorbed else int(h)*int(v),
+                          # The heads behind the widths: a tensor split
+                          # divides a layer's cache by head, never by byte.
+                          "heads":int(h)})
     caching=len(kv_layers)
 
     # Recurrent state parameters. bailingmoe3 states none of the `ssm.*` size
@@ -282,6 +313,12 @@ def scan(path):
       "n_recurrent": len(recurrent),
       "n_placeable": len(placeable),
       "expert_bytes_by_block": {str(b): per_block[b] for b in blocks},
+      "bytes_by_block": {str(b): by_block[b] for b in sorted(by_block)},
+      "bytes_matrix_by_block": {str(b): matrix_by_block[b] for b in sorted(by_block)},
+      "bytes_input": b_input,
+      "bytes_output": b_output,
+      "bytes_output_matrix": b_output_matrix,
+      "n_head": n_head,
       "caching_layers": caching,
       "caching_layers_from": caching_from,
       "kv_layers": kv_layers,

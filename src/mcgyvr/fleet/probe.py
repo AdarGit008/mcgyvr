@@ -35,6 +35,15 @@ before is not probed. A unit busy after — or whose count cannot be read after 
 took work during the probe: its figures are filed as ``contended`` and not
 judged.
 
+**A unit that spans rigs is measured once, at its head.** It holds a slot on
+every rig it spans, but one process answers at one address: the head's. So it is
+probed, filed and judged once, against the head rig's lock record, and never once
+per rig. Every rig it spans is still read through the door, workers included.
+Given a ``link_reader``, each distinct (head, worker) pair of an awake spanning
+unit has its link read as well
+(:func:`mcgyvr.serving.interconnect.read_link`), and what that recorded is
+:attr:`Report.links`.
+
 **Card memory and restarts are read through the door.** Both are rig reads,
 and a rig is reached only behind the door (``tests/test_one_door.py``). Given a
 ``reader`` — ``mcgyvr fleet probe`` passes :func:`mcgyvr.fleet.read.spawn_read`
@@ -88,6 +97,7 @@ from mcgyvr.fleet.roots import (
     live_fleet,
     live_fleet_dir,
 )
+from mcgyvr.fleet.spans import SpanError, spans
 from mcgyvr.fleet.tolerance import CLASS_VLLM, tolerance_class
 
 #: Where the probe files, under the config's ``journal.dir``.
@@ -136,11 +146,16 @@ class Report:
     off_the_rig: dict[str, tuple[tuple[str, ...], str]] = field(default_factory=dict)
     #: the alerts the judge raised.
     alerts: list[dict[str, Any]] = field(default_factory=list)
+    #: ``"head -> worker"`` -> what the read of that link says, for each pair a
+    #: spanning unit joins.
+    links: dict[str, str] = field(default_factory=dict)
+    #: ``"head -> worker"`` -> why that link could not be read.
+    links_failed: dict[str, str] = field(default_factory=dict)
 
     @property
     def exit_code(self) -> int:
-        """1 when any unit's probe could not run, else 0."""
-        return 1 if self.failed else 0
+        """1 when any unit's, or any link's, probe could not run, else 0."""
+        return 1 if self.failed or self.links_failed else 0
 
 
 def journal_dir(folder: Path | None) -> Path:
@@ -243,6 +258,11 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
     return layout, folder, fleet
 
 
+#: Times transfers between two hosts: ``(host_a, host_b) -> [(bytes, seconds)]``
+#: (:data:`mcgyvr.serving.interconnect.LinkReader`).
+LinkReader = Callable[[str, str], Sequence[tuple[int, float]]]
+#: What a link read says it was taken by, kept with the reading.
+LINK_HOW = "mcgyvr fleet probe"
 #: A read of one rig through the door: ``(rig, run id, units to probe) -> exit``.
 Reader = Callable[[str, str, Sequence[str]], int]
 #: Why a rig's figures are not read when its read through the door filed none.
@@ -255,11 +275,17 @@ def _read_rigs(
     reader: Reader | None,
     fleet: Mapping[str, Any],
     awake: Sequence[tuple[str, str]],
+    measured: Sequence[tuple[str, str]],
     run_id: str,
     journal: Path,
     report: Report,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
-    """Each rig's read through the door, filed under ``run_id``, and why not."""
+    """Each rig's read through the door, filed under ``run_id``, and why not.
+
+    Every rig ``awake`` holds a slot on is read, a spanning unit's workers
+    included; a vLLM unit is measured on the rig only where it is ``measured``,
+    which for a spanning unit is its head.
+    """
     filed: dict[str, dict[str, Any]] = {}
     unread: dict[str, str] = {}
     if reader is None:
@@ -269,7 +295,7 @@ def _read_rigs(
     for rig in sorted({rig for rig, _ in awake}):
         on_the_rig = [
             unit
-            for where, unit in awake
+            for where, unit in measured
             if where == rig and tolerance_class(fleet["units"][unit]) == CLASS_VLLM
         ]
         code = reader(rig, run_id, on_the_rig)
@@ -297,6 +323,47 @@ def _from_the_rig(report: Report, unit: str, row: Mapping[str, Any]) -> None:
         report.failed[unit] = str(failed)
 
 
+def _read_links(
+    link_reader: LinkReader,
+    spanning: Mapping[str, Any],
+    measured: Sequence[tuple[str, str]],
+    moment: datetime,
+    report: Report,
+) -> None:
+    """Read each (head, worker) link an awake spanning unit joins, once.
+
+    Several units joining the same two rigs share one link, so a pair is read
+    once. :mod:`mcgyvr.serving.interconnect` is imported here, not at the top:
+    only a probe asked to read links needs it. A link that cannot be read is
+    named in :attr:`Report.links_failed` and fails the probe, like a unit.
+    """
+    from mcgyvr.serving import interconnect
+
+    refused = (ValueError, OSError, interconnect.InterconnectError)
+    pairs = sorted(
+        {
+            (spanning[unit].head, worker)
+            for _, unit in measured
+            if unit in spanning
+            for worker in spanning[unit].workers
+        }
+    )
+    for head, worker in pairs:
+        key = f"{head} -> {worker}"
+        try:
+            link = interconnect.read_link(
+                head,
+                worker,
+                link_reader,
+                how=LINK_HOW,
+                at=f"{moment:%Y-%m-%dT%H:%M:%S}",
+            )
+        except refused as exc:
+            report.links_failed[key] = str(exc)
+            continue
+        report.links[key] = str(link.says())
+
+
 def run(
     *,
     transport: Transport | None = None,
@@ -305,13 +372,16 @@ def run(
     units: Sequence[str] | None = None,
     now: datetime | None = None,
     reader: Reader | None = None,
+    link_reader: LinkReader | None = None,
 ) -> Report:
     """Probe the live fleet's awake units, file every figure, judge the solo ones.
 
     Raises :class:`ProbeError` when nothing can be probed at all (no live
     fleet, an unreadable folder, a unit named that is not awake in it); a unit
     whose own probe cannot run is in :attr:`Report.failed`. With ``reader``,
-    every rig is read through the door first (module docstring).
+    every rig is read through the door first (module docstring). With
+    ``link_reader``, the link of each (head, worker) pair of an awake spanning
+    unit is read and kept.
     """
     name, folder, fleet = _live(units)
     transport = transport if transport is not None else HttpTransport()
@@ -335,6 +405,16 @@ def run(
         if unknown:
             raise ProbeError(f"not an awake unit of {name}: {', '.join(unknown)}")
         awake = [(rig, unit) for rig, unit in awake if unit in units]
+    try:
+        spanning = spans(fleet)
+    except SpanError as exc:
+        raise ProbeError(str(exc)) from exc
+    # A unit that spans rigs answers at its head, so only the head is measured.
+    measured = [
+        (rig, unit)
+        for rig, unit in awake
+        if unit not in spanning or spanning[unit].head == rig
+    ]
 
     moment = now if now is not None else datetime.now(UTC)
     started = clock()
@@ -344,9 +424,9 @@ def run(
     journal = journal_dir(folder)
     profile = str(fleet.get("profile", "live"))
     report = Report()
-    filed, unread = _read_rigs(reader, fleet, awake, run_id, journal, report)
+    filed, unread = _read_rigs(reader, fleet, awake, measured, run_id, journal, report)
 
-    for rig, unit_name in awake:
+    for rig, unit_name in measured:
         unit = fleet["units"][unit_name]
         row = filed.get(rig)
         if row is None:
@@ -444,4 +524,6 @@ def run(
                 lease_id=lease_id,
             )
         )
+    if link_reader is not None:
+        _read_links(link_reader, spanning, measured, moment, report)
     return report
