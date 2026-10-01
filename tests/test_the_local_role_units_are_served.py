@@ -100,3 +100,45 @@ def test_the_orchestrator_units_width_is_the_user_count_when_unwritten() -> None
         for unit in units_for(parse(FLEET), SCANS, specs=(), ctx_per_slot=None)
     }
     assert widths[8002] == 4
+
+
+RESIDENT_RIG = {"srv1": rig("srv1", vram_mib=12288)}
+
+# A scalar (declared) working set, so the card claim is exactly the number
+# written: the orchestrator claims 6 GB, the ladder 2 GB, on a 12 GB card.
+RESIDENT_FLEET = """\
+users: 2
+units:
+  orchestrator:
+    address: http://srv1:8080
+    model: heavy
+    rig: srv1
+    window: 8192
+    launch:
+      vram_gb: 6.0
+      disk_gb: 12.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+  cheap:
+    address: http://srv1:8081
+    model: small
+    rig: srv1
+    window: 4096
+    launch:
+      vram_gb: 2.0
+      disk_gb: 2.0
+      kv_cache_dtype_k: f16
+      kv_cache_dtype_v: f16
+ladder:
+- cheap
+orchestrator:
+  unit: orchestrator
+"""
+
+
+def test_the_orchestrator_is_sized_first_and_the_ladder_gets_what_is_left() -> None:
+    """Resident first: the orchestrator sees the whole card; the ladder the rest."""
+    units = units_for(parse(RESIDENT_FLEET), RESIDENT_RIG, specs=(), ctx_per_slot=None)
+    by_port = {unit.port: unit for unit in units}
+    assert by_port[8080].fit.card_free_gb == 12.0
+    assert by_port[8081].fit.card_free_gb == 6.0

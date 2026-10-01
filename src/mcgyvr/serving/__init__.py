@@ -962,6 +962,7 @@ def units_for(
     if verifier_name and _local(verifier_name) and verifier_name not in served:
         role_extra.append(verifier_name)
 
+    orchestrator_key: UnitKey | None = None
     for name in (*served, *role_extra):
         unit = config.units.get(name)
         if unit is None:
@@ -991,6 +992,8 @@ def units_for(
             engine=unit.engine or DEFAULT_ENGINE,
             port=port_of(unit.address),
         )
+        if name == orchestrator_name:
+            orchestrator_key = key
         grouped.setdefault(key, []).append(name)
         if unit.window is not None:
             windows.setdefault(key, {}).setdefault(unit.window, []).append(name)
@@ -1006,11 +1009,11 @@ def units_for(
             # nobody wrote a width on the unit: one session per user.
             widths[key] = max(widths.get(key, 0), users)
 
-    units = tuple(
-        replace(
+    def _build(key: UnitKey, rungs: list[str], scan: Scan) -> Unit:
+        return replace(
             _with_rungs(
                 unit_for(
-                    hosts[key],
+                    scan,
                     models[key],
                     engine=key.engine,
                     width=widths.get(key),
@@ -1021,9 +1024,26 @@ def units_for(
             ),
             image=images[key],
         )
-        for key, rungs in grouped.items()
-    )
-    return units
+
+    if orchestrator_key is None:
+        return tuple(_build(key, rungs, hosts[key]) for key, rungs in grouped.items())
+
+    # Resident first: the orchestrator's process claims the card before the
+    # ladder and the verifier are sized against what is left. The claim is the
+    # card figure the fit just produced, so the same law sized both.
+    ordered = list(grouped.items())
+    ordered.sort(key=lambda pair: pair[0] != orchestrator_key)
+    built: list[Unit] = []
+    claimed: dict[str, float] = {}
+    for key, rungs in ordered:
+        scan = hosts[key]
+        if key.host in claimed:
+            scan = _remaining_scan(scan, claimed[key.host])
+        unit = _build(key, rungs, scan)
+        built.append(unit)
+        if key == orchestrator_key:
+            claimed[key.host] = unit.fit.vram_gb
+    return tuple(built)
 
 
 def alternate(one: Unit, other: Unit) -> bool:
@@ -1791,6 +1811,27 @@ def _free_vram_bytes(scan: Scan) -> int:
     if not scan.gpus:
         return 0
     return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
+
+
+def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
+    """``scan`` with the roomiest card's free VRAM reduced by ``claim_gb``.
+
+    The orchestrator's process claims the card first (resident), so the ladder
+    and the verifier on its host are sized against what is left: the free VRAM
+    minus the orchestrator's card figure. ``claim_gb`` is that figure,
+    :attr:`Fit.vram_gb` in GiB as the same law produced it.
+    """
+    if claim_gb <= 0 or not scan.gpus:
+        return scan
+    claim_mib = int(claim_gb * 1024)
+    gpus = list(scan.gpus)
+    index = max(range(len(gpus)), key=lambda i: gpus[i].vram.free_mib)
+    gpu = gpus[index]
+    gpus[index] = replace(
+        gpu,
+        vram=replace(gpu.vram, free_mib=max(gpu.vram.free_mib - claim_mib, 0)),
+    )
+    return replace(scan, gpus=tuple(gpus))
 
 
 def _allowance_gb(spec: ModelSpec) -> float:
