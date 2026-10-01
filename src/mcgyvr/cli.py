@@ -553,6 +553,7 @@ def _init(args: argparse.Namespace) -> int:
             force=args.force,
             hosts=tuple(args.host or ()),
             api_units=api_units,
+            profile=args.profile,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -3396,6 +3397,17 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "--force",
         action="store_true",
         help="overwrite an existing config, discarding hand edits",
+    )
+    ini.add_argument(
+        "--profile",
+        default=None,
+        metavar="PROFILE",
+        help=(
+            "compose the ladder for this usage profile (e.g. 'throughput', "
+            "'quality', or 'cost') instead of writing the default ladder. The "
+            "decision runs on the first detected backend; every number in the "
+            "file stays measured or the schema's, never the model's"
+        ),
     )
     ini.set_defaults(func=_init)
 
