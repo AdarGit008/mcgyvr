@@ -32,6 +32,7 @@ from mcgyvr.triage import (
     floor_for,
     read_triage,
     triage,
+    triage_for,
 )
 
 LOCAL = Endpoint(
@@ -213,6 +214,90 @@ def test_a_triage_refuses_an_answer_that_is_not_the_typed_shape() -> None:
 class Sent:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
+
+
+def test_triage_for_returns_none_without_a_role() -> None:
+    _, pool = mapped(TWO_FAMILIES)
+
+    assert triage_for(pool, "orchestrator") is None
+
+
+def test_triage_for_dispatches_through_classify_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``triage_for`` crosses the seam through ``classify_role`` like every
+    other typed role: the endpoint stays below, only the decision returns."""
+    import mcgyvr.triage as triage_module
+
+    config = parse(
+        TWO_FAMILIES
+        + """
+orchestrator:
+  unit: local_qwen
+  model: qwen2.5-coder:7b
+"""
+    )
+    pool = source_map(config)
+
+    def fake_classify_role(
+        source_map: Any,
+        role: str,
+        state: Any,
+        questions: Any,
+        *,
+        capacity: Any = None,
+        timeout_s: Any = None,
+    ) -> Decision:
+        return answered("bug_fix", 2.0)
+
+    monkeypatch.setattr(triage_module, "classify_role", fake_classify_role)
+
+    triage_state = triage_for(pool, "orchestrator")
+    assert triage_state is not None
+    result = triage_state({"task": "fix the pager"})
+    assert result.task_type.name == "bug_fix"
+    assert result.floor.name == "api"
+
+
+def test_the_floor_hint_is_opt_in_and_degrades_when_unanswerable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The triage floor rides ``orchestrator.typed``: off by default, and a
+    triage that cannot answer falls back to the normal climb."""
+    import mcgyvr.cli as cli_module
+    import mcgyvr.triage as triage_module
+
+    known = catalog()
+
+    # Off by default: the flag is unset, so no hint is asked for.
+    config, pool = mapped(TWO_FAMILIES)
+    assert cli_module._triage_floor(config, pool, contract()) is None
+
+    # Opted in and answerable: the triage's floor is the hint.
+    config = parse(
+        TWO_FAMILIES
+        + """
+orchestrator:
+  unit: local_qwen
+  model: qwen2.5-coder:7b
+  typed: true
+"""
+    )
+    pool = source_map(config)
+
+    def fake_triage_for(
+        source_map: Any,
+        role: str,
+        *,
+        catalog: Any = None,
+        timeout_s: Any = None,
+    ) -> Any:
+        return lambda state: Triage(
+            task_type=known.require("bug_fix"), floor=known.families[-1]
+        )
+
+    monkeypatch.setattr(triage_module, "triage_for", fake_triage_for)
+    assert cli_module._triage_floor(config, pool, contract()) == known.families[-1]
 
 
 def test_triage_sends_one_logprobs_request_per_question(

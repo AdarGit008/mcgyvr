@@ -90,12 +90,14 @@ INIT_DEFAULT_HELP = (
 SETUP_DOC = "skills/mcgyvr/SETUP.md"
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.catalog import Family
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.orchestrator.decompose import Decomposition
+    from mcgyvr.pool import SourceMap
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
@@ -831,7 +833,11 @@ def _delegate(args: argparse.Namespace) -> int:
     """
 
     from mcgyvr.config import ConfigError, ConfigMissingError, named_config_path
-    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError, proposer_for
+    from mcgyvr.delegate import (
+        NO_ORCHESTRATOR_ROLE,
+        DelegationError,
+        proposer_for_install,
+    )
     from mcgyvr.exits import Exit
     from mcgyvr.orchestrator import (
         AttachError,
@@ -869,7 +875,9 @@ def _delegate(args: argparse.Namespace) -> int:
 
     pool = source_map(config)
     try:
-        propose = proposer_for(pool)
+        propose = proposer_for_install(
+            pool, typed=bool(config.get("orchestrator.typed"))
+        )
     except SourceUnavailableError as exc:
         print(
             f"error: the orchestrator role is declared but cannot run: {exc}. "
@@ -1007,6 +1015,35 @@ def _run_delegated(
         if staging is not None:
             shutil.rmtree(staging, ignore_errors=True)
     return code
+
+
+def _triage_floor(config: Config, pool: SourceMap, contract: Contract) -> Family | None:
+    """The typed triage's floor hint, or ``None`` when off or unanswerable.
+
+    A floor is a hint, never a plan: a triage that cannot answer degrades to
+    the normal climb (``None``) rather than refusing the run. Opt-in only —
+    ``None`` unless ``orchestrator.typed`` is set.
+    """
+    from mcgyvr.delegate import ORCHESTRATOR_ROLE
+    from mcgyvr.pool import SourceUnavailableError
+    from mcgyvr.triage import TriageError, triage_for
+
+    if not config.get("orchestrator.typed"):
+        return None
+    triage_state = triage_for(pool, ORCHESTRATOR_ROLE)
+    if triage_state is None:
+        return None
+    try:
+        return triage_state(
+            {
+                "task_type": contract.task_type,
+                "task": contract.task,
+                "target": contract.target,
+            }
+        ).floor
+    except (TriageError, SourceUnavailableError):
+        # A hint that cannot be read is no hint: the normal climb still runs.
+        return None
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -1543,10 +1580,11 @@ def _climb(
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import ascent, escalate
     from mcgyvr.fleet_manager import hook_for as fleet_hook_for
+    from mcgyvr.gate.jev import jev_check_for
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
-    from mcgyvr.verify import reviewer_for
+    from mcgyvr.verify import VERIFIER_ROLE, decider_for, reviewer_for
 
     # Live is admitted before anything here is built, opened or dispatched
     # (`mcgyvr-lab/records/plans/fleet-identity.md` §6): each rig of the live
@@ -1604,7 +1642,13 @@ def _climb(
 
     cooldown = Cooldown(probe=_always_live)
     try:
-        route = ascent(config, pool, contract, capacity=capacity)
+        route = ascent(
+            config,
+            pool,
+            contract,
+            floor=_triage_floor(config, pool, contract),
+            capacity=capacity,
+        )
     except RouteError as exc:
         return _error(report, str(exc))
     if not route:
@@ -1624,7 +1668,24 @@ def _climb(
     # it is `verifier.enabled: false`, which asks for acceptance on the
     # deterministic gate alone.
     try:
-        reviewer = reviewer_for(pool) if config.get("verifier.enabled") else None
+        verifier_enabled = bool(config.get("verifier.enabled"))
+        reviewer = reviewer_for(pool) if verifier_enabled else None
+        # ``verifier.typed`` is the opt-in that swaps the free-text verdict for
+        # the single-token ``Noul`` read through ``classify_role``. It rides on
+        # ``enabled``: a typed verdict is still a verdict, so it only runs when
+        # the operator has turned verification on.
+        decide = (
+            decider_for(pool)
+            if verifier_enabled and config.get("verifier.typed")
+            else None
+        )
+        # The Jev gate rung rides the same switch: a typed regression-risk
+        # check that reports on the gate's findings, never rejects by default.
+        jev = (
+            jev_check_for(pool, VERIFIER_ROLE)
+            if verifier_enabled and config.get("verifier.typed")
+            else None
+        )
     except SourceUnavailableError as exc:
         return _error(
             report,
@@ -1673,6 +1734,8 @@ def _climb(
                 contract,
                 sandbox,
                 reviewer=reviewer,
+                decide=decide,
+                jev=jev,
                 recording=recording,
                 cooldown=cooldown,
             )

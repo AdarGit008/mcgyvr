@@ -124,6 +124,7 @@ Which unit turns a prompt plus a repository into contracts.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
+| `orchestrator.typed` | boolean | no | `false` | Use the typed single-token decision path (a Jev-like model) for this role instead of a free-text reply. Opt-in: off by default, and the bound unit must serve a model that answers constrained single-token questions. |
 | `orchestrator.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `orchestrator.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
@@ -134,6 +135,7 @@ Which unit reads an applied diff in fresh context.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `verifier.enabled` | boolean | no | `false` | Model verification of the applied diff, on top of the gate. |
+| `verifier.typed` | boolean | no | `false` | Use the typed single-token decision path (a Jev-like model) for this role instead of a free-text reply. Opt-in: off by default, and the bound unit must serve a model that answers constrained single-token questions. |
 | `verifier.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `verifier.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 

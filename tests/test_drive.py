@@ -514,6 +514,96 @@ def test_one_attempt_reaches_a_judgement_over_a_real_gate(
     assert judgement.accepted.accepted is True
 
 
+def test_a_typed_decider_supplies_the_verdict_instead_of_prose(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``worker_attempt`` threads the typed ``decide`` seam into the verdict.
+
+    With a ``decide`` bound the verdict is a single-token ``Noul``; the
+    free-text ``ask`` is never called. The reply is scripted and the gate is
+    real, so the only thing substituted is the decision.
+    """
+    from typing import Any
+
+    from mcgyvr.config import parse as parse_config
+    from mcgyvr.decision import BoolAnswer, Decision
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.escalate import Assurance
+    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.route import Try, Verdict
+
+    config = parse_config(
+        LADDER
+        + """
+verifier:
+  unit: local_qwen-14b
+  model: qwen2.5-coder:14b
+"""
+    )
+    pool = source_map(config)
+    contract = load_contract(MODEL_CONTRACT)
+    _driven(monkeypatch, "```python\nVALUE = 1\n```")
+
+    def never_asked(prompt: str) -> str:
+        raise AssertionError("the free-text reviewer must not be asked")
+
+    def decide(state: Any) -> Decision:
+        return Decision(
+            answers={
+                "verdict": BoolAnswer(value=True, probability_true=0.9, confidence=0.8)
+            }
+        )
+
+    with TempDirSandbox(repo) as sandbox:
+        judgement = worker_attempt(
+            config, pool, contract, sandbox, reviewer=never_asked, decide=decide
+        )(Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1))
+
+    assert judgement.verdict is Verdict.PASSED
+    assert judgement.assurance is Assurance.VERIFIED
+
+
+def test_a_bound_jev_check_runs_as_a_gate_rung(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``worker_attempt`` threads a bound :class:`JevCheck` into the gate.
+
+    The deterministic checks pass (so the Jev rung is reached), the reply is
+    scripted, and the Jev rung's ``decide`` records that it was asked — which
+    is the whole wiring: the checker is built once, threaded down, and run as
+    the gate's last rung, opt-in only.
+    """
+    from typing import Any
+
+    from mcgyvr.config import parse as parse_config
+    from mcgyvr.decision import Decision
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.gate.jev import JevCheck
+    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.route import Try, Verdict
+
+    config = parse_config(LADDER)
+    pool = source_map(config)
+    contract = load_contract(MODEL_CONTRACT)
+    _driven(monkeypatch, "```python\nVALUE = 1\n```")
+
+    asked: list[Any] = []
+
+    def decide(state: Any) -> Decision:
+        asked.append(state)
+        return Decision(answers={})
+
+    jev = JevCheck(decide=decide)
+
+    with TempDirSandbox(repo) as sandbox:
+        judgement = worker_attempt(config, pool, contract, sandbox, jev=jev)(
+            Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1)
+        )
+
+    assert judgement.verdict is Verdict.PASSED
+    assert asked, "the Jev gate rung was never asked"
+
+
 def test_a_driver_with_no_journal_reports_the_rows_it_did_not_write(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

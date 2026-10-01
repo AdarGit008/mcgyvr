@@ -77,6 +77,32 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     assert config.data["verifier"]["enabled"] is False
 
 
+def test_typed_decision_roles_default_off() -> None:
+    """The Jev typed path is an add-on: both roles default to free-text."""
+    config = parse(LOCAL_ONLY)
+    assert config.get("orchestrator.typed") is False
+    assert config.get("verifier.typed") is False
+
+
+def test_typed_roles_are_accepted_when_opted_in() -> None:
+    config = parse(
+        LOCAL_ONLY
+        + cfg(
+            """
+            orchestrator:
+              unit: cheap
+              typed: true
+            verifier:
+              enabled: true
+              unit: strong
+              typed: true
+            """
+        )
+    )
+    assert config.get("orchestrator.typed") is True
+    assert config.get("verifier.typed") is True
+
+
 def test_a_source_needing_a_key_is_not_local_only() -> None:
     config = parse(
         cfg(

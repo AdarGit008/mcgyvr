@@ -577,6 +577,15 @@ UNIT_FIELDS: tuple[Field, ...] = (
 
 ROLE_UNIT_FIELDS: tuple[Field, ...] = (
     Field(
+        "typed",
+        "bool",
+        "Use the typed single-token decision path (a Jev-like model) for this "
+        "role instead of a free-text reply. Opt-in: off by default, and the "
+        "bound unit must serve a model that answers constrained single-token "
+        "questions.",
+        default=False,
+    ),
+    Field(
         "unit",
         "str",
         "Which unit serves this role. A unit is the one term.",

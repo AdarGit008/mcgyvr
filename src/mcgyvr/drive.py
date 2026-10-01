@@ -51,7 +51,7 @@ from mcgyvr.escalate import (
     judge,
     required_policy,
 )
-from mcgyvr.gate import Finding, Gate, GateResult
+from mcgyvr.gate import Finding, Gate, GateResult, JevCheck
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
@@ -79,7 +79,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.pool import SourceMap
     from mcgyvr.sandbox.base import CommandResult, Sandbox
-    from mcgyvr.verify import Ask
+    from mcgyvr.verify import Ask, Decide
     from mcgyvr.worker.prompt import WorkerPrompt
 
 
@@ -501,6 +501,8 @@ def worker_attempt(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     reviewer: Ask | None = None,
+    decide: Decide | None = None,
+    jev: JevCheck | None = None,
     recording: Recording | None = None,
     cooldown: Cooldown | None = None,
 ) -> Callable[[Try], Judgement]:
@@ -686,11 +688,13 @@ def worker_attempt(
             # a sandbox and nowhere else. `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
-            result = gate_workspace(contract, space, adapters=adapters, config=config)
+            result = gate_workspace(
+                contract, space, adapters=adapters, config=config, jev=jev
+            )
             if result.accepted or not tidying:
                 return result
             return _repair_and_regate(
-                contract, space, result, adapters=adapters, config=config
+                contract, space, result, adapters=adapters, config=config, jev=jev
             )
 
         # Before the writes rather than after the last one, which is the same
@@ -894,7 +898,13 @@ def worker_attempt(
             gate, bound = picked.gate, picked.winner
             if tidying:
                 gate, bound = _cleaned(
-                    contract, sandbox, gate, bound, adapters=adapters, config=config
+                    contract,
+                    sandbox,
+                    gate,
+                    bound,
+                    adapters=adapters,
+                    config=config,
+                    jev=jev,
                 )
             judgement = judge(
                 contract,
@@ -918,6 +928,7 @@ def worker_attempt(
                         builder=this.rung.model,
                         reviewer=reviewer_model or "",
                         ask=reviewer,
+                        decide=decide,
                         original=original,
                     )
                 ),
@@ -1091,6 +1102,7 @@ def _cleaned(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
+    jev: JevCheck | None = None,
 ) -> tuple[GateResult, Accepted]:
     """Tidy the winning draw, and re-judge it when the tidy-up changed it.
 
@@ -1128,7 +1140,7 @@ def _cleaned(
     if not cleanup.regate:
         return result, bound
     regated = gate_in_sandbox(
-        contract, sandbox, cleanup.content, adapters=adapters, config=config
+        contract, sandbox, cleanup.content, adapters=adapters, config=config, jev=jev
     )
     return regated, Accepted.read(
         repo=sandbox.workspace, contract=contract, result=regated
@@ -1142,6 +1154,7 @@ def _repair_and_regate(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
+    jev: JevCheck | None = None,
 ) -> GateResult:
     """Repair and re-gate, on the same rung and with no model retry.
 
@@ -1176,7 +1189,9 @@ def _repair_and_regate(
                 ),
             )
         return rejected
-    regated = gate_workspace(contract, sandbox, adapters=adapters, config=config)
+    regated = gate_workspace(
+        contract, sandbox, adapters=adapters, config=config, jev=jev
+    )
     noted = tuple(
         Finding(
             check=STYLE,
@@ -1200,6 +1215,7 @@ def gate_in_sandbox(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
+    jev: JevCheck | None = None,
 ) -> GateResult:
     """Write ``content`` as the contract's target in ``sandbox`` and gate it.
 
@@ -1223,7 +1239,7 @@ def gate_in_sandbox(
     target = inside(sandbox.workspace, contract.target)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content.encode("utf-8", "surrogateescape"))
-    return gate_workspace(contract, sandbox, adapters=adapters, config=config)
+    return gate_workspace(contract, sandbox, adapters=adapters, config=config, jev=jev)
 
 
 def task_ceiling(config: Config | None = None) -> float | None:
@@ -1284,6 +1300,7 @@ def gate_workspace(
     *,
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
+    jev: JevCheck | None = None,
 ) -> GateResult:
     """Judge whatever is in ``sandbox`` right now against ``contract``.
 
@@ -1336,6 +1353,7 @@ def gate_workspace(
         typecheck=TypeCheck(repo=sandbox.workspace),
         semantic=SemanticCheck(sandbox=sandbox),
         contract_text=contract.prose,
+        jev=jev,
     )
 
 

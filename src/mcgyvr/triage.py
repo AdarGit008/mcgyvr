@@ -44,6 +44,7 @@ limit.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -58,8 +59,9 @@ from mcgyvr.decision import (
     Score,
     ScoreAnswer,
     classify,
+    classify_role,
 )
-from mcgyvr.pool import Endpoint
+from mcgyvr.pool import Endpoint, SourceMap
 
 #: The question names, stable so a caller can read the answers by key.
 TASK_TYPE_QUESTION = "task_type"
@@ -178,3 +180,32 @@ def triage(
         endpoint, model, state, build_questions(known), timeout_s=timeout_s
     )
     return read_triage(known, decision)
+
+
+def triage_for(
+    source_map: SourceMap,
+    role: str,
+    *,
+    catalog: Catalog | None = None,
+    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+) -> Callable[[Any], Triage] | None:
+    """The install's ``role`` as a typed triage, or ``None`` when it has none.
+
+    Mirrors :func:`triage` one seam over: where that one takes an
+    :class:`~mcgyvr.pool.Endpoint` and a model, this one dispatches through
+    :func:`~mcgyvr.decision.classify_role` below the seam, so only the
+    :class:`Triage` decision returns and no endpoint crosses it.
+    """
+    if source_map.role_model(role) is None:
+        return None
+    known = catalog if catalog is not None else load_catalog()
+
+    def triage_state(state: Any) -> Triage:
+        decision = classify_role(
+            source_map, role, state, build_questions(known), timeout_s=timeout_s
+        )
+        if decision is None:  # the role was bound a moment ago
+            raise TriageError(f"the {role!r} role has no source to answer a decision")
+        return read_triage(known, decision)
+
+    return triage_state

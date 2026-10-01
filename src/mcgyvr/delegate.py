@@ -487,6 +487,23 @@ def classifier_proposer_for(
     return ClassifierProposer(classify=classify, confidence=confidence)
 
 
+def proposer_for_install(
+    source_map: SourceMap,
+    *,
+    typed: bool,
+    capacity: Capacity | None = None,
+) -> Proposer | None:
+    """The install's proposer: typed when opted in, free-text otherwise.
+
+    ``typed`` is the role's opt-in flag (``orchestrator.typed``). The default
+    free-text proposer is the product's ordinary behaviour; the typed path is
+    an add-on a caller turns on, not a change to the default.
+    """
+    if typed:
+        return classifier_proposer_for(source_map, capacity=capacity)
+    return proposer_for(source_map, capacity=capacity)
+
+
 # --- the typed decisions, assembled ----------------------------------------
 
 

@@ -30,6 +30,7 @@ from mcgyvr.delegate import (
     MIN_CONFIDENCE,
     ClassifierProposer,
     classifier_proposer_for,
+    proposer_for_install,
 )
 from mcgyvr.orchestrator.decompose import Evidence, Proposal, decompose
 from mcgyvr.orchestrator.index import Index, build_index
@@ -294,6 +295,31 @@ def test_classifier_proposer_for_returns_none_without_an_orchestrator_role() -> 
     pool = source_map(parse(cfg(LADDER)))
 
     assert classifier_proposer_for(pool) is None
+
+
+def test_proposer_for_install_selects_typed_only_when_opted_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``orchestrator.typed`` switches the factory; the default stays free-text."""
+    import mcgyvr.delegate as delegate
+
+    calls: list[str] = []
+
+    def fake_classifier(source_map: Any, *, capacity: Any = None) -> Any:
+        calls.append("classifier")
+        return None
+
+    def fake_proposer(source_map: Any, *, capacity: Any = None) -> Any:
+        calls.append("proposer")
+        return None
+
+    monkeypatch.setattr(delegate, "classifier_proposer_for", fake_classifier)
+    monkeypatch.setattr(delegate, "proposer_for", fake_proposer)
+
+    pool = source_map(parse(cfg(LADDER)))
+    proposer_for_install(pool, typed=True)
+    proposer_for_install(pool, typed=False)
+    assert calls == ["classifier", "proposer"]
 
 
 def test_classifier_proposer_for_dispatches_through_classify_role(
