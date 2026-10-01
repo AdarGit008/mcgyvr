@@ -170,13 +170,22 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # same import spelled `from mcgyvr.availability import Endpoint` — a re-export —
 # would satisfy this guard while changing nothing about the dependency, which is
 # defeating the guard by spelling instead of making the argument it asks for.
+#
+# `initialize.py` and `compose.py` reach an endpoint to run the Jev-composed
+# setup recommendation: init derives one from a detected backend (compose builds
+# it) and hands it to `mcgyvr.compose.recommend`, which is what dispatches the
+# decision. init itself never dispatches through it, and both live below the
+# seam — init writes the config that defines the ladder, compose ranks its
+# candidates.
 BELOW_THE_SEAM = {
     "pool.py",
     "runner.py",
     "availability.py",
     "capacity.py",
     "cooldown.py",
+    "compose.py",
     "decision.py",
+    "initialize.py",
 }
 
 
