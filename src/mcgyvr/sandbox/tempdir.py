@@ -46,6 +46,7 @@ from mcgyvr.sandbox.base import (
     Sandbox,
     command_timeout,
     merge_env,
+    workdir,
 )
 
 # Conventional shell exit codes for a command that never ran: 127 when the
@@ -100,13 +101,15 @@ class TempDirSandbox(Sandbox):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
+        where = self.workspace.joinpath(*workdir(cwd).parts)
         # A fresh empty HOME per command, outside the workspace so nothing
         # written there reaches the gated diff, and removed when it returns.
         with tempfile.TemporaryDirectory(
             prefix=_HOME_PREFIX, ignore_cleanup_errors=True
         ) as home:
-            return self._run(tuple(command), timeout, env, home)
+            return self._run(tuple(command), timeout, env, home, where)
 
     def _run(
         self,
@@ -114,6 +117,7 @@ class TempDirSandbox(Sandbox):
         timeout: float | None,
         env: Mapping[str, str] | None,
         home: str,
+        where: Path,
     ) -> CommandResult:
         # Host env minus credentials, plus the caller's vetted extras. The
         # container mode starts from nothing; here the host env is what lets a
@@ -130,7 +134,7 @@ class TempDirSandbox(Sandbox):
             try:
                 proc = subprocess.Popen(
                     argv,
-                    cwd=self.workspace,
+                    cwd=where,
                     env=full_env,
                     stdin=subprocess.DEVNULL,
                     stdout=out,

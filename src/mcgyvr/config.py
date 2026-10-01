@@ -195,7 +195,13 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "setup",
         "str_list",
-        "Commands run once when the task image is built, before any task.",
+        "Commands run once when the task image is built, before any task. In "
+        "docker mode the gate's type checker, eslint and prettier run in the "
+        "task container, because their configuration can load code from the "
+        "task's workspace, so they are found on the image's PATH: install "
+        "them here (for example `pip install mypy` or `npm install -g eslint "
+        "prettier`). A checker the image lacks is skipped and said so, as an "
+        "absent checker is on the host.",
         default=(),
     ),
 )

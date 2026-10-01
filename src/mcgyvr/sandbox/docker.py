@@ -61,7 +61,7 @@ import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import ClassVar
 from urllib.parse import urlparse, urlunparse
 
@@ -73,6 +73,7 @@ from mcgyvr.sandbox.base import (
     check_network,
     command_timeout,
     merge_env,
+    workdir,
 )
 from mcgyvr.sandbox.image import (
     DockerRunner,
@@ -87,6 +88,9 @@ from mcgyvr.sandbox.stack import detect_stack
 # Linux. One name across platforms is what keeps everything above the sandbox
 # from caring which OS it is on — the portability trap #31 names.
 HOST_ALIAS = "host.docker.internal"
+
+#: Where the workspace is mounted inside a task container.
+CONTAINER_WORKSPACE = PurePosixPath("/workspace")
 
 # A benign, credential-free variable carrying where the container can reach
 # workers. Named so it cannot match the credential filter.
@@ -235,6 +239,7 @@ class DockerSandbox(Sandbox):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
         if self._container is None:
             raise SandboxError("container is not running — use as a context manager")
@@ -245,6 +250,7 @@ class DockerSandbox(Sandbox):
             name=self._container,
             command=argv,
             env=merge_env(env),  # per-command extras, vetted; base env is ambient
+            workdir=str(CONTAINER_WORKSPACE / workdir(cwd)),
         )
         result = _docker_exec(exec_args, command_timeout(timeout))
         self._end_leftovers(self._container, result.timed_out)
@@ -255,6 +261,20 @@ class DockerSandbox(Sandbox):
             stderr=result.stderr,
             timed_out=result.timed_out,
         )
+
+    def host_path(self, reported: str) -> Path:
+        """A path printed inside the container, as the host reads it.
+
+        The workspace is bind-mounted at :data:`CONTAINER_WORKSPACE`, so a path
+        under it is the same file under the host workspace. Anything else is
+        not a file of the workspace and comes back as printed.
+        """
+        printed = PurePosixPath(reported)
+        try:
+            within = printed.relative_to(CONTAINER_WORKSPACE)
+        except ValueError:
+            return Path(reported)
+        return self.workspace.joinpath(*within.parts)
 
     def _end_leftovers(self, name: str, timed_out: bool) -> None:
         """Leave the container running its keepalive and nothing else.
@@ -380,9 +400,10 @@ def _exec_args(
     name: str,
     command: Sequence[str],
     env: Mapping[str, str],
+    workdir: str = "/workspace",
 ) -> list[str]:
     """Build the ``docker exec`` argv running one command in the container."""
-    args = ["exec", "--workdir", "/workspace"]
+    args = ["exec", "--workdir", workdir]
     for key, value in sorted(env.items()):
         args += ["--env", f"{key}={value}"]
     args.append(name)

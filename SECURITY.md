@@ -21,12 +21,18 @@ against a repository. Two properties are load-bearing:
    says so. Docker configured with no daemon and no opt-in is refused.
    A task container is on Docker's default network unless
    `sandbox.network: none` takes the network away.
+   The gate's checkers that load code from the workspace's own configuration
+   (the type checker's plugins, eslint's and prettier's config modules) run
+   where the task's commands run: in the task's container in docker mode, on
+   the host in tempdir mode. A source that is not a git repository is copied
+   into the workspace without the files that hold secrets (dotenv files,
+   keys, `.netrc`, cloud and SSH credential folders, registry logins), and
+   the run names what it left behind.
 2. **Provider credentials never enter a task sandbox.** API keys are read
    from the environment by the orchestrator process only; a task container
-   receives the repository and the worker endpoint, never a key. The gate's
-   checkers run on the host over what a task wrote, under the workspace's own
-   configuration, and that configuration can be code (a type-checker plugin,
-   a linter config module); they are handed the same filtered environment, so
-   what it runs reaches no key either.
+   receives the repository and the worker endpoint, never a key. A checker
+   the gate runs on the host (ruff, and in tempdir mode the checkers above)
+   is handed the same filtered environment, so nothing it runs reaches a key
+   either.
 
 Deviations from either are security-relevant and in scope for a report.

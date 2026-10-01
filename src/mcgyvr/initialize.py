@@ -380,9 +380,13 @@ def _comment(text: str, indent: int) -> list[str]:
     return [f"{pad}# {line}" for line in textwrap.wrap(text, width=width)]
 
 
-def _render_leaf(spec: Field, value: Any, indent: int) -> list[str]:
+def _render_leaf(spec: Field, value: Any, indent: int, note: str = "") -> list[str]:
     pad = " " * indent
     lines = _comment(spec.doc, indent)
+    if note:
+        # What init decided for this key on this machine, beside the key, so
+        # the file says why it holds this value and how to change it.
+        lines.extend(_comment(note, indent))
     if value is None or value == []:
         # Unset and optional. Shown commented so the key is discoverable
         # without being bound to a value nobody chose.
@@ -398,7 +402,11 @@ def _render_leaf(spec: Field, value: Any, indent: int) -> list[str]:
 
 
 def _render_fields(
-    fields: Sequence[Field], data: Mapping[str, Any], indent: int
+    fields: Sequence[Field],
+    data: Mapping[str, Any],
+    indent: int,
+    notes: Mapping[str, str] | None = None,
+    prefix: str = "",
 ) -> list[str]:
     lines: list[str] = []
     for spec in fields:
@@ -406,7 +414,11 @@ def _render_fields(
         if spec.kind == "block":
             lines.extend(_comment(spec.doc, indent))
             lines.append(f"{' ' * indent}{spec.name}:")
-            lines.extend(_render_fields(spec.block, value or {}, indent + 2))
+            lines.extend(
+                _render_fields(
+                    spec.block, value or {}, indent + 2, notes, f"{prefix}{spec.name}."
+                )
+            )
         elif spec.kind == "block_map":
             lines.extend(_comment(spec.doc, indent))
             lines.append(f"{' ' * indent}{spec.name}:")
@@ -419,7 +431,8 @@ def _render_fields(
             for item in value or []:
                 lines.extend(_render_list_item(spec.block, item, indent + 2))
         else:
-            lines.extend(_render_leaf(spec, value, indent))
+            note = (notes or {}).get(f"{prefix}{spec.name}", "")
+            lines.extend(_render_leaf(spec, value, indent, note))
         lines.append("")
     return lines
 
@@ -478,11 +491,34 @@ def render_fleet(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def render_policy(data: Mapping[str, Any]) -> str:
-    """Render ``policy.yaml``: the ladder and the policy over it."""
+#: Written beside ``sandbox.mode`` when init found no Docker daemon to run on.
+NO_DAEMON_MODE_NOTE = (
+    "No Docker daemon answered when init ran, so this is `tempdir`: the "
+    "explicitly weaker mode, in which a contract's acceptance commands run on "
+    "this machine rather than in a container. Once Docker runs here, set "
+    "`mode: docker` to run each task in its own container."
+)
+
+
+def render_policy(
+    data: Mapping[str, Any], notes: Mapping[str, str] | None = None
+) -> str:
+    """Render ``policy.yaml``: the ladder and the policy over it.
+
+    ``notes`` maps a dotted key to what init decided about it on this machine,
+    written as a comment beside the key.
+    """
     lines = _header(POLICY_FILENAME)
-    lines.extend(_render_fields(POLICY_FIELDS, data, 0))
+    lines.extend(_render_fields(POLICY_FIELDS, data, 0, notes))
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, str]:
+    """The decisions said beside their keys: a ``tempdir`` chosen for no daemon."""
+    mode = (data.get("sandbox") or {}).get("mode")
+    if not detection.docker and mode == "tempdir":
+        return {"sandbox.mode": NO_DAEMON_MODE_NOTE}
+    return {}
 
 
 def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
@@ -871,7 +907,7 @@ def initialize(
     decisions = _decisions(found, proposal, asked) + composition
     limits = _limits(found, proposal, asked) + compose_limits
     fleet_content = render_fleet(data, decisions)
-    policy_content = render_policy(data)
+    policy_content = render_policy(data, _policy_notes(found, data))
 
     # Parse our own output before anything is written. It normalizes the
     # proposal the same way a loaded config is normalized, and it makes it

@@ -44,10 +44,10 @@ from tree_sitter_typescript import (
 )
 
 from mcgyvr.gate.adapter import (
+    HostRunner,
     LanguageAdapter,
     ToolFailedError,
-    plain_env,
-    require_tool,
+    ToolRunner,
     trusted_stdout,
 )
 from mcgyvr.gate.changeset import FileChange
@@ -80,7 +80,19 @@ _ESLINT_ERROR = 2
 
 
 class JavaScriptAdapter(LanguageAdapter):
-    """One adapter for the JS/TS family: ``.js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/.cts``."""
+    """One adapter for the JS/TS family: ``.js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/.cts``.
+
+    eslint and prettier load their configuration from the tree they check, and
+    an ``eslint.config.js`` or ``prettier.config.js`` is a module they run. So
+    they run through ``runner``: the host by default, the open sandbox when the
+    gate judges a task's workspace (:meth:`running_in`).
+    """
+
+    def __init__(self, runner: ToolRunner | None = None) -> None:
+        self._runner: ToolRunner = runner if runner is not None else HostRunner()
+
+    def running_in(self, runner: ToolRunner) -> JavaScriptAdapter:
+        return JavaScriptAdapter(runner)
 
     @property
     def name(self) -> str:
@@ -144,13 +156,8 @@ class JavaScriptAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        eslint = require_tool(_ESLINT)
-        proc = subprocess.run(
-            [eslint, "--format", "json", "--", *_paths(files)],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            env=plain_env(),
+        proc = _run(
+            self._runner, _ESLINT, ["--format", "json", "--", *_paths(files)], repo
         )
         # eslint reports on 0 (nothing to say) and 1 (problems found); 2 is a
         # fatal error — no config, an unloadable config, an internal failure —
@@ -167,7 +174,7 @@ class JavaScriptAdapter(LanguageAdapter):
         added = _added_by_resolved_path(files, repo)
         findings: list[Finding] = []
         for result in results:
-            resolved = Path(result.get("filePath", "")).resolve()
+            resolved = self._runner.host_path(result.get("filePath", "")).resolve()
             rel = added.get(resolved)
             if rel is None:
                 continue
@@ -200,7 +207,7 @@ class JavaScriptAdapter(LanguageAdapter):
         files = self.owned(changes)
         if not files:
             return []
-        prettier = require_tool(_PRETTIER)
+        prettier = self._runner
         # One batched call finds which files differ at all; in the common case
         # (the worker's code is already formatted) it finds none and this is the
         # only prettier invocation. Only a file that both differs and gained
@@ -346,7 +353,24 @@ def _first_error(root: Node) -> Node | None:
 # --- prettier ------------------------------------------------------------
 
 
-def _prettier_differing(prettier: str, paths: Sequence[str], repo: Path) -> set[str]:
+def _run(
+    runner: ToolRunner, tool: str, args: Sequence[str], repo: Path
+) -> subprocess.CompletedProcess[str]:
+    """Run ``tool`` through ``runner``; a run past its ceiling is unreadable.
+
+    No ceiling is asked for, as none ever was: on the host the tool runs
+    unbounded, and in a sandbox under the sandbox's own. A run that hit that
+    ceiling produced no answer, which is :class:`ToolFailedError`.
+    """
+    try:
+        return runner.run(tool, args, repo)
+    except subprocess.TimeoutExpired as exc:
+        raise ToolFailedError(tool, -1, f"timed out after {exc.timeout:g}s") from exc
+
+
+def _prettier_differing(
+    prettier: ToolRunner, paths: Sequence[str], repo: Path
+) -> set[str]:
     """The owned files prettier would reformat, from one batched call.
 
     ``--list-different`` prints, one per line, the paths (as passed) that are
@@ -355,18 +379,12 @@ def _prettier_differing(prettier: str, paths: Sequence[str], repo: Path) -> set[
     unresolvable plugin), and it prints nothing, so an unguarded read of stdout
     would say every file is already formatted (#261).
     """
-    proc = subprocess.run(
-        [prettier, "--list-different", "--", *paths],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=plain_env(),
-    )
+    proc = _run(prettier, _PRETTIER, ["--list-different", "--", *paths], repo)
     stdout = trusted_stdout(_PRETTIER, proc, expected=(0, 1))
     return {line.strip() for line in stdout.splitlines() if line.strip()}
 
 
-def _prettier_reflowed_lines(prettier: str, path: str, repo: Path) -> set[int]:
+def _prettier_reflowed_lines(prettier: ToolRunner, path: str, repo: Path) -> set[int]:
     """Current-file line numbers prettier would change in ``path``.
 
     Prettier emits no diff, so we take its formatted output for the one file and
@@ -374,13 +392,7 @@ def _prettier_reflowed_lines(prettier: str, path: str, repo: Path) -> set[int]:
     *current* side of a change. Intersected with the worker's added lines by the
     caller, this is what keeps a reflow of pre-existing code off the worker.
     """
-    proc = subprocess.run(
-        [prettier, "--", path],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=plain_env(),
-    )
+    proc = _run(prettier, _PRETTIER, ["--", path], repo)
     # Printing a file's formatted output is a 0-or-nothing operation: prettier
     # is not reporting a count here, so 1 is a failure like any other. This
     # runs only for a file prettier has *already* said differs, so returning an

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import fnmatch
 import os
 import re
 import shutil
@@ -43,7 +44,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
 from mcgyvr.redact import scrub
@@ -276,8 +277,13 @@ class Sandbox(ABC):
         self._workspace = Path(tempfile.mkdtemp(prefix=_WORKSPACE_PREFIX))
         _LIVE_REAPERS[id(self)] = (lambda: _remove_tree(self._workspace),)
         try:
-            populated = _populate(self._source, self._workspace, self._base)
+            left_out: list[str] = []
+            populated = _populate(
+                self._source, self._workspace, self._base, left_out=left_out
+            )
             self._base_commit, self._source_commit = populated
+            if left_out:
+                self.notes = (*self.notes, _left_out_note(left_out))
             self._start()
         except BaseException:
             # A failure mid-open must not leave a half-built sandbox behind.
@@ -418,6 +424,7 @@ class Sandbox(ABC):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
         """Run one command in the sandbox and capture its result.
 
@@ -428,7 +435,18 @@ class Sandbox(ABC):
         ``timeout`` is a ceiling in seconds; ``None`` asks for the built-in
         :data:`DEFAULT_COMMAND_TIMEOUT_S` rather than for no ceiling at all.
         Nothing a sandbox runs is unbounded.
+
+        ``cwd`` is a directory inside the workspace, relative to it, to run
+        in; ``None`` is the workspace itself (:func:`workdir`).
         """
+
+    def host_path(self, reported: str) -> Path:
+        """A path a command printed, as the host reads it.
+
+        The workspace is the same directory on both sides in the temp-directory
+        mode; the container mode sees it at another path and overrides this.
+        """
+        return Path(reported)
 
     @abstractmethod
     def _start(self) -> None:
@@ -442,13 +460,17 @@ class Sandbox(ABC):
 # --- workspace population (shared, host-side git) ------------------------
 
 
-def _populate(source: Path, workspace: Path, base: str) -> tuple[str, str]:
+def _populate(
+    source: Path, workspace: Path, base: str, *, left_out: list[str] | None = None
+) -> tuple[str, str]:
     """Fill ``workspace`` from ``source``, commit it, and name both bases.
 
     When ``source`` is a git repository the base tree is taken with
     ``git archive`` — exactly the tracked content of ``base``, no ``.git``,
     no untracked heavyweight directories (``node_modules``, ``.venv``) that a
-    copy would drag in. A non-git source is copied wholesale. Either way the
+    copy would drag in. A non-git source is copied whole minus the files that
+    hold secrets (:func:`_copy_into`), whose paths are appended to
+    ``left_out``. Either way the
     workspace then gets its own fresh git repository with a single base
     commit, which is what makes the worker's change a real diff and
     :meth:`Sandbox.reset` possible.
@@ -464,8 +486,11 @@ def _populate(source: Path, workspace: Path, base: str) -> tuple[str, str]:
         _archive_into(source, workspace, base)
     else:
         # A non-git source, or a git repo with no commit yet to archive, is
-        # copied wholesale; the fresh git repository below becomes its base.
-        _copy_into(source, workspace)
+        # copied minus its secrets; the fresh git repository below becomes its
+        # base.
+        skipped = _copy_into(source, workspace)
+        if left_out is not None:
+            left_out.extend(skipped)
 
     _git(workspace, "init", "--quiet")
     _git(workspace, "add", "-A")
@@ -542,17 +567,100 @@ def _archive_into(source: Path, workspace: Path, base: str) -> None:
         raise SandboxError(f"could not extract archive into {workspace}: {detail}")
 
 
-def _copy_into(source: Path, workspace: Path) -> None:
-    """Copy a non-git ``source`` tree into ``workspace``, skipping VCS metadata."""
+#: File names a non-git source is copied without, whatever they hold: each is a
+#: place a secret is kept. A pattern is matched against the name alone.
+_SECRET_FILES = (
+    ".env",
+    ".env.*",
+    ".envrc",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "*.jks",
+    "*.keystore",
+    ".netrc",
+    "_netrc",
+    ".git-credentials",
+    ".pgpass",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+)
+
+#: Directories a non-git source is copied without: cloud and remote-login
+#: credential folders.
+_SECRET_DIRS = frozenset({".aws", ".gcloud", ".azure", ".ssh", ".gnupg", ".kube"})
+
+#: Credential files that live inside a folder that is otherwise harmless, keyed
+#: by the folder's name: ``.docker/config.json`` holds registry logins,
+#: ``.config/gcloud`` and ``.config/gh`` hold cloud and GitHub tokens.
+_SECRET_UNDER = {
+    ".docker": frozenset({"config.json"}),
+    ".config": frozenset({"gcloud", "gh"}),
+}
+
+#: Package-manager settings files that are copied unless they hold a login: a
+#: registry URL is configuration, a token beside it is a secret.
+_LOGIN_RC = frozenset({".npmrc", ".pypirc", ".yarnrc", ".yarnrc.yml"})
+
+_RC_LOGIN = re.compile(r"(auth|token|password|passwd|secret)\w*\s*[=:]", re.IGNORECASE)
+
+
+def _holds_a_secret(path: Path) -> bool:
+    """Whether a non-git copy leaves ``path`` behind, by its name or its login."""
+    name = path.name
+    if name in _SECRET_DIRS and path.is_dir():
+        return True
+    if name in _SECRET_UNDER.get(path.parent.name, frozenset()):
+        return True
+    if any(fnmatch.fnmatch(name, pattern) for pattern in _SECRET_FILES):
+        return True
+    if name in _LOGIN_RC and path.is_file():
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return True  # unread is not known clean
+        return bool(_RC_LOGIN.search(text)) or scrub(text) != text
+    return False
+
+
+def _copy_into(source: Path, workspace: Path) -> tuple[str, ...]:
+    """Copy a non-git ``source`` into ``workspace``, minus VCS metadata and secrets.
+
+    A git source brings its tracked files only, so an ignored ``.env`` stays
+    behind on its own. A non-git source has no ignore rules to say what is
+    whose, so what is left behind is decided by name: dotenv files, keys and
+    certificates, ``.netrc``, cloud and SSH credential folders, a registry
+    login, and a package-manager settings file that carries a token. The
+    paths left behind come back, relative to ``source``, so the run can say
+    which files its task does not have.
+    """
+    skipped: list[str] = []
+
+    def leave_out(directory: str, names: list[str]) -> set[str]:
+        here = Path(directory)
+        out = {".git"} & set(names)
+        for name in names:
+            if name not in out and _holds_a_secret(here / name):
+                out.add(name)
+                skipped.append((here / name).relative_to(source).as_posix())
+        return out
+
     try:
-        shutil.copytree(
-            source,
-            workspace,
-            dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns(".git"),
-        )
+        shutil.copytree(source, workspace, dirs_exist_ok=True, ignore=leave_out)
     except OSError as exc:
         raise SandboxError(f"could not copy {source} into {workspace}: {exc}") from exc
+    return tuple(sorted(skipped))
+
+
+def _left_out_note(paths: Sequence[str]) -> str:
+    """The note a sandbox carries when its non-git copy left secrets behind."""
+    return (
+        "The source is not a git repository, so it was copied whole except for "
+        "files that hold secrets, which the task does not get: " + ", ".join(paths)
+    )
 
 
 def _git(
@@ -749,6 +857,20 @@ def open_sandbox(
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 
     return TempDirSandbox(source, base=base, notes=choice.notes)
+
+
+def workdir(cwd: str | None) -> PurePosixPath:
+    """``cwd`` as a path under the workspace, refused if it would leave it.
+
+    Both modes resolve a command's working directory through this, so a
+    caller's ``cwd`` means the same place in each and never one outside.
+    """
+    if cwd is None:
+        return PurePosixPath(".")
+    within = PurePosixPath(cwd)
+    if within.is_absolute() or ".." in within.parts:
+        raise SandboxError(f"a command runs inside the workspace, not at {cwd!r}")
+    return within
 
 
 def merge_env(*layers: Mapping[str, str] | None) -> dict[str, str]:

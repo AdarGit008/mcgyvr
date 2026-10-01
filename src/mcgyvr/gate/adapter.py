@@ -43,13 +43,16 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
+from mcgyvr.gate.acceptance import DID_NOT_RUN
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
-from mcgyvr.sandbox.base import safe_env
+from mcgyvr.sandbox.base import Sandbox, safe_env
 
 
 class EnvironmentFaultError(Exception):
@@ -205,6 +208,17 @@ class LanguageAdapter(ABC):
         this is called on the host.
         """
 
+    def running_in(self, runner: ToolRunner) -> LanguageAdapter:
+        """This adapter, with its config-executing tools run by ``runner``.
+
+        An adapter whose tools load no code from the tree they check has
+        nothing to move and returns itself; the Python adapter is one (ruff's
+        configuration is data). One whose tools do — eslint and prettier load
+        JS config modules — returns a copy that runs them through ``runner``,
+        which the gate hands it over a task's workspace.
+        """
+        return self
+
     def owned(self, changes: Sequence[FileChange]) -> list[FileChange]:
         """The subset of ``changes`` this adapter owns and can scan.
 
@@ -308,3 +322,142 @@ def plain_env() -> dict[str, str]:
     env["RUFF_NO_CACHE"] = "true"
     env["MYPY_CACHE_DIR"] = os.devnull
     return env
+
+
+# --- where a checker that runs the workspace's config runs ----------------
+#
+# The type checker, eslint and prettier read their configuration from the tree
+# they check, and part of that configuration is code: a `mypy.ini` names a
+# plugin by file path, an `eslint.config.js` or `prettier.config.js` is a
+# module. Over a task's workspace that code is the task's, so where the checker
+# runs is where that code runs. With a sandbox open they run through
+# `Sandbox.run`, as a contract's own commands do: in the task's container in
+# docker mode, on the host with the sandbox's scrubbed environment in tempdir
+# mode. With none (delivery, which judges the user's own checkout; a bench
+# harness) they run on the host in `plain_env()`.
+#
+# ruff stays on the host in every case: its configuration is TOML data, with no
+# plugin to load, and the gate pins its own settings over it.
+
+
+class ToolRunner(ABC):
+    """Where the gate runs a checker that executes the workspace's configuration."""
+
+    @abstractmethod
+    def run(
+        self,
+        tool: str,
+        args: Sequence[str],
+        cwd: Path,
+        *,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run ``tool args`` in ``cwd`` and capture its result.
+
+        Raises :class:`ToolUnavailableError` when the tool is not there to run,
+        and :class:`subprocess.TimeoutExpired` when it runs past ``timeout``.
+        """
+
+    def host_path(self, reported: str) -> Path:
+        """A path the tool printed, as the host reads it."""
+        return Path(reported)
+
+    @contextmanager
+    def scratch(self) -> Iterator[Path]:
+        """An empty directory the tool can be run in, gone after the ``with``."""
+        with tempfile.TemporaryDirectory(prefix="mcgyvr-check-") as name:
+            yield Path(name)
+
+
+class HostRunner(ToolRunner):
+    """The host, in :func:`plain_env`: no credential, no colour, no cache."""
+
+    def run(
+        self,
+        tool: str,
+        args: Sequence[str],
+        cwd: Path,
+        *,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [require_tool(tool), *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            env=plain_env(),
+            timeout=timeout,
+            check=False,
+        )
+
+
+class SandboxRunner(ToolRunner):
+    """An open sandbox, through :meth:`~mcgyvr.sandbox.base.Sandbox.run`.
+
+    The tool is named, not resolved on the host: it is found where it runs,
+    on the container's ``PATH`` in docker mode. A tool that is not there is
+    :class:`ToolUnavailableError`, the same skipped rung an absent host tool
+    is. Only ``cwd`` inside the workspace can be run in, because that is the
+    only tree the sandbox has.
+    """
+
+    def __init__(self, sandbox: Sandbox) -> None:
+        self._sandbox = sandbox
+
+    def run(
+        self,
+        tool: str,
+        args: Sequence[str],
+        cwd: Path,
+        *,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        sandbox = self._sandbox
+        within = cwd.resolve().relative_to(sandbox.workspace.resolve()).as_posix()
+        argv = [tool, *args]
+        env = _checker_env(sandbox)
+        if within == ".":
+            result = sandbox.run(argv, timeout=timeout, env=env)
+        else:
+            result = sandbox.run(argv, timeout=timeout, env=env, cwd=within)
+        if result.timed_out:
+            raise subprocess.TimeoutExpired(
+                argv, timeout or 0.0, output=result.stdout, stderr=result.stderr
+            )
+        # The statuses both sandbox modes report for a command that never ran
+        # (not found, not runnable), read from the one place they are stated.
+        if result.exit_code in DID_NOT_RUN and not result.stdout:
+            raise ToolUnavailableError(tool)
+        return subprocess.CompletedProcess(
+            argv, result.exit_code, result.stdout, result.stderr
+        )
+
+    def host_path(self, reported: str) -> Path:
+        return self._sandbox.host_path(reported)
+
+    @contextmanager
+    def scratch(self) -> Iterator[Path]:
+        # Inside the workspace, the only tree the sandbox can run in, and under
+        # a name no change set holds: it is gone before anything reads the
+        # workspace again.
+        with tempfile.TemporaryDirectory(
+            prefix=".mcgyvr-check-", dir=self._sandbox.workspace
+        ) as name:
+            yield Path(name)
+
+
+def _checker_env(sandbox: Sandbox) -> dict[str, str]:
+    """What a checker run in ``sandbox`` is told beyond the sandbox's own env.
+
+    The colour and cache settings :func:`plain_env` gives a host checker. The
+    sandbox's environment cannot drop a variable, so a forced colour is turned
+    off by value. A container is Linux whatever the host is, hence its own
+    spelling of "no file".
+    """
+    devnull = "/dev/null" if sandbox.isolation == "container" else os.devnull
+    return {
+        "NO_COLOR": "1",
+        "FORCE_COLOR": "0",
+        "CLICOLOR_FORCE": "0",
+        "MYPY_CACHE_DIR": devnull,
+    }

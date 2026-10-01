@@ -53,6 +53,7 @@ from mcgyvr.escalate import (
 )
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
+from mcgyvr.gate.adapter import SandboxRunner
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.preflight import reply_cap
@@ -1324,7 +1325,12 @@ def gate_workspace(
             )
         )
     acceptance = acceptance_for(contract, sandbox, config=config)
-    return Gate(adapters if adapters is not None else gate_adapters(config)).run(
+    # The checkers that load code from the workspace's own configuration — the
+    # type checker's plugins, eslint's and prettier's config modules — run
+    # where the task's commands do, never on the host beside it.
+    runner = SandboxRunner(sandbox)
+    owners = adapters if adapters is not None else gate_adapters(config)
+    return Gate(tuple(adapter.running_in(runner) for adapter in owners)).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
@@ -1333,7 +1339,7 @@ def gate_workspace(
         # sandbox, and the workspace the declaration lives in. A repository
         # that declares no checker still gets `None` from
         # `TypeCheck.declared_command`, so the absence is not a rejection.
-        typecheck=TypeCheck(repo=sandbox.workspace),
+        typecheck=TypeCheck(repo=sandbox.workspace, runner=runner),
         semantic=SemanticCheck(sandbox=sandbox),
         contract_text=contract.prose,
     )
