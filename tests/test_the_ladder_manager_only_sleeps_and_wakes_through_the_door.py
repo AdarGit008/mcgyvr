@@ -424,6 +424,53 @@ def test_a_unit_that_failed_three_switches_in_a_row_is_cooled_and_a_success_rese
     assert cooling.cooled((FAST, BIG_A, BIG_B)) == frozenset({BIG_A})
 
 
+def test_a_cooled_unit_is_held_out_for_at_least_the_dwell(tmp_path: Path) -> None:
+    """A sentence shorter than the dwell would expire before the next switch."""
+    from mcgyvr.pool import source_map
+    from mcgyvr.pressure import RungCooling
+
+    config = parse(ladder_text(write_spec(tmp_path)))
+    now = [1000.0]
+    cooling = RungCooling(source_map(config), hold_s=600.0, clock=lambda: now[0])
+    for _ in range(3):
+        cooling.failed(BIG_A)
+
+    now[0] += 599
+    assert cooling.cooled((BIG_A,)) == frozenset({BIG_A})
+    now[0] += 2
+    assert cooling.cooled((BIG_A,)) == frozenset()
+
+
+def test_manage_holds_a_cooled_unit_out_for_its_dwell(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import mcgyvr.pressure as pressure
+
+    refuse_everything(monkeypatch)
+    config = config_on_disk(tmp_path, ladder_text(write_spec(tmp_path)))
+    built: list[dict[str, Any]] = []
+    real = pressure.RungCooling
+
+    def recording(*args: Any, **kwargs: Any) -> Any:
+        built.append(kwargs)
+        return real(*args, **kwargs)
+
+    class Answers:
+        live = False
+
+    monkeypatch.setattr(pressure, "RungCooling", recording)
+    monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+
+    lj.main(["manage", "--config", str(config), "--once"])
+    capsys.readouterr()
+
+    assert [kwargs.get("hold_s") for kwargs in built] == [600.0]
+
+
 def test_a_sleeping_unit_is_never_read_as_cooling_for_being_asleep(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

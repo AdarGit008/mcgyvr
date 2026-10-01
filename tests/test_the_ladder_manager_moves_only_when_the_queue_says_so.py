@@ -432,6 +432,70 @@ def test_no_switch_follows_another_inside_the_dwell() -> None:
     assert switches.calls == [("wake", BIG), ("sleep", BIG)]
 
 
+def test_a_unit_a_task_woke_is_not_slept_again_inside_the_dwell() -> None:
+    """A wake the manager did not make is a switch all the same.
+
+    A task that climbs to a sleeping unit wakes it through the dispatch-side
+    door, outside the manager. Were that not a switch, the manager would put
+    the unit back to sleep a few ticks later and the next climb would wake it
+    again — a container stop and a full model load on every turn, at the pace
+    of the batch rather than of ``dwell_s``.
+    """
+    pressure = FakePressure(reading(FAST), reading(BIG, awake=False, in_flight=None))
+    switches = FakeSwitches(pressure)
+    clock = Clock()
+    run = manager(pressure, switches, FakeDecide(ladder=f"sleep:{BIG}"), clock=clock)
+    run.tick()
+
+    for _ in range(2):
+        # A task climbs, is refused, and wakes the unit; then it idles.
+        clock.t += 10
+        pressure.set(reading(BIG))
+        woke_at = clock.t
+        before = len(switches.calls)
+        while clock.t < woke_at + 100:
+            run.tick()
+            clock.t += 10
+        assert switches.calls[before:] == [], (
+            "a unit a task woke was slept again inside the dwell"
+        )
+        for _ in range(3):
+            run.tick()
+            clock.t += 10
+        assert switches.calls[-1] == ("sleep", BIG), (
+            "past the dwell, an idle unit is still put back to sleep"
+        )
+    assert switches.calls == [("sleep", BIG), ("sleep", BIG)]
+
+
+def test_an_idle_unit_is_offered_for_sleep_only_once_it_has_idled_for_the_dwell() -> (
+    None
+):
+    """The sleep band is a duration, not a count of answers."""
+    pressure = drained()
+    clock = Clock()
+    decide = FakeDecide(ladder="hold")
+    run = manager(pressure, FakeSwitches(pressure), decide, clock=clock)
+    while clock.t < 1100:
+        run.tick()
+        clock.t += 10
+    assert decide.asked == [], "idle for less than dwell_s is not idle enough"
+
+    run.tick()
+    assert set(decide.asked[0]["ladder"].options) == {"hold", f"sleep:{BIG}"}  # type: ignore[union-attr]
+
+    # A moment of work starts the idle time again.
+    pressure.set(reading(BIG, in_flight=1))
+    clock.t += 10
+    run.tick()
+    pressure.set(reading(BIG))
+    asked = len(decide.asked)
+    for _ in range(5):
+        clock.t += 10
+        run.tick()
+    assert len(decide.asked) == asked
+
+
 # --- both directions -------------------------------------------------------
 
 
@@ -439,7 +503,7 @@ def test_a_drained_ladder_offers_to_put_the_big_unit_back_to_sleep() -> None:
     pressure = drained()
     switches = FakeSwitches(pressure)
     decide = FakeDecide(ladder=f"sleep:{BIG}")
-    run = manager(pressure, switches, decide)
+    run = manager(pressure, switches, decide, the_bounds=bounds(dwell_s=0.0))
     for _ in range(3):
         run.tick()
     assert set(decide.asked[0]["ladder"].options) == {"hold", f"sleep:{BIG}"}  # type: ignore[union-attr]
@@ -500,6 +564,7 @@ def test_a_wake_that_needs_room_sleeps_the_smaller_unit_first_and_gives_it_back(
     assert switches.calls == [("sleep", MID), ("wake", BIG)]
 
     pressure.set(reading(FAST))
+    run.tick()  # the big unit's idle time starts here
     clock.t += 1000
     decide.script["ladder"] = f"sleep:{BIG}"
     for _ in range(3):
@@ -550,6 +615,25 @@ def test_a_cooled_down_unit_is_never_offered_for_a_wake() -> None:
     pressure = flooded()
     decide = FakeDecide()
     manager(pressure, FakeSwitches(pressure), decide, cooling=FakeCooling({BIG})).tick()
+    assert decide.asked == []
+
+
+def test_a_cooled_down_unit_is_never_offered_for_sleep() -> None:
+    """A unit whose sleeps keep failing is not asked about again every dwell."""
+    pressure = drained()
+    clock = Clock()
+    decide = FakeDecide()
+    run = manager(
+        pressure,
+        FakeSwitches(pressure),
+        decide,
+        cooling=FakeCooling({BIG}),
+        clock=clock,
+        the_bounds=bounds(dwell_s=0.0),
+    )
+    for _ in range(3):
+        run.tick()
+        clock.t += 10
     assert decide.asked == []
 
 
