@@ -207,12 +207,16 @@ class LanguageAdapter(ABC):
     def owned(self, changes: Sequence[FileChange]) -> list[FileChange]:
         """The subset of ``changes`` this adapter owns and can scan.
 
-        Deletions and binaries are dropped — there is no text to check.
+        Deletions, binaries and symlinks are dropped — there is no text to
+        check, and a symlink's is somewhere else's (:attr:`FileChange.is_link`).
         """
         return [
             c
             for c in changes
-            if self.owns(c.path) and not c.is_deletion and not c.is_binary
+            if self.owns(c.path)
+            and not c.is_deletion
+            and not c.is_binary
+            and not c.is_link
         ]
 
 
@@ -281,7 +285,18 @@ def plain_env() -> dict[str, str]:
 
     Passing this to every :func:`subprocess.run` in an adapter costs nothing
     and removes the whole class.
+
+    It also keeps the tools' caches off. A checker here runs on the host over a
+    workspace a task's commands may have written, under that workspace's own
+    configuration — and ruff's ``cache-dir`` and mypy's ``cache_dir`` take any
+    absolute path from it, so a cache honoured would be a write outside the
+    workspace wherever a contract pointed it. Each variable outranks the
+    configuration file for its tool; ``os.devnull`` is mypy's own spelling for
+    "write no cache". The workspace is thrown away after the task, so a cache
+    kept there bought nothing that lasts.
     """
     env = {k: v for k, v in os.environ.items() if k not in _COLOUR_FORCING}
     env["NO_COLOR"] = "1"
+    env["RUFF_NO_CACHE"] = "true"
+    env["MYPY_CACHE_DIR"] = os.devnull
     return env

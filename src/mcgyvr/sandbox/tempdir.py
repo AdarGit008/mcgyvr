@@ -1,8 +1,11 @@
 """The temp-directory sandbox: the weaker mode, for installs without Docker.
 
 Docker is the default, not a hard requirement — nobody is locked out for the
-lack of it. This mode runs the worker's output and the gate in an ephemeral git
-workspace and executes commands **on the host**. It is explicitly weaker and
+lack of it, but nobody is moved here without having chosen it either: this
+mode runs when ``sandbox.mode: tempdir`` names it, or when ``docker`` has no
+daemon and ``sandbox.allow_fallback`` opts into the fallback. It runs the
+worker's output and the gate in an ephemeral git workspace and executes
+commands **on the host**. It is explicitly weaker and
 says so once at open (:data:`base._WEAKER_MODE_NOTE`), because the isolation a
 container gives — process, network, resource — is the host's here.
 

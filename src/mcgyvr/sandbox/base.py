@@ -617,25 +617,57 @@ class _SandboxChoice:
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
-def choose_mode(configured: str, docker_available: bool) -> _SandboxChoice:
+def choose_mode(
+    configured: str, docker_available: bool, *, allow_fallback: bool = False
+) -> _SandboxChoice:
     """Resolve the effective sandbox mode from config and Docker availability.
 
-    ``docker`` configured without a daemon does not fail — it falls back to
-    the temp directory and says so once, because locking a user out for the
-    lack of Docker is the opposite of the intent. ``tempdir`` configured is an
-    explicit choice and carries the same weaker-mode note.
+    ``docker`` configured without a daemon is refused (:class:`SandboxError`):
+    falling back puts a contract's acceptance commands on the host, and that is
+    for the user to choose ahead of time, not to read about in a note after the
+    run started. The refusal names both ways on: ``tempdir`` by name, or
+    ``allow_fallback`` (``sandbox.allow_fallback``), which falls back and says
+    so once. ``tempdir`` configured is an explicit choice and carries the same
+    weaker-mode note.
     """
     if configured == "tempdir":
         return _SandboxChoice("tempdir", (_WEAKER_MODE_NOTE,))
     if not docker_available:
+        if not allow_fallback:
+            raise SandboxError(_NO_DAEMON_REFUSAL)
         return _SandboxChoice(
             "tempdir",
             (
-                "Docker was requested but no daemon answered; falling back to "
-                "the temp-directory sandbox. " + _WEAKER_MODE_NOTE,
+                "Docker was requested but no daemon answered; "
+                "`sandbox.allow_fallback` is on, so this task falls back to the "
+                "temp-directory sandbox. " + _WEAKER_MODE_NOTE,
             ),
         )
     return _SandboxChoice("docker")
+
+
+_NO_DAEMON_REFUSAL = (
+    "`sandbox.mode` is `docker` and no Docker daemon answered, so the task is "
+    "not run: falling back would run a contract's acceptance commands on this "
+    "host instead of in a container. Start Docker, or choose the weaker mode "
+    "by name — `sandbox.mode: tempdir`, or `--sandbox tempdir` for one run — "
+    "or keep `docker` and set `sandbox.allow_fallback: true` to fall back to "
+    "it whenever no daemon answers."
+)
+
+#: Where a task container is attached: Docker's own default network, or none.
+#: The names are Docker's, passed to ``--network`` untouched.
+NETWORKS = ("bridge", "none")
+
+
+def check_network(network: str) -> str:
+    """``network`` if a task can be given it, else :class:`SandboxError` by name."""
+    if network not in NETWORKS:
+        raise SandboxError(
+            f"`sandbox.network: {network}` is not a network a task is given; "
+            f"it is one of {', '.join(NETWORKS)}"
+        )
+    return network
 
 
 _WEAKER_MODE_NOTE = (
@@ -655,11 +687,18 @@ def open_sandbox(
     image: str | None = None,
     setup: Sequence[str] = (),
     endpoints: Sequence[str] = (),
+    allow_fallback: bool = False,
+    network: str = "bridge",
 ) -> Sandbox:
     """Construct the sandbox a task should run in, not yet entered.
 
-    ``mode`` comes from ``sandbox.mode`` in config; ``image``/``setup`` from
-    the rest of the ``sandbox`` block. ``endpoints`` are the configured worker
+    ``mode`` comes from ``sandbox.mode`` in config; ``image``/``setup``,
+    ``allow_fallback`` and ``network`` from the rest of the ``sandbox`` block.
+    ``docker`` with no daemon is refused unless ``allow_fallback`` is set
+    (:func:`choose_mode`). ``network="none"`` is kept by a container and
+    refused by the temp-directory mode, which runs commands on the host and
+    cannot take the network away — chosen by name or reached by the fallback,
+    it is not claimed and then not kept. ``endpoints`` are the configured worker
     ``base_url``s the container must be able to reach; loopback ones are
     translated to the host alias by the Docker mode, and they are passed only
     there — the temp-directory mode already runs on the host. Docker
@@ -667,6 +706,7 @@ def open_sandbox(
     callers that already probed). The returned sandbox carries ``notes`` naming
     the weaker mode when one is in force — the caller surfaces them once at open.
     """
+    check_network(network)
     if mode != "tempdir":
         # Before the daemon is even probed: a `docker info` under DOCKER_HOST
         # would go wherever the variable points, a rig included, and the
@@ -682,7 +722,7 @@ def open_sandbox(
 
         docker_available, _ = detect_docker()
 
-    choice = choose_mode(mode, docker_available)
+    choice = choose_mode(mode, docker_available, allow_fallback=allow_fallback)
 
     if choice.mode == "docker":
         from mcgyvr.sandbox.docker import DockerSandbox
@@ -693,7 +733,17 @@ def open_sandbox(
             image=image,
             setup=tuple(setup),
             endpoints=tuple(endpoints),
+            network=network,
             notes=choice.notes,
+        )
+
+    if network != "bridge":
+        raise SandboxError(
+            f"`sandbox.network: {network}` asks for a task with no network, and "
+            f"this task would run in the temp-directory sandbox, on this host, "
+            f"where mcgyvr cannot take the network away. Run it in a container "
+            f"(`sandbox.mode: docker`, with a daemon that answers), or set "
+            f"`sandbox.network: bridge`."
         )
 
     from mcgyvr.sandbox.tempdir import TempDirSandbox

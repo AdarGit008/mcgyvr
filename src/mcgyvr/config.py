@@ -43,6 +43,7 @@ import yaml
 
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
+from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
 
 #: A setup is two files in one directory. ``fleet.yaml`` is locked and holds
@@ -154,12 +155,35 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
         "enum",
-        "`docker` runs each task in its own container, torn down after. "
-        "`tempdir` is the explicitly weaker fallback for installs without "
-        "Docker: acceptance commands are arbitrary shell from a contract, "
-        "running on someone else's machine.",
+        "`docker` runs each task in its own container, torn down after; with "
+        "no Docker daemon answering, the task is refused unless "
+        "`allow_fallback` is on. `tempdir` is the explicitly weaker mode for "
+        "installs without Docker: acceptance commands are arbitrary shell from "
+        "a contract, running on someone else's machine.",
         default="docker",
         choices=("docker", "tempdir"),
+    ),
+    Field(
+        "allow_fallback",
+        "bool",
+        "What `mode: docker` does when no Docker daemon answers. Off, the task "
+        "is refused and the refusal says how to go on. On, the task runs in "
+        "the `tempdir` sandbox instead and says so once — the weaker mode, "
+        "chosen ahead of time rather than read about after the run started.",
+        default=False,
+    ),
+    Field(
+        "network",
+        "enum",
+        "The network a task container is attached to. `bridge` is Docker's "
+        "default: acceptance commands can fetch dependencies and reach the "
+        "configured worker endpoints — and anything else this machine can "
+        "reach. `none` gives the container no network at all, so a contract "
+        "whose commands download anything fails. `none` needs `mode: docker`: "
+        "the `tempdir` sandbox runs on this host, where the network cannot be "
+        "taken away, and is refused under it.",
+        default="bridge",
+        choices=NETWORKS,
     ),
     Field(
         "image",

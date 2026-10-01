@@ -16,8 +16,11 @@ against a repository. Two properties are load-bearing:
    task runs in its own container, torn down afterwards. The temp-directory
    sandbox is weaker: task commands run on the host in a throwaway git
    workspace. It is used when configured (`sandbox.mode: tempdir` or
-   `--sandbox tempdir`), or when Docker is configured but no daemon answers;
-   either way the run says so.
+   `--sandbox tempdir`), or when Docker is configured, no daemon answers and
+   `sandbox.allow_fallback: true` opts into the fallback; either way the run
+   says so. Docker configured with no daemon and no opt-in is refused.
+   A task container is on Docker's default network unless
+   `sandbox.network: none` takes the network away.
 2. **Provider credentials never enter a task sandbox.** API keys are read
    from the environment by the orchestrator process only; a task container
    receives the repository and the worker endpoint, never a key.

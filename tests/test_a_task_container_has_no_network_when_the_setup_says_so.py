@@ -143,7 +143,6 @@ def test_a_run_reads_the_setting_from_its_setup(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """No daemon, the fallback allowed, and no network asked for: refused."""
-    lj.clean_env(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(detect, "detect_docker", lambda: (False, "no daemon"))
     config = lj.make_config(tmp_path / "setup", journal_dir=tmp_path / "journal")
     lj.append_policy(config, "sandbox:\n  allow_fallback: true\n  network: none\n")

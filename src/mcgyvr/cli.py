@@ -465,7 +465,7 @@ def _detect(args: argparse.Namespace) -> int:
 
 def _sandbox(args: argparse.Namespace) -> int:
     from mcgyvr.detect import detect_docker
-    from mcgyvr.sandbox.base import choose_mode
+    from mcgyvr.sandbox.base import SandboxError, choose_mode
     from mcgyvr.sandbox.image import ImageError, clear, list_cached
     from mcgyvr.sandbox.stack import detect_stack
 
@@ -505,10 +505,15 @@ def _sandbox(args: argparse.Namespace) -> int:
         return 1
 
     # The default configured mode is `docker`; show what it resolves to here.
-    choice = choose_mode("docker", docker_ok)
-    print(f"Sandbox mode: {choice.mode}  ({docker_how})")
-    for note in choice.notes:
-        print(f"  - {note}")
+    try:
+        choice = choose_mode("docker", docker_ok)
+    except SandboxError as refused:
+        print(f"Sandbox mode: refused  ({docker_how})")
+        print(f"  - {refused}")
+    else:
+        print(f"Sandbox mode: {choice.mode}  ({docker_how})")
+        for note in choice.notes:
+            print(f"  - {note}")
 
     stack = detect_stack(repo)
     print(f"\nStack for {repo}:")
@@ -1398,7 +1403,7 @@ def _floor(
         )
 
     try:
-        sandbox = open_sandbox(repo, mode=args.sandbox)
+        sandbox = open_sandbox(repo, mode=args.sandbox, **_sandbox_policy(config))
     except SandboxError as exc:
         return _error(report, str(exc))
 
@@ -1483,6 +1488,22 @@ def _floor(
             on_copy_error=recording.copy_failed,
         )
         return _error(report, str(exc))
+
+
+def _sandbox_policy(config: Config | None) -> dict[str, Any]:
+    """What the `sandbox` block says about a sandbox beyond its mode.
+
+    Read in one place for both paths that open one, so the floor and the climb
+    cannot come to disagree about whether a missing daemon falls back or what
+    network a container gets. No config is the schema's defaults: refuse
+    rather than fall back, and Docker's default network.
+    """
+    if config is None:
+        return {"allow_fallback": False, "network": "bridge"}
+    return {
+        "allow_fallback": bool(config.get("sandbox.allow_fallback", False)),
+        "network": config.get("sandbox.network", "bridge"),
+    }
 
 
 def _error(report: RunResult, detail: str, *, outcome: str = "error") -> int:
@@ -1643,6 +1664,7 @@ def _climb(
             # to reach it: a container with no route to the source is a task that
             # gates fine and never gets an answer to gate.
             endpoints=tuple(unit.address for unit in config.units.values()),
+            **_sandbox_policy(config),
         )
     except SandboxError as exc:
         return _error(report, str(exc))
@@ -3709,8 +3731,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         choices=("docker", "tempdir"),
         help=(
             "sandbox mode; defaults to `sandbox.mode` in the config, then to "
-            "`docker`, which falls back to `tempdir` when no daemon answers "
-            "and says so"
+            "`docker`, which is refused when no daemon answers unless "
+            "`sandbox.allow_fallback` is on"
         ),
     )
     run.add_argument(

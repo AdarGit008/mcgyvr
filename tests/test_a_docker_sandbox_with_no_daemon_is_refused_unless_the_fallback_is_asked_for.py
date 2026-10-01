@@ -135,10 +135,8 @@ def _floor(contract: Path, repo: Path, *extra: str) -> list[str]:
 def test_a_run_with_no_daemon_is_refused_before_any_command_runs(
     repo: Path,
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    lj.clean_env(monkeypatch, tmp_path / "home")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
     (repo / "src" / "pkg" / "messy.py").write_text("x=0\n", encoding="utf-8")
     lj.git(repo, "commit", "-qam", "misformatted")
@@ -157,10 +155,8 @@ def test_a_run_with_no_daemon_is_refused_before_any_command_runs(
 def test_a_run_whose_setup_allows_the_fallback_runs_in_tempdir_and_says_so(
     repo: Path,
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    lj.clean_env(monkeypatch, tmp_path / "home")
     config = lj.make_config(tmp_path / "setup", journal_dir=tmp_path / "journal")
     lj.append_policy(config, "sandbox:\n  allow_fallback: true\n")
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)

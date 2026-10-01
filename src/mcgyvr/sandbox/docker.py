@@ -37,6 +37,12 @@ And two connectivity invariants that pull opposite ways (#31):
   environment satisfies ``credential_env_names(env) == frozenset()`` by
   construction — the red-failing security invariant in ``SECURITY.md``.
 
+The first of those is a default, not a promise of reach: on Docker's default
+network a container reaches whatever this machine reaches, and a contract's
+commands with it. ``sandbox.network: none`` takes the network away — no route to
+the host is mapped and no endpoint advertised — at the price of every command
+that downloads or talks to a worker.
+
 And one about WHERE the container is: on this machine's daemon, or nowhere.
 ``DOCKER_HOST`` / ``DOCKER_CONTEXT`` in the environment are refused wherever the
 sandbox reaches a docker daemon (:func:`~mcgyvr.sandbox.image.subprocess_runner`,
@@ -64,6 +70,7 @@ from mcgyvr.sandbox.base import (
     CommandResult,
     Sandbox,
     SandboxError,
+    check_network,
     command_timeout,
     merge_env,
 )
@@ -157,11 +164,13 @@ class DockerSandbox(Sandbox):
         setup: Sequence[str] = (),
         endpoints: Sequence[str] = (),
         resources: Resources | None = None,
+        network: str = "bridge",
         notes: Sequence[str] = (),
         runner: DockerRunner = subprocess_runner,
         system: str | None = None,
     ) -> None:
         super().__init__(source, base, notes=notes)
+        self._network = check_network(network)
         self._image_override = image
         self._setup = tuple(setup)
         self._endpoints = tuple(endpoints)
@@ -187,7 +196,8 @@ class DockerSandbox(Sandbox):
             image=self._image_tag,
             workspace=self.workspace,
             resources=self._resources,
-            gateway=host_gateway_args(self._system),
+            network=self._network,
+            gateway=host_gateway_args(self._system) if self._reaches_out else [],
             user=_host_user(),
             env=env,
         )
@@ -295,16 +305,22 @@ class DockerSandbox(Sandbox):
         except ImageError as exc:
             raise SandboxError(str(exc)) from exc
 
+    @property
+    def _reaches_out(self) -> bool:
+        """Whether the container has a network to reach the host and workers on."""
+        return self._network != "none"
+
     def _container_env(self) -> dict[str, str]:
         """The container's ambient environment: minimal, endpoint-bearing, keyless.
 
         Built from nothing, so no host variable — least of all a credential —
         can leak in. ``HOME`` points at the writable workspace; the translated
-        worker endpoints ride in a benign variable.
+        worker endpoints ride in a benign variable, unless the container has no
+        network to reach them on.
         """
         base: dict[str, str] = {"HOME": "/workspace"}
         reachable = [translate_endpoint(url) for url in self._endpoints]
-        if reachable:
+        if reachable and self._reaches_out:
             base[ENDPOINTS_ENV] = ",".join(reachable)
         return merge_env(base)
 
@@ -321,6 +337,7 @@ def _run_args(
     gateway: Sequence[str],
     user: str | None,
     env: Mapping[str, str],
+    network: str = "bridge",
 ) -> list[str]:
     """Build the ``docker run`` argv for a detached, long-lived task container.
 
@@ -346,6 +363,8 @@ def _run_args(
         "--volume",
         f"{workspace}/.git:/workspace/.git:ro",
         *resources.run_args(),
+        # Docker's default network is left implicit, as it always was.
+        *(["--network", network] if network != "bridge" else []),
         *gateway,
     ]
     if user is not None:
