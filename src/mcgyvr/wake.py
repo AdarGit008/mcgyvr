@@ -592,7 +592,9 @@ class CardSwitches:
     :class:`mcgyvr.ladder_manager.Switches` is a protocol over rung names; this
     is its answer, and it adds nothing to what a person typing ``mcgyvr serve``
     can do: a wake is the door's ``up`` for the card's one launch spec, a sleep
-    is the same after a drain, and both are gated by ``serving.enable_sleep_wake``
+    is the door's ``down`` after a drain — the card's containers are stopped and
+    its weights leave memory, so the next wake loads them from disk again — and
+    both are gated by ``serving.enable_sleep_wake``
     — the switch exists so that mcgyvr takes no card down or up on its own
     unless asked, and this is the "on its own" (``mcgyvr serve`` is the person
     asking, and is not gated).

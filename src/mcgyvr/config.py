@@ -395,7 +395,12 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "made under is what a run is reproducible from, and a flag would let "
         "two runs share one config where only one of them started and stopped "
         "containers on a shared rig, putting the rig side effect outside the "
-        "only record that explains the run. It governs the *decisions*: `mcgyvr serve "
+        "only record that explains the run. It also lets `mcgyvr manage`, the "
+        "ladder manager, put an idle unit to sleep and wake it again on its "
+        "own, but only while that command is running: with it on and no "
+        "manager running, nothing sleeps a card except a person. A sleep "
+        "stops the card's containers, so the next wake loads the model from "
+        "disk again. It governs the *decisions*: `mcgyvr serve "
         "sleep|wake`, typed by a person who has therefore asked, is not gated "
         "by it. It is a key of its own rather than part of `fanout` because "
         "`fanout` decides where work goes among rungs that exist and "
@@ -638,8 +643,13 @@ MANAGER_FIELDS: tuple[Field, ...] = (
     Field(
         "dwell_s",
         "int",
-        "The least time between two switches the manager makes, in seconds, "
-        "so it cannot sleep a unit and wake it again in a loop. "
+        "The least time between two switches, in seconds, so the manager "
+        "cannot sleep a unit and wake it again in a loop. A unit that changed "
+        "state without the manager -- a task woke it, or a person ran `mcgyvr "
+        "serve` -- counts as a switch too, and a unit is put to sleep only "
+        "once it has been idle for this long. A sleep stops the unit's "
+        "containers and a wake starts them and loads the model from disk "
+        "again, so every switch costs a full load. "
         "The default of 600 is a choice, not a measurement. Set it above the "
         "time your sleeping units take to wake -- `mcgyvr serve wake` prints "
         "that time -- or the manager can be asking for a unit back before the "
@@ -809,7 +819,8 @@ SCHEMA: tuple[Field, ...] = (
         "the ladder has units that can sleep and wake. Within this block it "
         "sleeps and wakes those units, changes `fanout` and changes which "
         "local unit leads; everything else it notices it prints as a "
-        "recommendation and leaves alone.",
+        "recommendation and leaves alone. A sleep stops a unit's containers "
+        "and a wake loads its model from disk again.",
         block=MANAGER_FIELDS,
     ),
     Field(

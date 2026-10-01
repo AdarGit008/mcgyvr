@@ -44,10 +44,17 @@ later only to be woken by the next climb.
 **Its powers are sleep and wake, and nothing else.** The manager acts through
 :class:`Switches`, whose only verbs are ``wake`` and ``sleep`` of a unit that
 can do both — reversible acts, through the same gated door a person's
-``mcgyvr serve`` uses (:class:`mcgyvr.wake.CardSwitches`). It never loads,
-unloads or swaps a model, never changes a unit or a fleet: a flood that only a
+``mcgyvr serve`` uses (:class:`mcgyvr.wake.CardSwitches`). It never puts a
+different model on a card, never changes a unit or a fleet: a flood that only a
 model it cannot wake would answer, or a wake that needs room held by a unit it
 may not sleep, is printed as a recommendation for a person to act on.
+
+**What a sleep costs.** "Sleep" is what ``mcgyvr serve sleep`` has always meant:
+the card's containers are stopped, and its weights leave memory with them. A
+wake starts the containers again from the card's launch spec, and the server
+loads the same weights from disk before it answers. So every switch is a stop
+or a full load, and ``dwell_s`` should be longer than the wake time
+``mcgyvr serve wake`` prints.
 
 * It never sleeps the card Jev itself runs on, and always leaves an awake rung
   below the unit it sleeps — the ladder keeps a floor.
