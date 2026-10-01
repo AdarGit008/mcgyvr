@@ -27,11 +27,19 @@ costs no decision at all.
 
 **What is legal is decided here, and is the hysteresis band.** A wake is
 offered only while the dearest awake local rung has work waiting beyond its
-width; a sleep only for a unit with nothing in flight, nothing waiting and
-nothing climbed, over a ladder with no queue anywhere. Between the two bands
-only "hold" is legal. Then Jev must give the same answer ``confirm`` times in a
-row before anything moves, and no two switches are closer than ``dwell_s``, so
-a queue that flickers across one band does not flap the ladder.
+width; a sleep only for a unit whose whole card has read idle — nothing in
+flight, nothing waiting and nothing climbed — for at least ``dwell_s`` without
+a break, over a ladder with no queue anywhere. Between the two bands only
+"hold" is legal. Then Jev must give the same answer ``confirm`` times in a row
+before anything moves, and no two switches are closer than ``dwell_s``, so a
+queue that flickers across one band does not flap the ladder.
+
+**A switch somebody else made counts as one.** A task that climbs to a sleeping
+unit wakes it itself, through the dispatch-side door
+(:meth:`mcgyvr.wake.Waker.dispatching`), and a person may run ``mcgyvr serve``.
+The manager notices a unit whose state changed without it and starts the dwell
+from there, so a unit a task just woke is not put back to sleep a few ticks
+later only to be woken by the next climb.
 
 **Its powers are sleep and wake, and nothing else.** The manager acts through
 :class:`Switches`, whose only verbs are ``wake`` and ``sleep`` of a unit that
@@ -43,8 +51,9 @@ may not sleep, is printed as a recommendation for a person to act on.
 
 * It never sleeps the card Jev itself runs on, and always leaves an awake rung
   below the unit it sleeps — the ladder keeps a floor.
-* It never wakes a unit that is cooling down, and a wake or sleep that fails is
-  recorded as a failure against that unit (:class:`Cooling`).
+* It never wakes or sleeps a unit that is cooling down, and a wake or sleep
+  that fails is recorded as a failure against that unit (:class:`Cooling`).
+  The record is the manager's own: a task's cooldown does not read it.
 * A wake that needs another unit's room sleeps that unit first, and the sleep
   that ends the wake wakes it again: the card goes back to the fast rungs.
 
@@ -262,6 +271,13 @@ class Manager:
             ASK_LEAD: _Streak(),
         }
         self._last_switch: float | None = None
+        #: Whether each rung was awake as of the last tick, with the manager's
+        #: own switches applied: a reading that disagrees is a switch somebody
+        #: else made.
+        self._expected: dict[str, bool] = {}
+        #: When each awake rung was first read idle in the run of idle readings
+        #: it is in now; a rung that is busy or asleep has no entry.
+        self._idle_since: dict[str, float] = {}
         #: The units each wake slept to make room, given back by its sleep.
         self._room: dict[str, tuple[str, ...]] = {}
         self._fanout = view.fanout
@@ -345,15 +361,73 @@ class Manager:
             return False
         return room or all(_idle(readings[r]) for r in card if r in readings)
 
-    def _sleeps(self, readings: Mapping[str, Reading]) -> list[_Move]:
+    def _sleeps(
+        self, readings: Mapping[str, Reading], cooled: frozenset[str], now: float
+    ) -> list[_Move]:
+        """The legal sleeps: idle units whose whole card has idled for the dwell.
+
+        The band is a duration, not a count of answers: a unit is offered only
+        once every rung of its card has read idle for ``dwell_s`` without a
+        break, so a batch that climbs to it now and then keeps it awake. A
+        cooling unit is not offered either — a sleep that keeps failing would
+        otherwise be asked about again every dwell.
+        """
         awake = [r for r in self._view.resident if readings[r].awake]
         if any(_queued(readings[r]) > 0 for r in awake):
             return []
         return [
             _Move("sleep", rung)
             for rung in self._view.resident
-            if self._may_sleep(rung, readings)
+            if rung not in cooled
+            and self._may_sleep(rung, readings)
+            and self._idled(rung, readings, now)
         ]
+
+    def _idled(self, rung: str, readings: Mapping[str, Reading], now: float) -> bool:
+        """Whether every rung of ``rung``'s card has idled for ``dwell_s`` by now."""
+        for r in self._switches.card_of(rung):
+            if r not in readings:
+                continue
+            since = self._idle_since.get(r)
+            if since is None or now - since < self._bounds.dwell_s:
+                return False
+        return True
+
+    def _observe(self, readings: Mapping[str, Reading], now: float) -> list[str]:
+        """Keep the idle clocks, and count a switch somebody else made as one.
+
+        A task that climbs to a sleeping unit wakes it through the dispatch-side
+        door (:meth:`mcgyvr.wake.Waker.dispatching`), and a person may run
+        ``mcgyvr serve``. Either is a unit that changed state without the
+        manager, and it earns the dwell a switch of the manager's own would:
+        otherwise a unit a task just woke could be put back to sleep a few ticks
+        later, and the next climb would wake it again.
+        """
+        for rung in self._view.resident:
+            if readings[rung].awake and _idle(readings[rung]):
+                self._idle_since.setdefault(rung, now)
+            else:
+                self._idle_since.pop(rung, None)
+        moved = [
+            rung
+            for rung in self._view.resident
+            if rung in self._expected and self._expected[rung] != readings[rung].awake
+        ]
+        self._expected = {r: readings[r].awake for r in self._view.resident}
+        if not moved:
+            return []
+        self._switched(now)
+        return [
+            f"{rung} {'woke' if readings[rung].awake else 'went down'} outside the "
+            f"ladder manager; no switch for {self._bounds.dwell_s:g}s"
+            for rung in moved
+        ]
+
+    def _now_awake(self, rung: str, awake: bool) -> None:
+        """Record a switch of the manager's own, for the whole card it moved."""
+        for r in self._switches.card_of(rung):
+            if r in self._expected:
+                self._expected[r] = awake
 
     # --- one tick -------------------------------------------------------------
 
@@ -363,7 +437,7 @@ class Manager:
         readings = {rung: self._pressure.read(rung) for rung in self._view.resident}
         cooled = self._cooled()
         top = self._top(readings)
-        acted: list[str] = []
+        acted: list[str] = self._observe(readings, now)
 
         # A lead that is asleep or cooling is not a place to start tasks, and
         # dropping it is a safety reset, not a decision to be confirmed.
@@ -373,7 +447,7 @@ class Manager:
             acted.append(self._set_lead(KEEP_ORDER, why="it is not serving"))
 
         wakes, recommendation = self._wakes(readings, cooled, top)
-        moves = [_Move(HOLD), *wakes, *self._sleeps(readings)]
+        moves = [_Move(HOLD), *wakes, *self._sleeps(readings, cooled, now)]
         recommended = self._recommend(recommendation)
 
         questions: dict[str, decision.Choice] = {}
@@ -508,14 +582,14 @@ class Manager:
         for unit in room:
             ok = self._switches.sleep(unit)
             lines.append(f"sleep {unit} to make room for {rung}: {_ok(ok)}")
-            self._record(unit, ok)
+            self._record(unit, ok, awake=False)
             if not ok:
                 lines.extend(self._give_back(slept))
                 return lines
             slept.append(unit)
         ok = self._switches.wake(rung)
         lines.append(f"wake {rung}: {_ok(ok)}")
-        self._record(rung, ok)
+        self._record(rung, ok, awake=True)
         if ok:
             self._room[rung] = tuple(slept)
         else:
@@ -525,7 +599,7 @@ class Manager:
     def _sleep(self, rung: str) -> list[str]:
         ok = self._switches.sleep(rung)
         lines = [f"sleep {rung}: {_ok(ok)}"]
-        self._record(rung, ok)
+        self._record(rung, ok, awake=False)
         if not ok:
             return lines
         if self._lead == rung:
@@ -538,10 +612,13 @@ class Manager:
         for unit in units:
             ok = self._switches.wake(unit)
             lines.append(f"wake {unit} back: {_ok(ok)}")
-            self._record(unit, ok)
+            self._record(unit, ok, awake=True)
         return lines
 
-    def _record(self, rung: str, ok: bool) -> None:
+    def _record(self, rung: str, ok: bool, *, awake: bool) -> None:
+        """Record a switch's outcome: the state it left, and what cooling learns."""
+        if ok:
+            self._now_awake(rung, awake)
         if self._cooling is None:
             return
         if ok:
@@ -591,6 +668,11 @@ class Manager:
                     "width": readings[rung].width,
                     "queued": _queued(readings[rung]),
                     "cooling": rung in cooled,
+                    "idle_s": (
+                        None
+                        if rung not in self._idle_since
+                        else now - self._idle_since[rung]
+                    ),
                     "can_sleep": rung in self._view.sleepable,
                 }
                 for rung in self._view.resident

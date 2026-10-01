@@ -2434,7 +2434,7 @@ def _manage(args: argparse.Namespace) -> int:
             fast.name,
             timeout_s=DEFAULT_REQUEST_TIMEOUT_S if stated is None else stated,
         ),
-        cooling=RungCooling(pool),
+        cooling=RungCooling(pool, hold_s=bounds.dwell_s),
         say=print,
         publish=board.publish,
     )

@@ -70,7 +70,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict, probe_endpoint
-from mcgyvr.cooldown import Cooldown
+from mcgyvr.cooldown import COOLDOWN_S, Cooldown
 from mcgyvr.runner import unit_in_flight
 from mcgyvr.wake import _ours
 
@@ -447,13 +447,32 @@ class RungCooling:
     A rung the pool does not hold is not cooled and not recorded: the manager
     names rungs of its own config, and one with no endpoint has nothing to hold
     out.
+
+    ``hold_s`` is the least time a cooled unit is held out. The manager passes
+    its ``dwell_s``: it may not switch again inside the dwell anyway, so a
+    sentence shorter than that would expire before it could keep the manager
+    from anything. The dispatch cooldown's own sentence is the floor.
+
+    The record lives in the manager's process. A task's own cooldown learns
+    from the task's dispatches, and does not see what the manager learned here.
     """
 
-    def __init__(self, pool: SourceMap, cooldown: Cooldown | None = None) -> None:
+    def __init__(
+        self,
+        pool: SourceMap,
+        cooldown: Cooldown | None = None,
+        *,
+        hold_s: float | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._pool = pool
-        self._cooldown = (
-            cooldown if cooldown is not None else Cooldown(probe=_asleep_is_not_down)
-        )
+        if cooldown is None:
+            cooldown = Cooldown(
+                probe=_asleep_is_not_down,
+                clock=clock,
+                cooldown_s=COOLDOWN_S if hold_s is None else max(COOLDOWN_S, hold_s),
+            )
+        self._cooldown = cooldown
 
     def cooled(self, rungs: tuple[str, ...]) -> frozenset[str]:
         """The rungs among ``rungs`` that are cooling down now."""
