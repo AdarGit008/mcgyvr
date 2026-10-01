@@ -182,6 +182,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.gate.semantic_driver",
     "mcgyvr.gate.structured",
     "mcgyvr.gate.typecheck",
+    "mcgyvr.ladder_manager",
     "mcgyvr.orchestrator",
     "mcgyvr.orchestrator.cache",
     "mcgyvr.orchestrator.context",

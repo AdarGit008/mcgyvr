@@ -61,6 +61,7 @@
     "gate/structured.py": "holds no number that sizes or judges",
     "gate/typecheck.py": "judging",
     "initialize.py": "judging",
+    "ladder_manager.py": "judging",
     "lines.py": "holds no number that sizes or judges",
     "orchestrator/__init__.py": "holds no number that sizes or judges",
     "orchestrator/cache.py": "judging",
