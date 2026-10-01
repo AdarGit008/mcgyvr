@@ -66,6 +66,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
+from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import Config
 from mcgyvr.runner import RefusedConnectionError
 from mcgyvr.serving import Card, cards
@@ -561,3 +562,95 @@ def wake(config: Config, host: str) -> Wake:
         # mcgyvr holds the files and not the answer to which.
         raise WakeError(_why_not_one(card))
     return _run_door(config, card, "up", compose)
+
+
+def drain_timeout(config: Config, card: Card) -> float | None:
+    """How long a sleep of ``card`` waits for each of its slots, or ``None``.
+
+    A dispatch in flight either finishes inside its own unit's transport bound
+    or the transport has already given up on it, so waiting longer than that is
+    waiting for something that is no longer running. The card may hold units
+    with different bounds; the longest is what covers them all. ``None`` where
+    no unit of the card states one: the drain then waits as long as it takes,
+    which is :meth:`~mcgyvr.capacity.Capacity.drain`'s own default.
+
+    One place for it, because a person's ``mcgyvr serve sleep`` and the ladder
+    manager's :class:`CardSwitches` drain the same card and must not wait
+    differently for it.
+    """
+    timeouts: list[float] = []
+    for name in card.sources:
+        unit = config.units.get(name)
+        if unit is not None and unit.request_timeout_s is not None:
+            timeouts.append(unit.request_timeout_s)
+    return max(timeouts) if timeouts else None
+
+
+class CardSwitches:
+    """The ladder manager's two verbs, thrown through the door ``serve`` uses.
+
+    :class:`mcgyvr.ladder_manager.Switches` is a protocol over rung names; this
+    is its answer, and it adds nothing to what a person typing ``mcgyvr serve``
+    can do: a wake is the door's ``up`` for the card's one launch spec, a sleep
+    is the same after a drain, and both are gated by ``serving.enable_sleep_wake``
+    — the switch exists so that mcgyvr takes no card down or up on its own
+    unless asked, and this is the "on its own" (``mcgyvr serve`` is the person
+    asking, and is not gated).
+
+    **A fresh waker per wake.** :class:`Waker` remembers that it woke a card so
+    that one run wakes it once. The manager lives for hours and may wake a card
+    it slept in between, so each wake builds its own and the memory dies with
+    it. The live-lock gate inside :meth:`Waker._wake_for` therefore applies to
+    every wake the manager makes.
+
+    **A sleep is a drain and then the door.** The card's slots are taken before
+    its containers are stopped (:meth:`~mcgyvr.capacity.Capacity.drain`), and a
+    dispatch that is still running is a sleep that does not happen now: ``False``,
+    and the manager asks again on a later tick. A door that fails, or refuses,
+    is ``False`` as well.
+
+    **A card goes whole.** Sleep evicts the entire card and wake brings the
+    entire launch spec back, which was sized whole by ``emit``. So there is no
+    case where one unit's wake displaces a neighbour and :meth:`room_for` is
+    always empty; that is the product's rule, not a gap.
+    """
+
+    def __init__(self, config: Config, capacity: Capacity) -> None:
+        self._config = config
+        self._capacity = capacity
+        self._cards = cards(config)
+
+    def _allowed(self) -> bool:
+        return bool(
+            self._config.get("serving.enable_sleep_wake")
+            and self._config.get("serving.compose_dir")
+        )
+
+    def wake(self, rung: str) -> bool:
+        """Bring the rung's card back through the door; ``False`` if it was not."""
+        waker = for_config(self._config)
+        return waker is not None and waker.wake_for(rung)
+
+    def sleep(self, rung: str) -> bool:
+        """Drain the rung's card and take it down; ``False`` if it was not."""
+        if not self._allowed():
+            return False
+        card = self._cards.get(rung)
+        if card is None or compose_for(card) is None:
+            return False
+        try:
+            with self._capacity.drain(
+                card.sources, timeout=drain_timeout(self._config, card)
+            ):
+                return sleep(self._config, card.host).ok
+        except (SlotUnavailableError, WakeError):
+            return False
+
+    def room_for(self, rung: str) -> tuple[str, ...]:
+        """Always ``()``: a card goes up whole, so no wake needs another unit's room."""
+        return ()
+
+    def card_of(self, rung: str) -> tuple[str, ...]:
+        """Every rung the card serves, or the rung alone where it has no card."""
+        card = self._cards.get(rung)
+        return tuple(card.rungs) if card is not None else (rung,)

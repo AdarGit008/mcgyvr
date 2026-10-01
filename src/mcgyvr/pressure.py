@@ -69,7 +69,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr.availability import PROBE_TIMEOUT_S, probe_endpoint
+from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict, probe_endpoint
+from mcgyvr.cooldown import Cooldown
 from mcgyvr.runner import unit_in_flight
 from mcgyvr.wake import _ours
 
@@ -415,3 +416,57 @@ class Pressure:
             climbed=self._gauge.count(climbed_key(rung)),
             width=self._capacity.limit(endpoint.source, rung),
         )
+
+
+def _asleep_is_not_down(endpoint: Endpoint, timeout_s: float) -> AvailabilityVerdict:
+    """A probe that always answers live, for a cooldown that must not read sleep.
+
+    A unit the manager has put to sleep answers nothing, and asleep is the state
+    it wakes; a cooldown that read that as down would hold out the very unit the
+    manager is about to wake. What a cooldown learns here is failures only.
+    """
+    return AvailabilityVerdict(
+        source=endpoint.source,
+        live=True,
+        reason="",
+        how="stub probe, no network",
+        elapsed_s=0.0,
+    )
+
+
+class RungCooling:
+    """The units held out after failing switches, in rung names.
+
+    :class:`mcgyvr.ladder_manager.Cooling` over :class:`mcgyvr.cooldown.Cooldown`:
+    a wake or a sleep that failed is recorded against the unit as a failed
+    dispatch is, and the same consecutive-failures rule and expiry take the unit
+    out of the manager's reach for a while. The cooldown is built with a probe
+    that always reads live (:func:`_asleep_is_not_down`), so the only thing that
+    can cool a unit is what the manager itself did to it.
+
+    A rung the pool does not hold is not cooled and not recorded: the manager
+    names rungs of its own config, and one with no endpoint has nothing to hold
+    out.
+    """
+
+    def __init__(self, pool: SourceMap, cooldown: Cooldown | None = None) -> None:
+        self._pool = pool
+        self._cooldown = (
+            cooldown if cooldown is not None else Cooldown(probe=_asleep_is_not_down)
+        )
+
+    def cooled(self, rungs: tuple[str, ...]) -> frozenset[str]:
+        """The rungs among ``rungs`` that are cooling down now."""
+        endpoints = [self._pool.bind(r) for r in rungs if self._pool.get(r) is not None]
+        return frozenset(self._cooldown.unavailable(endpoints))
+
+    def failed(self, rung: str) -> None:
+        """A wake or sleep of ``rung`` failed."""
+        self._cooldown.record_failure(self._source(rung))
+
+    def worked(self, rung: str) -> None:
+        """A wake or sleep of ``rung`` worked, so its streak of failures is over."""
+        self._cooldown.record_success(self._source(rung))
+
+    def _source(self, rung: str) -> str:
+        return self._pool.bind(rung).source
