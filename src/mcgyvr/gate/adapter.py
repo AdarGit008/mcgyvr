@@ -49,6 +49,7 @@ from pathlib import Path
 
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
+from mcgyvr.sandbox.base import safe_env
 
 
 class EnvironmentFaultError(Exception):
@@ -294,8 +295,15 @@ def plain_env() -> dict[str, str]:
     configuration file for its tool; ``os.devnull`` is mypy's own spelling for
     "write no cache". The workspace is thrown away after the task, so a cache
     kept there bought nothing that lasts.
+
+    And it holds no credential. That configuration can be code — a
+    ``mypy.ini`` names a plugin by file path, an ``eslint.config.js`` is a
+    module — and it runs with whatever environment the checker was handed, so
+    the host's is passed through :func:`~mcgyvr.sandbox.base.safe_env`, the
+    filter a sandbox's environment goes through: no credential-shaped name,
+    and no value carrying ``user:password@``.
     """
-    env = {k: v for k, v in os.environ.items() if k not in _COLOUR_FORCING}
+    env = safe_env({k: v for k, v in os.environ.items() if k not in _COLOUR_FORCING})
     env["NO_COLOR"] = "1"
     env["RUFF_NO_CACHE"] = "true"
     env["MYPY_CACHE_DIR"] = os.devnull

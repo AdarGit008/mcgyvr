@@ -504,9 +504,26 @@ def _sandbox(args: argparse.Namespace) -> int:
         print(f"error: {repo} is not a directory", file=sys.stderr)
         return 1
 
-    # The default configured mode is `docker`; show what it resolves to here.
+    # Show what a run here would resolve to: the setup's `sandbox.mode` and
+    # `sandbox.allow_fallback`, read as a run reads them. No setup at all is
+    # the schema's defaults (`docker`, no fallback); a setup that cannot be
+    # read has no resolved mode to show.
     try:
-        choice = choose_mode("docker", docker_ok)
+        config: Config | None = load_config(None)
+    except ConfigMissingError:
+        config = None
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    configured = (
+        config.get("sandbox.mode") if config is not None else None
+    ) or "docker"
+    try:
+        choice = choose_mode(
+            configured,
+            docker_ok,
+            allow_fallback=_sandbox_policy(config)["allow_fallback"],
+        )
     except SandboxError as refused:
         print(f"Sandbox mode: refused  ({docker_how})")
         print(f"  - {refused}")

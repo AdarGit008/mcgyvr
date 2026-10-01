@@ -23,6 +23,10 @@ against a repository. Two properties are load-bearing:
    `sandbox.network: none` takes the network away.
 2. **Provider credentials never enter a task sandbox.** API keys are read
    from the environment by the orchestrator process only; a task container
-   receives the repository and the worker endpoint, never a key.
+   receives the repository and the worker endpoint, never a key. The gate's
+   checkers run on the host over what a task wrote, under the workspace's own
+   configuration, and that configuration can be code (a type-checker plugin,
+   a linter config module); they are handed the same filtered environment, so
+   what it runs reaches no key either.
 
 Deviations from either are security-relevant and in scope for a report.
