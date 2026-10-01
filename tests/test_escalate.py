@@ -662,12 +662,17 @@ def test_a_refused_review_is_a_failed_attempt_and_carries_what_to_fix() -> None:
 
 
 def test_an_unusable_review_is_neither_an_approval_nor_the_builders_fault() -> None:
-    """#41's rule reaching the policy: a reply that cannot be read is not a verdict."""
+    """#41's rule reaching the policy: a reply that cannot be read is not a verdict.
+
+    Not an approval, so never ``VERIFIED``; not the builder's fault, so the
+    gate's acceptance stands and is labelled ``UNVERIFIED``.
+    """
     verdict = judge(
         contract(), LOCAL, clean(), verifier=lambda: Review.unusable("empty reply")
     )
 
-    assert verdict.verdict is Verdict.FAILED
+    assert verdict.verdict is Verdict.PASSED
+    assert verdict.assurance is Assurance.UNVERIFIED
     assert verdict.reviewer_failed is True
     assert verdict.retry is None  # nothing the worker did, so nothing to tell it
     assert "no usable verdict" in verdict.detail
