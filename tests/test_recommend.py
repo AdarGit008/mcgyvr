@@ -238,6 +238,26 @@ def recurrent_header(path: str, size_bytes: int = SIZE_BYTES) -> dict[str, Any]:
     return header
 
 
+def ram_heavy_moe_header(path: str, size_bytes: int = SIZE_BYTES) -> dict[str, Any]:
+    """An MoE whose expert spill exceeds the invented rig's 48 GiB of RAM.
+
+    The card load stays tiny (1 GiB of non-expert weights plus the cache), so
+    the only reason this checkpoint must not fit is the host-RAM gate.
+    """
+    header = fake_header(path, size_bytes)
+    expert_bytes = 60 * (1024**3)
+    nonexpert_bytes = 1_000_000_000
+    header.update(
+        {
+            "size_bytes": expert_bytes + nonexpert_bytes,
+            "bytes_experts": expert_bytes,
+            "bytes_nonexpert": nonexpert_bytes,
+            "bytes_total_tensors": expert_bytes + nonexpert_bytes,
+        }
+    )
+    return header
+
+
 def _numbers(document: Any) -> frozenset[int | float]:
     """Every number nested in a parsed plan, never a bool."""
     found: set[int | float] = set()
@@ -898,9 +918,7 @@ def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
     classify()
     probe(live=False)
 
-    code, plan = run_and_parse(
-        capsys, "coding", "single", MISSING_STORE_DIR, STORE_DIR
-    )
+    code, plan = run_and_parse(capsys, "coding", "single", MISSING_STORE_DIR, STORE_DIR)
     assert code == 0
     assert plan["source"] == "local-store"
     assert plan["placement"]["checkpoint"] == CHECKPOINT
@@ -932,3 +950,33 @@ def test_recommend_catalog_budgets_kv_on_top_of_size(
     assert plan["source"] == "hf-catalog"
     assert plan["placement"]["model_id"] == "invented-org/small"
     assert "invented-org/kv-heavy" not in _text(plan)
+
+
+def test_recommend_rejects_an_moe_whose_expert_spill_exceeds_host_ram(
+    monkeypatch: pytest.MonkeyPatch,
+    classify: Any,
+    probe: Any,
+    catalog: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An MoE that fits the card but not host RAM is not a local candidate.
+
+    ``ram_heavy_moe_header`` spills 60 GiB of experts into a rig the scan
+    reports with 48 GiB of available RAM, while its card load stays tiny. The
+    fit must refuse it and fall back to the catalog rather than place a model
+    whose resident expert weights the rig's RAM cannot hold.
+    """
+    monkeypatch.setattr(
+        scan_module,
+        "_ssh",
+        RecordedSsh(HOST, header_builder=ram_heavy_moe_header),
+    )
+    classify()
+    probe(live=False)
+    catalog()
+
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    assert code == 0
+    assert plan["source"] == "hf-catalog"
+    assert plan["placement"]["model_id"] == "invented-org/invented-dense"
+    assert CHECKPOINT not in _text(plan)

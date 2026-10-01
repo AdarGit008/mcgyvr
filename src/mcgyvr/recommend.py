@@ -51,7 +51,14 @@ from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.pool import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
-from mcgyvr.scan import Reach, Scan, ScanFailed, ScannerMissing, Unreachable
+from mcgyvr.scan import (
+    BYTES_PER_GB,
+    Reach,
+    Scan,
+    ScanFailed,
+    ScannerMissing,
+    Unreachable,
+)
 from mcgyvr.serving import (
     DEFAULT_PORT,
     DEFAULT_SPEC_DRAFT_N_MAX,
@@ -194,7 +201,11 @@ def load_catalog() -> dict[str, Any]:
                 "kv_bytes_per_token"
             )
         recurrent = entry.get("recurrent_bytes_per_slot", 0)
-        if not isinstance(recurrent, int) or isinstance(recurrent, bool) or recurrent < 0:
+        if (
+            not isinstance(recurrent, int)
+            or isinstance(recurrent, bool)
+            or recurrent < 0
+        ):
             raise CatalogError(
                 f"{path}: model {entry.get('model_id')!r} declares a negative or "
                 "non-integer recurrent_bytes_per_slot"
@@ -274,6 +285,19 @@ def _free_vram_bytes(scan: Scan) -> int:
     return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
 
 
+def _host_ram_bytes(scan: Scan) -> int | None:
+    """Measured host RAM available, or None when the scan could not read it.
+
+    ``Memory.available_gb`` is the kernel's own estimate of what a new workload
+    could get without swapping, which is the figure an MoE's resident expert
+    spill is held against. A scan that could not read memory returns None, and
+    :func:`_fits` reads that as "does not fit" rather than guessing a ceiling.
+    """
+    if scan.memory is None:
+        return None
+    return int(scan.memory.available_gb * BYTES_PER_GB)
+
+
 def _slot_bytes(header: Mapping[str, Any], users: int) -> int | None:
     """KV and recurrent-state bytes for ``users`` slots, from the measured header.
 
@@ -306,9 +330,11 @@ def _fits(scan: Scan, header: Mapping[str, Any], users: int) -> bool:
     card is the non-expert weights; a dense checkpoint must fit whole. To that
     weight term the cache law adds the KV cache and the recurrent state the
     header implies for ``users`` concurrent slots, so a wider placement is
-    priced as a wider process, not as the same weights. Every figure comes from
-    the header or the scan (measured); no stored spec and no estimate stand in
-    for any of them.
+    priced as a wider process, not as the same weights. For an MoE the spilled
+    experts are then held against the measured host RAM available: a rig whose
+    RAM cannot hold what the checkpoint keeps resident is not offered the
+    model. Every figure comes from the header or the scan (measured); no
+    stored spec and no estimate stand in for any of them.
     """
     free = _free_vram_bytes(scan)
     if free <= 0:
@@ -321,7 +347,14 @@ def _fits(scan: Scan, header: Mapping[str, Any], users: int) -> bool:
     slots = _slot_bytes(header, users)
     if slots is None:
         return False
-    return needed + slots <= free
+    if needed + slots > free:
+        return False
+    if header.get("placeable_blocks"):
+        expert_bytes = int(header.get("bytes_experts") or 0)
+        ram = _host_ram_bytes(scan)
+        if ram is None or expert_bytes > ram:
+            return False
+    return True
 
 
 def _measured(scan: Scan) -> dict[str, Any]:
