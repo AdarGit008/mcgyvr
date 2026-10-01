@@ -8,6 +8,7 @@
     "catalog.py": "judging",
     "cleanup.py": "judging",
     "cli.py": "changing now; covered after that change lands",
+    "compose.py": "holds no number that sizes or judges",
     "config.py": "changing now; covered after that change lands",
     "consensus.py": "judging",
     "contract.py": "judging",

@@ -31,8 +31,9 @@ import textwrap
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from mcgyvr.compose import Recommendation, endpoint_for_backend, recommend
 from mcgyvr.config import (
     BREADTH_FIELDS,
     CLEANUP_FIELDS,
@@ -48,6 +49,7 @@ from mcgyvr.config import (
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
+from mcgyvr.decision import DecisionError
 from mcgyvr.detect import (
     DEFAULT_PROBE_TARGETS,
     PORT_CONVENTIONS,
@@ -56,6 +58,10 @@ from mcgyvr.detect import (
     targets_for,
 )
 from mcgyvr.propose import API, AvailableSource, Proposal, binding_name, propose
+from mcgyvr.runner import RunnerError
+
+if TYPE_CHECKING:
+    from mcgyvr.pool import Endpoint
 
 COMMENT_WIDTH = 78
 
@@ -734,6 +740,60 @@ def diff(current: Config, proposed: Mapping[str, Any]) -> tuple[Delta, ...]:
     )
 
 
+def _decision_from(
+    found: Detection, proposal: Proposal
+) -> tuple[Endpoint | None, str | None]:
+    """The decision endpoint and model the first detected backend provides.
+
+    The Jev decision runs on the first backend that answered, over its first
+    listed model, so a composed init needs no further wiring than ``--profile``:
+    the same wire path a dispatch to that backend uses answers the decision.
+    """
+    backend = found.backends[0] if found.backends else None
+    endpoint = endpoint_for_backend(backend) if backend is not None else None
+    if proposal.rungs:
+        model = proposal.rungs[0].model
+    elif backend is not None and backend.models:
+        model = backend.models[0]
+    else:
+        model = None
+    return endpoint, model
+
+
+def _composition_note(
+    profile: str, recommendation: Recommendation, data: Mapping[str, Any]
+) -> str:
+    """What the Jev layer chose, named so the written file explains itself."""
+    ladder = ", ".join(str(name) for name in data.get("ladder", ()))
+    return (
+        f"Usage profile {profile!r}: the Jev layer selected the "
+        f"{recommendation.selected.name!r} setup from "
+        f"{len(recommendation.candidates)} candidate(s) assembled from the "
+        f"measured machine and the declared schema. The ladder is: {ladder}. "
+        f"Only composition was chosen — every number in these files is "
+        f"measured or the schema's, never the model's."
+    )
+
+
+def _compose_unavailable_note(profile: str) -> str:
+    """A profile was asked for but nothing can run the decision on it."""
+    return (
+        f"A usage profile {profile!r} was asked for, but no backend answered "
+        f"to run the Jev decision on, so init wrote the deterministic ladder "
+        f"instead. Re-run with a backend up — or `mcgyvr init --host <name>` "
+        f"for a rig — to have the ladder composed."
+    )
+
+
+def _compose_failed_note(profile: str, why: Exception) -> str:
+    """The decision was asked for but its answer could not be read."""
+    return (
+        f"A usage profile {profile!r} was asked for, but the Jev decision "
+        f"could not be read ({why}), so init wrote the deterministic ladder "
+        f"instead. Every number in the file is still measured or the schema's."
+    )
+
+
 def initialize(
     path: Path,
     *,
@@ -741,6 +801,9 @@ def initialize(
     detection: Detection | None = None,
     hosts: Sequence[str] = (),
     api_units: Sequence[ApiUnit] = (),
+    profile: str | None = None,
+    decision_endpoint: Endpoint | None = None,
+    decision_model: str | None = None,
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -760,6 +823,15 @@ def initialize(
     product exists to run. A machine with neither still refuses — an empty
     ladder is refused by the self-parse below, exactly as it always was, and
     nothing here special-cases around that check.
+
+    ``profile`` turns on the Jev-composed path: the candidate configs
+    assembled from the measured machine and the schema are ranked by
+    :func:`mcgyvr.compose.recommend` and the chosen one is written instead of
+    the default ladder. The model only names a candidate, so it can never
+    invent a number. ``decision_endpoint`` and ``decision_model`` name where
+    the decision runs; when they are omitted they are taken from the first
+    detected backend, and when no backend can run it the deterministic ladder
+    is written with a note saying so. Without ``profile`` nothing changes.
     """
     found = (
         detection
@@ -768,9 +840,36 @@ def initialize(
     )
     asked = _distinct_api_units(api_units)
     proposal = propose(sources=_sources_for(found))
-    data = build(found, proposal, api_units=asked)
-    decisions = _decisions(found, proposal, asked)
-    limits = _limits(found, proposal, asked)
+    data: Mapping[str, Any] = build(found, proposal, api_units=asked)
+    composition: tuple[str, ...] = ()
+    compose_limits: tuple[str, ...] = ()
+
+    if profile is not None and (proposal.rungs or asked):
+        endpoint, model = decision_endpoint, decision_model
+        if endpoint is None or model is None:
+            derived_endpoint, derived_model = _decision_from(found, proposal)
+            endpoint = endpoint if endpoint is not None else derived_endpoint
+            model = model if model is not None else derived_model
+        if endpoint is not None and model is not None:
+            try:
+                recommendation = recommend(
+                    endpoint,
+                    model,
+                    found,
+                    proposal,
+                    profile,
+                    api_units=asked,
+                )
+            except (DecisionError, RunnerError) as exc:
+                compose_limits = (_compose_failed_note(profile, exc),)
+            else:
+                data = recommendation.selected.data
+                composition = (_composition_note(profile, recommendation, data),)
+        else:
+            compose_limits = (_compose_unavailable_note(profile),)
+
+    decisions = _decisions(found, proposal, asked) + composition
+    limits = _limits(found, proposal, asked) + compose_limits
     fleet_content = render_fleet(data, decisions)
     policy_content = render_policy(data)
 
