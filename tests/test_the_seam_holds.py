@@ -134,6 +134,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.run",
     "mcgyvr.serving.servelib",
     "mcgyvr.serving.vramfit",
+    "mcgyvr.triage",
     "mcgyvr.wake",
     "mcgyvr.weights",
 )

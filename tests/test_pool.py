@@ -199,6 +199,7 @@ BELOW_THE_SEAM = {
     "compose.py",
     "decision.py",
     "initialize.py",
+    "triage.py",
 }
 
 
