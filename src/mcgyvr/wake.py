@@ -318,6 +318,21 @@ def compose_for(card: Card) -> Path | None:
     return None
 
 
+def wakeable_rungs(config: Config) -> tuple[str, ...]:
+    """The rung names whose card this config can wake, in ladder order.
+
+    The read-only half of :meth:`Waker.wake_for`: which rungs *could* be woken
+    — their card is asleep, meaning down but holding exactly one launch spec
+    mcgyvr wrote — without the door run that does it. The one-or-none rule is
+    :func:`compose_for`'s, reused rather than restated. A caller that wants to
+    *route* to an asleep rung reads this; a caller that wants to wake one asks
+    :meth:`Waker.wake_for`.
+    """
+    return tuple(
+        name for name, card in cards(config).items() if compose_for(card) is not None
+    )
+
+
 def _why_not_one(card: Card) -> str:
     """The sentence a caller is owed when there is no single spec to start."""
     if not card.specs:
