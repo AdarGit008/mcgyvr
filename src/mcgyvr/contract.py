@@ -554,11 +554,11 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
-        "`whole_file` is the single-file output protocol and the only shape "
-        "implemented; `unified_diff` validates here and is refused before "
-        "dispatch.",
+        "`whole_file` is the single-file output protocol; `prose` is the "
+        "raw-text answer for chat and agent. `unified_diff` validates here "
+        "and is refused before dispatch.",
         default="whole_file",
-        choices=("whole_file", "unified_diff"),
+        choices=("whole_file", "prose", "unified_diff"),
         worker_facing=True,
     ),
     Field(

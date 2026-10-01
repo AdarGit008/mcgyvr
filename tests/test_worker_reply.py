@@ -174,6 +174,23 @@ def test_an_unknown_schema_is_refused() -> None:
     assert refused(GOOD, output_schema="jsonl").code == "unsupported-schema"
 
 
+# --- prose parses -----------------------------------------------------------
+
+
+def test_prose_is_the_raw_text_not_a_fence_hunt() -> None:
+    text = "The answer is ```inline code``` and nothing is fenced."
+    answer = parsed(text, output_schema="prose")
+    assert answer.content == text
+    assert answer.info_string == ""
+
+
+def test_prose_still_refuses_an_incomplete_reply() -> None:
+    error = refused(
+        "a partial answer", output_schema="prose", stop_reason=StopReason.TRUNCATED
+    )
+    assert error.code == "incomplete-reply"
+
+
 # --- refusals dressed as file content --------------------------------------
 #
 # Four refusal shapes, plus the cases that show why the check cannot run without

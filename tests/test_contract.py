@@ -159,6 +159,11 @@ def test_defaults_are_applied() -> None:
     assert contract.scope.forbid == ()
 
 
+def test_a_prose_output_schema_is_accepted() -> None:
+    contract = loads(MINIMAL + "\noutput_schema: prose\n")
+    assert contract.output_schema == "prose"
+
+
 # --- acceptance: a glob target on a model-tier type is rejected -------------
 
 

@@ -316,6 +316,12 @@ def test_the_reply_instruction_names_the_target_and_the_shape() -> None:
     assert "src/pkg/fetch.py" in built.user.split("OUTPUT:")[1]
 
 
+def test_a_prose_contract_gets_the_prose_instruction() -> None:
+    built = build_prompt(contract(PY_CONTRACT + "output_schema: prose\n"))
+    assert "plain prose" in built.user
+    assert "fenced code block" not in built.user.split("OUTPUT:")[1]
+
+
 # --- the system prompt is the bundle ---------------------------------------
 
 

@@ -128,6 +128,7 @@ from mcgyvr.runner import StopReason
 # The shape this module implements. A contract declaring anything else is
 # refused rather than best-effort parsed.
 WHOLE_FILE = "whole_file"
+PROSE = "prose"
 
 # The field a carrier object is assumed to hold the file in when the schema
 # does not say otherwise. It is local-ai's name for it and the one the bundles
@@ -325,11 +326,11 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
     does. Both are facts about the dispatch rather than about the text, and a
     second copy of them would be a second chance to disagree.
     """
-    if output_schema != WHOLE_FILE:
+    if output_schema not in (WHOLE_FILE, PROSE):
         return ReplyError(
             "unsupported-schema",
             f"output_schema {output_schema!r} has no parser; only "
-            f"{WHOLE_FILE!r} is implemented",
+            f"{WHOLE_FILE!r} and {PROSE!r} are implemented",
         )
     if stop_reason is not StopReason.COMPLETE:
         return ReplyError(
@@ -339,6 +340,16 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
             f"and still be missing its tail",
         )
     return None
+
+
+def _prose(text: str) -> str:
+    """The reply's raw text, line endings normalised; prose is the answer.
+
+    Prose is not a file: there is no fence to find, no carrier to open and no
+    refusal to judge. What the worker said is the answer — whether it is
+    complete is :func:`_unreadable`'s job, decided before this runs.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _refusal(target: str) -> ReplyError:
@@ -448,6 +459,11 @@ def parse_reply(
     structural rules, plus the one envelope rule that is right under either
     reading.
     """
+    unreadable = _unreadable(output_schema, stop_reason)
+    if unreadable is not None:
+        return unreadable
+    if output_schema == PROSE:
+        return ParsedFile(content=_prose(text))
     parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
     if isinstance(parsed, ReplyError):
         if parsed.code == "no-fenced-block" and target is None:

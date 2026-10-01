@@ -29,6 +29,7 @@ from mcgyvr.worker.bundle import (
 )
 from mcgyvr.worker.prompt import WorkerPrompt, build_prompt, render_user_message
 from mcgyvr.worker.reply import (
+    PROSE,
     WHOLE_FILE,
     ParsedFile,
     ReplyError,
@@ -38,6 +39,7 @@ from mcgyvr.worker.reply import (
 
 __all__ = [
     "MAX_BUNDLE_BYTES",
+    "PROSE",
     "WHOLE_FILE",
     "Bundle",
     "BundleError",
