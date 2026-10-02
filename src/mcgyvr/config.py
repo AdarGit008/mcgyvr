@@ -198,10 +198,13 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "Commands run once when the task image is built, before any task. In "
         "docker mode the gate's type checker, eslint and prettier run in the "
         "task container, because their configuration can load code from the "
-        "task's workspace, so they are found on the image's PATH: install "
-        "them here (for example `pip install mypy` or `npm install -g eslint "
-        "prettier`). A checker the image lacks is skipped and said so, as an "
-        "absent checker is on the host.",
+        "task's workspace, so they are found on the image's PATH. The image "
+        "mcgyvr builds installs the one the repository configures (mypy, "
+        "eslint, prettier) when its dependency install does not, at the "
+        "lockfile's version where it pins one; pyright, or a checker the "
+        "repository does not configure, is yours to put on the image, here or "
+        "with `sandbox.image`. A checker the image lacks is skipped and said "
+        "so, as an absent checker is on the host.",
         default=(),
     ),
 )

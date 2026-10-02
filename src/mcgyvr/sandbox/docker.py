@@ -80,6 +80,7 @@ from mcgyvr.sandbox.image import (
     ImageError,
     ensure_image,
     foreign_daemon,
+    seeded_folders,
     subprocess_runner,
 )
 from mcgyvr.sandbox.stack import detect_stack
@@ -184,11 +185,17 @@ class DockerSandbox(Sandbox):
         self._container: str | None = None
         self._image_tag: str | None = None
         self._dead: str | None = None
+        self._seeded: tuple[str, ...] = ()
 
     # -- lifecycle --------------------------------------------------------
 
     def _start(self) -> None:
         self._image_tag = self._resolve_image()
+        # The dependency folders mcgyvr's image installed under /workspace,
+        # which the workspace mount would hide. An image the user names is run
+        # as it is.
+        if self._image_override is None:
+            self._seeded = seeded_folders(self._image_tag, self._runner)
         self._container = f"mcgyvr-task-{uuid.uuid4().hex[:12]}"
         # Register a reaper before the container exists, so even a crash during
         # `docker run` reaps by name once the daemon has the container.
@@ -204,6 +211,7 @@ class DockerSandbox(Sandbox):
             gateway=host_gateway_args(self._system) if self._reaches_out else [],
             user=_host_user(),
             env=env,
+            seeded=self._seeded,
         )
         result = self._runner(args, None)
         if not result.ok:
@@ -220,11 +228,13 @@ class DockerSandbox(Sandbox):
         """Force-remove the container. Idempotent — safe as a crash reaper too.
 
         Force-remove kills a still-running container and removes it in one
-        step, so teardown never depends on the command having exited.
+        step, so teardown never depends on the command having exited. Its
+        anonymous volumes go with it: removing a container leaves them behind
+        unless asked.
         """
         if self._container is None:
             return
-        removed = self._runner(["rm", "--force", self._container], None)
+        removed = self._runner(["rm", "--force", "--volumes", self._container], None)
         if not removed.ok and "No such container" not in removed.stderr:
             print(
                 f"mcgyvr: task container {self._container} could not be removed: "
@@ -261,6 +271,11 @@ class DockerSandbox(Sandbox):
             stderr=result.stderr,
             timed_out=result.timed_out,
         )
+
+    def _kept(self) -> tuple[str, ...]:
+        """The seeded folders' mount points: removing one on the host takes
+        the volume out of the running container."""
+        return self._seeded
 
     def host_path(self, reported: str) -> Path:
         """A path printed inside the container, as the host reads it.
@@ -358,6 +373,7 @@ def _run_args(
     user: str | None,
     env: Mapping[str, str],
     network: str = "bridge",
+    seeded: Sequence[str] = (),
 ) -> list[str]:
     """Build the ``docker run`` argv for a detached, long-lived task container.
 
@@ -367,6 +383,10 @@ def _run_args(
     container see one tree, and its ``.git`` is mounted again read-only on top:
     host git executes what that directory's config and hooks name, so a
     container able to write it could run code on the host.
+
+    Each ``seeded`` folder gets an anonymous volume over its path, which
+    Docker fills from the image: the dependencies the image installed under
+    ``/workspace``, which the workspace mount would otherwise hide.
     """
     args = [
         "run",
@@ -382,6 +402,11 @@ def _run_args(
         # write it.
         "--volume",
         f"{workspace}/.git:/workspace/.git:ro",
+        *(
+            token
+            for folder in seeded
+            for token in ("--volume", str(CONTAINER_WORKSPACE / folder))
+        ),
         *resources.run_args(),
         # Docker's default network is left implicit, as it always was.
         *(["--network", network] if network != "bridge" else []),

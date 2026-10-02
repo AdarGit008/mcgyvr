@@ -311,7 +311,7 @@ class Sandbox(ABC):
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", self._base_commit)
         # `-ff` removes nested repositories too; neither command runs their config.
-        _git(self.workspace, "clean", "-ffdx")
+        _git(self.workspace, "clean", "-ffdx", *self._kept_args())
 
     def checkpoint(self) -> str:
         """Commit the workspace's current state and return the commit to restore to.
@@ -350,7 +350,7 @@ class Sandbox(ABC):
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", checkpoint)
-        _git(self.workspace, "clean", "-ffd")
+        _git(self.workspace, "clean", "-ffd", *self._kept_args())
 
     def drop_checkpoint(self) -> None:
         """Return ``HEAD`` to the base commit, keeping the working tree as it is.
@@ -451,6 +451,19 @@ class Sandbox(ABC):
     @abstractmethod
     def _start(self) -> None:
         """Mode-specific setup after the workspace exists (create a container)."""
+
+    def _kept(self) -> tuple[str, ...]:
+        """Top-level workspace entries a clean must leave: the mode's own.
+
+        None by default. The container mode names the mount points of the
+        dependency volumes it keeps visible (see
+        :class:`~mcgyvr.sandbox.docker.DockerSandbox`).
+        """
+        return ()
+
+    def _kept_args(self) -> list[str]:
+        # `-e` holds under `-x` too: it is the one ignore rule `-x` keeps.
+        return [arg for name in self._kept() for arg in ("-e", f"/{name}")]
 
     @abstractmethod
     def _stop(self) -> None:

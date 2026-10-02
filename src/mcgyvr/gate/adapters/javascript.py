@@ -52,26 +52,10 @@ from mcgyvr.gate.adapter import (
 )
 from mcgyvr.gate.changeset import FileChange
 from mcgyvr.gate.findings import Finding
+from mcgyvr.sandbox.declared import CONFIG_MODULES, ESLINT, PRETTIER
 
-_ESLINT = "eslint"
-_PRETTIER = "prettier"
-
-# The file names each tool imports as its configuration: a module, so code.
-# Matched on the name alone, at any depth — prettier looks for its config from
-# each file's own directory up, and a flat eslint config may be found the same
-# way — so a nested one counts as much as one at the root. The legacy
-# `.eslintrc.js`/`.cjs` is listed because an eslint that still reads it runs it.
-_MODULE_SUFFIXES = (".js", ".cjs", ".mjs", ".ts", ".cts", ".mts")
-_CONFIG_MODULES = {
-    _ESLINT: frozenset(
-        {f"eslint.config{suffix}" for suffix in _MODULE_SUFFIXES}
-        | {".eslintrc.js", ".eslintrc.cjs"}
-    ),
-    _PRETTIER: frozenset(
-        {f"prettier.config{suffix}" for suffix in _MODULE_SUFFIXES}
-        | {f".prettierrc{suffix}" for suffix in _MODULE_SUFFIXES}
-    ),
-}
+_ESLINT = ESLINT
+_PRETTIER = PRETTIER
 
 # Grammars are built once at import — they are hard dependencies, cheap to
 # construct, and immutable, so a fresh Parser per parse is all a call needs.
@@ -115,7 +99,7 @@ class JavaScriptAdapter(LanguageAdapter):
         name = PurePosixPath(path).name
         rungs = {"lint": _ESLINT, "format": _PRETTIER}
         return {
-            rung: tool for rung, tool in rungs.items() if name in _CONFIG_MODULES[tool]
+            rung: tool for rung, tool in rungs.items() if name in CONFIG_MODULES[tool]
         }
 
     @property
