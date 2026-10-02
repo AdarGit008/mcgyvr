@@ -624,8 +624,12 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "enabled",
         "bool",
-        "Model verification of the applied diff, on top of the gate.",
-        default=False,
+        "Model verification of the applied diff, on top of the gate. On unless "
+        "set to `false`. With no `unit`, the reviewer is the next dearer local "
+        "rung whose model is not the builder's; where there is none, the work "
+        "is accepted and labelled unverified. A hosted unit reviews only when "
+        "`unit` names it.",
+        default=True,
     ),
     *ROLE_UNIT_FIELDS,
 )
@@ -1629,14 +1633,6 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"{role}.unit: {bound!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
-
-    if data["verifier"]["enabled"] and data["verifier"]["unit"] is None:
-        raise ConfigSchemaError(
-            "verifier.unit: required key is not set. Verification is enabled, "
-            "so it needs a unit to run on — bind one, or set "
-            "`verifier.enabled: false` to accept on the deterministic gate "
-            "alone."
-        )
 
 
 def _absent_remedy(path: Path | None) -> str:

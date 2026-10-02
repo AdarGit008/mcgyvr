@@ -44,6 +44,7 @@ from mcgyvr.config import (
     POLICY_FILENAME,
     SANDBOX_FIELDS,
     SCHEMA,
+    VERIFIER_UNIT_FIELDS,
     Config,
     ConfigError,
     Field,
@@ -598,7 +599,13 @@ def build(
         + [api.name for api in api_units],
         "fanout": "none",
         "orchestrator": {"unit": None, "model": None},
-        "verifier": {"enabled": False, "unit": None, "model": None},
+        # Written at its default — on — with no unit: the reviewer of each
+        # rung's work is then the next dearer local rung serving another model.
+        "verifier": {
+            **_defaults(VERIFIER_UNIT_FIELDS, "enabled"),
+            "unit": None,
+            "model": None,
+        },
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
             # Written at their defaults, each under the comment that names the
@@ -710,16 +717,20 @@ def _limits(
         limits.append(
             f"Hosted units are bound and every dispatch to one spends money: "
             f"{named}. Each needs its variable exported — `mcgyvr pool` skips "
-            f"a rung whose variable is unset and says so. `orchestrator` and "
-            f"`verifier` are still unbound; bind them and set "
-            f"`verifier.enabled: true` to spend a hosted unit on those too."
+            f"a rung whose variable is unset and says so. Review is on and "
+            f"picks the next dearer local rung with another model; a hosted "
+            f"unit never reviews on its own, and reviews — spending money on "
+            f"every review — only when `verifier.unit` names it. Work with no "
+            f"such local rung above it is accepted and labelled unverified. "
+            f"`orchestrator` is still unbound."
         )
     else:
         limits.append(
             "No API provider is configured. This is a supported install: the "
-            "deterministic gate is the acceptance bar, and verification is off "
-            "rather than on-and-unbound. Bind `orchestrator` and set "
-            "`verifier.enabled: true` once you have a key."
+            "deterministic gate is the acceptance bar, and each rung's work is "
+            "reviewed by the next dearer local rung serving another model; work with "
+            "no such rung above it is accepted and labelled unverified. Bind "
+            "`orchestrator` once you have a key."
         )
     if not detection.docker:
         limits.append(

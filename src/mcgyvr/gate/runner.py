@@ -23,12 +23,13 @@ scope, and stopping saves the expensive subprocesses.
 6. **semantic resolution** — do the names the worker called exist in the
    environment this repository declares? (#123) This one needs the per-task
    sandbox, because answering it means importing the target's own packages.
-7. **Jev verifier rung** — typed questions answered by the decision primitive
-   over the added lines and the contract. Non-blocking: its findings arrive
-   as observations, and a model that cannot be reached is an environment
-   issue.
-8. **acceptance commands** — the contract's own suite (#38), also in the
+7. **acceptance commands** — the contract's own suite (#38), also in the
    sandbox.
+8. **Jev verifier rung** — typed questions answered by the decision primitive
+   over the added lines and the contract, asked only of a change every rung
+   above accepted, because each question is a model request. Non-blocking:
+   its findings arrive as observations, and a model that cannot be reached is
+   an environment issue.
 
 Both sandboxed rungs are injected rather than constructed, and the cheaper of
 the two goes first: a sub-second resolution pass has no business queueing
@@ -251,19 +252,8 @@ class Gate:
             observations.extend(semantic_report.observations)
             env_issues.extend(semantic_report.environment_issues)
 
-        # 7 — Jev verifier rung: typed questions answered by the decision
-        # primitive over the added lines and the contract. Non-blocking by
-        # default — its findings arrive as observations — and a model that
-        # cannot be reached is an environment issue, never a rejection.
-        jev_report: JevReport | None = None
-        if jev is not None and not findings:
-            jev_report = jev.run(changeset, contract_text)
-            findings.extend(jev_report.findings)
-            observations.extend(jev_report.observations)
-            env_issues.extend(jev_report.environment_issues)
-
-        # 8 — acceptance commands (#38): the strongest signal but the most
-        # expensive, needing the sandbox (E4). It runs last and only when
+        # 7 — acceptance commands (#38): the strongest deterministic signal
+        # but the most expensive, needing the sandbox (E4). It runs only when
         # nothing cheaper already rejected the change — there is no value in
         # spinning a suite for a diff that already fails lint or leaks a key.
         # A missing tool (an env issue, not a finding) does not hold it back.
@@ -271,6 +261,20 @@ class Gate:
             report = acceptance.run()
             findings.extend(report.findings)
             env_issues.extend(report.environment_issues)
+
+        # 8 — Jev verifier rung: typed questions answered by the decision
+        # primitive over the added lines and the contract. Last, and only on a
+        # change every other rung accepted: each question is a model request,
+        # possibly a paid one, and a change already rejected is not worth one.
+        # Non-blocking by default — its findings arrive as observations — and
+        # a model that cannot be reached is an environment issue, never a
+        # rejection.
+        jev_report: JevReport | None = None
+        if jev is not None and not findings and not inconclusive:
+            jev_report = jev.run(changeset, contract_text)
+            findings.extend(jev_report.findings)
+            observations.extend(jev_report.observations)
+            env_issues.extend(jev_report.environment_issues)
 
         return GateResult(
             findings=tuple(findings),
