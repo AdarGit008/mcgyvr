@@ -385,3 +385,33 @@ def test_a_probe_socket_closes_when_its_time_is_up_or_the_agent_ends(
     while other.open_count() and time.monotonic() < deadline:
         time.sleep(0.01)
     assert other.open_count() == 0
+
+
+def test_a_session_takes_the_tunnels_port_back_from_a_probe(
+    responder: Responder,
+) -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as free:
+        free.bind(("127.0.0.1", 0))
+        port = free.getsockname()[1]
+    box = Box()
+    rig = _rig(box, port=lambda: port)
+    assert _open(rig, box, responder) == port
+    rig.release(port)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as tunnel:
+        tunnel.bind(("127.0.0.1", port))  # the port is free again, at once
+    assert rig.open_count() == 0
+    rig.close()
+
+
+def test_a_prepare_releases_the_tunnels_port_before_the_tunnel_starts(
+    tmp_path: Any,
+) -> None:
+    from tests.rig_pool_fakes import make_pool
+
+    pool = make_pool(tmp_path)
+    released: list[str] = []
+    pool.sessions.before_prepare(lambda: released.append("port"))
+    assert pool.ask("session_prepare", "p1", session_id="s1", role="worker") is None
+    pool.wait_for("session_prepared")
+    assert released == ["port"]
+    pool.sessions.close()

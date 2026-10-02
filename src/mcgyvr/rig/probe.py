@@ -30,8 +30,9 @@ reachability and timing, and serves nobody else:
 * a pong is taken only for a ping this probe sent, once, from the address it
   was sent to and with the stamp it carried, so a replayed or forged pong
   measures nothing; a bulk train is counted only up to its own length;
-* the socket closes when the hub's ``ttl_s`` is up, and every probe ends with
-  the agent.
+* the socket closes when the hub's ``ttl_s`` is up, when a session's tunnel
+  is about to take its port (:meth:`Probes.release`), and every probe ends
+  with the agent.
 """
 
 from __future__ import annotations
@@ -69,6 +70,9 @@ MAX_PONGS_PER_S = 500
 MAX_TRAIN = -(-sessionwire.MAX_PROBE_BULK_BYTES // udpwire.PROBE_PACKET_MIN_BYTES)
 #: The longest single wait of a probe's thread, in seconds, so a close is heard.
 SLICE_S = 0.05
+#: The longest a session waits for a probe to let the tunnel's port go, in
+#: seconds: many of the probe thread's slices.
+RELEASE_WAIT_S = 2.0
 
 
 def reachable(address: ipaddress.IPv4Address) -> bool:
@@ -124,6 +128,7 @@ class _Probe:
     rounds_sent: int = 0
     reported: bool = False
     closed: threading.Event = field(default_factory=threading.Event)
+    finished: threading.Event = field(default_factory=threading.Event)
 
 
 class Probes:
@@ -160,6 +165,20 @@ class Probes:
         with self._lock:
             for probe in self._probes.values():
                 probe.closed.set()
+
+    def release(self, port: int) -> None:
+        """End every probe whose socket is bound to ``port``, and return once
+        its socket is closed: a session's tunnel is about to take the port."""
+        with self._lock:
+            holding = []
+            for probe in self._probes.values():
+                with contextlib.suppress(OSError):
+                    if probe.sock.getsockname()[1] == port:
+                        holding.append(probe)
+            for probe in holding:
+                probe.closed.set()
+        for probe in holding:
+            probe.finished.wait(RELEASE_WAIT_S)
 
     def open_count(self) -> int:
         """How many probes hold a socket now."""
@@ -290,6 +309,7 @@ class Probes:
         finally:
             probe.closed.set()
             probe.sock.close()
+            probe.finished.set()
 
     def _ask_responder(self, probe: _Probe) -> int | None:
         servers = []

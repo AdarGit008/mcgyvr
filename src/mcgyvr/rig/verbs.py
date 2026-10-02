@@ -219,6 +219,7 @@ def run_agent(kept: Credentials) -> int:
         own=lambda: tuple(i.ip for _, i in tunnel.read_interfaces()),
         lending=lambda: bool(lending().offered_roles()),
     )
+    sessions.before_prepare(lambda: probes.release(lending().listen_port))
     dispatcher = commands.Dispatcher()
     session.register(dispatcher, sessions)
     relay.register(dispatcher, relays)

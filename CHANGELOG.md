@@ -82,7 +82,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   answers only a ping with a peer's secret from an address named for that
   peer, with no more bytes than came in and a bounded number per peer and
   per second; a pong counts once, for a ping it sent; the socket closes when
-  the probe's time is up or the agent ends.
+  the probe's time is up, when a session's tunnel needs the port, or when
+  the agent ends.
 - `mcgyvr rig join <hub-url> --token <token>` publishes this machine as a rig
   of a hub: it keeps the rig token the hub showed (`--token -` reads it from
   stdin), opens the hub's agent channel, says hello with this machine's

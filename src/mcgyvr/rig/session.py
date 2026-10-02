@@ -428,9 +428,15 @@ class Sessions:
         self._closed = False
         self._grace: threading.Timer | None = None
         self._ended_hooks: list[Callable[[str], None]] = []
+        self._prepare_hooks: list[Callable[[], None]] = []
         self._said: dict[str, str] = {}  # frame id -> session id
 
     # -- what the agent asks -------------------------------------------------
+
+    def before_prepare(self, hook: Callable[[], None]) -> None:
+        """Call ``hook`` before a new session's tunnel is started (a probe
+        holding the tunnel's port lets it go)."""
+        self._prepare_hooks.append(hook)
 
     def on_end(self, hook: Callable[[str], None]) -> None:
         """Call ``hook`` with a session's id when it ends (its relays end too)."""
@@ -1052,6 +1058,9 @@ class Sessions:
                 return
 
     def _do_prepare(self, session: _Session) -> None:
+        for hook in self._prepare_hooks:
+            with contextlib.suppress(Exception):
+                hook()
         image = self._docker.ensure_tunnel_image()
         name = session.tunnel_name
         self._docker.remove([name])

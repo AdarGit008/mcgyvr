@@ -713,6 +713,11 @@
       "says": "How many probe pongs a rig sends in any second, over every peer and probe; past it a ping goes unanswered.",
       "moves_to": "probe_pongs_per_s"
     },
+    "rig/probe.py:RELEASE_WAIT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a starting session waits for a probe to let the tunnel's port go.",
+      "moves_to": "probe_release_wait_s"
+    },
     "rig/probe.py:SLICE_S": {
       "kind": "choice",
       "says": "The longest single wait of a probe's thread, in seconds, so its schedule and a close are heard.",
