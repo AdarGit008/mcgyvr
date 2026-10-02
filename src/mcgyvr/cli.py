@@ -2512,6 +2512,8 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
         f"{', '.join(ladder_manager.sleepable_rungs(config))}; Jev runs on "
         f"{fast.name}; every {bounds.interval_s:g}s"
     )
+    for rung, alone in wakelib.left_alone(config).items():
+        print(f"note: {rung} is left alone: {alone}")
     for rung in ladder_manager.sleepable_rungs(config):
         why = switches.why_no_room(rung)
         if why is not None:

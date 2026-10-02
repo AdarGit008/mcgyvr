@@ -771,11 +771,11 @@ def sleepable_rungs(config: Config) -> tuple[str, ...]:
 
     :func:`mcgyvr.wake.wakeable_rungs`' answer — a card that holds exactly one
     launch spec — reused rather than restated, and kept to the ladder's local
-    rungs.
+    rungs, less those :func:`mcgyvr.wake.left_alone` leaves to a person.
     """
-    from mcgyvr.wake import wakeable_rungs
+    from mcgyvr.wake import left_alone, wakeable_rungs
 
-    wakeable = set(wakeable_rungs(config))
+    wakeable = set(wakeable_rungs(config)) - set(left_alone(config))
     return tuple(name for name in _local(config) if name in wakeable)
 
 
@@ -787,10 +787,14 @@ def applicable(config: Config) -> str | None:
             "any unit on its own and there is nothing for the manager to do"
         )
     if not sleepable_rungs(config):
+        from mcgyvr.wake import left_alone
+
+        alone = left_alone(config)
         return (
             "no local unit on this ladder can sleep and wake: a unit can when "
             "its card holds exactly one launch spec under serving.compose_dir "
             "(`mcgyvr emit --out`)"
+            + "".join(f"; {rung} is left alone: {why}" for rung, why in alone.items())
         )
     return None
 

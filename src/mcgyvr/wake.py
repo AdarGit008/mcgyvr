@@ -494,6 +494,47 @@ def wakeable_rungs(config: Config) -> tuple[str, ...]:
     )
 
 
+def left_alone(config: Config) -> dict[str, str]:
+    """The wakeable rungs the ladder manager leaves to a person, and why.
+
+    A card holding a unit split onto another machine (``launch.shards`` naming
+    a host other than the unit's address): the door acts on one machine, so
+    sleeping or waking that card puts down or brings up half of the unit. Every
+    rung of such a card is left alone, because a sleep of any of them may take
+    the card whole. A unit split over its own machine's cards is one launch
+    spec on one machine and is not in the answer.
+    """
+    from mcgyvr.serving import SHARDS_KEY, UnitError, host_of
+
+    wakeable = set(wakeable_rungs(config))
+    found: dict[str, str] = {}
+    for name, card in cards(config).items():
+        if name not in wakeable:
+            continue
+        for source in card.sources:
+            unit = config.units[source]
+            shards = unit.launch.get(SHARDS_KEY)
+            try:
+                home = host_of(unit.address).lower()
+            except UnitError:
+                continue
+            elsewhere = sorted(
+                {
+                    str(shard.get("rig"))
+                    for shard in (shards if isinstance(shards, list) else ())
+                    if isinstance(shard, Mapping)
+                    and str(shard.get("rig", "")).lower() != home
+                }
+            )
+            if elsewhere:
+                found[name] = (
+                    f"{source} is split onto {', '.join(elsewhere)}, and a sleep "
+                    f"or wake acts on {card.host} alone"
+                )
+                break
+    return found
+
+
 def _why_not_one(card: Card) -> str:
     """The sentence a caller is owed when there is no single spec to start."""
     if not card.specs:
