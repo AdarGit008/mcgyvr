@@ -61,19 +61,18 @@ DEFAULT_ENGINE = "llama.cpp"
 #: The engines this build has a sizing law and a launch spec for. ``fit`` and
 #: ``unit_for`` refuse any engine outside it by name rather than apply a text
 #: engine's law or invent a number nobody measured.
-KNOWN_ENGINES = ("llama.cpp", "vllm", "diffusers", "tts")
+KNOWN_ENGINES = ("llama.cpp", "vllm", "diffusers", "tts", "comfyui")
 
 #: The media engines this build sizes and renders. Each is served by the
 #: operator's container image — mcgyvr ships no media server image or shell
 #: binary — sized from stated numbers with no text-engine law, and mounted at
 #: its own weights directory.
-MEDIA_ENGINES = ("diffusers", "tts")
+MEDIA_ENGINES = ("diffusers", "tts", "comfyui")
 
 #: Media engines this build names at the serving seam but does not yet size or
 #: render. A unit declaring one is refused by name rather than sized with a
-#: text engine's law or rendered into another engine's launch spec.
-#: ``diffusers`` and the TTS engine are wired now; ComfyUI follows and slots in
-#: here while unwired.
+#: text engine's law or rendered into another engine's launch spec. All the
+#: media engines are wired now; an unwired one slots in here.
 MEDIA_ENGINES_NOT_WIRED: tuple[str, ...] = ()
 
 # There is no module-level context number. ``ctx_per_slot`` is threaded from

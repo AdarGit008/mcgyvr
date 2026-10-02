@@ -104,7 +104,7 @@ Each entry takes these keys:
 | --- | --- | --- | --- | --- |
 | `units.address` | URL | **yes** | — | Where this unit answers, including scheme and port. One address is one process. To bind it: e.g. http://box.example:8080. |
 | `units.model` | text | **yes** | — | Model identifier as the unit names it. |
-| `units.engine` | one of `llama.cpp`, `vllm`, `diffusers`, `tts` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm, diffusers or tts -- leave it out for llama.cpp. |
+| `units.engine` | one of `llama.cpp`, `vllm`, `diffusers`, `tts`, `comfyui` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm, diffusers, tts or comfyui -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |

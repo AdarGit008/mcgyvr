@@ -158,8 +158,8 @@ def test_a_diffusers_unit_has_no_shell_command() -> None:
 
 
 def test_an_engine_outside_known_engines_is_refused_by_name() -> None:
-    sized = fit(scan(), spec(), engine="comfyui", ctx_per_slot=4096)
+    sized = fit(scan(), spec(), engine="whisper", ctx_per_slot=4096)
     assert sized.fits is False
     assert "not wired" in sized.why
-    with pytest.raises(UnitError, match="comfyui"):
-        unit_for(scan(), spec(), engine="comfyui", ctx_per_slot=4096)
+    with pytest.raises(UnitError, match="whisper"):
+        unit_for(scan(), spec(), engine="whisper", ctx_per_slot=4096)

@@ -373,6 +373,13 @@ def test_a_unit_may_declare_the_tts_engine() -> None:
     assert config.units["cheap"].engine == "tts"
 
 
+def test_a_unit_may_declare_the_comfyui_engine() -> None:
+    config = parse(
+        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: comfyui", 1)
+    )
+    assert config.units["cheap"].engine == "comfyui"
+
+
 def test_declared_models_carries_the_cpu_only_marker() -> None:
     config = parse(
         cfg(
