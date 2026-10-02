@@ -90,8 +90,13 @@ LEASE_FILE = "/run/mcgyvr/lease"
 TUNNEL_PIDS = 64
 WORKER_PIDS = 256
 HEAD_PIDS = 512
-#: The tunnel's memory, in MiB: WireGuard's buffers under a model's transfer.
-TUNNEL_MEMORY_MB = 256
+#: The tunnel's memory, in MiB: WireGuard's buffer pools grow with
+#: throughput, and a model's weights cross the tunnel at LAN speed while the
+#: head loads; a tunnel killed for memory takes wg0, and the head, with it.
+TUNNEL_MEMORY_MB = 1024
+#: Go's soft memory limit for wireguard-go, in MiB, well under the cap: it
+#: collects its garbage harder as it nears this instead of being OOM-killed.
+TUNNEL_GO_MEMORY_MB = TUNNEL_MEMORY_MB * 3 // 4
 #: The writable scratch each container gets, as tmpfs options.
 TUNNEL_TMPFS = "/run:rw,nosuid,nodev,noexec,size=1m"
 ENGINE_TMPFS = "/tmp:rw,nosuid,nodev,noexec,size=64m"
@@ -397,6 +402,8 @@ def tunnel_argv(spec: TunnelSpec, owner: Owner) -> list[str]:
         f"{TUNNEL_MEMORY_MB}m",
         "--memory-swap",
         f"{TUNNEL_MEMORY_MB}m",
+        "--env",
+        f"GOMEMLIMIT={TUNNEL_GO_MEMORY_MB}MiB",
     ]
     for host in spec.publish:
         argv += ["--publish", f"{host}:{spec.listen_port}:{spec.listen_port}/udp"]

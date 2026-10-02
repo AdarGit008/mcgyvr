@@ -1233,6 +1233,11 @@
       "says": "The memory, in MiB, a session's tunnel container takes while a model's weights cross it.",
       "moves_to": "tunnel_memory_mb"
     },
+    "sandbox/pooled.py:TUNNEL_GO_MEMORY_MB": {
+      "kind": "estimate",
+      "says": "The soft memory limit, in MiB, under the tunnel container's cap, from which wireguard-go collects its garbage harder instead of being killed for memory.",
+      "moves_to": "tunnel_go_memory_mb"
+    },
     "sandbox/pooled.py:TUNNEL_PIDS": {
       "kind": "choice",
       "says": "The most processes and threads a session's tunnel container may run.",

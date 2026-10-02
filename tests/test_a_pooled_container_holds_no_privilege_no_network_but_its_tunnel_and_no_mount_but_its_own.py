@@ -265,9 +265,11 @@ def test_the_tunnel_alone_holds_net_admin_and_publishes_its_port_and_loopback() 
         "--pids-limit",
         "64",
         "--memory",
-        "256m",
+        "1024m",
         "--memory-swap",
-        "256m",
+        "1024m",
+        "--env",
+        "GOMEMLIMIT=768MiB",
         "--publish",
         f"{LAN}:51820:51820/udp",
         "--publish",
@@ -281,6 +283,32 @@ def test_the_tunnel_alone_holds_net_admin_and_publishes_its_port_and_loopback() 
         "51820",
         "60",
     ]
+
+
+def test_the_tunnels_wireguard_collects_before_its_memory_cap_kills_it() -> None:
+    """WireGuard's buffer pools grow with throughput, and a model's weights
+    cross the tunnel at LAN speed while the head loads. Killed for memory,
+    the tunnel takes wg0 and with it the head: so its cap leaves room for that
+    transfer, and Go's soft limit, well under the cap, makes wireguard-go
+    collect its garbage before the kernel's OOM killer would act."""
+    from mcgyvr.sandbox import pooled
+
+    spec = pooled.TunnelSpec(
+        session_id="s",
+        image="t",
+        listen_port=51820,
+        publish=(),
+        api_port=None,
+        lease_s=60,
+    )
+    argv = pooled.tunnel_argv(spec, _owner())
+    cap_mb = int(argv[argv.index("--memory") + 1].removesuffix("m"))
+    assert argv[argv.index("--memory-swap") + 1] == f"{cap_mb}m"
+    assert cap_mb >= 1024
+    soft = argv[argv.index("--env") + 1]
+    assert soft.startswith("GOMEMLIMIT=") and soft.endswith("MiB")
+    soft_mb = int(soft.removeprefix("GOMEMLIMIT=").removesuffix("MiB"))
+    assert soft_mb <= cap_mb * 3 // 4
 
 
 @pytest.mark.parametrize("which", ["worker", "head", "tunnel"])
