@@ -520,3 +520,72 @@ def test_manage_reads_the_card_sizes_from_the_scans(
 
     assert len(built) == 1
     assert "card_mib" in built[0], "the card sizes were not handed to the switches"
+
+
+# --- a unit split across machines ------------------------------------------------
+
+OTHER_HOST = "other-box.example"
+
+
+def split_ladder(compose_dir: Path, *, across: str) -> str:
+    """The shared host's larger unit split over two cards, the second on ``across``."""
+    second = "10.0.0.2" if across != SHARED_HOST else None
+    shard = f"{{rig: {across}, gpu: 1" + (f", bind: {second}}}" if second else "}")
+    return ladder_text(compose_dir).replace(
+        "    model: large-coder\n",
+        "    model: large-coder\n"
+        "    launch:\n"
+        "      shards:\n"
+        f"      - {{rig: {SHARED_HOST}, gpu: 0}}\n"
+        f"      - {shard}\n",
+    )
+
+
+def test_a_card_holding_a_unit_split_across_machines_is_left_to_a_person(
+    tmp_path: Path, home: Path
+) -> None:
+    """The door acts on one machine; a split unit's other half is on another.
+
+    Putting the head down and leaving the far half up, or waking one without
+    the other, is half a unit. So the manager neither sleeps nor wakes any
+    unit of a card that holds one, and says so; a person can still act.
+    """
+    from mcgyvr.wake import left_alone
+
+    config = parse(split_ladder(write_spec(tmp_path), across=OTHER_HOST))
+
+    assert ladder_manager.sleepable_rungs(config) == ()
+    why = left_alone(config)
+    assert set(why) == {SMALL, LARGE}, why
+    assert OTHER_HOST in why[LARGE], why
+
+
+def test_a_unit_split_over_one_machines_cards_still_sleeps_whole(
+    tmp_path: Path, home: Path
+) -> None:
+    from mcgyvr.wake import left_alone
+
+    config = parse(split_ladder(write_spec(tmp_path), across=SHARED_HOST))
+
+    assert ladder_manager.sleepable_rungs(config) == (SMALL, LARGE)
+    assert left_alone(config) == {}
+
+
+def test_manage_says_which_units_it_leaves_alone(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = tmp_path / "c.yaml"
+    path.write_text(
+        split_ladder(write_spec(tmp_path), across=OTHER_HOST)
+        + f"journal:\n  dir: {tmp_path / 'j'}\n",
+        encoding="utf-8",
+    )
+
+    assert lj.main(["manage", "--config", str(path), "--once"]) == 0
+    out = capsys.readouterr().out
+
+    assert "nothing to manage" in out, out
+    assert OTHER_HOST in out, out
