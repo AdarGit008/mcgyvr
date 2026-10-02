@@ -494,44 +494,52 @@ def wakeable_rungs(config: Config) -> tuple[str, ...]:
     )
 
 
-def left_alone(config: Config) -> dict[str, str]:
-    """The wakeable rungs the ladder manager leaves to a person, and why.
+def _split_elsewhere(config: Config, card: Card) -> str | None:
+    """Which unit of ``card`` is split onto another machine, and onto which.
 
-    A card holding a unit split onto another machine (``launch.shards`` naming
-    a host other than the unit's address): the door acts on one machine, so
-    sleeping or waking that card puts down or brings up half of the unit. Every
-    rung of such a card is left alone, because a sleep of any of them may take
-    the card whole. A unit split over its own machine's cards is one launch
-    spec on one machine and is not in the answer.
+    ``launch.shards`` naming a host other than the unit's address. ``None``
+    where no unit of the card is; a unit split over its own machine's cards is
+    one launch spec on one machine and is not.
     """
     from mcgyvr.serving import SHARDS_KEY, UnitError, host_of
 
+    for source in card.sources:
+        unit = config.units[source]
+        shards = unit.launch.get(SHARDS_KEY)
+        try:
+            home = host_of(unit.address).lower()
+        except UnitError:
+            continue
+        elsewhere = sorted(
+            {
+                str(shard.get("rig"))
+                for shard in (shards if isinstance(shards, list) else ())
+                if isinstance(shard, Mapping)
+                and str(shard.get("rig", "")).lower() != home
+            }
+        )
+        if elsewhere:
+            return f"{source} is split onto {', '.join(elsewhere)}"
+    return None
+
+
+def left_alone(config: Config) -> dict[str, str]:
+    """The wakeable rungs the ladder manager leaves to a person, and why.
+
+    A card holding a unit split onto another machine
+    (:func:`_split_elsewhere`): the door acts on one machine, so sleeping or
+    waking that card puts down or brings up half of the unit. Every rung of
+    such a card is left alone, because a sleep of any of them may take the
+    card whole.
+    """
     wakeable = set(wakeable_rungs(config))
     found: dict[str, str] = {}
     for name, card in cards(config).items():
         if name not in wakeable:
             continue
-        for source in card.sources:
-            unit = config.units[source]
-            shards = unit.launch.get(SHARDS_KEY)
-            try:
-                home = host_of(unit.address).lower()
-            except UnitError:
-                continue
-            elsewhere = sorted(
-                {
-                    str(shard.get("rig"))
-                    for shard in (shards if isinstance(shards, list) else ())
-                    if isinstance(shard, Mapping)
-                    and str(shard.get("rig", "")).lower() != home
-                }
-            )
-            if elsewhere:
-                found[name] = (
-                    f"{source} is split onto {', '.join(elsewhere)}, and a sleep "
-                    f"or wake acts on {card.host} alone"
-                )
-                break
+        split = _split_elsewhere(config, card)
+        if split is not None:
+            found[name] = f"{split}, and a sleep or wake acts on {card.host} alone"
     return found
 
 
@@ -801,14 +809,25 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
     route — vLLM run without its development routes — is left exactly as it
     was by that run, which says so with
     :data:`~mcgyvr.serving.gatelib.NO_SLEEP_ROUTE`, and is stopped instead.
-    Any other engine has no sleep to ask for and is stopped. ``only`` is the
-    one unit of a shared vLLM card to sleep; the fallback stops the whole
+    Any other engine has no sleep to ask for and is stopped, and so is a card
+    holding a unit split onto another machine (:func:`_split_elsewhere`),
+    whose level-2 sleep is not measured: it says so in one line. ``only`` is
+    the one unit of a shared vLLM card to sleep; the fallback stops the whole
     card, which is the only stop there is.
     """
     compose = compose_for(card)
     if compose is None:
         raise WakeError(_why_not_one(card))
-    if _all_vllm(config, card):
+    split = _split_elsewhere(config, card)
+    if split is not None:
+        # An unmeasured nap is one the unit cannot take: stopped, with no
+        # resting mark, so the next wake is `up`.
+        print(
+            f"note: {split}; vLLM's sleep at level 2 is not measured for a unit "
+            f"split across machines, so {card.host} is stopped instead",
+            file=sys.stderr,
+        )
+    elif _all_vllm(config, card):
         asked = _run_door(config, card, "sleep", compose, only=only)
         if asked.code != NO_SLEEP_ROUTE:
             return asked
