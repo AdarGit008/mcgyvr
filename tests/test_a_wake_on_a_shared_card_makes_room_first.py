@@ -528,16 +528,18 @@ OTHER_HOST = "other-box.example"
 
 
 def split_ladder(compose_dir: Path, *, across: str) -> str:
-    """The shared host's larger unit split over two cards, the second on ``across``."""
-    second = "10.0.0.2" if across != SHARED_HOST else None
-    shard = f"{{rig: {across}, gpu: 1" + (f", bind: {second}}}" if second else "}")
+    """The shared host's larger unit split over two cards, the second on ``across``.
+
+    No worker ``bind`` is stated: which machines a unit spans is all the
+    manager reads, and an address is emit's to check.
+    """
     return ladder_text(compose_dir).replace(
         "    model: large-coder\n",
         "    model: large-coder\n"
         "    launch:\n"
         "      shards:\n"
         f"      - {{rig: {SHARED_HOST}, gpu: 0}}\n"
-        f"      - {shard}\n",
+        f"      - {{rig: {across}, gpu: 1}}\n",
     )
 
 
