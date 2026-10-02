@@ -22,6 +22,7 @@ from mcgyvr.capability import (
     ESTIMATES_NOTICE,
     GB_PER_GIB,
     CapabilityTableError,
+    Model,
     load,
     table_path,
 )
@@ -2756,6 +2757,21 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
     return matched[0]
 
 
+def _model_spec(model: Model, moe: bool) -> ModelSpec:
+    """One serving spec from one capability row; the table's decimal GB to GiB."""
+    return ModelSpec(
+        name=model.id,
+        vram_gb=model.vram_gb_working / GB_PER_GIB,
+        ram_gb=0.0,
+        disk_gb=model.weights_gb / GB_PER_GIB,
+        vae_decode_gb=(model.vae_decode_gb or 0.0) / GB_PER_GIB,
+        moe=moe,
+        geometry=None,
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
+    )
+
+
 def _model_specs() -> tuple[ModelSpec, ...]:
     """Serving specs for the rows of the shipped capability estimates.
 
@@ -2785,22 +2801,10 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     :func:`mcgyvr.serving._placement`.
     """
     architectures = _architectures()
-    specs: list[ModelSpec] = []
-    for model in load().models:
-        moe = architectures.get(model.id) == "moe"
-        specs.append(
-            ModelSpec(
-                name=model.id,
-                vram_gb=model.vram_gb_working / GB_PER_GIB,
-                ram_gb=0.0,
-                disk_gb=model.weights_gb / GB_PER_GIB,
-                moe=moe,
-                geometry=None,
-                kv_cache_dtype_k="f16",
-                kv_cache_dtype_v="f16",
-            )
-        )
-    return tuple(specs)
+    return tuple(
+        _model_spec(model, architectures.get(model.id) == "moe")
+        for model in load().models
+    )
 
 
 def _architectures() -> dict[str, str]:

@@ -739,6 +739,11 @@
       "says": "Host memory, in GiB, that must stay clear past a model's weights for llama.cpp to map them rather than be told not to; with less clear, mapping costs start time.",
       "moves_to": "mode_ram_headroom_gib"
     },
+    "serving/__init__.py:ModelSpec.vae_decode_gb": {
+      "kind": "choice",
+      "says": "The VAE decode spike a diffusers image unit adds to its card peak when no spec states one. A spec that states none charges none: a spike nobody measured or stated is never invented.",
+      "reason": "what a caller that names none gets; the product's callers name one"
+    },
     "serving/__init__.py:REFUSAL_RAM_HEADROOM_GB": {
       "kind": "estimate",
       "says": "Host memory, in GiB, that must stay clear past the experts a model keeps on the host for decode to hold; with less, the model is refused on that host.",

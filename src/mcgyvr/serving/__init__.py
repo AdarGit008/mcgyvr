@@ -58,12 +58,17 @@ from mcgyvr.serving import vramfit
 # and llama-server both speak ``openai`` and take entirely different argv.
 DEFAULT_ENGINE = "llama.cpp"
 
+#: The engines this build has a sizing law and a launch spec for. ``fit`` and
+#: ``unit_for`` refuse any engine outside it by name rather than apply a text
+#: engine's law or invent a number nobody measured.
+KNOWN_ENGINES = ("llama.cpp", "vllm", "diffusers")
+
 #: Media engines this build names at the serving seam but does not yet size or
 #: render. A unit declaring one is refused by name rather than sized with a
 #: text engine's law or rendered into another engine's launch spec.
-#: ``diffusers`` lands first, with the P2 media backends; ComfyUI and the TTS
-#: engines follow and slot in here.
-MEDIA_ENGINES_NOT_WIRED = ("diffusers",)
+#: ``diffusers`` is wired now; ComfyUI and the TTS engines follow and slot in
+#: here.
+MEDIA_ENGINES_NOT_WIRED: tuple[str, ...] = ()
 
 # There is no module-level context number. ``ctx_per_slot`` is threaded from
 # the run's own declaration through every reader that prices a cache against
@@ -220,6 +225,11 @@ class ModelSpec:
     operator knows that this module cannot see. How much actually spills is
     derived per machine by :func:`fit`.
 
+    ``vae_decode_gb`` is the one-shot VAE decode spike a diffusers image unit
+    adds to its card peak (c-01). It is stated, and its default of 0.0 means
+    none was stated, so none is charged: a spike nobody measured or stated is
+    never invented.
+
     ``moe`` is not cosmetic and not inferable from the scalar numbers: it says
     the model has a knob for *where* its weights sit, which is the difference
     between "does not fit" and "fits differently on this machine". Every unit
@@ -231,11 +241,11 @@ class ModelSpec:
     file at one size are one spec; the geometry is a reading of that file, not
     a further fact about it.
 
-    ``hf_cache`` is where a vLLM model's weights are on the rig — the
-    HuggingFace cache a repository id resolves in — and ``serve_args`` is what
-    the server needs said that no scan can derive: the utilisation vLLM sizes
-    its cache from, or the template argument that turns a thinking model's
-    reasoning off. Both are the operator's, read off the unit
+    ``hf_cache`` is where a vLLM or diffusers model's weights are on the rig
+    — the HuggingFace cache a repository id resolves in — and ``serve_args`` is
+    what the server needs said that no scan can derive: the utilisation vLLM
+    sizes its cache from, or the template argument that turns a thinking
+    model's reasoning off. Both are the operator's, read off the unit
     (``units.<unit>.hf_cache``, ``units.<unit>.launch.serve_args``), and both
     ride on the spec because they are facts about serving this model and not
     about any machine.
@@ -266,6 +276,7 @@ class ModelSpec:
     vram_gb: float
     ram_gb: float
     disk_gb: float
+    vae_decode_gb: float = 0.0
     moe: bool = False
     geometry: Mapping[str, Any] | None = field(default=None, compare=False)
     hf_cache: str = ""
@@ -469,8 +480,9 @@ class Unit:
     port: int = DEFAULT_PORT
     rungs: tuple[str, ...] = ()
     #: The container image the source pinned, or ``None`` for the engine's
-    #: default. A vLLM unit's ``weights`` is the HuggingFace cache directory
-    #: itself, and ``extra`` is the spec's ``serve_args``, appended verbatim.
+    #: default. A vLLM or diffusers unit's ``weights`` is the HuggingFace
+    #: cache directory itself, and ``extra`` is the spec's ``serve_args``,
+    #: appended verbatim.
     image: str | None = None
     extra: tuple[str, ...] = ()
     #: The VRAM this unit reserves as a resident, in GiB. Set only on the
@@ -482,7 +494,7 @@ class Unit:
     @property
     def weights_dir(self) -> Path:
         """The directory to mount; the container sees the file inside it."""
-        if self.engine == "vllm":
+        if self.engine in ("vllm", "diffusers"):
             return self.weights
         return self.weights.parent
 
@@ -507,6 +519,10 @@ def fit(
     :func:`_placement`: the lowest offload the card admits decides what
     memory is asked to hold, so a card that admits none is refused as a card
     and a spill the host cannot hold is refused as memory.
+
+    A name outside :data:`KNOWN_ENGINES` is refused before any of that, by
+    name; an ``engine == "diffusers"`` unit takes the media sizing path,
+    which prices no window, cache or offload.
 
     ``width`` is the slot count the unit will be emitted at, when someone
     wrote one. The cache and the recurrent state are priced per slot, so the
@@ -534,12 +550,14 @@ def fit(
     Never raises. An unmeasurable machine is a machine nothing is claimed
     about — the same rule :mod:`mcgyvr.scan` runs on.
     """
-    if engine in MEDIA_ENGINES_NOT_WIRED:
+    if engine not in KNOWN_ENGINES:
         return Fit(
             fits=False,
             headroom_gb=DEFAULT_HEADROOM_GB,
-            why=_media_engine_not_wired(spec.name, engine),
+            why=_engine_not_wired(spec.name, engine),
         )
+    if engine == "diffusers":
+        return _sized_media(scan, spec)
     sized = _sized(scan, spec, engine=engine, width=width, ctx_per_slot=ctx_per_slot)
     notes = _host_figure_notes(engine)
     if not notes:
@@ -706,6 +724,60 @@ def _sized(
     )
 
 
+def _sized_media(scan: Scan, spec: ModelSpec) -> Fit:
+    """Whether ``scan``'s machine can hold a diffusers image unit.
+
+    A diffusers unit prices no context window, no KV cache, no offload knob
+    and no load mode. Its card peak is the denoiser's resident working set plus
+    the one-shot VAE decode spike, and its host claim is the once-per-run
+    components offloaded to RAM — both stated, so a figure nobody stated is
+    never invented.
+    """
+    free_vram = _free_vram_bytes(scan) / _BYTES_PER_GIB
+    available_ram = scan.memory.available_gb if scan.memory else 0.0
+    if scan.disk is not None and spec.disk_gb > scan.disk.free_gb:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {spec.disk_gb:.1f} GB of disk, "
+                f"{scan.disk.free_gb:.1f} GB free at {scan.disk.path}"
+            ),
+        )
+    peak = spec.vram_gb + spec.vae_decode_gb
+    if peak + DEFAULT_HEADROOM_GB > free_vram:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {peak:.1f} GB on the card plus "
+                f"{DEFAULT_HEADROOM_GB:.1f} GB headroom, "
+                f"{free_vram:.1f} GB free"
+            ),
+        )
+    if spec.ram_gb > available_ram:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {spec.ram_gb:.1f} GB of RAM for the "
+                f"offloaded components, against {available_ram:.1f} GB available"
+            ),
+        )
+    ram_clause = f", {spec.ram_gb:.1f} GB in RAM" if spec.ram_gb else ""
+    return Fit(
+        fits=True,
+        vram_gb=peak,
+        ram_gb=spec.ram_gb,
+        headroom_gb=DEFAULT_HEADROOM_GB,
+        card_free_gb=free_vram,
+        why=(
+            f"{spec.name}: {peak:.1f} GB on the card of {free_vram:.1f} GB "
+            f"free{ram_clause}"
+        ),
+    )
+
+
 def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
     """The KV cache dtypes a unit must state, refused by name when absent.
 
@@ -742,19 +814,17 @@ def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
     return kv_k, kv_v
 
 
-def _media_engine_not_wired(name: str, engine: str) -> str:
-    """Why a media engine's unit is refused, never sized or rendered as text.
+def _engine_not_wired(name: str, engine: str) -> str:
+    """Why an engine this build has no sizing law or launch spec for is refused.
 
-    The diffusers image engine (and the media engines after it) lands with the
-    P2 media backends. Until it does, mcgyvr will not size a media unit with
-    llama.cpp's or vLLM's law, and will not invent a number so a launch spec
-    looks measured when none was.
+    mcgyvr will not size or render a unit for an engine it has no law or launch
+    spec for rather than apply a text engine's law or invent a number nobody
+    measured.
     """
     return (
-        f"{name}: engine {engine!r} is not wired in this build. The diffusers "
-        "image engine lands with the P2 media backends; until it does, mcgyvr "
-        "refuses to size or render a media unit rather than apply a text "
-        "engine's law or invent a number nobody measured."
+        f"{name}: engine {engine!r} is not wired in this build; mcgyvr will not "
+        "size or render a unit for an engine it has no law or launch spec for "
+        "rather than apply a text engine's law or invent a number nobody measured."
     )
 
 
@@ -783,8 +853,35 @@ def unit_for(
     ``--max-model-len`` on vLLM — and the same number priced the cache the fit
     approved, which is what makes the launch and the law one number.
     """
-    if engine in MEDIA_ENGINES_NOT_WIRED:
-        raise UnitError(_media_engine_not_wired(spec.name, engine))
+    if engine not in KNOWN_ENGINES:
+        raise UnitError(_engine_not_wired(spec.name, engine))
+    if engine == "diffusers":
+        if not spec.hf_cache:
+            raise UnitError(
+                f"{spec.name}: served by diffusers, which loads its weights from "
+                f"the rig's HuggingFace cache, and nothing says where that cache "
+                f"is — set units.<unit>.hf_cache to its absolute path on the rig"
+            )
+        sized = fit(scan, spec, engine=engine, width=1, ctx_per_slot=ctx_per_slot)
+        if not sized.fits:
+            raise UnitError(f"{scan.machine.host}: {sized.why}")
+        weights = Path(spec.hf_cache)
+        return Unit(
+            key=UnitKey(
+                host=scan.machine.host, model=spec.name, engine=engine, port=port
+            ),
+            host=scan.machine.host,
+            model=spec.name,
+            engine=engine,
+            gpu=_roomiest_gpu(scan).index,
+            weights=weights,
+            width=Width(value=1, how="default"),
+            args={"--model": str(weights)},
+            fit=sized,
+            port=port,
+            rungs=(),
+            extra=spec.serve_args,
+        )
     cache_type_k, cache_type_v = _require_cache_types(engine, spec)
     if engine == "vllm" and spec.speculative != SPECULATIVE_NONE:
         raise UnitError(
@@ -1692,6 +1789,7 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             vram_gb=block.get("vram_gb") or 0.0,
             ram_gb=block.get("ram_gb") or 0.0,
             disk_gb=block.get("disk_gb") or 0.0,
+            vae_decode_gb=block.get("vae_decode_gb") or 0.0,
             moe=bool(block.get("moe")),
             geometry=geometry,
             hf_cache=str(block.get("hf_cache") or ""),

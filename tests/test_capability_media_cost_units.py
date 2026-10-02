@@ -20,7 +20,8 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.capability import CapabilityTableError, load
+from mcgyvr import cli
+from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load
 from tests.table_fixture import CLASSES, reading, table_document, write_table
 
 FIRST = str(CLASSES[0]["id"])
@@ -62,6 +63,15 @@ def test_an_image_row_loads_with_seconds_per_image_and_its_media_fields(
     assert model.resolution == "1024x1024"
     assert model.steps == 4.0
     assert model.vae_decode_gb == 1.2
+
+
+def test_model_spec_converts_the_decimal_vae_spike_to_gib(tmp_path: Path) -> None:
+    table = load(write_table(tmp_path, table_document(rows=[_image_row()])))
+
+    model = table.models[0]
+    assert cli._model_spec(model, moe=False).vae_decode_gb == pytest.approx(
+        1.2 / GB_PER_GIB
+    )
 
 
 def test_a_video_row_loads_with_seconds_per_clip_and_its_media_fields(

@@ -84,15 +84,14 @@ class EmitError(Exception):
 def _media_engine_not_wired(unit: Unit) -> str:
     """Why a media engine's unit is refused before it is rendered.
 
-    The diffusers image engine (and the media engines after it) lands with the
-    P2 media backends. Until it does there is no command line and no image for
-    it, and mcgyvr will not render a media unit with another engine's flags.
+    ComfyUI and the TTS engines land later. Until one does there is no command
+    line and no image for it, and mcgyvr will not render a media unit with
+    another engine's flags.
     """
     return (
-        f"{unit.key.slug}: engine {unit.engine!r} is not wired in this build. "
-        "The diffusers image engine lands with the P2 media backends; until "
-        "it does, mcgyvr refuses to render a media unit rather than emit a "
-        "launch spec for another engine."
+        f"{unit.key.slug}: engine {unit.engine!r} is not wired in this build; "
+        "mcgyvr will not render a unit for an engine it has no launch spec "
+        "for rather than emit another engine's flags."
     )
 
 
@@ -483,6 +482,8 @@ def _service(unit: Unit) -> dict[str, object]:
     """
     if unit.engine == "vllm":
         return _vllm_service(unit)
+    if unit.engine == "diffusers":
+        return _diffusers_service(unit)
     return {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
@@ -534,11 +535,37 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
     }
 
 
+def _diffusers_service(unit: Unit) -> dict[str, object]:
+    """A diffusers unit as a compose service.
+
+    mcgyvr ships no diffusers server image or shell binary: the container image
+    is the operator's and its entrypoint is the server, so the compose file
+    names that image and mounts the weights directory at its own absolute path
+    with no environment of mcgyvr's. The image contract is ENTRYPOINT-as-server:
+    compose ``command`` supplies only the argv.
+    """
+    return {
+        "image": _image(unit),
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
+        "command": list(argv(unit)),
+        "network_mode": "host",
+        "restart": "unless-stopped",
+        "volumes": [f"{unit.weights_dir}:{unit.weights_dir}:ro"],
+        "deploy": _reservation(unit.gpu),
+    }
+
+
 def _command(unit: Unit) -> tuple[str, ...]:
     command = ENGINE_COMMANDS.get(unit.engine)
     if command is None:
         if unit.engine in MEDIA_ENGINES_NOT_WIRED:
             raise EmitError(_media_engine_not_wired(unit))
+        if unit.engine == "diffusers":
+            raise EmitError(
+                f"{unit.key.slug}: engine 'diffusers' has no shell command — its "
+                "server is the container image's entrypoint, so render the "
+                "compose file rather than a pasted command"
+            )
         raise EmitError(
             f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"
         )
@@ -548,6 +575,11 @@ def _command(unit: Unit) -> tuple[str, ...]:
 def _image(unit: Unit) -> str:
     if unit.image:
         return unit.image
+    if unit.engine == "diffusers":
+        raise EmitError(
+            f"{unit.key.slug}: engine 'diffusers' has no default container image — "
+            f"set units.<unit>.image to the operator's diffusers server image"
+        )
     image = ENGINE_IMAGES.get(unit.engine)
     if image is None:
         if unit.engine in MEDIA_ENGINES_NOT_WIRED:

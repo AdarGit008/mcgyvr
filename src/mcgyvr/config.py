@@ -442,8 +442,8 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Which server program runs behind this address. Absent means \
 "
         "llama.cpp.",
-        choices=("llama.cpp", "vllm"),
-        bind_hint="e.g. vllm -- leave it out for llama.cpp",
+        choices=("llama.cpp", "vllm", "diffusers"),
+        bind_hint="e.g. vllm or diffusers -- leave it out for llama.cpp",
     ),
     Field(
         "image",
