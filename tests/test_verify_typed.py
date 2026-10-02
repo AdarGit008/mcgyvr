@@ -197,6 +197,7 @@ def test_decider_for_reads_a_typed_verdict_through_classify_role(
         questions: Any,
         *,
         timeout_s: float,
+        capacity: Any = None,
     ) -> Decision:
         sent.append(role)
         return Decision(
