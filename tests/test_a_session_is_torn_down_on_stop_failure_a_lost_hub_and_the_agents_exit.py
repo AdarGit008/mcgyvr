@@ -108,7 +108,9 @@ def test_a_hub_that_stays_away_past_the_grace_takes_the_session_down(
     pool.wait_for("session_status", "ready")
     pool.sessions.offline()
     deadline = time.monotonic() + 5
-    while pool.docker.of_session("s1") and time.monotonic() < deadline:
+    while (
+        pool.docker.of_session("s1") or pool.sessions.running()
+    ) and time.monotonic() < deadline:
         time.sleep(0.01)
     assert pool.docker.of_session("s1") == []
     assert pool.sessions.running() == ()
