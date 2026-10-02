@@ -163,6 +163,11 @@ class ModelInfo:
     n_head: int | None = None
     n_head_kv: int | None = None
     kv_bytes_per_token: int | None = None
+    #: Bytes of the token embedding tensor (kept in host RAM by the runtime)
+    #: and of the output tensor (on the last device); ``output_bytes`` is 0
+    #: for a file with no output tensor, whose output reuses the embedding.
+    embd_bytes: int | None = None
+    output_bytes: int | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -360,6 +365,8 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
     _bounded(
         model.kv_bytes_per_token, 1, MAX_KV_BYTES_PER_TOKEN, "models.kv_bytes_per_token"
     )
+    _bounded(model.embd_bytes, 1, MAX_MODEL_BYTES, "models.embd_bytes")
+    _bounded(model.output_bytes, 0, MAX_MODEL_BYTES, "models.output_bytes")
     body: dict[str, Any] = {"name": model.name, "size_bytes": model.size_bytes}
     for field in (
         "digest",
@@ -370,6 +377,8 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         "n_head",
         "n_head_kv",
         "kv_bytes_per_token",
+        "embd_bytes",
+        "output_bytes",
     ):
         value = getattr(model, field)
         if value is not None:

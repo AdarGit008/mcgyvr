@@ -787,6 +787,20 @@
           "default": null,
           "title": "Digest"
         },
+        "embd_bytes": {
+          "anyOf": [
+            {
+              "maximum": 1125899906842624,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embd Bytes"
+        },
         "kv_bytes_per_token": {
           "anyOf": [
             {
@@ -875,6 +889,20 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}$",
           "title": "Name",
           "type": "string"
+        },
+        "output_bytes": {
+          "anyOf": [
+            {
+              "maximum": 1125899906842624,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Bytes"
         },
         "size_bytes": {
           "maximum": 1125899906842624,

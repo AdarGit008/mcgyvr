@@ -269,6 +269,10 @@ def scan(path):
       "full_attn_interval": g(pre+"full_attention_interval"),
       "sliding_window": g(pre+"attention.sliding_window"),
       "bytes_total_tensors": tot,
+      # the token embedding (the runtime keeps it in host RAM) and the output
+      # tensor (on the last device); None when the file has no such tensor
+      "token_embd_bytes": next((t[3] for t in tensors if t[0]=="token_embd.weight"), None),
+      "output_bytes": next((t[3] for t in tensors if t[0]=="output.weight"), None),
       "bytes_experts": expb,
       "expert_layers": layers,
       "bytes_nonexpert": tot-expb,

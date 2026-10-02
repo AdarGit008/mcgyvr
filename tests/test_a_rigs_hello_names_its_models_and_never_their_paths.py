@@ -4,8 +4,9 @@ The hub names a model; the agent finds it in its own inventory, so no name
 can reach a file outside the owner's models folder. Of each file under the
 folder the hello carries its own name, its size, and what the product's GGUF
 reader reads from its header — architecture, layers, trained context,
-embedding width, KV heads, and the KV cache's bytes per token at the head's
-KV type — and a header that does not read leaves those unsaid. A hidden
+embedding width, KV heads, the KV cache's bytes per token at the head's KV
+type, and the sizes of the token embedding and output tensors from its tensor
+table — and a header that does not read leaves those unsaid. A hidden
 folder, a later part of a split model, a link that leaves the folder, a name
 the protocol cannot carry, and a second file of one name are not named.
 """
@@ -26,8 +27,22 @@ def _text(value: str) -> bytes:
     return struct.pack("<Q", len(raw)) + raw
 
 
-def write_gguf(path: Path, *, layers: int = 2, embd: int = 64, heads: int = 8) -> None:
-    """A GGUF of the fields the reader reads, and one small tensor."""
+def _tensor(name: str, *dims: int) -> bytes:
+    """A tensor-table entry of an f32 tensor (type 0) at offset 0."""
+    out = _text(name) + struct.pack("<I", len(dims))
+    return out + struct.pack(f"<{len(dims)}Q", *dims) + struct.pack("<IQ", 0, 0)
+
+
+def write_gguf(
+    path: Path,
+    *,
+    layers: int = 2,
+    embd: int = 64,
+    heads: int = 8,
+    tensors: tuple[bytes, ...] = (),
+) -> None:
+    """A GGUF of the fields the reader reads, one small tensor, and
+    ``tensors`` (tensor-table entries)."""
     kv = [
         (b"general.architecture", 8, _text(ARCH)),
         (f"{ARCH}.block_count".encode(), 4, struct.pack("<I", layers)),
@@ -36,11 +51,12 @@ def write_gguf(path: Path, *, layers: int = 2, embd: int = 64, heads: int = 8) -
         (f"{ARCH}.attention.head_count".encode(), 4, struct.pack("<I", heads)),
         (f"{ARCH}.attention.head_count_kv".encode(), 4, struct.pack("<I", 2)),
     ]
-    out = b"GGUF" + struct.pack("<IQQ", 3, 1, len(kv))
+    out = b"GGUF" + struct.pack("<IQQ", 3, 1 + len(tensors), len(kv))
     for key, kind, value in kv:
         out += struct.pack("<Q", len(key)) + key + struct.pack("<I", kind) + value
     out += _text("blk.0.attn_q.weight") + struct.pack("<I", 2)
     out += struct.pack("<QQ", 4, 4) + struct.pack("<IQ", 0, 0)
+    out += b"".join(tensors)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(out + b"\x00" * 64)
 
@@ -101,6 +117,34 @@ def test_a_models_header_is_read_and_a_header_that_does_not_read_says_nothing(
     assert broken.size_bytes == len(b"not a model at all")
     assert (broken.arch, broken.n_layers, broken.kv_bytes_per_token) == (
         None,
+        None,
+        None,
+    )
+
+
+def test_the_hello_sizes_the_embedding_and_output_tensors(tmp_path: Path) -> None:
+    """The hub charges the output tensor to the last device and the token
+    embedding to none (it stays in host RAM), so the hello says how big each
+    is, read off the tensor table; a file without an output tensor (the
+    output reuses the embedding) says 0, and one without either says neither."""
+    from mcgyvr.rig import inventory
+
+    folder = tmp_path / "models"
+    embd = _tensor("token_embd.weight", 64, 1000)
+    out = _tensor("output.weight", 64, 1000)
+    write_gguf(folder / "untied.gguf", tensors=(embd, out))
+    write_gguf(folder / "tied.gguf", tensors=(embd,))
+    write_gguf(folder / "bare.gguf")
+    held = {m.name: m for m in inventory.read(str(folder)).models}
+    assert (held["untied.gguf"].embd_bytes, held["untied.gguf"].output_bytes) == (
+        64 * 1000 * 4,
+        64 * 1000 * 4,
+    )
+    assert (held["tied.gguf"].embd_bytes, held["tied.gguf"].output_bytes) == (
+        64 * 1000 * 4,
+        0,
+    )
+    assert (held["bare.gguf"].embd_bytes, held["bare.gguf"].output_bytes) == (
         None,
         None,
     )

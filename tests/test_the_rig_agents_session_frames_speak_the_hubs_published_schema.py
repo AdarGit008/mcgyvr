@@ -66,6 +66,9 @@ def test_the_agents_session_limits_shapes_and_sets_are_the_schemas(
     assert _branch(model["n_layers"])["maximum"] == p.MAX_LAYERS
     assert _branch(model["n_ctx_train"])["maximum"] == p.MAX_COUNT
     assert _branch(model["kv_bytes_per_token"])["maximum"] == p.MAX_KV_BYTES_PER_TOKEN
+    for field, low in (("embd_bytes", 1), ("output_bytes", 0)):
+        assert _branch(model[field])["minimum"] == low
+        assert _branch(model[field])["maximum"] == p.MAX_MODEL_BYTES
     capabilities = _props(schema, "Capabilities")
     assert _branch(capabilities["runtime"])["pattern"] == f"^{p.RUNTIME.pattern}$"
     assert capabilities["roles"]["items"]["enum"] == list(p.ROLES)
@@ -125,6 +128,8 @@ def _agent_frames() -> list[str]:
             n_head=None,
             n_head_kv=8,
             kv_bytes_per_token=p.MAX_KV_BYTES_PER_TOKEN,
+            embd_bytes=p.MAX_MODEL_BYTES,
+            output_bytes=0,
         )
         for i in range(p.MAX_MODELS)
     )

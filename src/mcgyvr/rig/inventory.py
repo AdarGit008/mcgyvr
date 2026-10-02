@@ -5,7 +5,8 @@ says of each model file under the owner's models folder its *name* (the
 file's own name, which carries no folder), its size, and what planning reads
 from its header — the architecture, layer count, trained context, embedding
 width, KV heads, and the KV cache's bytes per token of context at the KV type
-the head runs with — read by the product's own GGUF reader
+the head runs with, and the sizes of its token embedding and output tensors
+— read by the product's own GGUF reader
 (:func:`mcgyvr.serving.ggufscan.scan`), never guessed from the size.
 
 A head is started only on a model this inventory holds (:func:`resolve`): the
@@ -72,6 +73,20 @@ def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
     return total if 1 <= total <= protocol.MAX_KV_BYTES_PER_TOKEN else None
 
 
+def tensor_bytes(row: Mapping[str, Any]) -> tuple[int | None, int | None]:
+    """The token embedding's and the output tensor's bytes in ``row``: the
+    output is 0 when the file has none (it reuses the embedding), and both
+    are ``None`` when the file has no token embedding."""
+    embd, output = row.get("token_embd_bytes"), row.get("output_bytes")
+    if type(embd) is not int or not 1 <= embd <= protocol.MAX_MODEL_BYTES:
+        return None, None
+    if output is None:
+        return embd, 0
+    if type(output) is not int or not 1 <= output <= protocol.MAX_MODEL_BYTES:
+        return None, None
+    return embd, output
+
+
 def _count(row: Mapping[str, Any], key: str, high: int) -> int | None:
     value = row.get(key)
     return value if type(value) is int and 1 <= value <= high else None
@@ -82,6 +97,7 @@ def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo
     if "error" in row:
         return protocol.ModelInfo(name=name, size_bytes=size)
     arch = row.get("arch")
+    embd_bytes, output_bytes = tensor_bytes(row)
     return protocol.ModelInfo(
         name=name,
         size_bytes=size,
@@ -93,6 +109,8 @@ def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo
         n_embd=_count(row, "n_embd", protocol.MAX_COUNT),
         n_head_kv=_count(row, "n_head_kv", protocol.MAX_COUNT),
         kv_bytes_per_token=kv_bytes_per_token(row, pooled.KV_CACHE_TYPE),
+        embd_bytes=embd_bytes,
+        output_bytes=output_bytes,
     )
 
 
