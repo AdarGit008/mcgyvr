@@ -2,8 +2,9 @@
 
 ``media_valid`` is the one check with a real validator in P1: it reads the
 output file's own bytes and answers whether they are a file of the declared
-media kind. A worker cannot fake a header, and a wrong-kind or empty output is
-refused by name rather than left for a downstream tool to trip over.
+media kind. Images are checked past the header — dimensions must be present
+and positive, and the file must be structurally complete — while audio
+and video stay header-only until P2 adds their duration and decode checks.
 
 The three other kinds (``safety_pass``, ``asr_wer``, ``grounded``) name
 validators that land with P2; this file pins their check names and their
@@ -14,6 +15,8 @@ as clean.
 
 from __future__ import annotations
 
+import struct
+import zlib
 from pathlib import Path
 
 import pytest
@@ -30,13 +33,167 @@ from mcgyvr.gate.output import (
     media_valid,
 )
 
-# One minimal, structurally-valid header per known format. The bytes after the
-# signature are irrelevant to media_valid, which reads only the header.
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
-JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 16
-GIF = b"GIF89a" + b"\x00" * 16
-BMP = b"BM" + b"\x00" * 16
-WEBP = b"RIFF" + b"\x00\x00\x00\x00" + b"WEBP" + b"\x00" * 8
+
+# Minimal, genuinely valid image files, generated with the standard library so
+# media_valid's deeper-than-header checks (dimensions, decode completeness)
+# have a real file to accept. Audio and video stay header-only for now.
+def _png_chunk(kind: bytes, payload: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(payload))
+        + kind
+        + payload
+        + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+    )
+
+
+def _png(width: int = 2, height: int = 2) -> bytes:
+    signature = b"\x89PNG\r\n\x1a\n"
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    raw = b"".join(b"\x00" + b"\x00" * (width * 3) for _ in range(height))
+    return (
+        signature
+        + _png_chunk(b"IHDR", ihdr)
+        + _png_chunk(b"IDAT", zlib.compress(raw))
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def _jpeg_segment(marker: int, payload: bytes) -> bytes:
+    return b"\xff" + bytes([marker]) + struct.pack(">H", len(payload) + 2) + payload
+
+
+def _jpeg(width: int = 4, height: int = 3) -> bytes:
+    return (
+        b"\xff\xd8"
+        + _jpeg_segment(0xDB, b"\x00" + b"\x10" * 64)  # DQT, 8-bit table 0
+        + _jpeg_segment(
+            0xC0, struct.pack(">BHHB", 8, height, width, 1) + b"\x01\x11\x00"
+        )  # SOF0
+        + _jpeg_segment(0xC4, b"\x00" + b"\x00" * 16)  # DHT, empty DC table
+        + _jpeg_segment(0xDA, struct.pack(">B", 1) + b"\x01\x00" + b"\x00\x3f\x00")
+        + b"\x00\x00\x00\x00"
+        + b"\xff\xd9"
+    )
+
+
+def _gif(width: int = 1, height: int = 1) -> bytes:
+    return (
+        b"GIF89a"
+        + struct.pack("<HH", width, height)
+        + b"\x80\x00\x00"
+        + b"\x00\x00\x00\xff\xff\xff"
+        + b"\x2c"
+        + struct.pack("<HHHH", 0, 0, width, height)
+        + b"\x00"
+        + b"\x02"
+        + b"\x02\x44\x01"
+        + b"\x00"
+        + b"\x3b"
+    )
+
+
+def _bmp(width: int = 2, height: int = 2) -> bytes:
+    dib = 40
+    row_size = (width * 3 + 3) // 4 * 4
+    pixel_bytes = row_size * height
+    pixel_offset = 14 + dib
+    file_size = pixel_offset + pixel_bytes
+    file_header = (
+        b"BM"
+        + struct.pack("<I", file_size)
+        + b"\x00\x00\x00\x00"
+        + struct.pack("<I", pixel_offset)
+    )
+    dib_header = struct.pack(
+        "<IiiHHIIiiII", dib, width, height, 1, 24, 0, pixel_bytes, 2835, 2835, 0, 0
+    )
+    return file_header + dib_header + b"\x00" * pixel_bytes
+
+
+def _webp(width: int = 2, height: int = 2) -> bytes:
+    payload = (
+        b"\x00\x00\x00\x00"
+        + (width - 1).to_bytes(3, "little")
+        + (height - 1).to_bytes(3, "little")
+    )
+    chunk = b"VP8X" + struct.pack("<I", len(payload)) + payload
+    return b"RIFF" + struct.pack("<I", 4 + len(chunk)) + b"WEBP" + chunk
+
+
+def _webp_vp8(width: int = 2, height: int = 2) -> bytes:
+    frame = (
+        b"\x9d\x01\x2a"  # 3-byte frame tag
+        + b"\x9d\x01\x2a"  # 3-byte start code
+        + struct.pack("<H", (width - 1) & 0x3FFF)
+        + struct.pack("<H", (height - 1) & 0x3FFF)
+        + b"\x00"  # scale/version
+    )
+    chunk = b"VP8 " + struct.pack("<I", len(frame)) + frame
+    return b"RIFF" + struct.pack("<I", 4 + len(chunk)) + b"WEBP" + chunk
+
+
+def _webp_vp8l(width: int = 2, height: int = 2) -> bytes:
+    w = width - 1
+    h = height - 1
+    header = bytes(
+        [
+            0x2F,
+            w & 0xFF,
+            ((w >> 8) & 0x3F) | ((h & 0x03) << 6),
+            (h >> 2) & 0xFF,
+            (h >> 10) & 0x0F,
+        ]
+    )
+    chunk = b"VP8L" + struct.pack("<I", len(header)) + header
+    return b"RIFF" + struct.pack("<I", 4 + len(chunk)) + b"WEBP" + chunk
+
+
+def _jpeg_without_sof() -> bytes:
+    sos = _jpeg_segment(0xDA, struct.pack(">B", 1) + b"\x01\x00" + b"\x00\x3f\x00")
+    return b"\xff\xd8" + sos + b"\xff\xd9"
+
+
+def _bmp_with_unknown_dib() -> bytes:
+    dib = 44
+    pixel_offset = 14 + dib
+    file_size = pixel_offset + 4
+    file_header = (
+        b"BM"
+        + struct.pack("<I", file_size)
+        + b"\x00\x00\x00\x00"
+        + struct.pack("<I", pixel_offset)
+    )
+    return file_header + struct.pack("<I", dib) + b"\x00" * (dib - 4) + b"\x00" * 4
+
+
+def _bmp_negative_width() -> bytes:
+    dib = 40
+    pixel_offset = 14 + dib
+    pixel_bytes = 16
+    file_size = pixel_offset + pixel_bytes
+    file_header = (
+        b"BM"
+        + struct.pack("<I", file_size)
+        + b"\x00\x00\x00\x00"
+        + struct.pack("<I", pixel_offset)
+    )
+    dib_header = struct.pack(
+        "<IiiHHIIiiII", dib, -5, 2, 1, 24, 0, pixel_bytes, 2835, 2835, 0, 0
+    )
+    return file_header + dib_header + b"\x00" * pixel_bytes
+
+
+def _webp_without_a_vp8_chunk() -> bytes:
+    payload = b"\x00" * 4
+    chunk = b"EXIF" + struct.pack("<I", len(payload)) + payload
+    return b"RIFF" + struct.pack("<I", 4 + len(chunk)) + b"WEBP" + chunk
+
+
+PNG = _png()
+JPEG = _jpeg()
+GIF = _gif()
+BMP = _bmp()
+WEBP = _webp()
 
 WAV = b"RIFF" + b"\x00\x00\x00\x00" + b"WAVE" + b"\x00" * 8
 MP3_ID3 = b"ID3\x04\x00" + b"\x00" * 16
@@ -57,10 +214,96 @@ def _file(tmp_path: Path, name: str, data: bytes) -> Path:
 
 @pytest.mark.parametrize(
     "data",
-    [PNG, JPEG, GIF, BMP, WEBP],
+    [
+        PNG,
+        JPEG,
+        GIF,
+        BMP,
+        WEBP,
+        _webp_vp8(),
+        _webp_vp8(1, 1),
+        _webp_vp8l(),
+        _webp_vp8l(1, 1),
+    ],
+    ids=[
+        "png",
+        "jpeg",
+        "gif",
+        "bmp",
+        "webp-vp8x",
+        "webp-vp8",
+        "webp-vp8-1x1",
+        "webp-vp8l",
+        "webp-vp8l-1x1",
+    ],
 )
 def test_every_known_image_header_is_a_valid_image(tmp_path: Path, data: bytes) -> None:
     assert media_valid(_file(tmp_path, "out.bin", data), MEDIA_IMAGE) == []
+
+
+# --- deeper-than-header image checks ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        _png(width=0, height=2),
+        _jpeg_without_sof(),
+        b"GIF89a" + struct.pack("<HH", 0, 2) + b"\x3b",
+        _bmp_with_unknown_dib(),
+        _webp_without_a_vp8_chunk(),
+        _bmp_negative_width(),
+    ],
+    ids=["png", "jpeg", "gif", "bmp", "webp", "bmp-negative-width"],
+)
+def test_a_zero_or_missing_image_dimension_is_refused_by_name(
+    tmp_path: Path, data: bytes
+) -> None:
+    findings = media_valid(_file(tmp_path, "out.bin", data), MEDIA_IMAGE)
+    assert [f.code for f in findings] == ["bad-dimensions"]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        _png()[:-8],
+        _jpeg()[:-2],
+        _gif()[:-1],
+        _bmp()[:53],
+        _webp()[:-1],
+    ],
+    ids=["png", "jpeg", "gif", "bmp", "webp"],
+)
+def test_a_truncated_image_is_refused_by_name(tmp_path: Path, data: bytes) -> None:
+    findings = media_valid(_file(tmp_path, "out.bin", data), MEDIA_IMAGE)
+    assert [f.code for f in findings] == ["truncated"]
+
+
+def test_a_jpeg_with_a_dnl_marker_is_valid(tmp_path: Path) -> None:
+    dnl = _jpeg_segment(0xDC, struct.pack(">H", 1))
+    data = (
+        b"\xff\xd8"
+        + _jpeg_segment(0xC0, struct.pack(">BHHB", 8, 2, 2, 1) + b"\x01\x11\x00")
+        + dnl
+        + _jpeg_segment(0xDA, struct.pack(">B", 1) + b"\x01\x00" + b"\x00\x3f\x00")
+        + b"\xff\xd9"
+    )
+    assert media_valid(_file(tmp_path, "out.jpg", data), MEDIA_IMAGE) == []
+
+
+def test_a_png_whose_idat_stream_does_not_decompress_is_refused(
+    tmp_path: Path,
+) -> None:
+    ihdr = struct.pack(">IIBBBBB", 2, 2, 8, 2, 0, 0, 0)
+    data = (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", ihdr)
+        + _png_chunk(b"IDAT", b"not a zlib stream")
+        + _png_chunk(b"IEND", b"")
+    )
+    findings = media_valid(_file(tmp_path, "out.png", data), MEDIA_IMAGE)
+    assert [f.code for f in findings] == ["truncated"]
+    assert "does not decompress" in findings[0].message
 
 
 @pytest.mark.parametrize(
