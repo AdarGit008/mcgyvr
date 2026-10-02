@@ -6,8 +6,9 @@ media kind. Images are checked past the header — dimensions must be present
 and positive, and the file must be structurally complete — and audio is
 checked past the header too — duration must be determinable and positive for
 WAV, FLAC and MP3 (for MP3, a valid frame header whose first frame body
-fits), and page structure only for OGG, whose duration is deferred — while
-video stays header-only until P2 adds its duration and decode checks.
+fits), and page structure only for OGG, whose duration is deferred — and
+video is checked past the header too — duration must be determinable and
+positive for MP4, WEBM and AVI, and the file must be structurally complete.
 
 The three other kinds (``safety_pass``, ``asr_wer``, ``grounded``) name
 validators that land with P2; this file pins their check names and their
@@ -37,10 +38,11 @@ from mcgyvr.gate.output import (
 )
 
 
-# Minimal, genuinely valid image and audio files, generated with the standard
-# library so media_valid's deeper-than-header checks (dimensions and decode
-# completeness for images, duration and structural completeness for audio)
-# have a real file to accept. Video stays header-only for now.
+# Minimal, genuinely valid image, audio and video files, generated with the
+# standard library so media_valid's deeper-than-header checks (dimensions and
+# decode completeness for images, duration and structural completeness for
+# audio, duration and structural completeness for video) have a real file to
+# accept.
 def _png_chunk(kind: bytes, payload: bytes) -> bytes:
     return (
         struct.pack(">I", len(payload))
@@ -248,9 +250,83 @@ MP3_ID3 = b"ID3\x04\x00\x00" + _syncsafe(16) + b"\x00" * 16 + MP3_FRAME
 FLAC = _flac()
 OGG = _ogg()
 
-MP4 = b"\x00\x00\x00\x14" + b"ftyp" + b"mp42" + b"\x00" * 8
-WEBM = b"\x1a\x45\xdf\xa3" + b"\x00" * 16
-AVI = b"RIFF" + b"\x00\x00\x00\x00" + b"AVI " + b"\x00" * 8
+
+def _mp4(duration: int = 2) -> bytes:
+    timescale = 1000
+    mvhd_payload = (
+        b"\x00" * 4  # version + flags
+        + b"\x00" * 4  # creation time
+        + b"\x00" * 4  # modification time
+        + struct.pack(">I", timescale)
+        + struct.pack(">I", duration * timescale)
+        + b"\x00" * 80
+    )
+    mvhd = struct.pack(">I", 8 + len(mvhd_payload)) + b"mvhd" + mvhd_payload
+    ftyp = struct.pack(">I", 16) + b"ftyp" + b"mp42" + struct.pack(">I", 0)
+    moov = struct.pack(">I", 8 + len(mvhd)) + b"moov" + mvhd
+    mdat = struct.pack(">I", 8) + b"mdat"
+    return ftyp + moov + mdat
+
+
+def _webm(duration: float = 2.0) -> bytes:
+    return (
+        b"\x1a\x45\xdf\xa3\x87\x42\x82\x84\x77\x65\x62\x6d"
+        b"\x18\x53\x80\x67\x8c\x15\x49\xa9\x66\x87\x44\x89\x84"
+        + struct.pack(">f", duration)
+    )
+
+
+def _webm_without_duration() -> bytes:
+    return b"\x1a\x45\xdf\xa3\x87\x42\x82\x84\x77\x65\x62\x6d\x18\x53\x80\x67\x80"
+
+
+def _avi(frames: int = 50, fps: int = 25) -> bytes:
+    avih_payload = bytearray(56)
+    avih_payload[0:4] = struct.pack("<I", 1_000_000 // fps)
+    avih_payload[16:20] = struct.pack("<I", frames)
+    avih = b"avih" + struct.pack("<I", 56) + bytes(avih_payload)
+    list_payload = b"hdrl" + avih
+    list_chunk = b"LIST" + struct.pack("<I", len(list_payload)) + list_payload
+    body = b"AVI " + list_chunk
+    return b"RIFF" + struct.pack("<I", len(body)) + body
+
+
+def _avi_riff_size_mismatch() -> bytes:
+    data = bytearray(_avi())
+    data[4:8] = struct.pack("<I", int.from_bytes(data[4:8], "little") + 1)
+    return bytes(data)
+
+
+def _mp4_no_mdat() -> bytes:
+    timescale = 1000
+    mvhd_payload = (
+        b"\x00" * 4  # version + flags
+        + b"\x00" * 4  # creation time
+        + b"\x00" * 4  # modification time
+        + struct.pack(">I", timescale)
+        + struct.pack(">I", 2 * timescale)
+        + b"\x00" * 80
+    )
+    mvhd = struct.pack(">I", 8 + len(mvhd_payload)) + b"mvhd" + mvhd_payload
+    ftyp = struct.pack(">I", 16) + b"ftyp" + b"mp42" + struct.pack(">I", 0)
+    moov = struct.pack(">I", 8 + len(mvhd)) + b"moov" + mvhd
+    return ftyp + moov
+
+
+def _avi_zero_rate() -> bytes:
+    avih_payload = bytearray(56)
+    avih_payload[0:4] = struct.pack("<I", 0)  # microsec_per_frame == 0
+    avih_payload[16:20] = struct.pack("<I", 50)  # total_frames nonzero
+    avih = b"avih" + struct.pack("<I", 56) + bytes(avih_payload)
+    list_payload = b"hdrl" + avih
+    list_chunk = b"LIST" + struct.pack("<I", len(list_payload)) + list_payload
+    body = b"AVI " + list_chunk
+    return b"RIFF" + struct.pack("<I", len(body)) + body
+
+
+MP4 = _mp4(duration=2)
+WEBM = _webm(duration=2.0)
+AVI = _avi(frames=50, fps=25)
 
 
 def _file(tmp_path: Path, name: str, data: bytes) -> Path:
@@ -407,6 +483,52 @@ def test_a_truncated_audio_file_is_refused(tmp_path: Path, data: bytes) -> None:
 )
 def test_every_known_video_header_is_valid_video(tmp_path: Path, data: bytes) -> None:
     assert media_valid(_file(tmp_path, "out.bin", data), MEDIA_VIDEO) == []
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        _mp4(duration=0),
+        _avi(frames=0),
+        _webm_without_duration(),
+        _avi_zero_rate(),
+        _webm(duration=0.0),
+    ],
+    ids=[
+        "mp4-zero-duration",
+        "avi-zero-frames",
+        "webm-no-duration",
+        "avi-zero-rate",
+        "webm-zero-duration",
+    ],
+)
+def test_video_with_no_duration_info_is_refused(tmp_path: Path, data: bytes) -> None:
+    findings = media_valid(_file(tmp_path, "out.bin", data), MEDIA_VIDEO)
+    assert [f.code for f in findings] == ["bad-duration"]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        _mp4()[:-1],
+        _avi_riff_size_mismatch(),
+        _mp4_no_mdat(),
+        _webm()[:16],
+        _webm()[:17],
+        _webm()[:25],
+    ],
+    ids=[
+        "mp4-cut-mdat",
+        "avi-riff-size-mismatch",
+        "mp4-no-mdat",
+        "webm-cut-segment-size",
+        "webm-cut-into-segment",
+        "webm-cut-into-segment-payload",
+    ],
+)
+def test_a_truncated_video_file_is_refused(tmp_path: Path, data: bytes) -> None:
+    findings = media_valid(_file(tmp_path, "out.bin", data), MEDIA_VIDEO)
+    assert [f.code for f in findings] == ["truncated"]
 
 
 def test_a_text_file_declared_as_an_image_is_refused_by_name(tmp_path: Path) -> None:
