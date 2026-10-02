@@ -38,18 +38,31 @@ start of the first non-empty line and returns ``None`` for everything else.
 ``None`` is not a refusal — see the next paragraph — and it is certainly not an
 approval.
 
-**The typed verdict is the new default where the seam exists.** When a
-:data:`Decide` seam is bound, the verdict is a single
-:class:`~mcgyvr.decision.Noul` read through :func:`~mcgyvr.decision.classify_role`
-from next-token probabilities — no prose, no anchor, no substring to misread.
-:func:`read_typed_verdict` reads it, and the free-text :func:`read_verdict`
-path stays for the installs that bind a prose reviewer.
+**The typed verdict is the default, and prose is the fallback.** Every
+:class:`Reviewer` carries a typed seam, so the verdict is first asked as a
+single :class:`~mcgyvr.decision.Noul` read from next-token probabilities — no
+prose, no anchor, no substring to misread — and :func:`read_typed_verdict`
+reads it. A reviewer whose unit answers without probabilities is asked in
+prose instead, through :func:`read_verdict`. A reviewer that could not be
+reached, or answered an HTTP error, is not asked twice: that is a
+reviewer-side failure, whichever way it would have been asked.
+
+**Who reviews.** ``verifier.unit`` names the reviewer outright, hosted or not.
+With no unit named, :func:`reviewer_rung` picks one per builder: the next local
+rung of the climb dearer than the builder's whose model is not the builder's.
+A hosted rung is never picked, because asking it costs money nobody chose to
+spend on review. Where there is none — the builder is the dearest rung, or
+every dearer local rung serves the builder's model — there is no independent
+reviewer, and :class:`NoReviewer` says so in words
+:func:`~mcgyvr.escalate.judge` puts on the acceptance.
 
 **A reviewer-side failure is never charged to the builder.** An unreadable
-reply, an unreachable backend and a reviewer that is the builder are all
-:attr:`~mcgyvr.escalate.Opinion.UNUSABLE`, which is what
-:attr:`~mcgyvr.escalate.Judgement.reviewer_failed` exists to keep distinguishable
-from a change that was actually judged and found wanting.
+reply, an unreachable backend, a review stopped at its output cap and a reviewer
+that is the builder are all :attr:`~mcgyvr.escalate.Opinion.UNUSABLE`, which is
+what :attr:`~mcgyvr.escalate.Judgement.reviewer_failed` exists to keep
+distinguishable from a change that was actually judged and found wanting. A
+truncated review is unusable even when it opens with ``APPROVE``: the notes a
+cap cut off may be the condition the approval was given under.
 
 **The semantic rung's non-blocking items arrive here as notes.**
 :class:`~mcgyvr.gate.GateResult` splits what a rung saw into
@@ -80,13 +93,27 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-from mcgyvr.decision import BoolAnswer, Decision, Noul, classify_role
+from mcgyvr.decision import (
+    BoolAnswer,
+    Decision,
+    DecisionError,
+    Noul,
+    Question,
+    classify_role,
+    classify_rung,
+)
 from mcgyvr.escalate import GATE_ONLY, Opinion, Review, required_policy
-from mcgyvr.runner import Request, dispatch_role
+from mcgyvr.gate.jev import JEV_QUESTIONS, JevCheck, jev_check_for
+from mcgyvr.route import by_family
+from mcgyvr.runner import Completion, Request, dispatch, dispatch_role
+from mcgyvr.weights import WEIGHTS_SUFFIXES
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from collections.abc import Mapping
+
     from mcgyvr.capacity import Capacity
     from mcgyvr.catalog import Family
+    from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.gate import GateResult
     from mcgyvr.pool import SourceMap
@@ -96,9 +123,16 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: silently never found.
 VERIFIER_ROLE = "verifier"
 
+#: The one family a reviewer is picked from when no unit is named: a rung
+#: whose unit declares no credential (:meth:`mcgyvr.catalog.Catalog.family_of`).
+#: A hosted rung costs money per request, so review spends it only where
+#: ``verifier.unit`` says to.
+LOCAL_FAMILY = "local"
+
 #: What a review is allowed to write. The protocol is one token and brief notes,
-#: so a large ceiling buys an essay nobody reads; and truncation cannot hide the
-#: verdict, because the verdict is the first word of the reply.
+#: so a large ceiling buys an essay nobody reads. A review that reaches it is
+#: unusable rather than read: the verdict is the first word, but the notes the
+#: cap cut off may be what the verdict was conditional on.
 #: :class:`~mcgyvr.runner.Request` refuses an uncapped dispatch outright, so
 #: this is a number someone had to choose rather than a default inherited from a
 #: backend.
@@ -123,6 +157,16 @@ VERDICT_QUESTION = Noul(
     "Should this change be approved against the contract it was written for?"
 )
 
+#: What a typed ask raises when the reviewer *answered* but not with
+#: probabilities: a reply with no logprobs, or none of the labels among them.
+#: That says the unit does not serve a typed verdict, which is the one reason
+#: to ask it in prose instead. An HTTP error status is not on the list: it is
+#: raised for a rate limit, a model still loading and a server fault alike,
+#: and asking the backend that just answered one a second way only spends a
+#: second request on it — so it is unusable, like an unreachable reviewer, and
+#: it is not remembered: the next ask may find the backend recovered.
+_NOT_TYPED: tuple[type[Exception], ...] = (DecisionError,)
+
 
 class ReviewerUnavailableError(RuntimeError):
     """The verifier role had a binding and then had nothing to dispatch to.
@@ -132,6 +176,15 @@ class ReviewerUnavailableError(RuntimeError):
     ordinary configuration that :func:`~mcgyvr.escalate.judge` answers with
     ``UNVERIFIED``, while a role that was bound and then could not serve is a
     reviewer-side fault in the middle of a task.
+    """
+
+
+class ReviewTruncatedError(RuntimeError):
+    """A review stopped at its output cap, so its verdict is not read.
+
+    Raised inside the ask, where :func:`verify` turns every failure into
+    :attr:`~mcgyvr.escalate.Opinion.UNUSABLE`: a capped review is the
+    reviewer's failure, and it is never an approval.
     """
 
 
@@ -479,6 +532,12 @@ _SEPARATOR_CATEGORY = "Pd"
 # part of the identity: ``:7b`` and ``:32b`` are different weights.
 _DEFAULT_TAG = ":latest"
 
+# llama.cpp's tail on the first shard of a split weights file,
+# ``-00001-of-00002``: the server is handed that file and the model is the
+# stem without it. Read only where a weights suffix was actually removed, the
+# same narrowness :func:`mcgyvr.weights.is_model` keeps.
+_SHARD = re.compile(r"-\d{1,5}-of-\d{1,5}$")
+
 
 def model_identity(name: str) -> str:
     """The weights ``name`` points at, as a string two names can be compared on.
@@ -499,7 +558,12 @@ def model_identity(name: str) -> str:
       as a Latin ``o`` in every config file a person will ever read.
     * **The routing prefix dropped.** ``registry/qwen2.5-coder`` and
       ``hf.co/Qwen/qwen2.5-coder`` say where to fetch the same blob. Only the
-      last path segment names it.
+      last path segment names it, and a Windows ``\\`` separates segments as
+      ``/`` does.
+    * **A weights file read as the model it holds.** ``/weights/x.gguf`` is how
+      llama.cpp names the model ``x`` (:mod:`mcgyvr.weights`), so one weights
+      suffix comes off, and with it the ``-00001-of-00002`` tail of a split
+      file. Only where the suffix was there: ``x.v2`` is not ``x``.
     * **A trailing** ``:latest`` **dropped**, because a registry appends
       exactly that to an untagged name. No other tag is touched.
     * **Separators removed**, so ``qwen2.5-coder``, ``qwen2_5_coder`` and
@@ -521,7 +585,11 @@ def model_identity(name: str) -> str:
         if unicodedata.category(char) not in {"Cc", "Cf", "Zl", "Zp", "Zs"}
     )
     folded = folded.casefold().translate(_CONFUSABLES)
-    folded = folded.rpartition("/")[2]
+    folded = folded.replace("\\", "/").rpartition("/")[2]
+    for suffix in WEIGHTS_SUFFIXES:
+        if folded.endswith(suffix):
+            folded = _SHARD.sub("", folded[: -len(suffix)])
+            break
     if folded.endswith(_DEFAULT_TAG):
         folded = folded[: -len(_DEFAULT_TAG)]
     return "".join(
@@ -560,6 +628,16 @@ def _independence_fault(builder: str, reviewer: str) -> str | None:
     return None
 
 
+def independent(builder: str, reviewer: str) -> bool:
+    """Whether ``reviewer`` is a model other than ``builder``, both named.
+
+    The one rule :func:`verify` refuses a review by, asked before anything else
+    is asked of a reviewer: which rung reviews (:func:`reviewer_rung`), and
+    whether the gate's typed checks may be put to it.
+    """
+    return _independence_fault(builder, reviewer) is None
+
+
 def verify(
     contract: Contract,
     *,
@@ -588,8 +666,9 @@ def verify(
 
     ``decide`` is the typed verdict: when it is supplied the verdict is read
     as a :class:`~mcgyvr.decision.Noul` through
-    :func:`~mcgyvr.decision.classify`; when it is ``None`` the free-text
-    ``ask`` path is used, unchanged.
+    :func:`~mcgyvr.decision.classify`, and ``ask`` is used only if the
+    reviewer answered without probabilities (:data:`_NOT_TYPED`). When it is
+    ``None`` the free-text ``ask`` path is used, unchanged.
     """
     if required_policy(contract, family) == GATE_ONLY:
         # The deterministic family, on a contract that asked for nothing more:
@@ -607,7 +686,9 @@ def verify(
         return Review.unusable(fault)
 
     if decide is not None:
-        return _typed_verdict(contract, gate, change, reviewer, original, decide)
+        typed = _typed_verdict(contract, gate, change, reviewer, original, decide)
+        if typed is not None:
+            return typed
 
     prompt = build_prompt(contract, gate=gate, change=change, original=original)
     try:
@@ -641,16 +722,20 @@ def _typed_verdict(
     reviewer: str,
     original: str | None,
     decide: Decide,
-) -> Review:
+) -> Review | None:
     """Read a typed verdict through ``decide``, under the same protection as prose.
 
     The identity check has already run (:func:`verify` refuses a self-review
     before this is reached), so this is only the ask and the read. A ``decide``
-    that raises is a reviewer-side failure — the builder is never charged.
+    that raises is a reviewer-side failure — the builder is never charged —
+    except where it raised because the reviewer serves no probabilities
+    (:data:`_NOT_TYPED`): that is ``None``, and the caller asks in prose.
     """
     state = verdict_state(contract, gate, change, original)
     try:
         decision = decide(state)
+    except _NOT_TYPED:
+        return None
     except Exception as exc:
         return Review.unusable(f"the reviewer {reviewer!r} could not be asked: {exc}")
     return read_typed_verdict(decision)
@@ -660,6 +745,7 @@ def decider_for(
     source_map: SourceMap,
     *,
     timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    capacity: Capacity | None = None,
 ) -> Decide | None:
     """The install's verifier role as a typed-verdict seam, or ``None``.
 
@@ -678,6 +764,7 @@ def decider_for(
             VERIFIER_ROLE,
             state,
             {VERDICT_KEY: VERDICT_QUESTION},
+            capacity=capacity,
             timeout_s=timeout_s,
         )
         if decision is None:  # the role was bound a moment ago
@@ -728,8 +815,231 @@ def reviewer_for(
             raise ReviewerUnavailableError(
                 f"the {VERIFIER_ROLE!r} role has no source to dispatch to"
             )
-        # A truncated review is still readable: the verdict is the first token,
-        # so the cap can only cost notes. Nothing is raised for it here.
-        return completion.text
+        return _review_text(completion, f"the {VERIFIER_ROLE!r} role")
 
     return ask
+
+
+def _review_text(completion: Completion, who: str) -> str:
+    """The text of a review, or :class:`ReviewTruncatedError` for one that was cut.
+
+    The cap is :data:`REVIEW_OUTPUT_TOKENS`, and a review that reached it is not
+    read at all: ``APPROVE`` followed by notes the cap cut off is an approval
+    whose conditions nobody saw. Raised rather than returned, so it lands where
+    every other reviewer-side failure does — unusable, never the builder's.
+    """
+    if completion.truncated:
+        raise ReviewTruncatedError(
+            f"the review from {who} stopped at its output cap of "
+            f"{completion.max_output_tokens} tokens, so its verdict is not read"
+        )
+    return completion.text
+
+
+# --- who reviews -------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Reviewer:
+    """One reviewer, resolved: the model it is, and the ways it is asked.
+
+    ``ask`` is the prose seam :func:`verify` falls back to; ``decide`` the
+    typed verdict, asked first; ``jev`` the gate's typed-question rung
+    (:class:`~mcgyvr.gate.jev.JevCheck`) bound to the same reviewer. ``where``
+    says which part of the config chose it, for the sentence an operator reads.
+    ``unit`` is the unit every one of those dispatches to, so the driver can
+    send them through its waker as it sends the builder's
+    (:meth:`mcgyvr.wake.Waker.dispatching`).
+    """
+
+    model: str
+    ask: Ask
+    decide: Decide | None = None
+    jev: JevCheck | None = None
+    where: str = ""
+    unit: str | None = None
+
+
+@dataclass(frozen=True)
+class NoReviewer:
+    """There is no independent reviewer for this builder, and why, in words."""
+
+    reason: str
+
+
+#: Which reviewer judges the work of one builder rung, named by the rung.
+type Reviewers = Callable[[str], Reviewer | NoReviewer]
+
+
+def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | None:
+    """The rung that reviews ``builder``'s work when no unit is named, or ``None``.
+
+    The next rung of the climb dearer than ``builder`` — families in rank
+    order, rungs in the order the ladder writes them, the order
+    :func:`~mcgyvr.route.by_family` gives — whose model is not the builder's
+    by :func:`model_identity`. A dearer rung serving the builder's model under
+    another unit name or another spelling is passed over, because a review is
+    only worth the distance between the two models. Only usable rungs count,
+    and only local ones: a hosted rung costs money to ask, so it reviews only
+    when ``verifier.unit`` names it. ``None`` is the dearest rung, a rung the
+    pool does not offer, or a ladder above the builder whose local rungs serve
+    nothing but the builder's model.
+    """
+    grouped = by_family(config, source_map)
+    climb = [
+        (family.name, rung)
+        for family in sorted(grouped, key=lambda family: family.rank)
+        for rung in grouped[family]
+    ]
+    names = [rung.name for _, rung in climb]
+    if builder not in names:
+        return None
+    built_with = climb[names.index(builder)][1].model
+    for family, rung in climb[names.index(builder) + 1 :]:
+        if family == LOCAL_FAMILY and independent(built_with, rung.model):
+            return rung.name
+    return None
+
+
+def reviewers_for(
+    config: Config,
+    source_map: SourceMap,
+    *,
+    capacity: Capacity | None = None,
+    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+) -> Reviewers:
+    """Who reviews each builder's work under ``config``.
+
+    Three answers, read once. ``verifier.enabled: false`` is no reviewer for
+    anyone, said as that. A named ``verifier.unit`` is the one reviewer for
+    everyone — asked about its model here, so a role declared on a source that
+    cannot serve raises :class:`~mcgyvr.pool.SourceUnavailableError` now,
+    while refusing is still free. Otherwise each builder's reviewer is
+    :func:`reviewer_rung`'s pick, and a builder with none gets a
+    :class:`NoReviewer` that says why.
+
+    Every reviewer carries a typed seam that remembers a unit that does not
+    serve probabilities, so the prose fallback costs one refused request per
+    reviewer and not one per question.
+    """
+    if not config.get("verifier.enabled", True):
+        off = NoReviewer("review is switched off by `verifier.enabled: false`")
+        return lambda builder: off
+
+    unit = config.get("verifier.unit")
+    if unit is not None:
+        model = source_map.role_model(VERIFIER_ROLE)
+        ask = reviewer_for(source_map, capacity=capacity)
+        decide = decider_for(source_map, timeout_s=timeout_s, capacity=capacity)
+        jev = jev_check_for(
+            source_map, VERIFIER_ROLE, timeout_s=timeout_s, capacity=capacity
+        )
+        if model is None or ask is None:
+            unbound = NoReviewer(
+                f"`verifier.unit` names {unit!r} and the {VERIFIER_ROLE!r} role "
+                f"has no model to ask"
+            )
+            return lambda builder: unbound
+        memory = _TypedMemory()
+        named = Reviewer(
+            model=model,
+            ask=ask,
+            decide=memory.guard(decide) if decide is not None else None,
+            jev=JevCheck(decide=memory.guard(jev.decide)) if jev is not None else None,
+            where=f"`verifier.unit` {unit!r}",
+            unit=str(unit),
+        )
+        return lambda builder: named
+
+    picked: dict[str, Reviewer | NoReviewer] = {}
+
+    def pick(builder: str) -> Reviewer | NoReviewer:
+        if builder not in picked:
+            picked[builder] = _on_rung(
+                config, source_map, builder, capacity=capacity, timeout_s=timeout_s
+            )
+        return picked[builder]
+
+    return pick
+
+
+def _on_rung(
+    config: Config,
+    source_map: SourceMap,
+    builder: str,
+    *,
+    capacity: Capacity | None,
+    timeout_s: float,
+) -> Reviewer | NoReviewer:
+    """The reviewer :func:`reviewer_rung` picks for ``builder``, made askable."""
+    rung = reviewer_rung(config, source_map, builder)
+    offered = source_map.get(rung) if rung is not None else None
+    if rung is None or offered is None:
+        return NoReviewer(
+            f"no local rung dearer than {builder!r} serves a model other than "
+            f"the builder's, so there is no independent reviewer; a hosted "
+            f"rung reviews only when `verifier.unit` names it"
+        )
+
+    def ask(prompt: str) -> str:
+        completion = dispatch(
+            source_map,
+            rung,
+            Request(prompt=prompt, max_output_tokens=REVIEW_OUTPUT_TOKENS),
+            capacity=capacity,
+        )
+        return _review_text(completion, f"rung {rung!r}")
+
+    def by_rung(state: Any, questions: Mapping[str, Question]) -> Decision:
+        return classify_rung(
+            source_map,
+            rung,
+            state,
+            questions,
+            capacity=capacity,
+            timeout_s=timeout_s,
+        )
+
+    memory = _TypedMemory()
+
+    def decide(state: Any) -> Decision:
+        return by_rung(state, {VERDICT_KEY: VERDICT_QUESTION})
+
+    def checks(state: Any) -> Decision:
+        return by_rung(state, JEV_QUESTIONS)
+
+    return Reviewer(
+        model=offered.model,
+        ask=ask,
+        decide=memory.guard(decide),
+        jev=JevCheck(decide=memory.guard(checks)),
+        where=f"rung {rung!r}",
+        unit=rung,
+    )
+
+
+class _TypedMemory:
+    """One reviewer's typed seams, refusing at once after its unit showed it
+    serves no probabilities.
+
+    The gate's typed checks ask per changed file and per gate run, and the
+    verdict asks again: against a unit that answers without logprobs every one
+    of those is a request that cannot succeed. The first refusal of the
+    :data:`_NOT_TYPED` kind is kept, for every seam guarded by the same memory,
+    and raised again without a request.
+    """
+
+    def __init__(self) -> None:
+        self.refused: Exception | None = None
+
+    def guard(self, decide: Decide) -> Decide:
+        def guarded(state: Any) -> Decision:
+            if self.refused is not None:
+                raise self.refused
+            try:
+                return decide(state)
+            except _NOT_TYPED as exc:
+                self.refused = exc
+                raise
+
+        return guarded

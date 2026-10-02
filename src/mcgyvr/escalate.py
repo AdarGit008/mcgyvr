@@ -105,11 +105,13 @@ nothing else.
 :class:`Review` and reviewing the applied diff in fresh context are
 :mod:`mcgyvr.verify`'s; this module fixes only *when* a review is asked for and
 what follows from each answer. :attr:`Judgement.reviewer_failed` keeps a
-reviewer-side failure distinguishable, but an unusable review still ends the
-attempt here, because not accepting is the only answer this module is entitled
-to give. Diagnosing a ladder that declares its families out of rank order is not
-here either: the ascent's order is the catalog's, so an interleaved ladder
-executes in an order the config file does not show.
+reviewer-side failure distinguishable, and it is never charged to the builder:
+an unusable review leaves the gate's acceptance standing and labelled
+``UNVERIFIED``, exactly as an install with no reviewer is, because what failed
+was the review and not the change. It is never ``VERIFIED``. Diagnosing a
+ladder that declares its families out of rank order is not here either: the
+ascent's order is the catalog's, so an interleaved ladder executes in an order
+the config file does not show.
 """
 
 from __future__ import annotations
@@ -190,8 +192,9 @@ class Assurance(StrEnum):
     result is never reported as more assured than it is. ``DETERMINISTIC`` is a
     tool's output through the gate, which is what a ``gate_only`` contract
     describes. ``VERIFIED`` is reachable only by a verifier that ran and
-    agreed. ``UNVERIFIED`` is a model's output that passed the gate in an
-    install with no verifier to satisfy the upgrade — accepted, and labelled.
+    agreed. ``UNVERIFIED`` is a model's output that passed the gate with no
+    verdict to satisfy the upgrade — no independent reviewer, review switched
+    off, or a reviewer that produced nothing usable — accepted, and labelled.
     """
 
     DETERMINISTIC = "deterministic"
@@ -355,6 +358,7 @@ def judge(
     gate: GateResult,
     *,
     verifier: Callable[[], Review] | None = None,
+    absent: str = "",
 ) -> Judgement:
     """Turn a gate run — and, only if it passed, a verifier — into a judgement.
 
@@ -362,6 +366,10 @@ def judge(
     referenced at all on the rejected path, so a gate failure cannot cost
     verifier spend however the caller supplied one. The gate runs before any
     model is asked for an opinion; this is where that is held.
+
+    ``absent`` is why there is no ``verifier``, in the caller's words, and it
+    goes into the judgement's detail: an unverified acceptance that cannot say
+    why is the silent kind this label exists to end.
     """
     policy = required_policy(contract, family)
     upgraded = policy != contract.verification.policy
@@ -392,6 +400,7 @@ def judge(
         )
 
     if verifier is None:
+        why = absent or "this install has none"
         return Judgement(
             verdict=Verdict.PASSED,
             assurance=Assurance.UNVERIFIED,
@@ -400,8 +409,8 @@ def judge(
             detail=(
                 f"accepted on the deterministic gate alone: work in the "
                 f"{family.name!r} family requires a fresh-context verifier and "
-                f"this install has none, so the acceptance is labelled "
-                f"unverified rather than verified."
+                f"{why}, so the acceptance is labelled unverified rather than "
+                f"verified."
             ),
         )
 
@@ -419,22 +428,47 @@ def judge(
             verdict=Verdict.FAILED,
             policy=policy,
             upgraded=upgraded,
-            # The gate passed, so there is nothing of its to repeat: the
-            # refusal is the whole of what failed, and it is what a retry has
-            # to act on.
-            retry=RetryNotes(
-                checks=("verifier",), lines=(f"verifier: {review.detail}",)
-            ),
+            # The gate passed, so none of its findings are repeated: the
+            # refusal is what failed, and it is what a retry has to act on.
+            # What the same reviewer answered to the gate's typed checks goes
+            # with it — they are observations elsewhere, but here they are the
+            # only reasons a typed refusal has, and they are already paid for.
+            retry=_refusal_notes(review, gate),
             detail=f"the verifier refused the change: {review.detail}",
         )
+    # The reviewer's fault, never the builder's: the gate accepted this change
+    # and nothing has since said otherwise. Failing it would spend the
+    # builder's attempt — and climb the ladder — over a review that never
+    # happened, so the acceptance stands on the gate and says exactly that.
     return Judgement(
-        verdict=Verdict.FAILED,
+        verdict=Verdict.PASSED,
+        assurance=Assurance.UNVERIFIED,
         policy=policy,
         upgraded=upgraded,
         reviewer_failed=True,
         detail=(
-            f"the verifier produced no usable verdict ({review.detail}), so the "
-            f"change is not accepted."
+            f"accepted on the deterministic gate alone: the verifier produced "
+            f"no usable verdict ({review.detail}), so the acceptance is "
+            f"labelled unverified rather than verified."
+        ),
+    )
+
+
+def _refusal_notes(review: Review, gate: GateResult) -> RetryNotes:
+    """What a retry is told after the verifier refused an accepted change.
+
+    The refusal itself, and then the reviewer's answers to the gate's typed
+    checks (:attr:`~mcgyvr.gate.GateResult.jev`). Those are the per-file
+    reasons a typed verdict does not carry, asked of the same reviewer over the
+    same change, so the builder is told what was found without a second
+    request being spent to find out.
+    """
+    reasons = () if gate.jev is None else (*gate.jev.findings, *gate.jev.observations)
+    return RetryNotes(
+        checks=("verifier", *(("jev",) if reasons else ())),
+        lines=(
+            f"verifier: {review.detail}",
+            *(finding.for_model() for finding in reasons),
         ),
     )
 
