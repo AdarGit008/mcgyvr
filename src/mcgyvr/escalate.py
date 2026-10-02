@@ -117,6 +117,7 @@ the config file does not show.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
@@ -689,6 +690,14 @@ class Ascent:
         Comparing one rung's load against another's width reports an idle
         narrow rung as full and spends money climbing past it.
 
+        **Free is free by both counts.** A rung is full when this batch's load
+        is at its width *or* its server's own busy count is
+        (:meth:`~mcgyvr.capacity.Capacity.judge`, the one definition the ladder
+        manager reads too): another client's work fills a rung this process's
+        counters cannot see. A server that cannot be read leaves the load to
+        decide alone. The servers are read before the snapshot below, because
+        a read of a machine is not a counter read.
+
         The load is read here rather than stored when the ascent was built,
         because a reading taken before the batch started is only true until the
         batch starts; this is the closest a caller can get to the moment it acts.
@@ -786,19 +795,34 @@ class Ascent:
         """
         if self.fanout is not Fanout.IDLE or self.capacity is None:
             return None
+        # Each server's own busy count, read before the decision is taken: it is
+        # a read of a machine, and nothing slow runs inside `deciding`.
+        servers = {
+            step.rung.name: step.machine.server(self.capacity)
+            for each in self.plans
+            for step in each.climbable
+            if step.machine is not None
+        }
         with self.capacity.deciding():
             for each in self.plans:
                 for step in each.climbable:
                     machine = step.machine
                     width = self.widths.get(step.rung.name)
-                    load = (
+                    # Free by both counts (Capacity.judge): this batch's own
+                    # load, and the server's busy count, which sees the clients
+                    # this process does not.
+                    full = (
                         None
                         if machine is None
-                        else machine.load(self.capacity, step.rung.name)
+                        else machine.full(
+                            self.capacity,
+                            step.rung.name,
+                            servers.get(step.rung.name),
+                        )
                     )
-                    if machine is None or width is None or load is None:
+                    if machine is None or width is None or full is None:
                         return None
-                    if load < width:
+                    if not full:
                         if reserve and self._raises(each.family):
                             machine.claim(self.capacity, step.rung.name)
                         return each.family, step.rung.name, machine
@@ -1036,6 +1060,7 @@ def escalate(
     capacity: Capacity | None = None,
     floor: Family | None = None,
     wake_hook: Callable[[Contract], str | None] | None = None,
+    presence: Callable[[str], AbstractContextManager[object]] | None = None,
 ) -> Delivered | Halted:
     """Climb the ascent until something is accepted or a rule ends the task.
 
@@ -1053,6 +1078,21 @@ def escalate(
     model call, and paying it before a family is spent would charge every task
     for an answer the climb may not need. ``None`` disables the seam entirely,
     which is the ordinary install that did not ask for a fleet manager.
+
+    ``presence`` is the seam a ladder manager reads pressure through: a
+    caller-supplied context manager made per rung, which an attempt runs inside
+    when — and only when — it *climbed*: it is on a rung other than the one the
+    first attempt was spent on, reached after attempts were spent there. That is
+    the evidence a manager wants, tasks that outgrew a cheaper rung and are now
+    working on this one, and it is marked for the length of the attempt under the
+    rung's name. An attempt on the first rung is not, a rung reached past a
+    decline is not (a decline spends nothing, so nothing was tried below it), and
+    a raised entry under ``fanout: idle`` is not: nothing failed to put work
+    there, which is the same reason it is free of an escalation (see
+    :func:`_idle_entry`). The marking is the caller's to make best-effort — a
+    gauge must never fail the work it watches — and an exception raised by the
+    attempt leaves the presence the way a verdict does. ``None`` is exactly the
+    climb that has no such caller.
 
     Both ceilings are enforced through :func:`~mcgyvr.route.climb`'s ``permit``
     rather than by trimming the plan, because a decline costs nothing and a
@@ -1139,8 +1179,20 @@ def escalate(
 
     def observed(this: Try) -> Result:
         nonlocal attempts_spent, accepted_judgement
+        # Reached after attempts were spent on a cheaper rung: a climb. Read
+        # before the attempt, because the attempt is what adds to `spent_rungs`.
+        climbed = (
+            presence is not None
+            and bool(spent_rungs)
+            and this.rung.name != spent_rungs[0]
+        )
         try:
-            judgement = attempt(this)
+            with (
+                presence(this.rung.name)
+                if presence is not None and climbed
+                else nullcontext()
+            ):
+                judgement = attempt(this)
         except Exception as exc:
             # An exception is not a verdict. `climb` lets a raising attempt
             # propagate so it is not misread as "this family cannot do the

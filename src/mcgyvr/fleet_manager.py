@@ -1,10 +1,13 @@
 """The fleet-manager hook: a Jev difficulty judgment that routes a task to the
 smarter resident rung before the API.
 
-Jev may **route and wake** — a bounded, dispatch-time judgment over a task. Jev
-may never **auto-sleep**: taking a card down stays a human-typed act, and
-nothing in this module reaches for the door's ``down`` direction. Flavor A
-only: asleep + wake-on-demand; multi-model resident hot-swap is out of scope.
+Jev may **route and wake** — a bounded, dispatch-time judgment over a task.
+This per-task hook still only routes and never sleeps, and nothing in this
+module reaches for the door's ``down`` direction: putting a unit back to sleep
+is the ladder manager's (:mod:`mcgyvr.ladder_manager`, run by ``mcgyvr
+manage``), bounded to units that can sleep and wake and gated by the same
+``serving.enable_sleep_wake`` switch. Flavor A only: asleep + wake-on-demand;
+multi-model resident hot-swap is out of scope.
 
 The judgment is one :class:`~mcgyvr.decision.Noul` question — "is this task hard
 enough to want the smarter rung?" — answered as a single-token probability,
@@ -26,14 +29,14 @@ rungs and names rather than machines.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr import decision
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.pool import Rung
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Mapping, Sequence
 
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
@@ -44,6 +47,17 @@ INSTRUCTIONS = (
     "Is this task hard enough that the smarter resident rung should be woken "
     "to try it, instead of the fast resident model or the API?"
 )
+
+
+class Cooling(Protocol):
+    """What the hook asks a cooldown: which of these endpoints cannot serve now.
+
+    :class:`mcgyvr.cooldown.Cooldown` answers it; the endpoints are the ones
+    :meth:`~mcgyvr.pool.SourceMap.bind` hands back, and the hook passes them
+    through without looking inside.
+    """
+
+    def unavailable(self, endpoints: Sequence[Any]) -> Mapping[str, str]: ...
 
 
 class FleetManagerError(Exception):
@@ -144,6 +158,7 @@ def wake_before_api(
     *,
     judge_with: str,
     timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    cooldown: Cooling | None = None,
 ) -> str | None:
     """The hook: name the smarter rung to route to before the API, or ``None``.
 
@@ -151,10 +166,13 @@ def wake_before_api(
     smarter rung; ``None`` says escalate straight to the API. ``judge_with`` is
     the fast rung the judgment runs on. Routing to the returned rung wakes it
     on demand through the ordinary dispatch path — the hook does not wake, and
-    it never sleeps a card.
+    it never sleeps a card. A smart rung the ``cooldown`` holds out is never
+    routed to, and Jev is not asked: the answer would be a wake that fails.
     """
     target = smart_rung(config, pool)
     if target is None:
+        return None
+    if cooldown is not None and cooldown.unavailable([pool.bind(target.name)]):
         return None
     answer = judge(pool, judge_with, state_for(contract), timeout_s=timeout_s)
     return target.name if answer.wake else None
@@ -164,6 +182,7 @@ def hook_for(
     config: Config,
     pool: SourceMap,
     *,
+    cooldown: Cooling | None = None,
     timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
 ) -> Callable[[Contract], str | None] | None:
     """The hook for an install that can judge, or ``None`` when nothing to decide.
@@ -173,7 +192,8 @@ def hook_for(
     "smart" name the same model — because there is then no routing decision for
     the judgment to make. It is also ``None`` where ``serving.enable_sleep_wake``
     is off: the hook routes to wake, and a rung nothing may wake is a rung a
-    route to would fail on.
+    route to would fail on. ``cooldown`` is read at each task, so a smart rung
+    that cools after the hook was built is not routed to either.
     """
     if not config.get("serving.enable_sleep_wake"):
         return None
@@ -184,7 +204,12 @@ def hook_for(
 
     def hook(contract: Contract) -> str | None:
         return wake_before_api(
-            config, pool, contract, judge_with=fast.name, timeout_s=timeout_s
+            config,
+            pool,
+            contract,
+            judge_with=fast.name,
+            timeout_s=timeout_s,
+            cooldown=cooldown,
         )
 
     return hook
