@@ -42,7 +42,11 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: contract fields — media_kind, transcript, wer_threshold, sources — to the
 #: schema the skill documents, one table row each. The growth is the schema's,
 #: not prose bloat.
-MAX_SKILL_BODY_BYTES = 18_600
+#:
+#: 18_600 -> 18_700: the use-case expansion (seam 2) adds `media_artifact`
+#: to the `output_schema` enum the skill documents, one choice and one clause
+#: in the field's doc. The growth is the schema's, not prose bloat.
+MAX_SKILL_BODY_BYTES = 18_700
 
 
 def _body(path: Path) -> str:

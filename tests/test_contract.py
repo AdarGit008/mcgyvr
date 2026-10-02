@@ -165,6 +165,11 @@ def test_a_prose_output_schema_is_accepted() -> None:
     assert contract.output_schema == "prose"
 
 
+def test_a_media_artifact_output_schema_is_accepted() -> None:
+    contract = loads(MINIMAL + "\noutput_schema: media_artifact\n")
+    assert contract.output_schema == "media_artifact"
+
+
 # --- acceptance: a glob target on a model-tier type is rejected -------------
 
 

@@ -69,7 +69,7 @@ from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.preflight import PreflightIssue, TokenCount, check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.worker.bundle import Bundle, bundle_for
-from mcgyvr.worker.reply import PROSE, WHOLE_FILE
+from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, WHOLE_FILE
 
 # What the worker is told to produce, per declared output schema. The parser and
 # this table are two halves of one protocol: whatever shape is described here is
@@ -84,6 +84,10 @@ _REPLY_INSTRUCTIONS: dict[str, str] = {
     PROSE: (
         "Reply with the answer as plain prose and nothing else. No fence, no "
         "code block, no preamble."
+    ),
+    MEDIA_ARTIFACT: (
+        "Reply with the media-generation request as plain text and nothing "
+        "else. No fence, no code block, no preamble."
     ),
 }
 
@@ -202,8 +206,9 @@ def build_prompt(
     if contract.output_schema not in _REPLY_INSTRUCTIONS:
         raise UnsupportedSchemaError(
             f"output_schema {contract.output_schema!r} has no reply instruction "
-            f"and no parser; only {WHOLE_FILE!r} and {PROSE!r} are "
-            f"implemented. Refused before dispatch rather than after it."
+            f"and no parser; only {WHOLE_FILE!r}, {PROSE!r} and "
+            f"{MEDIA_ARTIFACT!r} are implemented. Refused before dispatch "
+            f"rather than after it."
         )
     bundle = bundle_for(contract.target, adapters)
     system = bundle.text if bundle is not None else ""

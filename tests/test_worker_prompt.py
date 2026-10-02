@@ -322,6 +322,12 @@ def test_a_prose_contract_gets_the_prose_instruction() -> None:
     assert "fenced code block" not in built.user.split("OUTPUT:")[1]
 
 
+def test_a_media_artifact_contract_gets_the_media_artifact_instruction() -> None:
+    built = build_prompt(contract(PY_CONTRACT + "output_schema: media_artifact\n"))
+    assert "media-generation request" in built.user
+    assert "fenced code block" not in built.user.split("OUTPUT:")[1]
+
+
 # --- the system prompt is the bundle ---------------------------------------
 
 

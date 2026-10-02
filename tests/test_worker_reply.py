@@ -219,6 +219,54 @@ def test_a_pinned_prose_reply_still_refuses_an_incomplete_reply() -> None:
     assert result.code == "incomplete-reply"
 
 
+# --- media_artifact parses ---------------------------------------------------
+
+
+def test_media_artifact_is_the_raw_text_not_a_fence_hunt() -> None:
+    text = "generate a poster: ```inline code``` and nothing is fenced."
+    answer = parsed(text, output_schema="media_artifact")
+    assert answer.content == text
+    assert answer.info_string == ""
+
+
+def test_media_artifact_still_refuses_an_incomplete_reply() -> None:
+    error = refused(
+        "a partial request",
+        output_schema="media_artifact",
+        stop_reason=StopReason.TRUNCATED,
+    )
+    assert error.code == "incomplete-reply"
+
+
+def test_a_pinned_schema_does_not_make_media_artifact_a_fence_hunt() -> None:
+    """media_artifact is the raw text whether or not the request pinned a schema.
+
+    ``parse_pinned`` must short-circuit media_artifact before its fence hunt,
+    exactly as ``parse_reply`` does — otherwise the first media_artifact
+    contract that also pins a ``response_schema`` turns into a no-fenced-block
+    refusal, or returns only an incidental fenced block inside the answer as
+    the answer.
+    """
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+    text = "generate a poster: ```inline code``` and nothing is fenced."
+    result = parse_pinned(text, response_schema=schema, output_schema="media_artifact")
+    assert isinstance(result, ParsedFile), result
+    assert result.content == text
+    assert result.info_string == ""
+
+
+def test_a_pinned_media_artifact_reply_still_refuses_an_incomplete_reply() -> None:
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+    result = parse_pinned(
+        "a partial request",
+        response_schema=schema,
+        output_schema="media_artifact",
+        stop_reason=StopReason.TRUNCATED,
+    )
+    assert isinstance(result, ReplyError), result
+    assert result.code == "incomplete-reply"
+
+
 # --- refusals dressed as file content --------------------------------------
 #
 # Four refusal shapes, plus the cases that show why the check cannot run without

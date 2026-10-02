@@ -555,10 +555,12 @@ SCHEMA: tuple[Field, ...] = (
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
         "`whole_file` is the single-file output protocol; `prose` is the "
-        "raw-text answer for chat and agent. `unified_diff` validates here "
-        "and is refused before dispatch.",
+        "raw-text answer for chat and agent; `media_artifact` is the "
+        "media-generation request for media-gen, whose artifact the bound media "
+        "engine writes to the target. `unified_diff` validates here and is "
+        "refused before dispatch.",
         default="whole_file",
-        choices=("whole_file", "prose", "unified_diff"),
+        choices=("whole_file", "prose", "media_artifact", "unified_diff"),
         worker_facing=True,
     ),
     Field(
