@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import config, derived
+from mcgyvr.fleet.links import LINK_CLASSES
 from mcgyvr.fleet.tolerance import CLASSES
 from tests import numbers_fixture as nf
 
@@ -89,7 +90,13 @@ def test_every_value_is_a_finite_number_inside_its_units_bounds() -> None:
 
 def test_every_number_the_code_asks_for_is_stated_and_nothing_else_is() -> None:
     numbers = _numbers()
-    asked = {*derived.CLASS_PCT_ENTRIES.values(), derived.RUNTIME_RESIDENT}
+    links = (derived.LINK_GIB_S, derived.LINK_LATENCY_US)
+    asked = {
+        *derived.CLASS_PCT_ENTRIES.values(),
+        derived.RUNTIME_RESIDENT,
+        derived.SHARD_ALLOWANCE,
+        *links,
+    }
     assert set(numbers) == asked
     for entry in derived.CLASS_PCT_ENTRIES.values():
         assert numbers[entry]["key"] == "tolerance_class"
@@ -97,14 +104,24 @@ def test_every_number_the_code_asks_for_is_stated_and_nothing_else_is() -> None:
     runtime = numbers[derived.RUNTIME_RESIDENT]
     assert derived.RUNTIME_RESIDENT_KEY in runtime["values"]
     assert derived.RUNTIME_RESIDENT_KEY in derived.KEY_SPACES[runtime["key"]]
+    for entry in links:
+        assert numbers[entry]["key"] == "link_class"
+        assert set(numbers[entry]["values"]) == set(LINK_CLASSES), entry
+    # Every card of a tensor split is charged this allowance: each vLLM rank,
+    # and each card of llama.cpp's --split-mode tensor. llama.cpp's layer split
+    # charges the single-card allowance, once per card.
+    assert set(numbers[derived.SHARD_ALLOWANCE]["values"]) == {"vllm", "llama.cpp"}
     derived.class_tolerances()
     derived.runtime_resident_gb()
+    derived.shard_allowance_gib("vllm")
+    derived.shard_allowance_gib("llama.cpp")
 
 
 def test_the_key_spaces_are_the_ones_the_product_already_names() -> None:
     engine = next(field for field in config.UNIT_FIELDS if field.name == "engine")
     assert derived.KEY_SPACES["engine"] == engine.choices
     assert derived.KEY_SPACES["tolerance_class"] == CLASSES
+    assert derived.KEY_SPACES["link_class"] == LINK_CLASSES
 
 
 #: A whole number too large to be a float: refused as outside its bounds.
