@@ -41,13 +41,24 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from mcgyvr.sandbox.stack import Stack
+from mcgyvr.sandbox.stack import NODE_MODULES, TOOL_PATH, VENV, WORKSPACE, Stack
 
 # Labels stamped on every image mcgyvr builds, so the cache is discoverable
 # and prunable without guessing at names.
 LABEL_REPO = "mcgyvr.repo"
 LABEL_KEY = "mcgyvr.cache-key"
 LABEL_BASE_DIGEST = "mcgyvr.base-digest"
+
+#: The shape of the image this module writes, beyond its inputs. Part of the
+#: cache key, so an image built to an older shape is rebuilt rather than
+#: reused: 2 put the environments' tool folders on the PATH and the declared
+#: checkers in the image.
+IMAGE_LAYOUT = 2
+
+#: The dependency folders a task keeps visible over its workspace mount, by
+#: their names in the workspace, each one only when the image populated it
+#: (:func:`seeded_folders`).
+SEEDABLE = tuple(path.removeprefix(f"{WORKSPACE}/") for path in (VENV, NODE_MODULES))
 
 # Bound on how many task images the cache keeps. Oldest beyond this are
 # evicted. A default, not a law: a real ceiling belongs in config, and this
@@ -182,6 +193,7 @@ def cache_key(stack: Stack, repo: Path, setup: Sequence[str]) -> str:
     does not.
     """
     hasher = hashlib.sha256()
+    hasher.update(f"layout:{IMAGE_LAYOUT}\n".encode())
     hasher.update(f"base:{stack.base_image}\n".encode())
     for name in stack.manifest_paths():
         hasher.update(f"manifest:{name}\n".encode())
@@ -193,6 +205,8 @@ def cache_key(stack: Stack, repo: Path, setup: Sequence[str]) -> str:
             ) from exc
     for command in stack.install_commands():
         hasher.update(("install:" + " ".join(command) + "\n").encode())
+    for checker in stack.checker_commands():
+        hasher.update(f"checker:{checker}\n".encode())
     for setup_command in setup:
         hasher.update(f"setup:{setup_command}\n".encode())
     return hasher.hexdigest()[:16]
@@ -218,6 +232,10 @@ def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) 
     lines = [
         f"FROM {base_digest_ref}",
         "WORKDIR /workspace",
+        # The environments the install makes lead the PATH, so a checker or a
+        # project script installed there is what a command finds — at build
+        # time for the checker installs below, and in every task after.
+        f"ENV PATH={TOOL_PATH}:$PATH",
     ]
     manifests = stack.manifest_paths()
     if manifests:
@@ -227,9 +245,44 @@ def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) 
             lines.append(f"COPY {name} {name}")
     for command in stack.install_commands():
         lines.append("RUN " + " && ".join(command))
+    for checker in stack.checker_commands():
+        lines.append(f"RUN {checker}")
     for setup_command in setup:
         lines.append(f"RUN {setup_command}")
     return "\n".join(lines) + "\n"
+
+
+def seeded_folders(tag: str, runner: DockerRunner) -> tuple[str, ...]:
+    """Which of :data:`SEEDABLE` the image ``tag`` holds, populated, in its workspace.
+
+    Asked of the image itself, in a throwaway container with no network and no
+    workspace, because only the build knows: ``uv sync`` always makes a
+    ``.venv``, yarn's plug'n'play makes no ``node_modules``, and a pipenv or
+    pip install leaves neither. An image that cannot answer holds nothing to
+    keep visible, and the task runs as it did.
+    """
+    script = f"cd {WORKSPACE} || exit 0; " + "; ".join(
+        f'[ -d "{folder}" ] && [ -n "$(ls -A "{folder}")" ] && echo "{folder}"'
+        for folder in SEEDABLE
+    )
+    asked = runner(
+        [
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--entrypoint",
+            "/bin/sh",
+            tag,
+            "-c",
+            f"{script}; true",
+        ],
+        None,
+    )
+    if not asked.ok:
+        return ()
+    said = {line.strip() for line in asked.stdout.splitlines()}
+    return tuple(folder for folder in SEEDABLE if folder in said)
 
 
 def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:

@@ -96,6 +96,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
+    from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.orchestrator.decompose import Decomposition
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
@@ -466,7 +467,7 @@ def _detect(args: argparse.Namespace) -> int:
 
 def _sandbox(args: argparse.Namespace) -> int:
     from mcgyvr.detect import detect_docker
-    from mcgyvr.sandbox.base import choose_mode
+    from mcgyvr.sandbox.base import SandboxError, choose_mode
     from mcgyvr.sandbox.image import ImageError, clear, list_cached
     from mcgyvr.sandbox.stack import detect_stack
 
@@ -505,11 +506,33 @@ def _sandbox(args: argparse.Namespace) -> int:
         print(f"error: {repo} is not a directory", file=sys.stderr)
         return 1
 
-    # The default configured mode is `docker`; show what it resolves to here.
-    choice = choose_mode("docker", docker_ok)
-    print(f"Sandbox mode: {choice.mode}  ({docker_how})")
-    for note in choice.notes:
-        print(f"  - {note}")
+    # Show what a run here would resolve to: the setup's `sandbox.mode` and
+    # `sandbox.allow_fallback`, read as a run reads them. No setup at all is
+    # the schema's defaults (`docker`, no fallback); a setup that cannot be
+    # read has no resolved mode to show.
+    try:
+        config: Config | None = load_config(None)
+    except ConfigMissingError:
+        config = None
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    configured = (
+        config.get("sandbox.mode") if config is not None else None
+    ) or "docker"
+    try:
+        choice = choose_mode(
+            configured,
+            docker_ok,
+            allow_fallback=_sandbox_policy(config)["allow_fallback"],
+        )
+    except SandboxError as refused:
+        print(f"Sandbox mode: refused  ({docker_how})")
+        print(f"  - {refused}")
+    else:
+        print(f"Sandbox mode: {choice.mode}  ({docker_how})")
+        for note in choice.notes:
+            print(f"  - {note}")
 
     stack = detect_stack(repo)
     print(f"\nStack for {repo}:")
@@ -1399,7 +1422,7 @@ def _floor(
         )
 
     try:
-        sandbox = open_sandbox(repo, mode=args.sandbox)
+        sandbox = open_sandbox(repo, mode=args.sandbox, **_sandbox_policy(config))
     except SandboxError as exc:
         return _error(report, str(exc))
 
@@ -1484,6 +1507,22 @@ def _floor(
             on_copy_error=recording.copy_failed,
         )
         return _error(report, str(exc))
+
+
+def _sandbox_policy(config: Config | None) -> dict[str, Any]:
+    """What the `sandbox` block says about a sandbox beyond its mode.
+
+    Read in one place for both paths that open one, so the floor and the climb
+    cannot come to disagree about whether a missing daemon falls back or what
+    network a container gets. No config is the schema's defaults: refuse
+    rather than fall back, and Docker's default network.
+    """
+    if config is None:
+        return {"allow_fallback": False, "network": "bridge"}
+    return {
+        "allow_fallback": bool(config.get("sandbox.allow_fallback", False)),
+        "network": config.get("sandbox.network", "bridge"),
+    }
 
 
 def _error(report: RunResult, detail: str, *, outcome: str = "error") -> int:
@@ -1660,6 +1699,7 @@ def _climb(
             # to reach it: a container with no route to the source is a task that
             # gates fine and never gets an answer to gate.
             endpoints=tuple(unit.address for unit in config.units.values()),
+            **_sandbox_policy(config),
         )
     except SandboxError as exc:
         return _error(report, str(exc))
@@ -2203,6 +2243,7 @@ def _commit(
                 report.findings = [str(finding) for finding in exc.findings]
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
         print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
+        _say_not_rerun(adapters, contract.target)
         landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
         report.detail = f"change left in {contract.target}"
         return 0
@@ -2216,6 +2257,8 @@ def _commit(
         return _error(report, str(exc), outcome=DELIVERY_REFUSED)
 
     print(f"\n{delivery}")
+    if delivery.committed:
+        _say_not_rerun(adapters, delivery.path)
     report.committed = delivery.committed
     report.commit = delivery.commit
     report.branch = delivery.branch
@@ -2228,6 +2271,15 @@ def _commit(
     report.detail = delivery.reason
     report.findings = [str(finding) for finding in delivery.findings]
     return 1
+
+
+def _say_not_rerun(adapters: Sequence[LanguageAdapter], path: str) -> None:
+    """Print which checker delivery left out because it loads ``path`` as code."""
+    from mcgyvr.deliver import not_rerun_here
+
+    note = not_rerun_here(adapters, path)
+    if note:
+        print(f"  {note}")
 
 
 def _say_reported(bound: Accepted) -> None:
@@ -3904,8 +3956,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         choices=("docker", "tempdir"),
         help=(
             "sandbox mode; defaults to `sandbox.mode` in the config, then to "
-            "`docker`, which falls back to `tempdir` when no daemon answers "
-            "and says so"
+            "`docker`, which is refused when no daemon answers unless "
+            "`sandbox.allow_fallback` is on"
         ),
     )
     run.add_argument(

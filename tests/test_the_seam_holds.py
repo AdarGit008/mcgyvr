@@ -128,6 +128,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.runner",
     "mcgyvr.sandbox",
     "mcgyvr.sandbox.base",
+    "mcgyvr.sandbox.declared",
     "mcgyvr.sandbox.docker",
     "mcgyvr.sandbox.image",
     "mcgyvr.sandbox.stack",

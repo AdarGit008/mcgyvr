@@ -11,7 +11,6 @@ worker-added lines so a file's pre-existing style can never fail the change.
 from __future__ import annotations
 
 import ast
-import configparser
 import json
 import subprocess
 import tomllib
@@ -35,6 +34,8 @@ from mcgyvr.gate.typecheck import (
     deprecated_typing_import_lines,
     unimportable_lines,
 )
+from mcgyvr.sandbox.declared import declared_type_checker
+from mcgyvr.sandbox.declared import has_toml_table as _has_toml_table
 
 _EXTENSIONS = (".py", ".pyi")
 
@@ -389,13 +390,8 @@ class PythonAdapter(LanguageAdapter):
         bit as much as one with ``[tool.mypy]``, and the policy turns on what
         the repository declared, not on where it chose to write it down.
         """
-        for command, declared in (
-            (["mypy"], _declares_mypy(repo)),
-            (["pyright"], _declares_pyright(repo)),
-        ):
-            if declared:
-                return command
-        return None
+        checker = declared_type_checker(repo)
+        return [checker] if checker is not None else None
 
 
 class _HazardVisitor(ast.NodeVisitor):
@@ -575,70 +571,6 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
         line=source.count("\n", 0, exc.start) + 1,
         message=f"{detail} is not valid utf-8, which Python source must be",
     )
-
-
-# --- type-checker declarations (#114) --------------------------------------
-#
-# Each checker is looked for in the files it reads its own configuration from,
-# so "declared" means what it means to the tool. The order mypy appears in
-# before pyright is ARBITRARY and must stay that way: mcgyvr does not rank
-# type checkers. A repository configuring both is telling us it runs both;
-# this returns one, and a repository that cares which declares the command in
-# its contract, which always wins over a sniff.
-
-
-def _declares_mypy(repo: Path) -> bool:
-    """Whether mypy is configured here, in any of the four places it looks."""
-    if _has_toml_table(repo / "pyproject.toml", "mypy"):
-        return True
-    if (repo / "mypy.ini").is_file() or (repo / ".mypy.ini").is_file():
-        return True
-    # setup.cfg is INI, and a bare substring would match a comment or a
-    # `[mypy-somepackage.*]` per-module override in a file that never
-    # configures mypy itself. The section header is the declaration.
-    return _has_ini_section(repo / "setup.cfg", "mypy")
-
-
-def _declares_pyright(repo: Path) -> bool:
-    if (repo / "pyrightconfig.json").is_file():
-        return True
-    return _has_toml_table(repo / "pyproject.toml", "pyright")
-
-
-def _has_toml_table(path: Path, name: str) -> bool:
-    """Whether ``[tool.<name>]`` is really present — parsed, not grepped.
-
-    A substring test would fire on a comment, on a dependency pin naming the
-    tool, or on ``[tool.ruff.lint.mypy-init-return]``. Getting this wrong
-    fabricates a type-check command for a repository that runs none.
-    """
-    if not path.is_file():
-        return False
-    try:
-        with path.open("rb") as handle:
-            document = tomllib.load(handle)
-    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
-        # An unparseable manifest is not a declaration. Nothing here raises:
-        # a malformed file is the target's business, and the honest answer to
-        # "does it declare a checker" is no. `UnicodeDecodeError` is named
-        # separately because `tomllib` decodes the bytes itself and answers a
-        # non-UTF-8 manifest with that rather than with `TOMLDecodeError` — and
-        # it is a `ValueError`, which neither of the other two catches.
-        return False
-    tool = document.get("tool")
-    return isinstance(tool, dict) and isinstance(tool.get(name), dict)
-
-
-def _has_ini_section(path: Path, name: str) -> bool:
-    """Whether an INI file carries a ``[name]`` section, parsed as INI."""
-    if not path.is_file():
-        return False
-    parser = configparser.ConfigParser()
-    try:
-        parser.read_string(_read_or_empty(path))
-    except configparser.Error:
-        return False
-    return parser.has_section(name)
 
 
 def _paths(changes: Sequence[FileChange]) -> list[str]:

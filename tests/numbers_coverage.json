@@ -86,6 +86,7 @@
     "runner.py": "changing now; covered after that change lands",
     "sandbox/__init__.py": "changing now; covered after that change lands",
     "sandbox/base.py": "changing now; covered after that change lands",
+    "sandbox/declared.py": "holds no number that sizes or judges",
     "sandbox/docker.py": "changing now; covered after that change lands",
     "sandbox/image.py": "changing now; covered after that change lands",
     "sandbox/stack.py": "changing now; covered after that change lands",
