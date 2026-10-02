@@ -54,8 +54,7 @@ from mcgyvr.rig.sessionwire import SessionCode
 
 #: The most probes open at once on this rig.
 MAX_OPEN = 4
-#: Binding requests: rounds, and how long each waits for its answers.
-STUN_ATTEMPTS = 3
+#: How long each round of binding requests waits for its answers.
 STUN_WAIT_S = 0.5
 #: The size of a ping, and of a bulk packet (the format's largest).
 PING_BYTES = udpwire.PROBE_PACKET_MIN_BYTES
@@ -325,7 +324,7 @@ class Probes:
                 probe.sock,
                 probe.asked.token,
                 servers,
-                attempts=STUN_ATTEMPTS,
+                attempts=udpwire.STUN_ATTEMPTS,
                 wait_s=STUN_WAIT_S,
             )
         except OSError:

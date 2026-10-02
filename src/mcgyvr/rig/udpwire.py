@@ -71,6 +71,9 @@ _PROBE_HEAD = struct.Struct(f"!4sBBH{TOKEN_BYTES}sIQ")
 _RELAY_HEAD = struct.Struct("!4sBBH")
 _RELAY_REFUSED = struct.Struct("!4sBBB")
 _FAMILIES = {4: 4, 6: 16}
+#: How many rounds of binding requests a rig sends the hub's responder (from
+#: a probe's socket or a tunnel's port) before it goes on without an answer.
+STUN_ATTEMPTS = 3
 #: The largest sequence number and stamp the probe format carries.
 MAX_SEQ = (1 << 32) - 1
 MAX_STAMP = (1 << 64) - 1

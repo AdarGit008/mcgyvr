@@ -723,11 +723,6 @@
       "says": "The longest single wait of a probe's thread, in seconds, so its schedule and a close are heard.",
       "reason": "how often or how many times the product tries its own step again"
     },
-    "rig/probe.py:STUN_ATTEMPTS": {
-      "kind": "choice",
-      "says": "How many rounds of binding requests a probe sends the hub's responder before it answers without a round trip.",
-      "reason": "how often or how many times the product tries its own step again"
-    },
     "rig/probe.py:STUN_WAIT_S": {
       "kind": "estimate",
       "says": "How long, in seconds, a round of binding requests waits for the hub's responder to answer.",
@@ -927,11 +922,6 @@
       "kind": "choice",
       "says": "How many of its sessions' frames a rig agent remembers by id, so the hub's unknown_session names the session it means.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
-    },
-    "rig/session.py:STUN_ATTEMPTS": {
-      "kind": "choice",
-      "says": "How many rounds of binding requests a tunnel's port sends the hub's responders before it answers without a round trip.",
-      "reason": "how often or how many times the product tries its own step again"
     },
     "rig/session.py:STUN_WAIT_MS": {
       "kind": "estimate",
@@ -1357,6 +1347,11 @@
       "kind": "fact",
       "says": "The largest packet the hub's relay forwards, in bytes.",
       "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:STUN_ATTEMPTS": {
+      "kind": "choice",
+      "says": "How many rounds of binding requests a rig sends the hub's responder, from a probe's socket or a tunnel's port, before it goes on without a round trip.",
+      "reason": "how often or how many times the product tries its own step again"
     },
     "rig/udpwire.py:STUN_REQUEST_MAX_BYTES": {
       "kind": "fact",
