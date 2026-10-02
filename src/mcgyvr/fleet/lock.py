@@ -11,6 +11,12 @@
 Committing them is the approval. Locking refuses, naming what failed, because a
 lock that could not prove a fact must not pretend it did. Every check here is
 arithmetic on the fleet file and the dev evidence; nothing reads a rig.
+
+A unit that spans cards or rigs (:mod:`mcgyvr.fleet.spans`) is locked rig by
+rig, as every unit is: its room on a rig is the sum of its shards' there, and a
+layout that splits it is refused before anything is written. A rig whose dev
+evidence states ``cards`` — each card's own MiB, beside ``card_mib`` — is held
+to each card, and then every unit on it names its cards.
 """
 
 from __future__ import annotations
@@ -21,6 +27,14 @@ from typing import Any
 
 from mcgyvr.fleet import ids
 from mcgyvr.fleet.layout import combination_id, layout_sha256
+from mcgyvr.fleet.spans import (
+    Span,
+    SpanError,
+    check_spans,
+    room_on,
+    shard_rooms,
+    spans,
+)
 from mcgyvr.fleet.tolerance import tolerance_class
 
 
@@ -87,6 +101,114 @@ def _combination_id_for(
     return combination_id(rig_ids[rig_name], plain)
 
 
+def _card_figures(fleet_name: str, rig_name: str, raw: Any) -> dict[int, int]:
+    """``gpu -> MiB`` from a rig's evidence ``cards``, refused unless every card
+    is a whole index with a figure."""
+    if not isinstance(raw, dict) or not raw:
+        raise LockRefusedError(
+            f"{fleet_name}: {rig_name} states `cards` in dev as {raw!r}; it is a "
+            'mapping of card index to MiB, e.g. {"0": 12288}'
+        )
+    out: dict[int, int] = {}
+    for key, figure in raw.items():
+        text = str(key)
+        if not text.isascii() or not text.isdigit():
+            raise LockRefusedError(
+                f"{fleet_name}: {rig_name} names card {key!r} in dev; a card is "
+                "its index on the rig, a whole number from 0"
+            )
+        if not isinstance(figure, (int, float)) or isinstance(figure, bool):
+            raise LockRefusedError(
+                f"{fleet_name}: {rig_name} card {key} has no measured MiB in dev "
+                f"({figure!r})"
+            )
+        out[int(text)] = int(figure)
+    return out
+
+
+def _unit_rooms(
+    fleet_name: str,
+    rig_name: str,
+    slots: Any,
+    units: dict[str, Any],
+    found: dict[str, Span],
+) -> dict[str, int]:
+    """Each slot unit's room on ``rig_name``, MiB: a spanning unit's is the sum
+    of its shards' there, any other unit's is its ``room_mib``."""
+    rooms: dict[str, int] = {}
+    for slot in slots:
+        if slot is None:
+            continue
+        unit_name, _state = slot
+        unit = units.get(unit_name)
+        if unit is None:
+            raise LockRefusedError(
+                f"{fleet_name}: {unit_name} is not a unit of this fleet"
+            )
+        span = found.get(unit_name)
+        if span is not None:
+            try:
+                rooms[unit_name] = room_on(unit_name, unit, span, rig_name)
+            except SpanError as exc:
+                raise LockRefusedError(f"{fleet_name}: {exc}") from exc
+            continue
+        room = unit.get("room_mib")
+        if not isinstance(room, (int, float)) or isinstance(room, bool):
+            raise LockRefusedError(
+                f"{fleet_name}: {unit_name} has no room_mib to fit against its card"
+            )
+        rooms[unit_name] = int(room)
+    return rooms
+
+
+def _fit_cards(
+    fleet_name: str,
+    rig_name: str,
+    slots: Any,
+    units: dict[str, Any],
+    found: dict[str, Span],
+    figures: dict[int, int],
+    overhead_mib: Any,
+) -> None:
+    """Hold each card of a rig to its own figure.
+
+    Every unit in a slot names its cards through ``launch.shards`` (a one-entry
+    list pins a single-card unit), because a rig of several cards has no one
+    figure a unit's room can be added to. Each card's rooms, asleep units'
+    included, plus the combination's overhead must fit that card.
+    """
+    used: dict[int, int] = {}
+    for slot in slots:
+        if slot is None:
+            continue
+        unit_name, _state = slot
+        span = found.get(unit_name)
+        if span is None:
+            raise LockRefusedError(
+                f"{fleet_name}: {unit_name} names no card in launch.shards, and "
+                f"{rig_name}'s dev evidence states each card's MiB; name the "
+                "card it occupies (a one-entry list pins a single-card unit)"
+            )
+        try:
+            wanted = shard_rooms(unit_name, units[unit_name], span, rig_name)
+        except SpanError as exc:
+            raise LockRefusedError(f"{fleet_name}: {exc}") from exc
+        for gpu, room in wanted.items():
+            if gpu not in figures:
+                raise LockRefusedError(
+                    f"{fleet_name}: {unit_name} occupies card {gpu} of "
+                    f"{rig_name}, which its dev evidence states no MiB for"
+                )
+            used[gpu] = used.get(gpu, 0) + room
+    for gpu, room_sum in sorted(used.items()):
+        if room_sum + int(overhead_mib) > figures[gpu]:
+            raise LockRefusedError(
+                f"{fleet_name}: {rig_name} card {gpu} units' room {room_sum} MiB "
+                f"plus overhead {overhead_mib} MiB exceeds the measured card "
+                f"{figures[gpu]} MiB"
+            )
+
+
 def _combination_record(
     fleet_name: str,
     fleet: dict[str, Any],
@@ -105,12 +227,18 @@ def _combination_record(
         if unit.get("unit_id") is not None
     }
 
+    found = spans(fleet)
     card = (evidence.get("rigs") or {}).get(rig_name)
-    if card is None or "card_mib" not in card:
+    card_figures = (
+        _card_figures(fleet_name, rig_name, card["cards"])
+        if card is not None and "cards" in card
+        else None
+    )
+    if card is None or ("card_mib" not in card and card_figures is None):
         raise LockRefusedError(
             f"{fleet_name}: {rig_name} has no measured card_mib in dev"
         )
-    card_mib = card["card_mib"]
+    card_mib = card.get("card_mib")
 
     if "overhead_mib" not in comb:
         raise LockRefusedError(
@@ -118,28 +246,18 @@ def _combination_record(
         )
     overhead_mib = comb["overhead_mib"]
 
-    room_sum = 0
-    for slot in slots:
-        if slot is None:
-            continue
-        unit_name, _state = slot
-        unit = units.get(unit_name)
-        if unit is None:
-            raise LockRefusedError(
-                f"{fleet_name}: {unit_name} is not a unit of this fleet"
-            )
-        room = unit.get("room_mib")
-        if not isinstance(room, (int, float)) or isinstance(room, bool):
-            raise LockRefusedError(
-                f"{fleet_name}: {unit_name} has no room_mib to fit against its card"
-            )
-        room_sum += int(room)
-
-    if room_sum + int(overhead_mib) > int(card_mib):
-        raise LockRefusedError(
-            f"{fleet_name}: {rig_name} units' room {room_sum} MiB plus overhead "
-            f"{overhead_mib} MiB exceeds the measured card {card_mib} MiB"
+    rooms = _unit_rooms(fleet_name, rig_name, slots, units, found)
+    if card_figures is not None:
+        _fit_cards(
+            fleet_name, rig_name, slots, units, found, card_figures, overhead_mib
         )
+    else:
+        room_sum = sum(rooms.values())
+        if room_sum + int(overhead_mib) > int(card_mib):
+            raise LockRefusedError(
+                f"{fleet_name}: {rig_name} units' room {room_sum} MiB plus overhead "
+                f"{overhead_mib} MiB exceeds the measured card {card_mib} MiB"
+            )
 
     approved: dict[str, Any] = {}
     restarts = comb.get("restarts") or {}
@@ -160,6 +278,17 @@ def _combination_record(
         entry: dict[str, Any] = {}
         if engine is not None:
             entry["engine"] = engine
+
+        # A unit that names its cards records the ones it holds on this rig, and
+        # a unit that does not records nothing new.
+        span = found.get(unit_name)
+        if span is not None:
+            entry["cards"] = {
+                str(gpu): room
+                for gpu, room in shard_rooms(unit_name, unit, span, rig_name).items()
+            }
+        # What a spanning unit's head measures is not measured on a worker.
+        measured_here = span is None or span.head == rig_name
 
         # A live gate 1 matches the compose file's container names against the
         # lock offline, before any rig is read, so the lock records how each
@@ -202,7 +331,7 @@ def _combination_record(
                     f"{fleet_name}: {unit_name} has no measured card_peak_mib"
                 )
             peak = peaks[unit_name]
-            room = unit.get("room_mib")
+            room = rooms[unit_name]
             if int(peak) > int(room):
                 raise LockRefusedError(
                     f"{fleet_name}: {unit_name} card peak {peak} MiB exceeds its "
@@ -215,29 +344,36 @@ def _combination_record(
 
         if state == "awake":
             warm = (comb.get("warm_decode_tok_s") or {}).get(unit_name)
-            if warm is None:
+            if warm is None and measured_here:
                 raise LockRefusedError(
                     f"{fleet_name}: {unit_name} has no warm_decode_tok_s in its "
                     "dev validation"
                 )
-            entry["warm_decode_tok_s"] = warm
+            if warm is not None:
+                entry["warm_decode_tok_s"] = warm
 
             prefill = (comb.get("prefill_tok_s") or {}).get(unit_name)
-            if prefill is None:
+            if prefill is None and measured_here:
                 raise LockRefusedError(
                     f"{fleet_name}: {unit_name} has no prefill_tok_s in its dev "
                     "validation"
                 )
-            entry["prefill_tok_s"] = prefill
+            if prefill is not None:
+                entry["prefill_tok_s"] = prefill
 
             output_tokens = unit.get("output_tokens")
             request_timeout_s = unit.get("request_timeout_s")
-            if output_tokens is None or request_timeout_s is None:
+            if (output_tokens is None or request_timeout_s is None) and measured_here:
                 raise LockRefusedError(
                     f"{fleet_name}: {unit_name} states no output_tokens or "
                     "request_timeout_s"
                 )
-            if float(output_tokens) / float(warm) > float(request_timeout_s):
+            if (
+                warm is not None
+                and output_tokens is not None
+                and request_timeout_s is not None
+                and float(output_tokens) / float(warm) > float(request_timeout_s)
+            ):
                 raise LockRefusedError(
                     f"{fleet_name}: {unit_name} reply of {output_tokens} tokens "
                     f"at {warm} tok/s cannot finish inside request_timeout_s "
@@ -245,7 +381,7 @@ def _combination_record(
                 )
 
             baselines = comb.get("baseline_tok_s") or {}
-            if unit_name in baselines:
+            if unit_name in baselines and warm is not None:
                 baseline = baselines[unit_name]
                 if baseline is None:
                     entry["nvme"] = "no baseline: NVMe required"
@@ -273,6 +409,10 @@ def _combination_record(
         "validated_at": comb.get("validated_at"),
         "envelope": comb.get("envelope"),
     }
+    if card_figures is not None:
+        record["cards"] = {str(gpu): mib for gpu, mib in sorted(card_figures.items())}
+        if card_mib is None:
+            del record["card_mib"]
     return combination, record
 
 
@@ -299,6 +439,15 @@ def write(
                 raise LockRefusedError(
                     f"policy ladder names {name!r}, a unit this fleet does not have"
                 )
+
+    # A unit's span is declared, and a layout holds it whole, before anything
+    # is written: a unit split across a fleet's rigs is refused by name.
+    try:
+        spans(fleet)
+        for fleet_name, block in fleets.items():
+            check_spans(fleet, block.get("layout", {}), name=fleet_name)
+    except SpanError as exc:
+        raise LockRefusedError(str(exc)) from exc
 
     # A rig is named by the snapshot it prints (owner, 2026-09-15, D1). A dev
     # run that filed its rig's reading beside the card proves which rig it ran

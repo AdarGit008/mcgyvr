@@ -1547,7 +1547,7 @@ def _climb(
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
-    from mcgyvr.verify import reviewer_for
+    from mcgyvr.verify import reviewers_for
 
     # Live is admitted before anything here is built, opened or dispatched
     # (`mcgyvr-lab/records/plans/fleet-identity.md` §6): each rig of the live
@@ -1633,15 +1633,15 @@ def _climb(
         )
 
     # Before the sandbox, for the reason the paragraph above gives: an install
-    # that was told to verify and cannot is refused while refusing is still
-    # free. `verifier.enabled` is acted on here (the loader only checks that an
-    # enabled verifier names a unit) — `source_map` binds the role whenever a
-    # `unit` and a `model` are declared, so the flag is the operator's switch
-    # and this is the caller that acts on it. `None` is not a downgrade there:
-    # it is `verifier.enabled: false`, which asks for acceptance on the
-    # deterministic gate alone.
+    # whose named verifier cannot serve is refused while refusing is still
+    # free. `verifier.enabled` is acted on here — on unless the config says
+    # `false` — and `reviewers_for` reads the rest once: the named
+    # `verifier.unit`, or, with none named, the next dearer local rung with
+    # another model for each builder (never a hosted one). A builder with no
+    # independent reviewer is not refused; its acceptance is labelled
+    # unverified and says so.
     try:
-        reviewer = reviewer_for(pool) if config.get("verifier.enabled") else None
+        reviewers = reviewers_for(config, pool, capacity=capacity)
     except SourceUnavailableError as exc:
         return _error(
             report,
@@ -1689,9 +1689,9 @@ def _climb(
                 pool,
                 contract,
                 sandbox,
-                reviewer=reviewer,
                 recording=recording,
                 cooldown=cooldown,
+                reviewers=reviewers,
             )
             if config.get("profile") == "live":
                 driver = _warning_pulled_steps(driver)
@@ -1853,7 +1853,7 @@ def _report_climb(
     The accepted attempt is the last entry of the history: ``route.climb``
     returns the moment an attempt passes, right after recording it.
     """
-    from mcgyvr.escalate import Delivered
+    from mcgyvr.escalate import Assurance, Delivered
     from mcgyvr.result import AttemptResult
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
@@ -1917,6 +1917,18 @@ def _report_climb(
     report.outcome = "accepted"
     report.rung = outcome.rung
     report.assurance = outcome.assurance.value
+    if outcome.assurance is Assurance.UNVERIFIED:
+        # Said where it cannot be missed, because nothing else about the run
+        # looks different: the work is accepted on the gate alone. The reason
+        # is the judgement's own — review switched off, no independent
+        # reviewer, a reviewer that produced nothing usable — and it goes
+        # into the result file too, which is what a caller is told to read.
+        report.detail = outcome.judgement.detail
+        print(
+            f"UNVERIFIED: {contract.id} is accepted with no independent review "
+            f"approving it. {outcome.judgement.detail}",
+            file=sys.stderr,
+        )
     bound = outcome.judgement.accepted
     if bound is None:
         # `judge` only reaches PASSED through a gate that accepted, and
@@ -3240,11 +3252,15 @@ def _fleet_probe(args: argparse.Namespace) -> int:
     an alert is printed and filed, and is not a failed probe
     (:mod:`mcgyvr.fleet.probe`).
     """
-    from mcgyvr.fleet import read
+    from mcgyvr.fleet import linkread, read
     from mcgyvr.fleet.probe import ProbeError, run
 
     try:
-        report = run(units=args.units or None, reader=read.spawn_read)
+        report = run(
+            units=args.units or None,
+            reader=read.spawn_read,
+            link_reader=linkread.door_timer(),
+        )
     except ProbeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -3261,8 +3277,12 @@ def _fleet_probe(args: argparse.Namespace) -> int:
         print(f"not judged {unit}: {', '.join(fields)} recorded ({reason})")
     for alert in report.alerts:
         print(f"alert {alert['unit_id']} {alert['field']}")
+    for key, says in report.links.items():
+        print(f"link {key}: {says}")
     for unit, why in report.failed.items():
         print(f"error: {unit}: {why}", file=sys.stderr)
+    for key, why in report.links_failed.items():
+        print(f"error: link {key}: {why}", file=sys.stderr)
     return report.exit_code
 
 

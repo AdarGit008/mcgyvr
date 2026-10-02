@@ -589,7 +589,39 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "declaring `mtp` is refused: its speculative decoding is \
 "
-        "`--speculative-config`, a different mechanism.",
+        "`--speculative-config`, a different mechanism. Keys that split a \
+"
+        "unit across cards, of one machine or several: `shards`, a list of \
+"
+        "`{rig, gpu}` (with `bind`, the IPv4 address a worker on another \
+"
+        "machine listens on, and `room_mib`, that card's room for the lock), \
+"
+        "the first on the machine the address names; `split` (`layer` | \
+"
+        "`tensor`, llama.cpp; `tensor` spans one machine's cards, and `row` \
+"
+        "has no split buffers on CUDA and is refused); `tensor_parallel` and \
+"
+        "`pipeline_parallel` \
+"
+        "(vLLM); `rpc_port` and `master_port`, the first port of llama.cpp's \
+"
+        "workers and vLLM's rendezvous port, each the engine's own default \
+"
+        "when absent; and `tensor_table_json`, a vLLM unit's `python -m \
+"
+        "mcgyvr.serving.safetensorscan` row. Each card is sized from the \
+"
+        "tensor table. A split left to mcgyvr is tensor across one machine's \
+"
+        "cards and pipeline across machines; what crossing between cards \
+"
+        "costs is reported, as an estimate by link class until your own \
+"
+        "reading replaces it (`mcgyvr fleet probe` times the links an awake \
+"
+        "split unit crosses) or your setting outranks both.",
         bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe, "
         "speculative",
     ),
@@ -614,8 +646,12 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "enabled",
         "bool",
-        "Model verification of the applied diff, on top of the gate.",
-        default=False,
+        "Model verification of the applied diff, on top of the gate. On unless "
+        "set to `false`. With no `unit`, the reviewer is the next dearer local "
+        "rung whose model is not the builder's; where there is none, the work "
+        "is accepted and labelled unverified. A hosted unit reviews only when "
+        "`unit` names it.",
+        default=True,
     ),
     *ROLE_UNIT_FIELDS,
 )
@@ -1708,14 +1744,6 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"{role}.unit: {bound!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
-
-    if data["verifier"]["enabled"] and data["verifier"]["unit"] is None:
-        raise ConfigSchemaError(
-            "verifier.unit: required key is not set. Verification is enabled, "
-            "so it needs a unit to run on — bind one, or set "
-            "`verifier.enabled: false` to accept on the deterministic gate "
-            "alone."
-        )
 
 
 def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:

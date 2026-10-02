@@ -54,6 +54,7 @@ from mcgyvr.fleet.roots import (
     split_name,
     tagged,
 )
+from mcgyvr.fleet.spans import SpanError, check_spans
 
 #: Where a lock sits under the dev root and under a live fleet folder alike.
 LOCK_DIR = Path("records") / "fleet"
@@ -173,6 +174,12 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     fleets = dev_fleet.get("fleets") or {}
     if name not in fleets:
         raise PromoteRefusedError(f"{name} is not a fleet of {setup / FLEET_FILENAME}")
+    try:
+        check_spans(dev_fleet, fleets[name].get("layout") or {}, name=name)
+    except SpanError as exc:
+        raise PromoteRefusedError(
+            f"{exc}; a fleet that splits a unit is not promoted"
+        ) from exc
 
     lock_path = dev_root / LOCK_DIR / f"{name}.json"
     if not lock_path.is_file():

@@ -112,6 +112,7 @@ from __future__ import annotations
 import argparse
 import codecs
 import contextlib
+import ipaddress
 import json
 import math
 import os
@@ -151,10 +152,13 @@ DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
 #: anyone deciding it should.
 #: `rig-units.sh` is the second half of the one reader the read run ships to a
 #: rig, behind `rig-snapshot.sh` (gate-scripts/read-02-rig.py).
+#: `linktime.py` is the one timer the link run ships to a rig
+#: (gate-scripts/link-01-time.py).
 READERS = (
     DEFAULT_STEP,
     GATE_SCRIPTS / "rig-snapshot.sh",
     GATE_SCRIPTS / "rig-units.sh",
+    HERE / "linktime.py",
 )
 #: The door's own serve steps, one per direction. Shipped beside the gates
 #: because, like the default step, they belong to no campaign: a live ladder
@@ -378,6 +382,26 @@ READ_SEQUENCE: tuple[Entry, ...] = (
         "down, and a busy rig read as it is",
     ),
 )
+#: THE LINK RUN (`python -m mcgyvr.serving.run link --host H (--peer A B |
+#: --sink ADDR PORT | --send ADDR PORT)`). A fourth fixed sequence, and the
+#: smallest: one bounded timer goes to the rig on stdin and its one line of
+#: JSON comes back on stdout. `mcgyvr fleet probe` asks for it to time a link a
+#: split unit crosses: two cards of one rig (`--peer`), or the network between
+#: two rigs (a `--sink` on the worker, a `--send` from the head). No lease, no
+#: envelope, nothing filed by the door and nothing left on the rig.
+LINK_SEQUENCE: tuple[Entry, ...] = (
+    Entry(
+        "link-01-time.py",
+        "link, time: one bounded timer on the rig, its source on stdin and its "
+        "reading on stdout; nothing leased, nothing filed, nothing left behind",
+    ),
+)
+#: The timer's three modes and the arguments each takes.
+LINK_MODES = {
+    "--peer": ("GPU_A", "GPU_B"),
+    "--sink": ("ADDR", "PORT"),
+    "--send": ("ADDR", "PORT"),
+}
 #: A read's id, which every row it files carries: the probe's own shape.
 READ_ID = re.compile(r"^run-(\d{8}T\d{6})-([0-9a-f]{8})$")
 #: A load a read runs on its probed units: W concurrent requests, each filling an
@@ -423,6 +447,8 @@ EXPORTED = (
     "RUN_READ_PROBE",
     "RUN_READ_LOAD",
     "RUN_READ_FLEET",
+    # The link run's one: the timer's mode and its arguments, as one line.
+    "RUN_LINK",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
@@ -898,7 +924,7 @@ def check_manifest() -> None:
     """
     missing = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS, *READ_SEQUENCE, LEASE_RELEASE)
+        for e in (*SEQUENCE, *ALWAYS, *READ_SEQUENCE, *LINK_SEQUENCE, LEASE_RELEASE)
         if not (GATE_SCRIPTS / e.script).is_file()
     ] + [path.name for path in (*SERVE_STEPS.values(), *READERS) if not path.is_file()]
     if missing:
@@ -912,7 +938,7 @@ def check_manifest() -> None:
         )
     unrunnable = [
         e.script
-        for e in (*SEQUENCE, *ALWAYS, *READ_SEQUENCE, LEASE_RELEASE)
+        for e in (*SEQUENCE, *ALWAYS, *READ_SEQUENCE, *LINK_SEQUENCE, LEASE_RELEASE)
         if not os.access(GATE_SCRIPTS / e.script, os.X_OK)
     ] + [step.name for step in SERVE_STEPS.values() if not os.access(step, os.X_OK)]
     if unrunnable:
@@ -1738,12 +1764,98 @@ def _read(argv: list[str]) -> int:
     return 0
 
 
+def _link_parse(argv: list[str]) -> argparse.Namespace:
+    """The link run's arguments: the host, and exactly one of the timer's modes."""
+    parser = argparse.ArgumentParser(
+        prog="python -m mcgyvr.serving.run link",
+        description=(
+            "time a link on a rig: copies between two of its cards (--peer), or "
+            "the network to another rig (--sink there, --send here); one bounded "
+            "timer, its reading printed as one line of JSON and nothing filed"
+        ),
+    )
+    parser.add_argument(
+        "--host", required=True, help="the rig the timer runs on, as ssh names it"
+    )
+    modes = parser.add_mutually_exclusive_group(required=True)
+    for flag, names in LINK_MODES.items():
+        modes.add_argument(flag, nargs=2, metavar=names)
+    return parser.parse_args(argv)
+
+
+def _link_args(opts: argparse.Namespace) -> list[str]:
+    """The timer's mode and arguments, checked before anything reaches a rig."""
+    for flag in LINK_MODES:
+        given = getattr(opts, flag[2:])
+        if given is None:
+            continue
+        first, second = given
+        if flag == "--peer":
+            cards = [first, second]
+            if not all(card.isascii() and card.isdigit() for card in cards):
+                raise RefusedError(2, f"--peer {first} {second}: a card is its index")
+            if first == second:
+                raise RefusedError(2, f"--peer {first} {second}: two cards, not one")
+            return ["peer", str(int(first)), str(int(second))]
+        try:
+            ipaddress.IPv4Address(first)
+        except ValueError:
+            raise RefusedError(
+                2, f"{flag} {first!r}: the address is an IPv4 literal, never a name"
+            ) from None
+        if not (second.isascii() and second.isdigit() and 1024 <= int(second) < 65536):
+            raise RefusedError(2, f"{flag} port {second!r}: a port from 1024 to 65535")
+        return [flag[2:], first, str(int(second))]
+    raise RefusedError(2, "link: no mode given")
+
+
+def _link(argv: list[str]) -> int:
+    """`link`: the fourth fixed sequence, to completion. Nothing is leased."""
+    opts = _link_parse(argv)
+    inherited = _ambient()
+    if inherited is not None:
+        print(
+            f"run.py: REFUSED — {inherited} is set in the calling environment; "
+            "unset it and rerun; the door mints its own vocabulary",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        timer = _link_args(opts)
+        root = run_root()
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    env = dict(os.environ)
+    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    env.update(
+        RUN_ROOT=str(root),
+        RUN_BIN=str(BIN),
+        RUN_HOST=opts.host,
+        RUN_LINK=" ".join(timer),
+    )
+    try:
+        check_manifest()
+        for entry in LINK_SEQUENCE:
+            status = _run_entry(entry, env)
+            if status != 0:
+                return status
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    except KeyboardInterrupt:
+        return 130
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     given = list(sys.argv[1:] if argv is None else argv)
     if given[:1] == ["serve"]:
         return _serve(given[1:])
     if given[:1] == ["read"]:
         return _read(given[1:])
+    if given[:1] == ["link"]:
+        return _link(given[1:])
     opts, step_args = _parse(given)
 
     # Every refusal below happens before a gate runs: nothing checked, nothing

@@ -266,6 +266,12 @@ case $cmd in
   # The lock's own harness, shipped to the rig by a `read --probe`: the test
   # writes what it measured at 127.0.0.1 into harness.json.
   *"mcgyvr-harness"*) cat >/dev/null; cat "$STUBS/harness.json" ;;
+  # The link timer, shipped by a `link` run: the stub keeps the command and
+  # the source it was handed, and answers with what linktime.json says.
+  *"mcgyvr-linktime"*)
+    printf '%s\\n' "$cmd" > "$STUBS/linktime-cmd.txt"
+    cat > "$STUBS/linktime-source.txt"
+    cat "$STUBS/linktime.json" ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
   # The rig's lease (`~/.mcgyvr/lease` ON the rig): the remote command is
   # run as written, by a real bash, under a HOME of the stub's own — so

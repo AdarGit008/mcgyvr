@@ -27,6 +27,13 @@ them:
   the weights are actually on, and the container has to resolve the identical
   string. When the operator already keeps weights at ``/models`` the two mounts
   are one and the duplicate disappears.
+
+A model split across machines is several processes, one :class:`Unit` each, and
+this module renders each the way it renders any other: a process reserves every
+card it holds, a ``rpc-server`` worker runs its own binary with no weights
+mount (the head sends it what it holds), and a ``--headless`` vLLM node renders
+as a vLLM unit that answers nothing. What an engine reads beside its argv is
+the unit's ``env``, merged into the service's environment.
 """
 
 from __future__ import annotations
@@ -41,10 +48,14 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from mcgyvr.fleet.spans import SpanError, spans
 from mcgyvr.serving import (
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
     HF_CACHE_MOUNT,
+    ROLE_HEADLESS,
+    ROLE_RPC,
+    ROLE_SERVE,
     Unit,
     launch_specs,
     port_of,
@@ -58,6 +69,10 @@ from mcgyvr.serving import (
 # argv shape for is refused rather than guessed at: llama.cpp's flags on a vLLM
 # image is a server that fails at load with a message about neither.
 ENGINE_COMMANDS = {"llama.cpp": ("llama-server",), "vllm": ("vllm", "serve")}
+# What a llama.cpp process that only lends its card to a server on another
+# machine runs (:data:`mcgyvr.serving.ROLE_RPC`): the worker binary, not the
+# server. It takes no model, because the head sends it the tensors it holds.
+RPC_COMMAND = ("rpc-server",)
 ENGINE_IMAGES = {
     "llama.cpp": "ghcr.io/ggml-org/llama.cpp:server-cuda",
     # Default only; a unit's own `image` wins (see `_image`).
@@ -462,9 +477,15 @@ def _sequence_on_one_card(
     """
     on_card: dict[int, list[tuple[float, str, int]]] = {}
     for unit in units:
-        on_card.setdefault(unit.gpu, []).append(
-            (unit.fit.vram_gb, _service_name(unit), unit.port)
-        )
+        # A worker or a headless node answers no ``/v1/models``, so a check on
+        # it never passes and whatever waits on it never starts; they are not
+        # chained.
+        if unit.role != ROLE_SERVE:
+            continue
+        for card in unit.cards:
+            on_card.setdefault(card, []).append(
+                (unit.fit.vram_gb, _service_name(unit), unit.port)
+            )
     for sharing in on_card.values():
         if len(sharing) < 2:
             continue
@@ -472,7 +493,11 @@ def _sequence_on_one_card(
         for (_, waiter, _), (_, ahead, port) in zip(
             ordered[1:], ordered[:-1], strict=True
         ):
-            services[waiter]["depends_on"] = {ahead: {"condition": "service_healthy"}}
+            # Merged, because a unit that spans cards can wait on a neighbour
+            # of each of them.
+            waits = services[waiter].setdefault("depends_on", {})
+            assert isinstance(waits, dict)
+            waits[ahead] = {"condition": "service_healthy"}
             services[ahead]["healthcheck"] = _healthcheck(port)
 
 
@@ -509,12 +534,16 @@ def _healthcheck(port: int) -> dict[str, object]:
 def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     """One unit as a compose service.
 
-    The device reservation names the card the scan actually found rather than
+    The device reservation names the cards the scan actually found rather than
     handing the container every GPU: on a two-card rig ``all`` is how two units
-    sized for two different cards end up fighting over one.
+    sized for two different cards end up fighting over one. A unit that spans
+    cards names each of them.
     """
+    _check_role(unit)
     if unit.engine == "vllm":
         return _vllm_service(unit, sleep_mode=sleep_mode)
+    if unit.role == ROLE_RPC:
+        return _rpc_service(unit)
     return {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
@@ -532,7 +561,7 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         # rather than as an argument, on purpose: the argv has to stay
         # identical in both renderings, and this is a fact about where the
         # container sits rather than about how the model is loaded.
-        "environment": {"LLAMA_ARG_HOST": "0.0.0.0"},
+        "environment": _environment({"LLAMA_ARG_HOST": "0.0.0.0"}, unit),
         "restart": "unless-stopped",
         "volumes": sorted(
             {
@@ -540,8 +569,51 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
                 f"{unit.weights_dir}:{unit.weights_dir}:ro",
             }
         ),
-        "deploy": _reservation(unit.gpu),
+        "deploy": _reservation(*unit.cards),
     }
+
+
+def _rpc_service(unit: Unit) -> dict[str, object]:
+    """A llama.cpp ``rpc-server`` worker as a compose service.
+
+    It lends one card and holds no model file, so nothing is mounted: the head
+    sends it the tensors it is to hold. The image's entrypoint is the server,
+    so the worker binary is the entrypoint here and the argv is its command.
+    Deliberately without ``LLAMA_ARG_HOST``: this process is unauthenticated,
+    and the address it listens on is the ``-H`` the launch states and nothing
+    wider.
+    """
+    service: dict[str, object] = {
+        "image": _image(unit),
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
+        "entrypoint": list(RPC_COMMAND),
+        "command": list(argv(unit)),
+        "network_mode": "host",
+        "restart": "unless-stopped",
+        "deploy": _reservation(*unit.cards),
+    }
+    environment = _environment({}, unit)
+    if environment:
+        service["environment"] = environment
+    return service
+
+
+def _environment(base: dict[str, str], unit: Unit) -> dict[str, str]:
+    """The service's environment: what this module sets, then the unit's own.
+
+    Both are facts about how the process runs, so neither may silently win: a
+    unit that sets a variable this module already sets differently is refused,
+    naming the variable and the unit.
+    """
+    merged = dict(base)
+    for key, value in unit.env.items():
+        if key in merged and merged[key] != value:
+            raise EmitError(
+                f"{unit.key.slug}: its env sets {key}={value!r} and the emitted "
+                f"service already sets {key}={merged[key]!r}; drop one of them"
+            )
+        merged[key] = value
+    return merged
 
 
 def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
@@ -565,14 +637,17 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         "command": list(argv(unit, sleep_mode=sleep_mode)),
         "network_mode": "host",
         "ipc": "host",
-        "environment": environment,
+        "environment": _environment(environment, unit),
         "restart": "unless-stopped",
         "volumes": [f"{unit.weights_dir}:{HF_CACHE_MOUNT}:ro"],
-        "deploy": _reservation(unit.gpu),
+        "deploy": _reservation(*unit.cards),
     }
 
 
 def _command(unit: Unit) -> tuple[str, ...]:
+    _check_role(unit)
+    if unit.role == ROLE_RPC:
+        return RPC_COMMAND
     command = ENGINE_COMMANDS.get(unit.engine)
     if command is None:
         raise EmitError(
@@ -581,9 +656,51 @@ def _command(unit: Unit) -> tuple[str, ...]:
     return command
 
 
+def _check_role(unit: Unit) -> None:
+    """Refuse a role its engine has no process for, by the unit's name.
+
+    ``rpc-server`` is llama.cpp's worker and ``--headless`` is vLLM's node that
+    answers nothing; either on the other engine would render a command the
+    engine does not have, and fail at load on the rig with a message about
+    neither.
+    """
+    if unit.role == ROLE_SERVE:
+        return
+    if unit.role == ROLE_RPC and unit.engine == "llama.cpp":
+        return
+    if unit.role == ROLE_HEADLESS and unit.engine == "vllm":
+        return
+    raise EmitError(
+        f"{unit.key.slug}: role {unit.role!r} is not a process engine "
+        f"{unit.engine!r} has (llama.cpp's workers are 'rpc', vLLM's are 'headless')"
+    )
+
+
+def _needs_built_image(unit: Unit) -> bool:
+    """Whether this llama.cpp process needs an image built with RPC support.
+
+    The ``rpc-server`` worker, and a server that reaches workers with
+    ``--rpc``. The upstream CUDA images are built without it, so the engine's
+    default image cannot be what either runs in.
+    """
+    return unit.engine == "llama.cpp" and (
+        unit.role == ROLE_RPC or "--rpc" in unit.args
+    )
+
+
 def _image(unit: Unit) -> str:
     if unit.image:
         return unit.image
+    if _needs_built_image(unit):
+        what = (
+            "an rpc-server worker" if unit.role == ROLE_RPC else "a server with --rpc"
+        )
+        raise EmitError(
+            f"{unit.key.slug}: {what} needs a llama.cpp image built with RPC "
+            f"support, and the upstream CUDA images are built without it. State "
+            f"the image you built as the unit's `image`; mcgyvr will not "
+            f"default to one that cannot run it"
+        )
     image = ENGINE_IMAGES.get(unit.engine)
     if image is None:
         raise EmitError(
@@ -603,7 +720,10 @@ def _service_name(unit: Unit) -> str:
 
     ``qwen2.5-coder:3b`` has a colon, which compose does not take in a name.
     """
-    return f"{_UNSAFE.sub('-', unit.model)}-{unit.port}"
+    name = f"{_UNSAFE.sub('-', unit.model)}-{unit.port}"
+    # A worker is a process of the same model on a port of its own, and on a
+    # machine that also serves the model the role is what tells them apart.
+    return name if unit.role == ROLE_SERVE else f"{name}-{unit.role}"
 
 
 class LockedLaunchError(EmitError):
@@ -705,8 +825,17 @@ def _planned_locked(
     resolves the path against the compose file's own directory and reads it
     there. It is planned like any other file, so ``--check`` compares it and a
     re-emit rewrites it.
+
+    A unit reserves the cards its ``launch.shards`` name on the rig being
+    rendered (:mod:`mcgyvr.fleet.spans`), and card 0 when it names none. A
+    locked launch is one argv, its head's, so a unit that spans rigs is
+    refused by name: on a worker's rig it would start a second head.
     """
     units = fleet.get("units") or {}
+    try:
+        found = spans(fleet)
+    except SpanError as exc:
+        raise LockedLaunchError(str(exc)) from exc
     planned: list[tuple[Path, str]] = []
     profiles: dict[str, Path] = {}
     for fleet_name, block in sorted((fleet.get("fleets") or {}).items()):
@@ -721,7 +850,22 @@ def _planned_locked(
                         f"{fleet_name}: {name} is in the {host} layout and "
                         "fleet.yaml declares no such unit"
                     )
-                service = _locked_service(name, unit)
+                span = found.get(name)
+                if span is not None and len(span.rigs) > 1:
+                    raise LockedLaunchError(
+                        f"{name}: spans {', '.join(span.rigs)}, and a locked "
+                        f"launch states one argv, its head's on {span.head}; "
+                        f"rendered on {host} it would be a second head, not a "
+                        "worker. A locked unit split across rigs is not "
+                        "rendered until each worker's launch is stated"
+                    )
+                cards = span.cards.get(host, ()) if span is not None else (0,)
+                if not cards:
+                    raise LockedLaunchError(
+                        f"{fleet_name}: {name} is in the {host} layout and its "
+                        f"launch.shards name no card there"
+                    )
+                service = _locked_service(name, unit, cards)
                 stated = (unit.get("launch") or {}).get("seccomp")
                 if isinstance(stated, str) and stated.strip():
                     source = _profile_source(name, stated, setup)
@@ -753,8 +897,14 @@ def _planned_locked(
     return tuple(sorted(planned, key=lambda pair: pair[0].name))
 
 
-def _locked_service(name: str, unit: Mapping[str, Any]) -> dict[str, object]:
-    """One locked unit as a compose service: its stated launch, verbatim."""
+def _locked_service(
+    name: str, unit: Mapping[str, Any], cards: tuple[int, ...] = (0,)
+) -> dict[str, object]:
+    """One locked unit as a compose service: its stated launch, verbatim.
+
+    ``cards`` are the card indices it reserves on this rig; card 0 for a unit
+    that names none.
+    """
     launch = unit.get("launch") or {}
     argv = launch.get("argv")
     env = launch.get("env", {})
@@ -791,8 +941,7 @@ def _locked_service(name: str, unit: Mapping[str, Any]) -> dict[str, object]:
         "environment": dict(env),
         "network_mode": "host",
         "restart": "unless-stopped",
-        # Card 0: a locked unit states no card index.
-        "deploy": _reservation(0),
+        "deploy": _reservation(*cards),
     }
     if isinstance(seccomp, str) and seccomp.strip():
         # Compose resolves a profile path against the PROJECT directory — the
@@ -829,14 +978,14 @@ def _strings(value: object) -> bool:
     return isinstance(value, list) and all(isinstance(part, str) for part in value)
 
 
-def _reservation(gpu: int) -> dict[str, object]:
+def _reservation(*gpus: int) -> dict[str, object]:
     return {
         "resources": {
             "reservations": {
                 "devices": [
                     {
                         "driver": "nvidia",
-                        "device_ids": [str(gpu)],
+                        "device_ids": [str(gpu) for gpu in gpus],
                         "capabilities": ["gpu"],
                     }
                 ]
