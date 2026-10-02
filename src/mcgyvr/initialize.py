@@ -42,6 +42,7 @@ from mcgyvr.config import (
     GATE_FIELDS,
     JOURNAL_FIELDS,
     POLICY_FILENAME,
+    SANDBOX_FIELDS,
     SCHEMA,
     Config,
     ConfigError,
@@ -600,6 +601,10 @@ def build(
         "verifier": {"enabled": False, "unit": None, "model": None},
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
+            # Written at their defaults, each under the comment that names the
+            # other choice: what a run does with no daemon, and the network a
+            # task container reaches, are worth seeing before they matter.
+            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network"),
             "image": None,
             "setup": [],
         },
