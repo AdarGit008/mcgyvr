@@ -25,6 +25,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from tests.red_port.conftest import required
 
 REPO = Path(__file__).resolve().parents[2]
@@ -86,20 +88,37 @@ def test_the_always_entries_have_exactly_one_name() -> None:
     )
 
 
-def test_the_manifest_covers_every_file_a_gate_reads() -> None:
+def test_the_manifest_covers_every_file_a_gate_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """5. A reader a gate depends on is part of the door, or the check is partial.
 
     ``rig-snapshot.sh`` is read by gate 2 and re-used by gate 7. If it can go
     missing without the manifest noticing, the door's promise that a missing
     entry is a refusal is only true of the entries someone remembered.
+
+    The file is removed from a copy of the gate scripts the door is pointed
+    at, never from the checkout: other tests read and copy the real folder at
+    the same time, and a file renamed under them is a failure of theirs.
     """
     import shutil
 
-    import pytest
-
     from mcgyvr.serving import run as door
 
-    scripts = Path(door.__file__).resolve().parent / "gate-scripts"
+    real = Path(door.__file__).resolve().parent / "gate-scripts"
+    scripts = tmp_path / "gate-scripts"
+    shutil.copytree(real, scripts, symlinks=True)
+
+    def moved(path: Path) -> Path:
+        return scripts / path.relative_to(real)
+
+    monkeypatch.setattr(door, "GATE_SCRIPTS", scripts)
+    monkeypatch.setattr(door, "BIN", moved(door.BIN))
+    monkeypatch.setattr(door, "DEFAULT_STEP", moved(door.DEFAULT_STEP))
+    monkeypatch.setattr(door, "READERS", tuple(moved(p) for p in door.READERS))
+    monkeypatch.setattr(
+        door, "SERVE_STEPS", {k: moved(v) for k, v in door.SERVE_STEPS.items()}
+    )
     readers = sorted(path.name for path in scripts.iterdir() if path.suffix == ".sh")
     assert readers, "the fixture must find the shell readers beside the gates"
 
@@ -112,14 +131,10 @@ def test_the_manifest_covers_every_file_a_gate_reads() -> None:
         lambda: door.check_manifest,
     )
     missing = readers[0]
-    moved = scripts / missing
-    spare = moved.with_suffix(".sh.moved")
-    shutil.move(str(moved), str(spare))
-    try:
-        with pytest.raises(Exception) as refusal:
-            check()
-        assert missing in str(refusal.value), (
-            f"the door must name {missing} when it is gone; it raised {refusal.value!r}"
-        )
-    finally:
-        shutil.move(str(spare), str(moved))
+    (scripts / missing).unlink()
+    with pytest.raises(Exception) as refusal:
+        check()
+    assert missing in str(refusal.value), (
+        f"the door must name {missing} when it is gone; it raised {refusal.value!r}"
+    )
+    assert (real / missing).is_file()
