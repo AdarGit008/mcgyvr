@@ -45,6 +45,7 @@ from mcgyvr.serving import (
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
     HF_CACHE_MOUNT,
+    MEDIA_ENGINES,
     MEDIA_ENGINES_NOT_WIRED,
     Unit,
     launch_specs,
@@ -429,6 +430,8 @@ def _sequence_on_one_card(
     """
     on_card: dict[int, list[tuple[float, str, int]]] = {}
     for unit in units:
+        if unit.cpu_only:
+            continue
         on_card.setdefault(unit.gpu, []).append(
             (unit.fit.vram_gb, _service_name(unit), unit.port)
         )
@@ -482,8 +485,8 @@ def _service(unit: Unit) -> dict[str, object]:
     """
     if unit.engine == "vllm":
         return _vllm_service(unit)
-    if unit.engine == "diffusers":
-        return _diffusers_service(unit)
+    if unit.engine in MEDIA_ENGINES:
+        return _media_service(unit)
     return {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
@@ -535,24 +538,27 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
     }
 
 
-def _diffusers_service(unit: Unit) -> dict[str, object]:
-    """A diffusers unit as a compose service.
+def _media_service(unit: Unit) -> dict[str, object]:
+    """A media unit as a compose service.
 
-    mcgyvr ships no diffusers server image or shell binary: the container image
-    is the operator's and its entrypoint is the server, so the compose file
-    names that image and mounts the weights directory at its own absolute path
-    with no environment of mcgyvr's. The image contract is ENTRYPOINT-as-server:
-    compose ``command`` supplies only the argv.
+    mcgyvr ships no media server image or shell binary: the container image is
+    the operator's and its entrypoint is the server, so the compose file names
+    that image and mounts the weights directory at its own absolute path with
+    no environment of mcgyvr's. The image contract is ENTRYPOINT-as-server:
+    compose ``command`` supplies only the argv. A cpu_only unit (a Piper-class
+    TTS rung) claims no card, so its service carries no GPU reservation.
     """
-    return {
+    service: dict[str, object] = {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
         "command": list(argv(unit)),
         "network_mode": "host",
         "restart": "unless-stopped",
         "volumes": [f"{unit.weights_dir}:{unit.weights_dir}:ro"],
-        "deploy": _reservation(unit.gpu),
     }
+    if not unit.cpu_only:
+        service["deploy"] = _reservation(unit.gpu)
+    return service
 
 
 def _command(unit: Unit) -> tuple[str, ...]:
@@ -560,9 +566,9 @@ def _command(unit: Unit) -> tuple[str, ...]:
     if command is None:
         if unit.engine in MEDIA_ENGINES_NOT_WIRED:
             raise EmitError(_media_engine_not_wired(unit))
-        if unit.engine == "diffusers":
+        if unit.engine in MEDIA_ENGINES:
             raise EmitError(
-                f"{unit.key.slug}: engine 'diffusers' has no shell command — its "
+                f"{unit.key.slug}: engine {unit.engine!r} has no shell command — its "
                 "server is the container image's entrypoint, so render the "
                 "compose file rather than a pasted command"
             )
@@ -575,10 +581,10 @@ def _command(unit: Unit) -> tuple[str, ...]:
 def _image(unit: Unit) -> str:
     if unit.image:
         return unit.image
-    if unit.engine == "diffusers":
+    if unit.engine in MEDIA_ENGINES:
         raise EmitError(
-            f"{unit.key.slug}: engine 'diffusers' has no default container image — "
-            f"set units.<unit>.image to the operator's diffusers server image"
+            f"{unit.key.slug}: engine {unit.engine!r} has no default container image — "
+            f"set units.<unit>.image to the operator's {unit.engine} server image"
         )
     image = ENGINE_IMAGES.get(unit.engine)
     if image is None:

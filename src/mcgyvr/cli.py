@@ -2765,6 +2765,7 @@ def _model_spec(model: Model, moe: bool) -> ModelSpec:
         ram_gb=0.0,
         disk_gb=model.weights_gb / GB_PER_GIB,
         vae_decode_gb=(model.vae_decode_gb or 0.0) / GB_PER_GIB,
+        cpu_only=model.cpu_only,
         moe=moe,
         geometry=None,
         kv_cache_dtype_k="f16",
