@@ -7,9 +7,12 @@ means putting the smaller one to sleep first, and giving the room back when the
 bigger one sleeps again.
 
 Whether they fit is arithmetic on facts mcgyvr already holds: each unit's
-``room_mib`` from the config, and the card's memory from the host's recorded
-scan, which ``emit`` sizes against. Where either is missing there is no answer,
-and the card acts whole, as before. Every number and shape here is invented.
+``room_mib`` from the config, the card each unit is on from the launch spec
+that starts it, and that card's memory from the host's recorded scan, which
+``emit`` sizes against. On a host with several cards only the units on the
+waking unit's card are its neighbours. Where a figure is missing, or the card
+a unit is on cannot be told, there is no answer, no room is made, and the
+manager says why. Every number and shape here is invented.
 
 On such a card a sleep and a wake act on one unit (``serve sleep|wake --unit``),
 the card's other units are left as they are, and the record of who is resting
@@ -82,13 +85,39 @@ def ladder_text(
     )
 
 
-def write_spec(tmp_path: Path) -> Path:
-    """The shared card's one launch spec: both units, each its own container."""
+def reservation(device_ids: list[str]) -> dict[str, Any]:
+    """The card reservation ``emit`` writes for a service, naming ``device_ids``."""
+    return {
+        "resources": {
+            "reservations": {
+                "devices": [
+                    {
+                        "driver": "nvidia",
+                        "device_ids": device_ids,
+                        "capabilities": ["gpu"],
+                    }
+                ]
+            }
+        }
+    }
+
+
+def write_spec(
+    tmp_path: Path,
+    *,
+    small_on: list[str] | None = None,
+    large_on: list[str] | None = None,
+) -> Path:
+    """The shared host's one launch spec: both units, each its own container.
+
+    ``small_on`` and ``large_on`` are the card ids each service reserves;
+    ``None`` writes no reservation, as a hand-written spec may not.
+    """
     from mcgyvr.serving import COMPOSE_PREFIX, COMPOSE_SUFFIX
 
     where = tmp_path / "specs"
     where.mkdir(exist_ok=True)
-    services = {
+    services: dict[str, dict[str, Any]] = {
         "small": {
             "image": "example/server:1",
             "container_name": SMALL_CONTAINER,
@@ -100,6 +129,10 @@ def write_spec(tmp_path: Path) -> Path:
             "command": ["large-coder", "--port", "8002"],
         },
     }
+    if small_on is not None:
+        services["small"]["deploy"] = reservation(small_on)
+    if large_on is not None:
+        services["large"]["deploy"] = reservation(large_on)
     (where / f"{COMPOSE_PREFIX}{SHARED_HOST}{COMPOSE_SUFFIX}").write_text(
         yaml.safe_dump({"services": services}), encoding="utf-8"
     )
@@ -132,12 +165,23 @@ def door(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return log
 
 
-def switches(config: Config, card_mib: int | None = 12000) -> Any:
+def switches(
+    config: Config,
+    card_mib: int | None = 12000,
+    *,
+    sizes: dict[int, int] | None = None,
+) -> Any:
+    """The manager's switches, with the shared host's card sizes by card index.
+
+    ``card_mib`` is a one-card host's one card; ``sizes`` states every card.
+    """
     from mcgyvr.capacity import Capacity
     from mcgyvr.pressure import Gauge
     from mcgyvr.wake import CardSwitches
 
-    rooms = {} if card_mib is None else {SHARED_HOST: card_mib}
+    if sizes is None:
+        sizes = {} if card_mib is None else {0: card_mib}
+    rooms = {SHARED_HOST: sizes} if sizes else {}
     return CardSwitches(config, Capacity.of(config, gauge=Gauge()), card_mib=rooms)
 
 
@@ -189,32 +233,145 @@ def test_a_shared_vllm_card_switches_one_unit_at_a_time(
     assert switches(config).card_of(SMALL) == (SMALL,)
 
 
-def test_a_card_size_is_read_from_a_one_card_scan_and_from_no_other() -> None:
-    from mcgyvr.wake import card_rooms
-
-    one = Scan.of(
-        host=SHARED_HOST,
-        vram_mib=12000,
-        ram_gb=32.0,
-        disk_free_gb=500.0,
-        cores=8,
-        threads=16,
-        bandwidth_gbps=20.0,
-    )
-    two = Scan.of(
-        host=FAST_HOST,
-        vram_mib=8000,
-        ram_gb=32.0,
-        disk_free_gb=500.0,
-        cores=8,
-        threads=16,
-        bandwidth_gbps=20.0,
-    )
+def scan_of(host: str, *vram_mib: int) -> Scan:
+    """A recorded scan of ``host`` holding one card per size, indexed in order."""
     from dataclasses import replace
 
-    two = replace(two, gpus=(*two.gpus, *two.gpus))
+    from mcgyvr.scan import Vram
 
-    assert card_rooms({SHARED_HOST: one, FAST_HOST: two}) == {SHARED_HOST: 12000}
+    base = Scan.of(
+        host=host,
+        vram_mib=vram_mib[0],
+        ram_gb=32.0,
+        disk_free_gb=500.0,
+        cores=8,
+        threads=16,
+        bandwidth_gbps=20.0,
+    )
+    first = base.gpus[0]
+    return replace(
+        base,
+        gpus=tuple(
+            replace(
+                first,
+                index=index,
+                vram=Vram(total_mib=mib, used_mib=0, free_mib=mib),
+            )
+            for index, mib in enumerate(vram_mib)
+        ),
+    )
+
+
+def test_card_sizes_are_read_per_card_from_every_scan() -> None:
+    from mcgyvr.wake import card_rooms
+
+    assert card_rooms(
+        {
+            SHARED_HOST: scan_of(SHARED_HOST, 12000),
+            FAST_HOST: scan_of(FAST_HOST, 8000, 16000),
+        }
+    ) == {SHARED_HOST: {0: 12000}, FAST_HOST: {0: 8000, 1: 16000}}
+
+
+# --- several cards on one host ---------------------------------------------------
+
+
+def test_on_a_host_of_several_cards_room_is_made_on_the_waking_units_card(
+    tmp_path: Path, home: Path
+) -> None:
+    config = parse(ladder_text(write_spec(tmp_path, small_on=["1"], large_on=["1"])))
+
+    card = switches(config, sizes={0: 24000, 1: 12000})
+
+    assert card.room_for(LARGE) == (SMALL,), (
+        "both units are on the 12000 MiB card, and 4000 + 9000 does not fit it"
+    )
+    assert card.why_no_room(LARGE) is None
+
+
+def test_a_unit_on_another_card_holds_no_room_on_this_one(
+    tmp_path: Path, home: Path
+) -> None:
+    config = parse(ladder_text(write_spec(tmp_path, small_on=["0"], large_on=["1"])))
+
+    card = switches(config, sizes={0: 12000, 1: 9000})
+
+    assert card.room_for(LARGE) == (), (
+        "the small unit is on the other card; sleeping it frees nothing here"
+    )
+    assert card.why_no_room(LARGE) is None
+
+
+def test_the_card_of_a_one_card_host_needs_no_reservation_in_the_spec(
+    tmp_path: Path, home: Path
+) -> None:
+    config = parse(ladder_text(write_spec(tmp_path)))
+
+    assert switches(config, sizes={0: 12000}).room_for(LARGE) == (SMALL,)
+
+
+@pytest.mark.parametrize(
+    ("small_on", "large_on", "sizes", "said"),
+    [
+        (None, None, {0: 12000, 1: 12000}, "which card"),
+        (["0"], ["0", "1"], {0: 12000, 1: 12000}, "more than one card"),
+        (["0"], ["GPU-not-an-index"], {0: 12000, 1: 12000}, "which card"),
+        (["0"], ["2"], {0: 12000, 1: 12000}, "no recorded scan"),
+        (["0"], ["0"], {}, "no recorded scan"),
+    ],
+    ids=[
+        "no-reservation",
+        "spans-two-cards",
+        "not-an-index",
+        "unscanned-card",
+        "no-scan",
+    ],
+)
+def test_where_the_card_cannot_be_told_no_room_is_made_and_why_is_said(
+    tmp_path: Path,
+    home: Path,
+    small_on: list[str] | None,
+    large_on: list[str] | None,
+    sizes: dict[int, int],
+    said: str,
+) -> None:
+    config = parse(
+        ladder_text(write_spec(tmp_path, small_on=small_on, large_on=large_on))
+    )
+
+    card = switches(config, sizes=sizes)
+
+    assert card.room_for(LARGE) == ()
+    why = card.why_no_room(LARGE)
+    assert why is not None and said in why, why
+
+
+def test_manage_says_where_it_will_make_no_room(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import mcgyvr.pressure as pressure
+    import mcgyvr.wake as wake
+
+    class Answers:
+        live = False
+
+    monkeypatch.setattr(wake, "spawn_door", lambda *a, **k: 0)
+    monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    path = tmp_path / "c.yaml"
+    path.write_text(
+        ladder_text(write_spec(tmp_path)) + f"journal:\n  dir: {tmp_path / 'j'}\n",
+        encoding="utf-8",
+    )
+
+    lj.main(["manage", "--config", str(path), "--once"])
+    out = capsys.readouterr().out
+
+    assert f"no room is made for {LARGE}" in out, out
+    assert "no recorded scan" in out, out
 
 
 # --- one unit at a time -------------------------------------------------------------
