@@ -56,6 +56,9 @@ class Report:
     ram_free_mb: int | None
     cards: tuple[protocol.CardReport, ...]
     notes: tuple[str, ...]
+    #: Each reported card's vendor and the vendor's own index of it, in the
+    #: order of :attr:`cards`: what a container is given the card by.
+    sources: tuple[tuple[str, int], ...] = ()
 
 
 def run_reader() -> str:
@@ -114,6 +117,7 @@ def read(
         )
         sized = sized[: protocol.MAX_CARDS]
     cards: list[protocol.CardReport] = []
+    sources: list[tuple[str, int]] = []
     for number, card in enumerate(sized):
         total = min(card.total_mib or 0, protocol.MAX_MB)
         free = card.free_mib
@@ -128,6 +132,7 @@ def read(
                 vram_free_mb=max(0, min(free, total)),
             )
         )
+        sources.append((card.vendor, card.index))
     read_memory = (memory or scan.read_memory)()
     if read_memory is None:
         notes.append("memory: not read; reported as 0 MiB total")
@@ -141,11 +146,18 @@ def read(
         ram_free_mb=ram_free,
         cards=tuple(cards),
         notes=tuple(notes),
+        sources=tuple(sources),
     )
 
 
-def hello_frame(report: Report, message_id: str, *, agent_version: str) -> str:
-    """The hello that says ``report``."""
+def hello_frame(
+    report: Report,
+    message_id: str,
+    *,
+    agent_version: str,
+    offer: protocol.Offer | None = None,
+) -> str:
+    """The hello that says ``report``, and ``offer`` when the rig lends."""
     return protocol.hello(
         message_id,
         machine_id=report.machine_id,
@@ -153,6 +165,7 @@ def hello_frame(report: Report, message_id: str, *, agent_version: str) -> str:
         ram_total_mb=report.ram_total_mb,
         ram_free_mb=report.ram_free_mb,
         cards=report.cards,
+        offer=offer,
     )
 
 

@@ -39,7 +39,7 @@ PROTOCOL_VERSION = 1
 MAX_MESSAGE_BYTES = 64 * 1024
 #: The most frames a side sends a second; the hub closes a channel that sends
 #: more.
-MAX_FRAMES_PER_SECOND = 10
+MAX_FRAMES_PER_SECOND = 100
 #: The most cards one report carries.
 MAX_CARDS = 16
 #: The highest card index a report may carry.
@@ -52,14 +52,28 @@ MAX_MB = 1 << 30
 MAX_ERROR_TEXT = 500
 #: The heartbeat interval a hub may ask for, in seconds, low and high.
 HEARTBEAT_INTERVAL_S = (1, 3600)
+#: The most models a hello names.
+MAX_MODELS = 64
+#: The most sessions a hello says the agent is running.
+MAX_SESSIONS_REPORTED = 4
+#: The largest model file a hello names, in bytes.
+MAX_MODEL_BYTES = 1 << 50
+#: The most layers, the longest trained context, and the largest of a model's
+#: other counts a hello carries.
+MAX_LAYERS = 4096
+MAX_COUNT = 1 << 20
+#: The largest KV cache size per token of context a hello carries, in bytes.
+MAX_KV_BYTES_PER_TOKEN = 1 << 30
 
 #: The shapes of the wire's strings, matched whole.
 MESSAGE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 TAG = re.compile(r"[a-z][a-z0-9_]{0,63}")
 MACHINE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 AGENT_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}")
-#: Printable text: no control character and no bidirectional override.
-CARD_NAME = re.compile(r"[^\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]+")
+#: Printable text: no control character and no bidirectional override. The
+#: hub's schema writes the excluded characters themselves, not escapes, so the
+#: pattern is built of them too and its text is the schema's.
+CARD_NAME = re.compile("[^\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]+")
 
 
 class CloseCode(enum.IntEnum):
@@ -132,6 +146,36 @@ class CardReport:
     name: str
     vram_total_mb: int
     vram_free_mb: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class ModelInfo:
+    """A model file on the rig's disk, named for the hub, with what planning
+    needs from its header; a count not read is ``None``."""
+
+    name: str
+    size_bytes: int
+    digest: str | None = None
+    arch: str | None = None
+    n_layers: int | None = None
+    n_ctx_train: int | None = None
+    n_embd: int | None = None
+    n_head: int | None = None
+    n_head_kv: int | None = None
+    kv_bytes_per_token: int | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class Offer:
+    """What a hello says this rig lends: its roles, the runtime it runs them
+    in, the endpoints its tunnel is reached at, the models it can serve, and
+    the sessions it is running now. A rig that lends nothing says none of it."""
+
+    roles: tuple[str, ...]
+    runtime: str | None
+    endpoints: tuple[tuple[str, int, str], ...]  # host, port, kind
+    models: tuple[ModelInfo, ...]
+    sessions: tuple[str, ...]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -279,6 +323,101 @@ def _frame(kind: str, message_id: str, body: dict[str, Any], re: str | None) -> 
     return text
 
 
+def _bounded(value: int | None, low: int, high: int, field: str) -> None:
+    _need(
+        value is None or (_is_int(value) and low <= value <= high),
+        f"{field}: not a whole number of {low} to {high}",
+    )
+
+
+#: The shapes of a model's name, digest and architecture, and of a runtime.
+MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+SHORT_TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}")
+RUNTIME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}")
+ENDPOINT_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.:-]{0,252}")
+#: The roles a rig may offer.
+ROLES = ("head", "worker")
+#: The most endpoints a hello names.
+MAX_ENDPOINTS = 8
+
+
+def _model_body(model: ModelInfo) -> dict[str, Any]:
+    _need(bool(MODEL_NAME.fullmatch(model.name)), "models: a name not of its shape")
+    _bounded(model.size_bytes, 1, MAX_MODEL_BYTES, "models.size_bytes")
+    _need(
+        model.digest is None or bool(DIGEST.fullmatch(model.digest)),
+        "models.digest: not a sha256 digest",
+    )
+    _need(
+        model.arch is None or bool(SHORT_TAG.fullmatch(model.arch)),
+        "models.arch: not of its shape",
+    )
+    _bounded(model.n_layers, 1, MAX_LAYERS, "models.n_layers")
+    _bounded(model.n_ctx_train, 1, MAX_COUNT, "models.n_ctx_train")
+    for field in ("n_embd", "n_head", "n_head_kv"):
+        _bounded(getattr(model, field), 1, MAX_COUNT, f"models.{field}")
+    _bounded(
+        model.kv_bytes_per_token, 1, MAX_KV_BYTES_PER_TOKEN, "models.kv_bytes_per_token"
+    )
+    body: dict[str, Any] = {"name": model.name, "size_bytes": model.size_bytes}
+    for field in (
+        "digest",
+        "arch",
+        "n_layers",
+        "n_ctx_train",
+        "n_embd",
+        "n_head",
+        "n_head_kv",
+        "kv_bytes_per_token",
+    ):
+        value = getattr(model, field)
+        if value is not None:
+            body[field] = value
+    return body
+
+
+def _offer_body(offer: Offer) -> dict[str, Any]:
+    _need(len(offer.roles) <= len(ROLES), "capabilities.roles: too many")
+    _need(
+        all(role in ROLES for role in offer.roles)
+        and len(set(offer.roles)) == len(offer.roles),
+        "capabilities.roles: not distinct roles",
+    )
+    _need(
+        offer.runtime is None or bool(RUNTIME.fullmatch(offer.runtime)),
+        "capabilities.runtime: not of its shape",
+    )
+    _need(len(offer.endpoints) <= MAX_ENDPOINTS, "endpoints: too many")
+    for host, port, kind in offer.endpoints:
+        _need(bool(ENDPOINT_HOST.fullmatch(host)), "endpoints: a host not of its shape")
+        _need(_is_int(port) and 1 <= port <= 65535, "endpoints: a port that is not one")
+        _need(bool(TAG.fullmatch(kind)), "endpoints: a kind that is not a tag")
+    _need(len(offer.models) <= MAX_MODELS, f"models: more than {MAX_MODELS}")
+    names = [model.name for model in offer.models]
+    _need(len(set(names)) == len(names), "models: a name twice")
+    _need(
+        len(offer.sessions) <= MAX_SESSIONS_REPORTED,
+        f"sessions: more than {MAX_SESSIONS_REPORTED}",
+    )
+    _need(
+        all(MESSAGE_ID.fullmatch(session) for session in offer.sessions),
+        "sessions: not session ids",
+    )
+    capabilities: dict[str, Any] = {"roles": list(offer.roles)}
+    if offer.runtime is not None:
+        capabilities["runtime"] = offer.runtime
+    return {
+        "capabilities": capabilities,
+        "endpoints": [
+            {"host": host, "port": port, "kind": kind}
+            for host, port, kind in offer.endpoints
+        ],
+        "models": [_model_body(model) for model in offer.models],
+        "sessions": list(offer.sessions),
+    }
+
+
 def hello(
     message_id: str,
     *,
@@ -287,8 +426,12 @@ def hello(
     ram_total_mb: int,
     ram_free_mb: int | None,
     cards: Sequence[CardReport],
+    offer: Offer | None = None,
 ) -> str:
-    """The ``hello`` frame, or ``ValueError`` naming what the schema refuses."""
+    """The ``hello`` frame, or ``ValueError`` naming what the schema refuses.
+
+    ``offer`` is what the rig lends; a hello without one says nothing of
+    sessions, and the hub sends such a rig no session command."""
     _need(bool(MACHINE_ID.fullmatch(machine_id)), "machine_id: not a machine id")
     _need(bool(AGENT_VERSION.fullmatch(agent_version)), "agent_version: not a version")
     _megabytes(ram_total_mb, "ram_total_mb")
@@ -324,6 +467,8 @@ def hello(
     }
     if ram_free_mb is not None:
         body["ram_free_mb"] = ram_free_mb
+    if offer is not None:
+        body.update(_offer_body(offer))
     return _frame("hello", message_id, body, None)
 
 

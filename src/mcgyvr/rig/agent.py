@@ -25,6 +25,15 @@ The hub is untrusted. Whatever it sends, the agent answers at most
 :data:`FRAMES_PER_SECOND` frames a second, under the hub's own cap, dropping
 answers rather than heartbeats; and what it says (an error's text, a close's
 reason, the rig id) is shown printable and short (:func:`shown`).
+
+A rig that lends (:mod:`mcgyvr.rig.session`) says so in its hello (the
+``offer``), and its sessions and relays speak on their own through the
+outbox (:mod:`mcgyvr.rig.outbox`), which the agent empties between reads at
+the same rate, delaying rather than dropping. The agent tells them when the
+channel is up (``on_online``), when it is lost (``on_offline``: the outbox
+is closed, and sessions end unless the hub returns within their grace), and
+when the agent ends (``on_exit``: every session is torn down before
+:meth:`Agent.run` returns).
 """
 
 from __future__ import annotations
@@ -39,6 +48,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from mcgyvr.rig import commands, hardware, protocol, websocket
+from mcgyvr.rig.outbox import Outbox
 
 #: The heartbeat interval when the hub's hello ack names none, in seconds:
 #: the hub's own default.
@@ -52,6 +62,8 @@ MISSED_ACKS = 3
 FRAMES_PER_SECOND = protocol.MAX_FRAMES_PER_SECOND // 2
 #: The longest single wait on the channel, in seconds, so a stop is heard.
 RECEIVE_SLICE_S = 1.0
+#: The longest wait on the channel while frames wait in the outbox, in seconds.
+OUTBOX_SLICE_S = 0.01
 #: The longest text of the hub's the agent shows, in characters.
 SHOWN_MAX = 200
 
@@ -218,6 +230,11 @@ class Agent:
         backoff: Backoff | None = None,
         dispatcher: commands.Dispatcher | None = None,
         on_status: Callable[[Status], None] | None = None,
+        outbox: Outbox | None = None,
+        offer: Callable[[], protocol.Offer | None] | None = None,
+        on_online: Callable[[], None] | None = None,
+        on_offline: Callable[[], None] | None = None,
+        on_exit: Callable[[], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
@@ -232,6 +249,11 @@ class Agent:
         self._dispatcher = dispatcher or commands.Dispatcher()
         self._on_status = on_status or (lambda status: None)
         self._sent: deque[float] = deque()
+        self._outbox = outbox
+        self._offer = offer
+        self._on_online = on_online or (lambda: None)
+        self._on_offline = on_offline or (lambda: None)
+        self._on_exit = on_exit or (lambda: None)
 
     def stop(self) -> None:
         """Ask the agent to stop; it closes its channel and :meth:`run` returns."""
@@ -240,6 +262,12 @@ class Agent:
     def run(self) -> Ended:
         """Sessions, with backoff between them, until stopped or refused."""
         attempt = 0
+        try:
+            return self._sessions(attempt)
+        finally:
+            self._on_exit()
+
+    def _sessions(self, attempt: int) -> Ended:
         try:
             while True:
                 if self._stopping.is_set():
@@ -285,16 +313,30 @@ class Agent:
             )
         )
 
-    def _send(self, channel: Channel, frame: str, *, answer: bool) -> bool:
-        """Send ``frame``; an answer is dropped when it would break the rate."""
+    def _room(self) -> int:
+        """How many frames may go now, keeping one for a heartbeat."""
         now = self._clock()
         while self._sent and now - self._sent[0] >= 1.0:
             self._sent.popleft()
-        if answer and len(self._sent) >= FRAMES_PER_SECOND - 1:
-            return False
+        return FRAMES_PER_SECOND - 1 - len(self._sent)
+
+    def _send(self, channel: Channel, frame: str, *, answer: bool) -> bool:
+        """Send ``frame``; an answer that would break the rate waits in the
+        outbox, or is dropped when there is none."""
+        if answer and self._room() <= 0:
+            return self._outbox is not None and self._outbox.put(frame, timeout=0)
         channel.send_text(frame)
-        self._sent.append(now)
+        self._sent.append(self._clock())
         return True
+
+    def _drain(self, channel: Channel) -> None:
+        """Send what waits in the outbox, as the rate allows."""
+        while self._outbox is not None and self._room() > 0:
+            frame = self._outbox.take()
+            if frame is None:
+                return
+            channel.send_text(frame)
+            self._sent.append(self._clock())
 
     def _session(self, held_from: list[float]) -> None:
         try:
@@ -318,6 +360,11 @@ class Agent:
         except _LostError:
             channel.close(1000, "agent gave up on the channel")
             raise
+        finally:
+            if self._outbox is not None:
+                self._outbox.close()
+            if held_from:
+                self._on_offline()
 
     def _pump(
         self,
@@ -330,10 +377,13 @@ class Agent:
         while not done():
             if self._stopping.is_set():
                 raise _StoppedError
+            self._drain(channel)
             left = until - self._clock()
             if left <= 0:
                 return
-            raw = channel.receive(timeout=min(left, RECEIVE_SLICE_S))
+            waiting = self._outbox is not None and self._outbox.pending()
+            slice_s = OUTBOX_SLICE_S if waiting else RECEIVE_SLICE_S
+            raw = channel.receive(timeout=min(left, slice_s))
             if raw is None:
                 continue
             answer = self._dispatcher.dispatch(raw, session)
@@ -348,9 +398,17 @@ class Agent:
         held_from: list[float],
     ) -> None:
         hello_id = protocol.new_id()
+        offer = None
+        if self._offer is not None:
+            try:
+                offer = self._offer()
+            except (OSError, ValueError) as exc:
+                self._say(f"note: this hello offers nothing: {shown(str(exc))}")
         self._send(
             channel,
-            hardware.hello_frame(report, hello_id, agent_version=self._version),
+            hardware.hello_frame(
+                report, hello_id, agent_version=self._version, offer=offer
+            ),
             answer=False,
         )
         deadline = self._clock() + HELLO_ACK_TIMEOUT_S
@@ -366,6 +424,9 @@ class Agent:
                 done=lambda: hello_id in session.acked,
             )
         held_from.append(self._clock())
+        if self._outbox is not None:
+            self._outbox.open()
+        self._on_online()
         interval = session.interval or DEFAULT_HEARTBEAT_S
         rig = shown(session.rig_id) if session.rig_id else "a rig"
         self._say(

@@ -11,6 +11,32 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- A rig can lend its cards to a hub's pooled-inference sessions, where one
+  model's layers run across several rigs: `mcgyvr rig share --on --image
+  <engine image>` turns it on (it is off until then) with the roles
+  (`worker`, `head`), cards, memory per card and per container, models
+  folder, LAN endpoints and tunnel port the owner allows, kept in
+  `$MCGYVR_HOME/rig-sharing.json`. The hello then offers those roles, the
+  endpoints, and the models under the folder by name only (size and what
+  planning reads from each GGUF header); the hub is told of no more free
+  memory than the owner lends. The agent answers the hub's session commands
+  (prepare, tunnel up, start a worker or a head, query, stop) as one state
+  machine per session, each command idempotent, and relays requests to the
+  head's chat completions on loopback, streamed back within the hub's credit,
+  size and time, with cancellation. Every session runs in containers on this
+  machine's daemon: a tunnel container that alone holds `NET_ADMIN` (in its
+  own namespace), makes the session's WireGuard key itself (user-space
+  WireGuard, so nothing on the host changes) and lets through only the
+  session's peers; and engine containers that join its namespace as the
+  agent's own user, with every capability dropped, `no-new-privileges`, a
+  read-only root, a seccomp profile of their own, memory and process limits,
+  and one mount (the worker's cache, the head's models read-only). The RPC
+  server listens on the tunnel only; the head's API is published on loopback
+  only. A session is torn down on stop, on failure, when the hub stays away
+  past a grace, and when the agent ends; a tunnel whose agent died ends
+  itself when its lease runs out and takes its engine with it, and the next
+  agent removes what a dead one left. The rig speaks the hub's protocol
+  schema as now published (pinned again).
 - `mcgyvr rig join <hub-url> --token <token>` publishes this machine as a rig
   of a hub: it keeps the rig token the hub showed (`--token -` reads it from
   stdin), opens the hub's agent channel, says hello with this machine's

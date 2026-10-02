@@ -8,6 +8,13 @@
   what this machine reads as now — never the token's secret.
 * ``leave`` forgets the token here. The rig stays on the hub until it is
   deleted there, or its token rotated.
+* ``share`` says what this rig lends to the hub's pooled-inference sessions,
+  and changes it (:mod:`mcgyvr.rig.sharing`): nothing until the owner turns
+  it on, and then only the roles, cards, memory and models folder allowed.
+  While it lends, the agent runs each session in containers that hold no
+  privilege and reach no network but the session's tunnel
+  (:mod:`mcgyvr.rig.session`), and tears every one down when the session,
+  the hub's channel or the agent ends.
 
 A token is never sent in clear past this machine: a hub reached over the
 network is ``https://``; ``http://`` is taken only for a hub on this machine.
@@ -37,6 +44,8 @@ if TYPE_CHECKING:
 AGENT_PATH = "/api/v1/agent"
 #: How long reaching the hub and the upgrade may take, in seconds.
 CONNECT_TIMEOUT_S = 15.0
+#: The user a session's containers run as when the agent runs as root: none.
+NOBODY = 65534
 
 _SCHEMES = {"http": "ws", "https": "wss", "ws": "ws", "wss": "wss"}
 
@@ -100,8 +109,29 @@ def _agent_version() -> str:
 
 def run_agent(kept: Credentials) -> int:
     """Run the agent for ``kept`` in the foreground until stopped or refused."""
-    from mcgyvr.rig import agent, credentials, hardware, protocol, state, websocket
+    from mcgyvr.fleet import roots
+    from mcgyvr.rig import (
+        agent,
+        commands,
+        credentials,
+        hardware,
+        inventory,
+        outbox,
+        protocol,
+        relay,
+        session,
+        sharing,
+        state,
+        tunnel,
+        websocket,
+    )
+    from mcgyvr.sandbox import pooled
 
+    try:
+        sharing.load()
+    except sharing.SharingError as exc:
+        print(f"error: {exc}; fix it or run `mcgyvr rig share --off`", file=sys.stderr)
+        return int(Exit.REFUSED)
     url = agent_url(kept.hub)
     version = _agent_version()
     headers = {
@@ -133,11 +163,88 @@ def run_agent(kept: Credentials) -> int:
         except OSError as exc:
             print(f"note: the agent's state was not written: {exc}", file=sys.stderr)
 
+    def lending() -> sharing.Sharing:
+        try:
+            return sharing.load()
+        except sharing.SharingError:
+            return sharing.Sharing()  # a file that does not read lends nothing
+
+    read: list[hardware.Report] = []
+
+    def read_hardware() -> hardware.Report:
+        report = hardware.read()
+        read[:] = [report]
+        return lending().lendable(report)
+
+    def last_report() -> hardware.Report:
+        return read[0] if read else hardware.read()
+
+    held: dict[str | None, inventory.Inventory] = {}
+
+    def models() -> inventory.Inventory:
+        folder = lending().models_dir
+        if folder not in held:
+            held.clear()
+            held[folder] = inventory.read(folder)
+        return held[folder]
+
+    uid, gid = os.getuid(), os.getgid()
+    owner = pooled.Owner(
+        uid=uid or NOBODY, gid=gid if uid else NOBODY, agent_pid=os.getpid()
+    )
+    box = outbox.Outbox()
+    sessions = session.Sessions(
+        docker=pooled.Pool(),
+        machine=session.Machine(
+            sharing=lending,
+            report=last_report,
+            inventory=models,
+            interfaces=tunnel.read_interfaces,
+            owner=owner,
+            cache_dir=roots.data_home() / "rpc-cache" if uid else None,
+            free_port=session.free_port,
+            head_health=session.head_health,
+        ),
+        send=box.put,
+    )
+    relays = relay.Relays(heads=sessions, send=box.put)
+    sessions.on_end(relays.session_ended)
+    dispatcher = commands.Dispatcher()
+    session.register(dispatcher, sessions)
+    relay.register(dispatcher, relays)
+    try:
+        for name in sessions.sweep():
+            print(f"removed {name}, left by an agent that is gone", file=sys.stderr)
+    except pooled.PoolError as exc:
+        if lending().enabled:
+            print(
+                f"note: this machine's containers were not read: {exc}", file=sys.stderr
+            )
+
+    def offer() -> protocol.Offer | None:
+        share = lending()
+        hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
+        return session.offer(share, models(), hosts, sessions.running())
+
+    def offline() -> None:
+        relays.cancel_all()
+        sessions.offline()
+
+    def on_exit() -> None:
+        relays.cancel_all()
+        sessions.close()
+
     running = agent.Agent(
         connect=connect,
-        read_hardware=hardware.read,
+        read_hardware=read_hardware,
         agent_version=version,
         on_status=on_status,
+        dispatcher=dispatcher,
+        outbox=box,
+        offer=offer,
+        on_online=sessions.online,
+        on_offline=offline,
+        on_exit=on_exit,
     )
 
     def stop(signum: int, frame: FrameType | None) -> None:
@@ -147,11 +254,20 @@ def run_agent(kept: Credentials) -> int:
         f"agent for {kept.hub} as {credentials.shown(kept.token)}; Ctrl-C stops it",
         file=sys.stderr,
     )
-    previous = signal.signal(signal.SIGTERM, stop)
+    share = lending()
+    if share.offered_roles():
+        print(
+            f"lending: {', '.join(share.offered_roles())} on {share.image}",
+            file=sys.stderr,
+        )
+    previous = {
+        sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGHUP)
+    }
     try:
         ended = running.run()
     finally:
-        signal.signal(signal.SIGTERM, previous)
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
     return int(Exit.OK if ended.stopped else Exit.ERROR)
 
 
@@ -295,6 +411,90 @@ def _leave(args: argparse.Namespace) -> int:
     return int(Exit.OK)
 
 
+def _maybe_number(text: str) -> int | None:
+    return None if text == "none" else int(text)
+
+
+def _share(args: argparse.Namespace) -> int:
+    from dataclasses import replace
+
+    from mcgyvr.rig import sharing
+
+    try:
+        kept = sharing.load()
+    except sharing.SharingError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        if args.on is None or args.on:
+            return int(Exit.REFUSED)
+        kept = sharing.Sharing()
+    changes: dict[str, object] = {}
+    try:
+        if args.on is not None:
+            changes["enabled"] = args.on
+        if args.image is not None:
+            changes["image"] = None if args.image == "none" else args.image
+        if args.roles is not None:
+            changes["roles"] = tuple(r for r in args.roles.split(",") if r)
+        if args.cards is not None:
+            changes["cards"] = (
+                None
+                if args.cards == "all"
+                else tuple(int(c) for c in args.cards.split(",") if c)
+            )
+        if args.max_vram_mb is not None:
+            changes["max_vram_mb"] = _maybe_number(args.max_vram_mb)
+        if args.max_ram_mb is not None:
+            changes["max_ram_mb"] = _maybe_number(args.max_ram_mb)
+        if args.models is not None:
+            changes["models_dir"] = (
+                None if args.models == "none" else os.path.abspath(args.models)
+            )
+        if args.endpoints is not None:
+            changes["endpoints"] = (
+                () if args.endpoints == "none" else tuple(args.endpoints.split(","))
+            )
+        if args.listen_port is not None:
+            changes["listen_port"] = args.listen_port
+        if args.cache is not None:
+            changes["cache"] = args.cache
+        if args.cache_max_mb is not None:
+            changes["cache_max_mb"] = args.cache_max_mb
+    except ValueError:
+        print("error: a number was asked for and something else given", file=sys.stderr)
+        return int(Exit.USAGE)
+    wanted = replace(kept, **changes)  # type: ignore[arg-type]
+    if wanted.enabled and wanted.image is None:
+        print(
+            "error: lending runs in an engine image; name it with --image",
+            file=sys.stderr,
+        )
+        return int(Exit.USAGE)
+    if changes:
+        try:
+            where = sharing.save(wanted)
+        except sharing.SharingError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return int(Exit.USAGE)
+        print(f"kept in {where}")
+    roles = wanted.offered_roles()
+    print(f"lending: {'on' if wanted.enabled else 'off'}")
+    print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
+    print(f"image:   {wanted.image or 'none'}")
+    cards = "all" if wanted.cards is None else ", ".join(map(str, wanted.cards))
+    print(f"cards:   {cards}")
+    vram = f"{wanted.max_vram_mb} MiB" if wanted.max_vram_mb else "all free"
+    print(f"vram:    {vram} per card")
+    print(f"ram:     {wanted.container_mb()} MiB per container")
+    print(f"models:  {wanted.models_dir or 'none (no head)'}")
+    endpoints = (
+        ", ".join(wanted.endpoints) if wanted.endpoints else "this machine's LAN"
+    )
+    print(f"tunnel:  udp {wanted.listen_port} on {endpoints}")
+    cache = f"up to {wanted.cache_max_mb} MiB" if wanted.cache else "off"
+    print(f"cache:   {cache}")
+    return int(Exit.OK)
+
+
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add the ``rig`` group to ``mcgyvr``'s subcommands."""
     rig = sub.add_parser("rig", help="publish this machine as a rig of a hub")
@@ -324,3 +524,24 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     status.set_defaults(func=_status)
     leave = verbs.add_parser("leave", help="forget the rig token here")
     leave.set_defaults(func=_leave)
+    share = verbs.add_parser(
+        "share", help="what this rig lends to the hub's sessions; change it"
+    )
+    switch = share.add_mutually_exclusive_group()
+    switch.add_argument("--on", dest="on", action="store_const", const=True)
+    switch.add_argument("--off", dest="on", action="store_const", const=False)
+    share.add_argument("--image", help="the engine image sessions run in (none)")
+    share.add_argument("--roles", help="worker, head, or worker,head")
+    share.add_argument("--cards", help="card indexes lent, comma separated, or all")
+    share.add_argument("--max-vram-mb", help="the most memory lent per card, or none")
+    share.add_argument(
+        "--max-ram-mb", help="the memory each container may take, or none"
+    )
+    share.add_argument("--models", help="the folder models are served from, or none")
+    share.add_argument("--endpoints", help="LAN addresses to be reached at, or none")
+    share.add_argument("--listen-port", type=int, help="the tunnel's UDP port")
+    cache = share.add_mutually_exclusive_group()
+    cache.add_argument("--cache", dest="cache", action="store_const", const=True)
+    cache.add_argument("--no-cache", dest="cache", action="store_const", const=False)
+    share.add_argument("--cache-max-mb", type=int, help="the worker cache's size")
+    share.set_defaults(func=_share, on=None, cache=None)
