@@ -638,6 +638,11 @@
       "says": "The heartbeat interval, in seconds, a rig agent keeps when the hub's hello ack names none: the hub's own default.",
       "reason": "a protocol or tool default"
     },
+    "rig/agent.py:EARLY_BEAT_S": {
+      "kind": "choice",
+      "says": "The soonest, in seconds, a heartbeat asked for early (a session ended) goes after the one before it.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
     "rig/agent.py:FRAMES_PER_SECOND": {
       "kind": "fact",
       "says": "Half the frames a second the hub takes on an agent channel, so a rig agent's answers never bring its channel near the hub's cap.",
@@ -647,6 +652,11 @@
       "kind": "estimate",
       "says": "How long, in seconds, a hub takes to ack a rig agent's hello; past it the agent gives up on the channel and starts a new session.",
       "moves_to": "hub_hello_ack_timeout_s"
+    },
+    "rig/agent.py:HURRY_S": {
+      "kind": "estimate",
+      "says": "The longest wait, in seconds, before the agent opens a new channel while its sessions wait out the hub's grace.",
+      "moves_to": "reconnect_hurry_s"
     },
     "rig/agent.py:MISSED_ACKS": {
       "kind": "choice",
@@ -906,6 +916,11 @@
     "rig/session.py:LOG_LINES": {
       "kind": "choice",
       "says": "How many lines of a session container's output a failure carries to the hub.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/session.py:SAID_KEPT": {
+      "kind": "choice",
+      "says": "How many of its sessions' frames a rig agent remembers by id, so the hub's unknown_session names the session it means.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
     "rig/session.py:STUN_ATTEMPTS": {

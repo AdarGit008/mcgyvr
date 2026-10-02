@@ -258,7 +258,10 @@ def run_agent(kept: Credentials) -> int:
         on_online=sessions.online,
         on_offline=offline,
         on_exit=on_exit,
+        hurry=sessions.waiting,
+        on_hub_error=sessions.hub_error,
     )
+    sessions.on_end(lambda ended: running.beat_soon())
 
     def stop(signum: int, frame: FrameType | None) -> None:
         running.stop()

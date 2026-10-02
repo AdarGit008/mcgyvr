@@ -50,6 +50,15 @@ hub's code — while the work is queued to the session's thread. Every command
 is idempotent: the same command again is answered the same and starts
 nothing more; the same session asked for something else is refused.
 
+When the agent's channel drops, a session waits for the hub for
+:attr:`Timing.grace_s` (the hub's own grace) while the agent hurries back
+(:meth:`Sessions.waiting`); the agent's hello names the sessions still
+running and the hub resumes those it knows. On the hub's return each says
+where it stands now (:meth:`Sessions.online`), since what it said while the
+channel was down was lost with it; one the hub does not know is torn down,
+whether the hub stops it or answers what it said of it with
+``unknown_session`` (:meth:`Sessions.hub_error`).
+
 Teardown is guaranteed, not hoped for. Whatever ends a session — a stop, a
 failure (the hub is told ``failed`` with a code and an excerpt of what the
 engine said), a hub that stays away past :attr:`Timing.grace_s`, the agent's
@@ -106,6 +115,9 @@ TRANSITIONS: dict[str, frozenset[str]] = {
 LIVE = frozenset(TRANSITIONS) - {"failed", "stopped"}
 #: How many ended sessions are remembered, for a query or a repeated stop.
 ENDED_KEPT = 16
+#: How many of the frames the sessions said are remembered by id, so a hub
+#: that answers one with ``unknown_session`` names the session it means.
+SAID_KEPT = 64
 #: How many lines of a container's output a failure carries.
 LOG_LINES = 60
 #: How much of a model file is read at a time for its digest, in bytes.
@@ -416,6 +428,7 @@ class Sessions:
         self._closed = False
         self._grace: threading.Timer | None = None
         self._ended_hooks: list[Callable[[str], None]] = []
+        self._said: dict[str, str] = {}  # frame id -> session id
 
     # -- what the agent asks -------------------------------------------------
 
@@ -454,11 +467,35 @@ class Sessions:
         return False
 
     def online(self) -> None:
-        """The hub is back: a session waiting out the grace is kept."""
+        """The hub is back: a session waiting out the grace is kept, and says
+        where it stands now."""
         with self._lock:
             if self._grace is not None:
                 self._grace.cancel()
                 self._grace = None
+            frames = [
+                self._status(found, None)
+                for found in self._sessions.values()
+                if found.state in LIVE
+            ]
+        for frame in frames:
+            self._say(frame)
+
+    def waiting(self) -> bool:
+        """Whether a session waits out the grace for the hub to return."""
+        with self._lock:
+            return self._grace is not None and self._live() is not None
+
+    def hub_error(self, error: protocol.Error) -> None:
+        """The hub refused a frame: one a session said, as ``unknown_session``,
+        means the hub does not know that session, and it is torn down."""
+        if error.code != SessionCode.UNKNOWN_SESSION or error.re is None:
+            return
+        with self._lock:
+            session_id = self._said.get(error.re)
+            found = self._sessions.get(session_id) if session_id else None
+            if found is not None and found.state in LIVE:
+                self._ask_stop(found)
 
     def offline(self) -> None:
         """The hub is gone: every session ends unless it returns within the
@@ -840,6 +877,16 @@ class Sessions:
     # -- the session's thread ------------------------------------------------
 
     def _say(self, frame: str) -> None:
+        try:
+            message = json.loads(frame)
+            said = message["id"], message["body"]["session_id"]
+        except (ValueError, KeyError, TypeError):
+            said = None
+        if said is not None:
+            with self._lock:
+                self._said[said[0]] = said[1]
+                while len(self._said) > SAID_KEPT:
+                    del self._said[next(iter(self._said))]
         self._send(frame)
 
     def _run(self, session: _Session) -> None:

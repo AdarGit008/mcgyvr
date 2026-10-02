@@ -33,8 +33,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   read-only root, a seccomp profile of their own, memory and process limits,
   and one mount (the worker's cache, the head's models read-only). The RPC
   server listens on the tunnel only; the head's API is published on loopback
-  only. A session is torn down on stop, on failure, when the hub stays away
-  past a grace, and when the agent ends; a tunnel whose agent died ends
+  only. When the channel drops, the hub and the rig keep the rig's sessions
+  for the hub's grace (30 s) while the agent hurries back; its hello names
+  the sessions still running, each says where it stands on the hub's
+  return, and one the hub does not know (it stops it, or answers
+  `unknown_session`) is torn down; a heartbeat goes as soon as an ended
+  session's memory is freed. A session is torn down on stop, on failure,
+  when the hub stays away past the grace, and when the agent ends; a tunnel whose agent died ends
   itself when its lease runs out and takes its engine with it, and the next
   agent removes what a dead one left. A head says `ready` only once it has
   answered one small warm-up request of the agent's own (a fresh engine's
