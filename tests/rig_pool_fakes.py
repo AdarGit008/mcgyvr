@@ -54,6 +54,9 @@ class FakeDocker:
     exits_on_start: set[str] = field(default_factory=set)
     logs_said: str = "engine said: load failed\n"
     fail_script: str | None = None
+    peer_silent: bool = False
+    transfer_said: str | None = None
+    peer_rx: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def ensure_tunnel_image(self) -> str:
@@ -85,6 +88,13 @@ class FakeDocker:
             raise PoolError("docker exec failed (1): nft said no")
         if script == pooled.PING_SCRIPT:
             return "0.512\n"
+        if script == pooled.TRANSFER_SCRIPT:
+            if self.transfer_said is not None:
+                return self.transfer_said
+            with self.lock:
+                if not self.peer_silent:
+                    self.peer_rx += 148
+                return f"{PEER_KEY}\t{self.peer_rx}\t4096\n"
         return "ok\n"
 
     def try_script(self, name: str, script: str, *args: str) -> bool:
@@ -249,6 +259,9 @@ class Pool:
     sessions: Any
     dispatcher: Any
     health: list[str]
+    warmed: list[tuple[int, int]] = field(default_factory=list)
+    warm_answers: list[bool] = field(default_factory=lambda: [True])
+    warm_with: Any = None
 
     def ask(
         self, kind: str, message_id: str = "c1", **body: Any
@@ -299,6 +312,15 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
     def head_health(port: int) -> str:
         return health.pop(0) if len(health) > 1 else health[0]
 
+    made: list[Pool] = []
+
+    def warm_up(port: int, ctx: int) -> bool:
+        pool = made[0]
+        pool.warmed.append((port, ctx))
+        if pool.warm_with is not None:
+            return bool(pool.warm_with(port, ctx))
+        return pool.warm_answers[0]
+
     machine = rs.Machine(
         sharing=lambda: sharing(tmp_path, **sharing_changes),
         report=report,
@@ -308,13 +330,15 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
         cache_dir=tmp_path / "cache",
         free_port=lambda: 18080,
         head_health=head_health,
+        warm_up=warm_up,
     )
     sessions = rs.Sessions(
         docker=docker, machine=machine, send=box.put, timing=rs.Timing.quick()
     )
     dispatcher = commands.Dispatcher()
     rs.register(dispatcher, sessions)
-    return Pool(docker, box, sessions, dispatcher, health)
+    made.append(Pool(docker, box, sessions, dispatcher, health))
+    return made[0]
 
 
 def prepared(pool: Pool, role: str = "worker") -> dict[str, Any]:

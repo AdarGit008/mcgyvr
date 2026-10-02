@@ -53,6 +53,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from mcgyvr.rig.sessionwire import WIREGUARD_KEY
 from mcgyvr.sandbox.image import DockerResult, DockerRunner, subprocess_runner
 
 #: The label every pooled container carries, and the labels that say whose.
@@ -236,6 +237,17 @@ ping -c 1 -W 2 -q "$1" >/dev/null
 ping -c 5 -i 0.2 -W 1 -q "$1" | awk -F/ '/min\/avg/ {print $4}'
 """
 
+#: What the tunnel has heard from each peer: WireGuard's byte counts per peer
+#: key (received, sent), read after one ping over the tunnel to each address
+#: given (``"$@"``), so a quiet peer is asked for a word first. An unanswered
+#: ping is no error here: the counts say whether anything came back.
+TRANSFER_SCRIPT = r"""for host in "$@"; do
+  ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
+done
+wait
+wg show wg0 transfer
+"""
+
 #: Run the engine (``"$@"``) only while the tunnel's interface lives.
 GUARD_SCRIPT = r""""$@" &
 child=$!
@@ -252,7 +264,13 @@ wait "$child"
 """
 
 _NAME_DIGEST = 12
+#: The most digits a byte count of ``wg`` is read with: past 2**64.
+_COUNT_DIGITS = 20
 _TUNNEL_LINE = re.compile(r"(public-key|address|gateway) (\S+)")
+#: A line of ``wg show … transfer``: a peer's key, bytes received, bytes sent.
+_TRANSFER_LINE = re.compile(
+    rf"({WIREGUARD_KEY.pattern})\t(\d{{1,{_COUNT_DIGITS}}})\t(\d{{1,{_COUNT_DIGITS}}})"
+)
 
 
 class PoolError(Exception):
@@ -540,6 +558,18 @@ def read_tunnel_hello(logs: str) -> TunnelHello | None:
         address=said["address"],
         gateway=said["gateway"],
     )
+
+
+def read_transfer(said: str) -> dict[str, int]:
+    """The bytes the tunnel received from each peer, by the peer's key, from
+    what :data:`TRANSFER_SCRIPT` printed; a line that does not read is left
+    out, so a peer it names counts as not heard from."""
+    heard: dict[str, int] = {}
+    for line in said.splitlines():
+        found = _TRANSFER_LINE.fullmatch(line.strip())
+        if found:
+            heard[found.group(1)] = int(found.group(2))
+    return heard
 
 
 @dataclass(frozen=True, kw_only=True)

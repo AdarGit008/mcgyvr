@@ -868,6 +868,11 @@
       "says": "How often, in seconds, a ready session looks at whether its containers still run.",
       "reason": "how often or how many times the product tries its own step again"
     },
+    "rig/session.py:Timing.peer_lost_s": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a living worker can go unheard over a session's tunnel, pinged when quiet; past it the head's session fails as no_path.",
+      "moves_to": "worker_silence_s"
+    },
     "rig/session.py:Timing.ping_s": {
       "kind": "estimate",
       "says": "How long, in seconds, a session's peers take to answer over the tunnel once it is up; past it no round trip is reported.",
@@ -903,6 +908,26 @@
       "says": "The longest a session's thread waits for its next step, in seconds, before it renews and looks.",
       "reason": "how often or how many times the product tries its own step again"
     },
+    "rig/session.py:Timing.warm_s": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a freshly loaded head takes to answer the agent's warm-up request; past it the session is ready without the answer.",
+      "moves_to": "head_warm_up_timeout_s"
+    },
+    "rig/session.py:WARM_UP_CONTEXT_SHARE": {
+      "kind": "estimate",
+      "says": "The divisor of a session's context that bounds the warm-up prompt, so prompt, template and answer fit any context.",
+      "moves_to": "warm_up_context_share"
+    },
+    "rig/session.py:WARM_UP_TOKENS": {
+      "kind": "estimate",
+      "says": "How many tokens the agent's warm-up request asks a freshly loaded head for.",
+      "moves_to": "warm_up_tokens"
+    },
+    "rig/session.py:WARM_UP_WORDS": {
+      "kind": "estimate",
+      "says": "The most words of the agent's own warm-up prompt to a freshly loaded head: enough for more than one of the engine's batches.",
+      "moves_to": "warm_up_prompt_words"
+    },
     "rig/session.py:_Session.checked_at": {
       "kind": "fact",
       "says": "When a session last looked at its containers, before it has.",
@@ -916,6 +941,11 @@
     "rig/session.py:_Session.renewed_at": {
       "kind": "fact",
       "says": "When a session last renewed its tunnel's lease, before it has.",
+      "reason": "where a count starts"
+    },
+    "rig/session.py:_Session.watched_at": {
+      "kind": "fact",
+      "says": "When a head last looked at its workers over the tunnel, before it has.",
       "reason": "where a count starts"
     },
     "rig/sessionwire.py:DEFAULT_GPU_LAYERS": {
@@ -1247,6 +1277,11 @@
       "kind": "choice",
       "says": "The most processes and threads a session's worker container may run.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "sandbox/pooled.py:_COUNT_DIGITS": {
+      "kind": "fact",
+      "says": "The most digits of a byte count WireGuard prints: a 64-bit counter.",
+      "reason": "the specification of a format, protocol or tool"
     },
     "sandbox/pooled.py:_NAME_DIGEST": {
       "kind": "choice",

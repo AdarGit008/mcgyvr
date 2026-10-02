@@ -17,8 +17,15 @@ of them (:func:`register` puts its handlers on the dispatcher):
   address and reachable by the session's peers only, and says ``ready`` when
   each listens;
 * ``head_start`` starts the model server on a model of this rig's own
-  inventory, on lent cards and the session's workers, and says ``loading``
-  then ``ready`` when its API answers;
+  inventory, on lent cards and the session's workers, and says ``loading``,
+  then ``ready`` once its API answers and has answered one warm-up request
+  of the agent's own (:func:`warm_up`: the first request a fresh engine
+  answers pays for what it does once per process, and that is not the
+  user's to wait for). While it starts, loads and serves, the head watches
+  its workers over the tunnel (:meth:`Sessions._watch`): a worker not heard
+  from for :attr:`Timing.peer_lost_s` fails the session as ``no_path`` (the
+  hub's code for a peer no path reaches) — an engine whose worker's rig is
+  gone is never told so, and would wait out its whole load;
 * ``session_query`` is answered with where the session stands;
   ``session_stop`` tears it down.
 
@@ -46,6 +53,7 @@ import contextlib
 import hashlib
 import http.client
 import ipaddress
+import json
 import os
 import queue
 import socket
@@ -84,6 +92,13 @@ DIGEST_CHUNK = 1 << 22
 HEALTH_TIMEOUT_S = 2.0
 #: How many times teardown looks again for what is left of a session.
 TEARDOWN_ROUNDS = 3
+#: The warm-up: at most this many words of prompt (about a token each, so
+#: more than one batch of the engine's), and this many tokens out.
+WARM_UP_WORDS = 600
+WARM_UP_TOKENS = 32
+#: The share of the session's context the warm-up's prompt may take, as a
+#: divisor: a quarter, so prompt, template and answer fit any context.
+WARM_UP_CONTEXT_SHARE = 4
 
 
 class Docker(Protocol):
@@ -123,6 +138,8 @@ class Timing:
     grace_s: float = 30.0
     stop_wait_s: float = 120.0
     ping_s: float = 30.0
+    peer_lost_s: float = 45.0
+    warm_s: float = 300.0
 
     @classmethod
     def quick(cls) -> Timing:
@@ -139,6 +156,8 @@ class Timing:
             grace_s=0.1,
             stop_wait_s=5.0,
             ping_s=0.5,
+            peer_lost_s=0.2,
+            warm_s=1.0,
         )
 
 
@@ -154,6 +173,7 @@ class Machine:
     cache_dir: Path | None
     free_port: Callable[[], int]
     head_health: Callable[[int], str]
+    warm_up: Callable[[int, int], bool]
 
 
 class _FailureError(Exception):
@@ -194,6 +214,8 @@ class _Session:
     thread: threading.Thread | None = None
     renewed_at: float = 0.0
     checked_at: float = 0.0
+    watched_at: float = 0.0
+    heard: dict[str, tuple[int, float]] = field(default_factory=dict)
 
     @property
     def tunnel_name(self) -> str:
@@ -222,6 +244,36 @@ def head_health(port: int) -> str:
     if status == http.HTTPStatus.OK:
         return "ok"
     return "loading" if status == http.HTTPStatus.SERVICE_UNAVAILABLE else "down"
+
+
+def warm_up(port: int, ctx: int, timeout: float = Timing().warm_s) -> bool:
+    """Send the head's loopback API on ``port`` one small chat completion of
+    the agent's own, sized to fit a context of ``ctx``; whether it answered
+    200. Nothing a user sent is in it, and nothing it answers is kept."""
+    words = max(1, min(WARM_UP_WORDS, ctx // WARM_UP_CONTEXT_SHARE - WARM_UP_TOKENS))
+    body = json.dumps(
+        {
+            "messages": [{"role": "user", "content": " ".join(["warm"] * words)}],
+            "max_tokens": WARM_UP_TOKENS,
+            "temperature": 0,
+            "stream": False,
+        }
+    ).encode()
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+    try:
+        connection.request(
+            "POST",
+            sessionwire.RELAY_PATHS["chat_completions"],
+            body=body,
+            headers={"Content-Type": "application/json"},
+        )
+        answer = connection.getresponse()
+        answer.read()
+        return answer.status == http.HTTPStatus.OK
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        connection.close()
 
 
 def _alive(pid: int) -> bool:
@@ -771,6 +823,8 @@ class Sessions:
 
     def _tick(self, session: _Session) -> None:
         self._renew(session)
+        if session.state == "ready":
+            self._watch(session)
         now = self._clock()
         if session.state != "ready" or now - session.checked_at < self.timing.monitor_s:
             return
@@ -782,6 +836,80 @@ class Sessions:
                     f"{name.rsplit('-', 1)[-1]}: the container ended",
                     self._docker.logs(name, LOG_LINES),
                 )
+
+    def _watch(self, session: _Session) -> None:
+        """A head's look at its workers, each :attr:`Timing.monitor_s`: a
+        worker the tunnel received bytes from since the last look is heard
+        from; one quiet since then is pinged over the tunnel first; one not
+        heard from for :attr:`Timing.peer_lost_s` is lost."""
+        if session.role != "head" or not session.rpc or session.plan is None:
+            return
+        now = self._clock()
+        if now - session.watched_at < self.timing.monitor_s:
+            return
+        session.watched_at = now
+        watched: dict[str, str] = {}
+        for host, _ in session.rpc:
+            peer = session.plan.peer_of(ipaddress.IPv4Address(host))
+            if peer is not None:
+                watched.setdefault(peer.public_key, host)
+        for key in watched:
+            session.heard.setdefault(key, (-1, now))
+        quiet = [
+            host
+            for key, host in watched.items()
+            if now - session.heard[key][1] >= self.timing.monitor_s
+        ]
+        try:
+            said = self._docker.run_script(
+                session.tunnel_name, pooled.TRANSFER_SCRIPT, *quiet
+            )
+        except pooled.PoolError:
+            said = ""
+        received = pooled.read_transfer(said)
+        now = self._clock()
+        for key, host in watched.items():
+            last, at = session.heard[key]
+            got = received.get(key)
+            if got is not None and got > last:
+                session.heard[key] = (got, now)
+            elif now - at > self.timing.peer_lost_s:
+                raise _FailureError(
+                    SessionCode.NO_PATH,
+                    f"the worker at {host} was not heard from over the tunnel "
+                    f"for {now - at:.0f} s",
+                    self._docker.logs(
+                        pooled.container_name(session.id, "head"), LOG_LINES
+                    ),
+                )
+
+    def _warm(self, session: _Session, name: str) -> None:
+        """Warm the loaded head (:func:`warm_up`) while the session lives on:
+        its lease renewed, its head and its workers watched."""
+        assert session.api_port is not None and session.head is not None
+        port, ctx = session.api_port, session.head.ctx
+        done = threading.Event()
+
+        def run() -> None:
+            try:
+                self.machine.warm_up(port, ctx)
+            finally:
+                done.set()
+
+        threading.Thread(target=run, daemon=True).start()
+        deadline = self._clock() + self.timing.warm_s
+        while True:
+            if self._docker.state(name) != "running":
+                raise _FailureError(
+                    SessionCode.START_FAILED,
+                    "the head ended while it was warmed",
+                    self._docker.logs(name, LOG_LINES),
+                )
+            if done.is_set() or self._clock() > deadline:
+                return
+            self._watch(session)
+            if self._pause(session):
+                return
 
     def _do_prepare(self, session: _Session) -> None:
         image = self._docker.ensure_tunnel_image()
@@ -994,6 +1122,7 @@ class Sessions:
                     "the head ended while loading",
                     self._docker.logs(name, LOG_LINES),
                 )
+            self._watch(session)
             if self.machine.head_health(session.api_port) == "ok":
                 break
             if self._clock() > deadline:
@@ -1004,6 +1133,9 @@ class Sessions:
                 )
             if self._pause(session):
                 return
+        self._warm(session, name)
+        if session.stopping.is_set():
+            return
         self._move(session, "ready")
         self._say(self._status(session, None))
 

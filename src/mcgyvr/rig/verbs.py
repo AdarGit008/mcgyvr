@@ -204,6 +204,7 @@ def run_agent(kept: Credentials) -> int:
             cache_dir=roots.data_home() / "rpc-cache" if uid else None,
             free_port=session.free_port,
             head_health=session.head_health,
+            warm_up=session.warm_up,
         ),
         send=box.put,
     )

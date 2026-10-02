@@ -36,8 +36,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   only. A session is torn down on stop, on failure, when the hub stays away
   past a grace, and when the agent ends; a tunnel whose agent died ends
   itself when its lease runs out and takes its engine with it, and the next
-  agent removes what a dead one left. The rig speaks the hub's protocol
-  schema as now published (pinned again).
+  agent removes what a dead one left. A head says `ready` only once it has
+  answered one small warm-up request of the agent's own (a fresh engine's
+  first request pays for its once-per-process work, kernels built for the
+  card on first use among them, and that is not the user's wait), and a
+  head whose worker goes silent over the tunnel fails as `no_path` within a
+  bounded silence instead of waiting out its whole load. The rig speaks the
+  hub's protocol schema as now published (pinned again).
 - `mcgyvr rig join <hub-url> --token <token>` publishes this machine as a rig
   of a hub: it keeps the rig token the hub showed (`--token -` reads it from
   stdin), opens the hub's agent channel, says hello with this machine's
