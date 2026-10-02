@@ -32,7 +32,7 @@ import difflib
 import json
 import subprocess
 from collections.abc import Iterator, Sequence
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from tree_sitter import Language, Node, Parser
 from tree_sitter_javascript import language as _js_language
@@ -55,6 +55,23 @@ from mcgyvr.gate.findings import Finding
 
 _ESLINT = "eslint"
 _PRETTIER = "prettier"
+
+# The file names each tool imports as its configuration: a module, so code.
+# Matched on the name alone, at any depth — prettier looks for its config from
+# each file's own directory up, and a flat eslint config may be found the same
+# way — so a nested one counts as much as one at the root. The legacy
+# `.eslintrc.js`/`.cjs` is listed because an eslint that still reads it runs it.
+_MODULE_SUFFIXES = (".js", ".cjs", ".mjs", ".ts", ".cts", ".mts")
+_CONFIG_MODULES = {
+    _ESLINT: frozenset(
+        {f"eslint.config{suffix}" for suffix in _MODULE_SUFFIXES}
+        | {".eslintrc.js", ".eslintrc.cjs"}
+    ),
+    _PRETTIER: frozenset(
+        {f"prettier.config{suffix}" for suffix in _MODULE_SUFFIXES}
+        | {f".prettierrc{suffix}" for suffix in _MODULE_SUFFIXES}
+    ),
+}
 
 # Grammars are built once at import — they are hard dependencies, cheap to
 # construct, and immutable, so a fresh Parser per parse is all a call needs.
@@ -93,6 +110,13 @@ class JavaScriptAdapter(LanguageAdapter):
 
     def running_in(self, runner: ToolRunner) -> JavaScriptAdapter:
         return JavaScriptAdapter(runner)
+
+    def loads_as_code(self, path: str) -> dict[str, str]:
+        name = PurePosixPath(path).name
+        rungs = {"lint": _ESLINT, "format": _PRETTIER}
+        return {
+            rung: tool for rung, tool in rungs.items() if name in _CONFIG_MODULES[tool]
+        }
 
     @property
     def name(self) -> str:

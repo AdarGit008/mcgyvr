@@ -1158,8 +1158,81 @@ def _judged(
     written and refused where it lands, for obeying its contract.
     """
     owners = tuple(adapters) if adapters is not None else _ADAPTERS()
+    # A rung whose tool would import this file as its configuration is not run
+    # here, in the user's checkout: that would run the task's code on the host
+    # (`not_rerun_here` says so to the user).
+    kept = tuple(
+        _Without(owner, frozenset(loads))
+        if (loads := owner.loads_as_code(change.path))
+        else owner
+        for owner in owners
+    )
     narrowed = ChangeSet(repo=root, base=base, files=(change,))
-    return Gate(owners).run(narrowed, contract_text=contract.prose)
+    return Gate(kept).run(narrowed, contract_text=contract.prose)
+
+
+def not_rerun_here(adapters: Sequence[LanguageAdapter] | None, path: str) -> str:
+    """The sentence saying which checker delivery left out for ``path``, or "".
+
+    A checker that imports ``path`` as its own configuration is not run over it
+    in the user's checkout, where it would run the task's code on the host. It
+    runs on it only where the task's commands ran, in the task's sandbox.
+    """
+    owners = tuple(adapters) if adapters is not None else _ADAPTERS()
+    tools = sorted(
+        {tool for owner in owners for tool in owner.loads_as_code(path).values()}
+    )
+    if not tools:
+        return ""
+    names = " and ".join(tools)
+    loads = "loads" if len(tools) == 1 else "load"
+    return (
+        f"not re-run here: {names} {loads} {path} as code, so it is checked by "
+        f"{names} only in the task's sandbox, never on this machine"
+    )
+
+
+class _Without(LanguageAdapter):
+    """``adapter`` with the named rungs (``lint``, ``format``) answering clean.
+
+    Only for delivery's re-judge of a file a rung's tool would load as code;
+    every other rung is the adapter's own.
+    """
+
+    def __init__(self, adapter: LanguageAdapter, rungs: frozenset[str]) -> None:
+        self._adapter = adapter
+        self._rungs = rungs
+
+    @property
+    def name(self) -> str:
+        return self._adapter.name
+
+    def owns(self, path: str) -> bool:
+        return self._adapter.owns(path)
+
+    def check_syntax(self, change: FileChange, repo: Path) -> list[Finding]:
+        return self._adapter.check_syntax(change, repo)
+
+    def structural_checks(
+        self, change: FileChange, repo: Path, *, contract_text: str = ""
+    ) -> list[Finding]:
+        return self._adapter.structural_checks(
+            change, repo, contract_text=contract_text
+        )
+
+    def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
+        return [] if "lint" in self._rungs else self._adapter.lint(changes, repo)
+
+    def format_check(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
+        if "format" in self._rungs:
+            return []
+        return self._adapter.format_check(changes, repo)
+
+    def locate_test_command(self, repo: Path) -> list[str] | None:
+        return self._adapter.locate_test_command(repo)
+
+    def locate_type_check_command(self, repo: Path) -> list[str] | None:
+        return self._adapter.locate_type_check_command(repo)
 
 
 def _unjudged(rungs: Sequence[InconclusiveRung]) -> str:

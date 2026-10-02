@@ -95,6 +95,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
+    from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.orchestrator.decompose import Decomposition
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
@@ -2212,6 +2213,7 @@ def _commit(
                 report.findings = [str(finding) for finding in exc.findings]
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
         print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
+        _say_not_rerun(adapters, contract.target)
         landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
         report.detail = f"change left in {contract.target}"
         return 0
@@ -2225,6 +2227,8 @@ def _commit(
         return _error(report, str(exc), outcome=DELIVERY_REFUSED)
 
     print(f"\n{delivery}")
+    if delivery.committed:
+        _say_not_rerun(adapters, delivery.path)
     report.committed = delivery.committed
     report.commit = delivery.commit
     report.branch = delivery.branch
@@ -2237,6 +2241,15 @@ def _commit(
     report.detail = delivery.reason
     report.findings = [str(finding) for finding in delivery.findings]
     return 1
+
+
+def _say_not_rerun(adapters: Sequence[LanguageAdapter], path: str) -> None:
+    """Print which checker delivery left out because it loads ``path`` as code."""
+    from mcgyvr.deliver import not_rerun_here
+
+    note = not_rerun_here(adapters, path)
+    if note:
+        print(f"  {note}")
 
 
 def _say_reported(bound: Accepted) -> None:

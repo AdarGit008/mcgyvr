@@ -24,7 +24,12 @@ against a repository. Two properties are load-bearing:
    The gate's checkers that load code from the workspace's own configuration
    (the type checker's plugins, eslint's and prettier's config modules) run
    where the task's commands run: in the task's container in docker mode, on
-   the host in tempdir mode. A source that is not a git repository is copied
+   the host in tempdir mode. Delivery judges the accepted file again in your
+   own checkout, on the host, and there it does not run eslint or prettier
+   over a file that tool would load as its own configuration
+   (`eslint.config.mjs`, `prettier.config.js` and the like); the run says so.
+   A module such a config imports by path is still loaded when the tool runs.
+   A source that is not a git repository is copied
    into the workspace without the files that hold secrets (dotenv files,
    keys, `.netrc`, cloud and SSH credential folders, registry logins), and
    the run names what it left behind.

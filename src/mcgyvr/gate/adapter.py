@@ -45,7 +45,7 @@ import shutil
 import subprocess
 import tempfile
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -218,6 +218,17 @@ class LanguageAdapter(ABC):
         which the gate hands it over a task's workspace.
         """
         return self
+
+    def loads_as_code(self, path: str) -> Mapping[str, str]:
+        """The rungs whose tool would import ``path`` as its configuration.
+
+        Rung (``lint``, ``format``) to the tool's name. Checking a tree loads
+        that tree's config, and a config module is code, so running the tool
+        over a change that *is* its config runs the change. Empty for an
+        adapter whose tools read their configuration as data, which is the
+        default; the Python adapter is one.
+        """
+        return {}
 
     def owned(self, changes: Sequence[FileChange]) -> list[FileChange]:
         """The subset of ``changes`` this adapter owns and can scan.
