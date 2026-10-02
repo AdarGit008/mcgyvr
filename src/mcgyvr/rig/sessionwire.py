@@ -107,6 +107,8 @@ class SessionCode:
     UPSTREAM_FAILED = "upstream_failed"
     TOO_LARGE = "too_large"
     CANCELLED = "cancelled"
+    MODEL_MISMATCH = "model_mismatch"
+    NO_PATH = "no_path"
 
 
 # --- what the hub sends ----------------------------------------------------------
