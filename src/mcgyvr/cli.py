@@ -2327,7 +2327,9 @@ def _serve(args: argparse.Namespace) -> int:
     than having its container killed under it — the one thing whole-card
     eviction is not allowed to do (D8 of the same plan). The census that
     decides *whether* to sleep is a reading and this is a hold, and between the
-    two a dispatch can start, which is why both exist.
+    two a dispatch can start, which is why both exist. Then the card goes down
+    the way the ladder manager puts one down (:func:`mcgyvr.wake.put_down`): at
+    vLLM's level 2 where every unit can, stopped otherwise.
     """
     try:
         config = load_config(Path(args.config) if args.config else None)
@@ -2368,13 +2370,22 @@ def _serve(args: argparse.Namespace) -> int:
 
     if not made.ok:
         print(
-            f"error: the door exited {made.code} bringing {made.host} "
-            f"{'up' if made.direction == 'up' else 'down'} — read its envelope "
-            f"under records/evidence/<date>-live-{made.host}/",
+            f"error: the door exited {made.code} on `serve {made.direction}` for "
+            f"{made.host} — read its envelope under "
+            f"records/evidence/<date>-live-{made.host}/",
             file=sys.stderr,
         )
         return Exit.ERROR
-    print(f"{made.host} {args.direction}: {made.seconds:.1f}s ({made.compose_file})")
+    how = {
+        "sleep": "resting at level 2, its processes kept",
+        "down": "stopped",
+        "wake": "woken in its processes",
+        "up": "started",
+    }.get(made.direction, made.direction)
+    print(
+        f"{made.host} {args.direction}: {how}, {made.seconds:.1f}s "
+        f"({made.compose_file})"
+    )
     return Exit.OK
 
 
@@ -3413,8 +3424,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "direction",
         choices=("sleep", "wake"),
         help=(
-            "sleep takes the whole card down after draining every slot it "
-            "serves; wake brings the launch spec back up"
+            "sleep drains every slot the card serves, then rests it at vLLM "
+            "level 2 where every unit is vLLM and has the sleep route, and "
+            "stops it otherwise; wake brings it back the way it went"
         ),
     )
     srv.add_argument(

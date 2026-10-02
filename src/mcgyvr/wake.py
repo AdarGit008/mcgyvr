@@ -728,13 +728,12 @@ def card_named(config: Config, host: str) -> Card:
 
 
 def sleep(config: Config, host: str) -> Wake:
-    """Take the whole card down, after draining every slot it serves.
+    """Put the whole card to sleep, after draining every slot it serves.
 
-    **Whole-card eviction is not a behaviour to build; it is the behaviour
-    ``serve down`` already has**, because the down step tears down every service
-    in the file it is given. On a host of co-residents that file is the host's
-    and the sentence is exact — every unit in it goes down together, in one door
-    run, and the operator never spells a container name.
+    The person's verb, and the manager's path (:func:`put_down`): a card whose
+    units are all vLLM rests at level 2 with its processes kept, and any other
+    card is stopped. Either way the whole card goes, in one door run, and the
+    operator never spells a container name.
 
     **The drain is the caller's and is not optional in practice.** An eviction
     takes all of the card's slots before it takes the card down, never
@@ -745,12 +744,36 @@ def sleep(config: Config, host: str) -> Wake:
     the capacity is, as ``capacity.drain(card.sources)`` around this call, and
     :func:`mcgyvr.cli._serve` is the worked example. Calling this without one is
     correct only where there is no capacity at all; with one and unused, it is
-    killing containers out from under requests that were already admitted.
+    putting a card down under requests that were already admitted.
     """
-    card = card_named(config, host)
+    return put_down(config, card_named(config, host))
+
+
+def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
+    """Sleep a vLLM card at level 2, and stop any other; inside the caller's drain.
+
+    One path for a person's ``mcgyvr serve sleep`` and the ladder manager's
+    :class:`CardSwitches`. A card all of whose units are vLLM is asked to sleep
+    first (``serve sleep``): the process stays, the weights and KV cache leave
+    the card, the card is marked resting (:func:`resting`), and the wake reads
+    them back without a container start. One that turns out to have no sleep
+    route — vLLM run without its development routes — is left exactly as it
+    was by that run, which says so with
+    :data:`~mcgyvr.serving.gatelib.NO_SLEEP_ROUTE`, and is stopped instead.
+    Any other engine has no sleep to ask for and is stopped. ``only`` is the
+    one unit of a shared vLLM card to sleep; the fallback stops the whole
+    card, which is the only stop there is.
+    """
     compose = compose_for(card)
     if compose is None:
         raise WakeError(_why_not_one(card))
+    if _all_vllm(config, card):
+        asked = _run_door(config, card, "sleep", compose, only=only)
+        if asked.code != NO_SLEEP_ROUTE:
+            return asked
+    # Whole-card eviction is not a behaviour to build; it is the behaviour
+    # ``serve down`` already has, because the down step tears down every
+    # service in the file it is given.
     return _run_door(config, card, "down", compose)
 
 
@@ -885,26 +908,8 @@ class CardSwitches:
             return False
 
     def _put_down(self, card: Card, only: tuple[str, ...]) -> bool:
-        """Sleep a vLLM card at level 2, and stop any other; inside the drain.
-
-        A card all of whose units are vLLM is asked to sleep first (``serve
-        sleep``): the process stays, the weights and KV cache leave the card,
-        and the wake reads them back without a container start. One that turns
-        out to have no sleep route — vLLM run without its development routes
-        — is left exactly as it was by that run, which says so with
-        :data:`~mcgyvr.serving.gatelib.NO_SLEEP_ROUTE`, and is stopped
-        instead. Any other engine has no sleep to ask for and is stopped.
-        ``only`` is the one unit of a shared vLLM card to sleep; the fallback
-        stops the whole card, which is the only stop there is.
-        """
-        if _all_vllm(self._config, card):
-            compose = compose_for(card)
-            if compose is None:
-                return False
-            asked = _run_door(self._config, card, "sleep", compose, only=only)
-            if asked.code != NO_SLEEP_ROUTE:
-                return asked.ok
-        return sleep(self._config, card.host).ok
+        """:func:`put_down`, inside the drain; ``False`` where it did not work."""
+        return put_down(self._config, card, only).ok
 
     def room_for(self, rung: str) -> tuple[str, ...]:
         """The co-resident units that must sleep before ``rung`` can wake.
