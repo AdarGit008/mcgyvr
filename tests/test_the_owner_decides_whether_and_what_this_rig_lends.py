@@ -4,10 +4,12 @@ Lending is off until the owner turns it on, and a file that does not read
 turns nothing on: it is refused by the field it gets wrong. On, a rig offers
 only the roles its owner allows — the head only with a models folder — in
 the engine image the owner names; it lends only the cards the owner lists,
-and never a card of a vendor the engine is not started on; the hub is told
-of a lent card's free memory at most the owner's cap and of a card not lent
-none, so it plans within them; and a hello carries the offer only while the
-rig lends. ``mcgyvr rig share`` keeps the settings and says them back.
+whole, and never a card of a vendor the engine is not started on; the hub is
+told of a lent card's free memory as it is and of a card not lent none, so it
+plans within them; and a hello carries the offer only while the rig lends.
+There is no cap on a lent card's memory: a card is lent whole or not at all,
+and a file kept with the cap that was is read with a note, not refused.
+``mcgyvr rig share`` keeps the settings and says them back.
 """
 
 from __future__ import annotations
@@ -45,7 +47,7 @@ def test_nothing_is_lent_until_the_owner_turns_it_on() -> None:
         ({"enabled": "yes"}, "enabled"),
         ({"roles": ["boss"]}, "roles"),
         ({"cards": [-1]}, "cards"),
-        ({"max_vram_mb": 0}, "max_vram_mb"),
+        ({"max_ram_mb": 0}, "max_ram_mb"),
         ({"models_dir": "relative/models"}, "models_dir"),
         ({"endpoints": ["not-an-address"]}, "endpoints"),
         ({"listen_port": 80}, "listen_port"),
@@ -86,10 +88,8 @@ def test_only_the_cards_the_owner_lists_of_the_engines_vendor_are_lent() -> None
 
 def test_the_hub_is_told_of_no_more_than_the_owner_lends() -> None:
     report = fakes.report()
-    told = fakes.sharing(None, cards=(1,), max_vram_mb=3000, max_ram_mb=4096).lendable(
-        report
-    )
-    assert [c.vram_free_mb for c in told.cards] == [0, 3000, 0]
+    told = fakes.sharing(None, cards=(1,), max_ram_mb=4096).lendable(report)
+    assert [c.vram_free_mb for c in told.cards] == [0, report.cards[1].vram_free_mb, 0]
     assert [c.vram_total_mb for c in told.cards] == [
         c.vram_total_mb for c in report.cards
     ]
@@ -156,8 +156,6 @@ def test_share_keeps_the_settings_and_says_them_back(
             "worker,head",
             "--cards",
             "0,1",
-            "--max-vram-mb",
-            "4000",
             "--max-ram-mb",
             "2048",
             "--models",
@@ -170,10 +168,11 @@ def test_share_keeps_the_settings_and_says_them_back(
     assert code == 0
     kept = sharing.load()
     assert kept.enabled and kept.image == "engine:rpc" and kept.cards == (0, 1)
-    assert (kept.max_vram_mb, kept.max_ram_mb, kept.cache) == (4000, 2048, False)
+    assert (kept.max_ram_mb, kept.cache) == (2048, False)
     assert kept.models_dir == str(models) and kept.endpoints == (fakes.LAN_ADDRESS,)
     said = capsys.readouterr().out
     assert "lending: on" in said and "roles:   head, worker" in said
+    assert "cards:   0, 1 (each lent whole)" in said
     assert cli.main(["rig", "share", "--off"]) == 0
     assert not sharing.load().enabled
 
@@ -187,3 +186,28 @@ def test_share_will_not_turn_on_without_an_engine_image(
     assert cli.main(["rig", "share", "--on"]) != 0
     assert "--image" in capsys.readouterr().err
     assert not sharing.load().enabled
+
+
+def test_a_card_is_lent_whole_and_the_cap_that_was_is_read_with_a_note(
+    _home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr import cli
+    from mcgyvr.rig import sharing
+
+    assert "max_vram_mb" not in sharing.Sharing.__dataclass_fields__
+    _home.mkdir(parents=True)
+    kept_with_cap = {"enabled": True, "image": "engine:rpc", "max_vram_mb": 3000}
+    (_home / sharing.SHARING_FILE).write_text(json.dumps(kept_with_cap))
+    kept = sharing.load()
+    assert kept.enabled and kept.image == "engine:rpc"
+    assert any("max_vram_mb" in note and "whole" in note for note in kept.notes)
+    report = fakes.report()
+    told = kept.lendable(report)
+    assert [c.vram_free_mb for c in told.cards][:2] == [
+        c.vram_free_mb for c in report.cards
+    ][:2]
+    sharing.save(kept)
+    assert "max_vram_mb" not in json.loads((_home / sharing.SHARING_FILE).read_text())
+    with pytest.raises(SystemExit):
+        cli.main(["rig", "share", "--max-vram-mb", "4000"])
+    assert "--max-vram-mb" in capsys.readouterr().err

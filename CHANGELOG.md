@@ -14,12 +14,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 - A rig can lend its cards to a hub's pooled-inference sessions, where one
   model's layers run across several rigs: `mcgyvr rig share --on --image
   <engine image>` turns it on (it is off until then) with the roles
-  (`worker`, `head`), cards, memory per card and per container, models
-  folder, LAN endpoints and tunnel port the owner allows, kept in
-  `$MCGYVR_HOME/rig-sharing.json`. The hello then offers those roles, the
-  endpoints, and the models under the folder by name only (size and what
-  planning reads from each GGUF header); the hub is told of no more free
-  memory than the owner lends. The agent answers the hub's session commands
+  (`worker`, `head`), cards (each lent whole: there is no cap on part of a
+  card's memory), memory per container, models folder, LAN endpoints and
+  tunnel port the owner allows, kept in `$MCGYVR_HOME/rig-sharing.json`. The
+  hello then offers those roles, the endpoints, and the models under the
+  folder by name only (size and what planning reads from each GGUF header);
+  the hub is told of a lent card's free memory as it is and of a card not
+  lent none. The agent answers the hub's session commands
   (prepare, tunnel up, start a worker or a head, query, stop) as one state
   machine per session, each command idempotent, and relays requests to the
   head's chat completions on loopback, streamed back within the hub's credit,

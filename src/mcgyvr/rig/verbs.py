@@ -260,6 +260,8 @@ def run_agent(kept: Credentials) -> int:
             f"lending: {', '.join(share.offered_roles())} on {share.image}",
             file=sys.stderr,
         )
+    for note in share.notes:
+        print(f"note: {note}", file=sys.stderr)
     previous = {
         sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGHUP)
     }
@@ -441,8 +443,6 @@ def _share(args: argparse.Namespace) -> int:
                 if args.cards == "all"
                 else tuple(int(c) for c in args.cards.split(",") if c)
             )
-        if args.max_vram_mb is not None:
-            changes["max_vram_mb"] = _maybe_number(args.max_vram_mb)
         if args.max_ram_mb is not None:
             changes["max_ram_mb"] = _maybe_number(args.max_ram_mb)
         if args.models is not None:
@@ -481,9 +481,7 @@ def _share(args: argparse.Namespace) -> int:
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
     print(f"image:   {wanted.image or 'none'}")
     cards = "all" if wanted.cards is None else ", ".join(map(str, wanted.cards))
-    print(f"cards:   {cards}")
-    vram = f"{wanted.max_vram_mb} MiB" if wanted.max_vram_mb else "all free"
-    print(f"vram:    {vram} per card")
+    print(f"cards:   {cards} (each lent whole)")
     print(f"ram:     {wanted.container_mb()} MiB per container")
     print(f"models:  {wanted.models_dir or 'none (no head)'}")
     endpoints = (
@@ -492,6 +490,8 @@ def _share(args: argparse.Namespace) -> int:
     print(f"tunnel:  udp {wanted.listen_port} on {endpoints}")
     cache = f"up to {wanted.cache_max_mb} MiB" if wanted.cache else "off"
     print(f"cache:   {cache}")
+    for note in wanted.notes:
+        print(f"note:    {note}")
     return int(Exit.OK)
 
 
@@ -532,8 +532,9 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     switch.add_argument("--off", dest="on", action="store_const", const=False)
     share.add_argument("--image", help="the engine image sessions run in (none)")
     share.add_argument("--roles", help="worker, head, or worker,head")
-    share.add_argument("--cards", help="card indexes lent, comma separated, or all")
-    share.add_argument("--max-vram-mb", help="the most memory lent per card, or none")
+    share.add_argument(
+        "--cards", help="card indexes lent, each whole, comma separated, or all"
+    )
     share.add_argument(
         "--max-ram-mb", help="the memory each container may take, or none"
     )
