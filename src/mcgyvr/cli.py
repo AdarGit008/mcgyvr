@@ -2426,12 +2426,12 @@ def _manage(args: argparse.Namespace) -> int:
         return _manage_held(args, config)
 
 
-def _card_mib(config: Config) -> dict[str, int]:
-    """Each card's memory in MiB from the recorded scans, for room-making.
+def _card_mib(config: Config) -> dict[str, dict[int, int]]:
+    """Each card's memory in MiB from the recorded scans, by host and card index.
 
     The scans ``emit`` sizes against, resolved to the hosts this ladder names
-    (:func:`_resolve_hosts`); a host with no scan, or with several cards, is not
-    in the answer, and the ladder manager then makes no room on it.
+    (:func:`_resolve_hosts`); a host with no scan is not in the answer, and the
+    ladder manager then makes no room on it and says so at start.
     """
     from mcgyvr import wake as wakelib
     from mcgyvr.serving import cards
@@ -2469,11 +2469,12 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     bounds = ladder_manager.Bounds.of(config)
     board = Board()
     view = ladder_manager.View.of(config, jev=fast.name)
+    switches = wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config))
     manager = ladder_manager.Manager(
         view,
         bounds,
         pressure=Pressure(pool, capacity, gauge),
-        switches=wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config)),
+        switches=switches,
         decide=ladder_manager.decide_on(
             pool,
             fast.name,
@@ -2488,6 +2489,10 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
         f"{', '.join(ladder_manager.sleepable_rungs(config))}; Jev runs on "
         f"{fast.name}; every {bounds.interval_s:g}s"
     )
+    for rung in ladder_manager.sleepable_rungs(config):
+        why = switches.why_no_room(rung)
+        if why is not None:
+            print(f"note: no room is made for {rung}: {why}")
     try:
         ladder_manager.run(
             manager, interval_s=bounds.interval_s, ticks=1 if args.once else None

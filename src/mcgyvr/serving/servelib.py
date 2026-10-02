@@ -47,6 +47,9 @@ class Service:
     name: str
     container: str
     port: int
+    #: The card ids the service reserves, as written (``emit`` writes one
+    #: index); empty where it reserves none.
+    devices: tuple[str, ...] = ()
 
 
 def services(compose: Path) -> tuple[Service, ...]:
@@ -82,9 +85,33 @@ def services(compose: Path) -> tuple[Service, ...]:
             raise ComposeError(
                 f"{compose}: service {name!r} states --port {raw!r}, not a number"
             ) from None
-        found.append(Service(name=str(name), container=container.strip(), port=port))
+        found.append(
+            Service(
+                name=str(name),
+                container=container.strip(),
+                port=port,
+                devices=_devices(block),
+            )
+        )
     if not found:
         raise ComposeError(f"{compose}: declares no services")
+    return tuple(found)
+
+
+def _devices(block: dict[object, object]) -> tuple[str, ...]:
+    """The card ids a service's ``deploy`` reservation names, as written.
+
+    Read, never required: the door starts a service whatever it reserves, and
+    a reservation in a shape this does not read names no card.
+    """
+    found: list[str] = []
+    node: object = block.get("deploy")
+    for key in ("resources", "reservations", "devices"):
+        node = node.get(key) if isinstance(node, dict) else None
+    for device in node if isinstance(node, list) else ():
+        ids = device.get("device_ids") if isinstance(device, dict) else None
+        if isinstance(ids, list):
+            found.extend(str(each) for each in ids)
     return tuple(found)
 
 

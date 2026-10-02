@@ -440,17 +440,18 @@ def _per_unit(config: Config, card: Card) -> bool:
     )
 
 
-def card_rooms(scans: Mapping[str, Scan]) -> dict[str, int]:
-    """Each scanned host's card memory in MiB, where the host has exactly one card.
+def card_rooms(scans: Mapping[str, Scan]) -> dict[str, dict[int, int]]:
+    """Each scanned host's card memory in MiB, by card index.
 
     The figure ``emit`` sizes a card against, from the scan ``mcgyvr scan``
-    recorded. A host with several cards is left out: the config says which host
-    a unit is on and not which card, so its card's size is not known.
+    recorded, keyed by the index the scan read the card at — the index ``emit``
+    reserves for a unit in its launch spec. Which card a unit is on is the
+    spec's to say, not the config's (:meth:`CardSwitches.room_for`).
     """
     return {
-        host: scan.gpus[0].vram.total_mib
+        host: {gpu.index: gpu.vram.total_mib for gpu in scan.gpus}
         for host, scan in scans.items()
-        if len(scan.gpus) == 1
+        if scan.gpus
     }
 
 
@@ -827,10 +828,14 @@ class CardSwitches:
     make room for another.
 
     **Room is arithmetic on facts already held.** :meth:`room_for` adds each
-    unit's ``room_mib`` and compares the sum with the card's memory, from the
-    host's recorded scan (``card_mib``, :func:`card_rooms`). Where the unit
-    waking does not fit beside its awake neighbours, the smallest of them sleep
-    first until it does. A missing figure is no answer, and no room is made.
+    unit's ``room_mib`` and compares the sum with the memory of the card the
+    waking unit is on, from the host's recorded scan (``card_mib``, by card
+    index, :func:`card_rooms`). The card a unit is on is the one its launch
+    spec reserves for it — what ``emit`` wrote and the door starts — so on a
+    host with several cards only the units on that card are neighbours. Where
+    the unit waking does not fit beside them, the smallest of them sleep first
+    until it does. A missing figure, or a card that cannot be told, is no
+    answer: no room is made, and :meth:`why_no_room` says why.
     """
 
     def __init__(
@@ -838,12 +843,12 @@ class CardSwitches:
         config: Config,
         capacity: Capacity,
         *,
-        card_mib: Mapping[str, int] | None = None,
+        card_mib: Mapping[str, Mapping[int, int]] | None = None,
     ) -> None:
         self._config = config
         self._capacity = capacity
         self._cards = cards(config)
-        self._card_mib = dict(card_mib or {})
+        self._card_mib = {host: dict(sizes) for host, sizes in (card_mib or {}).items()}
 
     def _allowed(self) -> bool:
         return bool(
@@ -905,34 +910,100 @@ class CardSwitches:
         """The co-resident units that must sleep before ``rung`` can wake.
 
         Only on a card of co-resident vLLM units, and only from figures held:
-        every unit's ``room_mib`` and the card's memory. Where the waking unit
-        and all its neighbours do not fit, the smallest neighbours are named
-        first until the rest would. ``()`` where they fit, or where a figure is
-        missing.
+        every unit's ``room_mib``, the card each is on and that card's memory.
+        Where the waking unit and its neighbours on its card do not fit, the
+        smallest neighbours are named first until the rest would. ``()`` where
+        they fit, or where there is no answer (:meth:`why_no_room`).
         """
+        return self._room(rung)[0]
+
+    def why_no_room(self, rung: str) -> str | None:
+        """Why no room can be reckoned for ``rung`` on its card, or ``None``.
+
+        ``None`` too where room is not a question: a card that acts whole.
+        """
+        return self._room(rung)[1]
+
+    def _room(self, rung: str) -> tuple[tuple[str, ...], str | None]:
         card = self._cards.get(rung)
         if card is None or not _per_unit(self._config, card):
-            return ()
-        size = self._card_mib.get(card.host)
+            return (), None
+        sizes = self._card_mib.get(card.host, {})
+        if not sizes:
+            return (), (
+                f"no recorded scan gives {card.host}'s card memory "
+                f"(`mcgyvr scan` records one)"
+            )
         rooms: dict[str, int] = {}
         for name in card.rungs:
             unit = self._config.units.get(name)
             if unit is None or unit.room_mib is None:
-                return ()
+                return (), f"{name} states no room_mib"
             rooms[name] = unit.room_mib
-        if size is None or rung not in rooms:
-            return ()
+        on = self._placement(card, sizes)
+        if isinstance(on, str):
+            return (), on
+        index = on[rung]
+        if index not in sizes:
+            return (), (
+                f"no recorded scan of {card.host} has card {index}, which {rung} is on"
+            )
         others = sorted(
-            (r for r in card.rungs if r != rung), key=lambda r: (rooms[r], r)
+            (r for r in card.rungs if r != rung and on[r] == index),
+            key=lambda r: (rooms[r], r),
         )
         total = rooms[rung] + sum(rooms[r] for r in others)
         making: list[str] = []
         for other in others:
-            if total <= size:
+            if total <= sizes[index]:
                 break
             making.append(other)
             total -= rooms[other]
-        return tuple(making)
+        return tuple(making), None
+
+    def _placement(self, card: Card, sizes: Mapping[int, int]) -> dict[str, int] | str:
+        """The card index each rung of ``card`` is on, or why it cannot be told.
+
+        Read from the reservation in the launch spec, matched by port as the
+        door matches it. A service that reserves no card is on the host's only
+        card, and on a host of several it is on a card nobody can name. A
+        service reserving several cards is a unit split across them, whose
+        share of each this does not reckon, and an id that is not an index is
+        not one a scan can be read at.
+        """
+        from mcgyvr.serving import servelib
+
+        compose = compose_for(card)
+        if compose is None:
+            return _why_not_one(card)
+        try:
+            by_port = {service.port: service for service in servelib.services(compose)}
+        except (servelib.ComposeError, OSError) as exc:
+            return f"its launch spec cannot be read: {exc}"
+        on: dict[str, int] = {}
+        for name in card.rungs:
+            service = by_port.get(port_of(self._config.units[name].address))
+            ids = service.devices if service is not None else ()
+            if not ids:
+                if len(sizes) == 1:
+                    on[name] = next(iter(sizes))
+                    continue
+                return (
+                    f"{compose.name} does not say which card {name} is on, and "
+                    f"{card.host} has {len(sizes)} cards"
+                )
+            if len(ids) > 1:
+                return (
+                    f"{name} is reserved more than one card ({', '.join(ids)}) "
+                    f"in {compose.name}, and room is reckoned one card at a time"
+                )
+            if not ids[0].isdigit():
+                return (
+                    f"{compose.name} names {name}'s card {ids[0]!r}, not by the "
+                    f"index a scan reads it at, so which card it is cannot be told"
+                )
+            on[name] = int(ids[0])
+        return on
 
     def card_of(self, rung: str) -> tuple[str, ...]:
         """The rungs a sleep of ``rung`` takes down: the unit alone on a card of
