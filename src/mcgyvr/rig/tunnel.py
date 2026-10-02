@@ -10,12 +10,16 @@ this machine and refuses, by name, any address the tunnel must not use:
   addresses would route the LAN into the tunnel;
 * every peer's allowed addresses must lie inside that network and not hold
   this rig's own address — an ``0.0.0.0/0`` would hand a peer every packet;
-* a peer is reached at the first of its endpoints that is a LAN address
-  (private, not loopback, link-local, multicast or reserved, outside the
-  tunnel's network and none of this machine's own); a host name, a public
-  address or anything else is skipped, and a peer with none is refused. Only
-  LAN endpoints are taken for now; the endpoint list keeps room for the
-  other kinds (``reflexive``, ``public``) a later traversal can add.
+* a peer's candidates are its endpoints this rig may be aimed at, in the
+  hub's order (:func:`candidates`): a ``lan`` endpoint at a LAN address, a
+  ``reflexive`` or ``public`` one at any address a rig may be at — never
+  loopback, link-local, multicast, reserved, unspecified, inside the
+  tunnel's network or one of this machine's own; a host name, an IPv6
+  address (the tunnel's namespace has none) or a kind this agent does not
+  walk is skipped. The hub hands out only addresses it vouches for (a LAN
+  address, or one it saw itself), and these checks hold whatever it hands;
+* a peer's relay grant is kept only when it names such an address, never a
+  name to resolve; a peer with neither a candidate nor a relay is refused.
 
 The endpoints this rig offers are its own LAN addresses (:func:`lan_hosts`),
 or the ones its owner named; :func:`read_interfaces` reads them from the
@@ -71,16 +75,50 @@ class RefusedError(Exception):
         self.message = message
 
 
+#: The endpoint kinds a tunnel walks, and the path each is reported as.
+PATHS = {"lan": "lan", "public": "direct", "reflexive": "direct"}
+
+
+@dataclass(frozen=True, kw_only=True)
+class Candidate:
+    """One address a peer may be reached at, as the hub named it."""
+
+    endpoint: sessionwire.Endpoint
+    host: ipaddress.IPv4Address
+    port: int
+
+    @property
+    def path(self) -> str:
+        return PATHS[self.endpoint.kind]
+
+
+@dataclass(frozen=True, kw_only=True)
+class RelayAim:
+    """A peer's relay grant, at an address this rig may send to."""
+
+    grant: sessionwire.RelayGrant
+    host: ipaddress.IPv4Address
+
+
 @dataclass(frozen=True, kw_only=True)
 class PeerPlan:
-    """One peer as the tunnel will be told of it."""
+    """One peer as the tunnel will be told of it: its candidates in order,
+    and its relay."""
 
     rig_id: str
     public_key: str
-    endpoint: ipaddress.IPv4Address
-    port: int
     keepalive_s: int
     allowed: tuple[ipaddress.IPv4Network, ...]
+    candidates: tuple[Candidate, ...]
+    relay: RelayAim | None = None
+
+    @property
+    def tunnel_host(self) -> ipaddress.IPv4Address | None:
+        """The peer's own address in the tunnel, when it has one alone."""
+        for net in self.allowed:
+            if net.prefixlen == net.max_prefixlen:
+                return net.network_address
+        return None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -92,13 +130,15 @@ class TunnelPlan:
     peers: tuple[PeerPlan, ...]
 
     def script_args(self) -> list[str]:
-        """The arguments :data:`mcgyvr.sandbox.pooled.TUNNEL_SCRIPT` takes."""
+        """The arguments :data:`mcgyvr.sandbox.pooled.TUNNEL_SCRIPT` takes:
+        each peer at its first candidate, or at none yet."""
         args = [str(self.address), str(self.listen_port)]
         for peer in self.peers:
+            first = peer.candidates[0] if peer.candidates else None
             args += [
                 peer.public_key,
-                str(peer.endpoint),
-                str(peer.port),
+                str(first.host) if first else "-",
+                str(first.port) if first else "0",
                 str(peer.keepalive_s),
                 ",".join(str(net) for net in peer.allowed),
             ]
@@ -164,26 +204,61 @@ def lan_hosts(
     )
 
 
-def _endpoint(
+def may_aim_at(
+    host: ipaddress.IPv4Address,
+    network: ipaddress.IPv4Network | None,
+    own: Sequence[ipaddress.IPv4Interface],
+) -> bool:
+    """Whether this rig may send a peer's (or a relay's, or a responder's)
+    packets to ``host``: an address a rig may be at, outside the tunnel's
+    ``network`` and none of this machine's own."""
+    return not (
+        host.is_loopback
+        or host.is_link_local
+        or host.is_multicast
+        or host.is_reserved
+        or host.is_unspecified
+        or (network is not None and host in network)
+        or any(host == mine.ip for mine in own)
+    )
+
+
+def _address(text: str) -> ipaddress.IPv4Address | None:
+    try:
+        return ipaddress.IPv4Address(text)
+    except ValueError:
+        return None
+
+
+def candidates(
     peer: sessionwire.TunnelPeer,
     network: ipaddress.IPv4Network,
     own: Sequence[ipaddress.IPv4Interface],
-) -> tuple[ipaddress.IPv4Address, int]:
+) -> tuple[Candidate, ...]:
+    """``peer``'s endpoints this rig may be aimed at, in the hub's order."""
+    found = []
     for endpoint in peer.endpoints:
-        try:
-            host = ipaddress.IPv4Address(endpoint.host)
-        except ValueError:
+        host = _address(endpoint.host)
+        if host is None or endpoint.kind not in PATHS:
             continue
-        if (
-            is_lan(host)
-            and host not in network
-            and all(host != mine.ip for mine in own)
-        ):
-            return host, endpoint.port
-    raise RefusedError(
-        sessionwire.SessionCode.TUNNEL_FAILED,
-        f"peer {peer.rig_id}: no endpoint this rig reaches peers at (a LAN address)",
-    )
+        if endpoint.kind == "lan" and not is_lan(host):
+            continue
+        if may_aim_at(host, network, own):
+            found.append(Candidate(endpoint=endpoint, host=host, port=endpoint.port))
+    return tuple(found)
+
+
+def _relay(
+    peer: sessionwire.TunnelPeer,
+    network: ipaddress.IPv4Network,
+    own: Sequence[ipaddress.IPv4Interface],
+) -> RelayAim | None:
+    if peer.relay is None:
+        return None
+    host = _address(peer.relay.host)
+    if host is None or not may_aim_at(host, network, own):
+        return None
+    return RelayAim(grant=peer.relay, host=host)
 
 
 def plan(
@@ -241,15 +316,21 @@ def plan(
                     f"peer {peer.rig_id}: allowed another peer's address",
                 )
             taken.append(net)
-        host, port = _endpoint(peer, network, own)
+        found = candidates(peer, network, own)
+        relay = _relay(peer, network, own)
+        if not found and relay is None:
+            raise RefusedError(
+                sessionwire.SessionCode.TUNNEL_FAILED,
+                f"peer {peer.rig_id}: no endpoint or relay this rig may reach it at",
+            )
         peers.append(
             PeerPlan(
                 rig_id=peer.rig_id,
                 public_key=peer.public_key,
-                endpoint=host,
-                port=port,
                 keepalive_s=peer.keepalive_s,
                 allowed=peer.allowed_ips,
+                candidates=found,
+                relay=relay,
             )
         )
     return TunnelPlan(address=address, listen_port=listen_port, peers=tuple(peers))

@@ -206,6 +206,7 @@ def run_agent(kept: Credentials) -> int:
             free_port=session.free_port,
             head_health=session.head_health,
             warm_up=session.warm_up,
+            bind_relay=session.bind_relay,
         ),
         send=box.put,
     )

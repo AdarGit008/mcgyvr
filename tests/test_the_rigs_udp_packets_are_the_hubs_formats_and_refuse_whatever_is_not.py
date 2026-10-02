@@ -258,3 +258,56 @@ def test_the_container_helper_runs_as_a_script_and_prints_round_trips(
         check=True,
     ).stdout.split()
     assert said[:3] == ["rtt", server[0], str(server[1])] and int(said[3]) > 0
+
+
+@pytest.mark.parametrize(
+    ("script", "expected"),
+    [
+        (["bound"], 40001),
+        (["refused"], "refused"),
+        (["foreign", "bound"], 40001),
+        (["silent"], None),
+        (["garbage", "bound"], 40001),
+    ],
+)
+def test_a_relay_bind_takes_only_the_relays_own_answer(
+    script: list[str], expected: object
+) -> None:
+    from mcgyvr.rig import udpwire as u
+
+    relay = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    relay.bind(("127.0.0.1", 0))
+    relay.settimeout(2.0)
+    foreign = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    foreign.bind(("127.0.0.2", 0))
+    got: list[bytes] = []
+
+    def serve() -> None:
+        try:
+            data, source = relay.recvfrom(4096)
+        except TimeoutError:
+            return
+        got.append(data)
+        for step in script:
+            if step == "bound":
+                relay.sendto(b"MCGR\x01\x02\x9c\x41", source)
+            elif step == "refused":
+                relay.sendto(b"MCGR\x01\x03\x01", source)
+            elif step == "foreign":
+                foreign.sendto(b"MCGR\x01\x02\x00\x07", source)
+            elif step == "garbage":
+                relay.sendto(bytes(4096), source)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    host, port = relay.getsockname()
+    answer = u.bind_relay(host, port, "T" * 30, attempts=1, wait_s=0.5)
+    thread.join()
+    relay.close()
+    foreign.close()
+    if expected == "refused":
+        assert answer == u.RelayRefused(reason=1)
+    else:
+        assert answer == expected
+    assert got and u.TICKET.fullmatch(got[0][8:38].decode())
+    assert len(got[0]) >= u.RELAY_BIND_MIN_BYTES

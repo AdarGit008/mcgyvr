@@ -239,6 +239,39 @@ def ask_bindings(
     return found
 
 
+def bind_relay(
+    host: str, port: int, ticket: str, *, attempts: int = 3, wait_s: float = 1.0
+) -> int | RelayRefused | None:
+    """Bind this rig's side of a relay: send ``ticket`` to ``host``:``port``
+    from a socket of its own, ``attempts`` times ``wait_s`` apart; the port the
+    relay bound, its refusal, or ``None`` when it never answered. Only an
+    answer from the relay asked is read. The relay admits the bind's source
+    address and latches the first packet from it, so the bind may leave by
+    any port of this machine's: the tunnel's packets leave by the same
+    address."""
+    packet = relay_bind(ticket)
+    target = (host, port)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        for _ in range(attempts):
+            sock.sendto(packet, target)
+            deadline = time.monotonic() + wait_s
+            while True:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    break
+                sock.settimeout(left)
+                try:
+                    data, source = sock.recvfrom(RECEIVE_BYTES)
+                except TimeoutError:
+                    break
+                if (source[0], source[1]) != target:
+                    continue
+                answer = read_relay_answer(data)
+                if answer is not None:
+                    return answer
+    return None
+
+
 def _servers(words: Sequence[str]) -> list[tuple[str, int]]:
     servers = []
     for host, port in zip(words[::2], words[1::2], strict=True):

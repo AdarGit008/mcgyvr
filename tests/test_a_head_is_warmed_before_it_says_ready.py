@@ -38,7 +38,7 @@ def _head(pool: Pool, ctx: int = 4096) -> None:
     prepared(pool, role="head")
     body = fakes.tunnel_up_body(address=f"{fakes.PEER}/24")
     body["peers"][0]["allowed_ips"] = [f"{fakes.SELF}/32"]
-    assert pool.ask("tunnel_up", "t1", **body)["type"] == "ack"  # type: ignore[index]
+    pool.up("t1", **body)
     ack = pool.ask(
         "head_start",
         "h1",

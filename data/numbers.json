@@ -893,15 +893,45 @@
       "says": "How long, in seconds, a loaded head's API takes to answer a health check on loopback.",
       "moves_to": "head_health_timeout_s"
     },
+    "rig/session.py:KEEP_EVERY_S": {
+      "kind": "estimate",
+      "says": "How often, in seconds, a tunnel's port sends the hub's responders a binding request until the tunnel comes up, so its NAT mapping stays the one the hub saw.",
+      "moves_to": "binding_keepalive_s"
+    },
+    "rig/session.py:KEEP_FOR_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a tunnel's port keeps its NAT mapping alive waiting for tunnel_up; past it the keeper ends on its own.",
+      "moves_to": "binding_keep_for_s"
+    },
     "rig/session.py:LOG_LINES": {
       "kind": "choice",
       "says": "How many lines of a session container's output a failure carries to the hub.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "rig/session.py:STUN_ATTEMPTS": {
+      "kind": "choice",
+      "says": "How many rounds of binding requests a tunnel's port sends the hub's responders before it answers without a round trip.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/session.py:STUN_WAIT_MS": {
+      "kind": "estimate",
+      "says": "How long, in milliseconds, a round of a tunnel's binding requests waits for the hub's responders.",
+      "moves_to": "stun_answer_wait_ms"
+    },
     "rig/session.py:TEARDOWN_ROUNDS": {
       "kind": "choice",
       "says": "How many times a session's teardown looks again for its containers and removes them.",
       "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/session.py:Timing.attempt_s": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a tunnel tries one of a peer's candidates when the hub's tunnel_up names no time.",
+      "moves_to": "candidate_attempt_s"
+    },
+    "rig/session.py:Timing.connect_s": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a tunnel walks its peers' candidates and relays when the hub's tunnel_up names no time.",
+      "moves_to": "tunnel_connect_timeout_s"
     },
     "rig/session.py:Timing.grace_s": {
       "kind": "estimate",
@@ -1352,6 +1382,16 @@
       "kind": "fact",
       "says": "The kind byte of a request in the hub's UDP formats.",
       "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:bind_relay(attempts)": {
+      "kind": "choice",
+      "says": "How many relay binds a rig sends before it takes the relay as silent.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/udpwire.py:bind_relay(wait_s)": {
+      "kind": "estimate",
+      "says": "How long, in seconds, one relay bind waits for the relay's answer.",
+      "moves_to": "relay_bind_wait_s"
     },
     "rig/verbs.py:CONNECT_TIMEOUT_S": {
       "kind": "estimate",

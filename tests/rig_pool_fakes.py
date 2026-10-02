@@ -57,6 +57,15 @@ class FakeDocker:
     peer_silent: bool = False
     transfer_said: str | None = None
     peer_rx: int = 0
+    #: The endpoints a WireGuard handshake completes at (None: every one), and
+    #: where WireGuard ends up when a peer's NAT moved the port.
+    answering: set[tuple[str, int]] | None = None
+    roams: dict[tuple[str, int], tuple[str, int]] = field(default_factory=dict)
+    aims: dict[str, tuple[str, int]] = field(default_factory=dict)
+    shaken: dict[str, tuple[str, int]] = field(default_factory=dict)
+    peers_said: str | None = None
+    stun_said: str = "rtt 203.0.113.9 3478 1500\n"
+    python: list[tuple[str, str, tuple[str, ...]]] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def ensure_tunnel_image(self) -> str:
@@ -88,6 +97,12 @@ class FakeDocker:
             raise PoolError("docker exec failed (1): nft said no")
         if script == pooled.PING_SCRIPT:
             return "0.512\n"
+        if script == pooled.TUNNEL_SCRIPT:
+            self._aim(args[2:], 5, lambda a: True)
+        if script == pooled.PATH_SCRIPT:
+            self._aim(args[1:], 5, lambda a: a[4] == "1")
+        if script == pooled.PEERS_SCRIPT:
+            return self._peers()
         if script == pooled.TRANSFER_SCRIPT:
             if self.transfer_said is not None:
                 return self.transfer_said
@@ -96,6 +111,40 @@ class FakeDocker:
                     self.peer_rx += 148
                 return f"{PEER_KEY}\t{self.peer_rx}\t4096\n"
         return "ok\n"
+
+    def _aim(self, args: Sequence[str], width: int, aims: Any) -> None:
+        with self.lock:
+            for at in range(0, len(args) - width + 1, width):
+                one = args[at : at + width]
+                if one[1] != "-" and aims(one):
+                    self.aims[one[0]] = (one[1], int(one[2]))
+
+    def _peers(self) -> str:
+        if self.peers_said is not None:
+            return self.peers_said
+        lines = ["now 1700000000"]
+        with self.lock:
+            for key, aim in self.aims.items():
+                if key not in self.shaken and (
+                    self.answering is None or aim in self.answering
+                ):
+                    self.shaken[key] = self.roams.get(aim, aim)
+            for key in self.aims:
+                lines.append(
+                    f"handshake {key}\t{1700000000 if key in self.shaken else 0}"
+                )
+                host, port = self.shaken.get(key, self.aims[key])
+                lines.append(f"endpoint {key}\t{host}:{port}")
+        return "\n".join(lines) + "\n"
+
+    def run_python(self, name: str, source: str, *args: str) -> str:
+        with self.lock:
+            self.python.append((name, "run", args))
+        return self.stun_said
+
+    def start_python(self, name: str, source: str, *args: str) -> None:
+        with self.lock:
+            self.python.append((name, "start", args))
 
     def try_script(self, name: str, script: str, *args: str) -> bool:
         with self.lock:
@@ -262,6 +311,28 @@ class Pool:
     warmed: list[tuple[int, int]] = field(default_factory=list)
     warm_answers: list[bool] = field(default_factory=lambda: [True])
     warm_with: Any = None
+    relay_port: int | None = 40001
+    relayed: list[Any] = field(default_factory=list)
+
+    def report(self, message_id: str = "t1") -> dict[str, Any]:
+        """The tunnel_report answering tunnel_up ``message_id``, once sent."""
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            found = [
+                f
+                for f in self.box.of_type("tunnel_report")
+                if f.get("re") == message_id
+            ]
+            if found:
+                return found[-1]
+            time.sleep(0.005)
+        raise AssertionError(f"no tunnel_report re {message_id} in {self.box.frames}")
+
+    def up(self, message_id: str = "t1", **body: Any) -> dict[str, Any]:
+        """Send tunnel_up; the tunnel_report that answers it."""
+        answer = self.ask("tunnel_up", message_id, **body)
+        assert answer is None, answer
+        return self.report(message_id)
 
     def ask(
         self, kind: str, message_id: str = "c1", **body: Any
@@ -314,6 +385,11 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
 
     made: list[Pool] = []
 
+    def bind_relay(grant: Any) -> int | None:
+        pool = made[0]
+        pool.relayed.append(grant)
+        return pool.relay_port
+
     def warm_up(port: int, ctx: int) -> bool:
         pool = made[0]
         pool.warmed.append((port, ctx))
@@ -331,6 +407,7 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
         free_port=lambda: 18080,
         head_health=head_health,
         warm_up=warm_up,
+        bind_relay=bind_relay,
     )
     sessions = rs.Sessions(
         docker=docker, machine=machine, send=box.put, timing=rs.Timing.quick()

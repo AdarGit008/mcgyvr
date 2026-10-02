@@ -3,7 +3,8 @@
 What the hub sends is untrusted, so each command is read against the schema
 and then against this rig: a model named with a path, or not on this rig; a
 tunnel network that is the LAN's own, or a peer allowed every address, or
-reached at a public, loopback or named host; an RPC device outside the
+reached only at a loopback or named host, a public address called a LAN
+one, or a kind of endpoint the agent does not walk; an RPC device outside the
 session's tunnel; a card the owner does not lend; a port no unprivileged
 server binds; a frame over the protocol's size; a command for a session this
 rig is not in, or for a second session while one runs; any session at all
@@ -46,7 +47,7 @@ def _head(pool: Pool) -> None:
     prepared(pool, role="head")
     body = fakes.tunnel_up_body(address=f"{fakes.PEER}/24")
     body["peers"][0]["allowed_ips"] = [f"{fakes.SELF}/32"]
-    assert pool.ask("tunnel_up", "t1", **body)["type"] == "ack"  # type: ignore[index]
+    pool.up("t1", **body)
 
 
 def _head_start(pool: Pool, **changes: Any) -> dict[str, Any] | None:
@@ -97,7 +98,7 @@ def test_a_card_the_owner_does_not_lend_is_not_capable(tmp_path: Path) -> None:
     made = make_pool(tmp_path, cards=(1,))
     try:
         prepared(made)
-        assert made.ask("tunnel_up", "t1", **fakes.tunnel_up_body())["type"] == "ack"  # type: ignore[index]
+        made.up("t1", **fakes.tunnel_up_body())
         for card in (0, 2, 9):  # not lent; another vendor's; not there
             answer = made.ask(
                 "worker_start",
@@ -114,7 +115,7 @@ def test_a_card_the_owner_does_not_lend_is_not_capable(tmp_path: Path) -> None:
 
 def test_a_port_no_unprivileged_server_binds_is_refused(pool: Pool) -> None:
     prepared(pool)
-    assert pool.ask("tunnel_up", "t1", **fakes.tunnel_up_body())["type"] == "ack"  # type: ignore[index]
+    pool.up("t1", **fakes.tunnel_up_body())
     answer = pool.ask(
         "worker_start", "w1", session_id="s1", cards=[{"card_index": 0, "port": 22}]
     )
@@ -147,7 +148,8 @@ def test_a_tunnel_on_addresses_it_must_not_use_is_refused(
         {"allowed_ips": ["0.0.0.0/0"]},
         {"allowed_ips": [f"{fakes.SELF}/32"]},
         {"allowed_ips": ["192.0.2.0/24"]},
-        {"endpoints": [{"host": PUBLIC, "port": 51820, "kind": "public"}]},
+        {"endpoints": [{"host": PUBLIC, "port": 51820, "kind": "lan"}]},
+        {"endpoints": [{"host": PUBLIC, "port": 51820, "kind": "unheard_of"}]},
         {"endpoints": [{"host": "127.0.0.1", "port": 51820, "kind": "lan"}]},
         {"endpoints": [{"host": "peer.invalid", "port": 51820, "kind": "lan"}]},
         {"endpoints": [{"host": fakes.LAN_ADDRESS, "port": 51820, "kind": "lan"}]},
