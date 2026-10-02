@@ -224,9 +224,11 @@ port=$(printf '%04X' "$2")
 grep -q " $hex:$port 00000000:0000 0A " /proc/net/tcp
 """
 
-#: The mean round trip to ``$1`` over the tunnel, in milliseconds.
+#: The mean round trip to ``$1`` over the tunnel, in milliseconds, once the
+#: tunnel's handshake is done: the first packet to a peer waits for it.
 PING_SCRIPT = r"""set -eu
-ping -c 3 -W 1 -q "$1" | awk -F/ '/min\/avg/ {print $4}'
+ping -c 1 -W 2 -q "$1" >/dev/null
+ping -c 5 -i 0.2 -W 1 -q "$1" | awk -F/ '/min\/avg/ {print $4}'
 """
 
 #: Run the engine (``"$@"``) only while the tunnel's interface lives.

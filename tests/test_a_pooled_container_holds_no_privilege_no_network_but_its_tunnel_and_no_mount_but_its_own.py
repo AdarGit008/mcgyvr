@@ -427,3 +427,14 @@ def test_the_head_script_reads_the_port_range_whole() -> None:
     script = pooled.OPEN_HEAD_SCRIPT
     assert "read " not in script
     assert "$(cat /proc/sys/net/ipv4/ip_local_port_range)" in script
+
+
+def test_the_round_trip_is_measured_after_the_handshake_not_with_it() -> None:
+    from mcgyvr.sandbox import pooled
+
+    # The first packet to a peer waits for WireGuard's handshake; a live run
+    # reported a third of a second for a tunnel whose warm round trip was 1 ms.
+    lines = pooled.PING_SCRIPT.splitlines()
+    warm = next(i for i, line in enumerate(lines) if "-c 1" in line)
+    measured = next(i for i, line in enumerate(lines) if "min\\/avg" in line)
+    assert warm < measured
