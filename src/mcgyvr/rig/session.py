@@ -131,10 +131,9 @@ TEARDOWN_ROUNDS = 3
 #: a session's tunnel through the rigs' NATs (``tunnel_up`` is answered
 #: ``tunnel_report``).
 FEATURES = ("probe", "traversal")
-#: The tunnel port's binding requests to the hub's responders: rounds, and
-#: how long each waits, in milliseconds; then one request each this many
-#: seconds until the tunnel comes up, for at most this long.
-STUN_ATTEMPTS = 3
+#: The tunnel port's binding requests to the hub's responders: how long each
+#: round waits, in milliseconds; then one request each this many seconds
+#: until the tunnel comes up, for at most this long.
 STUN_WAIT_MS = 500
 KEEP_EVERY_S = 15
 KEEP_FOR_S = 600
@@ -594,7 +593,9 @@ class Sessions:
                 listen_port=share.listen_port,
                 api_port=self.machine.free_port() if asked.role == "head" else None,
                 endpoints=tuple(
-                    sessionwire.Endpoint(host=h, port=share.listen_port, kind="lan")
+                    sessionwire.Endpoint(
+                        host=h, port=share.listen_port, kind=endpoint_kind(h)
+                    )
                     for h in hosts
                 ),
                 pending=[envelope.id],
@@ -1140,7 +1141,7 @@ class Sessions:
                 "stun",
                 port,
                 token,
-                str(STUN_ATTEMPTS),
+                str(udpwire.STUN_ATTEMPTS),
                 str(STUN_WAIT_MS),
                 *pairs,
             )
@@ -1550,6 +1551,13 @@ def endpoint_hosts(
     return hosts[: protocol.MAX_ENDPOINTS]
 
 
+def endpoint_kind(host: str) -> str:
+    """``lan`` for an address on a LAN, ``public`` for one the owner named
+    beyond it (a forwarded port, a public address)."""
+    found = _ipv4(host)
+    return "lan" if found is not None and tunnel.is_lan(found) else "public"
+
+
 def offer(
     share: sharing_module.Sharing,
     held: inventory.Inventory,
@@ -1563,7 +1571,9 @@ def offer(
     return protocol.Offer(
         roles=roles,
         runtime=share.image,
-        endpoints=tuple((host, share.listen_port, "lan") for host in hosts),
+        endpoints=tuple(
+            (host, share.listen_port, endpoint_kind(host)) for host in hosts
+        ),
         models=held.models if "head" in roles else (),
         sessions=running,
         features=FEATURES,

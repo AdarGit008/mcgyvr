@@ -238,3 +238,24 @@ def test_the_same_tunnel_up_again_is_answered_the_same_report(pool: Pool) -> Non
     other = pool.ask("tunnel_up", "t3", **_body([_reflexive()]))
     assert other is not None and other["body"]["code"] == "bad_message"
     assert len(_scripts(pool, "TUNNEL_SCRIPT")) == 1
+
+
+def test_an_address_the_owner_names_outside_the_lan_is_offered_as_public(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.rig import inventory, session
+
+    made = make_pool(tmp_path, endpoints=(fakes.LAN_ADDRESS, REFLEXIVE))
+    try:
+        prepared = _prepare(made)
+        assert prepared["body"]["endpoints"] == [
+            {"host": fakes.LAN_ADDRESS, "port": 51820, "kind": "lan"},
+            {"host": REFLEXIVE, "port": 51820, "kind": "public"},
+        ]
+        share = made.sessions.machine.sharing()
+        held = inventory.Inventory(folder=None, models=(), files={})
+        offer = session.offer(share, held, share.endpoints, ())
+        assert offer is not None
+        assert [kind for _, _, kind in offer.endpoints] == ["lan", "public"]
+    finally:
+        made.sessions.close()
