@@ -417,3 +417,13 @@ def test_the_tunnel_image_is_named_by_what_it_is_built_from() -> None:
     tag = pooled.tunnel_image()
     assert tag.startswith("mcgyvr-tunnel:") and len(tag.split(":")[1]) == 12
     assert "@sha256:" in pooled.TUNNEL_DOCKERFILE.splitlines()[0]
+
+
+def test_the_head_script_reads_the_port_range_whole() -> None:
+    from mcgyvr.sandbox import pooled
+
+    # busybox's `read` takes a /proc/sys file a byte at a time and gets nothing,
+    # which failed the head's firewall on a live rig; the range is read whole.
+    script = pooled.OPEN_HEAD_SCRIPT
+    assert "read " not in script
+    assert "$(cat /proc/sys/net/ipv4/ip_local_port_range)" in script

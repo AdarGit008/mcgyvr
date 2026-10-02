@@ -190,12 +190,16 @@ echo "open"
 #: rig's tunnel address, ``$2`` the bridge gateway (where the published API
 #: port's traffic comes from), then a worker's address and port per pair. A
 #: worker's answers are taken only on this namespace's ephemeral ports, where
-#: the head's own connections are, never on the API's.
+#: the head's own connections are, never on the API's. (The range is read whole
+#: with ``cat``: busybox's ``read`` reads a ``/proc/sys`` file a byte at a time
+#: and gets nothing.)
 OPEN_HEAD_SCRIPT = r"""set -eu
 self="$1"
 gateway="$2"
 shift 2
-read -r low high < /proc/sys/net/ipv4/ip_local_port_range
+range=$(cat /proc/sys/net/ipv4/ip_local_port_range)
+low=$(echo $range | cut -d' ' -f1)
+high=$(echo $range | cut -d' ' -f2)
 {
   echo "add rule inet mcgyvr input iifname eth0 ip saddr $gateway \
 tcp dport 8080 accept"
@@ -548,7 +552,7 @@ class Pool:
     def _call(self, args: Sequence[str], what: str) -> DockerResult:
         result = self._runner(list(args), None)
         if not result.ok:
-            said = " ".join(result.stderr.split())[:300]
+            said = " ".join((result.stderr or result.stdout).split())[:300]
             raise PoolError(f"docker {what} failed ({result.returncode}): {said}")
         return result
 
