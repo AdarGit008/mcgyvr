@@ -22,6 +22,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -151,6 +152,10 @@ def test_a_sink_takes_no_more_than_a_reading_needs() -> None:
     failed: dict[str, str] = {}
 
     def listen() -> None:
+        # A thread starts when the scheduler lets it: on a loaded machine the
+        # connect below can come before the sink listens. Start it late on
+        # purpose, so the test holds however late that is.
+        time.sleep(0.5)
         try:
             linktime.sink("127.0.0.1", port)
         except linktime.LinkTimeError as exc:
