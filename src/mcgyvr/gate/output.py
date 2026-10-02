@@ -11,9 +11,13 @@ validators on (gate seam 3, P1 generalize-the-core).
 the output file's own header and answers whether the bytes are a file of the
 declared media kind. Images are checked past the header — their dimensions
 must be present and positive, and the file must be structurally complete
-— while audio and video stay header-only until P2 adds their duration and
+— and audio is checked past the header too — duration must be determinable
+and positive for WAV, FLAC and MP3 (for MP3, a valid frame header whose
+first frame body fits), and page structure only for OGG, whose duration is
+deferred — while video stays header-only until P2 adds its duration and
 decode checks. A worker cannot fake a header, and a wrong-kind or empty
-output is refused by name. The other three name validators that land with P2;
+output is refused by name.
+The other three name validators that land with P2;
 their check names are pinned here so a contract declaring one is never
 silently treated as if the bar ran. Each raises
 :class:`~mcgyvr.gate.adapter.ToolUnavailableError`, and a check whose
@@ -59,9 +63,10 @@ GROUNDED = "grounded"
 _RIFF_FORMS = {b"WEBP": MEDIA_IMAGE, b"WAVE": MEDIA_AUDIO, b"AVI ": MEDIA_VIDEO}
 
 #: Plain-prefix signatures per kind. The first bytes that say "this is one of
-#: us". For images the check then goes past the signature (dimensions and
-#: decode completeness); audio and video remain header-only until P2 adds
-#: their duration and decode checks.
+#: us". For images and audio the check then goes past the signature
+#: (dimensions and decode completeness for images; duration and structural
+#: completeness for audio, with OGG page structure only); video remains
+#: header-only until P2 adds its duration and decode checks.
 _PREFIXES: dict[str, tuple[bytes, ...]] = {
     MEDIA_IMAGE: (
         b"\x89PNG\r\n\x1a\n",
@@ -125,6 +130,8 @@ def media_valid(path: Path, kind: str, label: str = "") -> list[Finding]:
     if _is_kind(data, kind):
         if kind == MEDIA_IMAGE:
             return _image_findings(name, data)
+        elif kind == MEDIA_AUDIO:
+            return _audio_findings(name, data)
         return []
     return [
         Finding(
@@ -176,6 +183,30 @@ def _image_findings(name: str, data: bytes) -> list[Finding]:
         return _bmp_findings(name, data)
     if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return _webp_findings(name, data)
+    return []
+
+
+def _audio_findings(name: str, data: bytes) -> list[Finding]:
+    """Deeper-than-header checks for an audio whose signature already matched.
+
+    Duration for WAV, FLAC and MP3 (for MP3, a valid frame header whose first
+    frame body fits) and page structure for OGG, whose duration is deferred: a
+    file whose header claims audio but whose duration cannot be determined for
+    the formats that state one, or whose page structure is cut short, is
+    refused by name. Every offset and mask lives inside the per-format checker
+    bodies, because a module-level numeric constant would flip ``output.py``'s
+    classification in ``tests/numbers_coverage.json`` to *judging*.
+    """
+    if data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WAVE":
+        return _wav_findings(name, data)
+    if data.startswith(b"fLaC"):
+        return _flac_findings(name, data)
+    if data.startswith(b"OggS"):
+        return _ogg_findings(name, data)
+    if data.startswith(b"ID3") or (
+        len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0
+    ):
+        return _mp3_findings(name, data)
     return []
 
 
@@ -507,6 +538,330 @@ def _webp_findings(name: str, data: bytes) -> list[Finding]:
             "the WEBP declares no dimensions: its first chunk is not VP8, VP8L or VP8X",
         )
     ]
+
+
+def _wav_findings(name: str, data: bytes) -> list[Finding]:
+    """WAV: a RIFF size that fits the file, fmt/data chunks, a positive duration."""
+    riff_size = int.from_bytes(data[4:8], "little")
+    if riff_size + 8 != len(data):
+        return [
+            _finding(
+                name,
+                "truncated",
+                "the WAV is truncated: its RIFF size does not match the file length",
+            )
+        ]
+    fmt = b""
+    data_size = -1
+    offset = 12
+    while offset + 8 <= len(data):
+        chunk_size = int.from_bytes(data[offset + 4 : offset + 8], "little")
+        payload_end = offset + 8 + chunk_size
+        if payload_end > len(data):
+            return [
+                _finding(
+                    name,
+                    "truncated",
+                    "the WAV is truncated: a chunk overruns the end of the file",
+                )
+            ]
+        fourcc = data[offset : offset + 4]
+        if fourcc == b"fmt ":
+            fmt = data[offset + 8 : payload_end]
+        elif fourcc == b"data":
+            data_size = chunk_size
+        offset = payload_end + (chunk_size % 2)
+    if not fmt or data_size < 0 or len(fmt) < 16 or data_size == 0:
+        return [
+            _finding(
+                name,
+                "bad-duration",
+                "the WAV declares no duration: its fmt or data chunk is missing, "
+                "short, or empty",
+            )
+        ]
+    sample_rate = int.from_bytes(fmt[4:8], "little")
+    byte_rate = int.from_bytes(fmt[8:12], "little")
+    if sample_rate == 0 or byte_rate == 0:
+        return [
+            _finding(
+                name,
+                "bad-duration",
+                "the WAV declares no duration: its sample rate or byte rate is zero",
+            )
+        ]
+    return []
+
+
+def _flac_findings(name: str, data: bytes) -> list[Finding]:
+    """FLAC: STREAMINFO first and complete, and a positive duration."""
+    if len(data) < 8:
+        return [
+            _finding(
+                name,
+                "truncated",
+                "the FLAC is truncated: its first metadata block header runs "
+                "off the end of the file",
+            )
+        ]
+    block_type = data[4] & 0x7F
+    length = int.from_bytes(data[5:8], "big")
+    payload_end = 8 + length
+    if payload_end > len(data):
+        return [
+            _finding(
+                name,
+                "truncated",
+                "the FLAC is truncated: its STREAMINFO block overruns the end "
+                "of the file",
+            )
+        ]
+    if block_type != 0:
+        return [
+            _finding(
+                name,
+                "bad-duration",
+                "the FLAC declares no duration: its first metadata block is "
+                "not STREAMINFO",
+            )
+        ]
+    if length != 34:
+        return [
+            _finding(
+                name,
+                "bad-duration",
+                "the FLAC declares no duration: its STREAMINFO block is not 34 bytes",
+            )
+        ]
+    value = int.from_bytes(data[18:26], "big")
+    sample_rate = (value >> 44) & 0xFFFFF
+    total_samples = value & 0xFFFFFFFFF
+    if sample_rate == 0 or total_samples == 0:
+        return [
+            _finding(
+                name,
+                "bad-duration",
+                "the FLAC declares no duration: its sample rate or total "
+                "samples is zero",
+            )
+        ]
+    return []
+
+
+def _mp3_findings(name: str, data: bytes) -> list[Finding]:
+    """MP3: a valid MPEG audio frame header whose first frame body fits.
+
+    The ID3v2 tag is skipped when present, then the audio region is scanned
+    for the first MPEG frame sync. A valid header (non-reserved version and
+    layer, a real bitrate index, a real sample-rate index) whose computed
+    frame length fits the file is enough for a duration to be determinable;
+    the numeric duration is never computed, but a frame whose body overruns
+    the end of the file is truncated.
+    """
+    audio_start = 0
+    if data.startswith(b"ID3"):
+        if len(data) < 10:
+            return [
+                _finding(
+                    name,
+                    "bad-duration",
+                    "the MP3 declares no duration: its ID3v2 header is cut short",
+                )
+            ]
+        # ID3v2.2 stores the tag size as three plain big-endian bytes; v2.3
+        # and v2.4 store it as four syncsafe bytes.
+        if data[3] == 2:
+            tag_size = int.from_bytes(data[6:9], "big")
+        else:
+            tag_size = (
+                (data[6] & 0x7F) << 21
+                | (data[7] & 0x7F) << 14
+                | (data[8] & 0x7F) << 7
+                | (data[9] & 0x7F)
+            )
+        audio_start = 10 + tag_size
+    for i in range(audio_start, len(data) - 2):
+        if data[i] == 0xFF and (data[i + 1] & 0xE0) == 0xE0:
+            b1 = data[i + 1]
+            b2 = data[i + 2]
+            version = (b1 >> 3) & 0x03
+            layer = (b1 >> 1) & 0x03
+            bitrate_index = (b2 >> 4) & 0x0F
+            samplerate_index = (b2 >> 2) & 0x03
+            if (
+                version == 1
+                or layer == 0
+                or bitrate_index in (0, 15)
+                or samplerate_index == 3
+            ):
+                return [
+                    _finding(
+                        name,
+                        "bad-duration",
+                        "the MP3 declares no duration: its first frame header "
+                        "is reserved or invalid",
+                    )
+                ]
+            padding = (b2 >> 1) & 0x01
+            sample_rates = {
+                3: [44100, 48000, 32000],
+                2: [22050, 24000, 16000],
+                0: [11025, 12000, 8000],
+            }
+            sample_rate = sample_rates[version][samplerate_index]
+            version_group = "mpeg1" if version == 3 else "mpeg2"
+            bitrates = {
+                ("mpeg1", 3): [
+                    32,
+                    64,
+                    96,
+                    128,
+                    160,
+                    192,
+                    224,
+                    256,
+                    288,
+                    320,
+                    352,
+                    384,
+                    416,
+                    448,
+                ],
+                ("mpeg1", 2): [
+                    32,
+                    48,
+                    56,
+                    64,
+                    80,
+                    96,
+                    112,
+                    128,
+                    160,
+                    192,
+                    224,
+                    256,
+                    320,
+                    384,
+                ],
+                ("mpeg1", 1): [
+                    32,
+                    40,
+                    48,
+                    56,
+                    64,
+                    80,
+                    96,
+                    112,
+                    128,
+                    160,
+                    192,
+                    224,
+                    256,
+                    320,
+                ],
+                ("mpeg2", 3): [
+                    32,
+                    48,
+                    56,
+                    64,
+                    80,
+                    96,
+                    112,
+                    128,
+                    144,
+                    160,
+                    176,
+                    192,
+                    224,
+                    256,
+                ],
+                ("mpeg2", 2): [
+                    8,
+                    16,
+                    24,
+                    32,
+                    40,
+                    48,
+                    56,
+                    64,
+                    80,
+                    96,
+                    112,
+                    128,
+                    144,
+                    160,
+                ],
+                ("mpeg2", 1): [
+                    8,
+                    16,
+                    24,
+                    32,
+                    40,
+                    48,
+                    56,
+                    64,
+                    80,
+                    96,
+                    112,
+                    128,
+                    144,
+                    160,
+                ],
+            }
+            bitrate_kbps = bitrates[(version_group, layer)][bitrate_index - 1]
+            samples = 384 if layer == 3 else 1152
+            frame_len = (samples * bitrate_kbps * 1000) // (8 * sample_rate) + padding
+            if i + frame_len > len(data):
+                return [
+                    _finding(
+                        name,
+                        "truncated",
+                        "the MP3 is truncated: its first frame body overruns "
+                        "the end of the file",
+                    )
+                ]
+            return []
+    return [
+        _finding(
+            name,
+            "bad-duration",
+            "the MP3 declares no duration: it has no MPEG audio frame header",
+        )
+    ]
+
+
+def _ogg_findings(name: str, data: bytes) -> list[Finding]:
+    """OGG: a first page complete enough to hold its header and segment table.
+
+    Duration is deferred to a later pass; only the page structure is checked.
+    """
+    if len(data) < 27:
+        return [
+            _finding(
+                name,
+                "truncated",
+                "the OGG is truncated: its first page header is cut short",
+            )
+        ]
+    if data[4] != 0:
+        return [
+            _finding(
+                name,
+                "truncated",
+                "the OGG is truncated: its first page declares a non-zero version",
+            )
+        ]
+    page_segments = data[26]
+    if len(data) < 27 + page_segments:
+        return [
+            _finding(
+                name,
+                "truncated",
+                "the OGG is truncated: its first page's segment table runs off "
+                "the end of the file",
+            )
+        ]
+    return []
 
 
 # --- the P2 validators, declared but not yet wired -------------------------

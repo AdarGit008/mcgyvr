@@ -3,8 +3,11 @@
 ``media_valid`` is the one check with a real validator in P1: it reads the
 output file's own bytes and answers whether they are a file of the declared
 media kind. Images are checked past the header — dimensions must be present
-and positive, and the file must be structurally complete — while audio
-and video stay header-only until P2 adds their duration and decode checks.
+and positive, and the file must be structurally complete — and audio is
+checked past the header too — duration must be determinable and positive for
+WAV, FLAC and MP3 (for MP3, a valid frame header whose first frame body
+fits), and page structure only for OGG, whose duration is deferred — while
+video stays header-only until P2 adds its duration and decode checks.
 
 The three other kinds (``safety_pass``, ``asr_wer``, ``grounded``) name
 validators that land with P2; this file pins their check names and their
@@ -34,9 +37,10 @@ from mcgyvr.gate.output import (
 )
 
 
-# Minimal, genuinely valid image files, generated with the standard library so
-# media_valid's deeper-than-header checks (dimensions, decode completeness)
-# have a real file to accept. Audio and video stay header-only for now.
+# Minimal, genuinely valid image and audio files, generated with the standard
+# library so media_valid's deeper-than-header checks (dimensions and decode
+# completeness for images, duration and structural completeness for audio)
+# have a real file to accept. Video stays header-only for now.
 def _png_chunk(kind: bytes, payload: bytes) -> bytes:
     return (
         struct.pack(">I", len(payload))
@@ -148,6 +152,48 @@ def _webp_vp8l(width: int = 2, height: int = 2) -> bytes:
     return b"RIFF" + struct.pack("<I", 4 + len(chunk)) + b"WEBP" + chunk
 
 
+def _syncsafe(size: int) -> bytes:
+    """An ID3v2 tag size as four syncsafe bytes (low seven bits, big-endian)."""
+    return bytes(
+        [(size >> 21) & 0x7F, (size >> 14) & 0x7F, (size >> 7) & 0x7F, size & 0x7F]
+    )
+
+
+def _wav(byte_rate: int = 88200) -> bytes:
+    fmt_payload = struct.pack("<HHIIHH", 1, 1, 44100, byte_rate, 2, 16)
+    fmt_chunk = b"fmt " + struct.pack("<I", len(fmt_payload)) + fmt_payload
+    data_chunk = b"data" + struct.pack("<I", 4) + b"\x00" * 4
+    body = b"WAVE" + fmt_chunk + data_chunk
+    return b"RIFF" + struct.pack("<I", len(body)) + body
+
+
+def _flac(sample_rate: int = 44100) -> bytes:
+    info = (sample_rate << 44) | (1 << 41) | (15 << 36) | 44100
+    payload = (
+        struct.pack(">HH", 4096, 4096)
+        + b"\x00\x00\x00"
+        + b"\x00\x00\x00"
+        + info.to_bytes(8, "big")
+        + b"\x00" * 16
+    )
+    return b"fLaC" + b"\x80" + (34).to_bytes(3, "big") + payload
+
+
+def _ogg() -> bytes:
+    return (
+        b"OggS"
+        + b"\x00"
+        + b"\x02"
+        + struct.pack("<Q", 0)
+        + struct.pack("<I", 1)
+        + struct.pack("<I", 0)
+        + struct.pack("<I", 0)
+        + b"\x01"
+        + b"\x01"
+        + b"\x00"
+    )
+
+
 def _jpeg_without_sof() -> bytes:
     sos = _jpeg_segment(0xDA, struct.pack(">B", 1) + b"\x01\x00" + b"\x00\x3f\x00")
     return b"\xff\xd8" + sos + b"\xff\xd9"
@@ -195,11 +241,12 @@ GIF = _gif()
 BMP = _bmp()
 WEBP = _webp()
 
-WAV = b"RIFF" + b"\x00\x00\x00\x00" + b"WAVE" + b"\x00" * 8
-MP3_ID3 = b"ID3\x04\x00" + b"\x00" * 16
-MP3_FRAME = b"\xff\xfb\x90\x64" + b"\x00" * 16
-FLAC = b"fLaC" + b"\x00" * 16
-OGG = b"OggS" + b"\x00" * 16
+WAV = _wav()
+# Structurally valid enough for the fields each check reads, not bit-accurate decodes.
+MP3_FRAME = b"\xff\xfb\x90\x64" + b"\x00" * 413
+MP3_ID3 = b"ID3\x04\x00\x00" + _syncsafe(16) + b"\x00" * 16 + MP3_FRAME
+FLAC = _flac()
+OGG = _ogg()
 
 MP4 = b"\x00\x00\x00\x14" + b"ftyp" + b"mp42" + b"\x00" * 8
 WEBM = b"\x1a\x45\xdf\xa3" + b"\x00" * 16
@@ -312,6 +359,46 @@ def test_a_png_whose_idat_stream_does_not_decompress_is_refused(
 )
 def test_every_known_audio_header_is_valid_audio(tmp_path: Path, data: bytes) -> None:
     assert media_valid(_file(tmp_path, "out.bin", data), MEDIA_AUDIO) == []
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        _wav(byte_rate=0),
+        _flac(sample_rate=0),
+        b"ID3\x04\x00\x00" + _syncsafe(16) + b"\x00" * 16 + b"\x00" * 32,
+        b"ID3\x04\x00\x00" + _syncsafe(0) + b"\xff\xeb\x90\x64",
+    ],
+    ids=[
+        "wav-zero-byte-rate",
+        "flac-zero-sample-rate",
+        "mp3-no-frame-header",
+        "mp3-reserved-frame-header",
+    ],
+)
+def test_audio_with_no_duration_info_is_refused(tmp_path: Path, data: bytes) -> None:
+    findings = media_valid(_file(tmp_path, "out.bin", data), MEDIA_AUDIO)
+    assert [f.code for f in findings] == ["bad-duration"]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        _wav()[:-1],
+        _flac()[:20],
+        b"OggS" + b"\x00" * 10,
+        b"\xff\xfb\x90\x64" + b"\x00" * 10,
+    ],
+    ids=[
+        "wav-riff-size-mismatch",
+        "flac-streaminfo-cut-short",
+        "ogg-short-page",
+        "mp3-header-only",
+    ],
+)
+def test_a_truncated_audio_file_is_refused(tmp_path: Path, data: bytes) -> None:
+    findings = media_valid(_file(tmp_path, "out.bin", data), MEDIA_AUDIO)
+    assert [f.code for f in findings] == ["truncated"]
 
 
 @pytest.mark.parametrize(
