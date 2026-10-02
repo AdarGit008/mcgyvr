@@ -44,7 +44,7 @@ import shlex
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -84,6 +84,37 @@ ENGINE_IMAGES = {
 # it.
 MOUNT = "/models"
 
+#: What a vLLM unit is started with where ``serving.enable_sleep_wake`` is on
+#: (:func:`sleep_mode`): the flag that lets it sleep at level 2, and the
+#: variable that registers the routes the door sleeps and wakes it through.
+VLLM_SLEEP_FLAG = "--enable-sleep-mode"
+VLLM_DEV_ROUTES = "VLLM_SERVER_DEV_MODE"
+
+#: What a launch spec written with sleep mode says first, because the variable
+#: it sets is a fact about who can reach the unit and not only about how it runs.
+SLEEP_MODE_NOTICE = """\
+# serving.enable_sleep_wake is on, so every vLLM unit below runs with
+# --enable-sleep-mode and VLLM_SERVER_DEV_MODE=1. That registers vLLM's
+# development routes on each unit's serving port -- /sleep, /wake_up,
+# /is_sleeping, /reset_prefix_cache, /collective_rpc and others -- and they are
+# unauthenticated: anyone who can reach the port can put the unit to sleep,
+# wake it or reset it. Keep the port reachable only by who should do that.
+"""
+
+
+def sleep_mode(config: Config) -> bool:
+    """Whether vLLM units are emitted with sleep mode: ``serving.enable_sleep_wake``.
+
+    One switch for two things on purpose. The level-2 sleep the ladder manager
+    uses needs the flag and the routes, and the routes are unauthenticated, so
+    a config that did not ask mcgyvr to sleep and wake cards does not get them.
+    """
+    return bool(config.get("serving.enable_sleep_wake"))
+
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.config import Config
+
 # Re-exported from :mod:`mcgyvr.serving`, where they are defined.
 __all__ = ["COMPOSE_PREFIX", "COMPOSE_SUFFIX", "safe_host", "safe_model"]
 
@@ -95,7 +126,7 @@ class EmitError(Exception):
     """A launch spec could not be rendered — for a host, an engine or a path."""
 
 
-def argv(unit: Unit) -> tuple[str, ...]:
+def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     """The launch arguments, once, so the two renderings cannot drift.
 
     Flag then value, ordered by flag: :class:`~mcgyvr.serving.Unit` carries its
@@ -118,6 +149,9 @@ def argv(unit: Unit) -> tuple[str, ...]:
     a dead unit, or as two models on one host where the second never came up
     because the first already had 8080. Written here, in the one argv, so the
     compose file and the pasted command cannot disagree about it.
+
+    ``sleep_mode`` adds vLLM's ``--enable-sleep-mode`` (:func:`sleep_mode`), and
+    only for a vLLM unit: llama.cpp has no such mode.
     """
     flags = {**unit.args, "--port": str(unit.port)}
     # vLLM takes the model as its first positional argument, and it is the
@@ -126,9 +160,11 @@ def argv(unit: Unit) -> tuple[str, ...]:
     # order it said it: a flag repeated there overrides, which is what
     # "verbatim" has to mean for an argv the engine reads left to right.
     lead = (unit.model,) if unit.engine == "vllm" else ()
+    sleeps = (VLLM_SLEEP_FLAG,) if sleep_mode and unit.engine == "vllm" else ()
     parts = (
         *lead,
         *(part for flag in sorted(flags) for part in (flag, str(flags[flag]))),
+        *sleeps,
         *unit.extra,
     )
     for part in parts:
@@ -140,7 +176,7 @@ def argv(unit: Unit) -> tuple[str, ...]:
     return parts
 
 
-def render_command(unit: Unit) -> str:
+def render_command(unit: Unit, *, sleep_mode: bool = False) -> str:
     """The unit as one command line an operator can paste into a shell.
 
     The binary and then :func:`argv`, shell-quoted. Quoting is what keeps the
@@ -157,10 +193,11 @@ def render_command(unit: Unit) -> str:
     compose file says — image, mounts, device reservation — is Docker's way of
     arranging what a person on the machine has already arranged.
     """
-    return shlex.join((*_command(unit), *argv(unit)))
+    routes = (f"{VLLM_DEV_ROUTES}=1",) if sleep_mode and unit.engine == "vllm" else ()
+    return shlex.join((*routes, *_command(unit), *argv(unit, sleep_mode=sleep_mode)))
 
 
-def render_compose(unit: Unit | None) -> str:
+def render_compose(unit: Unit | None, *, sleep_mode: bool = False) -> str:
     """The unit as a one-service compose file.
 
     ``None`` is the shape a caller gets back for a host nobody has measured,
@@ -174,10 +211,12 @@ def render_compose(unit: Unit | None) -> str:
             "no serving unit to render: the host is unscanned, and a launch spec "
             "for a machine nobody measured would be a guess wearing a file name"
         )
-    return _document((unit,))
+    return _document((unit,), sleep_mode=sleep_mode)
 
 
-def emit_all(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
+def emit_all(
+    units: Iterable[Unit], root: Path, *, sleep_mode: bool = False
+) -> tuple[Path, ...]:
     """Write one compose file per launch spec under ``root``. Returns what was written.
 
     A launch spec is a set of units that come up **together**, which is usually
@@ -195,7 +234,7 @@ def emit_all(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
     """
     root.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    for path, document in _planned(units, root):
+    for path, document in _planned(units, root, sleep_mode=sleep_mode):
         path.write_text(document, encoding="utf-8")
         written.append(path)
     return tuple(written)
@@ -244,7 +283,9 @@ class Drift:
         )
 
 
-def check_all(units: Iterable[Unit], root: Path) -> tuple[Drift, ...]:
+def check_all(
+    units: Iterable[Unit], root: Path, *, sleep_mode: bool = False
+) -> tuple[Drift, ...]:
     """Which of ``root``'s compose files are not what ``units`` would write.
 
     The other half of :func:`emit_all`, sharing its plan so that the comparison
@@ -264,10 +305,12 @@ def check_all(units: Iterable[Unit], root: Path) -> tuple[Drift, ...]:
     conjured an empty directory would report every file missing from a place
     it had just invented.
     """
-    return _drifts(_planned(units, root))
+    return _drifts(_planned(units, root, sleep_mode=sleep_mode))
 
 
-def planned_paths(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
+def planned_paths(
+    units: Iterable[Unit], root: Path, *, sleep_mode: bool = False
+) -> tuple[Path, ...]:
     """The files :func:`emit_all` would write, without rendering an opinion.
 
     For a reporter that wants to name them — a clean ``--check`` says which
@@ -275,10 +318,12 @@ def planned_paths(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
     ``compose.<host>.yml`` itself, which is not the name of every spec: a host
     may hold alternatives.
     """
-    return tuple(path for path, _ in _planned(units, root))
+    return tuple(path for path, _ in _planned(units, root, sleep_mode=sleep_mode))
 
 
-def unplanned(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
+def unplanned(
+    units: Iterable[Unit], root: Path, *, sleep_mode: bool = False
+) -> tuple[Path, ...]:
     """Launch specs on disk for a rig this ladder binds that this config does not write.
 
     **The third answer, and it is neither of the two :func:`check_all` gives.**
@@ -305,7 +350,7 @@ def unplanned(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
     """
     units = tuple(units)
     hosts = {unit.host for unit in units}
-    planned = {path.name for path in planned_paths(units, root)}
+    planned = {path.name for path in planned_paths(units, root, sleep_mode=sleep_mode)}
     found: list[Path] = []
     for host in sorted(hosts):
         found.extend(
@@ -314,7 +359,9 @@ def unplanned(units: Iterable[Unit], root: Path) -> tuple[Path, ...]:
     return tuple(sorted(set(found)))
 
 
-def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
+def _planned(
+    units: Iterable[Unit], root: Path, *, sleep_mode: bool = False
+) -> tuple[tuple[Path, str], ...]:
     """Every (path, document) pair a ladder's units resolve to, path-sorted.
 
     Shared so that writing and checking cannot disagree about grouping, naming
@@ -357,11 +404,11 @@ def _planned(units: Iterable[Unit], root: Path) -> tuple[tuple[Path, str], ...]:
         # check.
         if path.resolve().parent != root.resolve():
             raise EmitError(f"{spec.host}: would write outside {root}")
-        planned.append((path, _document(spec.units)))
+        planned.append((path, _document(spec.units, sleep_mode=sleep_mode)))
     return tuple(sorted(planned, key=lambda pair: pair[0].name))
 
 
-def _document(units: tuple[Unit, ...]) -> str:
+def _document(units: tuple[Unit, ...], *, sleep_mode: bool = False) -> str:
     """The compose document for one host's units, sorted throughout.
 
     Two units that spell one service name are refused rather than merged.
@@ -384,9 +431,12 @@ def _document(units: tuple[Unit, ...]) -> str:
                 f"compose service {name!r}, and a file with one service starts "
                 "one of them — rename a model so the two spell differently"
             )
-        services[name] = _service(unit)
+        services[name] = _service(unit, sleep_mode=sleep_mode)
     _sequence_on_one_card(units, services)
-    return yaml.safe_dump({"services": services}, sort_keys=True, width=200)
+    document = yaml.safe_dump({"services": services}, sort_keys=True, width=200)
+    if sleep_mode and any(unit.engine == "vllm" for unit in units):
+        return SLEEP_MODE_NOTICE + document
+    return document
 
 
 def _sequence_on_one_card(
@@ -481,7 +531,7 @@ def _healthcheck(port: int) -> dict[str, object]:
     }
 
 
-def _service(unit: Unit) -> dict[str, object]:
+def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     """One unit as a compose service.
 
     The device reservation names the cards the scan actually found rather than
@@ -491,7 +541,7 @@ def _service(unit: Unit) -> dict[str, object]:
     """
     _check_role(unit)
     if unit.engine == "vllm":
-        return _vllm_service(unit)
+        return _vllm_service(unit, sleep_mode=sleep_mode)
     if unit.role == ROLE_RPC:
         return _rpc_service(unit)
     return {
@@ -566,7 +616,7 @@ def _environment(base: dict[str, str], unit: Unit) -> dict[str, str]:
     return merged
 
 
-def _vllm_service(unit: Unit) -> dict[str, object]:
+def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     """A vLLM unit as a compose service.
 
     The weights are a repository id resolved in the rig's HuggingFace cache,
@@ -574,14 +624,20 @@ def _vllm_service(unit: Unit) -> dict[str, object]:
     path so the id resolves with no further flag — and the server is started
     offline, so a rig never downloads at load. ``ipc: host`` is what vLLM's
     own image documents for its shared-memory tensors.
+
+    With ``sleep_mode`` the unit also runs with vLLM's sleep flag and its
+    development routes (:data:`SLEEP_MODE_NOTICE` says what that exposes).
     """
+    environment = {"HF_HUB_OFFLINE": "1"}
+    if sleep_mode:
+        environment[VLLM_DEV_ROUTES] = "1"
     return {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
-        "command": list(argv(unit)),
+        "command": list(argv(unit, sleep_mode=sleep_mode)),
         "network_mode": "host",
         "ipc": "host",
-        "environment": _environment({"HF_HUB_OFFLINE": "1"}, unit),
+        "environment": _environment(environment, unit),
         "restart": "unless-stopped",
         "volumes": [f"{unit.weights_dir}:{HF_CACHE_MOUNT}:ro"],
         "deploy": _reservation(*unit.cards),

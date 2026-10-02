@@ -47,6 +47,12 @@ DOOR = (
 DOOR_FILE = "mcgyvr/serving/run.py"
 DOOR_MODULE = "mcgyvr.serving.run"
 
+#: What ``serve sleep`` exits with when a unit of the card has no sleep route:
+#: nothing was asked of any unit, every container is as it was, and the caller
+#: may stop the card with ``serve down`` instead. Its own code, apart from the
+#: door's 1 (a result) and 2 (a refusal), because it asks for a different act.
+NO_SLEEP_ROUTE = 3
+
 #: The ssh options this shim knows consume the next argument. Anything else
 #: beginning with `-` is read as a flag.
 SSH_TAKES_VALUE = frozenset("bcDeEFiIJlLmoOpPQRSwW")

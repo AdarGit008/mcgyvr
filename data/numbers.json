@@ -514,6 +514,11 @@
       "says": "The width comments in a written setup file are wrapped to.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "ladder_manager.py:_Streak.count": {
+      "kind": "fact",
+      "says": "A run of identical answers from the ladder manager's model starts at none.",
+      "reason": "where a count starts"
+    },
     "orchestrator/cache.py:CACHE_VERSION": {
       "kind": "choice",
       "says": "The version of the index cache's format on disk; a cache of another version is rebuilt.",
