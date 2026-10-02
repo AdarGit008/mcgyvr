@@ -238,19 +238,22 @@ def test_the_gate_folds_output_check_findings(tmp_path: Path) -> None:
     assert {f.check for f in result.findings} == {MEDIA_VALID}
 
 
-def test_an_unwired_output_check_is_a_legible_hole_not_a_rejection(
+def test_an_unwired_output_check_is_inconclusive_not_accepted(
     tmp_path: Path,
 ) -> None:
-    """P1 posture: a validator not wired yet is skipped as a visible hole.
+    """P2 posture: a missing validator is inconclusive, never accepted.
 
-    This is the same rule as a missing linter — absent is not a rejection. P2
-    must make a missing safety or ASR validator *inconclusive* (a rejection),
-    because those bars cannot be reported clean while absent.
+    This is the flip from a missing linter — absent is a visible hole, but a
+    safety or ASR validator that never ran must not be reported clean, so it
+    rejects the change.
     """
     repo = repo_with_base(tmp_path)
     output = OutputChecks(checks=(SAFETY_PASS,), workspace=repo, target="out.png")
 
     result = Gate().run(ChangeSet.detect(repo), output=output)
 
-    assert result.accepted
+    assert not result.accepted
+    assert len(result.inconclusive) == 1
+    assert result.inconclusive[0].rung == SAFETY_PASS
+    assert result.inconclusive[0].adapter == "output"
     assert any(SAFETY_PASS in issue for issue in result.environment_issues)

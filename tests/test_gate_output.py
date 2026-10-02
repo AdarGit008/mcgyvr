@@ -7,7 +7,9 @@ refused by name rather than left for a downstream tool to trip over.
 
 The three other kinds (``safety_pass``, ``asr_wer``, ``grounded``) name
 validators that land with P2; this file pins their check names and their
-"not yet wired" behaviour, so a contract declaring one never reads as clean.
+"not yet wired" behaviour. A check whose validator is missing is inconclusive
+— a rejection — never a clean pass, so a contract declaring one never reads
+as clean.
 """
 
 from __future__ import annotations
@@ -134,17 +136,22 @@ def test_the_media_valid_check_refuses_a_wrong_artifact(tmp_path: Path) -> None:
     assert report.findings[0].check == MEDIA_VALID
 
 
-def test_a_check_whose_validator_is_not_wired_is_skipped_by_name(
+def test_a_check_whose_validator_is_missing_is_inconclusive_not_clean(
     tmp_path: Path,
 ) -> None:
-    """A P2 check reports 'not available', never clean — the gate's one rule."""
+    """A missing validator is inconclusive, never clean — the gate's one rule."""
     report = OutputChecks(
         checks=(SAFETY_PASS,), workspace=tmp_path, target="out.bin"
     ).run()
     assert report.findings == ()
+    assert len(report.inconclusive) == 1
+    assert report.inconclusive[0].rung == SAFETY_PASS
+    assert report.inconclusive[0].tool == "safety-classifier"
     assert len(report.environment_issues) == 1
     assert SAFETY_PASS in report.environment_issues[0]
+    assert "is inconclusive" in report.environment_issues[0]
     assert "not available" in report.environment_issues[0]
+    assert "skipped" not in report.environment_issues[0]
 
 
 def test_one_unwired_check_does_not_hide_another_checks_findings(
@@ -161,6 +168,7 @@ def test_one_unwired_check_does_not_hide_another_checks_findings(
     ).run()
     assert [f.check for f in report.findings] == [MEDIA_VALID]
     assert any(SAFETY_PASS in e for e in report.environment_issues)
+    assert [r.rung for r in report.inconclusive] == [SAFETY_PASS]
 
 
 def test_an_unknown_check_name_is_refused_not_guessed(tmp_path: Path) -> None:

@@ -12,10 +12,12 @@ the output file's own header and answers whether the bytes are a file of the
 declared media kind. A worker cannot fake a header, and a wrong-kind or empty
 output is refused by name. The other three name validators that land with P2;
 their check names are pinned here so a contract declaring one is never
-silently treated as if the bar ran: until P2, each raises and is recorded as
-an environment issue — a legible hole the gate names and still accepts. P2
-must make a *missing* validator inconclusive (a rejection), never a skipped
-issue that accepts.
+silently treated as if the bar ran. Each raises
+:class:`~mcgyvr.gate.adapter.ToolUnavailableError`, and a check whose
+validator is missing is recorded as *inconclusive* — a rejection — never a
+skipped environment issue that accepts. A missing validator cannot be
+reported clean, so declaring one refuses the change until the validator is
+wired.
 """
 
 from __future__ import annotations
@@ -23,9 +25,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from mcgyvr.gate.adapter import ToolUnavailableError
 from mcgyvr.gate.findings import Finding
+
+if TYPE_CHECKING:
+    from mcgyvr.gate.runner import InconclusiveRung
 
 #: The media kinds a contract may declare, and ``media_valid`` judges.
 MEDIA_IMAGE = "image"
@@ -149,9 +155,8 @@ def safety_pass() -> list[Finding]:
     A safety check that reported clean while no classifier ran would be the one
     failure a gate must not have, so this raises rather than returning no
     findings. Until P2 lands the classifier and its input (the output
-    artifact), the raise is recorded as an environment issue: a legible hole
-    the gate names and still accepts. P2 must make a *missing* classifier
-    inconclusive — a rejection — never a skipped issue that accepts.
+    artifact), the raise is recorded as *inconclusive* — a rejection — never
+    a skipped issue that accepts.
     """
     raise ToolUnavailableError("safety-classifier")
 
@@ -183,13 +188,17 @@ def grounded() -> list[Finding]:
 class OutputReport:
     """The output-checks rung's verdict, in the gate's own currency.
 
-    ``findings`` reject the change; ``environment_issues`` record a check whose
-    validator is not available, so a degraded run is never mistaken for a
-    passing one. Mirrors :class:`~mcgyvr.gate.acceptance.AcceptanceReport`.
+    ``findings`` reject the change; ``inconclusive`` also rejects it, and is
+    the stronger case: a check whose validator is missing could not say what
+    bar it applied, so it must not read as clean. ``environment_issues`` is
+    the rendered sentence of each such rung, kept so a reader that only knows
+    that field still sees the rejection. Mirrors
+    :class:`~mcgyvr.gate.acceptance.AcceptanceReport`.
     """
 
     findings: tuple[Finding, ...] = ()
     environment_issues: tuple[str, ...] = ()
+    inconclusive: tuple[InconclusiveRung, ...] = ()
 
 
 class OutputChecks:
@@ -226,12 +235,23 @@ class OutputChecks:
         """Run every declared check; one unwired check never hides another's."""
         findings: list[Finding] = []
         issues: list[str] = []
+        inconclusive: list[InconclusiveRung] = []
         for name in self.checks:
             try:
                 findings.extend(_run_one(name, self))
             except ToolUnavailableError as exc:
-                issues.append(f"{name}: {exc.tool} not available — skipped")
-        return OutputReport(findings=tuple(findings), environment_issues=tuple(issues))
+                # runner.py imports OutputChecks at module top, so importing
+                # InconclusiveRung here avoids the circular import.
+                from mcgyvr.gate.runner import InconclusiveRung
+
+                rung = InconclusiveRung(adapter="output", rung=name, tool=exc.tool)
+                inconclusive.append(rung)
+                issues.append(str(rung))
+        return OutputReport(
+            findings=tuple(findings),
+            environment_issues=tuple(issues),
+            inconclusive=tuple(inconclusive),
+        )
 
 
 def _run_one(name: str, checks: OutputChecks) -> list[Finding]:
