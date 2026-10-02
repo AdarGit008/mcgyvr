@@ -693,6 +693,56 @@
       "says": "How many frames a rig agent's sessions and relays may have waiting to be sent before a put waits too.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "rig/probe.py:MAX_OPEN": {
+      "kind": "estimate",
+      "says": "How many latency probes a rig holds a socket open for at once; past it a probe_open is answered busy.",
+      "moves_to": "probes_open_at_once"
+    },
+    "rig/probe.py:MAX_PONGS_PER_S": {
+      "kind": "estimate",
+      "says": "How many probe pongs a rig sends in any second, over every peer and probe; past it a ping goes unanswered.",
+      "moves_to": "probe_pongs_per_s"
+    },
+    "rig/probe.py:SLICE_S": {
+      "kind": "choice",
+      "says": "The longest single wait of a probe's thread, in seconds, so its schedule and a close are heard.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/probe.py:STUN_ATTEMPTS": {
+      "kind": "choice",
+      "says": "How many rounds of binding requests a probe sends the hub's responder before it answers without a round trip.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/probe.py:STUN_WAIT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a round of binding requests waits for the hub's responder to answer.",
+      "moves_to": "stun_answer_wait_s"
+    },
+    "rig/probe.py:_Peer.pongs": {
+      "kind": "fact",
+      "says": "The pongs a probe sent a peer, before it sent any.",
+      "reason": "where a count starts"
+    },
+    "rig/probe.py:_Peer.train_bytes": {
+      "kind": "fact",
+      "says": "The bytes of a peer's bulk train a probe received, before any.",
+      "reason": "where a count starts"
+    },
+    "rig/probe.py:_Peer.train_last": {
+      "kind": "fact",
+      "says": "When a peer's last bulk packet arrived, before any did.",
+      "reason": "where a count starts"
+    },
+    "rig/probe.py:_Probe.rounds_sent": {
+      "kind": "fact",
+      "says": "The rounds of pings a probe sent, before any.",
+      "reason": "where a count starts"
+    },
+    "rig/probe.py:_Probe.run_at": {
+      "kind": "fact",
+      "says": "When a probe's run began, before it did.",
+      "reason": "where a count starts"
+    },
     "rig/protocol.py:CARD_NAME_MAX": {
       "kind": "fact",
       "says": "The longest card name, in characters, the hub's agent protocol carries.",
@@ -746,6 +796,11 @@
     "rig/protocol.py:MAX_ERROR_TEXT": {
       "kind": "fact",
       "says": "The longest error text, in characters, of the hub's agent protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/protocol.py:MAX_FEATURES": {
+      "kind": "fact",
+      "says": "The most optional behaviours a hello of the hub's agent protocol names.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/protocol.py:MAX_FRAMES_PER_SECOND": {
@@ -958,6 +1013,26 @@
       "says": "A tunnel peer's keepalive, in seconds, when the hub names none, as the hub's agent protocol defaults it.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "rig/sessionwire.py:DEFAULT_PROBE_COUNT": {
+      "kind": "fact",
+      "says": "The pings per candidate a probe_run of the hub's protocol asks for when it names none.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:DEFAULT_PROBE_DEADLINE_MS": {
+      "kind": "fact",
+      "says": "The milliseconds a probe_run of the hub's protocol gives for its result when it names none.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:DEFAULT_PROBE_INTERVAL_MS": {
+      "kind": "fact",
+      "says": "The milliseconds between a probe's pings when the hub's probe_run names none.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:DEFAULT_PROBE_TTL_S": {
+      "kind": "fact",
+      "says": "How long, in seconds, a probe's socket stays open when the hub's probe_open names no time.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/sessionwire.py:LOG_EXCERPT_MAX_CHARS": {
       "kind": "fact",
       "says": "The longest log excerpt, in characters, a session status of the hub's agent protocol carries.",
@@ -966,6 +1041,16 @@
     "rig/sessionwire.py:MAX_ALLOWED_IPS": {
       "kind": "fact",
       "says": "The most allowed addresses one tunnel peer of the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_ATTEMPT_S": {
+      "kind": "fact",
+      "says": "The most seconds per candidate a tunnel_up of the hub's protocol may give.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_CONNECT_TIMEOUT_S": {
+      "kind": "fact",
+      "says": "The most seconds a tunnel_up of the hub's protocol may give for its tunnel_report.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/sessionwire.py:MAX_CONTENT_TYPE": {
@@ -993,6 +1078,11 @@
       "says": "The longest tunnel keepalive, in seconds, the hub's agent protocol carries.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "rig/sessionwire.py:MAX_PCT": {
+      "kind": "fact",
+      "says": "A percentage's largest value.",
+      "reason": "a definition or arithmetic"
+    },
     "rig/sessionwire.py:MAX_PEERS": {
       "kind": "fact",
       "says": "The most peers one tunnel_up of the hub's agent protocol names.",
@@ -1001,6 +1091,36 @@
     "rig/sessionwire.py:MAX_PORT": {
       "kind": "fact",
       "says": "The highest port number of TCP and UDP.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_PROBE_BULK_BYTES": {
+      "kind": "fact",
+      "says": "The largest bulk train, in bytes, a probe_run of the hub's protocol asks for.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_PROBE_COUNT": {
+      "kind": "fact",
+      "says": "The most pings per candidate a probe_run of the hub's protocol asks for.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_PROBE_DEADLINE_MS": {
+      "kind": "fact",
+      "says": "The longest deadline, in milliseconds, of a probe_run of the hub's protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_PROBE_INTERVAL_MS": {
+      "kind": "fact",
+      "says": "The longest interval, in milliseconds, between a probe's pings in the hub's protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_PROBE_TTL_S": {
+      "kind": "fact",
+      "says": "The longest time, in seconds, a probe's socket is held open in the hub's protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_RATE_KBPS": {
+      "kind": "fact",
+      "says": "The largest rate, in kbit/s, a probe_result of the hub's protocol carries.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/sessionwire.py:MAX_RTT_SAMPLES": {
@@ -1013,6 +1133,11 @@
       "says": "The longest round trip, in microseconds, the hub's agent protocol carries.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "rig/sessionwire.py:MAX_STUN_ENDPOINTS": {
+      "kind": "fact",
+      "says": "The most binding responders a probe_open or a session_prepare of the hub's protocol names.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/sessionwire.py:MAX_TENSOR_SHARE": {
       "kind": "fact",
       "says": "The largest share of one device in a head start's tensor split, as the hub's agent protocol bounds it.",
@@ -1021,6 +1146,21 @@
     "rig/sessionwire.py:MIN_CTX": {
       "kind": "fact",
       "says": "The shortest context a head start of the hub's agent protocol asks for.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MIN_PROBE_DEADLINE_MS": {
+      "kind": "fact",
+      "says": "The shortest deadline, in milliseconds, of a probe_run of the hub's protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MIN_PROBE_INTERVAL_MS": {
+      "kind": "fact",
+      "says": "The shortest interval, in milliseconds, between a probe's pings in the hub's protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MIN_PROBE_TTL_S": {
+      "kind": "fact",
+      "says": "The shortest time, in seconds, a probe's socket is held open in the hub's protocol.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/sessionwire.py:RELAY_MAX_CHUNK_B64": {
@@ -1111,6 +1251,106 @@
     "rig/tunnel.py:_SOCKADDR_ADDRESS": {
       "kind": "fact",
       "says": "Where the IPv4 address sits in an ifreq's socket address.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:BULK": {
+      "kind": "fact",
+      "says": "The kind byte of a probe's bulk packet in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:MAX_SEQ": {
+      "kind": "fact",
+      "says": "The largest sequence number a probe packet carries: four bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:MAX_STAMP": {
+      "kind": "fact",
+      "says": "The largest stamp a probe packet carries: eight bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:PING": {
+      "kind": "fact",
+      "says": "The kind byte of a probe's ping in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:PONG": {
+      "kind": "fact",
+      "says": "The kind byte of a probe's pong in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:PROBE_PACKET_MAX_BYTES": {
+      "kind": "fact",
+      "says": "The largest probe packet of the hub's UDP formats, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:PROBE_PACKET_MIN_BYTES": {
+      "kind": "fact",
+      "says": "The smallest probe packet of the hub's UDP formats, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:RECEIVE_BYTES": {
+      "kind": "fact",
+      "says": "The largest UDP payload, in bytes: what a read is offered, so an oversized datagram is seen whole.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:RELAY_BIND_MAX_BYTES": {
+      "kind": "fact",
+      "says": "The largest relay bind of the hub's UDP formats, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:RELAY_BIND_MIN_BYTES": {
+      "kind": "fact",
+      "says": "The smallest relay bind of the hub's UDP formats, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:RELAY_MAX_PACKET_BYTES": {
+      "kind": "fact",
+      "says": "The largest packet the hub's relay forwards, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:STUN_REQUEST_MAX_BYTES": {
+      "kind": "fact",
+      "says": "The largest binding request of the hub's UDP formats, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:STUN_REQUEST_MIN_BYTES": {
+      "kind": "fact",
+      "says": "The smallest binding request of the hub's UDP formats, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:TOKEN_BYTES": {
+      "kind": "fact",
+      "says": "The length, in bytes, of a token, a probe secret in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:TXID_BYTES": {
+      "kind": "fact",
+      "says": "The length, in bytes, of a binding request's transaction id in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:VERSION": {
+      "kind": "fact",
+      "says": "The version byte of the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:_ANSWER": {
+      "kind": "fact",
+      "says": "The kind byte of an answer in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:_FAMILIES": {
+      "kind": "fact",
+      "says": "The address families of a binding answer and their address lengths, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:_REFUSED": {
+      "kind": "fact",
+      "says": "The kind byte of a relay's refusal in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:_REQUEST": {
+      "kind": "fact",
+      "says": "The kind byte of a request in the hub's UDP formats.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/verbs.py:CONNECT_TIMEOUT_S": {

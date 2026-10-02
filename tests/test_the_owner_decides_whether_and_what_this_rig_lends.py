@@ -112,6 +112,7 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
         endpoints=((fakes.LAN_ADDRESS, 51820, "lan"),),
         models=held.models,
         sessions=("s1",),
+        features=session.FEATURES,
     )
     worker_only = session.offer(
         fakes.sharing(tmp_path, roles=("worker",)), held, (fakes.LAN_ADDRESS,), ()
@@ -131,6 +132,7 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
     assert frame["body"]["capabilities"] == {
         "roles": ["head", "worker"],
         "runtime": "engine:rpc",
+        "features": list(session.FEATURES),
     }
     assert frame["body"]["models"] == [{"name": fakes.MODEL, "size_bytes": 1024}]
     assert inventory.resolve(held, fakes.MODEL) == f"dense/{fakes.MODEL}"

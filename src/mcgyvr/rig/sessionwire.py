@@ -4,9 +4,10 @@ The hub's schema is the one definition (``tests/rig_schema.py`` pins it);
 this module reads the commands the hub sends a rig that offered to lend
 (``session_prepare``, ``tunnel_up``, ``worker_start``, ``head_start``,
 ``session_query``, ``session_stop``, ``relay_request``, ``relay_data``,
-``relay_credit``, ``relay_cancel``) and writes the agent's side
-(``session_prepared``, ``session_status``, ``relay_response``,
-``relay_data``, ``relay_end``, ``peer_rtt``).
+``relay_credit``, ``relay_cancel``, and the latency probe's ``probe_open``
+and ``probe_run``) and writes the agent's side (``session_prepared``,
+``session_status``, ``tunnel_report``, ``relay_response``, ``relay_data``,
+``relay_end``, ``peer_rtt``, ``probe_opened``, ``probe_result``).
 
 Reading is the shape and the bounds the schema states, checked here with
 nothing taken on trust: every field is read by name and type (a ``true`` is
@@ -58,6 +59,24 @@ RELAY_MAX_SEQ = 1 << 31
 MAX_CONTENT_TYPE = 128
 #: The longest base64 text of one relay chunk.
 RELAY_MAX_CHUNK_B64 = 4 * -(-RELAY_MAX_CHUNK_BYTES // 3)
+#: The probe's and the traversal's bounds, and their defaults.
+MAX_STUN_ENDPOINTS = 2
+MIN_PROBE_TTL_S = 5
+MAX_PROBE_TTL_S = 120
+DEFAULT_PROBE_TTL_S = 30
+MAX_PROBE_COUNT = 20
+DEFAULT_PROBE_COUNT = 5
+MIN_PROBE_INTERVAL_MS = 10
+MAX_PROBE_INTERVAL_MS = 1000
+DEFAULT_PROBE_INTERVAL_MS = 50
+MAX_PROBE_BULK_BYTES = 256 * 1024
+MIN_PROBE_DEADLINE_MS = 100
+MAX_PROBE_DEADLINE_MS = 15_000
+DEFAULT_PROBE_DEADLINE_MS = 5000
+MAX_ATTEMPT_S = 30
+MAX_CONNECT_TIMEOUT_S = 300
+MAX_RATE_KBPS = 100_000_000
+MAX_PCT = 100
 
 #: The shapes of the wire's strings, matched whole.
 SESSION_ID = protocol.MESSAGE_ID
@@ -71,6 +90,10 @@ CONTENT_TYPE = re.compile(
     r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(; ?[A-Za-z0-9_-]+=[A-Za-z0-9_.-]+)?"
 )
 BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
+#: A token or a probe secret: 16 random bytes as 32 hex digits.
+TOKEN = re.compile(r"[0-9a-f]{32}")
+#: A relay ticket, opaque to the rig.
+TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
 
 Role = Literal["head", "worker"]
 ROLES = protocol.ROLES
@@ -124,9 +147,27 @@ class Endpoint:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Traversal:
+    """Where a session's binding requests go, and the token they carry."""
+
+    token: bytes
+    stun: tuple[Endpoint, ...]
+
+
+@dataclass(frozen=True, kw_only=True)
 class SessionPrepare:
     session_id: str
     role: Role
+    traversal: Traversal | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class RelayGrant:
+    """A relay this rig may fall back to for one peer; ``ticket`` is opaque."""
+
+    host: str
+    port: int
+    ticket: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -136,6 +177,7 @@ class TunnelPeer:
     endpoints: tuple[Endpoint, ...]
     allowed_ips: tuple[ipaddress.IPv4Network, ...]
     keepalive_s: int
+    relay: RelayGrant | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -144,6 +186,33 @@ class TunnelUp:
     address: ipaddress.IPv4Interface
     listen_port: int
     peers: tuple[TunnelPeer, ...]
+    attempt_s: int | None = None
+    connect_timeout_s: int | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProbeOpen:
+    probe_id: str
+    token: bytes
+    stun: tuple[Endpoint, ...]
+    ttl_s: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProbePeer:
+    rig_id: str
+    secret: bytes
+    endpoints: tuple[Endpoint, ...]
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProbeRun:
+    probe_id: str
+    peers: tuple[ProbePeer, ...]
+    count: int
+    interval_ms: int
+    bulk_bytes: int
+    deadline_ms: int
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -326,13 +395,25 @@ def _start(envelope: protocol.Envelope) -> _Body:
     return _Body(envelope.body, "body", envelope.id)
 
 
+def _token(body: _Body, field: str) -> bytes:
+    return bytes.fromhex(body.text(field, TOKEN))
+
+
 def read_session_prepare(envelope: protocol.Envelope) -> SessionPrepare:
     """The ``session_prepare`` in ``envelope``, or :class:`ProtocolError`."""
     body = _start(envelope)
     role = body.one_of("role", ROLES)
+    traversal = None
+    if body.has("traversal"):
+        asked = body.nested("traversal", body.raw("traversal"))
+        stun = _endpoints(asked, "stun")
+        if not 1 <= len(stun) <= MAX_STUN_ENDPOINTS:
+            raise asked.refuse("stun", f"not a list of 1 to {MAX_STUN_ENDPOINTS}")
+        traversal = Traversal(token=_token(asked, "token"), stun=stun)
     return SessionPrepare(
         session_id=body.text("session_id", SESSION_ID),
         role="head" if role == "head" else "worker",
+        traversal=traversal,
     )
 
 
@@ -355,6 +436,14 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
             if net is None:
                 raise peer.refuse("allowed_ips", "not an address with its prefix")
             allowed.append(net.network)
+        relay = None
+        if peer.has("relay"):
+            grant = peer.nested("relay", peer.raw("relay"))
+            relay = RelayGrant(
+                host=grant.text("host", HOST),
+                port=grant.number("port", 1, MAX_PORT),
+                ticket=grant.text("ticket", TICKET),
+            )
         peers.append(
             TunnelPeer(
                 rig_id=peer.text("rig_id", protocol.MESSAGE_ID),
@@ -364,14 +453,25 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
                 keepalive_s=peer.number(
                     "keepalive_s", 0, MAX_KEEPALIVE_S, default=DEFAULT_KEEPALIVE_S
                 ),
+                relay=relay,
             )
         )
     _unique(body, "peers", [peer.rig_id for peer in peers])
+    attempt_s = (
+        body.number("attempt_s", 1, MAX_ATTEMPT_S) if body.has("attempt_s") else None
+    )
+    connect_timeout_s = (
+        body.number("connect_timeout_s", 1, MAX_CONNECT_TIMEOUT_S)
+        if body.has("connect_timeout_s")
+        else None
+    )
     return TunnelUp(
         session_id=session_id,
         address=address,
         listen_port=listen_port,
         peers=tuple(peers),
+        attempt_s=attempt_s,
+        connect_timeout_s=connect_timeout_s,
     )
 
 
@@ -465,6 +565,60 @@ def read_session_stop(envelope: protocol.Envelope) -> SessionStop:
     )
 
 
+def read_probe_open(envelope: protocol.Envelope) -> ProbeOpen:
+    """The ``probe_open`` in ``envelope``, or :class:`ProtocolError`."""
+    body = _start(envelope)
+    stun = _endpoints(body, "stun")
+    if len(stun) > MAX_STUN_ENDPOINTS:
+        raise body.refuse("stun", f"not a list of up to {MAX_STUN_ENDPOINTS}")
+    return ProbeOpen(
+        probe_id=body.text("probe_id", protocol.MESSAGE_ID),
+        token=_token(body, "token"),
+        stun=stun,
+        ttl_s=body.number(
+            "ttl_s", MIN_PROBE_TTL_S, MAX_PROBE_TTL_S, default=DEFAULT_PROBE_TTL_S
+        ),
+    )
+
+
+def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
+    """The ``probe_run`` in ``envelope``, or :class:`ProtocolError`."""
+    body = _start(envelope)
+    peers = []
+    for item in body.items("peers", 1, MAX_PEERS):
+        peer = body.nested("peers", item)
+        endpoints = _endpoints(peer, "endpoints")
+        if not endpoints:
+            raise peer.refuse("endpoints", f"not a list of 1 to {MAX_ENDPOINTS}")
+        peers.append(
+            ProbePeer(
+                rig_id=peer.text("rig_id", protocol.MESSAGE_ID),
+                secret=_token(peer, "secret"),
+                endpoints=endpoints,
+            )
+        )
+    _unique(body, "peers", [peer.rig_id for peer in peers])
+    _unique(body, "peers", [peer.secret for peer in peers])
+    return ProbeRun(
+        probe_id=body.text("probe_id", protocol.MESSAGE_ID),
+        peers=tuple(peers),
+        count=body.number("count", 1, MAX_PROBE_COUNT, default=DEFAULT_PROBE_COUNT),
+        interval_ms=body.number(
+            "interval_ms",
+            MIN_PROBE_INTERVAL_MS,
+            MAX_PROBE_INTERVAL_MS,
+            default=DEFAULT_PROBE_INTERVAL_MS,
+        ),
+        bulk_bytes=body.number("bulk_bytes", 0, MAX_PROBE_BULK_BYTES, default=0),
+        deadline_ms=body.number(
+            "deadline_ms",
+            MIN_PROBE_DEADLINE_MS,
+            MAX_PROBE_DEADLINE_MS,
+            default=DEFAULT_PROBE_DEADLINE_MS,
+        ),
+    )
+
+
 def read_relay_request(envelope: protocol.Envelope) -> RelayRequest:
     """The ``relay_request`` in ``envelope``, or :class:`ProtocolError`."""
     body = _start(envelope)
@@ -552,6 +706,10 @@ def endpoint_body(endpoint: Endpoint) -> dict[str, Any]:
     return {"host": endpoint.host, "port": endpoint.port, "kind": endpoint.kind}
 
 
+def _rtt(value: int | None, field: str) -> None:
+    _need(value is None or 0 <= value <= MAX_RTT_US, f"{field}: out of bounds")
+
+
 def session_prepared(
     re: str,
     *,
@@ -559,22 +717,115 @@ def session_prepared(
     public_key: str,
     listen_port: int,
     endpoints: Sequence[Endpoint],
+    stun_rtt_us: int | None = None,
 ) -> str:
     """The ``session_prepared`` answering ``re``."""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(bool(WIREGUARD_KEY.fullmatch(public_key)), "public_key: not a key")
     _need(1 <= listen_port <= MAX_PORT, "listen_port: not a port")
     _need(len(endpoints) <= MAX_ENDPOINTS, f"endpoints: more than {MAX_ENDPOINTS}")
-    return _frame(
-        "session_prepared",
-        {
-            "session_id": session_id,
-            "public_key": public_key,
-            "listen_port": listen_port,
-            "endpoints": [endpoint_body(e) for e in endpoints],
-        },
-        re,
-    )
+    _rtt(stun_rtt_us, "stun_rtt_us")
+    body: dict[str, Any] = {
+        "session_id": session_id,
+        "public_key": public_key,
+        "listen_port": listen_port,
+        "endpoints": [endpoint_body(e) for e in endpoints],
+    }
+    if stun_rtt_us is not None:
+        body["stun_rtt_us"] = stun_rtt_us
+    return _frame("session_prepared", body, re)
+
+
+@dataclass(frozen=True, kw_only=True)
+class PeerPath:
+    """How this rig reaches one peer: ``path`` is ``lan``, ``ipv6``,
+    ``direct``, ``relay`` or ``none``."""
+
+    rig_id: str
+    path: str
+    endpoint: Endpoint | None = None
+    rtt_us: int | None = None
+
+
+def tunnel_report(re: str | None, *, session_id: str, peers: Sequence[PeerPath]) -> str:
+    """The ``tunnel_report`` answering ``tunnel_up`` ``re``, or unprompted."""
+    _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
+    _need(1 <= len(peers) <= MAX_PEERS, f"peers: not 1 to {MAX_PEERS}")
+    _need(len({p.rig_id for p in peers}) == len(peers), "peers: a rig twice")
+    paths = []
+    for peer in peers:
+        _need(bool(protocol.MESSAGE_ID.fullmatch(peer.rig_id)), "rig_id: not an id")
+        _need(bool(protocol.TAG.fullmatch(peer.path)), "path: not a tag")
+        _rtt(peer.rtt_us, "rtt_us")
+        entry: dict[str, Any] = {"rig_id": peer.rig_id, "path": peer.path}
+        if peer.endpoint is not None:
+            entry["endpoint"] = endpoint_body(peer.endpoint)
+        if peer.rtt_us is not None:
+            entry["rtt_us"] = peer.rtt_us
+        paths.append(entry)
+    return _frame("tunnel_report", {"session_id": session_id, "peers": paths}, re)
+
+
+def probe_opened(
+    re: str,
+    *,
+    probe_id: str,
+    endpoints: Sequence[Endpoint],
+    stun_rtt_us: int | None,
+) -> str:
+    """The ``probe_opened`` answering ``probe_open`` ``re``."""
+    _need(bool(protocol.MESSAGE_ID.fullmatch(probe_id)), "probe_id: not an id")
+    _need(len(endpoints) <= MAX_ENDPOINTS, f"endpoints: more than {MAX_ENDPOINTS}")
+    _rtt(stun_rtt_us, "stun_rtt_us")
+    body: dict[str, Any] = {
+        "probe_id": probe_id,
+        "endpoints": [endpoint_body(e) for e in endpoints],
+    }
+    if stun_rtt_us is not None:
+        body["stun_rtt_us"] = stun_rtt_us
+    return _frame("probe_opened", body, re)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProbeOutcome:
+    """What a probe found of one peer."""
+
+    rig_id: str
+    reached: bool
+    endpoint: Endpoint | None = None
+    rtt_us: int | None = None
+    rtt_min_us: int | None = None
+    loss_pct: int | None = None
+    rate_kbps: int | None = None
+
+
+def probe_result(re: str, *, probe_id: str, results: Sequence[ProbeOutcome]) -> str:
+    """The ``probe_result`` answering ``probe_run`` ``re``."""
+    _need(bool(protocol.MESSAGE_ID.fullmatch(probe_id)), "probe_id: not an id")
+    _need(len(results) <= MAX_PEERS, f"results: more than {MAX_PEERS}")
+    _need(len({r.rig_id for r in results}) == len(results), "results: a rig twice")
+    found = []
+    for result in results:
+        _need(bool(protocol.MESSAGE_ID.fullmatch(result.rig_id)), "rig_id: not an id")
+        _rtt(result.rtt_us, "rtt_us")
+        _rtt(result.rtt_min_us, "rtt_min_us")
+        _need(
+            result.loss_pct is None or 0 <= result.loss_pct <= MAX_PCT,
+            "loss_pct: not 0 to 100",
+        )
+        _need(
+            result.rate_kbps is None or 1 <= result.rate_kbps <= MAX_RATE_KBPS,
+            "rate_kbps: out of bounds",
+        )
+        entry: dict[str, Any] = {"rig_id": result.rig_id, "reached": result.reached}
+        if result.endpoint is not None:
+            entry["endpoint"] = endpoint_body(result.endpoint)
+        for name in ("rtt_us", "rtt_min_us", "loss_pct", "rate_kbps"):
+            value = getattr(result, name)
+            if value is not None:
+                entry[name] = value
+        found.append(entry)
+    return _frame("probe_result", {"probe_id": probe_id, "results": found}, re)
 
 
 def scrub(text: str) -> str:

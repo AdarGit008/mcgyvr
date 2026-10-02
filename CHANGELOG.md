@@ -43,6 +43,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   head whose worker goes silent over the tunnel fails as `no_path` within a
   bounded silence instead of waiting out its whole load. The rig speaks the
   hub's protocol schema as now published (pinned again).
+- A lending rig answers the hub's latency probe (the protocol's `probe`
+  feature, named in its hello): on `probe_open` it opens one UDP socket —
+  the tunnel's own port when no session holds it — asks the hub's
+  responder from it, and says the socket's LAN endpoints and round trip; on
+  `probe_run` it pings every candidate the hub named for each peer, answers
+  the peers' pings, sends each peer a bulk train, and reports reached or
+  not, which candidate, median and least round trip, loss and the train's
+  rate. It sends only to addresses the hub named for a peer of the probe
+  and never to loopback, link-local, multicast, reserved or its own; it
+  answers only a ping with a peer's secret from an address named for that
+  peer, with no more bytes than came in and a bounded number per peer and
+  per second; a pong counts once, for a ping it sent; the socket closes when
+  the probe's time is up or the agent ends.
 - `mcgyvr rig join <hub-url> --token <token>` publishes this machine as a rig
   of a hub: it keeps the rig token the hub showed (`--token -` reads it from
   stdin), opens the hub's agent channel, says hello with this machine's

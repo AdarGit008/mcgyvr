@@ -117,6 +117,7 @@ def run_agent(kept: Credentials) -> int:
         hardware,
         inventory,
         outbox,
+        probe,
         protocol,
         relay,
         session,
@@ -210,9 +211,17 @@ def run_agent(kept: Credentials) -> int:
     )
     relays = relay.Relays(heads=sessions, send=box.put)
     sessions.on_end(relays.session_ended)
+    probes = probe.Probes(
+        send=box.put,
+        port=lambda: None if sessions.running() else lending().listen_port,
+        hosts=lambda: session.endpoint_hosts(lending(), tunnel.read_interfaces),
+        own=lambda: tuple(i.ip for _, i in tunnel.read_interfaces()),
+        lending=lambda: bool(lending().offered_roles()),
+    )
     dispatcher = commands.Dispatcher()
     session.register(dispatcher, sessions)
     relay.register(dispatcher, relays)
+    probe.register(dispatcher, probes)
     try:
         for name in sessions.sweep():
             print(f"removed {name}, left by an agent that is gone", file=sys.stderr)
@@ -229,10 +238,12 @@ def run_agent(kept: Credentials) -> int:
 
     def offline() -> None:
         relays.cancel_all()
+        probes.close()
         sessions.offline()
 
     def on_exit() -> None:
         relays.cancel_all()
+        probes.close()
         sessions.close()
 
     running = agent.Agent(

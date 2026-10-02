@@ -92,6 +92,9 @@ DIGEST_CHUNK = 1 << 22
 HEALTH_TIMEOUT_S = 2.0
 #: How many times teardown looks again for what is left of a session.
 TEARDOWN_ROUNDS = 3
+#: The optional behaviours of the hub's protocol this agent speaks while it
+#: lends: the latency probe (:mod:`mcgyvr.rig.probe`).
+FEATURES = ("probe",)
 #: The warm-up: at most this many words of prompt (about a token each, so
 #: more than one batch of the engine's), and this many tokens out.
 WARM_UP_WORDS = 600
@@ -1219,4 +1222,5 @@ def offer(
         endpoints=tuple((host, share.listen_port, "lan") for host in hosts),
         models=held.models if "head" in roles else (),
         sessions=running,
+        features=FEATURES,
     )
