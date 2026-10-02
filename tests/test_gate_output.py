@@ -22,19 +22,27 @@ from __future__ import annotations
 import struct
 import zlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from mcgyvr.contract import loads
 from mcgyvr.drive import output_checks_for
+from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.output import (
+    ASR_WER,
+    GROUNDED,
     MEDIA_AUDIO,
     MEDIA_IMAGE,
     MEDIA_VALID,
     MEDIA_VIDEO,
     SAFETY_PASS,
     OutputChecks,
+    _word_error_rate,
+    asr_wer,
+    grounded,
     media_valid,
+    safety_pass,
 )
 
 
@@ -589,9 +597,10 @@ def test_the_media_valid_check_refuses_a_wrong_artifact(tmp_path: Path) -> None:
 
 
 def test_a_check_whose_validator_is_missing_is_inconclusive_not_clean(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A missing validator is inconclusive, never clean — the gate's one rule."""
+    monkeypatch.setattr("mcgyvr.gate.output.shutil.which", lambda _tool: None)
     report = OutputChecks(
         checks=(SAFETY_PASS,), workspace=tmp_path, target="out.bin"
     ).run()
@@ -607,10 +616,11 @@ def test_a_check_whose_validator_is_missing_is_inconclusive_not_clean(
 
 
 def test_one_unwired_check_does_not_hide_another_checks_findings(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """media_valid's finding must survive safety_pass raising, so a bad artifact
     is not accepted because a second check happened to be unwired."""
+    monkeypatch.setattr("mcgyvr.gate.output.shutil.which", lambda _tool: None)
     _file(tmp_path, "out.bin", b"plain text")
     report = OutputChecks(
         checks=(MEDIA_VALID, SAFETY_PASS),
@@ -689,3 +699,188 @@ scope:
     assert output.checks == ("media_valid",)
     assert output.media_kind == "image"
     assert output.target == "out.png"
+
+
+# --- the P2 validators ------------------------------------------------------
+
+
+def test_word_error_rate_is_zero_for_identical_text() -> None:
+    assert _word_error_rate("the quick brown fox", "the quick brown fox") == 0.0
+
+
+def test_word_error_rate_is_one_substitution_over_the_reference_length() -> None:
+    assert _word_error_rate("the quick brown dog", "the quick brown fox") == 0.25
+
+
+def test_word_error_rate_handles_a_shorter_hypothesis() -> None:
+    assert _word_error_rate("the quick", "the quick brown fox") == 0.5
+
+
+def test_word_error_rate_handles_a_longer_hypothesis() -> None:
+    assert _word_error_rate("the quick brown fox jumps", "the quick brown fox") == 0.25
+
+
+def test_word_error_rate_guards_an_empty_reference() -> None:
+    assert _word_error_rate("", "") == 0.0
+
+
+def test_grounded_accepts_a_text_whose_sentences_all_cite(tmp_path: Path) -> None:
+    path = _file(tmp_path, "out.txt", b"See [1] for the plan. source-alpha agrees!")
+    assert grounded(path, ("source-alpha",)) == []
+
+
+def test_grounded_accepts_a_text_citing_by_source_id(tmp_path: Path) -> None:
+    path = _file(tmp_path, "out.txt", b"source-alpha says it works.\nsource-beta too.")
+    assert grounded(path, ("source-alpha", "source-beta")) == []
+
+
+def test_grounded_reports_one_finding_per_uncited_sentence(tmp_path: Path) -> None:
+    path = _file(tmp_path, "out.txt", b"This cites [1]. This one does not. Nor this.")
+    findings = grounded(path, ("source-alpha",))
+    assert [f.code for f in findings] == ["ungrounded", "ungrounded"]
+    assert all(f.check == GROUNDED for f in findings)
+
+
+def test_grounded_reports_unreadable_when_the_output_cannot_be_read(
+    tmp_path: Path,
+) -> None:
+    findings = grounded(tmp_path, ("source-alpha",))
+    assert [f.code for f in findings] == ["unreadable"]
+
+
+def test_safety_pass_reports_clean_when_the_classifier_returns_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.shutil.which",
+        lambda _tool: "/usr/bin/safety-classifier",
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout=b"", stderr=b""),
+    )
+    assert safety_pass(tmp_path / "out.png") == []
+
+
+def test_safety_pass_reports_unsafe_when_the_classifier_returns_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.shutil.which",
+        lambda _tool: "/usr/bin/safety-classifier",
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=1, stdout=b"", stderr=b""),
+    )
+    findings = safety_pass(tmp_path / "out.png")
+    assert [f.code for f in findings] == ["unsafe"]
+    assert all(f.check == SAFETY_PASS for f in findings)
+
+
+def test_safety_pass_raises_when_the_classifier_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("mcgyvr.gate.output.shutil.which", lambda _tool: None)
+    with pytest.raises(ToolUnavailableError, match="safety-classifier"):
+        safety_pass(tmp_path / "out.png")
+
+
+def test_safety_pass_raises_when_the_classifier_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.shutil.which",
+        lambda _tool: "/usr/bin/safety-classifier",
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=2, stdout=b"", stderr=b"boom"
+        ),
+    )
+    with pytest.raises(ToolFailedError) as excinfo:
+        safety_pass(tmp_path / "out.png")
+    assert excinfo.value.exit_code == 2
+
+
+def test_asr_wer_accepts_when_the_wer_is_within_the_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.shutil.which", lambda _tool: "/usr/bin/whisper"
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0, stdout="the quick brown fox", stderr=""
+        ),
+    )
+    assert asr_wer(tmp_path / "out.wav", "the quick brown dog", 1.0) == []
+
+
+def test_asr_wer_reports_when_the_wer_exceeds_the_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.shutil.which", lambda _tool: "/usr/bin/whisper"
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0, stdout="the quick brown fox", stderr=""
+        ),
+    )
+    findings = asr_wer(tmp_path / "out.wav", "the quick brown dog", 0.1)
+    assert [f.code for f in findings] == ["wer-exceeded"]
+    assert all(f.check == ASR_WER for f in findings)
+
+
+def test_asr_wer_raises_when_whisper_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("mcgyvr.gate.output.shutil.which", lambda _tool: None)
+    with pytest.raises(ToolUnavailableError, match="whisper"):
+        asr_wer(tmp_path / "out.wav", "the quick brown dog", 1.0)
+
+
+def test_asr_wer_raises_when_whisper_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.shutil.which", lambda _tool: "/usr/bin/whisper"
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=1, stdout="", stderr="failed to transcribe"
+        ),
+    )
+    with pytest.raises(ToolFailedError) as excinfo:
+        asr_wer(tmp_path / "out.wav", "the quick brown dog", 1.0)
+    assert excinfo.value.exit_code == 1
+
+
+def test_a_failed_validator_is_inconclusive_with_its_exit_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.shutil.which",
+        lambda _tool: "/usr/bin/safety-classifier",
+    )
+    monkeypatch.setattr(
+        "mcgyvr.gate.output.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=2, stdout=b"", stderr=b"boom"
+        ),
+    )
+    report = OutputChecks(
+        checks=(SAFETY_PASS,), workspace=tmp_path, target="out.bin"
+    ).run()
+    assert report.findings == ()
+    assert len(report.inconclusive) == 1
+    assert report.inconclusive[0].rung == SAFETY_PASS
+    assert report.inconclusive[0].tool == "safety-classifier"
+    assert report.inconclusive[0].exit_code == 2
+    assert len(report.environment_issues) == 1
+    assert "exited 2" in report.environment_issues[0]

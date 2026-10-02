@@ -7,37 +7,40 @@ contract command is emitted for it; this module is where those checks are
 produced. It is the seam the media-gen and agent verticals hang their
 validators on (gate seam 3, P1 generalize-the-core).
 
-``media_valid`` is the one check with a real validator in this build: it reads
-the output file's own header and answers whether the bytes are a file of the
-declared media kind. Images are checked past the header — their dimensions
-must be present and positive, and the file must be structurally complete
-— and audio is checked past the header too — duration must be determinable
-and positive for WAV, FLAC and MP3 (for MP3, a valid frame header whose
-first frame body fits), and page structure only for OGG, whose duration is
-deferred — and video is checked past the header too — duration must be
-determinable and positive for MP4, WEBM and AVI, and the file must be
-structurally complete. A worker cannot fake a header, and a wrong-kind or
-empty output is refused by name.
-The other three name validators that land with P2;
-their check names are pinned here so a contract declaring one is never
-silently treated as if the bar ran. Each raises
-:class:`~mcgyvr.gate.adapter.ToolUnavailableError`, and a check whose
-validator is missing is recorded as *inconclusive* — a rejection — never a
-skipped environment issue that accepts. A missing validator cannot be
-reported clean, so declaring one refuses the change until the validator is
-wired.
+``media_valid`` reads the output file's own header and answers whether the
+bytes are a file of the declared media kind. Images are checked past the
+header — their dimensions must be present and positive, and the file must be
+structurally complete — and audio is checked past the header too — duration
+must be determinable and positive for WAV, FLAC and MP3 (for MP3, a valid
+frame header whose first frame body fits), and page structure only for OGG,
+whose duration is deferred — and video is checked past the header too —
+duration must be determinable and positive for MP4, WEBM and AVI, and the
+file must be structurally complete. A worker cannot fake a header, and a
+wrong-kind or empty output is refused by name.
+
+``safety_pass`` runs an external safety classifier, ``asr_wer`` runs an
+external transcriber and measures the word error rate against the contract's
+``transcript``, and ``grounded`` reads the output and checks that every
+sentence cites a provided source. A check whose external tool is absent
+(:class:`~mcgyvr.gate.adapter.ToolUnavailableError`) or ran but produced an
+answer that cannot be trusted
+(:class:`~mcgyvr.gate.adapter.ToolFailedError`) is recorded as *inconclusive* —
+a rejection — never a clean pass over a bar that never ran.
 """
 
 from __future__ import annotations
 
+import re
+import shutil
 import struct
+import subprocess
 import zlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from mcgyvr.gate.adapter import ToolUnavailableError
+from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.findings import Finding
 
 if TYPE_CHECKING:
@@ -1193,39 +1196,164 @@ def _ogg_findings(name: str, data: bytes) -> list[Finding]:
     return []
 
 
-# --- the P2 validators, declared but not yet wired -------------------------
+# --- the P2 validators -------------------------------------------------------
 
 
-def safety_pass() -> list[Finding]:
-    """The deterministic safety classifier's verdict — P2, not wired in this build.
+def _word_error_rate(hypothesis: str, reference: str) -> float:
+    """Word-level Levenshtein distance over the reference's word count.
 
-    A safety check that reported clean while no classifier ran would be the one
-    failure a gate must not have, so this raises rather than returning no
-    findings. Until P2 lands the classifier and its input (the output
-    artifact), the raise is recorded as *inconclusive* — a rejection — never
-    a skipped issue that accepts.
+    The two strings are split on whitespace and compared as word sequences, so
+    a transcription that misses one word of a long reference costs less than
+    one that mangles a short reference. The denominator is floored at one word
+    so an empty reference is a defined comparison rather than a division by
+    zero. The edit distance is a plain dynamic-programming table over the two
+    word counts — no third-party tokenizer or distance library, so the number
+    the gate judges by is reproducible from the same two strings anywhere.
     """
-    raise ToolUnavailableError("safety-classifier")
+    hyp_words = hypothesis.split()
+    ref_words = reference.split()
+    previous = list(range(len(hyp_words) + 1))
+    for i, ref_word in enumerate(ref_words, start=1):
+        current = [i] + [0] * len(hyp_words)
+        for j, hyp_word in enumerate(hyp_words, start=1):
+            current[j] = min(
+                previous[j] + 1,
+                current[j - 1] + 1,
+                previous[j - 1] + (ref_word != hyp_word),
+            )
+        previous = current
+    return previous[len(hyp_words)] / max(1, len(ref_words))
 
 
-def asr_wer() -> list[Finding]:
-    """Whisper transcription WER against the contract's transcript — P2.
+def _sentences(text: str) -> list[str]:
+    """The non-empty sentences of ``text``, split on sentence punctuation."""
+    return [part.strip() for part in re.split(r"[.!?\n]+", text) if part.strip()]
 
-    Not wired in this build: a WER the gate never computed must not read as
-    "the transcript matched". P2 lands the transcriber and the contract's
-    ``transcript`` / ``wer_threshold`` inputs.
+
+def _cites(sentence: str, sources: Sequence[str]) -> bool:
+    """Whether ``sentence`` carries a ``[n]`` marker or a source identifier."""
+    if re.search(r"\[[1-9]\d*\]", sentence):
+        return True
+    return any(source in sentence for source in sources)
+
+
+def _first_line(stderr: str | bytes) -> str:
+    """The first non-empty line of a tool's stderr, clipped; ``""`` if none."""
+    text = stderr.decode("utf-8", "replace") if isinstance(stderr, bytes) else stderr
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped[:200]
+    return ""
+
+
+def safety_pass(path: Path, label: str = "") -> list[Finding]:
+    """One finding unless the safety classifier clears ``path`` as safe.
+
+    The classifier is an external tool on PATH, run exactly the way the
+    language adapters run their tools: absent means the rung cannot say what
+    bar it applied (``ToolUnavailableError``); present and dying with an
+    unexpected status means its answer cannot be trusted
+    (``ToolFailedError``). Exit 0 is safe, exit 1 is unsafe, and any other
+    status is a tool failure — a check that reported clean over a classifier
+    that could not judge would be the one failure a gate must not have.
     """
-    raise ToolUnavailableError("whisper-asr")
+    if shutil.which("safety-classifier") is None:
+        raise ToolUnavailableError("safety-classifier")
+    proc = subprocess.run(["safety-classifier", str(path)], capture_output=True)
+    if proc.returncode == 0:
+        return []
+    if proc.returncode == 1:
+        return [
+            Finding(
+                check=SAFETY_PASS,
+                path=label or str(path),
+                code="unsafe",
+                message="the output was classified unsafe by the safety classifier",
+            )
+        ]
+    raise ToolFailedError(
+        "safety-classifier", proc.returncode, detail=_first_line(proc.stderr)
+    )
 
 
-def grounded() -> list[Finding]:
-    """Every claim cites a provided source — P2, not wired in this build.
+def asr_wer(
+    path: Path,
+    transcript: str,
+    wer_threshold: float,
+    label: str = "",
+) -> list[Finding]:
+    """One finding unless whisper's transcription stays within ``wer_threshold``.
 
-    A grounding check that never looked for a citation must not read as
-    "every claim is grounded". P2 lands the citation extractor and the
-    contract's ``sources`` input.
+    Whisper is an external tool on PATH, run the same way the language
+    adapters run theirs: absent is ``ToolUnavailableError``, and a non-zero
+    exit is ``ToolFailedError`` because a WER the gate never computed must not
+    read as "the transcript matched". The word error rate is the plain
+    word-level edit distance over the reference's word count
+    (:func:`_word_error_rate`); a rate above the threshold rejects the output.
     """
-    raise ToolUnavailableError("citation-checker")
+    if shutil.which("whisper") is None:
+        raise ToolUnavailableError("whisper")
+    proc = subprocess.run(["whisper", str(path)], capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise ToolFailedError(
+            "whisper", proc.returncode, detail=_first_line(proc.stderr)
+        )
+    hypothesis = proc.stdout.strip()
+    wer = _word_error_rate(hypothesis, transcript)
+    if wer > wer_threshold:
+        return [
+            Finding(
+                check=ASR_WER,
+                path=label or str(path),
+                code="wer-exceeded",
+                message=(
+                    f"the transcription's word error rate {wer:.3f} exceeds "
+                    f"the threshold {wer_threshold}"
+                ),
+            )
+        ]
+    return []
+
+
+def grounded(path: Path, sources: Sequence[str], label: str = "") -> list[Finding]:
+    """One finding per sentence that cites no provided source.
+
+    This check has no external tool to be absent, so it always runs: the
+    output is read as UTF-8 (an unreadable file is refused by name), split
+    into sentences, and every non-empty sentence must carry a ``[n]``
+    citation marker or one of the contract's ``sources`` identifiers as a
+    substring. A sentence that cites nothing is a finding; the quoted
+    sentence is truncated for display only, never used to judge.
+    """
+    name = label or str(path)
+    try:
+        text = path.read_bytes().decode("utf-8", "replace")
+    except OSError:
+        return [
+            Finding(
+                check=GROUNDED,
+                path=name,
+                code="unreadable",
+                message=(
+                    "the output could not be read, so its grounding cannot be judged"
+                ),
+            )
+        ]
+    findings: list[Finding] = []
+    for sentence in _sentences(text):
+        if not _cites(sentence, sources):
+            findings.append(
+                Finding(
+                    check=GROUNDED,
+                    path=name,
+                    code="ungrounded",
+                    message=(
+                        f"the claim does not cite any provided source: {sentence[:80]}"
+                    ),
+                )
+            )
+    return findings
 
 
 # --- the rung the gate runs -------------------------------------------------
@@ -1279,19 +1407,29 @@ class OutputChecks:
         self.sources = tuple(sources)
 
     def run(self) -> OutputReport:
-        """Run every declared check; one unwired check never hides another's."""
+        """Run every declared check; one failing check never hides another's."""
         findings: list[Finding] = []
         issues: list[str] = []
         inconclusive: list[InconclusiveRung] = []
+        path = self.workspace / self.target
         for name in self.checks:
             try:
-                findings.extend(_run_one(name, self))
-            except ToolUnavailableError as exc:
+                findings.extend(_run_one(name, self, path))
+            except (ToolUnavailableError, ToolFailedError) as exc:
                 # runner.py imports OutputChecks at module top, so importing
                 # InconclusiveRung here avoids the circular import.
                 from mcgyvr.gate.runner import InconclusiveRung
 
-                rung = InconclusiveRung(adapter="output", rung=name, tool=exc.tool)
+                if isinstance(exc, ToolUnavailableError):
+                    rung = InconclusiveRung(adapter="output", rung=name, tool=exc.tool)
+                else:
+                    rung = InconclusiveRung(
+                        adapter="output",
+                        rung=name,
+                        tool=exc.tool,
+                        exit_code=exc.exit_code,
+                        detail=exc.detail,
+                    )
                 inconclusive.append(rung)
                 issues.append(str(rung))
         return OutputReport(
@@ -1301,16 +1439,16 @@ class OutputChecks:
         )
 
 
-def _run_one(name: str, checks: OutputChecks) -> list[Finding]:
-    """Dispatch one declared evidence kind to its check function."""
+def _run_one(name: str, checks: OutputChecks, path: Path) -> list[Finding]:
+    """Dispatch one declared evidence kind to its check function over ``path``."""
     if name == MEDIA_VALID:
-        return media_valid(
-            checks.workspace / checks.target, checks.media_kind, checks.target
-        )
+        return media_valid(path, checks.media_kind, checks.target)
     if name == SAFETY_PASS:
-        return safety_pass()
+        return safety_pass(path, checks.target)
     if name == ASR_WER:
-        return asr_wer()
+        if checks.wer_threshold is None:
+            raise ValueError("asr_wer: wer_threshold is not set")
+        return asr_wer(path, checks.transcript, checks.wer_threshold, checks.target)
     if name == GROUNDED:
-        return grounded()
+        return grounded(path, checks.sources, checks.target)
     raise ValueError(f"unknown output check {name!r}")
