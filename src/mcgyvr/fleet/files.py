@@ -61,6 +61,8 @@ _UNIT_KEYS = frozenset(
 #: How work moves between units. Not locked: these belong in ``policy.yaml``.
 _POLICY_KEYS = frozenset(
     {
+        "use_case",
+        "deployment",
         "ladder",
         "fanout",
         "attempts",
@@ -69,6 +71,7 @@ _POLICY_KEYS = frozenset(
         "max_attempts",
         "task_timeout_s",
         "max_window_fraction",
+        "users",
         "breadth",
         "cleanup",
         "gate",

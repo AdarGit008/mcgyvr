@@ -42,7 +42,10 @@ worker rejection — a keyless or minimal install still reaches a verdict on the
 checks it could run. A tool that is installed and then *fails* is a different
 thing with a different answer: the rung is recorded as
 inconclusive and the change is not accepted, because a rung that cannot say
-what bar it applied reported clean while applying none.
+what bar it applied reported clean while applying none. A missing structural
+*validator* (the output-checks rung) is the exception to the first rule: its
+bar is one that must never read clean while absent, so it is inconclusive —
+a rejection — not a skipped environment issue.
 """
 
 from __future__ import annotations
@@ -60,6 +63,7 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.jev import JevCheck, JevReport
+from mcgyvr.gate.output import OutputChecks
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 from mcgyvr.gate.structured import validate_structured_data
@@ -69,12 +73,17 @@ from mcgyvr.scope import Scope
 
 @dataclass(frozen=True)
 class InconclusiveRung:
-    """A rung that ran, and cannot say what bar it applied.
+    """A rung that could not say what bar it applied — a rejection, not a hole.
 
     Not a finding: it makes no claim about the worker's change. Not merely an
-    environment issue either, because an absent tool leaves a legible hole and
-    this leaves none — the tool was there, it exited, and the rung reported
-    clean over a bar that never ran (#261).
+    environment issue either: this rung is a rejection — whichever of its two
+    shapes it took, it reported clean over a bar that never ran (#261).
+
+    ``exit_code`` distinguishes the two kinds. An ``int`` means the tool was
+    there and exited, and its answer is unreadable; ``None`` means the
+    required tool never ran at all — a validator that is not wired — which is
+    the same rejection, because a missing validator must not read as a clean
+    pass.
 
     Carried structured rather than as a sentence because a run manifest has to
     be able to answer *which rung was inconclusive* per row, and a rate quoted
@@ -84,15 +93,16 @@ class InconclusiveRung:
     adapter: str
     rung: str
     tool: str
-    exit_code: int
+    exit_code: int | None = None
     detail: str = ""
 
     def __str__(self) -> str:
         suffix = f" ({self.detail})" if self.detail else ""
-        return (
-            f"{self.adapter}: {self.rung} is inconclusive — {self.tool} exited "
-            f"{self.exit_code}{suffix}"
-        )
+        if self.exit_code is None:
+            verdict = f"{self.tool} not available"
+        else:
+            verdict = f"{self.tool} exited {self.exit_code}"
+        return f"{self.adapter}: {self.rung} is inconclusive — {verdict}{suffix}"
 
 
 @dataclass(frozen=True)
@@ -169,6 +179,7 @@ class Gate:
         jev: JevCheck | None = None,
         acceptance: Acceptance | None = None,
         typecheck: TypeCheck | None = None,
+        output: OutputChecks | None = None,
         contract_text: str = "",
     ) -> GateResult:
         """Judge one change set. ``contract_text`` is the contract's own prose.
@@ -213,6 +224,17 @@ class Gate:
                 adapter, changeset, env_issues, inconclusive, contract_text
             ):
                 (observations if item.check == STYLE else findings).append(item)
+
+        # 4b — output checks: the structural evidence kinds the gate makes
+        # itself (media_valid, safety_pass, asr_wer, grounded). They judge the
+        # artifact a contract names rather than the diff, and run only when the
+        # contract declared them. A validator that is not wired records an
+        # inconclusive rung — a rejection — never a clean pass over no bar.
+        if output is not None and not findings:
+            output_report = output.run()
+            findings.extend(output_report.findings)
+            env_issues.extend(output_report.environment_issues)
+            inconclusive.extend(output_report.inconclusive)
 
         if typecheck is not None and not findings:
             try:

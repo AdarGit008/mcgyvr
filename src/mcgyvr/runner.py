@@ -12,13 +12,16 @@ to ask in. The invariants:
   read an answer; it does not get to decide what a completion *is*.
   The fields that differ between two runs of the same request are the ones that
   name where it ran — ``source``, ``protocol`` — and the measurements.
-* **The cap is sent and checked afterwards.** ``max_output_tokens`` is required
-  on every :class:`Request` and is translated into the protocol's own parameter
-  (``max_tokens``). Nothing streams, so a
-  client cannot cut a response off mid-generation; what it can do is refuse to
-  issue an uncapped request and then compare the backend's own reported token
-  count against the ceiling it was given. A backend that overran says so
-  through :attr:`Completion.overran_cap` rather than passing for a short answer.
+* **The cap is sent and checked afterwards.** ``max_output_tokens`` is
+  optional on every :class:`Request`: ``None`` is the uncapped dispatch for a
+  raw-text reply, and only a set cap is translated into the protocol's own
+  parameter (``max_tokens``) — the key is omitted when uncapped. Nothing
+  streams, so a client cannot cut a response off mid-generation; what it can
+  do is refuse to issue an uncapped whole-file request and then compare the
+  backend's own reported token count against the ceiling it was given. A
+  backend that overran says so through :attr:`Completion.overran_cap` rather
+  than passing for a short answer; an uncapped reply has no ceiling to check,
+  so ``overran_cap`` is ``None``.
 * **No stop sequences are sent, by decision.** A reply is bounded by the cap
   and a named truncation and nothing else: a stop sequence is consumed by the
   server and stripped from the answer, so it turns a reply that ran long into a
@@ -249,9 +252,10 @@ class Request:
     step of the ladder. That is what makes "the same contract executes
     identically wherever it runs" checkable rather than a claim.
 
-    ``max_output_tokens`` has no default on purpose — an uncapped request is
-    exactly the mistake CAV-03 is a record of, and a caller that has not thought
-    about the ceiling should have to. ``temperature`` defaults to 0.0 because a
+    ``max_output_tokens`` has no default on purpose — a caller that wants a
+    capped reply must think about the ceiling, and ``None``, the explicit
+    uncapped dispatch for a raw-text reply, must be written rather than
+    inherited. ``temperature`` defaults to 0.0 because a
     worker's output is judged by a deterministic gate; sampling is a decision to
     be made explicitly, not inherited from a backend's default.
 
@@ -275,7 +279,7 @@ class Request:
     """
 
     prompt: str
-    max_output_tokens: int
+    max_output_tokens: int | None
     system: str = ""
     temperature: float = 0.0
     timeout_s: float = GENERATE_TIMEOUT_S
@@ -283,11 +287,11 @@ class Request:
     response_schema: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
-        if self.max_output_tokens < 1:
+        if self.max_output_tokens is not None and self.max_output_tokens < 1:
             raise ValueError(
                 f"max_output_tokens must be at least 1, got "
-                f"{self.max_output_tokens}. An uncapped dispatch is not "
-                f"expressible here by design."
+                f"{self.max_output_tokens}. A cap below 1 is not a ceiling; "
+                f"use None for an uncapped raw-text dispatch."
             )
         if self.timeout_s <= 0:
             raise ValueError(f"timeout_s must be positive, got {self.timeout_s}")
@@ -332,7 +336,7 @@ class Completion:
     model: str
     source: str
     protocol: Protocol
-    max_output_tokens: int
+    max_output_tokens: int | None
     latency_s: float
     input_tokens: int | None = None
     output_tokens: int | None = None
@@ -369,10 +373,11 @@ class Completion:
     def overran_cap(self) -> bool | None:
         """Whether more tokens came back than were allowed, or ``None``.
 
-        ``None`` means the backend reported no count, so the cap it was sent
-        cannot be checked — distinct from a checked cap that held.
+        ``None`` means the backend reported no count, or the request was
+        uncapped — so there was no ceiling to check — distinct from a checked
+        cap that held.
         """
-        if self.output_tokens is None:
+        if self.output_tokens is None or self.max_output_tokens is None:
             return None
         return self.output_tokens > self.max_output_tokens
 
@@ -565,11 +570,17 @@ class Runner(ABC):
                 f"the backend."
             )
         if stop_reason is StopReason.TRUNCATED:
-            notes.append(
-                f"the reply hit the {request.max_output_tokens}-token cap and "
-                f"is incomplete. That is a named failure, not a short "
-                f"answer: it must not be applied to a file."
-            )
+            if request.max_output_tokens is None:
+                notes.append(
+                    "the backend reported it stopped at its own length limit "
+                    "(the request was uncapped)."
+                )
+            else:
+                notes.append(
+                    f"the reply hit the {request.max_output_tokens}-token cap and "
+                    f"is incomplete. That is a named failure, not a short "
+                    f"answer: it must not be applied to a file."
+                )
         if stop_reason is StopReason.UNKNOWN:
             reported = parsed.raw_stop_reason or "nothing"
             notes.append(
@@ -577,8 +588,10 @@ class Runner(ABC):
                 f"generation stopped, which is not a word this runner knows. "
                 f"The answer is not being read as complete."
             )
-        if parsed.output_tokens is not None and (
-            parsed.output_tokens > request.max_output_tokens
+        if (
+            request.max_output_tokens is not None
+            and parsed.output_tokens is not None
+            and parsed.output_tokens > request.max_output_tokens
         ):
             notes.append(
                 f"the backend returned {parsed.output_tokens} output tokens "
@@ -629,11 +642,14 @@ class OpenAIRunner(Runner):
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
-            # `max_tokens`, not `max_completion_tokens`, and never both.
-            "max_tokens": request.max_output_tokens,
             "temperature": request.temperature,
             "stream": False,
         }
+        if request.max_output_tokens is not None:
+            # `max_tokens`, not `max_completion_tokens`, and never both. The
+            # key is absent when the request is uncapped, never present and
+            # null.
+            payload["max_tokens"] = request.max_output_tokens
         if request.response_schema is not None:
             # The key is absent unless a schema was pinned, never present and
             # null.

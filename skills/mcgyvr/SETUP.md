@@ -78,6 +78,8 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `profile` | one of `live`, `dev` | no | `live` | Which setup this file is: `live` or `dev`. A fleet fact: live outranks dev on the rigs. |
+| `use_case` | one of `coding`, `chat`, `agent`, `media-gen` | no | `coding` | Which of the four use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint), `agent` (grounded + safety output checks) or `media-gen` (media_valid, safety and ASR-WER). |
+| `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: a non-chat use case provisions a local orchestrator unit, and chat is just the ladder serving text. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
 | `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |
@@ -87,6 +89,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
 | `max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a unit's context window one contract may claim. To bind it: a share between 0 and 1. |
+| `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only non-chat use case is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
 | `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts. |
 | `verifier` | block | no | — | Which unit reads an applied diff in fresh context. |
 | `sandbox` | block | no | — | Where a task's commands run. |
@@ -109,7 +112,7 @@ Each entry takes these keys:
 | --- | --- | --- | --- | --- |
 | `units.address` | URL | **yes** | — | Where this unit answers, including scheme and port. One address is one process. To bind it: e.g. http://box.example:8080. |
 | `units.model` | text | **yes** | — | Model identifier as the unit names it. |
-| `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
+| `units.engine` | one of `llama.cpp`, `vllm`, `diffusers`, `tts`, `comfyui` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm, diffusers, tts or comfyui -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
@@ -149,9 +152,11 @@ Where a task's commands run.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `sandbox.mode` | one of `docker`, `tempdir` | no | `docker` | `docker` runs each task in its own container, torn down after. `tempdir` is the explicitly weaker fallback for installs without Docker: acceptance commands are arbitrary shell from a contract, running on someone else's machine. |
+| `sandbox.mode` | one of `docker`, `tempdir` | no | `docker` | `docker` runs each task in its own container, torn down after; with no Docker daemon answering, the task is refused unless `allow_fallback` is on. `tempdir` is the explicitly weaker mode for installs without Docker: acceptance commands are arbitrary shell from a contract, running on someone else's machine. |
+| `sandbox.allow_fallback` | boolean | no | `false` | What `mode: docker` does when no Docker daemon answers. Off, the task is refused and the refusal says how to go on. On, the task runs in the `tempdir` sandbox instead and says so once — the weaker mode, chosen ahead of time rather than read about after the run started. |
+| `sandbox.network` | one of `bridge`, `none` | no | `bridge` | The network a task container is attached to. `bridge` is Docker's default: acceptance commands can fetch dependencies and reach the configured worker endpoints — and anything else this machine can reach. `none` gives the container no network at all, so a contract whose commands download anything fails. `none` needs `mode: docker`: the `tempdir` sandbox runs on this host, where the network cannot be taken away, and is refused under it. |
 | `sandbox.image` | text | no | unset | Base image for task containers. Unset means detect the repository's stack and build one. To bind it: name an image tag, or leave unset to let the stack be detected. |
-| `sandbox.setup` | list of text | no | `[]` | Commands run once when the task image is built, before any task. |
+| `sandbox.setup` | list of text | no | `[]` | Commands run once when the task image is built, before any task. In docker mode the gate's type checker, eslint and prettier run in the task container, because their configuration can load code from the task's workspace, so they are found on the image's PATH. The image mcgyvr builds installs the one the repository configures (mypy, eslint, prettier) when its dependency install does not, at the lockfile's version where it pins one; pyright, or a checker the repository does not configure, is yours to put on the image, here or with `sandbox.image`. A checker the image lacks is skipped and said so, as an absent checker is on the host. |
 
 ## `delivery`
 

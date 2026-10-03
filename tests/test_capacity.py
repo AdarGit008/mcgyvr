@@ -539,6 +539,96 @@ def test_every_declared_source_is_covered_not_only_the_laddered_ones() -> None:
         assert capacity.in_use("spare") == 1
 
 
+ORCHESTRATOR = """\
+users: 4
+deployment: local-only
+units:
+  orch:
+    address: http://localhost:11434
+    model: qwen2.5-coder:7b
+    rig: local
+ladder:
+- orch
+orchestrator:
+  unit: orch
+  model: qwen2.5-coder:7b
+"""
+
+
+def test_the_local_orchestrator_reserves_one_slot_for_the_role() -> None:
+    """The serving plan runs the orchestrator unit at `users` slots, and one
+    of them stays the orchestration role's: the ladder sees `users - 1`."""
+    capacity = Capacity.of(parse(ORCHESTRATOR))
+
+    assert capacity.limits["orch"] == 3
+    assert capacity.limit("orch") == 3
+    assert capacity.limit("orch", "orch") == 3
+    assert capacity.declared("orch") == 4, "the role's slot is still the unit's"
+    assert capacity.total == 4
+
+
+def test_the_orchestrators_endpoint_agrees_with_its_reserved_capacity() -> None:
+    """`hold` checks an endpoint against the declaration it was built with,
+    so the role's endpoint must carry the served width, not the one slot the
+    role is bounded to."""
+    pool = source_map(parse(ORCHESTRATOR))
+    role = pool.role("orchestrator")
+
+    assert role is not None
+    assert role.endpoint.max_parallel == 4
+
+
+def test_a_hybrid_or_chat_setup_reserves_no_orchestrator_slot() -> None:
+    """The ruling is one place: hybrid and chat provision nothing, so a bound
+    local orchestrator unit is an ordinary ladder rung with no reserved slot."""
+    hybrid = ORCHESTRATOR.replace("deployment: local-only", "deployment: hybrid")
+    chat = ORCHESTRATOR.replace(
+        "deployment: local-only",
+        "deployment: local-only\nuse_case: chat",
+    )
+    for label, body in (("hybrid", hybrid), ("chat", chat)):
+        capacity = Capacity.of(parse(body))
+        assert capacity.limits["orch"] == 1, label
+        assert capacity.total == 1, label
+
+
+RIDE = "hitchhike-0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
+
+ORCHESTRATOR_WITH_RELIEF = f"""\
+{ORCHESTRATOR}relief:
+  {RIDE}:
+    address: http://hub.example/v1
+    model: hitchhike@0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b
+    api_key_env: HUB_KEY
+    width: 2
+    position: within
+"""
+
+
+def test_a_relief_rung_beside_a_reserving_orchestrator_reserves_nothing() -> None:
+    """A relief rung is another rig's unit, reached through the hub: the
+    orchestration role runs on the rider's own unit and never on it. So where
+    the local orchestrator keeps one of its slots back, the relief rung keeps
+    its whole width, and it is full by the one rule every rung is — its load
+    at that width."""
+    capacity = Capacity.of(parse(ORCHESTRATOR_WITH_RELIEF))
+
+    assert capacity.limits["orch"] == 3, "the role's reservation stands"
+    assert capacity.limits[RIDE] == 2, "no slot of a relief rung is the role's"
+    assert capacity.declared(RIDE) == 2
+    assert capacity.total == 4 + 2
+
+    assert not capacity.fullness(RIDE).full
+    capacity.reserve(RIDE)
+    assert not capacity.fullness(RIDE).full
+    capacity.reserve(RIDE)
+    try:
+        assert capacity.fullness(RIDE).full, "full at its width, not one below"
+    finally:
+        capacity.release(RIDE)
+        capacity.release(RIDE)
+
+
 # --- and from the machine, when the machine will say -------------------------
 
 

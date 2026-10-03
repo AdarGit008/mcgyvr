@@ -53,9 +53,11 @@ from mcgyvr.escalate import (
 )
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
+from mcgyvr.gate.adapter import SandboxRunner
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
+from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
@@ -67,7 +69,7 @@ from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, independent, verify
 from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
-from mcgyvr.worker.reply import ReplyError, parse_reply
+from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, ReplyError, parse_reply
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable, Sequence
@@ -291,7 +293,9 @@ def dispatch_prompt(
     :func:`~mcgyvr.gate.preflight.reply_cap`'s: the rung's own
     ``units.*.output_tokens`` where it declared one, and the contract's
     ``limits.max_output_tokens`` where it did not. The argument for which of
-    the two wins is written where the choice is made, in ``reply_cap``.
+    the two wins is written where the choice is made, in ``reply_cap``. A
+    raw-text reply (``prose`` / ``media_artifact``) is uncapped, so ``cap`` is
+    ``None`` there and the runner omits the wire field.
 
     ``contract`` is taken whole rather than as a cap, because a binding given
     only a number cannot be the place the fit refusal happens, and the refusal
@@ -319,7 +323,7 @@ def dispatch_prompt(
     endpoint = source_map.bind(rung)
     cap = reply_cap(contract, endpoint)
     window = endpoint.context_window
-    if window is not None and cap >= window:
+    if window is not None and cap is not None and cap >= window:
         raise OutputCapTooLargeError(
             f"rung {rung!r}: a reply cap of {cap} tokens does not fit the "
             f"{window}-token window {endpoint.source!r} serves, leaving nothing "
@@ -677,6 +681,7 @@ def worker_attempt(
 
     def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
+        prose = contract.output_schema in (PROSE, MEDIA_ARTIFACT)
         # Who reviews this rung's work, read before anything is dispatched.
         # Its dispatches go through the waker, as the builder's do below: a
         # reviewer on a card that is asleep refuses the connection, and
@@ -712,6 +717,11 @@ def worker_attempt(
                 )
 
         def judge_draw(space: Sandbox) -> GateResult:
+            if prose:
+                # A raw-text reply is the answer, not a file to tidy or repair.
+                # The only bar it must clear is the output evidence its
+                # contract declares; chat declares none and accepts on the spot.
+                return gate_prose_workspace(contract, space)
             # The gate is handed the sandbox, not a bare path, because a
             # contract's acceptance commands are arbitrary shell and run inside
             # a sandbox and nowhere else. `gate_workspace` takes the
@@ -923,7 +933,7 @@ def worker_attempt(
             )
         else:
             gate, bound = picked.gate, picked.winner
-            if tidying:
+            if tidying and not prose:
                 gate, bound = _cleaned(
                     contract, sandbox, gate, bound, adapters=adapters, config=config
                 )
@@ -941,10 +951,13 @@ def worker_attempt(
                 # run, the bytes it read, and which model wrote them. What
                 # crosses the seam is the reviewer itself, and `judge` decides
                 # whether to ask it: `partial` binds arguments and dispatches
-                # nothing, so a rejected gate costs no verifier spend.
+                # nothing, so a rejected gate costs no verifier spend. A
+                # raw-text reply is never verifier-reviewed — there is no file
+                # change to review — so prose answers are judged with no
+                # verifier whatever an install configured.
                 verifier=(
                     None
-                    if reviewing is None
+                    if prose or reviewing is None
                     else partial(
                         verify,
                         contract,
@@ -1398,6 +1411,52 @@ def acceptance_for(
     )
 
 
+def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | None:
+    """The gate's output-checks rung, or ``None`` when the contract declares none.
+
+    Only the four structural evidence kinds the gate makes itself are mapped
+    here; the command-producing kinds have their own rungs. Built beside
+    :func:`acceptance_for` rather than inside ``Gate`` because the declared
+    evidence and the workspace are what this layer holds.
+    """
+    declared = {e.name for e in contract.type.required_evidence}
+    checks = tuple(
+        name
+        for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER, GROUNDED)
+        if name in declared
+    )
+    if not checks:
+        return None
+    return OutputChecks(
+        checks=checks,
+        workspace=workspace,
+        target=contract.target,
+        media_kind=contract.media_kind,
+        transcript=contract.transcript,
+        wer_threshold=contract.wer_threshold,
+        sources=contract.sources,
+    )
+
+
+def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
+    """Judge a raw-text reply by the contract's output checks and nothing else.
+
+    A raw-text reply is the answer itself, not a file to be tidied, repaired or
+    verifier-reviewed. The only bar it must clear is the structural output
+    evidence the contract declares — grounded citations, a safety pass, and so
+    on — and a chat contract that declares none is accepted with no gate at all.
+    """
+    rung = output_checks_for(contract, sandbox.workspace)
+    if rung is None:
+        return GateResult()
+    report = rung.run()
+    return GateResult(
+        findings=report.findings,
+        environment_issues=report.environment_issues,
+        inconclusive=report.inconclusive,
+    )
+
+
 def gate_workspace(
     contract: Contract,
     sandbox: Sandbox,
@@ -1444,7 +1503,12 @@ def gate_workspace(
             )
         )
     acceptance = acceptance_for(contract, sandbox, config=config)
-    return Gate(adapters if adapters is not None else gate_adapters(config)).run(
+    # The checkers that load code from the workspace's own configuration — the
+    # type checker's plugins, eslint's and prettier's config modules — run
+    # where the task's commands do, never on the host beside it.
+    runner = SandboxRunner(sandbox)
+    owners = adapters if adapters is not None else gate_adapters(config)
+    return Gate(tuple(adapter.running_in(runner) for adapter in owners)).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
@@ -1453,8 +1517,9 @@ def gate_workspace(
         # sandbox, and the workspace the declaration lives in. A repository
         # that declares no checker still gets `None` from
         # `TypeCheck.declared_command`, so the absence is not a rejection.
-        typecheck=TypeCheck(repo=sandbox.workspace),
+        typecheck=TypeCheck(repo=sandbox.workspace, runner=runner),
         semantic=SemanticCheck(sandbox=sandbox),
+        output=output_checks_for(contract, sandbox.workspace),
         contract_text=contract.prose,
     )
 
