@@ -66,6 +66,11 @@ verdict on anything: no model was asked. So on a relief endpoint, and only
 there, those two answers are :class:`ReliefUnavailableError`, a
 :class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
 around as a full rung. From a ladder rung the same body is that rung's error.
+A ridden answer is held to the host's model, not to the ``hitchhike@<id>`` it
+was asked for (the hub's name for the rung): the hub passes the host's real
+model name through, and an answer naming any other — or none — is the rung
+refusing the request, the same error, with one line on stderr saying which
+models and nothing of the prompt.
 
 **What is deliberately not here.** Whether an endpoint is answering at all is
 :mod:`mcgyvr.availability`'s question and needs probing; this module reports a
@@ -83,6 +88,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -470,7 +476,10 @@ class Runner(ABC):
         after = _status(self.endpoint)
 
         parsed = self._parse(document)
-        self._refuse_other_weights(model, parsed.served_model)
+        if self.endpoint.relief:
+            self._refuse_another_host_model(parsed.served_model)
+        else:
+            self._refuse_other_weights(model, parsed.served_model)
         stop_reason = _STOP_REASONS.get(parsed.raw_stop_reason, StopReason.UNKNOWN)
         decode_tok_s, decode_source = _decode(parsed, latency_s)
         in_flight, in_flight_source = _in_flight(before, after)
@@ -519,6 +528,26 @@ class Runner(ABC):
             f"completion for {asked!r} and must not be recorded as one — the "
             f"rung is pointed at a model that is not the one resident."
         )
+
+    def _refuse_another_host_model(self, served: str | None) -> None:
+        """Raise unless a ridden answer names the model the rung was matched on.
+
+        The relief rung's ``served_model`` is what the hub said the host runs,
+        and the hub passes the host's real model name through in the answer.
+        An answer naming another, or none, did not come from the unit the rider
+        was matched to: the rung refused the request, which is a full rung
+        (:class:`ReliefUnavailableError`) and not a verdict on the work.
+        """
+        expected = self.endpoint.served_model
+        if expected is not None and served == expected:
+            return
+        said = (
+            f"relief rung {self.endpoint.source!r} answered from "
+            f"{served or 'no named model'!r}, not the {expected or 'unstated'!r} it "
+            f"was matched to; it is passed over as full"
+        )
+        print(f"note: {said}", file=sys.stderr)
+        raise ReliefUnavailableError(said)
 
     def _notes(
         self, parsed: _Parsed, stop_reason: StopReason, request: Request

@@ -171,6 +171,9 @@ class Endpoint:
     #: a hub, whose "cannot take the request now" answers the runner reads as
     #: a full rung rather than as an error (:mod:`mcgyvr.runner`).
     relief: bool = False
+    #: A relief rung's ``served_model``: the host's model, which a ridden
+    #: answer must name, or ``None`` where the rung's entry states none.
+    served_model: str | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -591,6 +594,7 @@ def _endpoint(unit: Unit) -> Endpoint:
         request_timeout_s=unit.request_timeout_s,
         engine=unit.engine,
         relief=unit.relief,
+        served_model=unit.served_model,
     )
 
 
