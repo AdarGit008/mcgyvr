@@ -17,8 +17,10 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from typing import Any
 
+from mcgyvr.config import MCORCH
 from mcgyvr.fleet import ids
 
 AWAKE = "awake"
@@ -63,6 +65,49 @@ def check_pin(name: str, layout: dict[str, str], pinned: str) -> None:
     """``None`` when ``layout`` still matches its pin; ``FleetError`` naming it."""
     if layout_sha256(layout) != pinned:
         raise FleetError(f"{name}: the layout no longer matches its pin — re-lock")
+
+
+def mcorch_units(
+    policy: Mapping[str, Any], layout: Mapping[str, Any], *, name: str
+) -> None:
+    """``None`` unless an mcorch policy's units are not awake in ``layout``.
+
+    Owner ruling: per fleet. A policy whose orchestrator is ``type: mcorch``
+    serves its orchestrator unit as the agent and asks its ``jev`` unit the
+    agent's typed decisions, so a fleet that runs it holds both as slots, each
+    awake: a conversation cannot wait out a wake. Read from the raw policy,
+    because the lock, promote and admission each hold one as written.
+    ``FleetError`` names every unit the layout lacks.
+    """
+    orchestrator = policy.get("orchestrator")
+    if not isinstance(orchestrator, Mapping) or orchestrator.get("type") != MCORCH:
+        return
+    jev = policy.get("jev")
+    needed = (
+        ("orchestrator", orchestrator.get("unit")),
+        ("jev", jev.get("unit") if isinstance(jev, Mapping) else None),
+    )
+    awake = {
+        slot[0]
+        for slots in layout.values()
+        for slot in slots or ()
+        if slot is not None and slot[1] == AWAKE
+    }
+    missing: list[str] = []
+    for role, unit in needed:
+        if unit is None:
+            line = (
+                f"mcorch needs the {role} unit awake, and the policy names none "
+                f"({role}.unit)"
+            )
+        elif unit not in awake:
+            line = f"mcorch needs {unit!r} awake, and its layout does not hold it"
+        else:
+            continue
+        if line not in missing:
+            missing.append(line)
+    if missing:
+        raise FleetError(f"fleet {name}: " + "; ".join(missing))
 
 
 def approve_switch(

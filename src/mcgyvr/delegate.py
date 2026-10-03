@@ -401,11 +401,11 @@ class ClassifierProposer:
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
         targets = _candidate_targets(evidence)
-        vocabulary = evidence.vocabulary
+        vocabulary = completable(evidence.vocabulary)
         if not targets or not vocabulary:
             return ()
 
-        state = _state(evidence, targets)
+        state = _state(evidence, targets, vocabulary)
         decision = self.classify(
             state,
             {
@@ -581,10 +581,56 @@ def _subject(target: str, symbol: str | None) -> str:
     return target if symbol is None else f"{symbol} in {target}"
 
 
-def _state(evidence: Evidence, targets: tuple[str, ...]) -> dict[str, Any]:
-    """The state the decision prompt carries: the request and what was shortlisted."""
+def _state(
+    evidence: Evidence, targets: tuple[str, ...], vocabulary: Sequence[TaskType]
+) -> dict[str, Any]:
+    """The state the decision prompt carries: the request and what is on offer."""
     return {
         "request": evidence.prompt,
         "candidates": list(targets),
-        "task_types": [task.name for task in evidence.vocabulary],
+        "task_types": [task.name for task in vocabulary],
     }
+
+
+def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
+    """The task types whose contract this proposer can complete.
+
+    A type whose evidence needs commands — ``acceptance`` that passes at
+    baseline, or a ``demonstration`` that fails there — needs a contract that
+    carries them, and this proposer writes neither: its contribution is
+    relevance, three single-token choices. A contract of such a type from it
+    is one the loader refuses (``contract.py``: "acceptance: is empty, but
+    task type ... requires"), and in the pilot every one was. So those types
+    are not offered; a vocabulary that leaves none is answered with nothing,
+    and the caller falls back to a proposer that writes commands.
+    """
+    return tuple(
+        task
+        for task in vocabulary
+        if not task.needs_acceptance_commands and not task.needs_demonstration_commands
+    )
+
+
+def proposer_by_authoring(
+    strategy: str | None, *, typed: Proposer | None, prose: Proposer | None
+) -> Proposer | None:
+    """The proposer ``orchestrator.authoring`` names for ``mcgyvr delegate``.
+
+    ``classifier`` asks ``typed`` first and falls back to ``prose`` when it
+    returns nothing — a low-confidence refusal or a request outside what it
+    can complete. Any other value is ``prose``, the proposer the command has
+    always used: ``direct`` is a strategy only a conversing rung carries out,
+    and an unbound field is the file not choosing. ``None`` where there is no
+    prose proposer to fall back to, which is the ``NO_ORCHESTRATOR_ROLE``
+    answer the command already gives.
+    """
+    if strategy != "classifier" or typed is None:
+        return prose
+    if prose is None:
+        return None
+
+    def propose(evidence: Evidence) -> Sequence[Proposal]:
+        proposals = typed(evidence)
+        return proposals if proposals else prose(evidence)
+
+    return propose
