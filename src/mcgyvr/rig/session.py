@@ -129,10 +129,11 @@ HEALTH_TIMEOUT_S = 2.0
 #: How many times teardown looks again for what is left of a session.
 TEARDOWN_ROUNDS = 3
 #: The optional behaviours of the hub's protocol this agent speaks while it
-#: lends: the latency probe (:mod:`mcgyvr.rig.probe`), and the traversal of
-#: a session's tunnel through the rigs' NATs (``tunnel_up`` is answered
-#: ``tunnel_report``).
-FEATURES = ("probe", "traversal")
+#: lends: the latency probe (:mod:`mcgyvr.rig.probe`), the traversal of a
+#: session's tunnel through the rigs' NATs (``tunnel_up`` is answered
+#: ``tunnel_report``), and a head of several slots (``head_start``'s
+#: ``slots``; :func:`mcgyvr.sandbox.pooled.head_argv`).
+FEATURES = ("probe", "traversal", "head_slots")
 #: The tunnel port's binding requests to the hub's responders: how long each
 #: round waits, in milliseconds; then one request each this many seconds
 #: until the tunnel comes up, for at most this long.
@@ -456,6 +457,15 @@ class Sessions:
             if found and found.role == "head" and found.state == "ready":
                 return found.api_port
         return None
+
+    def head_slots(self, session_id: str) -> int:
+        """How many requests the session's head serves at once: the
+        ``slots`` it was started with, one when it was not."""
+        with self._lock:
+            found = self._sessions.get(session_id)
+            if found is not None and found.head_asked is not None:
+                return found.head_asked.slots
+        return sessionwire.DEFAULT_SLOTS
 
     def state_of(self, session_id: str) -> tuple[str, str | None]:
         """Where session ``session_id`` stands, and its role."""
@@ -877,6 +887,7 @@ class Sessions:
             models_dir=held.folder,
             model=relative,
             ctx=asked.ctx,
+            slots=asked.slots,
             n_gpu_layers=asked.n_gpu_layers,
             devices=tuple(names),
             tensor_split=asked.tensor_split,
@@ -1043,7 +1054,9 @@ class Sessions:
 
     def _warm(self, session: _Session, name: str) -> None:
         """Warm the loaded head (:func:`warm_up`) while the session lives on:
-        its lease renewed, its head and its workers watched."""
+        its lease renewed, its head and its workers watched. The warm-up is
+        one request, which one slot serves, so it is sized to one slot's
+        context (``ctx``), never the whole cache's."""
         assert session.api_port is not None and session.head is not None
         port, ctx = session.api_port, session.head.ctx
         done = threading.Event()
