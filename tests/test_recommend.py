@@ -80,7 +80,7 @@ from mcgyvr.serving import ggufscan as ggufscan_module
 FREE_MIB = 9001
 STALE_MIB = 1111
 AVAILABLE_RAM_GB = 48.0
-HOST = "box-7"
+HOST = "box-7.invalid"
 STORE_DIR = "/models/store"
 CHECKPOINT = f"{STORE_DIR}/invented-moe.gguf"
 OTHER = f"{STORE_DIR}/invented-dense.gguf"
