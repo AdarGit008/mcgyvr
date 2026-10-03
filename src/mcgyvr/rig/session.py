@@ -44,6 +44,13 @@ of them (:func:`register` puts its handlers on the dispatcher):
 * ``session_query`` is answered with where the session stands;
   ``session_stop`` tears it down.
 
+A rig may be in several sessions at once, one unit per card: each session
+holds the cards its ``worker_start`` or ``head_start`` named until it is torn
+down, and a command naming a card another session holds is refused ``busy``
+(as is a ``session_prepare`` when every lent card is held). Each session has
+its own tunnel container, its own tunnel port and its own head API port, so
+nothing of one is shared with another (the ``multi_session`` feature).
+
 Each session is one state (:data:`TRANSITIONS` is the whole table) and one
 thread that does its docker work in order. A handler reads its command
 (:mod:`mcgyvr.rig.sessionwire`), decides on this rig whether it may be done,
@@ -131,12 +138,22 @@ TEARDOWN_ROUNDS = 3
 #: The feature a rig that shares units with riders speaks: it advertises them
 #: (``unit_advert``) and serves rides to them (:mod:`mcgyvr.rig.hitchhike`).
 HITCHHIKE_FEATURE = "hitchhike_units"
+#: The feature a rig that runs several sessions at once speaks: one unit per
+#: card, never two sessions on one card (:meth:`Sessions.prepare`).
+MULTI_SESSION_FEATURE = "multi_session"
 #: The optional behaviours of the hub's protocol this agent speaks while it
 #: lends: the latency probe (:mod:`mcgyvr.rig.probe`), the traversal of a
 #: session's tunnel through the rigs' NATs (``tunnel_up`` is answered
 #: ``tunnel_report``), a head of several slots (``head_start``'s ``slots``;
-#: :func:`mcgyvr.sandbox.pooled.head_argv`), and the shared units.
-FEATURES = ("probe", "traversal", "head_slots", HITCHHIKE_FEATURE)
+#: :func:`mcgyvr.sandbox.pooled.head_argv`), the shared units, and a session
+#: per card.
+FEATURES = (
+    "probe",
+    "traversal",
+    "head_slots",
+    HITCHHIKE_FEATURE,
+    MULTI_SESSION_FEATURE,
+)
 #: The tunnel port's binding requests to the hub's responders: how long each
 #: round waits, in milliseconds; then one request each this many seconds
 #: until the tunnel comes up, for at most this long.
@@ -280,10 +297,26 @@ class _Session:
     stun_rtt_us: int | None = None
     report: tuple[sessionwire.PeerPath, ...] | None = None
     reported_to: list[str] = field(default_factory=list)
+    released: bool = False  # its teardown is done: it holds nothing now
 
     @property
     def tunnel_name(self) -> str:
         return pooled.container_name(self.id, "tunnel")
+
+    @property
+    def cards(self) -> frozenset[int]:
+        """The cards this session holds: those its ``worker_start`` or its
+        ``head_start`` named, from when it was taken until teardown."""
+        held: set[int] = set()
+        if self.workers_asked is not None:
+            held.update(card.card_index for card in self.workers_asked.cards)
+        if self.head_asked is not None:
+            held.update(
+                device.card_index
+                for device in self.head_asked.devices
+                if isinstance(device, sessionwire.LocalDevice)
+            )
+        return frozenset(held)
 
 
 def free_port() -> int:
@@ -577,11 +610,7 @@ class Sessions:
                     SessionCode.NOT_CAPABLE,
                     f"role: this rig does not lend the {asked.role} role",
                 )
-            live = self._live()
-            if live is not None and live.id != asked.session_id:
-                return sessionwire.refusal(
-                    envelope.id, SessionCode.BUSY, "this rig is in another session"
-                )
+            live = self._live_named(asked.session_id)
             if live is not None:
                 if live.role != asked.role:
                     return sessionwire.refusal(
@@ -593,6 +622,18 @@ class Sessions:
                     return self._prepared(live, envelope.id)
                 live.pending.append(envelope.id)
                 return None
+            report = self.machine.report()
+            lent = {
+                card.index
+                for card in report.cards
+                if share.lends(card.index, report) is not None
+            }
+            if lent and lent <= self._held():
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.BUSY,
+                    "every card this rig lends is in another session",
+                )
             hosts = endpoint_hosts(share, self.machine.interfaces)
             if not hosts:
                 return sessionwire.refusal(
@@ -705,6 +746,9 @@ class Sessions:
                         "cards.port: below the ports an unprivileged server binds",
                     )
                 workers.append((card.card_index, gpu, card.port))
+            taken = self._taken(session, [card.card_index for card in asked.cards])
+            if taken is not None:
+                return sessionwire.refusal(envelope.id, SessionCode.BUSY, taken)
             session.workers_asked = asked
             session.workers = tuple(workers)
             session.sharing = share
@@ -743,6 +787,16 @@ class Sessions:
                     protocol.ErrorCode.BAD_MESSAGE,
                     "the session's head is started with other settings",
                 )
+            taken = self._taken(
+                session,
+                [
+                    device.card_index
+                    for device in asked.devices
+                    if isinstance(device, sessionwire.LocalDevice)
+                ],
+            )
+            if taken is not None:
+                return sessionwire.refusal(envelope.id, SessionCode.BUSY, taken)
             planned = self._plan_head(session, asked, envelope.id)
             if isinstance(planned, str):
                 return planned
@@ -780,6 +834,28 @@ class Sessions:
                 return found
         return None
 
+    def _holding(self, but: _Session | None = None) -> list[_Session]:
+        """The sessions that hold what they took — live, or ended and not yet
+        torn down — but ``but``."""
+        return [
+            found
+            for found in self._sessions.values()
+            if found is not but and not found.released
+        ]
+
+    def _held(self, but: _Session | None = None) -> frozenset[int]:
+        """The cards the sessions but ``but`` hold now."""
+        return frozenset(card for found in self._holding(but) for card in found.cards)
+
+    def _taken(self, session: _Session, cards: Sequence[int]) -> str | None:
+        """Why ``session`` may not have ``cards``: one another session holds;
+        ``None`` when it may."""
+        held = self._held(session)
+        for card in cards:
+            if card in held:
+                return f"cards: card {card} is in another session"
+        return None
+
     def _live_named(self, session_id: str) -> _Session | None:
         found = self._sessions.get(session_id)
         return found if found is not None and found.state in LIVE else None
@@ -792,7 +868,9 @@ class Sessions:
         )
 
     def _forget_ended(self) -> None:
-        ended = [s.id for s in self._sessions.values() if s.state not in LIVE]
+        ended = [
+            s.id for s in self._sessions.values() if s.state not in LIVE and s.released
+        ]
         for session_id in ended[: max(0, len(ended) - ENDED_KEPT)]:
             del self._sessions[session_id]
 
@@ -1534,7 +1612,18 @@ class Sessions:
                 break
             self._docker.remove(names)
             names = []
-        if session.role == "worker" and self.machine.cache_dir is not None:
+        with self._lock:
+            session.released = True
+            # The cache is the rig's, not the session's: a worker of another
+            # session may be reading it, so the last worker out trims it.
+            sharing_cache = any(
+                found.role == "worker" for found in self._holding(session)
+            )
+        if (
+            session.role == "worker"
+            and self.machine.cache_dir is not None
+            and not sharing_cache
+        ):
             with contextlib.suppress(OSError):
                 if self.machine.cache_dir.is_dir():
                     trim_cache(self.machine.cache_dir, session.sharing.cache_max_mb)
