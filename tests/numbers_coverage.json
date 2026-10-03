@@ -68,7 +68,6 @@
     "orchestrator/context.py": "judging",
     "orchestrator/decompose.py": "judging",
     "orchestrator/index.py": "judging",
-    "orchestrator/local.py": "holds no number that sizes or judges",
     "orchestrator/read.py": "judging",
     "orchestrator/repo.py": "holds no number that sizes or judges",
     "orchestrator/resolve.py": "judging",

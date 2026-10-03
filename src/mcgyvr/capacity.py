@@ -692,16 +692,21 @@ class Capacity:
         orchestrator_unit = (
             config.units.get(orchestrator_name) if orchestrator_name else None
         )
-        local_orchestrator = (
+        # The ruling's one home: a slot is reserved only when the serving plan
+        # actually provisions a local orchestrator — a local-only non-chat use
+        # case. Hybrid and chat provision nothing, so a bound local unit is
+        # just a ladder rung.
+        role_orchestrator = (
             orchestrator_name
-            if orchestrator_unit is not None
+            if config.provisions_local_orchestrator
+            and orchestrator_unit is not None
             and not orchestrator_unit.requires_credential
             else None
         )
         users = int(config.get("users", 1))
         for name, unit in config.units.items():
             declared = unit.width or 1
-            if name == local_orchestrator:
+            if name == role_orchestrator:
                 # The serving plan launches the local orchestrator unit at the
                 # user count when the unit declares no width of its own. One
                 # of those slots stays the role's, so the ladder sees the rest.
@@ -727,7 +732,7 @@ class Capacity:
             else:
                 enforced = reported
                 confirmed.append(name)
-            if name == local_orchestrator:
+            if name == role_orchestrator:
                 ladder = max(enforced - 1, 1)
                 reserved[name] = enforced - ladder
                 limits[name] = ladder

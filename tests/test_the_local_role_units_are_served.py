@@ -38,6 +38,7 @@ SCANS = {"srv1": rig("srv1", vram_mib=16384)}
 
 FLEET = f"""\
 users: 4
+deployment: local-only
 units:
   cheap:
     address: http://srv1:8001
@@ -105,6 +106,7 @@ def test_the_orchestrator_units_width_is_the_user_count_when_unwritten() -> None
 def test_a_written_width_on_the_orchestrator_wins_over_users() -> None:
     fleet = """\
 users: 4
+deployment: local-only
 units:
   orch:
     address: http://srv1:8002
@@ -135,6 +137,7 @@ RESIDENT_RIG = {"srv1": rig("srv1", vram_mib=12288)}
 # written: the orchestrator claims 6 GB, the ladder 2 GB, on a 12 GB card.
 RESIDENT_FLEET = """\
 users: 2
+deployment: local-only
 units:
   orchestrator:
     address: http://srv1:8080
@@ -178,3 +181,39 @@ def test_the_orchestrator_and_its_ladder_co_reside_not_alternate() -> None:
     specs = launch_specs(units)
     assert len(specs) == 1
     assert {unit.port for unit in specs[0].units} == {8080, 8081}
+
+
+def _with(line: str) -> str:
+    """FLEET with one ``key: value`` line set: replaced where present, else
+    inserted after the ``users`` line."""
+    key = line.split(":")[0]
+    lines = FLEET.splitlines()
+    for index, existing in enumerate(lines):
+        if existing.startswith(key + ":") or existing.startswith(key + " "):
+            lines[index] = line
+            return "\n".join(lines) + "\n"
+    for index, existing in enumerate(lines):
+        if existing.startswith("users"):
+            lines.insert(index + 1, line)
+            return "\n".join(lines) + "\n"
+    raise AssertionError("no users line to insert after")  # pragma: no cover
+
+
+def test_a_local_only_chat_setup_serves_no_orchestrator() -> None:
+    """Chat is a raw endpoint, so even a bound local orchestrator unit is not
+    provisioned — the plan's ruling, wired into the serving plan."""
+    fleet = _with("use_case: chat")
+    units = units_for(parse(fleet), SCANS, specs=(), ctx_per_slot=None)
+    assert 8002 not in {unit.port for unit in units}, (
+        "chat provisions no orchestrator, bound or not"
+    )
+
+
+def test_a_hybrid_setup_serves_no_local_orchestrator() -> None:
+    """Hybrid has an API-tier orchestrator, so a local orchestrator unit is not
+    provisioned even when one is bound and keyless."""
+    fleet = _with("deployment: hybrid")
+    units = units_for(parse(fleet), SCANS, specs=(), ctx_per_slot=None)
+    assert 8002 not in {unit.port for unit in units}, (
+        "hybrid provisions no local orchestrator"
+    )

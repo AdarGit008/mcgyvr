@@ -79,7 +79,7 @@ def test_a_machine_with_no_backend_and_an_api_unit_writes_a_setup(
     result = initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     assert result.created and result.written
-    (decided,) = result.decisions
+    decided = next(d for d in result.decisions if " -> " in d)
     assert decided.startswith(
         "api_claude-opus-5 -> claude-opus-5 at https://api.anthropic.com: bound "
         "because `--api` asked for it"

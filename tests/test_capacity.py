@@ -541,6 +541,7 @@ def test_every_declared_source_is_covered_not_only_the_laddered_ones() -> None:
 
 ORCHESTRATOR = """\
 users: 4
+deployment: local-only
 units:
   orch:
     address: http://localhost:11434
@@ -575,6 +576,20 @@ def test_the_orchestrators_endpoint_agrees_with_its_reserved_capacity() -> None:
 
     assert role is not None
     assert role.endpoint.max_parallel == 4
+
+
+def test_a_hybrid_or_chat_setup_reserves_no_orchestrator_slot() -> None:
+    """The ruling is one place: hybrid and chat provision nothing, so a bound
+    local orchestrator unit is an ordinary ladder rung with no reserved slot."""
+    hybrid = ORCHESTRATOR.replace("deployment: local-only", "deployment: hybrid")
+    chat = ORCHESTRATOR.replace(
+        "deployment: local-only",
+        "deployment: local-only\nuse_case: chat",
+    )
+    for label, body in (("hybrid", hybrid), ("chat", chat)):
+        capacity = Capacity.of(parse(body))
+        assert capacity.limits["orch"] == 1, label
+        assert capacity.total == 1, label
 
 
 # --- and from the machine, when the machine will say -------------------------

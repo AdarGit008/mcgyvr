@@ -74,6 +74,8 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `profile` | one of `live`, `dev` | no | `live` | Which setup this file is: `live` or `dev`. A fleet fact: live outranks dev on the rigs. |
+| `use_case` | one of `coding`, `chat`, `agent`, `media-gen` | no | `coding` | Which of the four use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint), `agent` (grounded + safety output checks) or `media-gen` (media_valid, safety and ASR-WER). |
+| `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: a non-chat use case provisions a local orchestrator unit, and chat is just the ladder serving text. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
 | `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcgyvr.orchestrator.local import CHAT, LocalOrchestrator, local_orchestrator
+from mcgyvr.config import CHAT, LocalOrchestrator, local_orchestrator
 
 
 def test_hybrid_provisions_no_local_orchestrator() -> None:

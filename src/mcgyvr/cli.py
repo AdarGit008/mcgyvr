@@ -564,6 +564,8 @@ def _init(args: argparse.Namespace) -> int:
             hosts=tuple(args.host or ()),
             api_units=api_units,
             profile=args.profile,
+            use_case=args.use_case,
+            deployment=args.deployment,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -3144,6 +3146,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     line is the one the caller was typing against
     (tests/test_a_blank_orchestrator_is_refused_not_filed.py).
     """
+    from mcgyvr.catalog import catalog
+
+    use_case_names = tuple(u.name for u in catalog().use_cases)
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
@@ -3428,6 +3433,29 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "'quality', or 'cost') instead of writing the default ladder. The "
             "decision runs on the first detected backend; every number in the "
             "file stays measured or the schema's, never the model's"
+        ),
+    )
+    ini.add_argument(
+        "--use-case",
+        default="coding",
+        choices=use_case_names,
+        metavar="USE_CASE",
+        help=(
+            "which use case this install serves: coding (the deterministic "
+            "gate), chat (raw endpoint), agent (grounded + safety) or "
+            "media-gen (media_valid + safety + ASR-WER); default: coding"
+        ),
+    )
+    ini.add_argument(
+        "--deployment",
+        default=None,
+        choices=("hybrid", "local-only"),
+        metavar="MODEL",
+        help=(
+            "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
+            "local-only (mcgyvr is the backend and provisions a local "
+            "orchestrator for a non-chat use case); default: local-only for "
+            "chat, hybrid otherwise"
         ),
     )
     ini.set_defaults(func=_init)

@@ -1092,6 +1092,10 @@ def units_for(
     windows: dict[UnitKey, dict[int, list[str]]] = {}
 
     users = config.get("users", 1)
+    # The ruling's one home, read here and in capacity: chat and hybrid
+    # provision nothing locally, so a bound local orchestrator unit is only
+    # served for a local-only non-chat use case.
+    provision = config.provisions_local_orchestrator
 
     def _local(name: str | None) -> bool:
         unit = config.units.get(name) if name else None
@@ -1103,7 +1107,8 @@ def units_for(
     served = list(config.ladder.names)
     orchestrator_name = config.get("orchestrator.unit")
     if (
-        orchestrator_name
+        provision
+        and orchestrator_name
         and _local(orchestrator_name)
         and orchestrator_name not in served
     ):
@@ -1145,7 +1150,7 @@ def units_for(
             engine=unit.engine or DEFAULT_ENGINE,
             port=port_of(unit.address),
         )
-        if name == orchestrator_name:
+        if provision and name == orchestrator_name:
             orchestrator_key = key
         grouped.setdefault(key, []).append(name)
         if unit.window is not None:
@@ -1157,7 +1162,7 @@ def units_for(
             # One process, one slot count. Two units asking for different
             # widths get the larger.
             widths[key] = max(widths.get(key, 0), unit.width)
-        elif name == orchestrator_name and _local(orchestrator_name):
+        elif provision and name == orchestrator_name and _local(orchestrator_name):
             # The local orchestrator's slot count is the user count when
             # nobody wrote a width on the unit: one session per user.
             widths[key] = max(widths.get(key, 0), users)
