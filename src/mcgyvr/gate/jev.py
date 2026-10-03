@@ -44,7 +44,7 @@ from mcgyvr.decision import (
     Question,
     Score,
     ScoreAnswer,
-    classify_role,
+    classify_for,
 )
 from mcgyvr.gate.changeset import ChangeSet, FileChange, read_added_text
 from mcgyvr.gate.findings import Finding
@@ -153,27 +153,26 @@ def jev_check_for(
     """The install's ``role`` as a Jev rung, or ``None`` when it has none.
 
     Mirrors :func:`mcgyvr.verify.reviewer_for` one seam over: the endpoint and
-    model stay below the seam inside :func:`~mcgyvr.decision.classify_role`, and
-    only the ``decide`` seam crosses it. ``capacity`` holds the role's source
-    slot for each question, as a dispatch to it would.
+    model stay below the seam inside :func:`~mcgyvr.decision.classify_for`, and
+    only the ``decide`` seam crosses it. ``capacity`` holds the answering
+    unit's source slot for each question, as a dispatch to it would.
+
+    Whether the rung exists is ``role``'s to say; who answers it is not. With
+    ``jev.unit`` bound the questions go to that unit, and without it to
+    ``role``'s own, as they did before a Jev unit existed.
     """
     if source_map.role_model(role) is None:
         return None
 
     def decide(state: Any) -> Decision:
-        decision = classify_role(
+        return classify_for(
             source_map,
-            role,
             state,
             JEV_QUESTIONS,
+            role=role,
             capacity=capacity,
             timeout_s=timeout_s,
         )
-        if decision is None:  # the role was bound a moment ago
-            raise JevUnavailableError(
-                f"the {role!r} role has no source to answer a decision"
-            )
-        return decision
 
     return JevCheck(decide=decide, blocking=blocking)
 
