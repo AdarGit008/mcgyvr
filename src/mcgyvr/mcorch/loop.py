@@ -41,7 +41,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from mcgyvr.decision import Choice, ChoiceAnswer
-from mcgyvr.mcorch import anthropic
+from mcgyvr.mcorch import anthropic, guard
 from mcgyvr.mcorch.anthropic import MessagesRequest
 from mcgyvr.mcorch.authoring import Authoring
 from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungReply, RungToolCall
@@ -83,10 +83,6 @@ NEXT = Choice(
 INTENT_NAME = "intent"
 NEXT_NAME = "next"
 
-#: The keys a RunResult document always carries; a tool result holding a JSON
-#: object with both is read as one (:mod:`mcgyvr.result`).
-_RESULT_KEYS = ("contract", "outcome")
-
 
 @dataclass(frozen=True)
 class Limits:
@@ -110,6 +106,8 @@ class Trace:
     rounds: int
     internal_calls: tuple[str, ...]
     next: str | None
+    #: Targets of open contracts the rung asked the harness to edit, refused.
+    refused_edits: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -154,6 +152,8 @@ def respond(
 
     rounds = 0
     internal_calls: list[str] = []
+    refused_edits: list[str] = []
+    targets = guard.open_targets(request.messages)
     history = list(turns)
     reply = RungReply(text="", tool_calls=())
     while rounds < limits.max_rounds:
@@ -167,10 +167,13 @@ def respond(
             )
         )
         unreadable = set(anthropic.unreadable_calls(reply))
+        guarded = _guarded(reply.tool_calls, targets)
         mine = [
             call
             for call in reply.tool_calls
-            if call.name in internal_names or call.id in unreadable
+            if call.name in internal_names
+            or call.id in unreadable
+            or call.id in guarded
         ]
         if not mine:
             return Turn(
@@ -184,19 +187,20 @@ def respond(
                     dropped_blocks,
                     rounds,
                     internal_calls,
+                    refused_edits,
                 ),
             )
         theirs = [call for call in reply.tool_calls if call not in mine]
         history.append(_assistant_turn(reply.text, mine))
         for call in mine:
-            internal_calls.append(call.name)
-            history.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": _answer_internal(call, unreadable, internal),
-                }
-            )
+            if call.id in guarded:
+                target, contract_id = guarded[call.id]
+                refused_edits.append(target)
+                answer = guard.refusal(call.name, target, contract_id)
+            else:
+                internal_calls.append(call.name)
+                answer = _answer_internal(call, unreadable, internal)
+            history.append({"role": "tool", "tool_call_id": call.id, "content": answer})
         if theirs:
             names = ", ".join(sorted({call.name for call in theirs}))
             history[-1]["content"] += (
@@ -224,6 +228,7 @@ def respond(
             dropped_blocks,
             rounds,
             internal_calls,
+            refused_edits,
         ),
     )
 
@@ -266,6 +271,25 @@ def _side(
     )
 
 
+def _guarded(
+    calls: Sequence[RungToolCall], targets: Mapping[str, str]
+) -> dict[str, tuple[str, str]]:
+    """Call id → (target, contract id) for every call that would edit an open target."""
+    found: dict[str, tuple[str, str]] = {}
+    if not targets:
+        return found
+    for call in calls:
+        input_ = guard.arguments(call.arguments)
+        if input_ is None:
+            continue
+        contract_id = guard.edits_open_target(call.name, input_, targets)
+        if contract_id is None:
+            continue
+        target = next(t for t, c in targets.items() if c == contract_id)
+        found[call.id] = (target, contract_id)
+    return found
+
+
 def _trace(
     intent: str | None,
     following: str | None,
@@ -275,6 +299,7 @@ def _trace(
     dropped_blocks: Sequence[str],
     rounds: int,
     internal_calls: Sequence[str],
+    refused_edits: Sequence[str] = (),
 ) -> Trace:
     return Trace(
         kind="main",
@@ -286,6 +311,7 @@ def _trace(
         rounds=rounds,
         internal_calls=tuple(internal_calls),
         next=following,
+        refused_edits=tuple(refused_edits),
     )
 
 
@@ -370,7 +396,7 @@ def _run_result(messages: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | No
             parsed = json.loads(text)
         except ValueError:
             continue
-        if isinstance(parsed, dict) and all(key in parsed for key in _RESULT_KEYS):
+        if isinstance(parsed, dict) and all(key in parsed for key in guard.RESULT_KEYS):
             return parsed
     return None
 

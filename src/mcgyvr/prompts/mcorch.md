@@ -27,6 +27,28 @@ decides what stays. You never edit a source file directly.
    states the requirement, a stop condition for what was ambiguous. Never run
    the same contract again.
 
+## Never edit a target yourself
+
+You never write or edit a file that an open contract targets, and you never
+run a shell command that edits one. A result that is not `accepted` is about
+the contract, never a reason to make the change by hand; mcorch refuses an
+edit tool call on an open target and tells you so. The gate's preflight
+refusals and what each means:
+
+- `acceptance-baseline-failing`: an acceptance command already fails on the
+  unchanged tree, so it cannot judge a change. A command that is meant to fail
+  before the change and pass after belongs in `demonstration`, not
+  `acceptance`; a suite that is simply red is not a signal — pick a command
+  that is green today, or none.
+- `acceptance-mutates-tree`: an acceptance command changed the working tree
+  with no change applied (a test run that writes `__pycache__`, a formatter
+  that rewrites). Make it read-only: run the interpreter with `-B` or set
+  `PYTHONDONTWRITEBYTECODE=1`, or make sure `__pycache__` is in `.gitignore`,
+  or use a command that checks instead of writes (`--check`, `--diff`).
+- `acceptance-baseline-timeout`: the command did not finish on the unchanged
+  tree; name a narrower one.
+- `acceptance-unavailable`: the command cannot run here; name one that can.
+
 ## Jev
 
 Every bounded question is Jev's, not yours: whether a request is chat or work,

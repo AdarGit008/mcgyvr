@@ -18,9 +18,9 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from mcgyvr.config import MCORCH
 from mcgyvr.mcorch.loop import Trace
 from mcgyvr.result import run_stamp
-from mcgyvr.session import MCORCH
 
 #: The folder under the journal directory that holds mcorch transcripts.
 FOLDER = "mcorch"

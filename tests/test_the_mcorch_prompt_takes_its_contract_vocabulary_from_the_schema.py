@@ -35,3 +35,13 @@ def test_the_prompt_file_is_the_source_and_carries_no_hand_kept_table() -> None:
     assert "| Key |" not in source
     assert prompt.VOCABULARY_SLOT in source
     assert "Jev" in source
+
+
+def test_the_prompt_explains_preflight_refusals_and_forbids_target_edits() -> None:
+    """The pilot rung read a refusal as a broken tool and edited the target itself."""
+    rendered = prompt.render(writer="mcorch-2026", authoring="direct")
+    assert "acceptance-mutates-tree" in rendered
+    assert "acceptance-baseline-failing" in rendered
+    assert "demonstration" in rendered
+    assert "__pycache__" in rendered
+    assert "never edit" in rendered.lower() or "do not edit" in rendered.lower()
