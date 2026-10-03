@@ -94,6 +94,20 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "RIG_DIR": True,
     "MARKER_FIELDS": True,
     "VMSTAT_FIELDS": True,
+    # Must agree: ``serving/rigscan.py`` is shipped to the rig as text
+    # (``python3 -``) and cannot import mcgyvr, so it restates the scan's
+    # measured constants rather than importing them. If a copy drifts, the far
+    # end measures by a different instrument than ``mcgyvr.scan``, and the same
+    # rig reports two different facts.
+    "COPY_MIB": True,
+    "COPY_MIB_TIGHT": True,
+    "COPY_PASSES": True,
+    "GPU_NOT_DETERMINED": True,
+    "GPU_ROW_UNREAD": True,
+    "MIB_PER_GB": True,
+    "NVIDIA_SMI_QUERY": True,
+    "TIGHT_RAM_GB": True,
+    "WEIGHTS_DIR_ENV": True,
     # Two serving backends, added 2026-08-30. Each names the engine it drives,
     # so three of these four MUST differ and are declared False for that reason
     # rather than as an unreconciled conflict.

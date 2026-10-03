@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "_purpose": "The HuggingFace catalog `mcgyvr recommend` falls back to when no local model store fits. Each entry is a downloadable checkpoint: a repository id, the quantisation the pick asks for, the size of that quantisation in bytes as shipped in this catalog (not re-read here; a local store's header is the measured path), and the engines that can serve it. A catalog pick has no header read on the rig, so its fit is priced from shipped geometry too: `context_length` is the declared context the pick is served at, and `kv_bytes_per_token` is the per-token KV cache width over every caching layer at the shipped f16 cache dtype, derived from the checkpoint's GGUF header dims (layers x kv-heads x (key_length + value_length) x 2 bytes) and shipped here rather than invented at runtime from the model name. `recurrent_bytes_per_slot` is the per-slot recurrent/SSM state the pick keeps resident; it is 0 for every shipped entry, which are attention-only. This file is data: adding a model is an edit here, not a code change.",
+  "models": [
+    {
+      "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
+      "quant": "Q4_K_M",
+      "size_bytes": 4683575296,
+      "context_length": 32768,
+      "kv_bytes_per_token": 57344,
+      "recurrent_bytes_per_slot": 0,
+      "engines": ["llama.cpp", "vllm"]
+    },
+    {
+      "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct",
+      "quant": "Q4_K_M",
+      "size_bytes": 8998459392,
+      "context_length": 32768,
+      "kv_bytes_per_token": 196608,
+      "recurrent_bytes_per_slot": 0,
+      "engines": ["llama.cpp", "vllm"]
+    },
+    {
+      "model_id": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
+      "quant": "Q4_K_M",
+      "size_bytes": 9558623232,
+      "context_length": 163840,
+      "kv_bytes_per_token": 276480,
+      "recurrent_bytes_per_slot": 0,
+      "engines": ["llama.cpp"]
+    }
+  ]
+}
