@@ -640,6 +640,8 @@ def build(
             "unit": None,
             "model": None,
         },
+        # Unbound: every typed decision asks the unit it asks without one.
+        "jev": {"unit": None, "model": None},
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
             # Written at their defaults, each under the comment that names the

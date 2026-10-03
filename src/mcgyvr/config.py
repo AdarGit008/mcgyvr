@@ -979,6 +979,18 @@ SCHEMA: tuple[Field, ...] = (
         "Which unit reads an applied diff in fresh context.",
         block=VERIFIER_UNIT_FIELDS,
     ),
+    Field(
+        "jev",
+        "block",
+        "Which one unit answers every typed decision: a question answered "
+        "with a single-token label rather than prose. Those are the gate's "
+        "Jev rung, the reviewer's verdict, the fleet's choice of whether to "
+        "wake a smarter rung, the ladder manager's choices and the typed "
+        "proposer. Left unbound, each of those keeps asking the unit it asks "
+        "today: the verifier, the reviewing rung, the fast rung or the "
+        "orchestrator.",
+        block=ROLE_UNIT_FIELDS,
+    ),
     Field("sandbox", "block", "Where a task's commands run.", block=SANDBOX_FIELDS),
     Field(
         "delivery",
@@ -2030,7 +2042,7 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
     _cross_validate_relief(data, units)
     _cross_validate_shares(data, units)
 
-    for role in ("orchestrator", "verifier"):
+    for role in ("orchestrator", "verifier", "jev"):
         bound = data[role].get("unit")
         if bound is not None and bound not in units:
             raise ConfigSchemaError(

@@ -67,7 +67,7 @@ from typing import Protocol as TypingProtocol
 
 from mcgyvr.config import Config, Unit
 
-_ROLES = ("orchestrator", "verifier")
+_ROLES = ("orchestrator", "verifier", "jev")
 
 
 class SourceProbe(TypingProtocol):
@@ -232,7 +232,7 @@ class Skipped:
 
 @dataclass(frozen=True)
 class RoleBinding:
-    """A non-ladder role (orchestrator, verifier) resolved to somewhere to run."""
+    """A non-ladder role (orchestrator, verifier, jev) resolved to somewhere to run."""
 
     role: str
     model: str
@@ -448,11 +448,14 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         if bound is None:
             continue
         unit = config.units[bound]
-        if model is None and role == "verifier":
+        if model is None and role in ("verifier", "jev"):
             # `model` absent means the unit's own. Said for the verifier and
             # acted on here, because a reviewer left unbound for want of a
             # spelling is a review that silently never happens — and the model
             # it would have named is the one its independence is checked on.
+            # The same for the Jev unit: a `jev.unit` with no model would
+            # otherwise leave every typed decision on the unit it asked before,
+            # with nothing to say the binding was ignored.
             model = unit.model
         if model is None:
             continue

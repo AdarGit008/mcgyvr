@@ -93,6 +93,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only non-chat use case is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
 | `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts. |
 | `verifier` | block | no | — | Which unit reads an applied diff in fresh context. |
+| `jev` | block | no | — | Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the ladder manager's choices and the typed proposer. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator. |
 | `sandbox` | block | no | — | Where a task's commands run. |
 | `delivery` | block | no | — | How accepted work gets back to you. |
 | `breadth` | block | no | — | How many answers one attempt asks for. |
@@ -146,6 +147,15 @@ Which unit reads an applied diff in fresh context.
 | `verifier.enabled` | boolean | no | `true` | Model verification of the applied diff, on top of the gate. On unless set to `false`. With no `unit`, the reviewer is the next dearer local rung whose model is not the builder's; where there is none, the work is accepted and labelled unverified. A hosted unit reviews only when `unit` names it. |
 | `verifier.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `verifier.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
+
+## `jev`
+
+Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the ladder manager's choices and the typed proposer. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `jev.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
+| `jev.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
 ## `sandbox`
 
