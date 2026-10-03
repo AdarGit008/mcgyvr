@@ -11,13 +11,55 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- A rig can lend its cards to a hub's pooled-inference sessions, where one
+  model's layers run across several rigs: `mcgyvr rig share --on --image
+  <engine image>` turns it on (it is off until then) with the roles
+  (`worker`, `head`), cards, memory per card and per container, models
+  folder, LAN endpoints and tunnel port the owner allows, kept in
+  `$MCGYVR_HOME/rig-sharing.json`. The hello then offers those roles, the
+  endpoints, and the models under the folder by name only (size and what
+  planning reads from each GGUF header); the hub is told of no more free
+  memory than the owner lends. The agent answers the hub's session commands
+  (prepare, tunnel up, start a worker or a head, query, stop) as one state
+  machine per session, each command idempotent, and relays requests to the
+  head's chat completions on loopback, streamed back within the hub's credit,
+  size and time, with cancellation. Every session runs in containers on this
+  machine's daemon: a tunnel container that alone holds `NET_ADMIN` (in its
+  own namespace), makes the session's WireGuard key itself (user-space
+  WireGuard, so nothing on the host changes) and lets through only the
+  session's peers; and engine containers that join its namespace as the
+  agent's own user, with every capability dropped, `no-new-privileges`, a
+  read-only root, a seccomp profile of their own, memory and process limits,
+  and one mount (the worker's cache, the head's models read-only). The RPC
+  server listens on the tunnel only; the head's API is published on loopback
+  only. A session is torn down on stop, on failure, when the hub stays away
+  past a grace, and when the agent ends; a tunnel whose agent died ends
+  itself when its lease runs out and takes its engine with it, and the next
+  agent removes what a dead one left. The rig speaks the hub's protocol
+  schema as now published (pinned again).
+- `mcgyvr rig join <hub-url> --token <token>` publishes this machine as a rig
+  of a hub: it keeps the rig token the hub showed (`--token -` reads it from
+  stdin), opens the hub's agent channel, says hello with this machine's
+  hardware as the product reads it (the machine reader, the machine's short
+  id, its cards' names and memory, its RAM), then sends heartbeats with fresh
+  readings until stopped, reconnecting with a growing backoff when the channel
+  drops. A hub that refuses or revokes the token, binds the rig to another
+  machine, or hands it to a newer agent ends the agent with what to do.
+  `mcgyvr rig run` runs it again from the kept token, `mcgyvr rig status` says
+  what is kept and what the agent last heard (never the token's secret), and
+  `mcgyvr rig leave` forgets the token. The token is kept in
+  `$MCGYVR_HOME/rig-credentials.json`, apart from the config, at mode 0600; a
+  file others could read, a link, or another user's file is refused. A token
+  is sent in clear only to a hub on this machine: any other hub is `https://`.
+  The websocket client is the standard library's; no dependency is added.
 - `$MCGYVR_HOME` moves the config folder (default `~/.mcgyvr`): the live
   fleet folders, `live.json` and your own `numbers.yaml` follow it. When no
   fleet is live, `mcgyvr fleet probe`, a live run's admission and the door's
   first gate name the `live.json` they looked for. A `$MCGYVR_HOME` that is
   not an absolute path is refused by the variable's name, in one line.
   `$MCGYVR_DATA` names the data folder (default `$XDG_STATE_HOME/mcgyvr`,
-  else `~/.local/state/mcgyvr`), and nothing reads it yet: the journal
+  else `~/.local/state/mcgyvr`), where only the rig agent's state
+  (`rig-state.json`) is kept so far: the journal
   (`journal.dir`, with the fleet readings filed under it) and the scans keep
   their own places, by default under `~/.local/state/mcgyvr`. `mcgyvr fleet
   lock` refuses a root under the config folder or under `~/.mcgyvr`, since

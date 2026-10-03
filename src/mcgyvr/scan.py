@@ -818,6 +818,13 @@ def _scan_memory() -> tuple[Memory | None, _Facts, _Notes]:
     return memory, facts, ()
 
 
+def read_memory() -> Memory | None:
+    """This machine's memory as :func:`scan` reads it, without the rest of a
+    scan; ``None`` where it cannot be read."""
+    memory, _, _ = _scan_memory()
+    return memory
+
+
 def _scan_cpu() -> tuple[Cpu | None, _Facts, _Notes]:
     output = _run("lscpu")
     if output is None:

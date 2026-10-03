@@ -1,0 +1,1090 @@
+"""A rig's part in a hub's pooled-inference session: one state machine per session.
+
+The hub runs one model's layers across several rigs: one rig is the *head*
+(it serves the model and takes the requests the hub relays), the others are
+*workers* (their cards run the head's layers over an RPC server). It tells
+each rig what to do with session commands, and this module is a rig's side
+of them (:func:`register` puts its handlers on the dispatcher):
+
+* ``session_prepare`` starts the session's tunnel container
+  (:mod:`mcgyvr.sandbox.pooled`), which makes the session's WireGuard key on
+  this rig; it is answered ``session_prepared`` with the public key, the
+  listen port and the LAN endpoints, once the tunnel says it is ready;
+* ``tunnel_up`` brings the tunnel up to the peers the hub names, as far as
+  :func:`mcgyvr.rig.tunnel.plan` allows, and measures the round trip to each
+  peer over it (``peer_rtt``);
+* ``worker_start`` starts one RPC server per lent card, bound to the tunnel
+  address and reachable by the session's peers only, and says ``ready`` when
+  each listens;
+* ``head_start`` starts the model server on a model of this rig's own
+  inventory, on lent cards and the session's workers, and says ``loading``
+  then ``ready`` when its API answers;
+* ``session_query`` is answered with where the session stands;
+  ``session_stop`` tears it down.
+
+Each session is one state (:data:`TRANSITIONS` is the whole table) and one
+thread that does its docker work in order. A handler reads its command
+(:mod:`mcgyvr.rig.sessionwire`), decides on this rig whether it may be done,
+and answers at once — ``ack`` for done or accepted, or ``error`` with the
+hub's code — while the work is queued to the session's thread. Every command
+is idempotent: the same command again is answered the same and starts
+nothing more; the same session asked for something else is refused.
+
+Teardown is guaranteed, not hoped for. Whatever ends a session — a stop, a
+failure (the hub is told ``failed`` with a code and an excerpt of what the
+engine said), a hub that stays away past :attr:`Timing.grace_s`, the agent's
+own exit (:meth:`Sessions.close`) — every container of it is removed, found
+by its labels as well as its names. An agent killed without a word cannot
+remove anything, so its tunnels outlive it only by their lease, which only a
+living session renews, and the next agent removes what a dead one left
+(:meth:`Sessions.sweep`).
+"""
+
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import http.client
+import ipaddress
+import os
+import queue
+import socket
+import threading
+import time
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Protocol
+
+from mcgyvr.rig import commands, hardware, inventory, protocol, sessionwire, tunnel
+from mcgyvr.rig import sharing as sharing_module
+from mcgyvr.rig.sessionwire import SessionCode
+from mcgyvr.sandbox import pooled
+
+#: Every state a session moves through, and where it may go from each.
+TRANSITIONS: dict[str, frozenset[str]] = {
+    "preparing": frozenset({"prepared", "failed", "stopped"}),
+    "prepared": frozenset({"tunnel_up", "failed", "stopped"}),
+    "tunnel_up": frozenset({"starting", "failed", "stopped"}),
+    "starting": frozenset({"loading", "ready", "failed", "stopped"}),
+    "loading": frozenset({"ready", "failed", "stopped"}),
+    "ready": frozenset({"failed", "stopped"}),
+    "failed": frozenset({"stopped"}),
+    "stopped": frozenset(),
+}
+#: The states of a session that holds containers.
+LIVE = frozenset(TRANSITIONS) - {"failed", "stopped"}
+#: How many ended sessions are remembered, for a query or a repeated stop.
+ENDED_KEPT = 16
+#: How many lines of a container's output a failure carries.
+LOG_LINES = 60
+#: How much of a model file is read at a time for its digest, in bytes.
+DIGEST_CHUNK = 1 << 22
+#: How long a health check of the head's API waits, in seconds.
+HEALTH_TIMEOUT_S = 2.0
+#: How many times teardown looks again for what is left of a session.
+TEARDOWN_ROUNDS = 3
+
+
+class Docker(Protocol):
+    """What a session needs of the daemon: :class:`mcgyvr.sandbox.pooled.Pool`."""
+
+    def ensure_tunnel_image(self) -> str: ...
+
+    def start(self, argv: Sequence[str]) -> None: ...
+
+    def run_script(self, name: str, script: str, *args: str) -> str: ...
+
+    def try_script(self, name: str, script: str, *args: str) -> bool: ...
+
+    def renew_lease(self, name: str) -> bool: ...
+
+    def logs(self, name: str, tail: int) -> str: ...
+
+    def state(self, name: str) -> str | None: ...
+
+    def remove(self, names: Sequence[str]) -> None: ...
+
+    def owned(self) -> list[pooled.Owned]: ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class Timing:
+    """How long a session's steps may take and how often it looks, in seconds."""
+
+    tick_s: float = 1.0
+    lease_s: int = 60
+    renew_s: float = 10.0
+    monitor_s: float = 5.0
+    prepare_s: float = 120.0
+    start_s: float = 120.0
+    load_s: float = 1800.0
+    poll_s: float = 1.0
+    grace_s: float = 30.0
+    stop_wait_s: float = 120.0
+    ping_s: float = 30.0
+
+    @classmethod
+    def quick(cls) -> Timing:
+        """Timing for tests: every step a fraction of a second."""
+        return cls(
+            tick_s=0.01,
+            lease_s=60,
+            renew_s=0.02,
+            monitor_s=0.02,
+            prepare_s=0.5,
+            start_s=0.5,
+            load_s=1.0,
+            poll_s=0.01,
+            grace_s=0.1,
+            stop_wait_s=5.0,
+            ping_s=0.5,
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Machine:
+    """What a session needs of this machine, each read when it is needed."""
+
+    sharing: Callable[[], sharing_module.Sharing]
+    report: Callable[[], hardware.Report]
+    inventory: Callable[[], inventory.Inventory]
+    interfaces: Callable[[], tuple[tuple[str, ipaddress.IPv4Interface], ...]]
+    owner: pooled.Owner
+    cache_dir: Path | None
+    free_port: Callable[[], int]
+    head_health: Callable[[int], str]
+
+
+class _FailureError(Exception):
+    """A session's step failed; ``code`` is the hub's, ``excerpt`` the engine's."""
+
+    def __init__(self, code: str, message: str, excerpt: str = "") -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.excerpt = excerpt
+
+
+@dataclass(eq=False)
+class _Session:
+    id: str
+    role: str
+    sharing: sharing_module.Sharing
+    listen_port: int
+    api_port: int | None
+    endpoints: tuple[sessionwire.Endpoint, ...]
+    state: str = "preparing"
+    error_code: str | None = None
+    log_excerpt: str = ""
+    hello: pooled.TunnelHello | None = None
+    pending: list[str] = field(default_factory=list)
+    tunnel_asked: sessionwire.TunnelUp | None = None
+    plan: tunnel.TunnelPlan | None = None
+    workers_asked: sessionwire.WorkerStart | None = None
+    workers: tuple[tuple[int, int, int], ...] = ()  # card index, gpu, port
+    head_asked: sessionwire.HeadStart | None = None
+    head: pooled.HeadSpec | None = None
+    head_file: Path | None = None
+    rpc: tuple[tuple[str, int], ...] = ()
+    containers: list[str] = field(default_factory=list)
+    ops: queue.Queue[str] = field(default_factory=queue.Queue)
+    outstanding: int = 0
+    stopping: threading.Event = field(default_factory=threading.Event)
+    thread: threading.Thread | None = None
+    renewed_at: float = 0.0
+    checked_at: float = 0.0
+
+    @property
+    def tunnel_name(self) -> str:
+        return pooled.container_name(self.id, "tunnel")
+
+
+def free_port() -> int:
+    """A port no one listens on on this machine's loopback, now."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        port: int = probe.getsockname()[1]
+        return port
+
+
+def head_health(port: int) -> str:
+    """``ok``, ``loading`` or ``down``: what the head's API on loopback ``port``
+    says of itself."""
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=HEALTH_TIMEOUT_S)
+    try:
+        connection.request("GET", "/health")
+        status = connection.getresponse().status
+    except (OSError, http.client.HTTPException):
+        return "down"
+    finally:
+        connection.close()
+    if status == http.HTTPStatus.OK:
+        return "ok"
+    return "loading" if status == http.HTTPStatus.SERVICE_UNAVAILABLE else "down"
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def trim_cache(folder: Path, max_mb: int) -> None:
+    """Remove the oldest files under ``folder`` until it holds at most
+    ``max_mb`` MiB; nothing outside it, and no link, is ever followed."""
+    found: list[tuple[float, int, Path]] = []
+    for root, _dirs, files in os.walk(folder, followlinks=False):
+        for name in files:
+            path = Path(root) / name
+            with contextlib.suppress(OSError):
+                if path.is_symlink() or not path.is_file():
+                    continue
+                stat = path.stat()
+                found.append((stat.st_mtime, stat.st_size, path))
+    total = sum(size for _, size, _ in found)
+    budget = max_mb << 20
+    for _, size, path in sorted(found):
+        if total <= budget:
+            return
+        with contextlib.suppress(OSError):
+            path.unlink()
+            total -= size
+
+
+class Sessions:
+    """This rig's sessions: the handlers, the threads, and the teardown."""
+
+    def __init__(
+        self,
+        *,
+        docker: Docker,
+        machine: Machine,
+        send: Callable[[str], bool],
+        timing: Timing | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.machine = machine
+        self.timing = timing or Timing()
+        self._docker = docker
+        self._send = send
+        self._clock = clock
+        self._lock = threading.RLock()
+        self._sessions: dict[str, _Session] = {}
+        self._closed = False
+        self._grace: threading.Timer | None = None
+        self._ended_hooks: list[Callable[[str], None]] = []
+
+    # -- what the agent asks -------------------------------------------------
+
+    def on_end(self, hook: Callable[[str], None]) -> None:
+        """Call ``hook`` with a session's id when it ends (its relays end too)."""
+        self._ended_hooks.append(hook)
+
+    def running(self) -> tuple[str, ...]:
+        """The sessions holding containers now, as a hello names them."""
+        with self._lock:
+            live = [s.id for s in self._sessions.values() if s.state in LIVE]
+        return tuple(live[: protocol.MAX_SESSIONS_REPORTED])
+
+    def head_port(self, session_id: str) -> int | None:
+        """The loopback port of the session's head API when it is ready."""
+        with self._lock:
+            found = self._sessions.get(session_id)
+            if found and found.role == "head" and found.state == "ready":
+                return found.api_port
+        return None
+
+    def state_of(self, session_id: str) -> tuple[str, str | None]:
+        """Where session ``session_id`` stands, and its role."""
+        with self._lock:
+            found = self._sessions.get(session_id)
+            return (found.state, found.role) if found else ("absent", None)
+
+    def settle(self, timeout: float) -> bool:
+        """Wait until no session has work queued or under way; whether it did."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with self._lock:
+                if all(s.outstanding == 0 for s in self._sessions.values()):
+                    return True
+            time.sleep(min(self.timing.poll_s, 0.01))
+        return False
+
+    def online(self) -> None:
+        """The hub is back: a session waiting out the grace is kept."""
+        with self._lock:
+            if self._grace is not None:
+                self._grace.cancel()
+                self._grace = None
+
+    def offline(self) -> None:
+        """The hub is gone: every session ends unless it returns within the
+        grace."""
+        with self._lock:
+            if self._grace is None and not self._closed:
+                self._grace = threading.Timer(self.timing.grace_s, self._hub_lost)
+                self._grace.daemon = True
+                self._grace.start()
+
+    def close(self) -> None:
+        """The agent ends: every session is torn down before this returns, and
+        whatever this agent started is removed."""
+        with self._lock:
+            self._closed = True
+            if self._grace is not None:
+                self._grace.cancel()
+                self._grace = None
+            live = [s for s in self._sessions.values() if s.state in LIVE]
+            for found in live:
+                self._ask_stop(found)
+        for found in live:
+            if found.thread is not None:
+                found.thread.join(self.timing.stop_wait_s)
+        with contextlib.suppress(pooled.PoolError):
+            mine = [
+                o.name
+                for o in self._docker.owned()
+                if o.agent_pid == self.machine.owner.agent_pid
+            ]
+            self._docker.remove(mine)
+
+    def sweep(self) -> list[str]:
+        """Remove what an agent that is not running left; the names removed."""
+        left = [
+            o.name
+            for o in self._docker.owned()
+            if o.agent_pid is None
+            or o.agent_pid == self.machine.owner.agent_pid
+            or not _alive(o.agent_pid)
+        ]
+        self._docker.remove(left)
+        return left
+
+    # -- the handlers --------------------------------------------------------
+
+    def prepare(self, envelope: protocol.Envelope) -> str | None:
+        """``session_prepare``: answered ``session_prepared`` when the tunnel is."""
+        asked = sessionwire.read_session_prepare(envelope)
+        with self._lock:
+            if self._closed:
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.NOT_CAPABLE, "this agent is stopping"
+                )
+            share = self.machine.sharing()
+            if asked.role not in share.offered_roles():
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    f"role: this rig does not lend the {asked.role} role",
+                )
+            live = self._live()
+            if live is not None and live.id != asked.session_id:
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.BUSY, "this rig is in another session"
+                )
+            if live is not None:
+                if live.role != asked.role:
+                    return sessionwire.refusal(
+                        envelope.id,
+                        protocol.ErrorCode.BAD_MESSAGE,
+                        "role: the session was prepared as the other role",
+                    )
+                if live.hello is not None:
+                    return self._prepared(live, envelope.id)
+                live.pending.append(envelope.id)
+                return None
+            hosts = endpoint_hosts(share, self.machine.interfaces)
+            if not hosts:
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "this rig has no LAN address its peers could reach",
+                )
+            session = _Session(
+                id=asked.session_id,
+                role=asked.role,
+                sharing=share,
+                listen_port=share.listen_port,
+                api_port=self.machine.free_port() if asked.role == "head" else None,
+                endpoints=tuple(
+                    sessionwire.Endpoint(host=h, port=share.listen_port, kind="lan")
+                    for h in hosts
+                ),
+                pending=[envelope.id],
+            )
+            self._sessions.pop(asked.session_id, None)
+            self._sessions[asked.session_id] = session
+            self._forget_ended()
+            session.thread = threading.Thread(
+                target=self._run, args=(session,), daemon=True
+            )
+            self._queue(session, "prepare")
+            session.thread.start()
+            return None
+
+    def tunnel_up(self, envelope: protocol.Envelope) -> str:
+        """``tunnel_up``: acked once the tunnel's plan is taken."""
+        asked = sessionwire.read_tunnel_up(envelope)
+        with self._lock:
+            session = self._live_named(asked.session_id)
+            if session is None:
+                return self._unknown(envelope.id)
+            if session.hello is None:
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.NOT_READY, "the session is being prepared"
+                )
+            if session.tunnel_asked is not None:
+                if session.tunnel_asked == asked:
+                    return sessionwire.ack(envelope.id)
+                return sessionwire.refusal(
+                    envelope.id,
+                    protocol.ErrorCode.BAD_MESSAGE,
+                    "the session's tunnel is up with other settings",
+                )
+            own = [interface for _, interface in self.machine.interfaces()]
+            own.append(ipaddress.IPv4Interface(session.hello.address))
+            try:
+                plan = tunnel.plan(asked, listen_port=session.listen_port, own=own)
+            except tunnel.RefusedError as refused:
+                return sessionwire.refusal(envelope.id, refused.code, refused.message)
+            session.tunnel_asked = asked
+            session.plan = plan
+            self._queue(session, "tunnel")
+            return sessionwire.ack(envelope.id)
+
+    def worker_start(self, envelope: protocol.Envelope) -> str:
+        """``worker_start``: acked once the cards are taken; ``ready`` follows."""
+        asked = sessionwire.read_worker_start(envelope)
+        with self._lock:
+            session = self._live_named(asked.session_id)
+            if session is None:
+                return self._unknown(envelope.id)
+            if session.role != "worker":
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "this rig is the session's head",
+                )
+            if session.plan is None:
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.NOT_READY, "the session's tunnel is not up"
+                )
+            if session.workers_asked is not None:
+                if session.workers_asked == asked:
+                    return sessionwire.ack(envelope.id)
+                return sessionwire.refusal(
+                    envelope.id,
+                    protocol.ErrorCode.BAD_MESSAGE,
+                    "the session's workers are started on other cards",
+                )
+            share = self.machine.sharing()
+            report = self.machine.report()
+            workers = []
+            for card in asked.cards:
+                gpu = share.lends(card.card_index, report)
+                if gpu is None:
+                    return sessionwire.refusal(
+                        envelope.id,
+                        SessionCode.NOT_CAPABLE,
+                        "cards: a card this rig does not lend",
+                    )
+                if card.port < sharing_module.LOWEST_PORT:
+                    return sessionwire.refusal(
+                        envelope.id,
+                        protocol.ErrorCode.BAD_MESSAGE,
+                        "cards.port: below the ports an unprivileged server binds",
+                    )
+                workers.append((card.card_index, gpu, card.port))
+            session.workers_asked = asked
+            session.workers = tuple(workers)
+            session.sharing = share
+            self._queue(session, "worker")
+            return sessionwire.ack(envelope.id)
+
+    def head_start(self, envelope: protocol.Envelope) -> str:
+        """``head_start``: acked once the model and devices are taken;
+        ``loading`` and ``ready`` follow."""
+        asked = sessionwire.read_head_start(envelope)
+        with self._lock:
+            session = self._live_named(asked.session_id)
+            if session is None:
+                return self._unknown(envelope.id)
+            if session.role != "head":
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.NOT_CAPABLE, "this rig is a session worker"
+                )
+            if session.plan is None or session.hello is None:
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.NOT_READY, "the session's tunnel is not up"
+                )
+            if session.head_asked is not None:
+                if session.head_asked == asked:
+                    return sessionwire.ack(envelope.id)
+                return sessionwire.refusal(
+                    envelope.id,
+                    protocol.ErrorCode.BAD_MESSAGE,
+                    "the session's head is started with other settings",
+                )
+            planned = self._plan_head(session, asked, envelope.id)
+            if isinstance(planned, str):
+                return planned
+            session.head_asked = asked
+            session.head = planned
+            session.sharing = self.machine.sharing()
+            self._queue(session, "head")
+            return sessionwire.ack(envelope.id)
+
+    def query(self, envelope: protocol.Envelope) -> str:
+        """``session_query``: answered ``session_status``."""
+        asked = sessionwire.read_session_query(envelope)
+        with self._lock:
+            found = self._sessions.get(asked.session_id)
+            if found is None:
+                return sessionwire.session_status(
+                    envelope.id, session_id=asked.session_id, state="absent"
+                )
+            return self._status(found, envelope.id)
+
+    def stop(self, envelope: protocol.Envelope) -> str:
+        """``session_stop``: acked; ``stopped`` follows once it is torn down."""
+        asked = sessionwire.read_session_stop(envelope)
+        with self._lock:
+            found = self._sessions.get(asked.session_id)
+            if found is not None and found.state in LIVE:
+                self._ask_stop(found)
+        return sessionwire.ack(envelope.id)
+
+    # -- under the lock ------------------------------------------------------
+
+    def _live(self) -> _Session | None:
+        for found in self._sessions.values():
+            if found.state in LIVE:
+                return found
+        return None
+
+    def _live_named(self, session_id: str) -> _Session | None:
+        found = self._sessions.get(session_id)
+        return found if found is not None and found.state in LIVE else None
+
+    def _unknown(self, re: str) -> str:
+        return sessionwire.refusal(
+            re,
+            SessionCode.UNKNOWN_SESSION,
+            "session_id: this rig is in no such session",
+        )
+
+    def _forget_ended(self) -> None:
+        ended = [s.id for s in self._sessions.values() if s.state not in LIVE]
+        for session_id in ended[: max(0, len(ended) - ENDED_KEPT)]:
+            del self._sessions[session_id]
+
+    def _queue(self, session: _Session, op: str) -> None:
+        session.outstanding += 1
+        session.ops.put(op)
+
+    def _ask_stop(self, session: _Session) -> None:
+        if not session.stopping.is_set():
+            session.stopping.set()
+            self._queue(session, "stop")
+
+    def _prepared(self, session: _Session, re: str) -> str:
+        assert session.hello is not None
+        return sessionwire.session_prepared(
+            re,
+            session_id=session.id,
+            public_key=session.hello.public_key,
+            listen_port=session.listen_port,
+            endpoints=session.endpoints,
+        )
+
+    def _status(self, session: _Session, re: str | None) -> str:
+        failed = session.state == "failed"
+        return sessionwire.session_status(
+            re,
+            session_id=session.id,
+            state=session.state,
+            role=session.role,
+            error_code=session.error_code if failed else None,
+            log_excerpt=session.log_excerpt if failed else "",
+        )
+
+    def _move(self, session: _Session, to: str) -> None:
+        with self._lock:
+            if to not in TRANSITIONS[session.state]:
+                raise _FailureError(
+                    SessionCode.START_FAILED,
+                    f"a session cannot move from {session.state} to {to}",
+                )
+            session.state = to
+
+    def _plan_head(
+        self, session: _Session, asked: sessionwire.HeadStart, re: str
+    ) -> pooled.HeadSpec | str:
+        assert session.plan is not None and session.hello is not None
+        share = self.machine.sharing()
+        report = self.machine.report()
+        held = self.machine.inventory()
+        relative = inventory.resolve(held, asked.model)
+        if relative is None or held.folder is None or share.image is None:
+            return sessionwire.refusal(
+                re, SessionCode.MODEL_MISSING, "model: not a model this rig holds"
+            )
+        local: list[int] = []
+        for device in asked.devices:
+            if isinstance(device, sessionwire.LocalDevice):
+                gpu = share.lends(device.card_index, report)
+                if gpu is None:
+                    return sessionwire.refusal(
+                        re,
+                        SessionCode.NOT_CAPABLE,
+                        "devices: a card this rig does not lend",
+                    )
+                local.append(gpu)
+        gpus = sorted(local)
+        names: list[str] = []
+        rpc: list[tuple[str, int]] = []
+        for device in asked.devices:
+            if isinstance(device, sessionwire.LocalDevice):
+                gpu = share.lends(device.card_index, report)
+                assert gpu is not None
+                names.append(f"CUDA{gpus.index(gpu)}")
+                continue
+            if (
+                session.plan.peer_of(device.host) is None
+                or device.host == session.plan.address.ip
+            ):
+                return sessionwire.refusal(
+                    re,
+                    protocol.ErrorCode.BAD_MESSAGE,
+                    "devices: an rpc device outside the session's tunnel",
+                )
+            names.append(f"RPC{len(rpc)}")
+            rpc.append((str(device.host), device.port))
+        session.rpc = tuple(rpc)
+        session.head_file = held.folder / relative
+        return pooled.HeadSpec(
+            session_id=session.id,
+            image=share.image,
+            binary=share.head_binary,
+            gpus=tuple(gpus),
+            models_dir=held.folder,
+            model=relative,
+            ctx=asked.ctx,
+            n_gpu_layers=asked.n_gpu_layers,
+            devices=tuple(names),
+            tensor_split=asked.tensor_split,
+            rpc=tuple(f"{host}:{port}" for host, port in rpc),
+            bind=str(ipaddress.IPv4Interface(session.hello.address).ip),
+            memory_mb=share.container_mb(),
+        )
+
+    def _hub_lost(self) -> None:
+        with self._lock:
+            self._grace = None
+            for found in list(self._sessions.values()):
+                if found.state in LIVE:
+                    self._ask_stop(found)
+
+    # -- the session's thread ------------------------------------------------
+
+    def _say(self, frame: str) -> None:
+        self._send(frame)
+
+    def _run(self, session: _Session) -> None:
+        try:
+            while True:
+                try:
+                    op = session.ops.get(timeout=self.timing.tick_s)
+                except queue.Empty:
+                    op = None
+                try:
+                    if session.stopping.is_set():
+                        self._end(session)
+                        return
+                    if op is None:
+                        self._tick(session)
+                    else:
+                        self._do(session, op)
+                except _FailureError as failure:
+                    self._fail(session, failure)
+                    return
+                except pooled.PoolError as failure:
+                    code = (
+                        SessionCode.TUNNEL_FAILED
+                        if op in ("prepare", "tunnel")
+                        else SessionCode.START_FAILED
+                    )
+                    self._fail(session, _FailureError(code, str(failure)))
+                    return
+                except Exception as failure:  # the session ends; the agent goes on
+                    self._fail(
+                        session,
+                        _FailureError(
+                            SessionCode.START_FAILED,
+                            f"the agent failed ({failure.__class__.__name__})",
+                        ),
+                    )
+                    return
+                finally:
+                    if op is not None:
+                        with self._lock:
+                            session.outstanding = max(0, session.outstanding - 1)
+        finally:
+            with self._lock:
+                session.outstanding = 0
+
+    def _do(self, session: _Session, op: str) -> None:
+        steps: dict[str, Callable[[_Session], None]] = {
+            "prepare": self._do_prepare,
+            "tunnel": self._do_tunnel,
+            "worker": self._do_worker,
+            "head": self._do_head,
+        }
+        if op in steps:
+            steps[op](session)
+
+    def _pause(self, session: _Session) -> bool:
+        """Wait one poll, renewing the lease; whether the session was stopped."""
+        self._renew(session)
+        return session.stopping.wait(self.timing.poll_s)
+
+    def _renew(self, session: _Session) -> None:
+        now = self._clock()
+        if session.hello is None or now - session.renewed_at < self.timing.renew_s:
+            return
+        session.renewed_at = now
+        if not self._docker.renew_lease(session.tunnel_name):
+            raise _FailureError(
+                SessionCode.TUNNEL_FAILED
+                if session.state != "ready"
+                else SessionCode.UPSTREAM_FAILED,
+                "the session's tunnel ended",
+                self._docker.logs(session.tunnel_name, LOG_LINES),
+            )
+
+    def _tick(self, session: _Session) -> None:
+        self._renew(session)
+        now = self._clock()
+        if session.state != "ready" or now - session.checked_at < self.timing.monitor_s:
+            return
+        session.checked_at = now
+        for name in list(session.containers):
+            if self._docker.state(name) != "running":
+                raise _FailureError(
+                    SessionCode.UPSTREAM_FAILED,
+                    f"{name.rsplit('-', 1)[-1]}: the container ended",
+                    self._docker.logs(name, LOG_LINES),
+                )
+
+    def _do_prepare(self, session: _Session) -> None:
+        image = self._docker.ensure_tunnel_image()
+        name = session.tunnel_name
+        self._docker.remove([name])
+        spec = pooled.TunnelSpec(
+            session_id=session.id,
+            image=image,
+            listen_port=session.listen_port,
+            publish=tuple(e.host for e in session.endpoints),
+            api_port=session.api_port,
+            lease_s=self.timing.lease_s,
+        )
+        session.containers.append(name)
+        self._docker.start(pooled.tunnel_argv(spec, self.machine.owner))
+        deadline = self._clock() + self.timing.prepare_s
+        while True:
+            hello = pooled.read_tunnel_hello(self._docker.logs(name, LOG_LINES))
+            if hello is not None:
+                break
+            if self._docker.state(name) != "running":
+                raise _FailureError(
+                    SessionCode.TUNNEL_FAILED,
+                    "the tunnel container ended before it was ready",
+                    self._docker.logs(name, LOG_LINES),
+                )
+            if self._clock() > deadline:
+                raise _FailureError(
+                    SessionCode.TUNNEL_FAILED, "the tunnel was not ready in time"
+                )
+            if session.stopping.wait(self.timing.poll_s):
+                return
+        if not sessionwire.WIREGUARD_KEY.fullmatch(hello.public_key):
+            raise _FailureError(
+                SessionCode.TUNNEL_FAILED, "the tunnel's key does not read"
+            )
+        try:
+            ipaddress.IPv4Interface(hello.address)
+            ipaddress.IPv4Address(hello.gateway)
+        except ValueError as exc:
+            raise _FailureError(
+                SessionCode.TUNNEL_FAILED, "the tunnel's addresses do not read"
+            ) from exc
+        with self._lock:
+            session.hello = hello
+            session.renewed_at = self._clock()
+            self._move(session, "prepared")
+            waiting, session.pending = session.pending, []
+        for re in waiting:
+            self._say(self._prepared(session, re))
+
+    def _do_tunnel(self, session: _Session) -> None:
+        assert session.plan is not None
+        self._docker.run_script(
+            session.tunnel_name, pooled.TUNNEL_SCRIPT, *session.plan.script_args()
+        )
+        self._move(session, "tunnel_up")
+        threading.Thread(target=self._measure, args=(session,), daemon=True).start()
+
+    def _measure(self, session: _Session) -> None:
+        """Send the round trip to each peer over the tunnel, once each answers."""
+        assert session.plan is not None
+        targets = {
+            peer.rig_id: str(net.network_address)
+            for peer in session.plan.peers
+            for net in peer.allowed[:1]
+            if net.prefixlen == net.max_prefixlen
+        }
+        samples: dict[str, int] = {}
+        deadline = self._clock() + self.timing.ping_s
+        while targets.keys() - samples.keys() and self._clock() < deadline:
+            if session.stopping.is_set() or session.state not in LIVE:
+                return
+            for rig_id, host in targets.items():
+                if rig_id in samples:
+                    continue
+                try:
+                    said = self._docker.run_script(
+                        session.tunnel_name, pooled.PING_SCRIPT, host
+                    ).strip()
+                    samples[rig_id] = round(float(said) * 1000)
+                except (pooled.PoolError, ValueError):
+                    continue
+            if targets.keys() - samples.keys():
+                session.stopping.wait(self.timing.poll_s)
+        if samples:
+            bounded = [
+                (rig_id, min(rtt, sessionwire.MAX_RTT_US))
+                for rig_id, rtt in samples.items()
+            ]
+            self._say(sessionwire.peer_rtt(bounded[: sessionwire.MAX_RTT_SAMPLES]))
+
+    def _cache(self, share: sharing_module.Sharing) -> Path | None:
+        folder = self.machine.cache_dir
+        if not share.cache or folder is None:
+            return None
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        return folder
+
+    def _do_worker(self, session: _Session) -> None:
+        share = session.sharing
+        image = share.image
+        assert session.plan is not None and image is not None
+        self._move(session, "starting")
+        own = str(session.plan.address.ip)
+        nets = [str(net) for net in session.plan.peer_nets()]
+        cache = self._cache(share)
+        names: dict[tuple[int, int, int], str] = {}
+        for worker in session.workers:
+            _, gpu, port = worker
+            name = pooled.container_name(session.id, f"worker-{gpu}")
+            names[worker] = name
+            self._docker.remove([name])
+            session.containers.append(name)
+            self._docker.start(
+                pooled.worker_argv(
+                    pooled.WorkerSpec(
+                        session_id=session.id,
+                        image=image,
+                        binary=share.worker_binary,
+                        gpu=gpu,
+                        bind=own,
+                        port=port,
+                        cache_dir=cache,
+                        memory_mb=share.container_mb(),
+                    ),
+                    self.machine.owner,
+                )
+            )
+            self._docker.run_script(
+                session.tunnel_name, pooled.OPEN_WORKER_SCRIPT, own, str(port), *nets
+            )
+        waiting = set(session.workers)
+        deadline = self._clock() + self.timing.start_s
+        while waiting:
+            for worker in sorted(waiting):
+                name = names[worker]
+                if self._docker.state(name) != "running":
+                    raise _FailureError(
+                        SessionCode.START_FAILED,
+                        f"the worker on card {worker[0]} ended while starting",
+                        self._docker.logs(name, LOG_LINES),
+                    )
+                if self._docker.try_script(
+                    session.tunnel_name, pooled.LISTENING_SCRIPT, own, str(worker[2])
+                ):
+                    waiting.discard(worker)
+            if not waiting:
+                break
+            if self._clock() > deadline:
+                worker = min(waiting)
+                raise _FailureError(
+                    SessionCode.START_FAILED,
+                    f"the worker on card {worker[0]} did not listen in time",
+                    self._docker.logs(names[worker], LOG_LINES),
+                )
+            if self._pause(session):
+                return
+        self._move(session, "ready")
+        self._say(self._status(session, None))
+
+    def _digest(self, session: _Session, path: Path) -> str | None:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            while chunk := handle.read(DIGEST_CHUNK):
+                if session.stopping.is_set():
+                    return None
+                digest.update(chunk)
+                self._renew(session)
+        return f"sha256:{digest.hexdigest()}"
+
+    def _do_head(self, session: _Session) -> None:
+        assert (
+            session.head is not None
+            and session.hello is not None
+            and session.plan is not None
+            and session.head_asked is not None
+            and session.api_port is not None
+        )
+        self._move(session, "starting")
+        wanted = session.head_asked.digest
+        if wanted is not None and session.head_file is not None:
+            found = self._digest(session, session.head_file)
+            if found is None:
+                return
+            if found != wanted:
+                raise _FailureError(
+                    SessionCode.MODEL_MISSING,
+                    "model: this rig's file is not the one the digest names",
+                )
+        pairs = [part for host, port in session.rpc for part in (host, str(port))]
+        self._docker.run_script(
+            session.tunnel_name,
+            pooled.OPEN_HEAD_SCRIPT,
+            str(session.plan.address.ip),
+            session.hello.gateway,
+            *pairs,
+        )
+        name = pooled.container_name(session.id, "head")
+        self._docker.remove([name])
+        session.containers.append(name)
+        self._docker.start(pooled.head_argv(session.head, self.machine.owner))
+        self._move(session, "loading")
+        self._say(self._status(session, None))
+        deadline = self._clock() + self.timing.load_s
+        while True:
+            if self._docker.state(name) != "running":
+                raise _FailureError(
+                    SessionCode.START_FAILED,
+                    "the head ended while loading",
+                    self._docker.logs(name, LOG_LINES),
+                )
+            if self.machine.head_health(session.api_port) == "ok":
+                break
+            if self._clock() > deadline:
+                raise _FailureError(
+                    SessionCode.START_FAILED,
+                    "the head did not load in time",
+                    self._docker.logs(name, LOG_LINES),
+                )
+            if self._pause(session):
+                return
+        self._move(session, "ready")
+        self._say(self._status(session, None))
+
+    def _teardown(self, session: _Session) -> None:
+        # The engines first, the tunnel last; then whatever the daemon still
+        # labels as this session's, found again, until nothing is left.
+        names = list(dict.fromkeys(reversed(session.containers)))
+        for _ in range(TEARDOWN_ROUNDS):
+            with contextlib.suppress(pooled.PoolError):
+                names += [
+                    o.name for o in self._docker.owned() if o.session_id == session.id
+                ]
+            names = list(dict.fromkeys(names))
+            if not names:
+                break
+            self._docker.remove(names)
+            names = []
+        if session.role == "worker" and self.machine.cache_dir is not None:
+            with contextlib.suppress(OSError):
+                if self.machine.cache_dir.is_dir():
+                    trim_cache(self.machine.cache_dir, session.sharing.cache_max_mb)
+        for hook in self._ended_hooks:
+            with contextlib.suppress(Exception):
+                hook(session.id)
+
+    def _fail(self, session: _Session, failure: _FailureError) -> None:
+        with self._lock:
+            if session.state not in LIVE:
+                return
+            session.error_code = failure.code
+            session.log_excerpt = sessionwire.scrub(
+                f"{failure.message}\n{failure.excerpt}".strip()
+            )
+            session.state = "failed"
+        self._teardown(session)
+        self._say(self._status(session, None))
+
+    def _end(self, session: _Session) -> None:
+        self._teardown(session)
+        with self._lock:
+            session.state = "stopped"
+        self._say(self._status(session, None))
+
+
+def register(dispatcher: commands.Dispatcher, sessions: Sessions) -> None:
+    """Handle the hub's session commands with ``sessions``."""
+    dispatcher.register(
+        "session_prepare", lambda envelope, _: sessions.prepare(envelope)
+    )
+    dispatcher.register("tunnel_up", lambda envelope, _: sessions.tunnel_up(envelope))
+    dispatcher.register(
+        "worker_start", lambda envelope, _: sessions.worker_start(envelope)
+    )
+    dispatcher.register("head_start", lambda envelope, _: sessions.head_start(envelope))
+    dispatcher.register("session_query", lambda envelope, _: sessions.query(envelope))
+    dispatcher.register("session_stop", lambda envelope, _: sessions.stop(envelope))
+
+
+def endpoint_hosts(
+    share: sharing_module.Sharing,
+    interfaces: Callable[[], tuple[tuple[str, ipaddress.IPv4Interface], ...]],
+) -> tuple[str, ...]:
+    """The LAN addresses a rig offers its tunnel at: the owner's, else its own."""
+    hosts = share.endpoints or tuple(str(h) for h in tunnel.lan_hosts(interfaces()))
+    return hosts[: protocol.MAX_ENDPOINTS]
+
+
+def offer(
+    share: sharing_module.Sharing,
+    held: inventory.Inventory,
+    hosts: Sequence[str],
+    running: tuple[str, ...],
+) -> protocol.Offer | None:
+    """What a hello says this rig lends, or ``None`` when it lends nothing."""
+    roles = share.offered_roles()
+    if not roles:
+        return None
+    return protocol.Offer(
+        roles=roles,
+        runtime=share.image,
+        endpoints=tuple((host, share.listen_port, "lan") for host in hosts),
+        models=held.models if "head" in roles else (),
+        sessions=running,
+    )

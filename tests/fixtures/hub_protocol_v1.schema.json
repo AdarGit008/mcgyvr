@@ -1,0 +1,2193 @@
+{
+  "$defs": {
+    "Ack": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/AckBody",
+          "default": {
+            "heartbeat_interval_s": null,
+            "rig_id": null
+          }
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Re",
+          "type": "string"
+        },
+        "type": {
+          "const": "ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "re",
+        "type"
+      ],
+      "title": "Ack",
+      "type": "object"
+    },
+    "AckBody": {
+      "properties": {
+        "heartbeat_interval_s": {
+          "anyOf": [
+            {
+              "maximum": 3600,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heartbeat Interval S"
+        },
+        "rig_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rig Id"
+        }
+      },
+      "title": "AckBody",
+      "type": "object"
+    },
+    "AgentMessage": {
+      "description": "A message an agent sends.",
+      "discriminator": {
+        "mapping": {
+          "ack": "#/$defs/Ack",
+          "error": "#/$defs/Error",
+          "heartbeat": "#/$defs/Heartbeat",
+          "hello": "#/$defs/Hello",
+          "peer_rtt": "#/$defs/PeerRtt",
+          "relay_data": "#/$defs/RelayData",
+          "relay_end": "#/$defs/RelayEnd",
+          "relay_response": "#/$defs/RelayResponse",
+          "session_prepared": "#/$defs/SessionPrepared",
+          "session_status": "#/$defs/SessionStatus"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Hello"
+        },
+        {
+          "$ref": "#/$defs/Heartbeat"
+        },
+        {
+          "$ref": "#/$defs/Ack"
+        },
+        {
+          "$ref": "#/$defs/Error"
+        },
+        {
+          "$ref": "#/$defs/PeerRtt"
+        },
+        {
+          "$ref": "#/$defs/SessionPrepared"
+        },
+        {
+          "$ref": "#/$defs/SessionStatus"
+        },
+        {
+          "$ref": "#/$defs/RelayResponse"
+        },
+        {
+          "$ref": "#/$defs/RelayData"
+        },
+        {
+          "$ref": "#/$defs/RelayEnd"
+        }
+      ]
+    },
+    "Capabilities": {
+      "properties": {
+        "roles": {
+          "default": [],
+          "items": {
+            "enum": [
+              "head",
+              "worker"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "title": "Roles",
+          "type": "array"
+        },
+        "runtime": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime"
+        }
+      },
+      "title": "Capabilities",
+      "type": "object"
+    },
+    "CardReading": {
+      "properties": {
+        "index": {
+          "exclusiveMaximum": 64,
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "vram_free_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Vram Free Mb",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "vram_free_mb"
+      ],
+      "title": "CardReading",
+      "type": "object"
+    },
+    "CardReport": {
+      "properties": {
+        "index": {
+          "exclusiveMaximum": 64,
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "vram_free_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Vram Free Mb",
+          "type": "integer"
+        },
+        "vram_total_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Vram Total Mb",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "name",
+        "vram_total_mb",
+        "vram_free_mb"
+      ],
+      "title": "CardReport",
+      "type": "object"
+    },
+    "Endpoint": {
+      "description": "A candidate address peers may reach this rig's tunnel on.",
+      "properties": {
+        "host": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$",
+          "title": "Host",
+          "type": "string"
+        },
+        "kind": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "host",
+        "port",
+        "kind"
+      ],
+      "title": "Endpoint",
+      "type": "object"
+    },
+    "Envelope": {
+      "description": "What every message looks like, including types added after v1.",
+      "properties": {
+        "body": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Body",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id"
+      ],
+      "title": "Envelope",
+      "type": "object"
+    },
+    "Error": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/ErrorBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "error",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "Error",
+      "type": "object"
+    },
+    "ErrorBody": {
+      "properties": {
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "ErrorBody",
+      "type": "object"
+    },
+    "HeadStart": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/HeadStartBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "head_start",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "HeadStart",
+      "type": "object"
+    },
+    "HeadStartBody": {
+      "properties": {
+        "ctx": {
+          "maximum": 1048576,
+          "minimum": 256,
+          "title": "Ctx",
+          "type": "integer"
+        },
+        "devices": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "local": "#/$defs/LocalDevice",
+                "rpc": "#/$defs/RpcDevice"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/LocalDevice"
+              },
+              {
+                "$ref": "#/$defs/RpcDevice"
+              }
+            ]
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Devices",
+          "type": "array"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelRef"
+        },
+        "n_gpu_layers": {
+          "default": 999,
+          "maximum": 4096,
+          "minimum": 0,
+          "title": "N Gpu Layers",
+          "type": "integer"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "split_mode": {
+          "const": "layer",
+          "default": "layer",
+          "title": "Split Mode",
+          "type": "string"
+        },
+        "tensor_split": {
+          "items": {
+            "maximum": 1048576,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Tensor Split",
+          "type": "array"
+        }
+      },
+      "required": [
+        "session_id",
+        "model",
+        "ctx",
+        "devices",
+        "tensor_split"
+      ],
+      "title": "HeadStartBody",
+      "type": "object"
+    },
+    "Heartbeat": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/HeartbeatBody",
+          "default": {
+            "cards": [],
+            "ram_free_mb": null
+          }
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "heartbeat",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type"
+      ],
+      "title": "Heartbeat",
+      "type": "object"
+    },
+    "HeartbeatBody": {
+      "properties": {
+        "cards": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CardReading"
+          },
+          "maxItems": 16,
+          "title": "Cards",
+          "type": "array"
+        },
+        "ram_free_mb": {
+          "anyOf": [
+            {
+              "maximum": 1073741824,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ram Free Mb"
+        }
+      },
+      "title": "HeartbeatBody",
+      "type": "object"
+    },
+    "Hello": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/HelloBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "hello",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "Hello",
+      "type": "object"
+    },
+    "HelloBody": {
+      "properties": {
+        "agent_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}$",
+          "title": "Agent Version",
+          "type": "string"
+        },
+        "capabilities": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Capabilities"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cards": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CardReport"
+          },
+          "maxItems": 16,
+          "title": "Cards",
+          "type": "array"
+        },
+        "endpoints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Endpoint"
+          },
+          "maxItems": 8,
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "machine_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "title": "Machine Id",
+          "type": "string"
+        },
+        "models": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ModelInfo"
+          },
+          "maxItems": 64,
+          "title": "Models",
+          "type": "array"
+        },
+        "ram_free_mb": {
+          "anyOf": [
+            {
+              "maximum": 1073741824,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ram Free Mb"
+        },
+        "ram_total_mb": {
+          "maximum": 1073741824,
+          "minimum": 0,
+          "title": "Ram Total Mb",
+          "type": "integer"
+        },
+        "sessions": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "type": "string"
+          },
+          "maxItems": 4,
+          "title": "Sessions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "machine_id",
+        "agent_version",
+        "ram_total_mb"
+      ],
+      "title": "HelloBody",
+      "type": "object"
+    },
+    "HubMessage": {
+      "description": "A message the hub sends.",
+      "discriminator": {
+        "mapping": {
+          "ack": "#/$defs/Ack",
+          "error": "#/$defs/Error",
+          "head_start": "#/$defs/HeadStart",
+          "relay_cancel": "#/$defs/RelayCancel",
+          "relay_credit": "#/$defs/RelayCredit",
+          "relay_data": "#/$defs/RelayData",
+          "relay_request": "#/$defs/RelayRequest",
+          "session_prepare": "#/$defs/SessionPrepare",
+          "session_query": "#/$defs/SessionQuery",
+          "session_stop": "#/$defs/SessionStop",
+          "tunnel_up": "#/$defs/TunnelUp",
+          "worker_start": "#/$defs/WorkerStart"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Ack"
+        },
+        {
+          "$ref": "#/$defs/Error"
+        },
+        {
+          "$ref": "#/$defs/SessionPrepare"
+        },
+        {
+          "$ref": "#/$defs/TunnelUp"
+        },
+        {
+          "$ref": "#/$defs/WorkerStart"
+        },
+        {
+          "$ref": "#/$defs/HeadStart"
+        },
+        {
+          "$ref": "#/$defs/SessionQuery"
+        },
+        {
+          "$ref": "#/$defs/SessionStop"
+        },
+        {
+          "$ref": "#/$defs/RelayRequest"
+        },
+        {
+          "$ref": "#/$defs/RelayData"
+        },
+        {
+          "$ref": "#/$defs/RelayCredit"
+        },
+        {
+          "$ref": "#/$defs/RelayCancel"
+        }
+      ]
+    },
+    "LocalDevice": {
+      "properties": {
+        "card_index": {
+          "exclusiveMaximum": 64,
+          "minimum": 0,
+          "title": "Card Index",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "local",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "card_index"
+      ],
+      "title": "LocalDevice",
+      "type": "object"
+    },
+    "ModelInfo": {
+      "description": "A model file on the rig's disk, with what planning needs from its header.",
+      "properties": {
+        "arch": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arch"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "embd_bytes": {
+          "anyOf": [
+            {
+              "maximum": 1125899906842624,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embd Bytes"
+        },
+        "kv_bytes_per_token": {
+          "anyOf": [
+            {
+              "maximum": 1073741824,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kv Bytes Per Token"
+        },
+        "n_ctx_train": {
+          "anyOf": [
+            {
+              "maximum": 1048576,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Ctx Train"
+        },
+        "n_embd": {
+          "anyOf": [
+            {
+              "maximum": 1048576,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Embd"
+        },
+        "n_head": {
+          "anyOf": [
+            {
+              "maximum": 1048576,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Head"
+        },
+        "n_head_kv": {
+          "anyOf": [
+            {
+              "maximum": 1048576,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Head Kv"
+        },
+        "n_layers": {
+          "anyOf": [
+            {
+              "maximum": 4096,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Layers"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "output_bytes": {
+          "anyOf": [
+            {
+              "maximum": 1125899906842624,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Bytes"
+        },
+        "size_bytes": {
+          "maximum": 1125899906842624,
+          "minimum": 1,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "size_bytes"
+      ],
+      "title": "ModelInfo",
+      "type": "object"
+    },
+    "ModelRef": {
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ModelRef",
+      "type": "object"
+    },
+    "PeerRtt": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/PeerRttBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "peer_rtt",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "PeerRtt",
+      "type": "object"
+    },
+    "PeerRttBody": {
+      "description": "Round-trip times this rig measured to other rigs (e.g. over a tunnel).",
+      "properties": {
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/RttSample"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Samples",
+          "type": "array"
+        }
+      },
+      "required": [
+        "samples"
+      ],
+      "title": "PeerRttBody",
+      "type": "object"
+    },
+    "RelayCancel": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/RelayCancelBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "relay_cancel",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "RelayCancel",
+      "type": "object"
+    },
+    "RelayCancelBody": {
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "request_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id"
+      ],
+      "title": "RelayCancelBody",
+      "type": "object"
+    },
+    "RelayCredit": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/RelayCreditBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "relay_credit",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "RelayCredit",
+      "type": "object"
+    },
+    "RelayCreditBody": {
+      "properties": {
+        "chunks": {
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Chunks",
+          "type": "integer"
+        },
+        "request_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "chunks"
+      ],
+      "title": "RelayCreditBody",
+      "type": "object"
+    },
+    "RelayData": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/RelayDataBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "relay_data",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "RelayData",
+      "type": "object"
+    },
+    "RelayDataBody": {
+      "properties": {
+        "data_b64": {
+          "maxLength": 43692,
+          "minLength": 4,
+          "pattern": "^[A-Za-z0-9+/]*={0,2}$",
+          "title": "Data B64",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "seq": {
+          "maximum": 2147483648,
+          "minimum": 0,
+          "title": "Seq",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request_id",
+        "seq",
+        "data_b64"
+      ],
+      "title": "RelayDataBody",
+      "type": "object"
+    },
+    "RelayEnd": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/RelayEndBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "relay_end",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "RelayEnd",
+      "type": "object"
+    },
+    "RelayEndBody": {
+      "properties": {
+        "error_code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "outcome": {
+          "enum": [
+            "complete",
+            "error",
+            "cancelled",
+            "timeout",
+            "too_large"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "outcome"
+      ],
+      "title": "RelayEndBody",
+      "type": "object"
+    },
+    "RelayRequest": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/RelayRequestBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "relay_request",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "RelayRequest",
+      "type": "object"
+    },
+    "RelayRequestBody": {
+      "properties": {
+        "body_bytes": {
+          "maximum": 1048576,
+          "minimum": 0,
+          "title": "Body Bytes",
+          "type": "integer"
+        },
+        "endpoint": {
+          "const": "chat_completions",
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "max_response_bytes": {
+          "maximum": 67108864,
+          "minimum": 1,
+          "title": "Max Response Bytes",
+          "type": "integer"
+        },
+        "request_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "stream": {
+          "title": "Stream",
+          "type": "boolean"
+        },
+        "timeout_s": {
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout S",
+          "type": "integer"
+        },
+        "window": {
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Window",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id",
+        "request_id",
+        "endpoint",
+        "body_bytes",
+        "stream",
+        "timeout_s",
+        "max_response_bytes",
+        "window"
+      ],
+      "title": "RelayRequestBody",
+      "type": "object"
+    },
+    "RelayResponse": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/RelayResponseBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "relay_response",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "RelayResponse",
+      "type": "object"
+    },
+    "RelayResponseBody": {
+      "properties": {
+        "content_type": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(; ?[A-Za-z0-9_-]+=[A-Za-z0-9_.-]+)?$",
+          "title": "Content Type",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "status": {
+          "maximum": 599,
+          "minimum": 100,
+          "title": "Status",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request_id",
+        "status",
+        "content_type"
+      ],
+      "title": "RelayResponseBody",
+      "type": "object"
+    },
+    "RpcDevice": {
+      "properties": {
+        "host": {
+          "pattern": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",
+          "title": "Host",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rpc",
+          "title": "Kind",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "host",
+        "port"
+      ],
+      "title": "RpcDevice",
+      "type": "object"
+    },
+    "RttSample": {
+      "properties": {
+        "rig_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Rig Id",
+          "type": "string"
+        },
+        "rtt_us": {
+          "maximum": 60000000,
+          "minimum": 0,
+          "title": "Rtt Us",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rig_id",
+        "rtt_us"
+      ],
+      "title": "RttSample",
+      "type": "object"
+    },
+    "SessionPrepare": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/SessionPrepareBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "session_prepare",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "SessionPrepare",
+      "type": "object"
+    },
+    "SessionPrepareBody": {
+      "properties": {
+        "role": {
+          "enum": [
+            "head",
+            "worker"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "role"
+      ],
+      "title": "SessionPrepareBody",
+      "type": "object"
+    },
+    "SessionPrepared": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/SessionPreparedBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "session_prepared",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "SessionPrepared",
+      "type": "object"
+    },
+    "SessionPreparedBody": {
+      "properties": {
+        "endpoints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Endpoint"
+          },
+          "maxItems": 8,
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "listen_port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Listen Port",
+          "type": "integer"
+        },
+        "public_key": {
+          "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+          "title": "Public Key",
+          "type": "string"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "public_key",
+        "listen_port"
+      ],
+      "title": "SessionPreparedBody",
+      "type": "object"
+    },
+    "SessionQuery": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/SessionQueryBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "session_query",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "SessionQuery",
+      "type": "object"
+    },
+    "SessionQueryBody": {
+      "properties": {
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "SessionQueryBody",
+      "type": "object"
+    },
+    "SessionStatus": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/SessionStatusBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "session_status",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "SessionStatus",
+      "type": "object"
+    },
+    "SessionStatusBody": {
+      "properties": {
+        "error_code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "log_excerpt": {
+          "default": "",
+          "maxLength": 4000,
+          "title": "Log Excerpt",
+          "type": "string"
+        },
+        "progress_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress Pct"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "head",
+                "worker"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "absent",
+            "preparing",
+            "prepared",
+            "tunnel_up",
+            "starting",
+            "loading",
+            "ready",
+            "failed",
+            "stopped"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "state"
+      ],
+      "title": "SessionStatusBody",
+      "type": "object"
+    },
+    "SessionStop": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/SessionStopBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "session_stop",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "SessionStop",
+      "type": "object"
+    },
+    "SessionStopBody": {
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "SessionStopBody",
+      "type": "object"
+    },
+    "TunnelPeer": {
+      "properties": {
+        "allowed_ips": {
+          "items": {
+            "pattern": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$",
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Allowed Ips",
+          "type": "array"
+        },
+        "endpoints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Endpoint"
+          },
+          "maxItems": 8,
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "keepalive_s": {
+          "default": 25,
+          "maximum": 600,
+          "minimum": 0,
+          "title": "Keepalive S",
+          "type": "integer"
+        },
+        "public_key": {
+          "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+          "title": "Public Key",
+          "type": "string"
+        },
+        "rig_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Rig Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rig_id",
+        "public_key",
+        "allowed_ips"
+      ],
+      "title": "TunnelPeer",
+      "type": "object"
+    },
+    "TunnelUp": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/TunnelUpBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "tunnel_up",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "TunnelUp",
+      "type": "object"
+    },
+    "TunnelUpBody": {
+      "properties": {
+        "address": {
+          "pattern": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$",
+          "title": "Address",
+          "type": "string"
+        },
+        "listen_port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Listen Port",
+          "type": "integer"
+        },
+        "peers": {
+          "items": {
+            "$ref": "#/$defs/TunnelPeer"
+          },
+          "maxItems": 15,
+          "minItems": 1,
+          "title": "Peers",
+          "type": "array"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "address",
+        "listen_port",
+        "peers"
+      ],
+      "title": "TunnelUpBody",
+      "type": "object"
+    },
+    "WorkerCard": {
+      "properties": {
+        "card_index": {
+          "exclusiveMaximum": 64,
+          "minimum": 0,
+          "title": "Card Index",
+          "type": "integer"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "card_index",
+        "port"
+      ],
+      "title": "WorkerCard",
+      "type": "object"
+    },
+    "WorkerStart": {
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/WorkerStartBody"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "re": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Re"
+        },
+        "type": {
+          "const": "worker_start",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "type",
+        "body"
+      ],
+      "title": "WorkerStart",
+      "type": "object"
+    },
+    "WorkerStartBody": {
+      "properties": {
+        "cards": {
+          "items": {
+            "$ref": "#/$defs/WorkerCard"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Cards",
+          "type": "array"
+        },
+        "session_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "cards"
+      ],
+      "title": "WorkerStartBody",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/AgentMessage"
+    },
+    {
+      "$ref": "#/$defs/HubMessage"
+    }
+  ],
+  "description": "Hub <-> agent wire protocol, version 1. The one definition of the messages.\n\nThe channel is a websocket at ``/api/v1/agent``; the agent authenticates the\nupgrade request with ``Authorization: Bearer <rig join token>``. Every message\nis one JSON object, one websocket frame::\n\n    {\"v\": 1, \"type\": \"<type>\", \"id\": \"<sender-chosen id>\", \"re\": \"<id>\", \"body\": {}}\n\n``re`` names the message being answered; ``body`` is type-specific.\n\nLiveness. Agent -> hub: ``hello`` (first message: identity, live hardware, and\noptionally the models on disk, capabilities and candidate network endpoints;\nre-send it whenever the inventory changes) and ``heartbeat`` (periodic, optional\nfresh readings). The hub acks each; the hello ack carries the heartbeat\ninterval. A fatal ``error`` is followed by a close with a ``CloseCode``.\n\nSessions (pooled inference). The hub sends session commands only to agents whose\nhello carried ``capabilities``. One session per rig; ids are hub-chosen. Each\ncommand is answered, with ``re`` = the command's ``id``, by ``ack`` (done or\naccepted) or ``error`` (refused; ``code`` says why), except ``session_prepare``\n(answered by ``session_prepared``) and ``session_query`` (by ``session_status``).\nEvery command is idempotent: repeating it with the same arguments gives the\nsame answer and changes nothing more, so the hub may retry after a timeout.\n\n- ``session_prepare`` -> ``session_prepared``: make (or return the existing)\n  ephemeral WireGuard keypair for the session; reply with the public key, the\n  listen port and candidate endpoints. Private keys never leave the rig.\n- ``tunnel_up`` -> ``ack``: configure the tunnel: own address, peers' public\n  keys, endpoint candidates and allowed IPs. Rig-to-rig traffic stays in it.\n- ``worker_start`` -> ``ack``: start an RPC server per listed card, bound to the\n  tunnel address only; ``session_status`` ``ready`` follows when listening.\n- ``head_start`` -> ``ack``: start the model server with exactly this ordered\n  device list and tensor split (``tensor_split[i]`` is device ``i``'s share);\n  ``session_status`` ``loading`` then ``ready`` or ``failed`` follow. The model\n  is named, never a path: the agent resolves it in its own inventory.\n- ``session_query`` -> ``session_status``; ``session_stop`` -> ``ack`` (also for\n  unknown or already stopped sessions). The agent may send ``session_status``\n  unprompted at any time (progress, crash). ``log_excerpt`` is bounded and\n  shown to session participants; the hub replaces control characters.\n\nRelay (one OpenAI-compatible API request to the head's local server). Hub:\n``relay_request`` then ``relay_data`` frames (seq 0, 1, ...) carrying exactly\n``body_bytes`` request bytes. Agent: ``relay_response`` (status, content type),\n``relay_data`` frames with the response bytes, then exactly one ``relay_end``.\nThe agent answers every ``relay_request`` with a ``relay_end`` (a refusal is a\n``relay_end`` with outcome ``error`` and an ``error_code``). Flow control: the\nagent may have at most ``window`` response ``relay_data`` frames not yet\ncredited; the hub returns credit with ``relay_credit`` as it forwards them, and\nthe agent stops reading upstream while out of credit. ``relay_cancel`` aborts\n(the agent still ends with ``relay_end``). Both sides enforce ``timeout_s``\nand ``max_response_bytes``. A ``request_id`` is never reused; a relay is retried\nonly with a new id. ``relay_data`` carries raw bytes as base64, so UTF-8\nsequences may be split across frames.\n\nCompatibility and versioning:\n\n- additive changes (new message types, new optional fields) keep ``v`` = 1;\n- receivers ignore unknown fields;\n- a receiver answers an unknown ``type`` with ``error`` code ``unsupported_type``\n  and keeps the connection open;\n- error ``code`` is an open set of snake_case strings (``ErrorCode`` lists the\n  current ones); agents must tolerate codes they do not know;\n- closed sets (session states, roles, device kinds, relay outcomes) only grow\n  by adding a new optional field or message type, never by new values that old\n  receivers would reject;\n- breaking changes bump ``v``; a hub rejects versions it does not speak with\n  ``unsupported_version``.\n\nSo a receiver validates every frame against ``Envelope`` (open to future types),\nthen dispatches on ``type`` and validates the types it knows. Send at most\n``MAX_FRAMES_PER_SECOND`` frames per second; the hub closes floods.\n\nThe agent is a separate stdlib-only codebase; it consumes the JSON Schema\nwritten by ``render_json_schema`` (checked in at schemas/protocol.schema.json).",
+  "title": "mcgyvr hub <-> agent protocol",
+  "x-close-codes": {
+    "policy": 1008,
+    "revoked": 4001,
+    "superseded": 4009,
+    "timeout": 4008
+  },
+  "x-error-codes": [
+    "bad_message",
+    "busy",
+    "cancelled",
+    "duplicate",
+    "expected_hello",
+    "insufficient_memory",
+    "machine_mismatch",
+    "model_missing",
+    "not_capable",
+    "not_ready",
+    "rate_limited",
+    "revoked",
+    "start_failed",
+    "superseded",
+    "timeout",
+    "too_large",
+    "tunnel_failed",
+    "unknown_session",
+    "unsupported_type",
+    "unsupported_version",
+    "upstream_failed"
+  ],
+  "x-log-excerpt-max-chars": 4000,
+  "x-max-frames-per-second": 100,
+  "x-max-message-bytes": 65536,
+  "x-protocol-version": 1,
+  "x-relay-max-chunk-bytes": 32768,
+  "x-relay-max-request-bytes": 1048576,
+  "x-relay-max-response-bytes": 67108864,
+  "x-relay-max-timeout-s": 3600,
+  "x-relay-max-window": 64
+}
