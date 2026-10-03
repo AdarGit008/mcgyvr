@@ -98,7 +98,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.orchestrator.decompose import Decomposition
+    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
+    from mcgyvr.pool import SourceMap
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
@@ -887,7 +888,7 @@ def _delegate(args: argparse.Namespace) -> int:
     """
 
     from mcgyvr.config import ConfigError, ConfigMissingError, named_config_path
-    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError, proposer_for
+    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
     from mcgyvr.exits import Exit
     from mcgyvr.orchestrator import (
         AttachError,
@@ -925,7 +926,7 @@ def _delegate(args: argparse.Namespace) -> int:
 
     pool = source_map(config)
     try:
-        propose = proposer_for(pool)
+        propose = _proposer_for_delegate(config, pool)
     except SourceUnavailableError as exc:
         print(
             f"error: the orchestrator role is declared but cannot run: {exc}. "
@@ -968,6 +969,28 @@ def _delegate(args: argparse.Namespace) -> int:
         # a reviewer-side fault, reported, never a traceback.
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
+    """The proposer ``mcgyvr delegate`` drafts with, by ``orchestrator.authoring``.
+
+    ``classifier`` puts the typed proposer (the jev unit, or the orchestrator
+    role when none is bound) first and the prose proposer behind it; anything
+    else is the prose proposer alone, as before the field existed.
+    """
+    from mcgyvr.delegate import (
+        classifier_proposer_for,
+        proposer_by_authoring,
+        proposer_for,
+    )
+
+    strategy = config.get("orchestrator.authoring")
+    typed = classifier_proposer_for(pool) if strategy == "classifier" else None
+    return proposer_by_authoring(
+        None if not isinstance(strategy, str) else strategy,
+        typed=typed,
+        prose=proposer_for(pool),
+    )
 
 
 def _report_decomposition(dec: Decomposition) -> None:
