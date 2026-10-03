@@ -18,7 +18,10 @@ then only what the owner allows is lent:
 * ``models_dir`` — the folder models are served from, read-only; the head
   is only offered with one, and only files under it are named;
 * ``endpoints`` — the LAN addresses the tunnel is published on, or the
-  machine's own when none are named; ``listen_port`` — the tunnel's UDP port;
+  machine's own when none are named; ``listen_port`` — the first of the
+  tunnels' UDP ports: each session the rig is in at once takes the lowest
+  free one of it and the ports after it (:meth:`Sharing.tunnel_ports`), so a
+  rig in one session listens on ``listen_port`` itself;
 * ``cache`` — whether a worker keeps the tensors its heads sent in a cache
   folder of its own, so a reload sends only what changed, up to
   ``cache_max_mb``.
@@ -40,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet import roots
-from mcgyvr.rig import hardware, protocol
+from mcgyvr.rig import hardware, protocol, sessionwire
 
 #: The file's name in the config folder.
 SHARING_FILE = "rig-sharing.json"
@@ -48,6 +51,9 @@ SHARING_FILE = "rig-sharing.json"
 MAX_SHARING_BYTES = 16384
 #: WireGuard's own default port.
 DEFAULT_LISTEN_PORT = 51820
+#: How many tunnel ports a rig listens on at most: one per session it is in at
+#: once, and no more sessions than a hello names (the hub resumes only those).
+TUNNEL_PORTS = protocol.MAX_SESSIONS_REPORTED
 #: The memory a container may take, in MiB, when the owner names none.
 DEFAULT_CONTAINER_MB = 8192
 #: The most a worker's tensor cache keeps, in MiB, when the owner names none.
@@ -100,6 +106,14 @@ class Sharing:
             role
             for role in protocol.ROLES
             if role in self.roles and (role != "head" or self.models_dir)
+        )
+
+    def tunnel_ports(self) -> range:
+        """The UDP ports the sessions' tunnels listen on, one each:
+        ``listen_port`` and the ports after it, never past the last port."""
+        return range(
+            self.listen_port,
+            min(self.listen_port + TUNNEL_PORTS, sessionwire.MAX_PORT + 1),
         )
 
     def container_mb(self) -> int:
@@ -213,7 +227,7 @@ def read(data: object) -> Sharing:
         )
     if "listen_port" in data:
         out["listen_port"] = _whole(
-            data["listen_port"], "listen_port", LOWEST_PORT, 65535
+            data["listen_port"], "listen_port", LOWEST_PORT, sessionwire.MAX_PORT
         )
     if data.get("models_dir") is not None:
         folder = data["models_dir"]
