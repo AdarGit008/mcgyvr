@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
 from mcgyvr import __version__
+from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import (
@@ -2350,17 +2351,12 @@ def _scan(args: argparse.Namespace) -> int:
 
     ``--json`` exits :attr:`Exit.OK` even when the scan disagrees with the
     record, and that asymmetry is the point rather than an oversight.
-    ``--json`` is not a quieter mode of this command for a person; it is the
-    far end of an ssh pipe, and the only thing that reads it is
-    :func:`mcgyvr.scan.scan_over` → ``_ssh``, which treats *any* non-zero
-    status as "this host did not answer" and raises ``Unreachable``.
-    Exiting 4 down that channel would take the one event exit 4 exists to
-    surface — a rig that lost a DIMM or a card — and make that rig disappear
-    from ``scan_all`` altogether, discarding a perfectly good measurement that
-    is already sitting on stdout. So the wire format's job is to deliver the
-    measurement: the mismatch goes to stderr, where the operator still reads it
-    and the parser never does. The exit-code channel belongs to the
-    human-facing command, which keeps exit 4.
+    ``--json`` is not a quieter mode of this command for a person; it prints
+    the wire format that :func:`mcgyvr.scan.Scan.from_json` reads — the same
+    shape the shipped self-contained scanner prints on a rig. The exit-code
+    channel belongs to the human-facing command, which keeps exit 4: a rig
+    that lost a DIMM or a card still delivers its measurement down the wire
+    and the mismatch goes to stderr, where the operator reads it.
     """
     measured = scan_module.scan()
     root = scan_module.default_root()
@@ -2373,10 +2369,10 @@ def _scan(args: argparse.Namespace) -> int:
     path = scan_module.write_scan(measured, root)
 
     if args.json:
-        # stdout is the wire format: `mcgyvr scan --json` is what the far end
-        # of an ssh pipe runs and `Scan.from_json` is what reads it back
-        # (mcgyvr.scan.scan_over). One banner line here and the remote scan
-        # stops parsing, so everything a person would read goes to stderr.
+        # stdout is the wire format `Scan.from_json` reads — the same shape the
+        # shipped self-contained scanner prints on the rig. One banner line
+        # here and the scan stops parsing, so everything a person would read
+        # goes to stderr.
         sys.stdout.write(measured.to_json())
         _report_mismatches(drift, sys.stderr)
         return Exit.OK
@@ -2412,6 +2408,41 @@ def _scan(args: argparse.Namespace) -> int:
     if drift:
         _report_mismatches(drift, sys.stdout)
         return Exit.MISMATCH
+    return Exit.OK
+
+
+def _users_count(value: str) -> int:
+    """``single`` or a positive count — the two spellings ``recommend`` takes."""
+    if value == "single":
+        return 1
+    try:
+        count = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"users must be `single` or a number, not {value!r}"
+        ) from None
+    if count < 1:
+        raise argparse.ArgumentTypeError(f"users must be at least 1, not {count}")
+    return count
+
+
+def _recommend(args: argparse.Namespace) -> int:
+    """Print one JSON plan: which checkpoint and engine serve ``args.profile``.
+
+    Read-only: the rigs are re-read over the sanctioned detection ssh path and
+    nothing is written, woken or slept. The plan is the only thing on stdout.
+    """
+    try:
+        made = recommend_module.plan(
+            profile=args.profile,
+            users=args.users,
+            hosts=args.host,
+            model_stores=args.model_store,
+        )
+    except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    sys.stdout.write(json.dumps(made, indent=2, sort_keys=True) + "\n")
     return Exit.OK
 
 
@@ -3534,6 +3565,42 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         ),
     )
     sca.set_defaults(func=_scan)
+
+    rec = sub.add_parser(
+        "recommend",
+        help="print one JSON plan: which checkpoint and engine serve a profile",
+    )
+    rec.add_argument(
+        "--profile",
+        required=True,
+        choices=recommend_module.PROFILES,
+        help="the usage profile to place for",
+    )
+    rec.add_argument(
+        "--users",
+        required=True,
+        type=_users_count,
+        metavar="N|single",
+        help="how many users the placement serves: `single` or a positive number",
+    )
+    rec.add_argument(
+        "--host",
+        action="append",
+        required=True,
+        metavar="RIG",
+        help="a rig to re-read over ssh and place on (repeatable)",
+    )
+    rec.add_argument(
+        "--model-store",
+        action="append",
+        default=[],
+        metavar="DIR",
+        help=(
+            "a directory on the rig holding *.gguf checkpoints (repeatable); "
+            "when any fits, recommend only from it"
+        ),
+    )
+    rec.set_defaults(func=_recommend)
 
     srv = sub.add_parser(
         "serve",
