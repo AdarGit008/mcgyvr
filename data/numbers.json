@@ -944,6 +944,46 @@
       "says": "The number of the first relay_data frame of a request's body.",
       "reason": "where a count starts"
     },
+    "rig/rungs.py:FETCH_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a hub takes to answer a rider's request for their relief rungs; past it the sync fails and is tried again.",
+      "moves_to": "hub_rungs_timeout_s"
+    },
+    "rig/rungs.py:MAX_ADDRESS": {
+      "kind": "choice",
+      "says": "The longest relief rung address, in characters, a sync keeps; an answer with a longer one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_ANSWER_BYTES": {
+      "kind": "choice",
+      "says": "The largest answer, in bytes, a sync reads from a hub's list of relief rungs; a larger one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_PRIVACY": {
+      "kind": "choice",
+      "says": "The longest privacy warning, in characters, a sync reads from a hub and shows; a longer one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_RUNGS": {
+      "kind": "choice",
+      "says": "The most relief rungs a sync reads from one answer of a hub; an answer listing more is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_RUNG_WIDTH": {
+      "kind": "estimate",
+      "says": "The most requests one relief rung is taken to serve at once; a hub giving a rung a wider width is refused.",
+      "moves_to": "relief_rung_width_max"
+    },
+    "rig/rungs.py:MAX_TEXT": {
+      "kind": "choice",
+      "says": "The longest host handle or served model name, in characters, a sync keeps; an answer with a longer one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:RETRY_S": {
+      "kind": "choice",
+      "says": "How long, in seconds, the rig agent waits after a relief rung sync failed before it tries again.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
     "rig/session.py:DIGEST_CHUNK": {
       "kind": "choice",
       "says": "How many bytes of a model file are read at a time while its digest is taken.",

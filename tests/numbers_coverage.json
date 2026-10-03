@@ -92,6 +92,7 @@
     "rig/probe.py": "judging",
     "rig/protocol.py": "judging",
     "rig/relay.py": "judging",
+    "rig/rungs.py": "judging",
     "rig/session.py": "judging",
     "rig/sessionwire.py": "judging",
     "rig/sharing.py": "judging",

@@ -82,7 +82,7 @@ MAX_PRIVACY = 2000
 #: The longest rung address kept, in characters.
 MAX_ADDRESS = 2048
 #: The widest rung kept: no unit serves more requests at once.
-MAX_WIDTH = 1024
+MAX_RUNG_WIDTH = 1024
 #: A relief rung's name in ``relief.yaml``: this prefix and the rung's id.
 NAME_PREFIX = "hitchhike-"
 #: How long the agent's refresher waits after a sync that failed, in seconds:
@@ -208,8 +208,8 @@ def _text(value: object, where: str, longest: int) -> str:
 def _count(value: object, where: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise _refused(where, "is not a whole number")
-    if not 1 <= value <= MAX_WIDTH:
-        raise _refused(where, f"is not between 1 and {MAX_WIDTH}")
+    if not 1 <= value <= MAX_RUNG_WIDTH:
+        raise _refused(where, f"is not between 1 and {MAX_RUNG_WIDTH}")
     return value
 
 
