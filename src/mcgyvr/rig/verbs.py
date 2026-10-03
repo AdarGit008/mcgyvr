@@ -236,7 +236,11 @@ def run_agent(kept: Credentials) -> int:
         ),
         send=box.put,
     )
-    relays = relay.Relays(heads=sessions, send=box.put)
+    # The units this host shares with riders (hitchhike), read from its own
+    # setup: advertised once the hello is acked, then kept fresh on the
+    # heartbeat and a ticker of their own; a ride to one is a relay.
+    units = hitchhike.Units(send=box.put)
+    relays = relay.Relays(heads=sessions, send=box.put, units=units)
     sessions.on_end(relays.session_ended)
     probes = probe.Probes(
         send=box.put,
@@ -268,10 +272,6 @@ def run_agent(kept: Credentials) -> int:
             file=sys.stderr,
         )
 
-    # The units this host shares with riders (hitchhike), read from its own
-    # setup: advertised once the hello is acked, then kept fresh on the
-    # heartbeat and a ticker of their own.
-    units = hitchhike.Units(send=box.put)
     if units.shares():
         print("hitchhike: sharing units of this setup with riders", file=sys.stderr)
 

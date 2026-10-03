@@ -42,6 +42,16 @@ shares nothing sends nothing; one that stops sharing sends the empty set,
 which withdraws it. Nothing goes while the channel is down, and the hub
 forgets the adverts of a link that dropped, so the set goes again whole when
 the channel is back. What cannot be shared is said once, not at every check.
+
+**A ride** (``unit_relay_request``) is relayed by the head relay's own code
+(:mod:`mcgyvr.rig.relay`) to the address of a unit this link advertised; the
+hub names only its id. :meth:`Units.ride` admits it, the host first: a unit
+takes at most its ``rider_slots`` rides at once, and none that would leave the
+host fewer than ``slots - rider_slots`` free slots by the unit's own count at
+that moment. An admitted ride holds one of the unit's slots, host-wide, for as
+long as it runs (:meth:`mcgyvr.capacity.Capacity.hold`, without waiting), so
+the host's own dispatches see it, and a unit with none free refuses it. A ride
+that ends asks for a check, since the unit's free slots may have moved.
 """
 
 from __future__ import annotations
@@ -51,13 +61,15 @@ import re
 import sys
 import threading
 import time
-from collections.abc import Callable
-from contextlib import AbstractContextManager, nullcontext
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from mcgyvr.capacity import SlotUnavailableError
 from mcgyvr.rig import protocol, sessionwire
-from mcgyvr.rig.relay import SEND_WAIT_S
+from mcgyvr.rig.relay import SEND_WAIT_S, RideRefusedError
+from mcgyvr.rig.sessionwire import SessionCode
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -98,6 +110,13 @@ class Shared:
     slots: int
     ctx: int
     rider_cap: int
+
+    def url(self, endpoint: str) -> str:
+        """Where a ride to ``endpoint`` goes: the unit's address joined to the
+        endpoint's one path as a run joins it (``/v1`` is not doubled)."""
+        from mcgyvr.runner import _url_for
+
+        return _url_for(self.address, sessionwire.RELAY_PATHS[endpoint])
 
 
 def _unit_id(name: str, taken: set[str]) -> str:
@@ -279,6 +298,8 @@ class Units:
         self._sent_at: float | None = None
         self._last: tuple[sessionwire.AdvertisedUnit, ...] = ()
         self._riding: dict[str, int] = {}
+        self._shared: dict[str, Shared] = {}
+        self._serving = Setup()
         self._said: set[str] = set()
         self._closed = threading.Event()
 
@@ -300,10 +321,12 @@ class Units:
         self.tick()
 
     def offline(self) -> None:
-        """The channel is down: nothing is sent until it is back."""
+        """The channel is down: nothing is sent until it is back, and the hub
+        has forgotten the adverts, so no ride is taken either."""
         with self._lock:
             self._online = False
             self._last = ()
+            self._shared = {}
 
     def close(self) -> None:
         """The agent ends: the ticker started by :meth:`run_ticker` stops."""
@@ -319,6 +342,50 @@ class Units:
                 self.tick()
 
         threading.Thread(target=ticking, name="shared-units-tick", daemon=True).start()
+
+    # -- the rides -----------------------------------------------------------
+
+    def advertised(self, unit_id: str) -> Shared | None:
+        """The unit the hub knows by ``unit_id`` from this link's adverts."""
+        with self._lock:
+            return self._shared.get(unit_id)
+
+    @contextmanager
+    def ride(self, unit_id: str) -> Iterator[None]:
+        """Admit one ride to ``unit_id`` for the block, the host first.
+
+        :class:`~mcgyvr.rig.relay.RideRefusedError` ``unknown_unit`` for a unit
+        no longer advertised, ``busy`` when the unit has its riders or the
+        ride would leave the host fewer than ``slots - rider_cap`` free slots
+        by the unit's own count now (``rides + 1 > rider_cap - (slots -
+        free)``), or when no slot of the unit is free host-wide. An admitted
+        ride holds one of the unit's slots, which the host's own dispatches
+        count, and counts as a ride (not the host's) in the free slots an
+        advert says until it ends; its end asks for a check of the advert.
+        """
+        with self._lock:
+            unit = self._shared.get(unit_id)
+            setup = self._serving
+        if unit is None:
+            raise RideRefusedError(SessionCode.UNKNOWN_UNIT)
+        in_flight = setup.in_flight(unit)
+        with self._lock:
+            riding = self._riding.get(unit_id, 0)
+            free = free_slots(unit.slots, in_flight, riding)
+            if riding + 1 > unit.rider_cap - (unit.slots - free):
+                raise RideRefusedError(SessionCode.BUSY)
+            self._riding[unit_id] = riding + 1
+        try:
+            with ExitStack() as held:
+                try:
+                    held.enter_context(setup.hold(unit))
+                except SlotUnavailableError as exc:
+                    raise RideRefusedError(SessionCode.BUSY) from exc
+                yield
+        finally:
+            with self._lock:
+                self._riding[unit_id] -= 1
+            self.soon()
 
     # -- the checks ----------------------------------------------------------
 
@@ -347,6 +414,12 @@ class Units:
             self._asked = False
             self._checked_at = now
         self._start(self._check)
+
+    def _serve(self, setup: Setup) -> None:
+        """Take rides to the units the hub was told of, as ``setup`` states
+        them now. Called under the lock."""
+        self._shared = {unit.unit_id: unit for unit in setup.units}
+        self._serving = setup
 
     def _note(self, line: str) -> None:
         with self._lock:
@@ -383,18 +456,22 @@ class Units:
             wanted = tuple(advert)
             now = self._clock()
             with self._lock:
+                if not self._online:
+                    return
                 due = (
                     bool(wanted)
                     and self._sent_at is not None
                     and now - self._sent_at >= sessionwire.UNIT_ADVERT_INTERVAL_S
                 )
-                if not self._online or (wanted == self._last and not due):
+                if wanted == self._last and not due:
+                    self._serve(setup)
                     return
             if self._send(sessionwire.unit_advert(wanted), timeout=SEND_WAIT_S):
                 with self._lock:
                     if self._online:
                         self._last = wanted
                         self._sent_at = now
+                        self._serve(setup)
         finally:
             with self._lock:
                 self._going = False
