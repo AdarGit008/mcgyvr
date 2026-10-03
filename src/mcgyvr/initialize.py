@@ -41,11 +41,13 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     GATE_FIELDS,
     JOURNAL_FIELDS,
+    LOCAL_ONLY,
     POLICY_FILENAME,
     SCHEMA,
     Config,
     ConfigError,
     Field,
+    local_orchestrator,
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
@@ -508,6 +510,12 @@ def _deployment_default(use_case: str) -> str:
     ``chat`` is a raw endpoint, so it defaults to local-only — mcgyvr is the
     backend. Everything else defaults to hybrid, where an API-tier
     orchestrator drives mcgyvr and the ladder's dearest rung is an API model.
+
+    This is an *init-time* default and deliberately not the schema's: the
+    schema's ``deployment`` default is ``hybrid``, the one value that is safe
+    for a hand-written config that omits the key. ``chat`` needs no
+    orchestrator under either model, so the split only changes what init
+    writes for a fresh chat install.
     """
     return "local-only" if use_case == "chat" else "hybrid"
 
@@ -536,6 +544,11 @@ def build(
     estimate in the capability table describes it. They enter as units like any
     other, which is what makes the result the same two files any other init
     writes rather than a second kind of output.
+
+    ``use_case`` is which of the four use cases the install serves, and
+    ``deployment`` is how it is run; ``None`` deployment falls back to
+    :func:`_deployment_default` for the use case, so the file states the choice
+    rather than leaving the schema's ``hybrid`` default to fill it silently.
     """
     backends = {backend.name: backend for backend in detection.backends}
     units: dict[str, Any] = {}
@@ -905,6 +918,19 @@ def initialize(
         + composition
         + (f"Use case {use_case!r} under deployment {chosen_deployment!r}.",)
     )
+    # The single-user half of the ruling, surfaced rather than computed and
+    # dropped: a local-only non-chat install on one user is flagged, never
+    # refused.
+    if local_orchestrator(
+        use_case=use_case,
+        local_only=chosen_deployment == LOCAL_ONLY,
+        users=int(data.get("users", 1)),
+    ).flag_single_user:
+        decisions += (
+            "Local-only on a single-user install: the resident orchestrator "
+            "consumes the card the ladder would otherwise use — flagged, not "
+            "refused.",
+        )
     limits = _limits(found, proposal, asked) + compose_limits
     fleet_content = render_fleet(data, decisions)
     policy_content = render_policy(data)
