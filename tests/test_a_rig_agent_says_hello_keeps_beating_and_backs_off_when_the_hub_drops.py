@@ -168,6 +168,9 @@ class Channel:
         self.clock.now += max(timeout, 0.001)
         return None
 
+    def wake(self) -> None:
+        pass  # receive never blocks: it moves the clock on
+
     def close(self, code: int = 1000, reason: str = "") -> None:
         self.closed_with = code
         self.closed = _closed(code, reason)

@@ -4,7 +4,9 @@ A command's answer is sent when its handler returns; everything else a
 session or a relay says (a session became ready, a relayed answer's chunks,
 its end) is said later, from a thread of its own, and goes here. The agent
 takes frames out between reads of its channel, at no more than its frame
-rate (:mod:`mcgyvr.rig.agent`).
+rate (:mod:`mcgyvr.rig.agent`); a put wakes the agent from a read that waits
+(the ``wake`` the box is opened with), so a frame goes out at once rather than
+when the read's timeout ends.
 
 The box is bounded, and a put waits while it is full: a relay that streams
 faster than the channel carries stops reading its upstream, which is the
@@ -18,6 +20,7 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 
 #: How many frames wait at most before a put waits too.
 CAPACITY = 256
@@ -31,17 +34,21 @@ class Outbox:
         self._capacity = capacity
         self._open = False
         self._changed = threading.Condition()
+        self._wake: Callable[[], None] | None = None
 
-    def open(self) -> None:
-        """Take frames: the channel is up."""
+    def open(self, wake: Callable[[], None] | None = None) -> None:
+        """Take frames: the channel is up. ``wake`` is called after each put,
+        outside the box's lock, to have the sender send at once."""
         with self._changed:
             self._open = True
+            self._wake = wake
             self._changed.notify_all()
 
     def close(self) -> None:
         """Refuse frames and drop those waiting: the channel is down."""
         with self._changed:
             self._open = False
+            self._wake = None
             self._frames.clear()
             self._changed.notify_all()
 
@@ -64,7 +71,10 @@ class Outbox:
                 return False
             self._frames.append(frame)
             self._changed.notify_all()
-            return True
+            wake = self._wake
+        if wake is not None:
+            wake()
+        return True
 
     def take(self) -> str | None:
         """The next frame to send, or ``None``."""
