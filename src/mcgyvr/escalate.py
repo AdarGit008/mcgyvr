@@ -53,9 +53,10 @@ is full by :meth:`~mcgyvr.capacity.Capacity.judge`'s one definition, a free
 relief rung is the entry, ahead of the next family up and so ahead of a priced
 api rung. No escalation reaches it, because no plan holds it, and the ceilings
 and budgets are the ladder's alone. :func:`escalate` rides it before the climb;
-a ride that does not answer — the hub cannot take the request now, which the
-driver reads as a full rung — is passed over as if it had been full, and the
-entry is decided again without the relief rungs.
+a ride that is not accepted — the hub cannot take the request now, which the
+driver reads as a full rung, or the answer failed or the dispatch raised — is
+passed over as if it had been full, charged to neither ceiling, and the entry
+is decided again without the relief rungs.
 
 **Busy is not a verdict, and the record is the difference.** A rung that
 :attr:`~Ascent.next_free_rung` passed over was not tried: it produced no
@@ -1290,31 +1291,37 @@ def escalate(
         judged.append(attempted(this.rung.name, this.attempt, result))
         return result
 
+    def rode(this: Try) -> Result:
+        """``observed`` for a ride, which spends nothing unless it is accepted.
+
+        A ride is not a step of the ladder, so a ride that fails charges
+        neither ceiling: it adds nothing to ``spent_rungs`` and nothing to
+        ``attempts_spent``, and the request goes back to the rider's own
+        ladder with its whole budget. Only an accepted ride is counted, as
+        the attempt that did the work. A raise is still carried out as
+        :class:`_AttemptError`, so it is recorded the way any raise is.
+        """
+        nonlocal attempts_spent, accepted_judgement
+        try:
+            judgement = attempt(this)
+        except Exception as exc:
+            raise _AttemptError(this.rung.name, this.attempt, exc) from exc
+        if judgement.verdict is Verdict.PASSED:
+            attempts_spent += 1
+            accepted_judgement = judgement
+        return judgement.as_result()
+
     def raised_to_halted(raised: _AttemptError) -> Halted:
         """The one shape an attempt that raised takes, whichever plan it was in."""
-        detail = (
-            f"rung {raised.rung!r} raised {type(raised.cause).__name__}: {raised.cause}"
-        )
         history.extend(judged)
-        history.append(
-            Attempted(
-                rung=raised.rung,
-                attempt=raised.attempt,
-                verdict=Verdict.FAILED,
-                detail=detail,
-                raised=True,
-                draw=raised.draw,
-                draws=raised.draws,
-                rows=raised.rows,
-            )
-        )
+        history.append(_raised_attempt(raised))
         return Halted(
             outcome=Outcome.ERROR,
             entered=tuple(entered),
             history=tuple(history),
             attempts_spent=attempts_spent,
             escalations=max(0, len(spent_rungs) - 1),
-            detail=detail,
+            detail=history[-1].detail,
         )
 
     def finish_accepted(family: Family, rung: str) -> Delivered:
@@ -1337,18 +1344,20 @@ def escalate(
         if riding is not None:
             ride = _ride(config, route, riding)
             held, riding = riding.rung, None
-            judged.clear()
             try:
                 ridden = climb(
-                    ride, observed, capacity=capacity, permit=permit, claimed=held
+                    ride, rode, capacity=capacity, permit=permit, claimed=held
                 )
             except _AttemptError as raised:
-                return raised_to_halted(raised)
-            history.extend(ridden.history)
-            if isinstance(ridden, Accepted):
-                return finish_accepted(ridden.family, ridden.rung)
+                # A ride whose dispatch died went nowhere: recorded, uncharged.
+                history.append(_raised_attempt(raised))
+            else:
+                history.extend(ridden.history)
+                if isinstance(ridden, Accepted):
+                    return finish_accepted(ridden.family, ridden.rung)
             # As if every relief rung were full: the entry is decided again
-            # without them, and the climb is the rider's own from here.
+            # without them, and the climb is the rider's own from here, with
+            # every attempt and escalation it had.
             entry = route.reserve_entry(relief=False)
             if entry is not None:
                 route, claimed = _entered(config, pool, contract, capacity, entry)
@@ -1426,6 +1435,22 @@ def escalate(
         attempts_spent=attempts_spent,
         escalations=escalations,
         detail=_halt_detail(outcome, route, attempts_spent, escalations),
+    )
+
+
+def _raised_attempt(raised: _AttemptError) -> Attempted:
+    """The history entry of an attempt that raised instead of judging."""
+    return Attempted(
+        rung=raised.rung,
+        attempt=raised.attempt,
+        verdict=Verdict.FAILED,
+        detail=(
+            f"rung {raised.rung!r} raised {type(raised.cause).__name__}: {raised.cause}"
+        ),
+        raised=True,
+        draw=raised.draw,
+        draws=raised.draws,
+        rows=raised.rows,
     )
 
 
