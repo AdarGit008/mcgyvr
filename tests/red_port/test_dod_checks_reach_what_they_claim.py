@@ -110,6 +110,10 @@ def test_the_manifest_covers_every_file_a_gate_reads(
     shutil.copytree(real, scripts, symlinks=True)
 
     def moved(path: Path) -> Path:
+        # A reader that is not a gate script (`linktime.py`, beside the door)
+        # is read where it is: only the gate scripts are copied.
+        if not path.is_relative_to(real):
+            return path
         return scripts / path.relative_to(real)
 
     monkeypatch.setattr(door, "GATE_SCRIPTS", scripts)
