@@ -170,6 +170,7 @@ def _config(args: argparse.Namespace) -> int:
 
 
 def _pool(args: argparse.Namespace) -> int:
+    from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import draws_for, family_of
@@ -254,7 +255,7 @@ def _pool(args: argparse.Namespace) -> int:
         for skip in pool.relief_skipped:
             print(f"  {skip.name:<20} skipped\n      ↳ {skip.reason}")
 
-    for role in ("orchestrator", "verifier"):
+    for role in ("orchestrator", "verifier", JEV_ROLE):
         try:
             model = pool.role_model(role)
         except SourceUnavailableError as exc:
