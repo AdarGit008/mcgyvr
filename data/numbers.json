@@ -739,6 +739,26 @@
       "says": "How long, in seconds, the machine reader takes on this machine, its card tools included; past it the machine is not reported to the hub.",
       "moves_to": "machine_read_timeout_s"
     },
+    "rig/hitchhike.py:ADVERT_GAP_S": {
+      "kind": "fact",
+      "says": "The soonest, in seconds, an advert of the units a host shares with riders follows the one before: at most once a second, as the hub's agent protocol asks.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/hitchhike.py:POLL_S": {
+      "kind": "choice",
+      "says": "How often, in seconds, a connected rig agent reads its setup again for an edit of what it shares with riders, so the edit reaches the hub within a second.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/hitchhike.py:_DIGEST_DIGITS": {
+      "kind": "choice",
+      "says": "How many hex digits of a unit name's digest the id of a shared unit carries when the name cannot be the id.",
+      "reason": "a code or version other programs or files read"
+    },
+    "rig/hitchhike.py:_MAX_ID": {
+      "kind": "fact",
+      "says": "The longest id, in characters, the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/inventory.py:MAX_DEPTH": {
       "kind": "choice",
       "says": "How many folders deep under the owner's models folder a rig agent looks for model files.",
@@ -933,6 +953,51 @@
       "kind": "fact",
       "says": "The number of the first relay_data frame of a request's body.",
       "reason": "where a count starts"
+    },
+    "rig/rungs.py:FETCH_TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a hub takes to answer a rider's request for their relief rungs; past it the sync fails and is tried again.",
+      "moves_to": "hub_rungs_timeout_s"
+    },
+    "rig/rungs.py:MAX_ADDRESS": {
+      "kind": "choice",
+      "says": "The longest relief rung address, in characters, a sync keeps; an answer with a longer one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_ANSWER_BYTES": {
+      "kind": "choice",
+      "says": "The largest answer, in bytes, a sync reads from a hub's list of relief rungs; a larger one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_LADDER_RUNGS": {
+      "kind": "fact",
+      "says": "The most rungs the hub takes in a rider's reported ladder; a ladder of more is not sent.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/rungs.py:MAX_PRIVACY": {
+      "kind": "choice",
+      "says": "The longest privacy warning, in characters, a sync reads from a hub and shows; a longer one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_RUNGS": {
+      "kind": "choice",
+      "says": "The most relief rungs a sync reads from one answer of a hub; an answer listing more is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:MAX_RUNG_WIDTH": {
+      "kind": "estimate",
+      "says": "The most requests one relief rung is taken to serve at once; a hub giving a rung a wider width is refused.",
+      "moves_to": "relief_rung_width_max"
+    },
+    "rig/rungs.py:MAX_TEXT": {
+      "kind": "choice",
+      "says": "The longest host handle or served model name, in characters, a sync keeps; an answer with a longer one is refused.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/rungs.py:RETRY_S": {
+      "kind": "choice",
+      "says": "How long, in seconds, the rig agent waits after a relief rung sync failed before it tries again.",
+      "reason": "how often or how many times the product tries its own step again"
     },
     "rig/session.py:DIGEST_CHUNK": {
       "kind": "choice",
@@ -1167,6 +1232,21 @@
     "rig/sessionwire.py:DEFAULT_SLOTS": {
       "kind": "fact",
       "says": "The slots a head start serves at once when the hub names none, as the hub's agent protocol defaults it.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_UNITS": {
+      "kind": "fact",
+      "says": "The most shared units one unit_advert of the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:UNIT_ADVERT_INTERVAL_S": {
+      "kind": "fact",
+      "says": "How often, in seconds, a host's agent sends the hub its shared units at least, as the hub's agent protocol asks.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:UNIT_ADVERT_STALE_S": {
+      "kind": "fact",
+      "says": "How old, in seconds, a unit_advert is when the hub takes its units as withdrawn, as the hub's agent protocol states.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/sessionwire.py:MAX_KEEPALIVE_S": {

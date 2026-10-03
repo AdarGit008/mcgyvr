@@ -8,6 +8,10 @@
   what this machine reads as now — never the token's secret.
 * ``leave`` forgets the token here. The rig stays on the hub until it is
   deleted there, or its token rotated.
+* ``rungs sync`` keeps the relief rungs the hub matched this rider to
+  (hitchhike) in the setup's ``relief.yaml`` (:mod:`mcgyvr.rig.rungs`), asking
+  with the rider's personal key, read from a variable it names and never
+  shown or written; the hub's privacy warning is shown every time.
 * ``share`` says what this rig lends to the hub's pooled-inference sessions,
   and changes it (:mod:`mcgyvr.rig.sharing`): nothing until the owner turns
   it on, and then only the roles, cards, memory and models folder allowed.
@@ -16,8 +20,9 @@
   (:mod:`mcgyvr.rig.session`), and tears every one down when the session,
   the hub's channel or the agent ends.
 
-A token is never sent in clear past this machine: a hub reached over the
-network is ``https://``; ``http://`` is taken only for a hub on this machine.
+A token or key is never sent in clear past this machine: a hub reached over
+the network is ``https://``; ``http://`` is taken only for a hub on this
+machine (:func:`hub_address`).
 
 :func:`add_parser` is all ``mcgyvr.cli`` knows of this: it adds the ``rig``
 group, and every handler imports what it needs when it runs.
@@ -63,10 +68,19 @@ def _is_this_machine(host: str) -> bool:
         return False
 
 
-def agent_url(hub: str) -> str:
-    """The agent channel of the hub at ``hub``; ``ValueError`` when ``hub``
-    is not a hub's address, :class:`_RefusalError` when it is not a safe one."""
-    parts = urllib.parse.urlsplit(hub.strip())
+def hub_address(
+    address: str, *, carrying: str = "the rig token"
+) -> urllib.parse.SplitResult:
+    """``address`` split, when it is a hub's that ``carrying`` may be sent to.
+
+    The one rule for every credential this machine sends a hub — the rig
+    token over the agent channel, the personal key a sync and a relief rung
+    carry: ``https://`` (``wss://``), or ``http://`` (``ws://``) only for a hub
+    on this machine. ``ValueError`` when ``address`` is not a hub's address,
+    :class:`_RefusalError` when the credential would cross the network in
+    clear.
+    """
+    parts = urllib.parse.urlsplit(address.strip())
     scheme = _SCHEMES.get(parts.scheme.lower())
     if scheme is None:
         raise ValueError("a hub's address starts https:// (or http:// on this machine)")
@@ -78,14 +92,24 @@ def agent_url(hub: str) -> str:
     if not host:
         raise ValueError("the hub's address names no host")
     try:
-        port = parts.port
+        _ = parts.port
     except ValueError as exc:
         raise ValueError("the hub's address has a port that is not one") from exc
     if scheme == "ws" and not _is_this_machine(host):
         raise _RefusalError(
-            "the rig token would cross the network in clear; use the hub's "
+            f"{carrying} would cross the network in clear; use the hub's "
             "https:// address (http:// is taken only for a hub on this machine)"
         )
+    return parts
+
+
+def agent_url(hub: str) -> str:
+    """The agent channel of the hub at ``hub``; ``ValueError`` when ``hub``
+    is not a hub's address, :class:`_RefusalError` when it is not a safe one."""
+    parts = hub_address(hub)
+    scheme = _SCHEMES[parts.scheme.lower()]
+    host = (parts.hostname or "").lower()
+    port = parts.port
     path = parts.path.rstrip("/")
     if not path.endswith(AGENT_PATH):
         path += AGENT_PATH
@@ -115,11 +139,13 @@ def run_agent(kept: Credentials) -> int:
         commands,
         credentials,
         hardware,
+        hitchhike,
         inventory,
         outbox,
         probe,
         protocol,
         relay,
+        rungs,
         session,
         sharing,
         state,
@@ -210,7 +236,11 @@ def run_agent(kept: Credentials) -> int:
         ),
         send=box.put,
     )
-    relays = relay.Relays(heads=sessions, send=box.put)
+    # The units this host shares with riders (hitchhike), read from its own
+    # setup: advertised once the hello is acked, then kept fresh on the
+    # heartbeat and a ticker of their own; a ride to one is a relay.
+    units = hitchhike.Units(send=box.put)
+    relays = relay.Relays(heads=sessions, send=box.put, units=units)
     sessions.on_end(relays.session_ended)
     probes = probe.Probes(
         send=box.put,
@@ -233,20 +263,43 @@ def run_agent(kept: Credentials) -> int:
                 f"note: this machine's containers were not read: {exc}", file=sys.stderr
             )
 
+    # With the rider's personal key in the environment, the heartbeat keeps
+    # the relief rungs fresh too (`mcgyvr rig rungs sync`, on the agent's tick).
+    refresher = rungs.refresher_for(kept.hub)
+    if refresher is not None:
+        print(
+            f"relief rungs: kept fresh from {kept.hub} with ${rungs.KEY_ENV}",
+            file=sys.stderr,
+        )
+
+    if units.shares():
+        print("hitchhike: sharing units of this setup with riders", file=sys.stderr)
+
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
         return session.offer(share, models(), hosts, sessions.running())
 
+    def online() -> None:
+        sessions.online()
+        units.online()
+
     def offline() -> None:
         relays.cancel_all()
         probes.close()
         sessions.offline()
+        units.offline()
 
     def on_exit() -> None:
         relays.cancel_all()
         probes.close()
         sessions.close()
+        units.close()
+
+    def beat() -> None:
+        if refresher is not None:
+            refresher.tick()
+        units.soon()
 
     running = agent.Agent(
         connect=connect,
@@ -256,11 +309,12 @@ def run_agent(kept: Credentials) -> int:
         dispatcher=dispatcher,
         outbox=box,
         offer=offer,
-        on_online=sessions.online,
+        on_online=online,
         on_offline=offline,
         on_exit=on_exit,
         hurry=sessions.waiting,
         on_hub_error=sessions.hub_error,
+        on_beat=beat,
     )
     sessions.on_end(lambda ended: running.beat_soon())
 
@@ -282,6 +336,7 @@ def run_agent(kept: Credentials) -> int:
     previous = {
         sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGHUP)
     }
+    units.run_ticker()
     try:
         ended = running.run()
     finally:
@@ -430,6 +485,84 @@ def _leave(args: argparse.Namespace) -> int:
     return int(Exit.OK)
 
 
+def _rungs_sync(args: argparse.Namespace) -> int:
+    import re
+
+    from mcgyvr.config import ConfigError, config_path, load
+    from mcgyvr.rig import credentials, rungs
+
+    key_env: str = args.key_env
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key_env):
+        print(
+            f"error: {key_env!r} is not a variable's name; --key-env takes the "
+            "NAME of the variable holding your personal hub key, never the key",
+            file=sys.stderr,
+        )
+        return int(Exit.USAGE)
+    hub: str | None = args.hub
+    if hub is None:
+        try:
+            kept = credentials.load()
+        except credentials.CredentialsError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return int(Exit.REFUSED)
+        if kept is None:
+            print(
+                "error: this machine has joined no hub; name the hub with --hub",
+                file=sys.stderr,
+            )
+            return int(Exit.ERROR)
+        hub = kept.hub
+    try:
+        hub_address(hub, carrying=rungs.CARRYING)
+    except _RefusalError as refused:
+        print(f"error: {refused}", file=sys.stderr)
+        return int(Exit.REFUSED)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return int(Exit.USAGE)
+    key = os.environ.get(key_env)
+    if not key:
+        print(
+            f"error: ${key_env} is not set; export your personal hub key in it "
+            "(or name another variable with --key-env), never on the command line",
+            file=sys.stderr,
+        )
+        return int(Exit.ERROR)
+    try:
+        folder = config_path()
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return int(Exit.ERROR)
+    try:
+        rides, where = rungs.sync(folder, hub, key, key_env)
+    except rungs.HubAnswerError as exc:
+        print(f"error: {exc}; the relief rungs kept are unchanged", file=sys.stderr)
+        return int(Exit.REFUSED)
+    except (rungs.SyncError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return int(Exit.ERROR)
+    print(rides.privacy)
+    if not rides.ride:
+        print("riding is off on the hub, so no relief rung is kept; turn it on there")
+    print(f"kept {len(rides.rungs)} relief rung(s) in {where}")
+    for each in rides.rungs:
+        print(
+            f"  {each.name}  {each.position}  x{each.width}  {each.served_model}, "
+            f"hosted by {each.hosted_by}"
+        )
+    try:
+        fanout = load(folder).ladder.fanout
+    except ConfigError:
+        fanout = "idle"
+    if rides.rungs and fanout != "idle":
+        print(
+            f"note: relief rungs take work only under `fanout: idle`; this "
+            f"ladder's is `{fanout}`"
+        )
+    return int(Exit.OK)
+
+
 def _maybe_number(text: str) -> int | None:
     return None if text == "none" else int(text)
 
@@ -541,6 +674,28 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     status.set_defaults(func=_status)
     leave = verbs.add_parser("leave", help="forget the rig token here")
     leave.set_defaults(func=_leave)
+    rungs = verbs.add_parser(
+        "rungs", help="the relief rungs the hub matched you to (hitchhike)"
+    )
+    rung_verbs = rungs.add_subparsers(dest="rungs_command", required=True)
+    sync = rung_verbs.add_parser(
+        "sync",
+        help="keep the hub's relief rungs in the setup's relief.yaml, replacing "
+        "the ones kept",
+    )
+    sync.add_argument(
+        "--hub",
+        metavar="HUB_URL",
+        help="the hub to ask (default: the one this machine joined)",
+    )
+    sync.add_argument(
+        "--key-env",
+        default="MCGYVR_HUB_API_KEY",
+        metavar="NAME",
+        help="the NAME of the variable holding your personal hub key "
+        "(default: MCGYVR_HUB_API_KEY)",
+    )
+    sync.set_defaults(func=_rungs_sync)
     share = verbs.add_parser(
         "share", help="what this rig lends to the hub's sessions; change it"
     )

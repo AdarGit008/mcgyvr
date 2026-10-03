@@ -2,10 +2,12 @@
 
 A setup is two files in one directory, written by ``mcgyvr init``: ``fleet.yaml``
 holds the units (what runs where, locked) and ``policy.yaml`` holds the ladder
-and how work moves over it (not locked). Both are read by
+and how work moves over it (not locked). A third, ``relief.yaml``, is there
+only once ``mcgyvr rig rungs sync`` has written it: the units other people
+lend this rider through a hub. All three are read by
 :mod:`mcgyvr.fleet.files`, which owns the vocabulary and the refusals; this
 module declares the schema, fills defaults, and presents the loaded setup as
-typed ``units`` and ``ladder``. The files are YAML rather than JSON because
+typed ``units``, ``ladder`` and ``relief``. The files are YAML rather than JSON because
 they carry policy, and policy needs comments to stay hand-editable.
 
 Three properties are load-bearing and each is enforced here rather than
@@ -41,7 +43,7 @@ from typing import Any, Literal
 
 import yaml
 
-from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
+from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy, load_relief
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
@@ -51,6 +53,9 @@ from mcgyvr.strict_yaml import strict_loader
 #: and holds the ladder and the routing policy over it.
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
+#: The relief rungs, written whole by ``mcgyvr rig rungs sync`` and by nothing
+#: else; a setup without one has none.
+RELIEF_FILENAME = "relief.yaml"
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
 
 
@@ -150,6 +155,10 @@ class Field:
     A retired value is still recognised, so the message can be specific; it is
     refused, so the config cannot resolve to it."""
 
+
+#: Where a relief rung's model sits against the rider's own, as the hub
+#: judges it: for display, and never a place on the ladder.
+POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 
 #: The fan-out modes, spelled once. ``fanout`` takes one of them and
 #: ``manager.fanouts`` lists the ones the ladder manager may choose between, so
@@ -662,6 +671,58 @@ UNIT_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+RELIEF_FIELDS: tuple[Field, ...] = (
+    Field(
+        "address",
+        "url",
+        "The hub's OpenAI-compatible address the rung is asked at, ending in `/v1`.",
+        required=True,
+        bind_hint="e.g. https://hub.example.org/v1, as the hub gave it",
+    ),
+    Field(
+        "model",
+        "str",
+        "The model string sent with each request, as the hub gave it.",
+        required=True,
+    ),
+    Field(
+        "api_key_env",
+        "env_name",
+        "NAME of the environment variable holding your personal hub key, "
+        "which each request carries.",
+        required=True,
+        bind_hint="the variable's NAME (e.g. MCGYVR_HUB_API_KEY), never the key",
+    ),
+    Field(
+        "width",
+        "int",
+        "How many of your requests the rung takes at once.",
+        required=True,
+        min_value=1,
+    ),
+    Field(
+        "position",
+        "enum",
+        "Where the host's model sits against the models on your own rigs, as "
+        "the hub judges it. Shown, never a place on the ladder.",
+        required=True,
+        choices=POSITION_CHOICES,
+    ),
+    Field(
+        "hosted_by",
+        "str",
+        "The handle of the person whose unit this is. They can read your "
+        "prompts and the answers.",
+        bind_hint="leave it to `mcgyvr rig rungs sync`, which writes the hub's word",
+    ),
+    Field(
+        "served_model",
+        "str",
+        "What the host's unit runs, for display. Never sent.",
+        bind_hint="leave it to `mcgyvr rig rungs sync`, which writes the hub's word",
+    ),
+)
+
 ROLE_UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "unit",
@@ -842,6 +903,30 @@ SCHEMA: tuple[Field, ...] = (
         bind_hint="e.g. `{<unit>: 3}`",
     ),
     Field(
+        "rider_slots",
+        "int_map",
+        "How many of each named unit's slots riders may use at once "
+        "(hitchhike): people the hub matches to you, whose requests for the "
+        "unit's model the agent of `mcgyvr rig` passes to it and whose prompts "
+        "you can read. A unit the map does not name shares none. It is policy, "
+        "not a fact of the unit, so changing it never changes the setup's "
+        "identity or its lock, and a running agent sends the hub the change "
+        "within a second, with no reconnect. Below the unit's `width`, so you "
+        "always "
+        "keep a slot, and your own requests go first: a ride is refused when "
+        "it would leave you fewer than `width` less this many free, and a "
+        "unit whose server does not report what it has in flight shares "
+        "nothing. A ride that has started runs to its end; a request of yours "
+        "that arrives meanwhile waits for a slot as any of yours does. A unit "
+        "is shared only when it is on the `ladder`, needs no key "
+        "(`api_key_env`), is not a relief rung, states its `window`, the "
+        "context of each slot, and has a `width` of at most 16, the most the "
+        "hub takes; one unit per model.",
+        default=None,
+        min_value=0,
+        bind_hint="e.g. `{<unit>: 1}` -- at most one below the unit's `width`",
+    ),
+    Field(
         "max_escalations",
         "int",
         "How many rungs a task may climb before it is handed back unfinished.",
@@ -947,6 +1032,17 @@ SCHEMA: tuple[Field, ...] = (
         "Where mcgyvr keeps its own record of what it dispatched.",
         block=JOURNAL_FIELDS,
     ),
+    Field(
+        "relief",
+        "block_map",
+        "Units other people lend you through a hub (hitchhike), keyed by name. "
+        "Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by "
+        "nothing else. A relief rung is never a step of the ladder: under "
+        "`fanout: idle` it takes work only when your own rung is full, ahead of "
+        "a priced api rung, and no escalation climbs to it. Its host can read "
+        "your prompts.",
+        block=RELIEF_FIELDS,
+    ),
 )
 
 
@@ -1017,6 +1113,19 @@ class Unit:
     container: str | None = None
     hf_cache: str | None = None
     launch: Mapping[str, Any] = field(default_factory=dict)
+    #: How many of its slots riders the hub matches may use at once
+    #: (hitchhike), from the policy's ``rider_slots``: 0, the default, shares
+    #: none, and it is always below ``width``. Policy, so it is no part of
+    #: the unit's identity.
+    rider_slots: int = 0
+    #: Another person's unit, lent through a hub (``relief.yaml``): a rung that
+    #: takes work when the rider's own is full and is never a step of the
+    #: ladder. ``position``, ``hosted_by`` and ``served_model`` are what the
+    #: hub said of it, for display.
+    relief: bool = False
+    position: str | None = None
+    hosted_by: str | None = None
+    served_model: str | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -1098,6 +1207,10 @@ class Config:
 
     ``path`` is where the caller found the config directory, kept for error
     messages. It is not consulted after :func:`parse`.
+
+    ``relief`` holds the relief rungs (``relief.yaml``), each a :class:`Unit`
+    marked ``relief``. They are in neither ``units`` nor ``ladder``: what reads
+    the fleet or walks the ladder never meets one.
     """
 
     path: Path | None
@@ -1105,6 +1218,7 @@ class Config:
     units: Mapping[str, Unit]
     ladder: Ladder
     declared: Mapping[str, Any] = field(default_factory=dict)
+    relief: Mapping[str, Unit] = field(default_factory=dict)
 
     @property
     def is_local_only(self) -> bool:
@@ -1574,7 +1688,7 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
     return result
 
 
-def _refuse_userinfo(name: str, base_url: str) -> None:
+def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
     """Refuse a unit ``address`` that carries a credential in its userinfo.
 
     ``https://user:key@host`` is a credential written into the config file,
@@ -1591,7 +1705,7 @@ def _refuse_userinfo(name: str, base_url: str) -> None:
     if not userinfo:
         return
     raise ConfigSchemaError(
-        f"units.{name}.address: carries credentials in the URL "
+        f"{block}.{name}.address: carries credentials in the URL "
         f"({userinfo.split(':')[0]}:...@). A URL is quoted in error messages, "
         f"probe verdicts and `mcgyvr pool`, so a key written here reaches "
         f"logs and terminals that a key in the environment never does. Remove "
@@ -1702,36 +1816,42 @@ def parse(
     fleet_text: str,
     policy_text: str = "",
     path: Path | None = None,
+    relief_text: str = "",
 ) -> Config:
-    """Validate a setup from the two documents that define it.
+    """Validate a setup from the documents that define it.
 
     ``fleet_text`` is ``fleet.yaml`` — the units, rigs and fleets: what runs
     where. ``policy_text`` is ``policy.yaml`` — the ladder (an ordered list of
-    unit names) and the routing policy over it. Both go through
-    :mod:`mcgyvr.fleet.files`, the one reader that knows the vocabulary and
-    refuses a key in the wrong file, so there is no second set of rules here.
+    unit names) and the routing policy over it. ``relief_text`` is
+    ``relief.yaml`` when there is one — the relief rungs a sync wrote. Each
+    goes through :mod:`mcgyvr.fleet.files`, the one reader that knows the
+    vocabulary and refuses a key in the wrong file, so there is no second set
+    of rules here.
 
     A caller holding one merged document (an editor, a test) may pass it as
-    ``fleet_text`` alone: it is split into the two documents by key and each
-    half goes through the same reader. The loader itself reads two files.
+    ``fleet_text`` alone: it is split into the documents by key and each part
+    goes through the same reader. The loader itself reads the files.
     """
     if not policy_text:
-        fleet_text, policy_text = _split_setup(fleet_text)
+        fleet_text, policy_text, split_relief = _split_setup(fleet_text)
+        relief_text = relief_text or split_relief
     try:
         fleet = load_fleet(fleet_text)
         policy = load_policy(policy_text) if policy_text.strip() else {}
+        relief = load_relief(relief_text) if relief_text.strip() else {}
     except FleetFileError as exc:
         raise ConfigSchemaError(str(exc)) from exc
-    return _build(fleet, policy, path)
+    return _build(fleet, policy, path, relief)
 
 
 #: The keys that belong in ``fleet.yaml``. Everything else in a merged
-#: document is policy.
+#: document is policy, but for the relief block, which is ``relief.yaml``'s.
 _FLEET_ONLY = frozenset({"profile", "units", "rigs", "fleets"})
+_RELIEF_ONLY = frozenset({"relief"})
 
 
-def _split_setup(text: str) -> tuple[str, str]:
-    """One merged document as ``(fleet.yaml, policy.yaml)`` texts.
+def _split_setup(text: str) -> tuple[str, str, str]:
+    """One merged document as ``(fleet.yaml, policy.yaml, relief.yaml)`` texts.
 
     A document with no ``units`` is handed through whole: it is not a merged
     setup, and the fleet reader is the one that should refuse whatever it is.
@@ -1739,14 +1859,20 @@ def _split_setup(text: str) -> tuple[str, str]:
     try:
         raw = yaml.load(text, Loader=strict_loader(ConfigSchemaError))
     except yaml.YAMLError:
-        return text, ""
+        return text, "", ""
     if not isinstance(raw, dict) or "units" not in raw:
-        return text, ""
+        return text, "", ""
     fleet = {key: value for key, value in raw.items() if key in _FLEET_ONLY}
-    policy = {key: value for key, value in raw.items() if key not in _FLEET_ONLY}
+    relief = {key: value for key, value in raw.items() if key in _RELIEF_ONLY}
+    policy = {
+        key: value
+        for key, value in raw.items()
+        if key not in _FLEET_ONLY and key not in _RELIEF_ONLY
+    }
     return (
         yaml.safe_dump(fleet, sort_keys=False),
         yaml.safe_dump(policy, sort_keys=False) if policy else "",
+        yaml.safe_dump(relief, sort_keys=False) if relief else "",
     )
 
 
@@ -1754,8 +1880,10 @@ def _build(
     fleet: Mapping[str, Any],
     policy: Mapping[str, Any],
     path: Path | None,
+    relief: Mapping[str, Any] | None = None,
 ) -> Config:
-    """The :class:`Config` for a loaded ``fleet.yaml`` and ``policy.yaml``.
+    """The :class:`Config` for a loaded ``fleet.yaml``, ``policy.yaml`` and
+    ``relief.yaml``.
 
     ``rigs``, ``fleets`` and each unit's ``unit_id`` are the lock's, not the
     run's, and are dropped here rather than carried in the run's tree: a
@@ -1766,7 +1894,7 @@ def _build(
     """
     merged: dict[str, Any] = {
         key: value
-        for key, value in {**fleet, **policy}.items()
+        for key, value in {**fleet, **policy, **(relief or {})}.items()
         if key not in ("rigs", "fleets")
     }
     if isinstance(merged.get("units"), Mapping):
@@ -1802,11 +1930,33 @@ def _build(
             container=block["container"],
             hf_cache=block["hf_cache"],
             launch=block["launch"],
+            rider_slots=(data["rider_slots"] or {}).get(name, 0),
         )
         for name, block in data["units"].items()
     }
+    lent = {
+        name: Unit(
+            name=name,
+            address=block["address"],
+            model=block["model"],
+            api_key_env=block["api_key_env"],
+            width=block["width"],
+            relief=True,
+            position=block["position"],
+            hosted_by=block["hosted_by"],
+            served_model=block["served_model"],
+        )
+        for name, block in data["relief"].items()
+    }
     ladder = Ladder(names=tuple(data["ladder"]), fanout=data["fanout"])
-    return Config(path=path, data=data, units=units, ladder=ladder, declared=declared)
+    return Config(
+        path=path,
+        data=data,
+        units=units,
+        ladder=ladder,
+        declared=declared,
+        relief=lent,
+    )
 
 
 def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
@@ -1877,6 +2027,8 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
         )
 
     _cross_validate_manager(data, units)
+    _cross_validate_relief(data, units)
+    _cross_validate_shares(data, units)
 
     for role in ("orchestrator", "verifier"):
         bound = data[role].get("unit")
@@ -1885,6 +2037,63 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"{role}.unit: {bound!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
+
+
+def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
+    """Refuse a ``rider_slots`` entry naming a share no unit can give riders.
+
+    A share is a part of a declared unit's width that riders may use, so it
+    names a unit of the fleet, and is below that unit's width: the host keeps
+    a slot of their own, and a unit whose width is unset serves one request
+    at once and has none to share. A unit that needs a key is a hosted
+    provider's, and a relief rung another person's: neither is the host's to
+    share.
+    """
+    for name, shared in (data.get("rider_slots") or {}).items():
+        where = f"rider_slots.{name}"
+        if name in data["relief"]:
+            raise ConfigSchemaError(
+                f"{where}: {name!r} is a relief rung, another person's unit "
+                f"lent to you, and not yours to share with riders."
+            )
+        if name not in units:
+            raise ConfigSchemaError(
+                f"{where}: {name!r} is not a declared unit. "
+                f"Declared: {', '.join(sorted(units))}"
+            )
+        if not shared:
+            continue
+        block = units[name]
+        if block["api_key_env"] is not None:
+            raise ConfigSchemaError(
+                f"{where}: the unit names `api_key_env`, so it is a hosted "
+                f"provider's and not yours to share with riders. Share a unit "
+                f"you run, or remove the entry."
+            )
+        width = block["width"]
+        if width is None or shared >= width:
+            stated = "unset, so 1" if width is None else str(width)
+            raise ConfigSchemaError(
+                f"{where}: {shared} is not below the unit's `width` ({stated}). "
+                f"Riders use part of the slots the unit serves at once, and you "
+                f"keep at least one: set it below `width`, or 0 to share none."
+            )
+
+
+def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
+    """Refuse a relief rung that would be mistaken for a unit of the fleet.
+
+    A relief rung is reached by its name wherever a rung is, so a name the
+    fleet already uses would make one name two machines. Its address is held
+    to the rule every unit's is: no credential written into the URL.
+    """
+    for name, block in data["relief"].items():
+        if name in units:
+            raise ConfigSchemaError(
+                f"relief.{name}: {name!r} is a unit of the fleet too. A name "
+                f"is one machine; sync again, or rename the unit."
+            )
+        _refuse_userinfo(name, str(block["address"]), "relief")
 
 
 def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
@@ -1973,7 +2182,8 @@ def load(path: Path | None = None) -> Config:
     override, then the working directory, then the live fleet folder the
     config folder's ``live.json`` names). A policy
     file is optional — a fleet with one unit and no policy is the smallest
-    working install — but a fleet file is not.
+    working install — but a fleet file is not. ``relief.yaml`` is read beside
+    them when a sync has written one.
     """
     chosen = path
     where = path if path is not None else config_path()
@@ -2013,7 +2223,14 @@ def load(path: Path | None = None) -> Config:
         policy_text = ""
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigFileError(f"cannot read {policy_path}: {exc}") from exc
+    relief_path = where / RELIEF_FILENAME
     try:
-        return parse(fleet_text, policy_text, path=where)
+        relief_text = relief_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        relief_text = ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigFileError(f"cannot read {relief_path}: {exc}") from exc
+    try:
+        return parse(fleet_text, policy_text, path=where, relief_text=relief_text)
     except ConfigError as exc:
         raise ConfigSchemaError(f"{where}: {exc}") from exc

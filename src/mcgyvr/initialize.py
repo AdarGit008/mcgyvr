@@ -458,8 +458,10 @@ def _render_list_item(
 FLEET_FIELDS: tuple[Field, ...] = tuple(
     f for f in SCHEMA if f.name in ("profile", "units")
 )
+#: Everything else but ``relief``, which is ``relief.yaml``'s and written only
+#: by ``mcgyvr rig rungs sync``: ``init`` writes no relief rung.
 POLICY_FIELDS: tuple[Field, ...] = tuple(
-    f for f in SCHEMA if f.name not in ("profile", "units")
+    f for f in SCHEMA if f.name not in ("profile", "units", "relief")
 )
 
 

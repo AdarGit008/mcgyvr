@@ -719,7 +719,9 @@ class Capacity:
         Every unit, not only the ones the ladder currently uses: a role
         binding (orchestrator, verifier) dispatches against a unit that need
         not appear on the ladder, and a capacity that did not cover it would raise
-        at the moment it was first used.
+        at the moment it was first used. The relief rungs too, at the width the
+        hub gave each: a ride holds a slot like any dispatch, and the spill reads
+        a relief rung's load against its width as it reads a ladder rung's.
 
         Without a probe every width is the declared one and nothing is
         confirmed — the ordinary case for a backend that does not report its
@@ -767,6 +769,14 @@ class Capacity:
         reserved: dict[str, int] = {}
         confirmed: list[str] = []
         orchestrator_name = config.get("orchestrator.unit")
+        # Looked up among the fleet's own units and never among the relief
+        # rungs, so no relief rung is ever reserved for the role. A relief rung
+        # is another rig's unit reached through the hub; the orchestrator runs
+        # on the rider's own local unit, and a slot held back on a ride would
+        # only narrow the ride. Config already keeps the two apart —
+        # ``orchestrator.unit`` must name a unit, and a relief rung may not
+        # share a unit's name — so ``role_orchestrator`` below is never a relief
+        # rung's name, and every relief rung is bounded at its whole width.
         orchestrator_unit = (
             config.units.get(orchestrator_name) if orchestrator_name else None
         )
@@ -782,7 +792,11 @@ class Capacity:
             else None
         )
         users = int(config.get("users", 1))
-        for name, unit in config.units.items():
+        # The relief rungs are bounded in the same loop, so one width, one load
+        # and one definition of full (:meth:`judge`) cover a ride as they cover
+        # a ladder rung.
+        bounded = {**config.units, **config.relief}
+        for name, unit in bounded.items():
             declared = unit.width or 1
             if name == role_orchestrator:
                 # The serving plan launches the local orchestrator unit at the
@@ -822,7 +836,7 @@ class Capacity:
             lock_dir=root,
             confirmed=confirmed,
             declared=declarations,
-            urls={name: unit.address for name, unit in config.units.items()},
+            urls={name: unit.address for name, unit in bounded.items()},
             reserved=reserved,
             # No single wait may exceed the ceiling on the whole task. That
             # bounds each hold and not their sum: a climb of three rungs that

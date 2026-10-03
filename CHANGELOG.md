@@ -11,6 +11,31 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- Relief rungs (hitchhike): units other opted-in users lend you through a
+  hub, used to shorten a queue and never to climb. `mcgyvr rig rungs sync`
+  reports your ladder's shape to the hub (`POST /api/v1/me/rungs`: each
+  model rung's model, family, file size and parameter count where known,
+  and the floor and ceiling; never an address, a key or a variable's name)
+  with your personal key, read from the variable `--key-env` names
+  (`MCGYVR_HUB_API_KEY` by default) and never shown or written, so the hub
+  can place each host's model against yours; it shows the hub's privacy
+  warning (a rung's host can read
+  your prompts), and writes the answer whole into the setup's `relief.yaml`:
+  a third file beside `fleet.yaml` and `policy.yaml`, neither of which it
+  touches. The key goes only over `https://` (or `http://` to a hub on this
+  machine), to the hub and to rungs at the hub's own address, and an answer
+  that cannot be read whole is refused whole, keeping the rungs already
+  kept. Under `fanout: idle`, once your own rung is full, a free relief rung
+  is taken ahead of a priced api rung; no escalation climbs to one, and the
+  ladder's budgets and ceilings are unchanged. While the hub cannot relay
+  yet (503 `hitchhike_not_served_yet`) or no longer matches a rung (404),
+  the rung is passed over as if full, and so is a ridden answer that names
+  a model other than the host's. A ride that fails costs no attempt and no
+  escalation: the request goes back to your own ladder. A ridden answer is
+  gated and reviewed as any api rung's is. `mcgyvr pool` lists the relief rungs
+  apart from the ladder, with where the hub placed each host's model. With
+  `MCGYVR_HUB_API_KEY` set, the rig agent keeps them fresh on its heartbeat,
+  no more often than the hub re-matches.
 - A rig can lend its cards to a hub's pooled-inference sessions, where one
   model's layers run across several rigs: `mcgyvr rig share --on --image
   <engine image>` turns it on (it is off until then) with the roles

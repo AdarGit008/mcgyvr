@@ -27,7 +27,11 @@ A setup is two files in one directory, and `mcgyvr init` writes both (by
 default into the working directory):
 
 - `fleet.yaml` — what runs where: `profile`, `units`, `rigs` and `fleets`.
-- `policy.yaml` — how work moves over those units: `ladder` and every other top-level key below.
+- `policy.yaml` — how work moves over those units: `ladder` and every other top-level key below but `relief`.
+
+A third file, `relief.yaml`, holds `relief`: the units other
+people lend you through a hub. `mcgyvr rig rungs sync` writes it whole
+and nothing else does, so it is neither locked nor edited by hand.
 
 Each file refuses a key that belongs in the other. `rigs`, `fleets` and
 each unit's `unit_id` are not in the tables below: `mcgyvr fleet lock`
@@ -81,6 +85,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |
 | `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. `{<unit>: 2}`. |
 | `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
+| `rider_slots` | map of numbers (min 0) | no | — | How many of each named unit's slots riders may use at once (hitchhike): people the hub matches to you, whose requests for the unit's model the agent of `mcgyvr rig` passes to it and whose prompts you can read. A unit the map does not name shares none. It is policy, not a fact of the unit, so changing it never changes the setup's identity or its lock, and a running agent sends the hub the change within a second, with no reconnect. Below the unit's `width`, so you always keep a slot, and your own requests go first: a ride is refused when it would leave you fewer than `width` less this many free, and a unit whose server does not report what it has in flight shares nothing. A ride that has started runs to its end; a request of yours that arrives meanwhile waits for a slot as any of yours does. A unit is shared only when it is on the `ladder`, needs no key (`api_key_env`), is not a relief rung, states its `window`, the context of each slot, and has a `width` of at most 16, the most the hub takes; one unit per model. To bind it: e.g. `{<unit>: 1}` -- at most one below the unit's `width`. |
 | `max_escalations` | number (min 0) | no | `1` | How many rungs a task may climb before it is handed back unfinished. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
@@ -96,6 +101,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `serving` | block | no | — | What mcgyvr may do to the machines that serve the units. A unit's HuggingFace cache is a fact about that unit and lives on it, not here: only the policy of starting and stopping a card is a setting. |
 | `manager` | block | no | — | What the ladder manager may do on its own. It runs only under `mcgyvr manage`, and only when `serving.enable_sleep_wake` is on and the ladder has units that can sleep and wake. Within this block it sleeps and wakes those units, changes `fanout` and changes which local unit leads; everything else it notices it prints as a recommendation and leaves alone. A vLLM unit sleeps at level 2, keeping its process and dropping its weights and KV cache; any other unit's containers are stopped. A wake loads the model from disk again. |
 | `journal` | block | no | — | Where mcgyvr keeps its own record of what it dispatched. |
+| `relief` | block map | no | — | Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder: under `fanout: idle` it takes work only when your own rung is full, ahead of a priced api rung, and no escalation climbs to it. Its host can read your prompts. |
 
 ## `units`
 
@@ -214,3 +220,19 @@ Where mcgyvr keeps its own record of what it dispatched.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `journal.dir` | text | no | `~/.local/state/mcgyvr/journal` | Where every run journals what it asked, what came back and how it landed: one `<orchestrator>.jsonl` per writer, the prompts and replies content-addressed under `blobs/`, and each run's result file under `results/`. Deterministic runs are here too, with a row naming the program instead of a model. This is mcgyvr's own record, it never lands in the repository a run works on, and nothing on the command line moves it: it is the one place every run is, which is what makes it worth asking questions of. `mcgyvr run --record DIR` adds a second copy for your own use. Read either back with `tools/live/review.py DIR`. |
+
+## `relief`
+
+Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder: under `fanout: idle` it takes work only when your own rung is full, ahead of a priced api rung, and no escalation climbs to it. Its host can read your prompts.
+
+Each entry takes these keys:
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `relief.address` | URL | **yes** | — | The hub's OpenAI-compatible address the rung is asked at, ending in `/v1`. To bind it: e.g. https://hub.example.org/v1, as the hub gave it. |
+| `relief.model` | text | **yes** | — | The model string sent with each request, as the hub gave it. |
+| `relief.api_key_env` | env var name | **yes** | — | NAME of the environment variable holding your personal hub key, which each request carries. To bind it: the variable's NAME (e.g. MCGYVR_HUB_API_KEY), never the key. |
+| `relief.width` | number (min 1) | **yes** | — | How many of your requests the rung takes at once. |
+| `relief.position` | one of `above_ceiling`, `below_floor`, `within` | **yes** | — | Where the host's model sits against the models on your own rigs, as the hub judges it. Shown, never a place on the ladder. |
+| `relief.hosted_by` | text | no | unset | The handle of the person whose unit this is. They can read your prompts and the answers. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
+| `relief.served_model` | text | no | unset | What the host's unit runs, for display. Never sent. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |

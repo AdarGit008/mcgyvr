@@ -61,6 +61,20 @@ for a local backend — gets no header at all rather than an empty one, so a
 local OpenAI-compatible server needs no API key and is never sent an
 unauthenticated-looking credential. No error message here interpolates a key.
 
+**A relief rung that cannot take the request now is full.** A relief rung's
+endpoint is a hub relaying to another person's unit, and the hub answers ``503``
+``hitchhike_not_served_yet`` while it cannot relay, and ``404``
+``model_not_found`` for a rung it no longer matches this rider to. Neither is a
+verdict on anything: no model was asked. So on a relief endpoint, and only
+there, those two answers are :class:`ReliefUnavailableError`, a
+:class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
+around as a full rung. From a ladder rung the same body is that rung's error.
+A ridden answer is held to the host's model, not to the ``hitchhike@<id>`` it
+was asked for (the hub's name for the rung): the hub passes the host's real
+model name through, and an answer naming any other — or none — is the rung
+refusing the request, the same error, with one line on stderr saying which
+models and nothing of the prompt.
+
 **What is deliberately not here.** Whether an endpoint is answering at all is
 :mod:`mcgyvr.availability`'s question and needs probing; this module reports a
 failure to reach one and does not cache that judgement. How many dispatches a
@@ -77,6 +91,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -85,7 +100,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, ClassVar
 
-from mcgyvr.capacity import Capacity
+from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.fleet.harness import (
     VLLM_RUNNING,
@@ -146,7 +161,35 @@ class RefusedConnectionError(TransportError):
 
 
 class BackendError(RunnerError):
-    """The endpoint answered with an HTTP error status."""
+    """The endpoint answered with an HTTP error status.
+
+    ``status`` is that status, and ``code`` the OpenAI-shaped body's
+    ``error.code`` where it carried one as text; both ``None`` where the error
+    was not read that far.
+    """
+
+    def __init__(
+        self, message: str, *, status: int | None = None, code: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.status = status
+        self.code = code
+
+
+class ReliefUnavailableError(SlotUnavailableError):
+    """A relief rung's hub said it cannot take the request now.
+
+    A full rung, not a failure: no model was asked, so the climb steps aside
+    at no cost (see the module docstring).
+    """
+
+
+#: The hub's answers that say a relief rung cannot take the request now: not
+#: served yet (the relay to the host's unit), or no longer matched (a stale
+#: ``relief.yaml``).
+RELIEF_UNAVAILABLE: frozenset[tuple[int, str]] = frozenset(
+    {(503, "hitchhike_not_served_yet"), (404, "model_not_found")}
+)
 
 
 class ProtocolError(RunnerError):
@@ -423,14 +466,25 @@ class Runner(ABC):
         url = _url_for(self.endpoint.base_url, self.path)
         before = _status(self.endpoint)
         started = time.monotonic()
-        document = _post_json(
-            url, self._payload(model, request), self._headers(), request.timeout_s
-        )
+        try:
+            document = _post_json(
+                url, self._payload(model, request), self._headers(), request.timeout_s
+            )
+        except BackendError as exc:
+            if self.endpoint.relief and (exc.status, exc.code) in RELIEF_UNAVAILABLE:
+                raise ReliefUnavailableError(
+                    f"relief rung {self.endpoint.source!r} cannot take the "
+                    f"request now: {exc}"
+                ) from exc
+            raise
         latency_s = time.monotonic() - started
         after = _status(self.endpoint)
 
         parsed = self._parse(document)
-        self._refuse_other_weights(model, parsed.served_model)
+        if self.endpoint.relief:
+            self._refuse_another_host_model(parsed.served_model)
+        else:
+            self._refuse_other_weights(model, parsed.served_model)
         stop_reason = _STOP_REASONS.get(parsed.raw_stop_reason, StopReason.UNKNOWN)
         decode_tok_s, decode_source = _decode(parsed, latency_s)
         in_flight, in_flight_source = _in_flight(before, after)
@@ -479,6 +533,26 @@ class Runner(ABC):
             f"completion for {asked!r} and must not be recorded as one — the "
             f"rung is pointed at a model that is not the one resident."
         )
+
+    def _refuse_another_host_model(self, served: str | None) -> None:
+        """Raise unless a ridden answer names the model the rung was matched on.
+
+        The relief rung's ``served_model`` is what the hub said the host runs,
+        and the hub passes the host's real model name through in the answer.
+        An answer naming another, or none, did not come from the unit the rider
+        was matched to: the rung refused the request, which is a full rung
+        (:class:`ReliefUnavailableError`) and not a verdict on the work.
+        """
+        expected = self.endpoint.served_model
+        if expected is not None and served == expected:
+            return
+        said = (
+            f"relief rung {self.endpoint.source!r} answered from "
+            f"{served or 'no named model'!r}, not the {expected or 'unstated'!r} it "
+            f"was matched to; it is passed over as full"
+        )
+        print(f"note: {said}", file=sys.stderr)
+        raise ReliefUnavailableError(said)
 
     def _notes(
         self, parsed: _Parsed, stop_reason: StopReason, request: Request
@@ -959,15 +1033,22 @@ def _post_json(
             kept = short.partial.decode("utf-8", "replace").strip()
             raise BackendError(
                 f"{answered}, and its body ended before it was complete "
-                f"(kept: {kept[:_ERROR_BODY_CHARS] or 'nothing readable'})"
+                f"(kept: {kept[:_ERROR_BODY_CHARS] or 'nothing readable'})",
+                status=exc.code,
             ) from exc
         except (OSError, http.client.HTTPException) as lost:
             raise BackendError(
                 f"{answered}, and its body could not be read "
-                f"({type(lost).__name__}: {lost})"
+                f"({type(lost).__name__}: {lost})",
+                status=exc.code,
             ) from exc
-        detail = raw_detail.decode("utf-8", "replace").strip()[:_ERROR_BODY_CHARS]
-        raise BackendError(f"{answered}: {detail or '(empty body)'}") from exc
+        text = raw_detail.decode("utf-8", "replace").strip()
+        detail = text[:_ERROR_BODY_CHARS]
+        raise BackendError(
+            f"{answered}: {detail or '(empty body)'}",
+            status=exc.code,
+            code=_error_code(text),
+        ) from exc
     except OSError as exc:
         # URLError and the socket timeout are both OSError; to a caller they
         # mean the same thing — nothing usable answered within the timeout —
@@ -1006,6 +1087,21 @@ def _post_json(
 
 
 # --- small deterministic helpers -------------------------------------------
+
+
+def _error_code(body: str) -> str | None:
+    """The ``error.code`` of an OpenAI-shaped error body, or ``None``.
+
+    Read from what the server sent, which is untrusted: anything that is not a
+    JSON object holding an ``error`` object whose ``code`` is text is no code.
+    """
+    try:
+        document = json.loads(body)
+    except (ValueError, RecursionError):
+        return None
+    error = document.get("error") if isinstance(document, dict) else None
+    code = error.get("code") if isinstance(error, dict) else None
+    return code if isinstance(code, str) else None
 
 
 def _url_for(base_url: str, path: str) -> str:

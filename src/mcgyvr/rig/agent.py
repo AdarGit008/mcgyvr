@@ -31,11 +31,16 @@ reason, the rig id) is shown printable and short (:func:`shown`).
 A rig that lends (:mod:`mcgyvr.rig.session`) says so in its hello (the
 ``offer``), and its sessions and relays speak on their own through the
 outbox (:mod:`mcgyvr.rig.outbox`), which the agent empties between reads at
-the same rate, delaying rather than dropping. The agent tells them when the
+the same rate, delaying rather than dropping. A put wakes the agent from a
+read that waits (:meth:`Channel.wake`), so a frame goes out at once, not when
+the read's :data:`RECEIVE_SLICE_S` ends. The agent tells them when the
 channel is up (``on_online``), when it is lost (``on_offline``: the outbox
 is closed, and sessions end unless the hub returns within their grace), and
 when the agent ends (``on_exit``: every session is torn down before
-:meth:`Agent.run` returns). An error the hub sends is told to them too
+:meth:`Agent.run` returns). After each heartbeat it is sent the agent tells
+``on_beat``, its one periodic tick: whatever hangs off it must return at once
+and do its work elsewhere (the relief rungs' refresher,
+:class:`mcgyvr.rig.rungs.Refresher`). An error the hub sends is told to them too
 (``on_hub_error``), and a session that ended and freed its memory asks for a
 heartbeat at once (:meth:`Agent.beat_soon`), so the hub's reading of the rig
 is fresh.
@@ -65,7 +70,8 @@ HELLO_ACK_TIMEOUT_S = 15.0
 MISSED_ACKS = 3
 #: The most frames the agent sends in any second: half the hub's cap.
 FRAMES_PER_SECOND = protocol.MAX_FRAMES_PER_SECOND // 2
-#: The longest single wait on the channel, in seconds, so a stop is heard.
+#: The longest single wait on the channel, in seconds, so a stop is heard. A
+#: frame put in the outbox does not wait it out: the put wakes the read.
 RECEIVE_SLICE_S = 1.0
 #: The longest wait on the channel while frames wait in the outbox, in seconds.
 OUTBOX_SLICE_S = 0.01
@@ -109,6 +115,11 @@ class Channel(Protocol):
     def send_text(self, text: str) -> None: ...
 
     def receive(self, timeout: float) -> str | bytes | None: ...
+
+    def wake(self) -> None:
+        """End a receive that waits now (or the next one) at once with ``None``;
+        safe from any thread."""
+        ...
 
     def close(self, code: int = 1000, reason: str = "") -> None: ...
 
@@ -254,6 +265,7 @@ class Agent:
         on_exit: Callable[[], None] | None = None,
         hurry: Callable[[], bool] | None = None,
         on_hub_error: Callable[[protocol.Error], None] | None = None,
+        on_beat: Callable[[], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
@@ -275,6 +287,7 @@ class Agent:
         self._on_exit = on_exit or (lambda: None)
         self._hurry = hurry or (lambda: False)
         self._on_hub_error = on_hub_error or (lambda error: None)
+        self._on_beat = on_beat or (lambda: None)
         self._soon = threading.Event()
 
     def beat_soon(self) -> None:
@@ -460,7 +473,7 @@ class Agent:
             )
         held_from.append(self._clock())
         if self._outbox is not None:
-            self._outbox.open()
+            self._outbox.open(wake=channel.wake)
         self._on_online()
         interval = session.interval or DEFAULT_HEARTBEAT_S
         rig = shown(session.rig_id) if session.rig_id else "a rig"
@@ -498,5 +511,6 @@ class Agent:
             self._send(channel, frame, answer=False)
             unacked.append(beat_id)
             last_beat = self._clock()
+            self._on_beat()
             if not early:
                 next_beat += interval

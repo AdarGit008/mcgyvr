@@ -8,11 +8,16 @@ Two files, one vocabulary (``mcgyvr-lab/records/plans/fleet-identity.md`` §2):
   request timeout.
 * ``policy.yaml`` is not locked. It holds how work moves: the ``ladder`` (an
   ordered list of unit names), then fanout, attempts, escalations and the rest.
+* ``relief.yaml`` is neither locked nor written by hand: ``mcgyvr rig rungs
+  sync`` writes it whole from the hub, and it holds the ``relief`` block, the
+  units other people lend this rider (hitchhike). They are not your rigs', so
+  they are not in the lock, and a sync must not rewrite a file a person
+  comments, so they are not in the policy.
 * "source", "rung" and "tier" are gone: a unit is the one term.
 
-The two files are loaded separately and each refuses what belongs in the other,
-so a fact about a unit cannot ride in the policy file and a routing decision
-cannot ride in the fleet file. Unknown keys are refused, never ignored.
+The files are loaded separately and each refuses what belongs in another, so a
+fact about a unit cannot ride in the policy file and a routing decision cannot
+ride in the fleet file. Unknown keys are refused, never ignored.
 """
 
 from __future__ import annotations
@@ -62,6 +67,7 @@ _POLICY_KEYS = frozenset(
         "fanout",
         "attempts",
         "draws",
+        "rider_slots",
         "max_escalations",
         "max_attempts",
         "task_timeout_s",
@@ -86,6 +92,11 @@ _FLEET_KEYS = frozenset({"profile", "units", "rigs", "fleets"})
 
 #: What a fleet block holds: its layout as room slots, and the fleets it moves to.
 _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
+
+#: What ``relief.yaml`` holds: the relief block, and only it. Each entry's keys
+#: are the schema's (``mcgyvr.config.RELIEF_FIELDS``), checked where the setup
+#: is validated.
+_RELIEF_FILE_KEYS = frozenset({"relief"})
 
 #: Words the vocabulary retired. One term — "unit" — replaced several.
 _RETIRED_WORDS = {
@@ -182,6 +193,13 @@ def _refuse_policy_setting(key: str, where: str) -> None:
     )
 
 
+def _refuse_relief(where: str) -> None:
+    raise FleetFileError(
+        f"{where}: `relief` is written by `mcgyvr rig rungs sync` — it belongs "
+        f"in relief.yaml, which nothing else writes."
+    )
+
+
 def _refuse_unit_fact(key: str) -> None:
     raise FleetFileError(
         f"policy.yaml: `{key}` is a fact about a unit, not about how work "
@@ -271,6 +289,8 @@ def load_fleet(text: str) -> dict[str, Any]:
     for key, value in given.items():
         if key in _POLICY_KEYS:
             _refuse_policy_setting(key, "fleet.yaml")
+        elif key in _RELIEF_FILE_KEYS:
+            _refuse_relief("fleet.yaml")
         elif key == "units":
             data[key] = _units(value)
         elif key == "profile":
@@ -291,10 +311,33 @@ def load_policy(text: str) -> dict[str, Any]:
     for key, value in given.items():
         if key in _UNIT_KEYS:
             _refuse_unit_fact(key)
+        elif key in _RELIEF_FILE_KEYS:
+            _refuse_relief("policy.yaml")
         elif key == "ladder":
             data[key] = _ladder(value, "policy.yaml: ladder")
         elif key in _POLICY_KEYS:
             data[key] = value
         else:
             _unknown_key(key, "policy.yaml", _POLICY_KEYS)
+    return data
+
+
+def load_relief(text: str) -> dict[str, Any]:
+    """Parse a ``relief.yaml`` document: the relief block, and nothing else.
+
+    Only that the block is a mapping of names to blocks is checked here; each
+    entry's keys and values are the schema's, checked with the rest of the
+    setup. An empty block is no relief rungs, which is what a sync writes when
+    the hub matched none.
+    """
+    given = _document(_yaml(text), "relief.yaml")
+    data: dict[str, Any] = {}
+    for key, value in given.items():
+        if key not in _RELIEF_FILE_KEYS:
+            _unknown_key(key, "relief.yaml", _RELIEF_FILE_KEYS)
+        entries = _document(value, "relief.yaml: relief")
+        data[key] = {
+            name: _document(block, f"relief.yaml: relief.{name}")
+            for name, block in entries.items()
+        }
     return data

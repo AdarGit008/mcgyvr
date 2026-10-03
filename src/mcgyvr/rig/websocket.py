@@ -25,6 +25,7 @@ import enum
 import hashlib
 import os
 import re
+import selectors
 import socket
 import ssl
 import struct
@@ -251,7 +252,8 @@ def _close_payload(payload: bytes) -> tuple[int, str]:
 
 
 class WebSocket:
-    """One open channel. Not thread-safe: one caller sends and receives."""
+    """One open channel. Not thread-safe: one caller sends and receives; only
+    :meth:`wake` may be called from another thread."""
 
     def __init__(self, sock: socket.socket, *, max_message: int, buffer: bytes) -> None:
         self._sock = sock
@@ -260,6 +262,22 @@ class WebSocket:
         self._parts: list[bytes] = []
         self._kind: int | None = None
         self._closed: ClosedError | None = None
+        # A read waits on the socket and on this pair at once, so another
+        # thread can end it by writing a byte (:meth:`wake`).
+        self._woken, self._waker = socket.socketpair()
+        self._woken.setblocking(False)
+        self._waker.setblocking(False)
+        self._selector = selectors.DefaultSelector()
+        self._selector.register(self._sock, selectors.EVENT_READ)
+        self._selector.register(self._woken, selectors.EVENT_READ)
+
+    def wake(self) -> None:
+        """End a :meth:`receive` that waits now, or the next one when none
+        does, at once with ``None``. Safe from any thread; harmless once the
+        channel is closed."""
+        # BlockingIOError: a wake already waits to be read; OSError: closed.
+        with contextlib.suppress(OSError):
+            self._waker.send(b"\0")
 
     # -- sending --
 
@@ -291,7 +309,7 @@ class WebSocket:
             if self._closed is not None:
                 raise self._closed
             try:
-                frame = self._next_frame(deadline)
+                frame = self._next_frame(deadline, wakeable=True)
                 if frame is None:
                     return None
                 message = self._take(frame)
@@ -301,7 +319,7 @@ class WebSocket:
             if message is not None:
                 return message
 
-    def _next_frame(self, deadline: float) -> _Frame | None:
+    def _next_frame(self, deadline: float, *, wakeable: bool = False) -> _Frame | None:
         while True:
             parsed = _parse_frame(self._buffer, self._max)
             if parsed is not None:
@@ -310,6 +328,8 @@ class WebSocket:
                 return frame
             left = deadline - time.monotonic()
             if left <= 0:
+                return None
+            if wakeable and not self._readable(left):
                 return None
             try:
                 self._sock.settimeout(left)
@@ -322,6 +342,19 @@ class WebSocket:
                 self._drop(Close.ABNORMAL, "the connection dropped")
                 raise self._closed or WebSocketError("dropped")
             self._buffer += chunk
+
+    def _readable(self, left: float) -> bool:
+        """Whether the socket has bytes to read within ``left`` seconds;
+        ``False`` at once when woken (:meth:`wake`), the wake read."""
+        if isinstance(self._sock, ssl.SSLSocket) and self._sock.pending():
+            return True  # TLS already holds bytes the selector cannot see
+        ready = {key.fileobj for key, _ in self._selector.select(left)}
+        if self._woken in ready:
+            with contextlib.suppress(OSError):  # BlockingIOError: all read
+                while self._woken.recv(4096):
+                    pass
+            return False
+        return self._sock in ready
 
     def _take(self, frame: _Frame) -> str | bytes | None:
         if frame.opcode == Opcode.PING:
@@ -378,7 +411,10 @@ class WebSocket:
 
     def _shut(self) -> None:
         with contextlib.suppress(OSError):
-            self._sock.close()
+            self._selector.close()
+        for sock in (self._sock, self._woken, self._waker):
+            with contextlib.suppress(OSError):
+                sock.close()
 
     def close(self, code: int = Close.NORMAL, reason: str = "") -> None:
         """Close the channel: send the close, wait briefly for the server's."""

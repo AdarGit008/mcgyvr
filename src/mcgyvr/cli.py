@@ -235,6 +235,25 @@ def _pool(args: argparse.Namespace) -> int:
         for skip in pool.skipped:
             print(f"  {skip.name:<20} {skip.model}\n      ↳ {skip.reason}")
 
+    # Relief rungs (relief.yaml) are other people's units: printed apart from
+    # the ladder because they are never a step of it. `position` is where the
+    # hub judged the host's model against yours, and it places nothing.
+    if pool.relief or pool.relief_skipped:
+        print(
+            f"\nRelief rungs (hitchhike), {len(pool.relief)} usable: taken under "
+            f"`fanout: idle` only when your own rung is full, never climbed to. "
+            f"Each host can read the prompts sent to it."
+        )
+        for rung in pool.relief:
+            lent = config.relief[rung.name]
+            host = f", hosted by {lent.hosted_by}" if lent.hosted_by else ""
+            print(
+                f"  {rung.name:<20} {lent.position or '':<14} "
+                f"x{lent.width or 1}  {lent.served_model or rung.model}{host}"
+            )
+        for skip in pool.relief_skipped:
+            print(f"  {skip.name:<20} skipped\n      ↳ {skip.reason}")
+
     for role in ("orchestrator", "verifier"):
         try:
             model = pool.role_model(role)

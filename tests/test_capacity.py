@@ -592,6 +592,43 @@ def test_a_hybrid_or_chat_setup_reserves_no_orchestrator_slot() -> None:
         assert capacity.total == 1, label
 
 
+RIDE = "hitchhike-0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
+
+ORCHESTRATOR_WITH_RELIEF = f"""\
+{ORCHESTRATOR}relief:
+  {RIDE}:
+    address: http://hub.example/v1
+    model: hitchhike@0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b
+    api_key_env: HUB_KEY
+    width: 2
+    position: within
+"""
+
+
+def test_a_relief_rung_beside_a_reserving_orchestrator_reserves_nothing() -> None:
+    """A relief rung is another rig's unit, reached through the hub: the
+    orchestration role runs on the rider's own unit and never on it. So where
+    the local orchestrator keeps one of its slots back, the relief rung keeps
+    its whole width, and it is full by the one rule every rung is — its load
+    at that width."""
+    capacity = Capacity.of(parse(ORCHESTRATOR_WITH_RELIEF))
+
+    assert capacity.limits["orch"] == 3, "the role's reservation stands"
+    assert capacity.limits[RIDE] == 2, "no slot of a relief rung is the role's"
+    assert capacity.declared(RIDE) == 2
+    assert capacity.total == 4 + 2
+
+    assert not capacity.fullness(RIDE).full
+    capacity.reserve(RIDE)
+    assert not capacity.fullness(RIDE).full
+    capacity.reserve(RIDE)
+    try:
+        assert capacity.fullness(RIDE).full, "full at its width, not one below"
+    finally:
+        capacity.release(RIDE)
+        capacity.release(RIDE)
+
+
 # --- and from the machine, when the machine will say -------------------------
 
 

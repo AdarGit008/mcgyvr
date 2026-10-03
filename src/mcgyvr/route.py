@@ -699,7 +699,15 @@ def family_of(config: Config, rung: str) -> Family:
     this module never restates what a family *is*. Raises rather than guessing
     for an unknown rung: a caller asking about a name the ladder does not offer
     has a bug, not a routing question.
+
+    A relief rung is answered by the same rule — it carries a credential, so it
+    is ``api`` — because an attempt on one is judged and journaled like any
+    other. The answer places it on no plan: :func:`by_family` walks the ladder,
+    and a relief rung is never on it.
     """
+    lent = config.relief.get(rung)
+    if lent is not None:
+        return catalog().family_of(lent)
     name = config.ladder.get(rung)
     if name is None:
         offered = ", ".join(config.ladder.names) or "none"
