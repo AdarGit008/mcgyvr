@@ -99,6 +99,9 @@ class Heads:
             return self.port
         return None
 
+    def head_slots(self, session_id: str) -> int:
+        return 1
+
     def state_of(self, session_id: str) -> tuple[str, str | None]:
         return (self.state, self.role) if session_id == "s1" else ("absent", None)
 
