@@ -50,6 +50,7 @@ from mcgyvr.emit import (
     unplanned,
     unplanned_locked,
 )
+from mcgyvr.emit import sleep_mode as emit_sleep_mode
 from mcgyvr.exits import Exit
 from mcgyvr.fleet.files import FleetFileError, load_fleet
 from mcgyvr.fleet.roots import (
@@ -1546,7 +1547,7 @@ def _climb(
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
-    from mcgyvr.verify import reviewer_for
+    from mcgyvr.verify import reviewers_for
 
     # Live is admitted before anything here is built, opened or dispatched
     # (`mcgyvr-lab/records/plans/fleet-identity.md` §6): each rig of the live
@@ -1560,6 +1561,17 @@ def _climb(
             report.outcome = "error"
             report.detail = refused
             return Exit.REFUSED
+
+    # What the ladder manager (`mcgyvr manage`) has chosen for this ladder, if
+    # it runs one: the config a task climbs with, and the hooks that let the
+    # manager read the queue. An unmanaged ladder is handed back unchanged.
+    from mcgyvr import ladder_manager
+    from mcgyvr.pressure import Board
+
+    managed = ladder_manager.for_task(config, read_board=Board().read)
+    config = managed.config
+    if managed.note is not None:
+        print(f"note: {managed.note}")
 
     # Structural resolution, no probe: a live-reachability sweep costs one
     # timeout per source and answers a question the dispatch below is about to
@@ -1580,9 +1592,14 @@ def _climb(
     # rig. Its slot files are a host-wide rendezvous, which is what makes this
     # bound hold across concurrent `mcgyvr run` processes and not merely
     # within one — the case it exists for, since a single contract dispatches
-    # one request at a time and never contends with itself.
+    # one request at a time and never contends with itself. Its server reader
+    # is what lets `fanout: idle` count a client that is not mcgyvr: a rung is
+    # full by either count (Capacity.judge), and it is read only where that
+    # question is asked.
+    from mcgyvr.pressure import server_counts
+
     try:
-        capacity = Capacity.of(config)
+        capacity = Capacity.of(config, gauge=managed.gauge, busy=server_counts(pool))
     except CapacityError as exc:
         return _error(report, str(exc))
 
@@ -1602,7 +1619,7 @@ def _climb(
             elapsed_s=0.0,
         )
 
-    cooldown = Cooldown(probe=_always_live)
+    cooldown = Cooldown(probe=_always_live, shared=managed.held)
     try:
         route = ascent(config, pool, contract, capacity=capacity)
     except RouteError as exc:
@@ -1616,15 +1633,15 @@ def _climb(
         )
 
     # Before the sandbox, for the reason the paragraph above gives: an install
-    # that was told to verify and cannot is refused while refusing is still
-    # free. `verifier.enabled` is acted on here (the loader only checks that an
-    # enabled verifier names a unit) — `source_map` binds the role whenever a
-    # `unit` and a `model` are declared, so the flag is the operator's switch
-    # and this is the caller that acts on it. `None` is not a downgrade there:
-    # it is `verifier.enabled: false`, which asks for acceptance on the
-    # deterministic gate alone.
+    # whose named verifier cannot serve is refused while refusing is still
+    # free. `verifier.enabled` is acted on here — on unless the config says
+    # `false` — and `reviewers_for` reads the rest once: the named
+    # `verifier.unit`, or, with none named, the next dearer local rung with
+    # another model for each builder (never a hosted one). A builder with no
+    # independent reviewer is not refused; its acceptance is labelled
+    # unverified and says so.
     try:
-        reviewer = reviewer_for(pool) if config.get("verifier.enabled") else None
+        reviewers = reviewers_for(config, pool, capacity=capacity)
     except SourceUnavailableError as exc:
         return _error(
             report,
@@ -1672,9 +1689,9 @@ def _climb(
                 pool,
                 contract,
                 sandbox,
-                reviewer=reviewer,
                 recording=recording,
                 cooldown=cooldown,
+                reviewers=reviewers,
             )
             if config.get("profile") == "live":
                 driver = _warning_pulled_steps(driver)
@@ -1690,7 +1707,8 @@ def _climb(
                 # ``None`` for an install with no asleep smarter rung, or one
                 # that has not enabled sleep-wake — which is every install
                 # that did not ask for the feature.
-                wake_hook=fleet_hook_for(config, pool),
+                wake_hook=fleet_hook_for(config, pool, cooldown=cooldown),
+                presence=managed.presence,
             )
             return _report_climb(
                 args, contract, sandbox, repo, outcome, recording, report
@@ -1835,7 +1853,7 @@ def _report_climb(
     The accepted attempt is the last entry of the history: ``route.climb``
     returns the moment an attempt passes, right after recording it.
     """
-    from mcgyvr.escalate import Delivered
+    from mcgyvr.escalate import Assurance, Delivered
     from mcgyvr.result import AttemptResult
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
@@ -1899,6 +1917,18 @@ def _report_climb(
     report.outcome = "accepted"
     report.rung = outcome.rung
     report.assurance = outcome.assurance.value
+    if outcome.assurance is Assurance.UNVERIFIED:
+        # Said where it cannot be missed, because nothing else about the run
+        # looks different: the work is accepted on the gate alone. The reason
+        # is the judgement's own — review switched off, no independent
+        # reviewer, a reviewer that produced nothing usable — and it goes
+        # into the result file too, which is what a caller is told to read.
+        report.detail = outcome.judgement.detail
+        print(
+            f"UNVERIFIED: {contract.id} is accepted with no independent review "
+            f"approving it. {outcome.judgement.detail}",
+            file=sys.stderr,
+        )
     bound = outcome.judgement.accepted
     if bound is None:
         # `judge` only reaches PASSED through a gate that accepted, and
@@ -2309,7 +2339,9 @@ def _serve(args: argparse.Namespace) -> int:
     than having its container killed under it — the one thing whole-card
     eviction is not allowed to do (D8 of the same plan). The census that
     decides *whether* to sleep is a reading and this is a hold, and between the
-    two a dispatch can start, which is why both exist.
+    two a dispatch can start, which is why both exist. Then the card goes down
+    the way the ladder manager puts one down (:func:`mcgyvr.wake.put_down`): at
+    vLLM's level 2 where every unit can, stopped otherwise.
     """
     try:
         config = load_config(Path(args.config) if args.config else None)
@@ -2337,18 +2369,9 @@ def _serve(args: argparse.Namespace) -> int:
         else:
             card = wakelib.card_named(config, args.host)
             capacity = Capacity.of(config)
-            # A dispatch in flight either finishes inside its own unit's
-            # transport bound or the transport has already given up on it, so
-            # waiting longer than that is waiting for something that is no
-            # longer running. The card may hold units with different bounds;
-            # the longest is what covers them all.
-            timeouts: list[float] = []
-            for name in card.sources:
-                unit = config.units.get(name)
-                if unit is not None and unit.request_timeout_s is not None:
-                    timeouts.append(unit.request_timeout_s)
-            timeout = max(timeouts) if timeouts else None
-            with capacity.drain(card.sources, timeout=timeout):
+            with capacity.drain(
+                card.sources, timeout=wakelib.drain_timeout(config, card)
+            ):
                 made = wakelib.sleep(config, args.host)
     except wakelib.WakeError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -2359,13 +2382,148 @@ def _serve(args: argparse.Namespace) -> int:
 
     if not made.ok:
         print(
-            f"error: the door exited {made.code} bringing {made.host} "
-            f"{'up' if made.direction == 'up' else 'down'} — read its envelope "
-            f"under records/evidence/<date>-live-{made.host}/",
+            f"error: the door exited {made.code} on `serve {made.direction}` for "
+            f"{made.host} — read its envelope under "
+            f"records/evidence/<date>-live-{made.host}/",
             file=sys.stderr,
         )
         return Exit.ERROR
-    print(f"{made.host} {args.direction}: {made.seconds:.1f}s ({made.compose_file})")
+    how = {
+        "sleep": "resting at level 2, its processes kept",
+        "down": "stopped",
+        "wake": "woken in its processes",
+        "up": "started",
+    }.get(made.direction, made.direction)
+    print(
+        f"{made.host} {args.direction}: {how}, {made.seconds:.1f}s "
+        f"({made.compose_file})"
+    )
+    return Exit.OK
+
+
+def _manage(args: argparse.Namespace) -> int:
+    """Run the ladder manager: Jev sleeps and wakes the ladder's units by its queue.
+
+    Optional per fleet: a ladder with no unit that can sleep and wake, or one
+    whose ``serving.enable_sleep_wake`` is off, is told so and nothing is built
+    — no pool, no capacity, no file under the rendezvous directory, no network.
+    Otherwise the manager reads the queue on each local rung every
+    ``manager.interval_s``, asks Jev only where more than one answer is legal,
+    and throws the same two switches ``mcgyvr serve`` does
+    (:class:`mcgyvr.wake.CardSwitches`). See :mod:`mcgyvr.ladder_manager`.
+
+    It may wake a card, so it is admitted as a live wake is: refused while the
+    live fleet's rigs do not read as locked. It runs until interrupted;
+    ``--once`` is one tick, for a person who wants to see what it would read.
+    """
+    try:
+        config = load_config(Path(args.config) if args.config else None)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
+    from mcgyvr import ladder_manager
+    from mcgyvr.pressure import exclusive
+
+    why = ladder_manager.applicable(config)
+    if why is not None:
+        print(f"nothing to manage: {why}")
+        return Exit.OK
+
+    if config.get("profile") == "live" and _admitted_live() is not None:
+        return Exit.REFUSED
+
+    # One manager per host: a second would throw switches on the same cards
+    # from streaks and a dwell of its own, sleeping what the first just woke.
+    with exclusive(ladder_manager.MANAGER_LOCK) as held:
+        if held is not True:
+            print(
+                "error: another `mcgyvr manage` is running on this host"
+                if held is False
+                else "error: no lock could be taken under the rendezvous "
+                "directory, so mcgyvr cannot tell whether another `mcgyvr "
+                "manage` is running on this host",
+                file=sys.stderr,
+            )
+            return Exit.REFUSED
+        return _manage_held(args, config)
+
+
+def _card_mib(config: Config) -> dict[str, dict[int, int]]:
+    """Each card's memory in MiB from the recorded scans, by host and card index.
+
+    The scans ``emit`` sizes against, resolved to the hosts this ladder names
+    (:func:`_resolve_hosts`); a host with no scan is not in the answer, and the
+    ladder manager then makes no room on it and says so at start.
+    """
+    from mcgyvr import wake as wakelib
+    from mcgyvr.serving import cards
+
+    hosts = {card.host for card in cards(config).values()}
+    try:
+        scans = _resolve_hosts(_scans(scan_module.default_root()), hosts)
+    except OSError:
+        return {}
+    return wakelib.card_rooms({host: scans[host] for host in hosts if host in scans})
+
+
+def _manage_held(args: argparse.Namespace, config: Config) -> int:
+    """:func:`_manage` once this process is the host's only ladder manager."""
+    from mcgyvr import fleet_manager, ladder_manager
+    from mcgyvr import wake as wakelib
+    from mcgyvr.capacity import Capacity, CapacityError
+    from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
+    from mcgyvr.pool import source_map
+    from mcgyvr.pressure import Board, Gauge, HostCooling, Pressure, RungCooling
+
+    pool = source_map(config)
+    fast = fleet_manager.fast_rung(config, pool)
+    if fast is None:
+        print("error: no local rung for Jev to run on", file=sys.stderr)
+        return Exit.ERROR
+    gauge = Gauge()
+    try:
+        capacity = Capacity.of(config, gauge=gauge)
+    except CapacityError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
+    stated = config.units[fast.name].request_timeout_s
+    bounds = ladder_manager.Bounds.of(config)
+    board = Board()
+    view = ladder_manager.View.of(config, jev=fast.name)
+    switches = wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config))
+    manager = ladder_manager.Manager(
+        view,
+        bounds,
+        pressure=Pressure(pool, capacity, gauge),
+        switches=switches,
+        decide=ladder_manager.decide_on(
+            pool,
+            fast.name,
+            timeout_s=DEFAULT_REQUEST_TIMEOUT_S if stated is None else stated,
+        ),
+        cooling=RungCooling(pool, hold_s=bounds.dwell_s, shared=HostCooling()),
+        say=print,
+        publish=board.publish,
+    )
+    print(
+        f"managing {', '.join(view.resident)}; can sleep and wake: "
+        f"{', '.join(ladder_manager.sleepable_rungs(config))}; Jev runs on "
+        f"{fast.name}; every {bounds.interval_s:g}s"
+    )
+    for rung, alone in wakelib.left_alone(config).items():
+        print(f"note: {rung} is left alone: {alone}")
+    for rung in ladder_manager.sleepable_rungs(config):
+        why = switches.why_no_room(rung)
+        if why is not None:
+            print(f"note: no room is made for {rung}: {why}")
+    try:
+        ladder_manager.run(
+            manager, interval_s=bounds.interval_s, ticks=1 if args.once else None
+        )
+    except KeyboardInterrupt:
+        print("stopped")
     return Exit.OK
 
 
@@ -2447,6 +2605,9 @@ def _emit(args: argparse.Namespace) -> int:
         return Exit.ERROR
 
     out = Path(args.out) if args.out else Path.cwd()
+    # vLLM's sleep mode and its unauthenticated routes, only where the config
+    # asked mcgyvr to sleep and wake cards (`emit.sleep_mode`).
+    asleep = emit_sleep_mode(config)
 
     # Before the files and before the check, because it is the fact both of
     # them are about: a host that was cut into alternatives has N files where it
@@ -2462,17 +2623,21 @@ def _emit(args: argparse.Namespace) -> int:
     # detecting did.
     if args.check:
         try:
-            drifted = check_all(units, root=out)
+            drifted = check_all(units, root=out, sleep_mode=asleep)
         except UnitError as exc:
             print(f"refused: {exc}", file=sys.stderr)
             return Exit.REFUSED
         except (EmitError, OSError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return Exit.ERROR
-        return _report_drift(drifted, unplanned(units, out), planned_paths(units, out))
+        return _report_drift(
+            drifted,
+            unplanned(units, out, sleep_mode=asleep),
+            planned_paths(units, out, sleep_mode=asleep),
+        )
 
     try:
-        written = emit_all(units, root=out)
+        written = emit_all(units, root=out, sleep_mode=asleep)
     except UnitError as exc:
         # A ladder describing a shape mcgyvr will not stand behind, not a
         # failure to render one: same exit code as `hold_together`'s refusal,
@@ -3089,11 +3254,15 @@ def _fleet_probe(args: argparse.Namespace) -> int:
     an alert is printed and filed, and is not a failed probe
     (:mod:`mcgyvr.fleet.probe`).
     """
-    from mcgyvr.fleet import read
+    from mcgyvr.fleet import linkread, read
     from mcgyvr.fleet.probe import ProbeError, run
 
     try:
-        report = run(units=args.units or None, reader=read.spawn_read)
+        report = run(
+            units=args.units or None,
+            reader=read.spawn_read,
+            link_reader=linkread.door_timer(),
+        )
     except ProbeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -3110,8 +3279,12 @@ def _fleet_probe(args: argparse.Namespace) -> int:
         print(f"not judged {unit}: {', '.join(fields)} recorded ({reason})")
     for alert in report.alerts:
         print(f"alert {alert['unit_id']} {alert['field']}")
+    for key, says in report.links.items():
+        print(f"link {key}: {says}")
     for unit, why in report.failed.items():
         print(f"error: {unit}: {why}", file=sys.stderr)
+    for key, why in report.links_failed.items():
+        print(f"error: link {key}: {why}", file=sys.stderr)
     return report.exit_code
 
 
@@ -3273,8 +3446,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "direction",
         choices=("sleep", "wake"),
         help=(
-            "sleep takes the whole card down after draining every slot it "
-            "serves; wake brings the launch spec back up"
+            "sleep drains every slot the card serves, then rests it at vLLM "
+            "level 2 where every unit is vLLM and has the sleep route, and "
+            "stops it otherwise; wake brings it back the way it went"
         ),
     )
     srv.add_argument(
@@ -3291,6 +3465,27 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     srv.set_defaults(func=_serve)
+
+    man = sub.add_parser(
+        "manage",
+        help=(
+            "let Jev sleep and wake the ladder's units by the queue on it "
+            "(runs until interrupted)"
+        ),
+    )
+    man.add_argument(
+        "--config",
+        default=None,
+        type=_named_path,
+        metavar="PATH",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
+    )
+    man.add_argument(
+        "--once",
+        action="store_true",
+        help="read the queue and decide once, then stop",
+    )
+    man.set_defaults(func=_manage)
 
     emi = sub.add_parser(
         "emit",

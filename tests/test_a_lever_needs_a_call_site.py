@@ -791,8 +791,14 @@ def _reviews(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     assertion that no reviewer was asked, and it fails loudly rather than
     returning a default: a verifier that was asked when it should not have been
     is spend, and spend is the thing the ordering in ``judge`` exists to prevent.
+
+    The reviewer here serves no next-token probabilities, so the typed verdict
+    and the gate's typed checks are refused the way such a unit refuses them,
+    and the verdict is asked in prose — the path these tests are about.
     """
+    import mcgyvr.gate.jev as jev
     import mcgyvr.verify as verify
+    from mcgyvr.decision import DecisionError
 
     asked: list[str] = []
     scripted = list(replies)
@@ -803,7 +809,12 @@ def _reviews(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
             raise AssertionError(f"an unscripted dispatch was made to {role!r}")
         return _completion(scripted.pop(0))
 
+    def no_probabilities(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise DecisionError("the endpoint answered without logprobs content")
+
     monkeypatch.setattr(verify, "dispatch_role", fake_dispatch_role)
+    monkeypatch.setattr(verify, "classify_role", no_probabilities)
+    monkeypatch.setattr(jev, "classify_role", no_probabilities)
     return asked
 
 
@@ -922,10 +933,11 @@ def test_an_install_that_did_not_enable_verification_asks_no_reviewer(
 ) -> None:
     """The keyless install is unchanged, and that is the control on the other two.
 
-    ``verifier.enabled`` defaults to false and this ladder never mentions it, so
-    the acceptance is labelled ``unverified`` and nothing is dispatched to a
-    role. Without this, "the verifier is wired" and "the verifier is always
-    asked" would look the same from outside.
+    ``verifier.enabled`` defaults to true and this ladder never mentions it, but
+    it has one rung and so no dearer rung to review it: the acceptance is
+    labelled ``unverified`` and nothing is dispatched to a role. Without this,
+    "the verifier is wired" and "the verifier is always asked" would look the
+    same from outside.
     """
     from mcgyvr.cli import main
 

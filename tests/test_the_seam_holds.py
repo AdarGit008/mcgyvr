@@ -90,7 +90,8 @@ RED_PORT = Path(__file__).resolve().parent / "red_port"
 #: (detect), what the hardware measures and what that is worth running
 #: (scan, capability, propose, initialize), a serving unit to write out and
 #: launch (emit, serving.*), whether a card that is down is asleep and how it
-#: is woken (wake), how a served model id is read against the name a
+#: is woken (wake), how load is counted across processes and read for the
+#: ladder manager (pressure), how a served model id is read against the name a
 #: config declares (weights), and a machine published as a rig of a hub, whose
 #: commands will start and stop units through the serving door (rig.*).
 BELOW_THE_SEAM: tuple[str, ...] = (
@@ -111,15 +112,19 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.fleet.harness",
     "mcgyvr.fleet.ids",
     "mcgyvr.fleet.layout",
+    "mcgyvr.fleet.linkread",
+    "mcgyvr.fleet.links",
     "mcgyvr.fleet.lock",
     "mcgyvr.fleet.machine",
     "mcgyvr.fleet.probe",
     "mcgyvr.fleet.promote",
     "mcgyvr.fleet.read",
     "mcgyvr.fleet.roots",
+    "mcgyvr.fleet.spans",
     "mcgyvr.fleet.tolerance",
     "mcgyvr.initialize",
     "mcgyvr.pool",
+    "mcgyvr.pressure",
     "mcgyvr.propose",
     "mcgyvr.rig",
     "mcgyvr.rig.agent",
@@ -151,8 +156,13 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving",
     "mcgyvr.serving.gatelib",
     "mcgyvr.serving.ggufscan",
+    "mcgyvr.serving.interconnect",
+    "mcgyvr.serving.linktime",
     "mcgyvr.serving.run",
+    "mcgyvr.serving.safetensorscan",
     "mcgyvr.serving.servelib",
+    "mcgyvr.serving.sharding",
+    "mcgyvr.serving.shardlaunch",
     "mcgyvr.serving.vramfit",
     "mcgyvr.triage",
     "mcgyvr.wake",
@@ -200,6 +210,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.gate.semantic_driver",
     "mcgyvr.gate.structured",
     "mcgyvr.gate.typecheck",
+    "mcgyvr.ladder_manager",
     "mcgyvr.orchestrator",
     "mcgyvr.orchestrator.cache",
     "mcgyvr.orchestrator.context",
