@@ -27,8 +27,8 @@ hub which, in a ``unit_advert`` (:mod:`mcgyvr.rig.hitchhike`):
   shares nothing sends nothing; one that stops sharing sends the empty set,
   which withdraws it. Nothing is sent while the channel is down.
 * **The hello says so.** ``hitchhike_units`` is one of the agent's features,
-  and a rig that lends no session but shares a unit still names it, with no
-  roles, so the hub takes its adverts.
+  and a rig that lends no session still names it, with no roles, so the hub
+  takes its adverts whenever its setup starts sharing.
 
 Nothing here touches a network: the server's count, the clock and the thread a
 check runs on are handed in.
@@ -397,12 +397,13 @@ def test_a_setup_that_shares_nothing_sends_nothing_and_one_that_stops_withdraws(
     assert wire.frames == []
 
     sharing["on"] = True
-    units.soon()
+    now.now += 1
+    units.tick()  # the next read of the setup sees the edit, unasked
     assert [len(a) for a in wire.adverts()] == [2]
 
     sharing["on"] = False
     now.now += 1
-    units.soon()
+    units.tick()
     assert wire.adverts()[-1] == []
     for _ in range(1, 200):
         now.now += 1
@@ -474,7 +475,7 @@ def test_a_check_runs_off_the_callers_thread_one_at_a_time() -> None:
 # --- the hello ------------------------------------------------------------------
 
 
-def test_the_hello_names_hitchhike_units_while_the_rig_lends_or_shares(
+def test_the_hello_names_hitchhike_units_whether_the_rig_lends_or_not(
     tmp_path: Path,
 ) -> None:
     from mcgyvr.rig import protocol, session
@@ -483,10 +484,7 @@ def test_the_hello_names_hitchhike_units_while_the_rig_lends_or_shares(
     held = fakes.inventory(tmp_path)
     idle = fakes.sharing(tmp_path, enabled=False)
 
-    assert session.offer(idle, held, (fakes.LAN_ADDRESS,), ()) is None
-    sharing_only = session.offer(
-        idle, held, (fakes.LAN_ADDRESS,), (), shares_units=True
-    )
+    sharing_only = session.offer(idle, held, (fakes.LAN_ADDRESS,), ())
     assert sharing_only == protocol.Offer(
         roles=(),
         runtime=None,
@@ -495,10 +493,8 @@ def test_the_hello_names_hitchhike_units_while_the_rig_lends_or_shares(
         sessions=(),
         features=("hitchhike_units",),
     )
-    lending = session.offer(
-        fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), (), shares_units=True
-    )
-    assert lending is not None and lending.features == session.FEATURES
+    lending = session.offer(fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ())
+    assert lending.features == session.FEATURES
 
     schema = rig_schema.load()
     for offer in (sharing_only, lending):

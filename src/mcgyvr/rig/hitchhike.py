@@ -35,14 +35,25 @@ full: a slot is never offered on a guess.
 **When** (:class:`Units`). An advert goes once the hello is acked, then when
 the set or a free count changed, and at least every
 :data:`~mcgyvr.rig.sessionwire.UNIT_ADVERT_INTERVAL_S` while anything is
-shared. Whether anything changed is checked when asked (each heartbeat, and
-each ride that ends) and when the next refresh is due, never twice in
-:data:`CHECK_GAP_S`, on a thread of its own, one check at a time: reading a
-server may take seconds, and the agent's loop never waits on it. A setup that
-shares nothing sends nothing; one that stops sharing sends the empty set,
-which withdraws it. Nothing goes while the channel is down, and the hub
-forgets the adverts of a link that dropped, so the set goes again whole when
-the channel is back. What cannot be shared is said once, not at every check.
+shared, never two within :data:`ADVERT_GAP_S`. Sharing is policy, which the
+owner may edit at any moment, so the setup is read again every
+:data:`POLL_S` (local files, a few milliseconds): an edit that turns sharing
+on or off, or changes a share, reaches the hub within a second, with no
+reconnect. The unit's server, which may take seconds to answer, is read only
+for a full check: when asked (each heartbeat, each ride that ends), when the
+shared set differs from the one the hub was told, and when a refresh is due.
+Every check runs on a thread of its own, one at a time, and the agent's loop
+never waits on it. A setup that shares nothing sends nothing; one that stops
+sharing sends the empty set, which withdraws it. Nothing goes while the
+channel is down, and the hub forgets the adverts of a link that dropped, so
+the set goes again whole when the channel is back. What cannot be shared is
+said once, not at every check.
+
+**What is not promised.** A unit whose server does not report what it has in
+flight shares nothing (its free slots are none), since the host's own load
+cannot be known. A ride that has started runs to its end: a request of the
+host's own that arrives meanwhile waits for a slot, as it would behind any
+request of theirs.
 
 **A ride** (``unit_relay_request``) is relayed by the head relay's own code
 (:mod:`mcgyvr.rig.relay`) to the address of a unit this link advertised; the
@@ -65,6 +76,7 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from mcgyvr.capacity import SlotUnavailableError
@@ -75,9 +87,12 @@ from mcgyvr.rig.sessionwire import SessionCode
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
 
-#: The soonest a check of the shared units follows the one before, in seconds:
-#: an advert goes at most once a second, as the hub's protocol asks.
-CHECK_GAP_S = 1.0
+#: The soonest an advert follows the one before, in seconds: at most once a
+#: second, as the hub's protocol asks.
+ADVERT_GAP_S = 1.0
+#: How often the setup is read again for an edit of what is shared, in
+#: seconds, so an edit reaches the hub within :data:`ADVERT_GAP_S` of it.
+POLL_S = 0.25
 #: How many hex digits of the name's digest an id made from it carries.
 _DIGEST_DIGITS = 16
 
@@ -253,14 +268,16 @@ def setup_of(config: Config) -> Setup:
     )
 
 
-def load_setup() -> Setup:
-    """The :class:`Setup` of the setup :func:`mcgyvr.config.load` locates: none
-    shared where there is no setup, and a note where one does not load."""
+def load_setup(path: Path | None = None) -> Setup:
+    """The :class:`Setup` of the setup at ``path``, or the one
+    :func:`mcgyvr.config.load` locates: read whole each time, so an edit is
+    seen at the next read; none shared where there is no setup, and a note
+    where one does not load."""
     from mcgyvr.capacity import CapacityError
     from mcgyvr.config import ConfigError, ConfigMissingError, load
 
     try:
-        return setup_of(load())
+        return setup_of(load(path))
     except ConfigMissingError:
         return Setup()
     except (ConfigError, CapacityError) as exc:
@@ -271,10 +288,11 @@ class Units:
     """The units this host shares, as the agent advertises them to the hub.
 
     :meth:`online` and :meth:`offline` follow the channel; :meth:`soon` asks
-    for a check (the heartbeat, a ride that ended) and :meth:`tick` makes one
-    when it is owed (call it about once a :data:`CHECK_GAP_S`); both return at
-    once. A check reads the setup (``setup``), sends what changed through
-    ``send`` (the agent's outbox) and says what cannot be shared once.
+    for a full check (the heartbeat, a ride that ended) and :meth:`tick` starts
+    one when it is owed (call it each :data:`POLL_S`, as :meth:`run_ticker`
+    does); both return at once. A check reads the setup (``setup``), sends what
+    changed through ``send`` (the agent's outbox) and says what cannot be
+    shared once.
     """
 
     def __init__(
@@ -300,6 +318,7 @@ class Units:
         self._last: tuple[sessionwire.AdvertisedUnit, ...] = ()
         self._riding: dict[str, int] = {}
         self._shared: dict[str, Shared] = {}
+        self._served: tuple[Shared, ...] = ()
         self._serving = Setup()
         self._said: set[str] = set()
         self._closed = threading.Event()
@@ -328,6 +347,7 @@ class Units:
             self._online = False
             self._last = ()
             self._shared = {}
+            self._served = ()
 
     def close(self) -> None:
         """The agent ends: the ticker started by :meth:`run_ticker` stops."""
@@ -335,11 +355,11 @@ class Units:
         self._closed.set()
 
     def run_ticker(self) -> None:
-        """Tick each :data:`CHECK_GAP_S` on a thread of its own until
-        :meth:`close`, so a refresh is never later than it is owed."""
+        """Tick each :data:`POLL_S` on a thread of its own until :meth:`close`,
+        so an edit of the setup is seen, and a refresh goes, when owed."""
 
         def ticking() -> None:
-            while not self._closed.wait(CHECK_GAP_S):
+            while not self._closed.wait(POLL_S):
                 self.tick()
 
         threading.Thread(target=ticking, name="shared-units-tick", daemon=True).start()
@@ -397,29 +417,30 @@ class Units:
         self.tick()
 
     def tick(self) -> None:
-        """Start a check if one is owed and may run now."""
+        """Start a check if :data:`POLL_S` has passed since the last: a full
+        one when asked or a refresh is due, else a read of the setup alone."""
         with self._lock:
             if not self._online or self._going:
                 return
             now = self._clock()
-            if self._checked_at is not None and now - self._checked_at < CHECK_GAP_S:
+            if self._checked_at is not None and now - self._checked_at < POLL_S:
                 return
             refresh = (
                 bool(self._last)
                 and self._sent_at is not None
                 and now - self._sent_at >= sessionwire.UNIT_ADVERT_INTERVAL_S
             )
-            if not (self._asked or refresh):
-                return
+            full = self._asked or refresh
             self._going = True
             self._asked = False
             self._checked_at = now
-        self._start(self._check)
+        self._start(lambda: self._check(full))
 
     def _serve(self, setup: Setup) -> None:
         """Take rides to the units the hub was told of, as ``setup`` states
         them now. Called under the lock."""
         self._shared = {unit.unit_id: unit for unit in setup.units}
+        self._served = setup.units
         self._serving = setup
 
     def _note(self, line: str) -> None:
@@ -429,11 +450,14 @@ class Units:
             self._said.add(line)
         self._say(f"note: {line}")
 
-    def _check(self) -> None:
+    def _check(self, full: bool) -> None:
         try:
             setup = self._setup()
             for line in setup.notes:
                 self._note(line)
+            with self._lock:
+                if not full and setup.units == self._served:
+                    return  # the setup shares what the hub was told
             advert = []
             for unit in setup.units:
                 in_flight = setup.in_flight(unit)
@@ -466,6 +490,9 @@ class Units:
                 )
                 if wanted == self._last and not due:
                     self._serve(setup)
+                    return
+                if self._sent_at is not None and now - self._sent_at < ADVERT_GAP_S:
+                    self._asked = True  # too soon after the last: next tick
                     return
             if self._send(sessionwire.unit_advert(wanted), timeout=SEND_WAIT_S):
                 with self._lock:

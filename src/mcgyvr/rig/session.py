@@ -1596,20 +1596,17 @@ def offer(
     held: inventory.Inventory,
     hosts: Sequence[str],
     running: tuple[str, ...],
-    *,
-    shares_units: bool = False,
-) -> protocol.Offer | None:
-    """What a hello says this rig lends, or ``None`` when it lends nothing.
+) -> protocol.Offer:
+    """What a hello says this rig lends.
 
-    A rig that lends no session but shares units with riders
-    (``shares_units``, :mod:`mcgyvr.rig.hitchhike`) offers no role and speaks
-    the one feature that says so, so the hub takes its adverts and sends it
-    nothing else.
+    A rig that lends no session offers no role, so the hub sends it no
+    session, and speaks the one feature of the units it shares with riders
+    (:mod:`mcgyvr.rig.hitchhike`), whether it shares any now or not: sharing
+    is policy the owner may turn on while the rig is connected, and the hub
+    takes adverts only from a rig whose hello named the feature.
     """
     roles = share.offered_roles()
     if not roles:
-        if not shares_units:
-            return None
         return protocol.Offer(
             roles=(),
             runtime=None,

@@ -104,7 +104,17 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
     off = session.offer(
         fakes.sharing(tmp_path, enabled=False), held, (fakes.LAN_ADDRESS,), ()
     )
-    assert off is None
+    # A rig that lends nothing offers no role, endpoint or model; it still
+    # names the shared units' feature, so the hub takes its adverts whenever
+    # its setup starts sharing (mcgyvr.rig.hitchhike).
+    assert off == protocol.Offer(
+        roles=(),
+        runtime=None,
+        endpoints=(),
+        models=(),
+        sessions=(),
+        features=(session.HITCHHIKE_FEATURE,),
+    )
     on = session.offer(fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ("s1",))
     assert on == protocol.Offer(
         roles=("head", "worker"),

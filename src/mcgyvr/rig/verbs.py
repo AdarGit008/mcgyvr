@@ -278,9 +278,7 @@ def run_agent(kept: Credentials) -> int:
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
-        return session.offer(
-            share, models(), hosts, sessions.running(), shares_units=units.shares()
-        )
+        return session.offer(share, models(), hosts, sessions.running())
 
     def online() -> None:
         sessions.online()
