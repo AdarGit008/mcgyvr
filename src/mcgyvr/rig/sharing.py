@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet import roots
-from mcgyvr.rig import hardware, protocol
+from mcgyvr.rig import hardware, protocol, sessionwire
 
 #: The file's name in the config folder.
 SHARING_FILE = "rig-sharing.json"
@@ -63,9 +63,8 @@ DEFAULT_HEAD_BINARY = "/app/llama-server"
 DEFAULT_WORKER_BINARY = "/app/ggml-rpc-server"
 #: The vendor whose cards the engine is started on.
 LENT_VENDOR = "nvidia"
-#: The lowest port a tunnel may listen on: an unprivileged one; the highest.
+#: The lowest port a tunnel may listen on: an unprivileged one.
 LOWEST_PORT = 1024
-MAX_PORT = 65535
 #: An engine's program inside its image: an absolute path, plainly spelled.
 BINARY = re.compile(r"/[A-Za-z0-9._+-]+(/[A-Za-z0-9._+-]+)*")
 #: Settings a kept file may still hold that are no longer settings, and what
@@ -113,7 +112,8 @@ class Sharing:
         """The UDP ports the sessions' tunnels listen on, one each:
         ``listen_port`` and the ports after it, never past the last port."""
         return range(
-            self.listen_port, min(self.listen_port + TUNNEL_PORTS, MAX_PORT + 1)
+            self.listen_port,
+            min(self.listen_port + TUNNEL_PORTS, sessionwire.MAX_PORT + 1),
         )
 
     def container_mb(self) -> int:
@@ -227,7 +227,7 @@ def read(data: object) -> Sharing:
         )
     if "listen_port" in data:
         out["listen_port"] = _whole(
-            data["listen_port"], "listen_port", LOWEST_PORT, MAX_PORT
+            data["listen_port"], "listen_port", LOWEST_PORT, sessionwire.MAX_PORT
         )
     if data.get("models_dir") is not None:
         folder = data["models_dir"]
