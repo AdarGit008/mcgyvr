@@ -47,7 +47,7 @@
   "evidence_kinds": [
     {
       "name": "gate",
-      "doc": "The deterministic acceptance gate. Carried by every type; it is the floor, not a choice.",
+      "doc": "The deterministic acceptance gate. The floor under every coding type; chat is ungated, and agent and media-gen are judged by their own structural evidence through the gate's output-checks rung.",
       "needs_commands": false
     },
     {
@@ -189,6 +189,24 @@
       "_evidence_change_note": "tests_pass was required here until #183 made evidence kinds satisfiable per-slot. The guarantee sentence promises only the demonstration, and requiring a pass-at-baseline command besides would force a contract with one demonstrating test — the common real shape — to invent a decorative regression command. A declared `acceptance` list is still welcome and is still held green at preflight; it is just not manufactured where none exists.",
       "warrant": "structural, not measured — coding benchmarks score synthesis against a given signature and say nothing about diagnosis in a repository the model can see (data/README.md), and the product ships no such score, so nothing here warrants the diagnostic step. What makes a cheap attempt safe to make anyway is `failing_test_first`: with a demonstration required up front, a worker that did not understand the defect produces a change that visibly fails rather than a plausible one that lands.",
       "doc": "Correct defined wrong behaviour in one target, with a test that demonstrates the correction."
+    },
+    {
+      "name": "chat",
+      "use_case": "chat",
+      "starts_on": "local",
+      "guarantee": "The reply is the answer. Nothing judges it — chat is a raw prompt-to-response endpoint, and whether the answer is right is the harness's question, not the gate's.",
+      "required_evidence": [],
+      "warrant": "There is no bar to clear — chat is a raw endpoint, so nothing is spent judging and the reply is served straight back.",
+      "doc": "Answer a prompt directly, ungated. The raw endpoint of the chat use case."
+    },
+    {
+      "name": "agent",
+      "use_case": "agent",
+      "starts_on": "local",
+      "guarantee": "The reply cites the contract's sources and clears the safety classifier, as plain prose — every claim is grounded, nothing unsafe is served, and the reply is raw text, not a file.",
+      "required_evidence": ["grounded", "safety_pass"],
+      "warrant": "structural — grounded and safety_pass are checks the gate makes itself, and the prose output protocol is the reply's format, so a wrong, unsafe or malformed answer is caught without a contract command.",
+      "doc": "Answer a prompt with a grounded, safe reply in plain prose, judged by the gate's output checks."
     }
   ],
 

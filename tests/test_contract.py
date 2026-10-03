@@ -595,6 +595,14 @@ def test_every_declared_task_type_loads() -> None:
             if kind.needs_demonstration_commands
             else "[]"
         )
+        # A type that requires grounded evidence must name the corpus the
+        # reply may cite, so the fixture supplies one rather than working
+        # around the rule (#agent).
+        sources = (
+            'sources: ["src/pkg/corpus.md"]'
+            if "grounded" in kind.evidence_names
+            else ""
+        )
         document = f"""
 id: t
 task_type: {kind.name}
@@ -603,6 +611,7 @@ target: src/pkg/fetch.py
 stop_conditions: ["An unknown."]
 acceptance: {acceptance}
 demonstration: {demonstration}
+{sources}
 scope:
   allow: ["src/**"]
 """

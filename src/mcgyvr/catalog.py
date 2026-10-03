@@ -332,11 +332,11 @@ def load(path: Path | None = None) -> Catalog:
     for entry in raw.get("task_types", []):
         name = str(entry.get("name", ""))
         where = f"task_types[{name or len(task_types)}]"
-        _require_keys(
-            entry,
-            ("name", "starts_on", "use_case", "guarantee", "required_evidence"),
-            where,
-        )
+        _require_keys(entry, ("name", "starts_on", "use_case", "guarantee"), where)
+        if "required_evidence" not in entry:
+            raise CatalogError(f"{where}: missing required_evidence")
+        if not isinstance(entry["required_evidence"], list):
+            raise CatalogError(f"{where}: required_evidence must be a list")
         if name in seen:
             raise CatalogError(f"{where}: {name!r} is declared more than once")
         seen.add(name)

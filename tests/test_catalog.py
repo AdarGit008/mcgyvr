@@ -94,10 +94,39 @@ def test_the_use_case_vocabulary_is_the_approved_four(shipped: Catalog) -> None:
 
 
 def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
+    # chat is the sole ungated type: the raw endpoint has no bar to clear, so
+    # it carries no evidence and no gate. Every other type states evidence.
+    # Coding types carry the gate kind as their floor; agent is judged by its
+    # own structural evidence through the gate's output-checks rung instead.
     for kind in shipped.task_types:
+        if kind.use_case.name == "chat":
+            assert kind.required_evidence == (), f"{kind.name} should be ungated"
+            assert "gate" not in kind.evidence_names, (
+                f"{kind.name} must not carry the gate"
+            )
+            continue
         assert kind.required_evidence, f"{kind.name} requires no evidence"
-        # The gate is the floor under every type, not one option among several.
-        assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
+        if kind.use_case.name == "coding":
+            assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
+        else:
+            assert "gate" not in kind.evidence_names, (
+                f"{kind.name} is judged by its own structural evidence, "
+                f"not the gate kind"
+            )
+
+
+def test_the_chat_type_is_ungated(shipped: Catalog) -> None:
+    chat = shipped.require("chat")
+    assert chat.use_case.name == "chat"
+    assert chat.starts_on.name == "local"
+    assert chat.evidence_names == ()
+
+
+def test_the_agent_type_judges_by_grounding_and_safety(shipped: Catalog) -> None:
+    agent = shipped.require("agent")
+    assert agent.use_case.name == "agent"
+    assert agent.starts_on.name == "local"
+    assert agent.evidence_names == ("grounded", "safety_pass")
 
 
 def test_every_entry_is_documented_and_warranted(shipped: Catalog) -> None:
@@ -395,6 +424,27 @@ def test_a_missing_use_case_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "c.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(CatalogError, match="use_case"):
+        load(path)
+
+
+def test_a_missing_required_evidence_key_is_rejected(tmp_path: Path) -> None:
+    """required_evidence may be empty (chat) but the key must still be present."""
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    chat = next(t for t in raw["task_types"] if t["name"] == "chat")
+    chat.pop("required_evidence")
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="required_evidence"):
+        load(path)
+
+
+def test_a_null_required_evidence_is_rejected(tmp_path: Path) -> None:
+    """A null list is not the empty list chat declares; it is refused by name."""
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["task_types"][0]["required_evidence"] = None
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="required_evidence"):
         load(path)
 
 
