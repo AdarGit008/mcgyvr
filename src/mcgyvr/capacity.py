@@ -676,7 +676,9 @@ class Capacity:
         Every unit, not only the ones the ladder currently uses: a role
         binding (orchestrator, verifier) dispatches against a unit that need
         not appear on the ladder, and a capacity that did not cover it would raise
-        at the moment it was first used.
+        at the moment it was first used. The relief rungs too, at the width the
+        hub gave each: a ride holds a slot like any dispatch, and the spill reads
+        a relief rung's load against its width as it reads a ladder rung's.
 
         Without a probe every width is the declared one and nothing is
         confirmed — the ordinary case for a backend that does not report its
@@ -716,7 +718,8 @@ class Capacity:
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
         confirmed: list[str] = []
-        for name, unit in config.units.items():
+        bounded = {**config.units, **config.relief}
+        for name, unit in bounded.items():
             declared = unit.width or 1
             declarations[name] = declared
             reported = None if probe is None else _reported(probe, name, None)
@@ -745,7 +748,7 @@ class Capacity:
             lock_dir=root,
             confirmed=confirmed,
             declared=declarations,
-            urls={name: unit.address for name, unit in config.units.items()},
+            urls={name: unit.address for name, unit in bounded.items()},
             # No single wait may exceed the ceiling on the whole task. That
             # bounds each hold and not their sum: a climb of three rungs that
             # queued at every one of them could still wait three ceilings.

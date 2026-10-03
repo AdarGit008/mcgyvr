@@ -167,6 +167,10 @@ class Endpoint:
     #: publishes ``/slots`` and answers ``/metrics`` 501 unless started with
     #: ``--metrics``; vLLM publishes ``/metrics``.
     engine: str | None = None
+    #: Whether this is a relief rung's endpoint: another person's unit behind
+    #: a hub, whose "cannot take the request now" answers the runner reads as
+    #: a full rung rather than as an error (:mod:`mcgyvr.runner`).
+    relief: bool = False
 
     @property
     def requires_credential(self) -> bool:
@@ -238,6 +242,12 @@ class SourceMap:
     Built by :func:`source_map`. Holds the usable rungs in declared order —
     cheapest first, since that is how a ladder is written — the rungs that were
     skipped and why, and the single method that crosses the seam.
+
+    The relief rungs (``relief.yaml``) are held beside the ladder and never on
+    it: :attr:`relief` and :attr:`relief_skipped`, in the order the hub listed
+    them. :meth:`get` and :meth:`bind` answer for them as for any rung, because
+    a dispatch to one is a dispatch like any other; what keeps them off the
+    climb is that :attr:`rungs`, the ladder, never holds one.
     """
 
     def __init__(
@@ -247,12 +257,16 @@ class SourceMap:
         endpoints: dict[str, Endpoint],
         roles: dict[str, RoleBinding],
         role_skips: dict[str, str],
+        relief: tuple[Rung, ...] = (),
+        relief_skipped: tuple[Skipped, ...] = (),
     ) -> None:
         self._rungs = rungs
         self._skipped = skipped
         self._endpoints = endpoints
         self._roles = roles
         self._role_skips = role_skips
+        self._relief = relief
+        self._relief_skipped = relief_skipped
 
     @property
     def rungs(self) -> tuple[Rung, ...]:
@@ -264,6 +278,16 @@ class SourceMap:
         """The rungs that could not be offered, each with its reason."""
         return self._skipped
 
+    @property
+    def relief(self) -> tuple[Rung, ...]:
+        """The usable relief rungs, in the order the hub listed them."""
+        return self._relief
+
+    @property
+    def relief_skipped(self) -> tuple[Skipped, ...]:
+        """The relief rungs that could not be offered, each with its reason."""
+        return self._relief_skipped
+
     def __bool__(self) -> bool:
         """True when at least one rung is usable."""
         return bool(self._rungs)
@@ -272,8 +296,11 @@ class SourceMap:
         return len(self._rungs)
 
     def get(self, name: str) -> Rung | None:
-        """The usable rung of this name, or ``None``."""
-        return next((rung for rung in self._rungs if rung.name == name), None)
+        """The usable rung of this name, ladder or relief, or ``None``."""
+        return next(
+            (rung for rung in (*self._rungs, *self._relief) if rung.name == name),
+            None,
+        )
 
     def bind(self, name: str) -> Endpoint:
         """Resolve a rung to the endpoint that serves it — the seam crossing.
@@ -289,7 +316,10 @@ class SourceMap:
         endpoint = self._endpoints.get(name)
         if endpoint is not None:
             return endpoint
-        skipped = next((s for s in self._skipped if s.name == name), None)
+        skipped = next(
+            (s for s in (*self._skipped, *self._relief_skipped) if s.name == name),
+            None,
+        )
         if skipped is not None:
             raise SourceUnavailableError(
                 f"rung {name!r} is not available: {skipped.reason}"
@@ -364,6 +394,11 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
 
     A ladder naming an undeclared unit cannot reach here; the config loader
     rejects that at load time, where a typo belongs.
+
+    The relief rungs are resolved by the same structural rule — a rung whose
+    key variable is unset is skipped, with the reason — and are not probed: a
+    hub that cannot serve one says so at dispatch, in words the runner reads
+    as a full rung, which is the answer a probe would only guess at.
     """
     usable: list[Rung] = []
     skipped: list[Skipped] = []
@@ -376,6 +411,16 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
             skipped.append(Skipped(name=name, model=unit.model, reason=reason))
             continue
         usable.append(Rung(name=name, model=unit.model))
+        endpoints[name] = _endpoint(unit)
+
+    relief: list[Rung] = []
+    relief_skipped: list[Skipped] = []
+    for name, unit in config.relief.items():
+        reason = _unusable(unit)
+        if reason is not None:
+            relief_skipped.append(Skipped(name=name, model=unit.model, reason=reason))
+            continue
+        relief.append(Rung(name=name, model=unit.model))
         endpoints[name] = _endpoint(unit)
 
     roles: dict[str, RoleBinding] = {}
@@ -402,9 +447,12 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
 
     if probe is not None:
         # One endpoint per source: a role bound to a unit that is also on the
-        # ladder would otherwise be handed to the probe twice.
+        # ladder would otherwise be handed to the probe twice. Relief rungs are
+        # not asked (see above).
         asking: dict[str, Endpoint] = {}
         for endpoint in (*endpoints.values(), *(b.endpoint for b in roles.values())):
+            if endpoint.relief:
+                continue
             asking.setdefault(endpoint.source, endpoint)
         down = probe.unavailable(tuple(asking.values()))
         if down:
@@ -443,6 +491,8 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         endpoints=endpoints,
         roles=roles,
         role_skips=role_skips,
+        relief=tuple(relief),
+        relief_skipped=tuple(relief_skipped),
     )
 
 
@@ -540,6 +590,7 @@ def _endpoint(unit: Unit) -> Endpoint:
         output_tokens=unit.output_tokens,
         request_timeout_s=unit.request_timeout_s,
         engine=unit.engine,
+        relief=unit.relief,
     )
 
 

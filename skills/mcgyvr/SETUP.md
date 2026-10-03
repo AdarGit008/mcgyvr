@@ -97,7 +97,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `serving` | block | no | — | What mcgyvr may do to the machines that serve the units. A unit's HuggingFace cache is a fact about that unit and lives on it, not here: only the policy of starting and stopping a card is a setting. |
 | `manager` | block | no | — | What the ladder manager may do on its own. It runs only under `mcgyvr manage`, and only when `serving.enable_sleep_wake` is on and the ladder has units that can sleep and wake. Within this block it sleeps and wakes those units, changes `fanout` and changes which local unit leads; everything else it notices it prints as a recommendation and leaves alone. A vLLM unit sleeps at level 2, keeping its process and dropping its weights and KV cache; any other unit's containers are stopped. A wake loads the model from disk again. |
 | `journal` | block | no | — | Where mcgyvr keeps its own record of what it dispatched. |
-| `relief` | block map | no | — | Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder. Its host can read your prompts. |
+| `relief` | block map | no | — | Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder: under `fanout: idle` it takes work only when your own rung is full, ahead of a priced api rung, and no escalation climbs to it. Its host can read your prompts. |
 
 ## `units`
 
@@ -217,7 +217,7 @@ Where mcgyvr keeps its own record of what it dispatched.
 
 ## `relief`
 
-Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder. Its host can read your prompts.
+Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder: under `fanout: idle` it takes work only when your own rung is full, ahead of a priced api rung, and no escalation climbs to it. Its host can read your prompts.
 
 Each entry takes these keys:
 

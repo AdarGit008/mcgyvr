@@ -946,8 +946,10 @@ SCHEMA: tuple[Field, ...] = (
         "block_map",
         "Units other people lend you through a hub (hitchhike), keyed by name. "
         "Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by "
-        "nothing else. A relief rung is never a step of the ladder. Its host "
-        "can read your prompts.",
+        "nothing else. A relief rung is never a step of the ladder: under "
+        "`fanout: idle` it takes work only when your own rung is full, ahead of "
+        "a priced api rung, and no escalation climbs to it. Its host can read "
+        "your prompts.",
         block=RELIEF_FIELDS,
     ),
 )

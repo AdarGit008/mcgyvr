@@ -43,6 +43,20 @@ price order. Within that family the cheapest rung with a free slot is
 :func:`~mcgyvr.route.climb`'s to take, under the same ``idle``, so the two seams
 answer the two halves of one question and neither restates the other.
 
+**A relief rung is ridden only when the rider's own rung is full, and is never
+climbed to.** A relief rung (``relief.yaml``) is another person's unit, lent
+through a hub; it may sit above the ceiling of the rider's own ladder or below
+its floor, and what it is for is a shorter queue, not more capability. So it is
+on no plan — :attr:`Ascent.relief` holds it beside them — and the one place it
+is read is the walk ``idle`` already makes: once the first family that has rungs
+is full by :meth:`~mcgyvr.capacity.Capacity.judge`'s one definition, a free
+relief rung is the entry, ahead of the next family up and so ahead of a priced
+api rung. No escalation reaches it, because no plan holds it, and the ceilings
+and budgets are the ladder's alone. :func:`escalate` rides it before the climb;
+a ride that does not answer — the hub cannot take the request now, which the
+driver reads as a full rung — is passed over as if it had been full, and the
+entry is decided again without the relief rungs.
+
 **Busy is not a verdict, and the record is the difference.** A rung that
 :attr:`~Ascent.next_free_rung` passed over was not tried: it produced no
 verdict, spent no attempt and funded no escalation, because
@@ -137,6 +151,7 @@ from mcgyvr.route import (
     Verdict,
     attempted,
     climb,
+    family_of,
     fanout_of,
     plan,
 )
@@ -531,6 +546,10 @@ class Entry:
     rung: str
     machine: Machine = field(repr=False, compare=False)
     capacity: Capacity = field(repr=False, compare=False)
+    #: A relief rung, ridden before the climb rather than entered: ``family``
+    #: is then the family whose rungs were full, the one it stands in for, and
+    #: ``rung`` is on no plan of the ascent.
+    relief: bool = False
 
     def release(self) -> None:
         """Give the reservation back. Never raises, so a ``finally`` is safe.
@@ -545,6 +564,20 @@ class Entry:
         returned to the queue it was taken on.
         """
         self.machine.release(self.capacity, self.rung)
+
+
+@dataclass(frozen=True)
+class _Found:
+    """Where the ``idle`` walk stopped: the family, the rung and its machine.
+
+    ``relief`` marks a relief rung, which is on no plan; ``family`` is then the
+    family whose rungs were full.
+    """
+
+    family: Family
+    rung: str
+    machine: Machine
+    relief: bool = False
 
 
 @dataclass(frozen=True)
@@ -569,6 +602,11 @@ class Ascent:
     decision this record holds — two ascents that differ only in which capacity
     they were handed are the same ascent — so both stay out of ``repr`` and out
     of comparison; the families, rungs, attempts and ceilings *are* the decision.
+
+    ``relief`` is the relief rungs, one step each, in the order the hub listed
+    them, and deliberately not a plan: nothing that walks :attr:`plans` — the
+    climb, the budgets, the escalation ceiling — meets one. Only the ``idle``
+    walk reads them (:meth:`_entry_rung`).
     """
 
     floor: Family
@@ -577,6 +615,7 @@ class Ascent:
     fanout: Fanout = Fanout.NONE
     capacity: Capacity | None = field(default=None, repr=False, compare=False)
     widths: Mapping[str, int] = field(default_factory=dict, repr=False, compare=False)
+    relief: tuple[Step, ...] = ()
 
     def __bool__(self) -> bool:
         """Whether there is anything here to climb.
@@ -690,6 +729,13 @@ class Ascent:
         Comparing one rung's load against another's width reports an idle
         narrow rung as full and spends money climbing past it.
 
+        **A relief rung comes after the rider's own.** Once the first family
+        that has rungs is walked and every rung of it is full, the relief rungs
+        are walked, in the hub's order, before any family above it: a free one
+        is the shortest wait on offer and costs no step of the ladder. They are
+        walked once and only there, so a free rung of the rider's own always
+        wins, and they are judged full by the same two counts.
+
         **Free is free by both counts.** A rung is full when this batch's load
         is at its width *or* its server's own busy count is
         (:meth:`~mcgyvr.capacity.Capacity.judge`, the one definition the ladder
@@ -720,10 +766,16 @@ class Ascent:
         pool`` asks it, and so does every test that pins the rule.
         """
         found = self._entry_rung(reserve=False)
-        return None if found is None else found[1]
+        return None if found is None else found.rung
 
-    def reserve_entry(self) -> Entry | None:
+    def reserve_entry(self, *, relief: bool = True) -> Entry | None:
         """The raised entry ``idle`` decides on, with its rung already reserved.
+
+        A free relief rung is an entry too (:attr:`Entry.relief`), and is
+        reserved though it raises no family: it is ridden, and a ride holds the
+        slot it was chosen for. ``relief=False`` decides as though every relief
+        rung were full, which is what :func:`escalate` asks once a ride could
+        not go.
 
         The same question :attr:`next_free_rung` answers, made into a decision:
         the loads are priced against one another and the rung that wins is
@@ -747,16 +799,21 @@ class Ascent:
         once. A caller that does not reach a climb must release it itself;
         :func:`escalate` does that in a ``finally``.
         """
-        found = self._entry_rung(reserve=True)
+        found = self._entry_rung(reserve=True, relief=relief)
         if found is None:
             return None
-        family, rung, machine = found
-        if not self._raises(family):
+        if not found.relief and not self._raises(found.family):
             return None
         # `_entry_rung` answers None without a capacity, so there is one here,
         # and it is the one the reservation was taken against.
         assert self.capacity is not None
-        return Entry(family=family, rung=rung, machine=machine, capacity=self.capacity)
+        return Entry(
+            family=found.family,
+            rung=found.rung,
+            machine=found.machine,
+            capacity=self.capacity,
+            relief=found.relief,
+        )
 
     def _raises(self, family: Family) -> bool:
         """Whether entering ``family`` is a raise rather than the floor itself.
@@ -767,7 +824,7 @@ class Ascent:
         """
         return family.rank > self.floor.rank
 
-    def _entry_rung(self, *, reserve: bool) -> tuple[Family, str, Machine] | None:
+    def _entry_rung(self, *, reserve: bool, relief: bool = True) -> _Found | None:
         """The cheapest free rung at or above the floor, optionally claimed.
 
         One walk for both callers, because "cheapest rung with a free slot" is
@@ -791,41 +848,59 @@ class Ascent:
 
         The family is returned beside the rung because the walk already knows
         which plan it stopped in. Looking it up again afterwards would be a
-        second answer to a question this loop had in hand.
+        second answer to a question this loop had in hand. For a relief rung it
+        is the family whose rungs were full, and a relief rung is always
+        reserved when ``reserve`` is asked: it is ridden, never "the floor".
+
+        ``relief=False`` walks as though no relief rung were there.
         """
-        if self.fanout is not Fanout.IDLE or self.capacity is None:
+        capacity = self.capacity
+        if self.fanout is not Fanout.IDLE or capacity is None:
             return None
+        riding = self.relief if relief else ()
         # Each server's own busy count, read before the decision is taken: it is
         # a read of a machine, and nothing slow runs inside `deciding`.
         servers = {
-            step.rung.name: step.machine.server(self.capacity)
-            for each in self.plans
-            for step in each.climbable
+            step.rung.name: step.machine.server(capacity)
+            for step in (*(s for p in self.plans for s in p.climbable), *riding)
             if step.machine is not None
         }
-        with self.capacity.deciding():
+
+        def full(step: Step) -> bool | None:
+            # Free by both counts (Capacity.judge): this batch's own load, and
+            # the server's busy count, which sees the clients this process does
+            # not. `None` is a load that cannot be read.
+            if step.machine is None or self.widths.get(step.rung.name) is None:
+                return None
+            return step.machine.full(
+                capacity, step.rung.name, servers.get(step.rung.name)
+            )
+
+        offered = not riding
+        with capacity.deciding():
             for each in self.plans:
                 for step in each.climbable:
-                    machine = step.machine
-                    width = self.widths.get(step.rung.name)
-                    # Free by both counts (Capacity.judge): this batch's own
-                    # load, and the server's busy count, which sees the clients
-                    # this process does not.
-                    full = (
-                        None
-                        if machine is None
-                        else machine.full(
-                            self.capacity,
-                            step.rung.name,
-                            servers.get(step.rung.name),
-                        )
-                    )
-                    if machine is None or width is None or full is None:
+                    said = full(step)
+                    if said is None or step.machine is None:
                         return None
-                    if not full:
+                    if not said:
                         if reserve and self._raises(each.family):
-                            machine.claim(self.capacity, step.rung.name)
-                        return each.family, step.rung.name, machine
+                            step.machine.claim(capacity, step.rung.name)
+                        return _Found(each.family, step.rung.name, step.machine)
+                if offered or not each.climbable:
+                    continue
+                # The rider's own family is full: the relief rungs, once.
+                offered = True
+                for step in riding:
+                    said = full(step)
+                    if said is None or step.machine is None:
+                        return None
+                    if not said:
+                        if reserve:
+                            step.machine.claim(capacity, step.rung.name)
+                        return _Found(
+                            each.family, step.rung.name, step.machine, relief=True
+                        )
         return None
 
     @property
@@ -848,6 +923,10 @@ def ascent(
     are absent rather than skipped, and each family appears once in strictly
     increasing rank — which is what makes "entered at most once" a fact about
     the shape rather than a rule something has to remember to apply.
+
+    The relief rungs the pool offers ride along as :attr:`Ascent.relief`, one
+    attempt each: a ride is an entry, asked once, and what follows it is the
+    rider's own ladder.
 
     ``capacity`` changes none of that: the families, their rungs and both
     ceilings are what they were without one, and every mode's ladder is the same
@@ -872,6 +951,10 @@ def ascent(
         fanout=fanout_of(config),
         capacity=capacity,
         widths=_widths(config, capacity),
+        relief=tuple(
+            Step(rung=rung, attempts=1, machine=Machine(rung.name))
+            for rung in pool.relief
+        ),
     )
 
 
@@ -885,7 +968,8 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
 
     Each ladder name is a unit's name, and its width is
     :meth:`~mcgyvr.capacity.Capacity.limit`'s answer for that unit: the declared
-    ``units.*.width``, or a wider one a probe confirmed.
+    ``units.*.width``, or a wider one a probe confirmed. A relief rung's is the
+    width the hub gave it.
 
     Asking :class:`~mcgyvr.route.Machine` how busy it is stays the one way load
     is read.
@@ -898,7 +982,9 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
         return {}
     limits = capacity.limits
     return {
-        name: capacity.limit(name) for name in config.ladder.names if name in limits
+        name: capacity.limit(name)
+        for name in (*config.ladder.names, *config.relief)
+        if name in limits
     }
 
 
@@ -1130,20 +1216,14 @@ def escalate(
     """
     route = ascent(config, pool, contract, floor=floor, capacity=capacity)
     entry = _idle_entry(route)
+    # A relief rung is ridden before the climb, not entered: its reservation is
+    # held here until the ride's climb takes it over.
+    riding: Entry | None = None
+    if entry is not None and entry.relief:
+        riding, entry = entry, None
     claimed: str | None = None
     if entry is not None:
-        try:
-            route = ascent(
-                config, pool, contract, floor=entry.family, capacity=capacity
-            )
-            claimed = _handed_down(route, entry)
-        finally:
-            # Everything between the reservation and the climb that takes it
-            # over: an ascent that raised while being rebuilt, and an ascent
-            # rebuilt without the rung the reservation is for. `claimed` is
-            # cleared the moment a climb takes it, so it doubles as "still ours".
-            if claimed is None:
-                entry.release()
+        route, claimed = _entered(config, pool, contract, capacity, entry)
     ceiling = route.ceiling
     budget = route.budget
 
@@ -1254,6 +1334,25 @@ def escalate(
         )
 
     try:
+        if riding is not None:
+            ride = _ride(config, route, riding)
+            held, riding = riding.rung, None
+            judged.clear()
+            try:
+                ridden = climb(
+                    ride, observed, capacity=capacity, permit=permit, claimed=held
+                )
+            except _AttemptError as raised:
+                return raised_to_halted(raised)
+            history.extend(ridden.history)
+            if isinstance(ridden, Accepted):
+                return finish_accepted(ridden.family, ridden.rung)
+            # As if every relief rung were full: the entry is decided again
+            # without them, and the climb is the rider's own from here.
+            entry = route.reserve_entry(relief=False)
+            if entry is not None:
+                route, claimed = _entered(config, pool, contract, capacity, entry)
+                ceiling, budget = route.ceiling, route.budget
         for index, each in enumerate(route.plans):
             if not each.climbable:
                 # Not entered, and its reason is kept for the halt detail. The
@@ -1315,6 +1414,8 @@ def escalate(
         # that reads as busy for the rest of the process.
         if entry is not None and claimed is not None:
             entry.release()
+        if riding is not None:
+            riding.release()
 
     escalations = max(0, len(spent_rungs) - 1)
     outcome = stopped_by or _spent_outcome(history, attempts_spent)
@@ -1326,6 +1427,45 @@ def escalate(
         escalations=escalations,
         detail=_halt_detail(outcome, route, attempts_spent, escalations),
     )
+
+
+def _entered(
+    config: Config,
+    pool: SourceMap,
+    contract: Contract,
+    capacity: Capacity | None,
+    entry: Entry,
+) -> tuple[Ascent, str | None]:
+    """The ascent rebuilt with ``entry``'s family as its floor, and the rung to
+    hand its first climb.
+
+    The reservation is given back here on every path that does not hand it
+    down: an ascent that raised while being rebuilt, and one rebuilt without
+    the rung the reservation is for (:func:`_handed_down`). The rung returned
+    is the caller's to hand to a climb, or to release.
+    """
+    claimed: str | None = None
+    try:
+        route = ascent(config, pool, contract, floor=entry.family, capacity=capacity)
+        claimed = _handed_down(route, entry)
+    finally:
+        # `claimed` is cleared the moment a climb takes it, so it doubles as
+        # "still ours".
+        if claimed is None:
+            entry.release()
+    return route, claimed
+
+
+def _ride(config: Config, route: Ascent, riding: Entry) -> Plan:
+    """A one-step plan for the relief rung ``riding`` reserved.
+
+    Its family is the catalog's for that rung (:func:`~mcgyvr.route.family_of`):
+    the cost class an answer from it is reported in. It is a plan of its own and
+    on no list of the ascent's, so the climb that takes it gives back its
+    reservation and ends, and nothing after it counts it as a family entered.
+    """
+    step = next(step for step in route.relief if step.rung.name == riding.rung)
+    return Plan(family=family_of(config, riding.rung), steps=(step,))
 
 
 def _idle_entry(route: Ascent) -> Entry | None:
