@@ -30,6 +30,7 @@ import yaml
 
 from mcgyvr.config import UNIT_FIELDS
 from mcgyvr.fleet import roots
+from mcgyvr.fleet.links import LINK_CLASSES
 from mcgyvr.fleet.tolerance import CLASSES
 from mcgyvr.strict_yaml import strict_loader
 
@@ -60,12 +61,15 @@ def _engine_choices() -> tuple[str, ...]:
 KEY_SPACES: dict[str, tuple[str, ...]] = {
     "tolerance_class": CLASSES,
     "engine": _engine_choices(),
+    "link_class": LINK_CLASSES,
 }
 
 #: The units a number may be stated in: each one's bound, and the bound in words.
 _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
     "percent": (lambda value: 0.0 < value < 100.0, "above 0 and below 100"),
     "GiB": (lambda value: value >= 0.0, "0 or more"),
+    "GiB/s": (lambda value: value > 0.0, "above 0"),
+    "microseconds": (lambda value: value > 0.0, "above 0"),
 }
 UNITS: tuple[str, ...] = tuple(_BOUNDS)
 
@@ -118,6 +122,14 @@ CHOICE_REASONS: tuple[str, ...] = (
 #: offload the sizing prices.
 RUNTIME_RESIDENT = "runtime_resident_gb"
 RUNTIME_RESIDENT_KEY = "llama.cpp"
+
+#: The number for the card memory a rank holds beyond its weights and KV pool,
+#: keyed by the engine.
+SHARD_ALLOWANCE = "shard_allowance_gib"
+
+#: The numbers for a link's bandwidth and its latency, keyed by link class.
+LINK_GIB_S = "link_gib_s"
+LINK_LATENCY_US = "link_latency_us"
 
 #: The engines whose host memory figure is to be read on the user's machine and
 #: is never shipped: no layer is asked for it, nothing is charged for it until
@@ -506,6 +518,20 @@ def runtime_resident_gb(host: str | None = None, *, path: Path | None = None) ->
     """
     asked = (RUNTIME_RESIDENT, RUNTIME_RESIDENT_KEY)
     return _resolve([asked], path, sizing=host)[asked].value
+
+
+def shard_allowance_gib(
+    engine: str, *, sizing: str | None = None, path: Path | None = None
+) -> float:
+    """The card memory, in GiB, a rank of ``engine`` holds beyond its weights and KV.
+
+    What a sizing adds to each shard's weights, cache and state for the engine's
+    own working memory (its CUDA context, activation peak, graph pools and
+    collective buffers). Keyed by the engine, never by the machine: ``sizing``
+    only names, in a refusal, what was being sized, and never changes the answer.
+    """
+    asked = (SHARD_ALLOWANCE, engine)
+    return _resolve([asked], path, sizing=sizing)[asked].value
 
 
 def user_setting(number: str, key: str, *, path: Path | None = None) -> Path | None:

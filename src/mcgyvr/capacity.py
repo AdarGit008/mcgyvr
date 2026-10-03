@@ -83,6 +83,18 @@ one bound per unit. Where a rung bound is given:
   is asked per rung, and a hold on one rung leaves another's count at zero. The
   slot files are keyed by the rung alongside the URL for the same reason.
 
+**A source can reserve slots for the role that runs on it.** The local
+orchestrator unit is launched at the user count when the unit declares no width
+of its own, and one of those slots must stay the orchestration role's — a ladder
+batch that filled every slot would leave the resident orchestrator nothing to
+decompose the next task with. ``reserved`` names such slots per source:
+``limits[source]`` is the ladder-facing remainder, the physical slot count is
+``limits[source] + reserved[source]``, and :meth:`hold` gives a dispatch that
+names a rung only the ladder-facing sweep while a role dispatch — one that names
+no rung — takes the full physical pool. The reserved slot is the same physical
+pool, not a second one: role and ladder share the slot files, so together they
+still never exceed the width the unit was actually served at.
+
 The probe is a *parameter*. Nothing here opens a socket, for the same reason
 :mod:`mcgyvr.pool` names :class:`~mcgyvr.pool.SourceProbe` structurally and
 builds nothing: this module's job is to know what to do with the answer.
@@ -190,6 +202,16 @@ the reservations of the thread that started the batch. One reservation covers
 at most one slot at a time, however many draws are sent for it, and a hold on a
 thread that reserved nothing, and was started by none that did, consumes
 nothing and counts in full.
+
+**A queue is countable host-wide, when somebody asked for it to be.** Reservations
+are this process's bookkeeping, and the bound is the flock; neither can say how
+many dispatches in *other* processes are standing in line for a rig, which is what
+a manager deciding whether to wake a second one needs. Given a
+:class:`~mcgyvr.pressure.Gauge`, a dispatch that finds every slot taken is
+present in it for as long as it waits, and :meth:`Capacity.waiting` is that count.
+It is deliberately narrow: a dispatch granted at once is not demand, a drain is
+not demand, and without a gauge the answer is ``None`` and nothing is written —
+a capacity that was not given one is exactly what it was.
 """
 
 from __future__ import annotations
@@ -204,7 +226,7 @@ import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -213,6 +235,7 @@ from typing import Protocol as TypingProtocol
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.pool import Endpoint
+    from mcgyvr.pressure import Gauge
 
 # How often a waiter re-tries the slot files while blocked. Coarse enough to
 # cost nothing against dispatches measured in seconds to minutes; fine enough
@@ -229,6 +252,52 @@ _SLUG = re.compile(r"[^A-Za-z0-9.-]+")
 def _default_lock_dir() -> Path:
     """The per-user rendezvous directory for this host's slot files."""
     return Path(tempfile.gettempdir()) / f"mcgyvr-capacity-{os.getuid()}"
+
+
+@dataclass(frozen=True)
+class Fullness:
+    """Whether a rung is full, and the two counts that said so.
+
+    :meth:`Capacity.judge` is where it is made; this is what it read.
+    """
+
+    #: This process's slots granted plus attempts reserved (:meth:`Capacity.load`).
+    load: int
+    #: What the unit's server says it has in flight; ``None`` where it was not read.
+    server: int | None
+    #: The rung's width (:meth:`Capacity.limit`).
+    width: int
+
+    @property
+    def full(self) -> bool:
+        """Full when either count is at width; free only when both are below it."""
+        if self.load >= self.width:
+            return True
+        return self.server is not None and self.server >= self.width
+
+    @property
+    def server_read(self) -> bool:
+        return self.server is not None
+
+    @property
+    def why(self) -> str:
+        """The two counts in words, saying when the server was not read."""
+        server = (
+            "the server was not read"
+            if self.server is None
+            else f"the server has {self.server} in flight"
+        )
+        return f"{self.load} of {self.width} here; {server}"
+
+
+def _waiting_key(stem: str) -> str:
+    """The gauge key a dispatch waiting on the slot files of ``stem`` is counted under.
+
+    Derived from the slot stem and not from the unit's name, so that the key a
+    waiter writes and the key :meth:`Capacity.waiting` reads are one decision
+    about which queue a dispatch is in.
+    """
+    return f"wait.{stem}"
 
 
 def _slot_stem(base_url: str, rung: str | None = None) -> str:
@@ -452,7 +521,10 @@ class Capacity:
         declared: Mapping[str, int] | None = None,
         rungs: Mapping[str, RungWidth] | None = None,
         urls: Mapping[str, str] | None = None,
+        reserved: Mapping[str, int] | None = None,
         queue_timeout_s: float | None = None,
+        gauge: Gauge | None = None,
+        busy: Callable[[str], int | None] | None = None,
     ) -> None:
         for source, limit in limits.items():
             if limit < 1:
@@ -477,14 +549,37 @@ class Capacity:
                 f"capacity does not bound. A confirmation is a fact about a "
                 f"source's limit, so there has to be a limit for it to be about."
             )
+        # Slots of a source's *physical* width that ladder dispatches may not
+        # take, held back for the role that runs on the same unit (the local
+        # orchestrator). ``limits`` is therefore the ladder-facing width; a
+        # source's physical width is ``limits[source] + reserved[source]``, and
+        # only a role dispatch — a hold that names no rung — may take the
+        # reserved tail. See the module docstring's role-reservation paragraph.
+        self._role_reserved = dict(reserved or {})
+        unknown = ", ".join(sorted(set(self._role_reserved) - set(self._limits)))
+        if unknown:
+            raise CapacityError(
+                f"reserved slot(s) for source(s) {unknown}, which this "
+                f"capacity does not bound. A reservation is a claim against a "
+                f"bound, so there has to be a bound for it to be about."
+            )
+        for source, count in self._role_reserved.items():
+            if count < 0:
+                raise CapacityError(
+                    f"unit {source!r} reserves {count} slot(s), which is not "
+                    f"a number of slots."
+                )
         # What the config said, for the sources where that is not what is
         # enforced. Only a probe can separate the two — nothing else may widen a
         # bound — so a source whose two numbers differ is always a confirmed
         # one, but not the other way round: a probe reporting exactly the
         # declared width confirms it and widens nothing, and an unconfirmed
-        # source always declares what it enforces. Kept because an
-        # `Endpoint` carries the declaration, and :meth:`hold` has to be able to
-        # check the number it was handed against the number of the same kind.
+        # source always declares what it enforces. The one exception is a
+        # role-reserved source, whose declaration is the served width and whose
+        # enforced number is the ladder-facing remainder — the difference is the
+        # reservation, not a probe. Kept because an `Endpoint` carries the
+        # declaration, and :meth:`hold` has to be able to check the number it
+        # was handed against the number of the same kind.
         self._declared = dict(self._limits)
         for source, width in dict(declared or {}).items():
             enforced = self._limits.get(source)
@@ -500,16 +595,22 @@ class Capacity:
                     f"config schema floors at 1. A capacity cannot be built from "
                     f"a declaration no config could have written."
                 )
-            if width > enforced:
+            physical = enforced + self._role_reserved.get(source, 0)
+            if width > physical:
                 raise CapacityError(
                     f"unit {source!r} declares width={width} but is bounded at "
-                    f"{enforced}. A width is only ever widened from its "
+                    f"{physical}. A width is only ever widened from its "
                     f"declaration and never narrowed — :meth:`of` refuses a "
                     f"machine reporting less rather than quietly lowering the "
                     f"bound — so a bound under the declaration is not something "
                     f"this module can have produced."
                 )
-            if width != enforced and source not in self._confirmed:
+            role_reserved = self._role_reserved.get(source, 0) > 0 and width == physical
+            if (
+                width != enforced
+                and source not in self._confirmed
+                and not role_reserved
+            ):
                 raise CapacityError(
                     f"unit {source!r} declares width={width} and is bounded at "
                     f"{enforced} without a confirmation. Only a machine's own "
@@ -546,7 +647,8 @@ class Capacity:
         # the report — is per bound, and a rung's bound is not a special case of
         # a source's.
         self._bounds: dict[_Bound, int] = {
-            (source, None): limit for source, limit in self._limits.items()
+            (source, None): limit + self._role_reserved.get(source, 0)
+            for source, limit in self._limits.items()
         }
         for name, rung in self._rungs.items():
             self._bounds[(rung.source, name)] = rung.limit
@@ -557,6 +659,15 @@ class Capacity:
         # bounded by the same ceiling that bounds the rest of its task: a wait
         # nobody is going to end is a command with no output and no end.
         self._queue_timeout = queue_timeout_s
+        # Where a dispatch that has to wait says so, for whoever is counting.
+        # Absent — the way every capacity was built before there was a gauge —
+        # nothing is announced and nothing is written, so a capacity that was
+        # not given one is exactly what it was; see :meth:`waiting`.
+        self._gauge = gauge
+        # What a unit's own server says it has in flight, by source, for
+        # :meth:`fullness`. Absent, no server is read and this process's load
+        # decides alone — which is what every capacity did before.
+        self._busy = busy
         self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         # Re-entrant because :meth:`deciding` lends this lock to a caller, and a
         # caller inside it reads :meth:`load` and calls :meth:`reserve`, which
@@ -600,6 +711,8 @@ class Capacity:
         *,
         probe: WidthProbe | SourceWidthProbe | None = None,
         root: Path | None = None,
+        gauge: Gauge | None = None,
+        busy: Callable[[str], int | None] | None = None,
     ) -> Capacity:
         """The capacities this config declares, checked against ``probe`` if given.
 
@@ -630,24 +743,59 @@ class Capacity:
         The probe is asked about each unit and never about a rung, and no rung
         bound is built.
 
+        One source may differ from the others before any probe is consulted:
+        the local orchestrator unit — the unit named by ``orchestrator.unit``
+        when it declares no credential — is served at ``users`` slots when it
+        declares no width of its own, and one of those slots is reserved for
+        the orchestration role, so its ladder-facing limit is one narrower.
+
         ``root`` is the directory the slot files live in — :class:`Capacity`'s
         ``lock_dir``, named for what it is to a caller building from a config:
         the rendezvous every mcgyvr process on this host must agree on. Omitted,
         it is the per-user temp directory, which is the agreement by default.
+
+        ``gauge`` is where a dispatch that has to wait for a slot announces it,
+        so that :meth:`waiting` can say how many are queued across every process
+        on this host. It is passed through and is not asked about here: the
+        bound is the flock and is the same with or without one.
+
+        ``busy`` reads what a unit's own server says it has in flight, for
+        :meth:`fullness`; passed through, and asked nothing here.
         """
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
+        reserved: dict[str, int] = {}
         confirmed: list[str] = []
+        orchestrator_name = config.get("orchestrator.unit")
+        orchestrator_unit = (
+            config.units.get(orchestrator_name) if orchestrator_name else None
+        )
+        # The ruling's one home: a slot is reserved only when the serving plan
+        # actually provisions a local orchestrator — a local-only non-chat use
+        # case. Hybrid and chat provision nothing, so a bound local unit is
+        # just a ladder rung.
+        role_orchestrator = (
+            orchestrator_name
+            if config.provisions_local_orchestrator
+            and orchestrator_unit is not None
+            and not orchestrator_unit.requires_credential
+            else None
+        )
+        users = int(config.get("users", 1))
         for name, unit in config.units.items():
             declared = unit.width or 1
+            if name == role_orchestrator:
+                # The serving plan launches the local orchestrator unit at the
+                # user count when the unit declares no width of its own. One
+                # of those slots stays the role's, so the ladder sees the rest.
+                declared = unit.width or users
             declarations[name] = declared
             reported = None if probe is None else _reported(probe, name, None)
             if reported is None:
                 # Nobody asked, or the backend does not say. Two different
                 # reasons, one state of knowledge, and neither is evidence.
-                limits[name] = declared
-                continue
-            if reported < declared:
+                enforced = declared
+            elif reported < declared:
                 raise CapacityError(
                     f"unit {name!r} declares {declared} but reports "
                     f"{reported}. Two answers to one question, and this time the "
@@ -659,8 +807,15 @@ class Capacity:
                     f"slow and never as a config that is merely wrong. Declare "
                     f"{reported}, or start the backend with {declared} slots."
                 )
-            limits[name] = reported
-            confirmed.append(name)
+            else:
+                enforced = reported
+                confirmed.append(name)
+            if name == role_orchestrator:
+                ladder = max(enforced - 1, 1)
+                reserved[name] = enforced - ladder
+                limits[name] = ladder
+            else:
+                limits[name] = enforced
 
         return cls(
             limits,
@@ -668,10 +823,13 @@ class Capacity:
             confirmed=confirmed,
             declared=declarations,
             urls={name: unit.address for name, unit in config.units.items()},
+            reserved=reserved,
             # No single wait may exceed the ceiling on the whole task. That
             # bounds each hold and not their sum: a climb of three rungs that
             # queued at every one of them could still wait three ceilings.
             queue_timeout_s=float(config.get("task_timeout_s")),
+            gauge=gauge,
+            busy=busy,
         )
 
     @property
@@ -715,14 +873,19 @@ class Capacity:
         because an unknown rung name is a dispatch that named no width, not a
         dispatch to an unknown rig.
         """
-        limit = self._bounds.get(self._bound(source, rung))
-        if limit is None:
-            known = ", ".join(sorted(self._limits)) or "none"
-            raise CapacityError(
-                f"no declared capacity for unit {source!r}, so there is no "
-                f"width to report for it. Known units: {known}"
-            )
-        return limit
+        bound = self._bound(source, rung)
+        if bound in self._bounds:
+            # A rung's own bound is its width; the source's own answer is its
+            # ladder-facing width, which leaves the role's reserved slots out
+            # of the physical count (see the module docstring).
+            if bound[1] is not None:
+                return self._bounds[bound]
+            return self._limits[bound[0]]
+        known = ", ".join(sorted(self._limits)) or "none"
+        raise CapacityError(
+            f"no declared capacity for unit {source!r}, so there is no "
+            f"width to report for it. Known units: {known}"
+        )
 
     def queue(self, source: str, rung: str | None = None) -> str | None:
         """Which queue a dispatch to ``source`` on ``rung`` would actually join.
@@ -816,8 +979,8 @@ class Capacity:
         for rung in self._rungs.values():
             by_source[rung.source] = by_source.get(rung.source, 0) + rung.limit
         return sum(
-            max(limit, by_source.get(source, 0))
-            for source, limit in self._limits.items()
+            max(self._bounds[(source, None)], by_source.get(source, 0))
+            for source in self._limits
         )
 
     def in_use(self, source: str) -> int:
@@ -842,6 +1005,65 @@ class Capacity:
         self._bounded(source)
         with self._lock:
             return self._in_use[self._bound(source, rung)]
+
+    def waiting(self, source: str, rung: str | None = None) -> int | None:
+        """How many dispatches, on any process of this host, are queued for a slot.
+
+        Counted for the bound a dispatch to ``source`` on ``rung`` would wait on,
+        by the same slot-file identity :meth:`hold` keys its files by — so two
+        units that share an address are one queue here as they are there. A
+        dispatch is counted from the moment it finds every slot taken and is
+        about to wait, until it is granted one or gives up, and not before: one
+        that is granted a slot at once is never counted, because a reader that
+        saw it would read a busy rig as a queued one. A claim with no queueing
+        (``timeout=0``) never waits and so is never counted, and a
+        :meth:`drain` is not counted either — it waits for the card to empty so
+        that it can be taken down, which is the opposite of demand for it.
+
+        ``None`` without a gauge: this capacity was not given a place to say
+        so, and what nobody was told is not zero. It is also ``None`` where the
+        gauge has no reading (see :meth:`mcgyvr.pressure.Gauge.count`).
+
+        Refuses a source this capacity does not bound, in :meth:`_bounded`'s
+        words, for the reason :meth:`in_flight` does.
+        """
+        self._bounded(source)
+        if self._gauge is None:
+            return None
+        bound = self._bound(source, rung)
+        stem = _slot_stem(self._urls.get(source, source), bound[1])
+        return self._gauge.count(_waiting_key(stem))
+
+    def queued(self, sources: Iterable[str]) -> int | None:
+        """How many dispatches, host-wide, are queued for any slot of ``sources``.
+
+        Every bound of the named sources — each rung bound as well as the
+        source's own pool, the set :meth:`drain` takes — counted once per slot
+        identity, so two units that share an address are one queue. This is the
+        question a sleep asks *inside* its drain: the drain holds every slot, so
+        whoever is counted here is a dispatch that would take one the moment the
+        card went down and hit a dead port.
+
+        ``None`` without a gauge, or where any of the counts has no reading:
+        what nobody was told is not zero.
+        """
+        named = set(sources)
+        for source in named:
+            self._bounded(source)
+        if self._gauge is None:
+            return None
+        stems = {
+            _slot_stem(self._urls.get(source, source), rung)
+            for source, rung in self._bounds
+            if source in named
+        }
+        total = 0
+        for stem in sorted(stems):
+            count = self._gauge.count(_waiting_key(stem))
+            if count is None:
+                return None
+            total += count
+        return total
 
     def load(self, source: str, rung: str | None = None) -> int:
         """How busy ``source`` — or ``rung`` — is: slots granted plus reserved.
@@ -876,6 +1098,48 @@ class Capacity:
             # cannot say a bound is emptier than what is provably held.
             waiting = self._reserved[bound] - self._covered[bound]
             return self._in_use[bound] + max(0, waiting)
+
+    def fullness(self, source: str, rung: str | None = None) -> Fullness:
+        """Whether ``source`` — or ``rung`` — is full, reading its server for it.
+
+        The server's busy count is read through the reader this capacity was
+        given, once per question; without one, it is not read. See
+        :meth:`judge` for the rule.
+        """
+        return self.judge(source, rung, self.server_busy(source))
+
+    def server_busy(self, source: str) -> int | None:
+        """What ``source``'s own server says it has in flight; ``None`` unread.
+
+        One read through the reader this capacity was given, and ``None``
+        without one. Separate from :meth:`judge` so that a caller holding
+        :meth:`deciding` — where nothing slow may run — can read first and
+        judge inside.
+        """
+        self._bounded(source)
+        return None if self._busy is None else self._busy(source)
+
+    def judge(self, source: str, rung: str | None, server: int | None) -> Fullness:
+        """The one definition of a full rung, for a server count already in hand.
+
+        Full when **either** count is at the rung's width: this process's
+        :meth:`load`, which sees a batch that is still choosing and nothing
+        anyone else sent, or ``server``, the unit's own busy count, which sees
+        every client and no attempt that has not arrived yet. Free only when
+        both say free. ``server`` is ``None`` where it could not be read, and
+        then the load decides alone; the answer keeps that, so a reader can see
+        which kind of answer it got.
+
+        Reads nothing: a caller that has just read the server — the ladder
+        manager's pressure reading — hands the count in rather than asking
+        twice.
+        """
+        self._bounded(source)
+        return Fullness(
+            load=self.load(source, rung),
+            server=server,
+            width=self.limit(source, rung),
+        )
 
     def reserve(self, source: str, rung: str | None = None) -> None:
         """Count one attempt as headed for that bound, before it has a slot.
@@ -1073,16 +1337,23 @@ class Capacity:
             )
         declared = self._declared[name]
         if endpoint is not None and endpoint.max_parallel != declared:
-            widened = (
-                ""
-                if self._limits[name] == declared
-                else (
+            if self._limits[name] == declared:
+                widened = ""
+            elif self._role_reserved.get(name, 0):
+                widened = (
+                    f" (This source reserves {self._role_reserved[name]} "
+                    f"slot(s) for its role, so the ladder-facing width is "
+                    f"{self._limits[name]}; an endpoint still carries the "
+                    f"served width, so {declared} is what it has to agree "
+                    f"with.)"
+                )
+            else:
+                widened = (
                     f" (A probe widened this source to {self._limits[name]}, "
                     f"which is what is enforced; an endpoint still carries the "
                     f"declared number, so {declared} is what it has to agree "
                     f"with.)"
                 )
-            )
             raise CapacityError(
                 f"unit {name!r} is bounded at {declared} here "
                 f"but the endpoint declares width="
@@ -1092,6 +1363,14 @@ class Capacity:
             )
         bound = self._bound(name, rung)
         limit = self._bounds[bound]
+        if rung is not None and bound[1] is None:
+            # A ladder dispatch names a rung and falls back to the source's
+            # own bound; a role dispatch names none and takes the full
+            # physical pool. On a source that reserves slots for its role the
+            # ladder must not take the reserved tail, so its sweep is the
+            # ladder-facing width. For every other source the two numbers are
+            # the same and this is a no-op.
+            limit = self._limits[name]
         where = f"unit {bound[1]!r} of unit {name!r}" if bound[1] else f"unit {name!r}"
         # The rig's URL where one is known, and the source's name where it is
         # not: a capacity built from limits alone has no other identity to key
@@ -1274,28 +1553,42 @@ class Capacity:
         the waiter sleeps briefly and sweeps again. The files are created on
         first use and never deleted — see the module docstring for the unlink
         race that rule prevents.
+
+        When a gauge was given, the waiter is *present* in it from the first
+        sweep that found nothing free until it is granted a slot or the deadline
+        raises — which is what :meth:`waiting` counts. A caller that is granted
+        on its first sweep never enters it, and neither does one whose deadline
+        has already passed, because neither of them waits. :meth:`_acquire_one`,
+        which a drain uses, does not do this at all: a drain is not demand.
         """
         directory = self._lock_dir
         directory.mkdir(parents=True, exist_ok=True)
         stem = _slot_stem(base_url, rung)
         deadline = None if timeout is None else time.monotonic() + timeout
-        while True:
-            for index in range(limit):
-                fd = os.open(directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT)
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except OSError:
-                    os.close(fd)
-                    continue
-                return fd
-            if deadline is not None and time.monotonic() >= deadline:
-                raise SlotUnavailableError(
-                    f"{where} has all {limit} declared slot(s) in use "
-                    f"host-wide and none freed within {timeout}s. The bound "
-                    f"counts every mcgyvr process on this host; a longer or "
-                    f"absent timeout queues instead of refusing."
-                )
-            time.sleep(_POLL_SECONDS)
+        with ExitStack() as queued:
+            announced = False
+            while True:
+                for index in range(limit):
+                    fd = os.open(
+                        directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT
+                    )
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except OSError:
+                        os.close(fd)
+                        continue
+                    return fd
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise SlotUnavailableError(
+                        f"{where} has all {limit} declared slot(s) in use "
+                        f"host-wide and none freed within {timeout}s. The bound "
+                        f"counts every mcgyvr process on this host; a longer or "
+                        f"absent timeout queues instead of refusing."
+                    )
+                if self._gauge is not None and not announced:
+                    queued.enter_context(self._gauge.present(_waiting_key(stem)))
+                    announced = True
+                time.sleep(_POLL_SECONDS)
 
     def _bounded(self, source: str) -> None:
         """Refuse a source this capacity does not bound, by name.

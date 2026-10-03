@@ -24,10 +24,11 @@ What is asserted instead:
   the live tree would pass every isolation test in the suite and still eat the
   user's work, which is the failure this whole lever exists to prevent.
 * **Falling back is not giving up.** Docker asked for and no daemon answering is
-  the common case on a laptop and in CI. The sandbox that comes back must still
-  be usable *and* still hold the hardening, and it must say out loud that it is
-  weaker — a silent downgrade is how an operator ends up believing in isolation
-  they do not have.
+  the common case on a laptop and in CI. Falling back is the operator's choice,
+  made ahead of time with ``sandbox.allow_fallback``; without it the task is
+  refused. The sandbox that comes back must still be usable *and* still hold the
+  hardening, and it must say out loud that it is weaker — a silent downgrade is
+  how an operator ends up believing in isolation they do not have.
 """
 
 from __future__ import annotations
@@ -126,20 +127,24 @@ def test_a_destructive_command_cannot_reach_the_callers_checkout(repo: Path) -> 
 def test_docker_with_no_daemon_still_yields_a_working_sandbox_that_says_it_is_weaker(
     repo: Path,
 ) -> None:
-    """No daemon is a degrade, not a failure — and never a silent one.
+    """No daemon, with the fallback allowed, is a degrade — and never a silent one.
 
-    Three things at once, because a port could drop any one of them and leave the
-    other two looking right:
+    Without ``allow_fallback`` it is a refusal
+    (``tests/test_a_docker_sandbox_with_no_daemon_is_refused_unless_the_fallback_is_asked_for.py``).
+    With it, three things at once, because a port could drop any one of them and
+    leave the other two looking right:
 
-    * it still runs, so a laptop with no Docker is a supported machine rather
-      than a stuck one;
+    * it still runs, so a laptop with no Docker whose operator chose the
+      fallback is a supported machine rather than a stuck one;
     * it still strips credentials, so the fallback is weaker in isolation and not
       in hardening — this is the clause a rewrite is most likely to lose, since
       the strong path is the one anyone tests;
     * it says which mode it is in, in words an operator reads, so believing in
       container isolation you do not have takes a deliberate act.
     """
-    sandbox = open_sandbox(repo, mode="docker", docker_available=False)
+    sandbox = open_sandbox(
+        repo, mode="docker", docker_available=False, allow_fallback=True
+    )
 
     assert sandbox.isolation == "process", "reported container isolation with no daemon"
     note = " ".join(sandbox.notes).lower()

@@ -11,10 +11,14 @@ Two rules are pinned below, beside the pure helpers:
 
 * **Wake-before-API routing.** A hard task, with an asleep smarter resident rung
   on the ladder, is routed to that rung before the api family is entered.
-* **Auto-sleep is never taken.** Jev may route and wake; it may never take a
-  card down. The hook has no sleep path, and driving the climb with the hook
-  wired reaches the door never — ``mcgyvr.wake.sleep`` is monkeypatched to fail
-  the test if it is so much as called.
+* **The hook never sleeps.** It routes, and the dispatch it routes to wakes;
+  putting a unit back to sleep is the ladder manager's
+  (:mod:`mcgyvr.ladder_manager`), not this per-task hook's. The hook has no
+  sleep path, and driving the climb with the hook wired reaches the door's
+  ``down`` never — ``mcgyvr.wake.sleep`` is monkeypatched to fail the test if
+  it is so much as called.
+* **A cooling smart rung is not routed to.** Where the cooldown names the smart
+  rung, the hook names nothing and Jev is not asked.
 
 Nothing here touches a network or a rig. The judgment is stubbed at
 ``mcgyvr.decision._post_json`` for the hook and at the ``wake_hook`` seam for
@@ -376,7 +380,7 @@ def test_hook_for_is_none_when_sleep_wake_is_off(tmp_path: Path, key: None) -> N
 
 
 def test_the_hook_has_no_sleep_path() -> None:
-    """Jev may route and wake; taking a card down stays a human-typed act.
+    """The hook routes and a dispatch wakes; sleeping is the manager's, not this hook's.
 
     Asserted over the module's own source rather than by behaviour, because the
     absence being guarded is the absence of a path: a ``sleep`` call added to
@@ -386,6 +390,69 @@ def test_the_hook_has_no_sleep_path() -> None:
     assert "sleep(" not in source, "the hook must never call the sleep path"
     assert '"down"' not in source, "the hook must never reach for the door's down"
     assert "'down'" not in source, "the hook must never reach for the door's down"
+
+
+# --- a cooling rung is not routed to ----------------------------------------
+
+
+class Cooling:
+    """A cooldown that holds out the rungs it is told to."""
+
+    def __init__(self, *held: str) -> None:
+        self.held = set(held)
+
+    def unavailable(self, endpoints: Any) -> dict[str, str]:
+        return {
+            endpoint.source: "cooling down"
+            for endpoint in endpoints
+            if endpoint.source in self.held
+        }
+
+
+def test_a_cooled_down_smart_rung_is_never_routed_to_and_jev_is_not_asked(
+    tmp_path: Path, key: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    specs = write_smart_spec(tmp_path)
+    config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
+
+    def asked(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("Jev was asked about a rung that is cooling down")
+
+    monkeypatch.setattr(decision_module, "_post_json", asked)
+
+    named = fleet_manager.wake_before_api(
+        config, pool, contract(), judge_with=FAST, cooldown=Cooling(SMART)
+    )
+
+    assert named is None
+
+
+def test_a_smart_rung_the_cooldown_does_not_name_is_routed_to_as_before(
+    tmp_path: Path, key: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    specs = write_smart_spec(tmp_path)
+    config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
+    monkeypatch.setattr(decision_module, "_post_json", yes_judge())
+    hook = fleet_manager.hook_for(config, pool, cooldown=Cooling(FAST))
+    assert hook is not None
+
+    assert hook(contract()) == SMART
+
+
+def test_the_hook_built_with_a_cooldown_reads_it_at_each_task(
+    tmp_path: Path, key: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rung that cools after the hook was built is still not routed to."""
+    specs = write_smart_spec(tmp_path)
+    config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
+    monkeypatch.setattr(decision_module, "_post_json", yes_judge())
+    cooling = Cooling()
+    hook = fleet_manager.hook_for(config, pool, cooldown=cooling)
+    assert hook is not None
+
+    assert hook(contract()) == SMART
+    cooling.held.add(SMART)
+    assert hook(contract()) is None
 
 
 # --- wake-before-API routing through the climb ------------------------------
@@ -414,7 +481,9 @@ def test_a_hard_task_is_routed_to_the_smart_rung_before_the_api(
     import mcgyvr.wake as wake
 
     def no_sleep(config: Any, host: str) -> Any:
-        raise AssertionError("the hook routed to a sleep; Jev may never auto-sleep")
+        raise AssertionError(
+            "the hook routed to a sleep; sleeping is the manager's, not the hook's"
+        )
 
     monkeypatch.setattr(wake, "sleep", no_sleep)
 
@@ -443,7 +512,9 @@ def test_a_not_hard_task_escalates_to_the_api_as_before(
     import mcgyvr.wake as wake
 
     def no_sleep(config: Any, host: str) -> Any:
-        raise AssertionError("the hook routed to a sleep; Jev may never auto-sleep")
+        raise AssertionError(
+            "the hook routed to a sleep; sleeping is the manager's, not the hook's"
+        )
 
     monkeypatch.setattr(wake, "sleep", no_sleep)
 
