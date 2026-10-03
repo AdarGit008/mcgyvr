@@ -28,8 +28,10 @@ Two limits are named rather than hidden:
 
 The transport is :func:`~mcgyvr.runner._post_json` and
 :func:`~mcgyvr.runner._url_for`, the same wire path the runner uses, so a
-decision and a dispatch reach a unit identically. The only difference is the
-request body: ``logprobs`` instead of a generation cap.
+decision and a dispatch reach a unit identically. The only differences are in
+the request body: ``logprobs`` instead of a generation cap, and the template
+argument that turns a thinking model's thinking off for the one token asked
+(``chat_template_kwargs``).
 """
 
 from __future__ import annotations
@@ -330,6 +332,18 @@ def classify(
             "stream": False,
             "logprobs": True,
             "top_logprobs": min(_MAX_TOP_LOGPROBS, len(labels)),
+            # A thinking model's template opens every reply with its thinking
+            # tag — Qwen3's first token was `<think>` at probability 1.0 in the
+            # pilot — so no label can appear in the first token's top_logprobs
+            # and every question is unreadable. The template argument turns
+            # it off for this request alone, whatever the unit was launched
+            # with: llama-server and vLLM both read `chat_template_kwargs` as
+            # template arguments (the llama.cpp server README: "Allows sending
+            # additional parameters to the json templating system. For
+            # example: {"enable_thinking": false}"; vllm ChatCompletionRequest
+            # .chat_template_kwargs). A generation (mcgyvr.runner) sends none:
+            # a conversing model keeps its thinking.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         document = _post_json(url, payload, headers, timeout_s)
         answers[name] = answer_for(question, _top_logprobs(document))
