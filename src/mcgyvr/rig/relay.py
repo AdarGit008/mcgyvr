@@ -19,6 +19,12 @@ machine's loopback alone (:mod:`mcgyvr.sandbox.pooled`). A relay is:
   ``relay_cancel`` or when the session ends; ``timeout`` past the hub's time;
   ``too_large`` past its size; or ``error`` with the hub's code.
 
+A head serves as many requests at once as it has slots (``head_start``'s
+``slots``), so a session takes at most that many relays at once, and the
+next is answered ``busy`` without reaching the head. :data:`MAX_ACTIVE`
+bounds the relays of the whole rig besides: a rig is in one session at a
+time, so it is never below what that session's head may take.
+
 A cancel or a deadline hangs up on the head, which stops generating. What a
 relay carries is the users' and is never printed or put in a message: a
 failure says only its class.
@@ -40,8 +46,10 @@ from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
 
-#: How many relays may run at once on one rig; the head serves one at a time.
-MAX_ACTIVE = 4
+#: How many relays may run at once on one rig, whatever its sessions: a
+#: safety net under each head's own bound (its slots). A rig is in one
+#: session at a time, so this is the most slots one head may have.
+MAX_ACTIVE = sessionwire.MAX_SLOTS
 #: How many request ids are remembered, so one is never used twice.
 REMEMBERED_IDS = 4096
 #: The longest a frame of the answer waits for the outbox, in seconds.
@@ -52,6 +60,8 @@ class Heads(Protocol):
     """Where a session's head is: :class:`mcgyvr.rig.session.Sessions`."""
 
     def head_port(self, session_id: str) -> int | None: ...
+
+    def head_slots(self, session_id: str) -> int: ...
 
     def state_of(self, session_id: str) -> tuple[str, str | None]: ...
 
@@ -123,7 +133,15 @@ class Relays:
                     outcome="error",
                     error_code=self._why_not(asked.session_id),
                 )
-            if len(self._active) >= self._max_active:
+            taken = sum(
+                1
+                for running in self._active.values()
+                if running.asked.session_id == asked.session_id
+            )
+            if (
+                taken >= self._heads.head_slots(asked.session_id)
+                or len(self._active) >= self._max_active
+            ):
                 return sessionwire.relay_end(
                     asked.request_id, outcome="error", error_code=SessionCode.BUSY
                 )

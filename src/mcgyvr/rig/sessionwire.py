@@ -45,6 +45,11 @@ MAX_CTX = 1 << 20
 MIN_CTX = 256
 MAX_TENSOR_SHARE = 1 << 20
 MAX_GPU_LAYERS = 4096
+#: How many requests a head serves at once: ``head_start``'s ``slots``, each
+#: with ``ctx`` of its own. The hub sends more than one only to an agent that
+#: speaks the ``head_slots`` feature.
+MAX_SLOTS = 16
+DEFAULT_SLOTS = 1
 MAX_KEEPALIVE_S = 600
 DEFAULT_KEEPALIVE_S = 25
 DEFAULT_GPU_LAYERS = 999
@@ -243,10 +248,11 @@ class HeadStart:
     session_id: str
     model: str
     digest: str | None
-    ctx: int
-    devices: tuple[LocalDevice | RpcDevice, ...]
+    ctx: int  # the context of one slot
+    devices: tuple[LocalDevice | RpcDevice, ...]  # in the hub's order, kept
     tensor_split: tuple[int, ...]
     n_gpu_layers: int
+    slots: int = DEFAULT_SLOTS
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -389,6 +395,13 @@ def _endpoints(body: _Body, field: str) -> tuple[Endpoint, ...]:
             )
         )
     return tuple(found)
+
+
+def _slots(body: _Body) -> int:
+    """``slots`` of ``body``: how many requests a unit serves at once, 1 to
+    :data:`MAX_SLOTS`, :data:`DEFAULT_SLOTS` when it is left out. One reading
+    for every message that carries it."""
+    return body.number("slots", 1, MAX_SLOTS, default=DEFAULT_SLOTS)
 
 
 def _start(envelope: protocol.Envelope) -> _Body:
@@ -547,6 +560,7 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
         n_gpu_layers=body.number(
             "n_gpu_layers", 0, MAX_GPU_LAYERS, default=DEFAULT_GPU_LAYERS
         ),
+        slots=_slots(body),
     )
 
 

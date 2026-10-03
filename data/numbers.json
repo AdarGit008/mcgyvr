@@ -914,11 +914,6 @@
       "says": "The version of the hub's agent protocol this agent speaks.",
       "reason": "a code or version other programs or files read"
     },
-    "rig/relay.py:MAX_ACTIVE": {
-      "kind": "estimate",
-      "says": "How many relayed requests a session's head is given at once; past it a relay is answered busy.",
-      "moves_to": "relays_at_once"
-    },
     "rig/relay.py:REMEMBERED_IDS": {
       "kind": "choice",
       "says": "How many relay request ids a rig agent remembers, so none is used twice.",
@@ -1212,6 +1207,16 @@
     "rig/sessionwire.py:MAX_GPU_LAYERS": {
       "kind": "fact",
       "says": "The most layers a head start of the hub's agent protocol offloads.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:MAX_SLOTS": {
+      "kind": "fact",
+      "says": "The most requests a head start of the hub's agent protocol asks one head to serve at once (its slots).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:DEFAULT_SLOTS": {
+      "kind": "fact",
+      "says": "The slots a head start serves at once when the hub names none, as the hub's agent protocol defaults it.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/sessionwire.py:MAX_KEEPALIVE_S": {
@@ -1683,6 +1688,11 @@
       "kind": "choice",
       "says": "How many hex digits of a digest name a session's containers and its tunnel image's tag.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "sandbox/pooled.py:HeadSpec.slots": {
+      "kind": "fact",
+      "says": "The slots a pooled head serves at once when none is given: one, as a head start without slots asks.",
+      "reason": "the specification of a format, protocol or tool"
     },
     "scan.py:BANDWIDTH_TOLERANCE": {
       "kind": "estimate",
