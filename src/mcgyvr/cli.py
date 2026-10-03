@@ -1921,6 +1921,13 @@ def _report_climb(
             f"{contract.id} was accepted on {outcome.rung} without bound "
             f"content, so there is nothing a delivery could re-judge.",
         )
+    if contract.output_schema in ("prose", "media_artifact"):
+        # A raw-text reply is the answer, not a file that gets committed: the
+        # harness reads it off the result file rather than off a delivery. No
+        # `_commit` is attempted and the accepted exit is returned.
+        report.answer = bound.content
+        print(f"\n{contract.id}: answer —\n{bound.content}")
+        return 0
     landed = outcome.history[-1]
     return _commit(
         args,

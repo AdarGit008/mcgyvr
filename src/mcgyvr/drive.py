@@ -67,7 +67,7 @@ from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, verify
 from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
-from mcgyvr.worker.reply import ReplyError, parse_reply
+from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, ReplyError, parse_reply
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable, Sequence
@@ -658,6 +658,7 @@ def worker_attempt(
 
     def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
+        prose = contract.output_schema in (PROSE, MEDIA_ARTIFACT)
         if cooldown is not None:
             # Ask before a prompt is built or a sandbox is opened: a rung on a
             # source that has just failed several dispatches in a row is
@@ -684,6 +685,11 @@ def worker_attempt(
                 )
 
         def judge_draw(space: Sandbox) -> GateResult:
+            if prose:
+                # A raw-text reply is the answer, not a file to tidy or repair.
+                # The only bar it must clear is the output evidence its
+                # contract declares; chat declares none and accepts on the spot.
+                return gate_prose_workspace(contract, space)
             # The gate is handed the sandbox, not a bare path, because a
             # contract's acceptance commands are arbitrary shell and run inside
             # a sandbox and nowhere else. `gate_workspace` takes the
@@ -895,7 +901,7 @@ def worker_attempt(
             )
         else:
             gate, bound = picked.gate, picked.winner
-            if tidying:
+            if tidying and not prose:
                 gate, bound = _cleaned(
                     contract, sandbox, gate, bound, adapters=adapters, config=config
                 )
@@ -908,10 +914,13 @@ def worker_attempt(
                 # run, the bytes it read, and which model wrote them. What
                 # crosses the seam is the reviewer itself, and `judge` decides
                 # whether to ask it: `partial` binds arguments and dispatches
-                # nothing, so a rejected gate costs no verifier spend.
+                # nothing, so a rejected gate costs no verifier spend. A
+                # raw-text reply is never verifier-reviewed — there is no file
+                # change to review — so prose answers are judged with no
+                # verifier whatever an install configured.
                 verifier=(
                     None
-                    if reviewer is None
+                    if prose or reviewer is None
                     else partial(
                         verify,
                         contract,
@@ -1305,6 +1314,25 @@ def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | Non
         transcript=contract.transcript,
         wer_threshold=contract.wer_threshold,
         sources=contract.sources,
+    )
+
+
+def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
+    """Judge a raw-text reply by the contract's output checks and nothing else.
+
+    A raw-text reply is the answer itself, not a file to be tidied, repaired or
+    verifier-reviewed. The only bar it must clear is the structural output
+    evidence the contract declares — grounded citations, a safety pass, and so
+    on — and a chat contract that declares none is accepted with no gate at all.
+    """
+    rung = output_checks_for(contract, sandbox.workspace)
+    if rung is None:
+        return GateResult()
+    report = rung.run()
+    return GateResult(
+        findings=report.findings,
+        environment_issues=report.environment_issues,
+        inconclusive=report.inconclusive,
     )
 
 
