@@ -26,7 +26,9 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   ladder's budgets and ceilings are unchanged. While the hub cannot relay
   yet (503 `hitchhike_not_served_yet`) or no longer matches a rung (404),
   the rung is passed over as if full. `mcgyvr pool` lists the relief rungs
-  apart from the ladder, with where the hub placed each host's model.
+  apart from the ladder, with where the hub placed each host's model. With
+  `MCGYVR_HUB_API_KEY` set, the rig agent keeps them fresh on its heartbeat,
+  no more often than the hub re-matches.
 - A rig can lend its cards to a hub's pooled-inference sessions, where one
   model's layers run across several rigs: `mcgyvr rig share --on --image
   <engine image>` turns it on (it is off until then) with the roles

@@ -35,7 +35,10 @@ the same rate, delaying rather than dropping. The agent tells them when the
 channel is up (``on_online``), when it is lost (``on_offline``: the outbox
 is closed, and sessions end unless the hub returns within their grace), and
 when the agent ends (``on_exit``: every session is torn down before
-:meth:`Agent.run` returns). An error the hub sends is told to them too
+:meth:`Agent.run` returns). After each heartbeat it is sent the agent tells
+``on_beat``, its one periodic tick: whatever hangs off it must return at once
+and do its work elsewhere (the relief rungs' refresher,
+:class:`mcgyvr.rig.rungs.Refresher`). An error the hub sends is told to them too
 (``on_hub_error``), and a session that ended and freed its memory asks for a
 heartbeat at once (:meth:`Agent.beat_soon`), so the hub's reading of the rig
 is fresh.
@@ -254,6 +257,7 @@ class Agent:
         on_exit: Callable[[], None] | None = None,
         hurry: Callable[[], bool] | None = None,
         on_hub_error: Callable[[protocol.Error], None] | None = None,
+        on_beat: Callable[[], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
@@ -275,6 +279,7 @@ class Agent:
         self._on_exit = on_exit or (lambda: None)
         self._hurry = hurry or (lambda: False)
         self._on_hub_error = on_hub_error or (lambda error: None)
+        self._on_beat = on_beat or (lambda: None)
         self._soon = threading.Event()
 
     def beat_soon(self) -> None:
@@ -498,5 +503,6 @@ class Agent:
             self._send(channel, frame, answer=False)
             unacked.append(beat_id)
             last_beat = self._clock()
+            self._on_beat()
             if not early:
                 next_beat += interval

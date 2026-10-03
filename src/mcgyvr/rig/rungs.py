@@ -25,6 +25,12 @@ refusing whole keeps the relief rungs already kept as they were. Fields the
 contract does not name are not read, so a newer hub may add some. The written
 file is loaded with the rest of the setup before it replaces the old one, so a
 sync never leaves a setup that does not load.
+
+**The agent keeps them fresh when it may.** With the key's variable set, the
+rig agent hands its heartbeat a :class:`Refresher` (:func:`refresher_for`),
+which syncs at the first beat and then no sooner than the hub's ``refresh_s``,
+on a thread of its own, one sync at a time, saying a failure rather than
+raising it.
 """
 
 from __future__ import annotations
@@ -33,9 +39,13 @@ import json
 import math
 import os
 import re
+import sys
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -48,6 +58,7 @@ from mcgyvr.config import (
     POSITION_CHOICES,
     RELIEF_FILENAME,
     ConfigError,
+    config_path,
     parse,
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
@@ -74,6 +85,9 @@ MAX_ADDRESS = 2048
 MAX_WIDTH = 1024
 #: A relief rung's name in ``relief.yaml``: this prefix and the rung's id.
 NAME_PREFIX = "hitchhike-"
+#: How long the agent's refresher waits after a sync that failed, in seconds:
+#: the hub's own re-match interval in the contract's example.
+RETRY_S = 60.0
 
 _ID = re.compile(r"[0-9a-f]{32}")
 _MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
@@ -353,3 +367,93 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
         staging.unlink(missing_ok=True)
         raise
     return rides, target
+
+
+def _thread(work: Callable[[], None]) -> None:
+    threading.Thread(target=work, name="relief-rungs", daemon=True).start()
+
+
+def _say(line: str) -> None:
+    print(line, file=sys.stderr, flush=True)
+
+
+class Refresher:
+    """A sync of the relief rungs, kept from the rig agent's heartbeat.
+
+    :meth:`tick` is the agent's ``on_beat``: it returns at once. A sync is
+    started when one is due — at the first tick, then once the hub's
+    ``refresh_s`` has passed since the last sync ended, or :data:`RETRY_S`
+    after one failed — and never while one is still going. A failure is said,
+    once while it keeps failing the same way, and never raised.
+    """
+
+    def __init__(
+        self,
+        *,
+        sync: Callable[[], Rides],
+        clock: Callable[[], float] = time.monotonic,
+        say: Callable[[str], None] = _say,
+        start: Callable[[Callable[[], None]], None] = _thread,
+    ) -> None:
+        self._sync = sync
+        self._clock = clock
+        self._say = say
+        self._start = start
+        self._lock = threading.Lock()
+        self._due: float | None = None
+        self._going = False
+        self._last_failure = ""
+
+    def tick(self) -> None:
+        """Start a sync if one is due and none is going."""
+        with self._lock:
+            now = self._clock()
+            if self._going or (self._due is not None and now < self._due):
+                return
+            self._going = True
+        self._start(self._run)
+
+    def _run(self) -> None:
+        try:
+            rides = self._sync()
+        except (SyncError, HubAnswerError, OSError, ValueError) as exc:
+            failure = f"note: the relief rungs were not synced: {exc}"
+            with self._lock:
+                self._due = self._clock() + RETRY_S
+                self._going = False
+                repeated, self._last_failure = failure == self._last_failure, failure
+            if not repeated:
+                self._say(failure)
+            return
+        with self._lock:
+            self._due = self._clock() + rides.refresh_s
+            self._going = False
+            self._last_failure = ""
+
+
+def refresher_for(
+    hub: str, *, environ: Mapping[str, str] = os.environ
+) -> Refresher | None:
+    """The agent's refresher for the hub it joined, or ``None`` without a key.
+
+    Only when :data:`KEY_ENV` is set: the rig token is the agent's, and the
+    rider's personal key is theirs to give. The key is read at each sync, so
+    a variable changed under the agent is the one used next; the setup is the
+    one :func:`mcgyvr.config.config_path` locates, as ``mcgyvr rig rungs
+    sync`` does.
+    """
+    if not environ.get(KEY_ENV):
+        return None
+
+    def once() -> Rides:
+        key = environ.get(KEY_ENV)
+        if not key:
+            raise SyncError(f"${KEY_ENV} is no longer set")
+        try:
+            folder = config_path()
+        except ConfigError as exc:
+            raise SyncError(str(exc)) from exc
+        rides, _ = sync(folder, hub, key, KEY_ENV)
+        return rides
+
+    return Refresher(sync=once)

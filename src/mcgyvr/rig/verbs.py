@@ -144,6 +144,7 @@ def run_agent(kept: Credentials) -> int:
         probe,
         protocol,
         relay,
+        rungs,
         session,
         sharing,
         state,
@@ -257,6 +258,15 @@ def run_agent(kept: Credentials) -> int:
                 f"note: this machine's containers were not read: {exc}", file=sys.stderr
             )
 
+    # With the rider's personal key in the environment, the heartbeat keeps
+    # the relief rungs fresh too (`mcgyvr rig rungs sync`, on the agent's tick).
+    refresher = rungs.refresher_for(kept.hub)
+    if refresher is not None:
+        print(
+            f"relief rungs: kept fresh from {kept.hub} with ${rungs.KEY_ENV}",
+            file=sys.stderr,
+        )
+
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
@@ -285,6 +295,7 @@ def run_agent(kept: Credentials) -> int:
         on_exit=on_exit,
         hurry=sessions.waiting,
         on_hub_error=sessions.hub_error,
+        on_beat=refresher.tick if refresher is not None else None,
     )
     sessions.on_end(lambda ended: running.beat_soon())
 
