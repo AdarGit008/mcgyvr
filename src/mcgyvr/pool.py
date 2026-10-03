@@ -448,17 +448,14 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         if bound is None:
             continue
         unit = config.units[bound]
-        if model is None and role in ("verifier", "jev"):
-            # `model` absent means the unit's own. Said for the verifier and
-            # acted on here, because a reviewer left unbound for want of a
-            # spelling is a review that silently never happens — and the model
-            # it would have named is the one its independence is checked on.
-            # The same for the Jev unit: a `jev.unit` with no model would
-            # otherwise leave every typed decision on the unit it asked before,
-            # with nothing to say the binding was ignored.
-            model = unit.model
         if model is None:
-            continue
+            # `model` absent means the unit's own, for every role: the schema
+            # says so of each role block, and a bound unit with no spelling is
+            # a binding, not a decision to bind nothing. A reviewer left
+            # unbound for want of a spelling is a review that silently never
+            # happens; an orchestrator left unbound is `mcgyvr delegate`
+            # reporting a role the file plainly binds as unconfigured.
+            model = unit.model
         reason = _unusable(unit)
         if reason is not None:
             role_skips[role] = reason
