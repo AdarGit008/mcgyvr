@@ -173,14 +173,16 @@ class ModelInfo:
 @dataclass(frozen=True, kw_only=True)
 class Offer:
     """What a hello says this rig lends: its roles, the runtime it runs them
-    in, the endpoints its tunnel is reached at, the models it can serve, and
-    the sessions it is running now. A rig that lends nothing says none of it."""
+    in, the endpoints its tunnel is reached at, the models it can serve, the
+    sessions it is running now, and the optional behaviours of the protocol
+    it speaks (``features``). A rig that lends nothing says none of it."""
 
     roles: tuple[str, ...]
     runtime: str | None
     endpoints: tuple[tuple[str, int, str], ...]  # host, port, kind
     models: tuple[ModelInfo, ...]
     sessions: tuple[str, ...]
+    features: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -345,6 +347,8 @@ ENDPOINT_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.:-]{0,252}")
 ROLES = ("head", "worker")
 #: The most endpoints a hello names.
 MAX_ENDPOINTS = 8
+#: The most optional behaviours a hello names.
+MAX_FEATURES = 16
 
 
 def _model_body(model: ModelInfo) -> dict[str, Any]:
@@ -413,9 +417,17 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         all(MESSAGE_ID.fullmatch(session) for session in offer.sessions),
         "sessions: not session ids",
     )
+    _need(
+        len(offer.features) <= MAX_FEATURES
+        and len(set(offer.features)) == len(offer.features)
+        and all(TAG.fullmatch(feature) for feature in offer.features),
+        "capabilities.features: not distinct tags",
+    )
     capabilities: dict[str, Any] = {"roles": list(offer.roles)}
     if offer.runtime is not None:
         capabilities["runtime"] = offer.runtime
+    if offer.features:
+        capabilities["features"] = list(offer.features)
     return {
         "capabilities": capabilities,
         "endpoints": [

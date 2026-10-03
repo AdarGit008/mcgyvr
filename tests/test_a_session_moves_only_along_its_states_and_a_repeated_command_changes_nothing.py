@@ -58,8 +58,9 @@ def test_a_worker_session_runs_prepare_tunnel_start_query_stop(pool: Pool) -> No
     }
     assert pool.docker.runs() == [pooled.container_name("s1", "tunnel")]
 
-    ack = pool.ask("tunnel_up", "t1", **fakes.tunnel_up_body())
-    assert ack is not None and ack["type"] == "ack" and ack["re"] == "t1"
+    report = pool.up("t1", **fakes.tunnel_up_body())
+    assert report["re"] == "t1"
+    assert report["body"]["peers"][0]["path"] == "lan"
     pool.settle()
     tunnel_calls = [s for s in pool.docker.scripts if s[1] == pooled.TUNNEL_SCRIPT]
     assert [call[2] for call in tunnel_calls] == [
@@ -107,9 +108,12 @@ def test_every_command_repeated_gets_the_same_answer_and_starts_nothing_more(
     assert again["body"] == first["body"] and again["re"] == "p2"
 
     body = fakes.tunnel_up_body()
-    for attempt in ("t1", "t2", "t3"):
-        ack = pool.ask("tunnel_up", attempt, **body)
-        assert ack is not None and ack["type"] == "ack"
+    reports = [pool.up("t1", **body)]
+    for attempt in ("t2", "t3"):
+        again = pool.ask("tunnel_up", attempt, **body)
+        assert again is not None and again["type"] == "tunnel_report"
+        reports.append(again)
+    assert all(r["body"] == reports[0]["body"] for r in reports)
     cards = [{"card_index": 0, "port": 50052}, {"card_index": 1, "port": 50053}]
     for attempt in ("w1", "w2"):
         ack = pool.ask("worker_start", attempt, session_id="s1", cards=cards)
@@ -135,7 +139,7 @@ def test_the_same_session_asked_for_something_else_is_refused(pool: Pool) -> Non
     prepared(pool)
     other_role = pool.ask("session_prepare", "p2", session_id="s1", role="head")
     assert other_role is not None and other_role["body"]["code"] == "bad_message"
-    assert pool.ask("tunnel_up", "t1", **fakes.tunnel_up_body())["type"] == "ack"  # type: ignore[index]
+    pool.up("t1", **fakes.tunnel_up_body())
     moved = fakes.tunnel_up_body(address=f"{fakes.PEER.rsplit('.', 1)[0]}.9/24")
     refused = pool.ask("tunnel_up", "t2", **moved)
     assert refused is not None and refused["body"]["code"] == "bad_message"
@@ -183,7 +187,7 @@ def test_a_head_session_loads_then_is_ready_on_its_cards_and_its_workers(
     assert "127.0.0.1:18080:8080/tcp" in tunnel_argv
     body = fakes.tunnel_up_body(address=f"{fakes.PEER}/24")
     body["peers"][0]["allowed_ips"] = [f"{fakes.SELF}/32"]
-    assert pool.ask("tunnel_up", "t1", **body)["type"] == "ack"  # type: ignore[index]
+    pool.up("t1", **body)
     ack = pool.ask(
         "head_start",
         "h1",

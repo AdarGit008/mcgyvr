@@ -34,7 +34,7 @@ def pool(tmp_path: Path) -> Iterator[Pool]:
 
 def _worker(pool: Pool, cards: list[int] | None = None) -> None:
     prepared(pool)
-    assert pool.ask("tunnel_up", "t1", **fakes.tunnel_up_body())["type"] == "ack"  # type: ignore[index]
+    pool.up("t1", **fakes.tunnel_up_body())
     body = [{"card_index": c, "port": 50052 + c} for c in (cards or [0])]
     assert pool.ask("worker_start", "w1", session_id="s1", cards=body)["type"] == "ack"  # type: ignore[index]
 
@@ -94,7 +94,7 @@ def test_a_tunnel_that_never_says_ready_fails_the_prepare_and_is_removed(
 def test_a_tunnel_that_cannot_be_configured_fails_and_is_removed(pool: Pool) -> None:
     pool.docker.fail_script = "TUNNEL_SCRIPT"
     prepared(pool)
-    assert pool.ask("tunnel_up", "t1", **fakes.tunnel_up_body())["type"] == "ack"  # type: ignore[index]
+    assert pool.ask("tunnel_up", "t1", **fakes.tunnel_up_body()) is None
     pool.wait_for("session_status", "failed")
     body = pool.box.of_type("session_status")[-1]["body"]
     assert body["error_code"] == "tunnel_failed"
@@ -108,7 +108,9 @@ def test_a_hub_that_stays_away_past_the_grace_takes_the_session_down(
     pool.wait_for("session_status", "ready")
     pool.sessions.offline()
     deadline = time.monotonic() + 5
-    while pool.docker.of_session("s1") and time.monotonic() < deadline:
+    while (
+        pool.docker.of_session("s1") or pool.sessions.running()
+    ) and time.monotonic() < deadline:
         time.sleep(0.01)
     assert pool.docker.of_session("s1") == []
     assert pool.sessions.running() == ()

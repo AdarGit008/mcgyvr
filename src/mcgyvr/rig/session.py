@@ -9,16 +9,36 @@ of them (:func:`register` puts its handlers on the dispatcher):
 * ``session_prepare`` starts the session's tunnel container
   (:mod:`mcgyvr.sandbox.pooled`), which makes the session's WireGuard key on
   this rig; it is answered ``session_prepared`` with the public key, the
-  listen port and the LAN endpoints, once the tunnel says it is ready;
+  listen port and the LAN endpoints, once the tunnel says it is ready. When
+  it carries ``traversal`` (the hub's token and binding responders), the
+  tunnel's own port — before WireGuard takes it — asks the responders where
+  it is seen from, and keeps asking until the tunnel comes up, so the
+  address the hub hands this rig's peers is the one WireGuard's packets will
+  leave by; the answer carries the round trip (``stun_rtt_us``);
 * ``tunnel_up`` brings the tunnel up to the peers the hub names, as far as
-  :func:`mcgyvr.rig.tunnel.plan` allows, and measures the round trip to each
-  peer over it (``peer_rtt``);
+  :func:`mcgyvr.rig.tunnel.plan` allows, and walks each peer's candidates in
+  the hub's order, :attr:`Timing.attempt_s` each (or the hub's
+  ``attempt_s``), until a WireGuard handshake confirms one — both rigs walk
+  at once, so each side's handshakes open its own NAT for the other's — then
+  the peer's relay, bound from this machine (:func:`bind_relay`). It is
+  answered ``tunnel_report``: each peer's path (``lan``, ``direct``,
+  ``relay`` or ``none``), the endpoint WireGuard uses and the round trip
+  over the tunnel (also sent as ``peer_rtt``). The tunnel's table lets
+  WireGuard reach only the candidate being tried, then only the confirmed
+  endpoint; a peer no path reaches fails the session as ``no_path``;
 * ``worker_start`` starts one RPC server per lent card, bound to the tunnel
   address and reachable by the session's peers only, and says ``ready`` when
   each listens;
 * ``head_start`` starts the model server on a model of this rig's own
-  inventory, on lent cards and the session's workers, and says ``loading``
-  then ``ready`` when its API answers;
+  inventory, on lent cards and the session's workers, and says ``loading``,
+  then ``ready`` once its API answers and has answered one warm-up request
+  of the agent's own (:func:`warm_up`: the first request a fresh engine
+  answers pays for what it does once per process, and that is not the
+  user's to wait for). While it starts, loads and serves, the head watches
+  its workers over the tunnel (:meth:`Sessions._watch`): a worker not heard
+  from for :attr:`Timing.peer_lost_s` fails the session as ``no_path`` (the
+  hub's code for a peer no path reaches) — an engine whose worker's rig is
+  gone is never told so, and would wait out its whole load;
 * ``session_query`` is answered with where the session stands;
   ``session_stop`` tears it down.
 
@@ -29,6 +49,15 @@ and answers at once — ``ack`` for done or accepted, or ``error`` with the
 hub's code — while the work is queued to the session's thread. Every command
 is idempotent: the same command again is answered the same and starts
 nothing more; the same session asked for something else is refused.
+
+When the agent's channel drops, a session waits for the hub for
+:attr:`Timing.grace_s` (the hub's own grace) while the agent hurries back
+(:meth:`Sessions.waiting`); the agent's hello names the sessions still
+running and the hub resumes those it knows. On the hub's return each says
+where it stands now (:meth:`Sessions.online`), since what it said while the
+channel was down was lost with it; one the hub does not know is torn down,
+whether the hub stops it or answers what it said of it with
+``unknown_session`` (:meth:`Sessions.hub_error`).
 
 Teardown is guaranteed, not hoped for. Whatever ends a session — a stop, a
 failure (the hub is told ``failed`` with a code and an excerpt of what the
@@ -46,6 +75,7 @@ import contextlib
 import hashlib
 import http.client
 import ipaddress
+import json
 import os
 import queue
 import socket
@@ -53,10 +83,19 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import Protocol
 
-from mcgyvr.rig import commands, hardware, inventory, protocol, sessionwire, tunnel
+from mcgyvr.rig import (
+    commands,
+    hardware,
+    inventory,
+    protocol,
+    sessionwire,
+    tunnel,
+    udpwire,
+)
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.rig.sessionwire import SessionCode
 from mcgyvr.sandbox import pooled
@@ -76,6 +115,9 @@ TRANSITIONS: dict[str, frozenset[str]] = {
 LIVE = frozenset(TRANSITIONS) - {"failed", "stopped"}
 #: How many ended sessions are remembered, for a query or a repeated stop.
 ENDED_KEPT = 16
+#: How many of the frames the sessions said are remembered by id, so a hub
+#: that answers one with ``unknown_session`` names the session it means.
+SAID_KEPT = 64
 #: How many lines of a container's output a failure carries.
 LOG_LINES = 60
 #: How much of a model file is read at a time for its digest, in bytes.
@@ -84,6 +126,24 @@ DIGEST_CHUNK = 1 << 22
 HEALTH_TIMEOUT_S = 2.0
 #: How many times teardown looks again for what is left of a session.
 TEARDOWN_ROUNDS = 3
+#: The optional behaviours of the hub's protocol this agent speaks while it
+#: lends: the latency probe (:mod:`mcgyvr.rig.probe`), and the traversal of
+#: a session's tunnel through the rigs' NATs (``tunnel_up`` is answered
+#: ``tunnel_report``).
+FEATURES = ("probe", "traversal")
+#: The tunnel port's binding requests to the hub's responders: how long each
+#: round waits, in milliseconds; then one request each this many seconds
+#: until the tunnel comes up, for at most this long.
+STUN_WAIT_MS = 500
+KEEP_EVERY_S = 15
+KEEP_FOR_S = 600
+#: The warm-up: at most this many words of prompt (about a token each, so
+#: more than one batch of the engine's), and this many tokens out.
+WARM_UP_WORDS = 600
+WARM_UP_TOKENS = 32
+#: The share of the session's context the warm-up's prompt may take, as a
+#: divisor: a quarter, so prompt, template and answer fit any context.
+WARM_UP_CONTEXT_SHARE = 4
 
 
 class Docker(Protocol):
@@ -96,6 +156,10 @@ class Docker(Protocol):
     def run_script(self, name: str, script: str, *args: str) -> str: ...
 
     def try_script(self, name: str, script: str, *args: str) -> bool: ...
+
+    def run_python(self, name: str, source: str, *args: str) -> str: ...
+
+    def start_python(self, name: str, source: str, *args: str) -> None: ...
 
     def renew_lease(self, name: str) -> bool: ...
 
@@ -123,6 +187,10 @@ class Timing:
     grace_s: float = 30.0
     stop_wait_s: float = 120.0
     ping_s: float = 30.0
+    peer_lost_s: float = 45.0
+    warm_s: float = 300.0
+    attempt_s: float = 5.0
+    connect_s: float = 60.0
 
     @classmethod
     def quick(cls) -> Timing:
@@ -139,6 +207,10 @@ class Timing:
             grace_s=0.1,
             stop_wait_s=5.0,
             ping_s=0.5,
+            peer_lost_s=0.2,
+            warm_s=1.0,
+            attempt_s=0.05,
+            connect_s=2.0,
         )
 
 
@@ -154,6 +226,8 @@ class Machine:
     cache_dir: Path | None
     free_port: Callable[[], int]
     head_health: Callable[[int], str]
+    warm_up: Callable[[int, int], bool]
+    bind_relay: Callable[[sessionwire.RelayGrant], int | None]
 
 
 class _FailureError(Exception):
@@ -194,6 +268,12 @@ class _Session:
     thread: threading.Thread | None = None
     renewed_at: float = 0.0
     checked_at: float = 0.0
+    watched_at: float = 0.0
+    heard: dict[str, tuple[int, float]] = field(default_factory=dict)
+    traversal: sessionwire.Traversal | None = None
+    stun_rtt_us: int | None = None
+    report: tuple[sessionwire.PeerPath, ...] | None = None
+    reported_to: list[str] = field(default_factory=list)
 
     @property
     def tunnel_name(self) -> str:
@@ -222,6 +302,73 @@ def head_health(port: int) -> str:
     if status == http.HTTPStatus.OK:
         return "ok"
     return "loading" if status == http.HTTPStatus.SERVICE_UNAVAILABLE else "down"
+
+
+def warm_up(port: int, ctx: int, timeout: float = Timing().warm_s) -> bool:
+    """Send the head's loopback API on ``port`` one small chat completion of
+    the agent's own, sized to fit a context of ``ctx``; whether it answered
+    200. Nothing a user sent is in it, and nothing it answers is kept."""
+    words = max(1, min(WARM_UP_WORDS, ctx // WARM_UP_CONTEXT_SHARE - WARM_UP_TOKENS))
+    body = json.dumps(
+        {
+            "messages": [{"role": "user", "content": " ".join(["warm"] * words)}],
+            "max_tokens": WARM_UP_TOKENS,
+            "temperature": 0,
+            "stream": False,
+        }
+    ).encode()
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+    try:
+        connection.request(
+            "POST",
+            sessionwire.RELAY_PATHS["chat_completions"],
+            body=body,
+            headers={"Content-Type": "application/json"},
+        )
+        answer = connection.getresponse()
+        answer.read()
+        return answer.status == http.HTTPStatus.OK
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        connection.close()
+
+
+def bind_relay(grant: sessionwire.RelayGrant) -> int | None:
+    """The port a relay bound this rig's side of a peer to, from a socket of
+    this machine's own; ``None`` when it refused or never answered."""
+    try:
+        answer = udpwire.bind_relay(grant.host, grant.port, grant.ticket)
+    except (OSError, ValueError):
+        return None
+    return answer if isinstance(answer, int) else None
+
+
+@cache
+def _udpwire_source() -> str:
+    """:mod:`mcgyvr.rig.udpwire`'s text, which the tunnel container runs."""
+    return Path(udpwire.__file__).read_text(encoding="utf-8")
+
+
+@dataclass
+class _Walk:
+    """One peer's walk over its candidates, then its relay."""
+
+    peer: tunnel.PeerPlan
+    step: int
+    aim: tuple[str, int] | None
+    since: float
+    relayed: bool = False
+    result: sessionwire.PeerPath | None = None
+    held: tuple[str, int] | None = None  # the confirmed endpoint
+    moved: bool = False
+
+
+def _ipv4(text: str) -> ipaddress.IPv4Address | None:
+    try:
+        return ipaddress.IPv4Address(text)
+    except ValueError:
+        return None
 
 
 def _alive(pid: int) -> bool:
@@ -280,8 +427,15 @@ class Sessions:
         self._closed = False
         self._grace: threading.Timer | None = None
         self._ended_hooks: list[Callable[[str], None]] = []
+        self._prepare_hooks: list[Callable[[], None]] = []
+        self._said: dict[str, str] = {}  # frame id -> session id
 
     # -- what the agent asks -------------------------------------------------
+
+    def before_prepare(self, hook: Callable[[], None]) -> None:
+        """Call ``hook`` before a new session's tunnel is started (a probe
+        holding the tunnel's port lets it go)."""
+        self._prepare_hooks.append(hook)
 
     def on_end(self, hook: Callable[[str], None]) -> None:
         """Call ``hook`` with a session's id when it ends (its relays end too)."""
@@ -318,11 +472,35 @@ class Sessions:
         return False
 
     def online(self) -> None:
-        """The hub is back: a session waiting out the grace is kept."""
+        """The hub is back: a session waiting out the grace is kept, and says
+        where it stands now."""
         with self._lock:
             if self._grace is not None:
                 self._grace.cancel()
                 self._grace = None
+            frames = [
+                self._status(found, None)
+                for found in self._sessions.values()
+                if found.state in LIVE
+            ]
+        for frame in frames:
+            self._say(frame)
+
+    def waiting(self) -> bool:
+        """Whether a session waits out the grace for the hub to return."""
+        with self._lock:
+            return self._grace is not None and self._live() is not None
+
+    def hub_error(self, error: protocol.Error) -> None:
+        """The hub refused a frame: one a session said, as ``unknown_session``,
+        means the hub does not know that session, and it is torn down."""
+        if error.code != SessionCode.UNKNOWN_SESSION or error.re is None:
+            return
+        with self._lock:
+            session_id = self._said.get(error.re)
+            found = self._sessions.get(session_id) if session_id else None
+            if found is not None and found.state in LIVE:
+                self._ask_stop(found)
 
     def offline(self) -> None:
         """The hub is gone: every session ends unless it returns within the
@@ -410,11 +588,14 @@ class Sessions:
             session = _Session(
                 id=asked.session_id,
                 role=asked.role,
+                traversal=asked.traversal,
                 sharing=share,
                 listen_port=share.listen_port,
                 api_port=self.machine.free_port() if asked.role == "head" else None,
                 endpoints=tuple(
-                    sessionwire.Endpoint(host=h, port=share.listen_port, kind="lan")
+                    sessionwire.Endpoint(
+                        host=h, port=share.listen_port, kind=endpoint_kind(h)
+                    )
                     for h in hosts
                 ),
                 pending=[envelope.id],
@@ -429,8 +610,9 @@ class Sessions:
             session.thread.start()
             return None
 
-    def tunnel_up(self, envelope: protocol.Envelope) -> str:
-        """``tunnel_up``: acked once the tunnel's plan is taken."""
+    def tunnel_up(self, envelope: protocol.Envelope) -> str | None:
+        """``tunnel_up``: answered ``tunnel_report`` once each peer's path is
+        found, or found to be none."""
         asked = sessionwire.read_tunnel_up(envelope)
         with self._lock:
             session = self._live_named(asked.session_id)
@@ -441,13 +623,18 @@ class Sessions:
                     envelope.id, SessionCode.NOT_READY, "the session is being prepared"
                 )
             if session.tunnel_asked is not None:
-                if session.tunnel_asked == asked:
-                    return sessionwire.ack(envelope.id)
-                return sessionwire.refusal(
-                    envelope.id,
-                    protocol.ErrorCode.BAD_MESSAGE,
-                    "the session's tunnel is up with other settings",
-                )
+                if session.tunnel_asked != asked:
+                    return sessionwire.refusal(
+                        envelope.id,
+                        protocol.ErrorCode.BAD_MESSAGE,
+                        "the session's tunnel is up with other settings",
+                    )
+                if session.report is not None:
+                    return sessionwire.tunnel_report(
+                        envelope.id, session_id=session.id, peers=session.report
+                    )
+                session.reported_to.append(envelope.id)
+                return None
             own = [interface for _, interface in self.machine.interfaces()]
             own.append(ipaddress.IPv4Interface(session.hello.address))
             try:
@@ -456,8 +643,9 @@ class Sessions:
                 return sessionwire.refusal(envelope.id, refused.code, refused.message)
             session.tunnel_asked = asked
             session.plan = plan
+            session.reported_to.append(envelope.id)
             self._queue(session, "tunnel")
-            return sessionwire.ack(envelope.id)
+            return None
 
     def worker_start(self, envelope: protocol.Envelope) -> str:
         """``worker_start``: acked once the cards are taken; ``ready`` follows."""
@@ -602,6 +790,7 @@ class Sessions:
             public_key=session.hello.public_key,
             listen_port=session.listen_port,
             endpoints=session.endpoints,
+            stun_rtt_us=session.stun_rtt_us,
         )
 
     def _status(self, session: _Session, re: str | None) -> str:
@@ -695,6 +884,16 @@ class Sessions:
     # -- the session's thread ------------------------------------------------
 
     def _say(self, frame: str) -> None:
+        try:
+            message = json.loads(frame)
+            said = message["id"], message["body"]["session_id"]
+        except (ValueError, KeyError, TypeError):
+            said = None
+        if said is not None:
+            with self._lock:
+                self._said[said[0]] = said[1]
+                while len(self._said) > SAID_KEPT:
+                    del self._said[next(iter(self._said))]
         self._send(frame)
 
     def _run(self, session: _Session) -> None:
@@ -771,6 +970,8 @@ class Sessions:
 
     def _tick(self, session: _Session) -> None:
         self._renew(session)
+        if session.state == "ready":
+            self._watch(session)
         now = self._clock()
         if session.state != "ready" or now - session.checked_at < self.timing.monitor_s:
             return
@@ -783,7 +984,84 @@ class Sessions:
                     self._docker.logs(name, LOG_LINES),
                 )
 
+    def _watch(self, session: _Session) -> None:
+        """A head's look at its workers, each :attr:`Timing.monitor_s`: a
+        worker the tunnel received bytes from since the last look is heard
+        from; one quiet since then is pinged over the tunnel first; one not
+        heard from for :attr:`Timing.peer_lost_s` is lost."""
+        if session.role != "head" or not session.rpc or session.plan is None:
+            return
+        now = self._clock()
+        if now - session.watched_at < self.timing.monitor_s:
+            return
+        session.watched_at = now
+        watched: dict[str, str] = {}
+        for host, _ in session.rpc:
+            peer = session.plan.peer_of(ipaddress.IPv4Address(host))
+            if peer is not None:
+                watched.setdefault(peer.public_key, host)
+        for key in watched:
+            session.heard.setdefault(key, (-1, now))
+        quiet = [
+            host
+            for key, host in watched.items()
+            if now - session.heard[key][1] >= self.timing.monitor_s
+        ]
+        try:
+            said = self._docker.run_script(
+                session.tunnel_name, pooled.TRANSFER_SCRIPT, *quiet
+            )
+        except pooled.PoolError:
+            said = ""
+        received = pooled.read_transfer(said)
+        now = self._clock()
+        for key, host in watched.items():
+            last, at = session.heard[key]
+            got = received.get(key)
+            if got is not None and got > last:
+                session.heard[key] = (got, now)
+            elif now - at > self.timing.peer_lost_s:
+                raise _FailureError(
+                    SessionCode.NO_PATH,
+                    f"the worker at {host} was not heard from over the tunnel "
+                    f"for {now - at:.0f} s",
+                    self._docker.logs(
+                        pooled.container_name(session.id, "head"), LOG_LINES
+                    ),
+                )
+
+    def _warm(self, session: _Session, name: str) -> None:
+        """Warm the loaded head (:func:`warm_up`) while the session lives on:
+        its lease renewed, its head and its workers watched."""
+        assert session.api_port is not None and session.head is not None
+        port, ctx = session.api_port, session.head.ctx
+        done = threading.Event()
+
+        def run() -> None:
+            try:
+                self.machine.warm_up(port, ctx)
+            finally:
+                done.set()
+
+        threading.Thread(target=run, daemon=True).start()
+        deadline = self._clock() + self.timing.warm_s
+        while True:
+            if self._docker.state(name) != "running":
+                raise _FailureError(
+                    SessionCode.START_FAILED,
+                    "the head ended while it was warmed",
+                    self._docker.logs(name, LOG_LINES),
+                )
+            if done.is_set() or self._clock() > deadline:
+                return
+            self._watch(session)
+            if self._pause(session):
+                return
+
     def _do_prepare(self, session: _Session) -> None:
+        for hook in self._prepare_hooks:
+            with contextlib.suppress(Exception):
+                hook()
         image = self._docker.ensure_tunnel_image()
         name = session.tunnel_name
         self._docker.remove([name])
@@ -825,6 +1103,8 @@ class Sessions:
             raise _FailureError(
                 SessionCode.TUNNEL_FAILED, "the tunnel's addresses do not read"
             ) from exc
+        if session.traversal is not None:
+            session.stun_rtt_us = self._ask_responders(session, hello)
         with self._lock:
             session.hello = hello
             session.renewed_at = self._clock()
@@ -833,46 +1113,242 @@ class Sessions:
         for re in waiting:
             self._say(self._prepared(session, re))
 
-    def _do_tunnel(self, session: _Session) -> None:
-        assert session.plan is not None
-        self._docker.run_script(
-            session.tunnel_name, pooled.TUNNEL_SCRIPT, *session.plan.script_args()
-        )
-        self._move(session, "tunnel_up")
-        threading.Thread(target=self._measure, args=(session,), daemon=True).start()
+    def _ask_responders(
+        self, session: _Session, hello: pooled.TunnelHello
+    ) -> int | None:
+        """Ask the hub's responders from the tunnel's port, then keep the
+        port's mapping alive until the tunnel comes up; the least round trip,
+        or ``None``. A responder this rig may not send to is not asked, and a
+        step that fails costs the round trip, never the session."""
+        assert session.traversal is not None
+        own = [interface for _, interface in self.machine.interfaces()]
+        own.append(ipaddress.IPv4Interface(hello.address))
+        servers: list[tuple[str, int]] = []
+        for endpoint in session.traversal.stun[: sessionwire.MAX_STUN_ENDPOINTS]:
+            host = _ipv4(endpoint.host)
+            if host is not None and tunnel.may_aim_at(host, None, own):
+                servers.append((str(host), endpoint.port))
+        if not servers:
+            return None
+        pairs = [word for host, port in servers for word in (host, str(port))]
+        port, token = str(session.listen_port), session.traversal.token.hex()
+        name = session.tunnel_name
+        try:
+            self._docker.run_script(name, pooled.STUN_SCRIPT, port, *pairs)
+            said = self._docker.run_python(
+                name,
+                _udpwire_source(),
+                "stun",
+                port,
+                token,
+                str(udpwire.STUN_ATTEMPTS),
+                str(STUN_WAIT_MS),
+                *pairs,
+            )
+            self._docker.start_python(
+                name,
+                _udpwire_source(),
+                "keep",
+                port,
+                token,
+                str(KEEP_EVERY_S),
+                str(KEEP_FOR_S),
+                pooled.KEEPER_PID_FILE,
+                *pairs,
+            )
+        except pooled.PoolError:
+            return None
+        rtts = []
+        for line in said.splitlines():
+            words = line.split()
+            if (
+                len(words) == 4
+                and words[0] == "rtt"
+                and (words[1], words[2]) in {(h, str(p)) for h, p in servers}
+                and words[3].isdigit()
+            ):
+                rtts.append(min(int(words[3]), sessionwire.MAX_RTT_US))
+        return min(rtts) if rtts else None
 
-    def _measure(self, session: _Session) -> None:
-        """Send the round trip to each peer over the tunnel, once each answers."""
-        assert session.plan is not None
-        targets = {
-            peer.rig_id: str(net.network_address)
-            for peer in session.plan.peers
-            for net in peer.allowed[:1]
-            if net.prefixlen == net.max_prefixlen
-        }
-        samples: dict[str, int] = {}
-        deadline = self._clock() + self.timing.ping_s
-        while targets.keys() - samples.keys() and self._clock() < deadline:
-            if session.stopping.is_set() or session.state not in LIVE:
+    def _do_tunnel(self, session: _Session) -> None:
+        assert session.plan is not None and session.tunnel_asked is not None
+        plan, asked = session.plan, session.tunnel_asked
+        self._docker.run_script(
+            session.tunnel_name, pooled.TUNNEL_SCRIPT, *plan.script_args()
+        )
+        attempt = (
+            asked.attempt_s if asked.attempt_s is not None else self.timing.attempt_s
+        )
+        connect = (
+            asked.connect_timeout_s
+            if asked.connect_timeout_s is not None
+            else self.timing.connect_s
+        )
+        now = self._clock()
+        deadline = now + connect
+        walks = []
+        for peer in plan.peers:
+            first = peer.candidates[0] if peer.candidates else None
+            walks.append(
+                _Walk(
+                    peer=peer,
+                    step=0,
+                    aim=(str(first.host), first.port) if first else None,
+                    since=now,
+                )
+            )
+        while True:
+            open_ = [w for w in walks if w.result is None]
+            if not open_:
+                break
+            pokes = [
+                str(w.peer.tunnel_host)
+                for w in open_
+                if w.aim is not None and w.peer.tunnel_host is not None
+            ]
+            try:
+                seen = pooled.read_peers(
+                    self._docker.run_script(
+                        session.tunnel_name, pooled.PEERS_SCRIPT, *pokes
+                    )
+                )
+            except pooled.PoolError:
+                seen = None
+            now = self._clock()
+            changed = False
+            for walk in open_:
+                key = walk.peer.public_key
+                if (
+                    seen is not None
+                    and walk.aim is not None
+                    and seen.handshakes.get(key, 0) > 0
+                    and key in seen.endpoints
+                ):
+                    walk.held = seen.endpoints[key]
+                    walk.result = self._confirmed(walk, walk.held)
+                    changed = True
+                elif walk.aim is None or now - walk.since >= attempt:
+                    self._next_aim(walk)
+                    walk.since = self._clock()
+                    changed = True
+            if now >= deadline:
+                for walk in walks:
+                    if walk.result is None:
+                        walk.aim = None
+                        walk.result = sessionwire.PeerPath(
+                            rig_id=walk.peer.rig_id, path="none"
+                        )
+                changed = True
+            if changed:
+                self._aim(session, walks)
+            if all(w.result is not None for w in walks):
+                break
+            if self._pause(session):
                 return
-            for rig_id, host in targets.items():
-                if rig_id in samples:
-                    continue
+        self._report(session, walks)
+
+    def _next_aim(self, walk: _Walk) -> None:
+        """Point ``walk`` at the peer's next candidate, then its relay, then
+        at nothing: the peer has no path."""
+        walk.moved = True
+        candidates = walk.peer.candidates
+        if walk.aim is not None and not walk.relayed:
+            walk.step += 1  # the candidate aimed at is spent
+        if not walk.relayed and walk.step < len(candidates):
+            found = candidates[walk.step]
+            walk.aim = (str(found.host), found.port)
+            return
+        relay = walk.peer.relay
+        if relay is not None and not walk.relayed:
+            walk.relayed = True
+            bound = self.machine.bind_relay(relay.grant)
+            if bound is not None and 1 <= bound <= sessionwire.MAX_PORT:
+                walk.aim = (str(relay.host), bound)
+                return
+        walk.aim = None
+        walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
+
+    def _confirmed(
+        self, walk: _Walk, endpoint: tuple[str, int]
+    ) -> sessionwire.PeerPath:
+        """The path a handshake confirmed at ``endpoint``, named for what was
+        aimed at (or, when WireGuard followed the peer elsewhere, for the
+        candidate at that address)."""
+        host, port = endpoint
+        relay = walk.peer.relay
+        if walk.relayed and relay is not None and host == str(relay.host):
+            kind, path = "relay", "relay"
+        else:
+            kind, path = "reflexive", "direct"
+            for found in walk.peer.candidates:
+                if str(found.host) == host:
+                    kind, path = found.endpoint.kind, found.path
+                    break
+        return sessionwire.PeerPath(
+            rig_id=walk.peer.rig_id,
+            path=path,
+            endpoint=sessionwire.Endpoint(host=host, port=port, kind=kind),
+        )
+
+    def _aim(self, session: _Session, walks: Sequence[_Walk]) -> None:
+        """Write the table for every peer — the confirmed endpoint alone, or
+        the address being tried — and point the peers that moved."""
+        args = [str(session.listen_port)]
+        for walk in walks:
+            if walk.held is not None:
+                host, port = walk.held
+                args += [walk.peer.public_key, host, str(port), "exact", "0"]
+            elif walk.aim is not None:
+                host, port = walk.aim
+                moved = "1" if walk.moved else "0"
+                args += [walk.peer.public_key, host, str(port), "host", moved]
+            else:
+                args += [walk.peer.public_key, "-", "0", "host", "0"]
+            walk.moved = False
+        self._docker.run_script(session.tunnel_name, pooled.PATH_SCRIPT, *args)
+
+    def _report(self, session: _Session, walks: Sequence[_Walk]) -> None:
+        """Measure each confirmed path over the tunnel, answer every
+        ``tunnel_up`` waiting with the report, and fail the session when a
+        peer has no path."""
+        paths = []
+        samples = []
+        for walk in walks:
+            result = walk.result
+            assert result is not None
+            host = walk.peer.tunnel_host
+            if result.path != "none" and host is not None:
                 try:
                     said = self._docker.run_script(
-                        session.tunnel_name, pooled.PING_SCRIPT, host
+                        session.tunnel_name, pooled.PING_SCRIPT, str(host)
                     ).strip()
-                    samples[rig_id] = round(float(said) * 1000)
+                    rtt = min(round(float(said) * 1000), sessionwire.MAX_RTT_US)
                 except (pooled.PoolError, ValueError):
-                    continue
-            if targets.keys() - samples.keys():
-                session.stopping.wait(self.timing.poll_s)
+                    rtt = None
+                if rtt is not None and rtt >= 0:
+                    result = sessionwire.PeerPath(
+                        rig_id=result.rig_id,
+                        path=result.path,
+                        endpoint=result.endpoint,
+                        rtt_us=rtt,
+                    )
+                    samples.append((walk.peer.rig_id, rtt))
+            paths.append(result)
+        with self._lock:
+            session.report = tuple(paths)
+            waiting, session.reported_to = session.reported_to, []
+        for re in waiting:
+            self._say(sessionwire.tunnel_report(re, session_id=session.id, peers=paths))
         if samples:
-            bounded = [
-                (rig_id, min(rtt, sessionwire.MAX_RTT_US))
-                for rig_id, rtt in samples.items()
-            ]
-            self._say(sessionwire.peer_rtt(bounded[: sessionwire.MAX_RTT_SAMPLES]))
+            self._say(sessionwire.peer_rtt(samples[: sessionwire.MAX_RTT_SAMPLES]))
+        lost = [p.rig_id for p in paths if p.path == "none"]
+        if lost:
+            raise _FailureError(
+                SessionCode.NO_PATH,
+                f"no path reached peer {lost[0]}: no candidate answered and no "
+                "relay carried it",
+            )
+        self._move(session, "tunnel_up")
 
     def _cache(self, share: sharing_module.Sharing) -> Path | None:
         folder = self.machine.cache_dir
@@ -994,6 +1470,7 @@ class Sessions:
                     "the head ended while loading",
                     self._docker.logs(name, LOG_LINES),
                 )
+            self._watch(session)
             if self.machine.head_health(session.api_port) == "ok":
                 break
             if self._clock() > deadline:
@@ -1004,6 +1481,9 @@ class Sessions:
                 )
             if self._pause(session):
                 return
+        self._warm(session, name)
+        if session.stopping.is_set():
+            return
         self._move(session, "ready")
         self._say(self._status(session, None))
 
@@ -1071,6 +1551,13 @@ def endpoint_hosts(
     return hosts[: protocol.MAX_ENDPOINTS]
 
 
+def endpoint_kind(host: str) -> str:
+    """``lan`` for an address on a LAN, ``public`` for one the owner named
+    beyond it (a forwarded port, a public address)."""
+    found = _ipv4(host)
+    return "lan" if found is not None and tunnel.is_lan(found) else "public"
+
+
 def offer(
     share: sharing_module.Sharing,
     held: inventory.Inventory,
@@ -1084,7 +1571,10 @@ def offer(
     return protocol.Offer(
         roles=roles,
         runtime=share.image,
-        endpoints=tuple((host, share.listen_port, "lan") for host in hosts),
+        endpoints=tuple(
+            (host, share.listen_port, endpoint_kind(host)) for host in hosts
+        ),
         models=held.models if "head" in roles else (),
         sessions=running,
+        features=FEATURES,
     )

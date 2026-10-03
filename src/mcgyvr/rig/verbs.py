@@ -117,6 +117,7 @@ def run_agent(kept: Credentials) -> int:
         hardware,
         inventory,
         outbox,
+        probe,
         protocol,
         relay,
         session,
@@ -204,14 +205,25 @@ def run_agent(kept: Credentials) -> int:
             cache_dir=roots.data_home() / "rpc-cache" if uid else None,
             free_port=session.free_port,
             head_health=session.head_health,
+            warm_up=session.warm_up,
+            bind_relay=session.bind_relay,
         ),
         send=box.put,
     )
     relays = relay.Relays(heads=sessions, send=box.put)
     sessions.on_end(relays.session_ended)
+    probes = probe.Probes(
+        send=box.put,
+        port=lambda: None if sessions.running() else lending().listen_port,
+        hosts=lambda: session.endpoint_hosts(lending(), tunnel.read_interfaces),
+        own=lambda: tuple(i.ip for _, i in tunnel.read_interfaces()),
+        lending=lambda: bool(lending().offered_roles()),
+    )
+    sessions.before_prepare(lambda: probes.release(lending().listen_port))
     dispatcher = commands.Dispatcher()
     session.register(dispatcher, sessions)
     relay.register(dispatcher, relays)
+    probe.register(dispatcher, probes)
     try:
         for name in sessions.sweep():
             print(f"removed {name}, left by an agent that is gone", file=sys.stderr)
@@ -228,10 +240,12 @@ def run_agent(kept: Credentials) -> int:
 
     def offline() -> None:
         relays.cancel_all()
+        probes.close()
         sessions.offline()
 
     def on_exit() -> None:
         relays.cancel_all()
+        probes.close()
         sessions.close()
 
     running = agent.Agent(
@@ -245,7 +259,10 @@ def run_agent(kept: Credentials) -> int:
         on_online=sessions.online,
         on_offline=offline,
         on_exit=on_exit,
+        hurry=sessions.waiting,
+        on_hub_error=sessions.hub_error,
     )
+    sessions.on_end(lambda ended: running.beat_soon())
 
     def stop(signum: int, frame: FrameType | None) -> None:
         running.stop()
@@ -260,6 +277,8 @@ def run_agent(kept: Credentials) -> int:
             f"lending: {', '.join(share.offered_roles())} on {share.image}",
             file=sys.stderr,
         )
+    for note in share.notes:
+        print(f"note: {note}", file=sys.stderr)
     previous = {
         sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGHUP)
     }
@@ -441,8 +460,6 @@ def _share(args: argparse.Namespace) -> int:
                 if args.cards == "all"
                 else tuple(int(c) for c in args.cards.split(",") if c)
             )
-        if args.max_vram_mb is not None:
-            changes["max_vram_mb"] = _maybe_number(args.max_vram_mb)
         if args.max_ram_mb is not None:
             changes["max_ram_mb"] = _maybe_number(args.max_ram_mb)
         if args.models is not None:
@@ -481,9 +498,7 @@ def _share(args: argparse.Namespace) -> int:
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
     print(f"image:   {wanted.image or 'none'}")
     cards = "all" if wanted.cards is None else ", ".join(map(str, wanted.cards))
-    print(f"cards:   {cards}")
-    vram = f"{wanted.max_vram_mb} MiB" if wanted.max_vram_mb else "all free"
-    print(f"vram:    {vram} per card")
+    print(f"cards:   {cards} (each lent whole)")
     print(f"ram:     {wanted.container_mb()} MiB per container")
     print(f"models:  {wanted.models_dir or 'none (no head)'}")
     endpoints = (
@@ -492,6 +507,8 @@ def _share(args: argparse.Namespace) -> int:
     print(f"tunnel:  udp {wanted.listen_port} on {endpoints}")
     cache = f"up to {wanted.cache_max_mb} MiB" if wanted.cache else "off"
     print(f"cache:   {cache}")
+    for note in wanted.notes:
+        print(f"note:    {note}")
     return int(Exit.OK)
 
 
@@ -532,8 +549,9 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     switch.add_argument("--off", dest="on", action="store_const", const=False)
     share.add_argument("--image", help="the engine image sessions run in (none)")
     share.add_argument("--roles", help="worker, head, or worker,head")
-    share.add_argument("--cards", help="card indexes lent, comma separated, or all")
-    share.add_argument("--max-vram-mb", help="the most memory lent per card, or none")
+    share.add_argument(
+        "--cards", help="card indexes lent, each whole, comma separated, or all"
+    )
     share.add_argument(
         "--max-ram-mb", help="the memory each container may take, or none"
     )

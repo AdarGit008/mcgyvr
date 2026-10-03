@@ -4,12 +4,16 @@ The agent reads the machine before it connects, says hello with that reading
 first, and waits for the hub's ack, which sets the heartbeat interval. Each
 heartbeat carries a fresh reading. A channel that drops, times out, or is
 throttled is reopened after a backoff that grows to a cap and starts over once
-a session has held; a hub that refuses the token, revokes it, binds it to
+a session has held — and, while the rig's sessions wait out the grace the hub
+keeps them for, after no more than a short wait, so the agent is back in
+time to resume them; a hub that refuses the token, revokes it, binds it to
 another machine, or hands the rig to a newer agent ends the agent instead,
 since asking again would be refused again. A hub that stops acking is given
 up on. Whatever the hub floods the agent with, the agent answers within a
-rate the hub allows and keeps beating. Asked to stop, it closes the channel
-cleanly.
+rate the hub allows and keeps beating. A session that ended and freed its
+memory has a heartbeat go at once (no sooner than a second after the last),
+so the hub's reading of the rig is not stale; an error the hub sends reaches
+the rig's sessions. Asked to stop, it closes the channel cleanly.
 """
 
 from __future__ import annotations
@@ -200,6 +204,7 @@ def _agent(
     report: Any = None,
     said: list[str] | None = None,
     on_status: Any = None,
+    **more: Any,
 ) -> tuple[Any, list[Channel]]:
     from mcgyvr.rig import agent, websocket
 
@@ -226,6 +231,7 @@ def _agent(
         on_status=on_status,
         draw=lambda: 1.0,
         say=(said.append if said is not None else lambda line: None),
+        **more,
     )
     return made, channels
 
@@ -472,3 +478,38 @@ def test_each_ack_is_told_when_it_arrives_not_a_beat_later() -> None:
     assert told[-1][1] == rig_agent.Status(
         connected=False, rig_id=None, heartbeat_s=None, last_ack_at=None
     )
+
+
+def test_while_sessions_wait_out_the_grace_the_agent_asks_again_soon() -> None:
+    from mcgyvr.rig import agent as rig_agent
+    from mcgyvr.rig import websocket
+
+    clock = Clock()
+    unreachable = [websocket.HandshakeError("down", status=503) for _ in range(8)]
+    agent, _ = _agent(unreachable, clock, hurry=lambda: True)
+    agent.run()
+    assert len(clock.waits) == 8
+    assert all(0 < wait <= rig_agent.HURRY_S for wait in clock.waits)
+    assert sum(clock.waits) < 30  # the hub's grace: every try falls within it
+
+
+def test_a_heartbeat_goes_as_soon_as_a_session_frees_its_memory() -> None:
+    from mcgyvr.rig import agent as rig_agent
+
+    early, channels = _agent([Hub(interval=15, beats=3)], Clock())
+    early.beat_soon()
+    early.beat_soon()  # twice: still one early beat
+    early.run()
+    beats = [t for t, m in channels[0].sent if m["type"] == "heartbeat"]
+    assert len(beats) == 3
+    assert rig_agent.EARLY_BEAT_S <= beats[0] < 15
+    assert [round(t) for t in beats[1:]] == [15, 30]
+
+
+def test_an_error_the_hub_sends_reaches_the_sessions() -> None:
+    clock = Clock()
+    heard: list[Any] = []
+    hub = Hub(interval=15, beats=1, error="unknown_session")
+    agent, _ = _agent([hub], clock, on_hub_error=heard.append)
+    agent.run()
+    assert [error.code for error in heard] == ["unknown_session"]

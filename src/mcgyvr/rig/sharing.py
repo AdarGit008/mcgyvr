@@ -8,12 +8,13 @@ then only what the owner allows is lent:
 * ``image`` — the engine image the head and the workers run in (it carries
   the model server and the RPC server);
 * ``cards`` — the cards lent, by the index the hello reports them under, or
-  every card; a card of a vendor the engine is not started on is never lent;
-* ``max_vram_mb`` — the most memory lent on each card: the hello and the
-  heartbeats report at most this much of a lent card as free, and a card not
-  lent as having none, so the hub plans within it (the RPC server itself
-  takes what its head allocates; the cap is the hub's to keep);
-* ``max_ram_mb`` — the memory each container may take, swap included;
+  every card; a card of a vendor the engine is not started on is never lent.
+  A card is lent whole: the hello and the heartbeats report a lent card's
+  free memory as it is and a card not lent as having none, so the hub plans
+  on whole cards. There is no cap on part of a card (a file kept with the
+  ``max_vram_mb`` there once was is read with a note, and the cap dropped);
+* ``max_ram_mb`` — the memory each container may take, swap included: the
+  container's own limit, so the engine is ended past it;
 * ``models_dir`` — the folder models are served from, read-only; the head
   is only offered with one, and only files under it are named;
 * ``endpoints`` — the LAN addresses the tunnel is published on, or the
@@ -60,6 +61,12 @@ LENT_VENDOR = "nvidia"
 LOWEST_PORT = 1024
 #: An engine's program inside its image: an absolute path, plainly spelled.
 BINARY = re.compile(r"/[A-Za-z0-9._+-]+(/[A-Za-z0-9._+-]+)*")
+#: Settings a kept file may still hold that are no longer settings, and what
+#: became of each: read with a note and dropped, never refused, so a rig that
+#: lent before keeps lending.
+RETIRED = {
+    "max_vram_mb": "max_vram_mb: no longer a setting; a lent card is lent whole",
+}
 
 
 class SharingError(Exception):
@@ -74,7 +81,6 @@ class Sharing:
     roles: tuple[str, ...] = ("worker",)
     image: str | None = None
     cards: tuple[int, ...] | None = None
-    max_vram_mb: int | None = None
     max_ram_mb: int | None = None
     models_dir: str | None = None
     endpoints: tuple[str, ...] = ()
@@ -116,8 +122,8 @@ class Sharing:
 
     def lendable(self, report: hardware.Report) -> hardware.Report:
         """``report`` as the hub is told of it while lending is on: a lent
-        card's free memory at most :attr:`max_vram_mb`, a card not lent with
-        none free, free RAM at most :attr:`max_ram_mb`."""
+        card whole, a card not lent with none free, free RAM at most
+        :attr:`max_ram_mb`."""
         if not self.enabled:
             return report
         cards = []
@@ -125,8 +131,6 @@ class Sharing:
             free = (
                 card.vram_free_mb if self.lends(card.index, report) is not None else 0
             )
-            if self.max_vram_mb is not None:
-                free = min(free, self.max_vram_mb)
             cards.append(replace(card, vram_free_mb=free))
         ram_free = report.ram_free_mb
         if ram_free is not None and self.max_ram_mb is not None:
@@ -154,11 +158,14 @@ def read(data: object) -> Sharing:
     if not isinstance(data, dict):
         raise _refuse("the file", "not an object")
     known = {f for f in Sharing.__dataclass_fields__ if f != "notes"}
-    unknown = sorted(set(data) - known)
+    unknown = sorted(set(data) - known - set(RETIRED))
     if unknown:
         raise _refuse(unknown[0], "not a setting")
     kept = Sharing()
     out: dict[str, Any] = {}
+    notes = tuple(note for name, note in RETIRED.items() if name in data)
+    if notes:
+        out["notes"] = notes
     if "enabled" in data:
         if type(data["enabled"]) is not bool:
             raise _refuse("enabled", "not true or false")
@@ -198,9 +205,8 @@ def read(data: object) -> Sharing:
         out["cards"] = tuple(
             _whole(card, "cards", 0, protocol.MAX_CARD_INDEX) for card in cards
         )
-    for name in ("max_vram_mb", "max_ram_mb"):
-        if data.get(name) is not None:
-            out[name] = _whole(data[name], name, 1, protocol.MAX_MB)
+    if data.get("max_ram_mb") is not None:
+        out["max_ram_mb"] = _whole(data["max_ram_mb"], "max_ram_mb", 1, protocol.MAX_MB)
     if "cache_max_mb" in data:
         out["cache_max_mb"] = _whole(
             data["cache_max_mb"], "cache_max_mb", 0, protocol.MAX_MB

@@ -13,16 +13,29 @@ find what an earlier one left (:func:`Pool.owned`):
 
 * **the tunnel** (:func:`tunnel_argv`) — a small image of this product's own
   (:data:`TUNNEL_DOCKERFILE`: WireGuard in user space, ``wg``, ``nft``,
-  ``ip``) that owns the session's network namespace. It is the only container
-  holding a capability, ``NET_ADMIN``, and that capability reaches only its
-  own namespace, never the host's. On start it closes the namespace (an
-  ``nft`` table dropping everything but loopback), makes the WireGuard
-  interface, and generates the session's private key straight into it
-  (``wg genkey | wg set … private-key /dev/stdin``): the key is never in a
-  file, never in an argument, never in a log, and dies with the container.
-  It prints the public key, its bridge address and gateway, and then lives
-  only while the agent keeps renewing its lease (:data:`LEASE_FILE`); a lease
-  that runs out takes the interface down and the container with it.
+  ``ip``, and a Python to run :mod:`mcgyvr.rig.udpwire` with) that owns the
+  session's network namespace. It is the only container holding a
+  capability, ``NET_ADMIN``, and that capability reaches only its own
+  namespace, never the host's. On start it closes the namespace (an ``nft``
+  table dropping everything but loopback), makes the WireGuard interface,
+  and generates the session's private key straight into it (``wg genkey |
+  wg set … private-key /dev/stdin``): the key is never in a file, never in
+  an argument, never in a log, and dies with the container. It prints the
+  public key, its bridge address and gateway, and then lives only while the
+  agent keeps renewing its lease (:data:`LEASE_FILE`); a lease that runs out
+  takes the interface down and the container with it.
+
+  The table has four chains of its own that the scripts below fill and
+  empty whole, each in one ``nft`` transaction: ``stun_in``/``stun_out``
+  hold the hub's binding responders while the tunnel's port asks them where
+  it is seen from (:data:`STUN_SCRIPT`), and are emptied when the tunnel
+  comes up; ``wg_in``/``wg_out`` hold, per peer, the one address its
+  WireGuard packets may come from and go to — the candidate being tried
+  while the tunnel walks a peer's candidates, then the confirmed endpoint
+  (or the relay) alone, port and all (:data:`PATH_SCRIPT`). WireGuard takes
+  its listen port only when the tunnel comes up (:data:`TUNNEL_SCRIPT`), so
+  until then the port is the binding requests' own, and the address the hub
+  saw is the one WireGuard's packets leave by.
 * **a worker per lent card** (:func:`worker_argv`) and **the head**
   (:func:`head_argv`) join the tunnel's namespace (``--network
   container:…``) and so have no network of their own: what the tunnel's
@@ -48,11 +61,13 @@ before it gets here (:mod:`mcgyvr.rig.tunnel`).
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from mcgyvr.rig.sessionwire import WIREGUARD_KEY
 from mcgyvr.sandbox.image import DockerResult, DockerRunner, subprocess_runner
 
 #: The label every pooled container carries, and the labels that say whose.
@@ -70,7 +85,7 @@ TUNNEL_DOCKERFILE = (
     "FROM alpine:3.22@sha256:"
     "5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8\n"
     "RUN apk add --no-cache wireguard-go wireguard-tools-wg nftables "
-    "iproute2-minimal\n"
+    "iproute2-minimal python3\n"
 )
 #: The tunnel image's repository; its tag is a digest of the Dockerfile.
 TUNNEL_REPOSITORY = "mcgyvr-tunnel"
@@ -84,6 +99,11 @@ MODELS_MOUNT = "/models"
 KV_CACHE_TYPE = "q8_0"
 #: The file whose age is the tunnel's lease, inside the tunnel container.
 LEASE_FILE = "/run/mcgyvr/lease"
+#: Where the tunnel's binding keeper (:mod:`mcgyvr.rig.udpwire` ``keep``)
+#: writes its pid, so the tunnel can end it before WireGuard takes the port.
+KEEPER_PID_FILE = "/run/mcgyvr/stun.pid"
+#: The tunnel's Python, which runs :mod:`mcgyvr.rig.udpwire` as it is.
+TUNNEL_PYTHON = "python3"
 
 #: Process limits: the tunnel runs three tools; the worker and the head an
 #: engine with its threads.
@@ -103,7 +123,8 @@ ENGINE_TMPFS = "/tmp:rw,nosuid,nodev,noexec,size=64m"
 
 #: The tunnel's entry: close the namespace, make the interface and its key,
 #: say what the agent needs, then live as long as the lease. ``$1`` is the
-#: listen port, ``$2`` the lease in seconds.
+#: listen port (WireGuard takes it only when the tunnel comes up:
+#: :data:`TUNNEL_SCRIPT`), ``$2`` the lease in seconds.
 TUNNEL_ENTRY = r"""set -eu
 umask 077
 port="$1"
@@ -112,8 +133,22 @@ mkdir -p /run/mcgyvr
 touch /run/mcgyvr/lease
 nft -f - <<'RULES'
 table inet mcgyvr {
-  chain input { type filter hook input priority 0; policy drop; iif "lo" accept; }
-  chain output { type filter hook output priority 0; policy drop; oif "lo" accept; }
+  chain stun_in { }
+  chain stun_out { }
+  chain wg_in { }
+  chain wg_out { }
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iif "lo" accept
+    jump stun_in
+    jump wg_in
+  }
+  chain output {
+    type filter hook output priority 0; policy drop;
+    oif "lo" accept
+    jump stun_out
+    jump wg_out
+  }
   chain forward { type filter hook forward priority 0; policy drop; }
 }
 RULES
@@ -125,7 +160,7 @@ while [ ! -S /run/wireguard/wg0.sock ]; do
   if [ "$tries" -gt 100 ]; then echo "failed: no wireguard interface"; exit 3; fi
   sleep 0.1
 done
-wg genkey | wg set wg0 private-key /dev/stdin listen-port "$port"
+wg genkey | wg set wg0 private-key /dev/stdin
 ip link set wg0 up
 echo "public-key $(wg show wg0 public-key)"
 echo "address $(ip -4 -o addr show dev eth0 | awk '{print $4; exit}')"
@@ -145,35 +180,139 @@ echo "wireguard ended"
 exit 4
 """
 
+#: Let the hub's binding responders be asked from the tunnel's port: ``$1``
+#: the port, then each responder's address and port. Only those, from and to
+#: that port, until the tunnel comes up and empties the chains.
+STUN_SCRIPT = r"""set -eu
+port="$1"
+shift
+{
+  echo "flush chain inet mcgyvr stun_in"
+  echo "flush chain inet mcgyvr stun_out"
+  while [ "$#" -ge 2 ]; do
+    echo "add rule inet mcgyvr stun_out oifname eth0 ip daddr $1 \
+udp sport $port udp dport $2 accept"
+    echo "add rule inet mcgyvr stun_in iifname eth0 ip saddr $1 \
+udp sport $2 udp dport $port accept"
+    shift 2
+  done
+} | nft -f -
+echo "open"
+"""
+
 #: Bring the tunnel up: ``$1`` this rig's address with the session's prefix,
 #: ``$2`` the listen port, then five arguments per peer: its public key, the
-#: endpoint address and port it is reached at, the keepalive in seconds, and
-#: its allowed addresses, comma separated. Each peer's endpoint, and only
-#: that, may send to and receive from the listen port; ICMP echo between the
-#: rig and its peers' addresses is let through, for the round-trip probe.
+#: address and port it is first tried at (``-`` and ``0`` for none yet), the
+#: keepalive in seconds, and its allowed addresses, comma separated. The
+#: binding keeper is ended and the responders' rules emptied first, then
+#: WireGuard takes the port. The table is written before any peer is set, so
+#: WireGuard's first packet is never the one the table drops; each peer's
+#: address, and only that, may send to and receive from the listen port (any
+#: of its ports while candidates are walked: :data:`PATH_SCRIPT` narrows it);
+#: ICMP echo between the rig and its peers' addresses is let through, for the
+#: round-trip probe and the head's watch of its workers.
 TUNNEL_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
 shift 2
-ip address add "$self" dev wg0
+if [ -f /run/mcgyvr/stun.pid ]; then
+  keeper=$(cat /run/mcgyvr/stun.pid)
+  kill "$keeper" 2>/dev/null || true
+  tries=0
+  while kill -0 "$keeper" 2>/dev/null; do
+    tries=$((tries + 1))
+    if [ "$tries" -gt 50 ]; then echo "failed: the binding keeper lives on"; exit 3; fi
+    sleep 0.1
+  done
+  rm -f /run/mcgyvr/stun.pid
+fi
 own="${self%/*}"
 add="add rule inet mcgyvr"
 icmp="icmp type { echo-request, echo-reply }"
-rules=$(
+table() {
+  echo "flush chain inet mcgyvr stun_in"
+  echo "flush chain inet mcgyvr stun_out"
+  echo "flush chain inet mcgyvr wg_in"
+  echo "flush chain inet mcgyvr wg_out"
   while [ "$#" -ge 5 ]; do
-    wg set wg0 peer "$1" allowed-ips "$5" endpoint "$2:$3" \
-      persistent-keepalive "$4"
-    echo "$add input iifname eth0 ip saddr $2 udp dport $port accept"
-    echo "$add output oifname eth0 ip daddr $2 udp sport $port accept"
+    if [ "$2" != "-" ]; then
+      echo "$add wg_in iifname eth0 ip saddr $2 udp dport $port accept"
+      echo "$add wg_out oifname eth0 ip daddr $2 udp sport $port accept"
+    fi
     for net in $(echo "$5" | tr ',' ' '); do
       echo "$add input iifname wg0 ip saddr $net ip daddr $own $icmp accept"
       echo "$add output oifname wg0 ip saddr $own ip daddr $net $icmp accept"
     done
     shift 5
   done
-)
-printf '%s\n' "$rules" | nft -f -
+}
+table "$@" | nft -f -
+wg set wg0 listen-port "$port"
+ip address add "$self" dev wg0
+while [ "$#" -ge 5 ]; do
+  if [ "$2" = "-" ]; then
+    wg set wg0 peer "$1" allowed-ips "$5" persistent-keepalive "$4"
+  else
+    wg set wg0 peer "$1" allowed-ips "$5" endpoint "$2:$3" \
+      persistent-keepalive "$4"
+  fi
+  shift 5
+done
 echo "up"
+"""
+
+#: Aim the tunnel's peers: ``$1`` the listen port, then five arguments per
+#: peer — its key, the address and port it is tried at (``-`` and ``0`` for
+#: none), ``host`` (any port of that address may answer, while a candidate is
+#: tried) or ``exact`` (that endpoint alone, once confirmed), and ``1`` to
+#: point WireGuard there or ``0`` to leave WireGuard's own endpoint be (it
+#: may have followed a peer whose NAT moved the port). Every peer is named
+#: each time: the chains are written whole, in one transaction, before any
+#: peer is pointed anywhere.
+PATH_SCRIPT = r"""set -eu
+port="$1"
+shift
+table() {
+  echo "flush chain inet mcgyvr wg_in"
+  echo "flush chain inet mcgyvr wg_out"
+  while [ "$#" -ge 5 ]; do
+    if [ "$2" != "-" ]; then
+      if [ "$4" = "exact" ]; then
+        echo "add rule inet mcgyvr wg_in iifname eth0 ip saddr $2 \
+udp sport $3 udp dport $port accept"
+        echo "add rule inet mcgyvr wg_out oifname eth0 ip daddr $2 \
+udp dport $3 udp sport $port accept"
+      else
+        echo "add rule inet mcgyvr wg_in iifname eth0 ip saddr $2 \
+udp dport $port accept"
+        echo "add rule inet mcgyvr wg_out oifname eth0 ip daddr $2 \
+udp sport $port accept"
+      fi
+    fi
+    shift 5
+  done
+}
+table "$@" | nft -f -
+while [ "$#" -ge 5 ]; do
+  if [ "$2" != "-" ] && [ "$5" = "1" ]; then
+    wg set wg0 peer "$1" endpoint "$2:$3"
+  fi
+  shift 5
+done
+echo "aimed"
+"""
+
+#: What the tunnel knows of its peers now: its clock, each peer's latest
+#: handshake (seconds since the epoch, 0 for none) and endpoint, read after
+#: one ping over the tunnel to each address given (``"$@"``), so a peer not
+#: yet shaken hands with has a packet to shake hands for.
+PEERS_SCRIPT = r"""for host in "$@"; do
+  ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
+done
+wait
+echo "now $(date +%s)"
+wg show wg0 latest-handshakes | sed 's/^/handshake /'
+wg show wg0 endpoints | sed 's/^/endpoint /'
 """
 
 #: Let a worker's port be reached: ``$1`` this rig's tunnel address, ``$2``
@@ -236,6 +375,17 @@ ping -c 1 -W 2 -q "$1" >/dev/null
 ping -c 5 -i 0.2 -W 1 -q "$1" | awk -F/ '/min\/avg/ {print $4}'
 """
 
+#: What the tunnel has heard from each peer: WireGuard's byte counts per peer
+#: key (received, sent), read after one ping over the tunnel to each address
+#: given (``"$@"``), so a quiet peer is asked for a word first. An unanswered
+#: ping is no error here: the counts say whether anything came back.
+TRANSFER_SCRIPT = r"""for host in "$@"; do
+  ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
+done
+wait
+wg show wg0 transfer
+"""
+
 #: Run the engine (``"$@"``) only while the tunnel's interface lives.
 GUARD_SCRIPT = r""""$@" &
 child=$!
@@ -252,7 +402,13 @@ wait "$child"
 """
 
 _NAME_DIGEST = 12
+#: The most digits a byte count of ``wg`` is read with: past 2**64.
+_COUNT_DIGITS = 20
 _TUNNEL_LINE = re.compile(r"(public-key|address|gateway) (\S+)")
+#: A line of ``wg show … transfer``: a peer's key, bytes received, bytes sent.
+_TRANSFER_LINE = re.compile(
+    rf"({WIREGUARD_KEY.pattern})\t(\d{{1,{_COUNT_DIGITS}}})\t(\d{{1,{_COUNT_DIGITS}}})"
+)
 
 
 class PoolError(Exception):
@@ -542,6 +698,64 @@ def read_tunnel_hello(logs: str) -> TunnelHello | None:
     )
 
 
+def read_transfer(said: str) -> dict[str, int]:
+    """The bytes the tunnel received from each peer, by the peer's key, from
+    what :data:`TRANSFER_SCRIPT` printed; a line that does not read is left
+    out, so a peer it names counts as not heard from."""
+    heard: dict[str, int] = {}
+    for line in said.splitlines():
+        found = _TRANSFER_LINE.fullmatch(line.strip())
+        if found:
+            heard[found.group(1)] = int(found.group(2))
+    return heard
+
+
+@dataclass(frozen=True, kw_only=True)
+class PeersSeen:
+    """What :data:`PEERS_SCRIPT` printed: the tunnel's clock, and by peer
+    key the latest handshake (0 for none) and the endpoint WireGuard uses."""
+
+    now: int
+    handshakes: dict[str, int]
+    endpoints: dict[str, tuple[str, int]]
+
+
+_PEER_LINE = re.compile(
+    rf"(handshake|endpoint) ({WIREGUARD_KEY.pattern})\t"
+    rf"(\d{{1,{_COUNT_DIGITS}}}|\d{{1,3}}(?:\.\d{{1,3}}){{3}}:\d{{1,5}}|\(none\))"
+)
+
+
+def read_peers(said: str) -> PeersSeen | None:
+    """What the tunnel said of its peers, or ``None`` when it said no time; a
+    line that does not read is left out."""
+    now = None
+    handshakes: dict[str, int] = {}
+    endpoints: dict[str, tuple[str, int]] = {}
+    for line in said.splitlines():
+        line = line.strip()
+        if line.startswith("now ") and line[4:].isdigit() and len(line) < 32:
+            now = int(line[4:])
+            continue
+        found = _PEER_LINE.fullmatch(line)
+        if found is None:
+            continue
+        what, key, value = found.groups()
+        if what == "handshake" and value.isdigit():
+            handshakes[key] = int(value)
+        elif what == "endpoint" and ":" in value:
+            host, _, port = value.partition(":")
+            try:
+                ipaddress.IPv4Address(host)
+            except ValueError:
+                continue
+            if 1 <= int(port) <= 65535:
+                endpoints[key] = (host, int(port))
+    if now is None:
+        return None
+    return PeersSeen(now=now, handshakes=handshakes, endpoints=endpoints)
+
+
 @dataclass(frozen=True, kw_only=True)
 class Owned:
     """A pooled container on this machine's daemon, and whose it is."""
@@ -590,6 +804,22 @@ class Pool:
             ["exec", name, "/bin/sh", "-c", script, "mcgyvr", *args], "exec"
         )
         return result.stdout
+
+    def run_python(self, name: str, source: str, *args: str) -> str:
+        """Run Python ``source`` with ``args`` in container ``name``; what it
+        printed."""
+        result = self._call(
+            ["exec", name, TUNNEL_PYTHON, "-I", "-c", source, *args], "exec"
+        )
+        return result.stdout
+
+    def start_python(self, name: str, source: str, *args: str) -> None:
+        """Start Python ``source`` with ``args`` in container ``name``, and
+        leave it running."""
+        self._call(
+            ["exec", "--detach", name, TUNNEL_PYTHON, "-I", "-c", source, *args],
+            "exec",
+        )
 
     def try_script(self, name: str, script: str, *args: str) -> bool:
         """Whether ``script`` with ``args`` succeeds in container ``name``."""

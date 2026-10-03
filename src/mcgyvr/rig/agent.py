@@ -19,7 +19,9 @@ A session ends one of three ways, and each is judged once, by
 * **lost** — anything else: the channel dropped, the hub timed the agent out
   or throttled it, the hub could not be reached, the machine could not be
   read, a hello or :data:`MISSED_ACKS` heartbeats in a row went unacked. The
-  agent waits (:class:`Backoff`) and starts a new session.
+  agent waits (:class:`Backoff`) and starts a new session — no longer than
+  :data:`HURRY_S` while the rig's sessions wait out the grace the hub keeps
+  them for (``hurry``), so it is back in time for its hello to resume them.
 
 The hub is untrusted. Whatever it sends, the agent answers at most
 :data:`FRAMES_PER_SECOND` frames a second, under the hub's own cap, dropping
@@ -33,7 +35,10 @@ the same rate, delaying rather than dropping. The agent tells them when the
 channel is up (``on_online``), when it is lost (``on_offline``: the outbox
 is closed, and sessions end unless the hub returns within their grace), and
 when the agent ends (``on_exit``: every session is torn down before
-:meth:`Agent.run` returns).
+:meth:`Agent.run` returns). An error the hub sends is told to them too
+(``on_hub_error``), and a session that ended and freed its memory asks for a
+heartbeat at once (:meth:`Agent.beat_soon`), so the hub's reading of the rig
+is fresh.
 """
 
 from __future__ import annotations
@@ -66,6 +71,12 @@ RECEIVE_SLICE_S = 1.0
 OUTBOX_SLICE_S = 0.01
 #: The longest text of the hub's the agent shows, in characters.
 SHOWN_MAX = 200
+#: The longest wait before a new session while the rig's sessions wait out
+#: the hub's grace, in seconds.
+HURRY_S = 2.0
+#: The soonest a heartbeat asked for early goes after the one before it (or
+#: the hello), in seconds.
+EARLY_BEAT_S = 1.0
 
 #: Error codes after which asking again is refused again.
 _REFUSALS = {
@@ -163,10 +174,15 @@ class _StoppedError(Exception):
 
 class _Session:
     """One channel's state, as the dispatcher reports to it; ``acked`` is told
-    of each ack as it arrives."""
+    of each ack as it arrives, ``errors`` of each error."""
 
-    def __init__(self, acked: Callable[[_Session], None]) -> None:
+    def __init__(
+        self,
+        acked: Callable[[_Session], None],
+        errors: Callable[[protocol.Error], None] = lambda error: None,
+    ) -> None:
         self._told = acked
+        self._errors = errors
         self.acked: set[str] = set()
         self.rig_id: str | None = None
         self.interval: int | None = None
@@ -182,6 +198,7 @@ class _Session:
 
     def on_error(self, error: protocol.Error) -> None:
         self.last_error = error
+        self._errors(error)
 
 
 def _judge(failure: Exception, last_error: protocol.Error | None) -> Exception:
@@ -235,6 +252,8 @@ class Agent:
         on_online: Callable[[], None] | None = None,
         on_offline: Callable[[], None] | None = None,
         on_exit: Callable[[], None] | None = None,
+        hurry: Callable[[], bool] | None = None,
+        on_hub_error: Callable[[protocol.Error], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
@@ -254,6 +273,14 @@ class Agent:
         self._on_online = on_online or (lambda: None)
         self._on_offline = on_offline or (lambda: None)
         self._on_exit = on_exit or (lambda: None)
+        self._hurry = hurry or (lambda: False)
+        self._on_hub_error = on_hub_error or (lambda error: None)
+        self._soon = threading.Event()
+
+    def beat_soon(self) -> None:
+        """Send a heartbeat now, or :data:`EARLY_BEAT_S` after the last: the
+        rig's memory changed (a session ended)."""
+        self._soon.set()
 
     def stop(self) -> None:
         """Ask the agent to stop; it closes its channel and :meth:`run` returns."""
@@ -281,6 +308,8 @@ class Agent:
                     )
                     attempt = 0 if held else attempt
                     delay = self._backoff.delay(attempt, self._draw())
+                    if self._hurry():
+                        delay = min(delay, HURRY_S)
                     attempt += 1
                     self._status(connected=False)
                     self._say(f"lost the hub: {lost}; trying again in {delay:.1f} s")
@@ -348,7 +377,8 @@ class Agent:
         except (websocket.WebSocketError, OSError) as exc:
             raise _judge(exc, None) from exc
         session = _Session(
-            lambda told: self._status(connected=True, session=told, acked=self._wall())
+            lambda told: self._status(connected=True, session=told, acked=self._wall()),
+            self._on_hub_error,
         )
         try:
             self._converse(channel, session, report, held_from)
@@ -389,6 +419,11 @@ class Agent:
             answer = self._dispatcher.dispatch(raw, session)
             if answer is not None:
                 self._send(channel, answer, answer=True)
+
+    def _early_after(self, at: float) -> Callable[[], bool]:
+        """Whether a heartbeat asked for early may go now: asked, and at or
+        after ``at`` on the clock."""
+        return lambda: self._soon.is_set() and self._clock() >= at
 
     def _converse(
         self,
@@ -437,8 +472,16 @@ class Agent:
             self._say(f"note: {note}")
         unacked: list[str] = []
         next_beat = self._clock() + interval
+        last_beat = self._clock()
         while True:
-            self._pump(channel, session, next_beat)
+            self._pump(
+                channel,
+                session,
+                next_beat,
+                done=self._early_after(last_beat + EARLY_BEAT_S),
+            )
+            early = self._soon.is_set() and self._clock() < next_beat
+            self._soon.clear()
             if any(beat in session.acked for beat in unacked):
                 unacked.clear()
             session.acked.clear()  # read; an id is acked once, so none is kept
@@ -454,4 +497,6 @@ class Agent:
                 frame = protocol.heartbeat(beat_id, ram_free_mb=None, cards=())
             self._send(channel, frame, answer=False)
             unacked.append(beat_id)
-            next_beat += interval
+            last_beat = self._clock()
+            if not early:
+                next_beat += interval
