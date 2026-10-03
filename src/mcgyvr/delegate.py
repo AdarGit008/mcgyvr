@@ -36,7 +36,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
-from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question, classify_role
+from mcgyvr.decision import (
+    Choice,
+    ChoiceAnswer,
+    Decision,
+    Question,
+    classify_for,
+    jev_bound,
+)
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 from mcgyvr.runner import Request, dispatch_role
@@ -375,7 +382,7 @@ class ClassifierProposer:
     Where :func:`proposer_for` asks the orchestrator role for a free-text JSON
     reply and parses it, this proposer asks three
     :class:`~mcgyvr.decision.Choice` questions through
-    :func:`~mcgyvr.decision.classify` — the task type over the servable
+    :func:`~mcgyvr.decision.classify_for` — the task type over the servable
     vocabulary, the target file over the resolver's ranked shortlist, and the
     symbol the task works on over that target's definitions — and builds one
     proposal from the answers. The model's contribution is *relevance*; the
@@ -457,30 +464,28 @@ def classifier_proposer_for(
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
 ) -> Proposer | None:
-    """The install's orchestrator role as a typed :class:`Proposer`, or ``None``.
+    """A typed :class:`Proposer` over the ``jev.unit`` or the orchestrator role,
+    or ``None`` when neither is bound.
 
     The same ``None`` contract as :func:`proposer_for`: a keyless install has no
     orchestrator, answered with :data:`NO_ORCHESTRATOR_ROLE` rather than a
     failure. The decisions are dispatched through
-    :func:`~mcgyvr.decision.classify_role`, below the seam, so this factory
-    holds no endpoint and the proposer it returns holds none either.
+    :func:`~mcgyvr.decision.classify_for`, below the seam — to the ``jev.unit``
+    when one is bound, which is then all this proposer needs, and to the
+    orchestrator role's unit when not — so this factory holds no endpoint and
+    the proposer it returns holds none either.
     """
-    if source_map.role_model(ORCHESTRATOR_ROLE) is None:
+    if not jev_bound(source_map) and source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        decision = classify_role(
+        return classify_for(
             source_map,
-            ORCHESTRATOR_ROLE,
             state,
             questions,
+            role=ORCHESTRATOR_ROLE,
             capacity=capacity,
         )
-        if decision is None:  # the role was bound a moment ago
-            raise OrchestratorUnavailableError(
-                f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
-            )
-        return decision
 
     return ClassifierProposer(classify=classify, confidence=confidence)
 

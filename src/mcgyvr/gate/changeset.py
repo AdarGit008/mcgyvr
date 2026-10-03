@@ -336,3 +336,37 @@ def read_added_text(change: FileChange, repo: Path) -> Mapping[int, str]:
         if 1 <= n <= len(lines):
             result[n] = lines[n - 1]
     return result
+
+
+def read_current_text(change: FileChange, repo: Path) -> str:
+    """The file as the worker left it, whole; empty for what cannot be read.
+
+    Binary, deleted and linked files yield nothing, for the reasons
+    :func:`read_added_text` gives.
+    """
+    if change.is_binary or change.is_deletion or change.is_link:
+        return ""
+    try:
+        return (repo / change.path).read_text(
+            encoding="utf-8", errors="surrogateescape"
+        )
+    except OSError:
+        return ""
+
+
+def read_base_text(change: FileChange, changeset: ChangeSet) -> str:
+    """The file at the change's base, whole; empty where the base has none.
+
+    Read from git (``<base>:<path>``), so it is what the worker started from
+    and not what is on disk. A repository git cannot answer for — no such
+    file at the base, no repository at all — yields the empty string: an
+    absent original is a fact about the change (the file is new), not a
+    failure of the check.
+    """
+    if change.is_binary or change.is_link:
+        return ""
+    try:
+        raw = _git(changeset.repo, "show", f"{changeset.base}:{change.path}")
+    except (ChangeSetError, OSError):
+        return ""
+    return raw.decode("utf-8", "surrogateescape")

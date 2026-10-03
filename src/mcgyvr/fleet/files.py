@@ -78,6 +78,7 @@ _POLICY_KEYS = frozenset(
         "gate",
         "orchestrator",
         "verifier",
+        "jev",
         "sandbox",
         "delivery",
         "serving",

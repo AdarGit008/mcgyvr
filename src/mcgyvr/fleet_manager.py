@@ -11,7 +11,8 @@ multi-model resident hot-swap is out of scope.
 
 The judgment is one :class:`~mcgyvr.decision.Noul` question — "is this task hard
 enough to want the smarter rung?" — answered as a single-token probability,
-never prose, through :func:`mcgyvr.decision.classify`. The wake itself is not
+never prose, through :func:`mcgyvr.decision.classify_for` — on the ``jev.unit``
+when one is bound, on the fast rung when not. The wake itself is not
 this module's: the rung the hook names is dispatched through the ordinary
 :mod:`mcgyvr.drive` path, whose :class:`mcgyvr.wake.Waker` wakes a sleeping
 card on the refused connection it returns (fail-first, never probe-first). So
@@ -20,8 +21,8 @@ by ``serving.enable_sleep_wake`` and live admission exactly as it is today.
 
 This module sits above the seam: it names rungs and reads a contract, and it
 never imports an :class:`~mcgyvr.pool.Endpoint` or :mod:`mcgyvr.serving`. It
-asks :mod:`mcgyvr.decision` to judge through a rung's own endpoint (bound by
-:meth:`~mcgyvr.pool.SourceMap.bind`), and it asks :mod:`mcgyvr.wake` which
+asks :mod:`mcgyvr.decision` to judge, naming a rung and never binding one —
+the decision module resolves the endpoint — and it asks :mod:`mcgyvr.wake` which
 rungs are asleep — both below-the-seam answers, read through seams that return
 rungs and names rather than machines.
 """
@@ -83,17 +84,17 @@ def judge(
     """Ask Jev whether to wake the smarter rung for this task.
 
     One :class:`~mcgyvr.decision.Noul` question through
-    :func:`~mcgyvr.decision.classify`, so the answer arrives as a single-token
-    probability — never prose and never a second HTTP path. The judgment runs
-    on the endpoint ``rung`` resolves to, so a decision and a dispatch reach
-    that unit identically.
+    :func:`~mcgyvr.decision.classify_for`, so the answer arrives as a
+    single-token probability — never prose and never a second HTTP path. The
+    judgment runs on the ``jev.unit`` when one is bound, and otherwise on the
+    unit ``rung`` names, so a decision and a dispatch reach that unit
+    identically. Either way the endpoint is resolved below the seam.
     """
-    resolved = pool.get(rung)
-    if resolved is None:
+    if pool.get(rung) is None:
         raise FleetManagerError(f"no rung named {rung!r} to judge with")
     question = {"wake_smarter": decision.Noul(INSTRUCTIONS)}
-    answers = decision.classify(
-        pool.bind(rung), resolved.model, dict(state), question, timeout_s=timeout_s
+    answers = decision.classify_for(
+        pool, dict(state), question, rung=rung, timeout_s=timeout_s
     ).answers
     answer = answers["wake_smarter"]
     assert isinstance(answer, decision.BoolAnswer)  # narrowed by classify
