@@ -38,7 +38,9 @@ of them (:func:`register` puts its handlers on the dispatcher):
   its workers over the tunnel (:meth:`Sessions._watch`): a worker not heard
   from for :attr:`Timing.peer_lost_s` fails the session as ``no_path`` (the
   hub's code for a peer no path reaches) — an engine whose worker's rig is
-  gone is never told so, and would wait out its whole load;
+  gone is never told so, and would wait out its whole load. A head on this
+  rig's cards alone (a session of one rig) needs no ``tunnel_up``, only the
+  prepared tunnel container its head runs in;
 * ``session_query`` is answered with where the session stands;
   ``session_stop`` tears it down.
 
@@ -103,7 +105,7 @@ from mcgyvr.sandbox import pooled
 #: Every state a session moves through, and where it may go from each.
 TRANSITIONS: dict[str, frozenset[str]] = {
     "preparing": frozenset({"prepared", "failed", "stopped"}),
-    "prepared": frozenset({"tunnel_up", "failed", "stopped"}),
+    "prepared": frozenset({"tunnel_up", "starting", "failed", "stopped"}),
     "tunnel_up": frozenset({"starting", "failed", "stopped"}),
     "starting": frozenset({"loading", "ready", "failed", "stopped"}),
     "loading": frozenset({"ready", "failed", "stopped"}),
@@ -708,7 +710,15 @@ class Sessions:
                 return sessionwire.refusal(
                     envelope.id, SessionCode.NOT_CAPABLE, "this rig is a session worker"
                 )
-            if session.plan is None or session.hello is None:
+            if session.hello is None:
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.NOT_READY, "the session is being prepared"
+                )
+            needs_tunnel = any(
+                not isinstance(device, sessionwire.LocalDevice)
+                for device in asked.devices
+            )
+            if session.plan is None and needs_tunnel:
                 return sessionwire.refusal(
                     envelope.id, SessionCode.NOT_READY, "the session's tunnel is not up"
                 )
@@ -816,7 +826,7 @@ class Sessions:
     def _plan_head(
         self, session: _Session, asked: sessionwire.HeadStart, re: str
     ) -> pooled.HeadSpec | str:
-        assert session.plan is not None and session.hello is not None
+        assert session.hello is not None
         share = self.machine.sharing()
         report = self.machine.report()
         held = self.machine.inventory()
@@ -846,7 +856,8 @@ class Sessions:
                 names.append(f"CUDA{gpus.index(gpu)}")
                 continue
             if (
-                session.plan.peer_of(device.host) is None
+                session.plan is None
+                or session.plan.peer_of(device.host) is None
                 or device.host == session.plan.address.ip
             ):
                 return sessionwire.refusal(
@@ -1433,7 +1444,6 @@ class Sessions:
         assert (
             session.head is not None
             and session.hello is not None
-            and session.plan is not None
             and session.head_asked is not None
             and session.api_port is not None
         )
@@ -1449,10 +1459,17 @@ class Sessions:
                     "model: this rig's file is not the one the digest names",
                 )
         pairs = [part for host, port in session.rpc for part in (host, str(port))]
+        # A head alone has no tunnel address, and no worker pair to open for
+        # it: the namespace's own address stands in.
+        own = (
+            session.plan.address.ip
+            if session.plan is not None
+            else ipaddress.IPv4Interface(session.hello.address).ip
+        )
         self._docker.run_script(
             session.tunnel_name,
             pooled.OPEN_HEAD_SCRIPT,
-            str(session.plan.address.ip),
+            str(own),
             session.hello.gateway,
             *pairs,
         )
