@@ -1,0 +1,355 @@
+"""The relief rungs a hub matched this rider to, kept in ``relief.yaml``.
+
+A hub matches a rider to other people's open slots (hitchhike) and lists them
+at ``GET /api/v1/me/rungs``. :func:`sync` asks for that list with the rider's
+*personal* key — not the rig token — and writes it whole into ``relief.yaml``
+beside the setup (:data:`mcgyvr.config.RELIEF_FILENAME`): one relief rung per
+listed rung, so a rung the hub no longer lists is gone, and nothing else in the
+setup is touched. Each rung names the variable that holds the key
+(``api_key_env``), never the key: the runner reads it at dispatch, as it reads
+every unit's.
+
+**The key goes only where the rig token may.** The hub is asked over
+``https://``, or ``http://`` on this machine, by the one rule
+(:func:`mcgyvr.rig.verbs.hub_address`), and a redirect is not followed: it
+would carry the key to an address nobody checked. Every address a rung names is
+held to the same rule and must be the hub's own (scheme, host and port), since
+the key is sent there with every ride.
+
+**The answer is hostile until read.** :func:`read` checks every field the
+contract names — its type, its size, the model's pattern and that it names its
+own rung, a width of at least one, a position the contract knows, an id once —
+and refuses the whole answer at the first that fails, naming it. A hub that
+half-speaks the contract is not trusted for the half it seems to get right, and
+refusing whole keeps the relief rungs already kept as they were. Fields the
+contract does not name are not read, so a newer hub may add some. The written
+file is loaded with the rest of the setup before it replaces the old one, so a
+sync never leaves a setup that does not load.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from mcgyvr.config import (
+    FLEET_FILENAME,
+    POLICY_FILENAME,
+    POSITION_CHOICES,
+    RELIEF_FILENAME,
+    ConfigError,
+    parse,
+)
+from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
+
+#: The rider's rungs, under a hub's address.
+RUNGS_PATH = "/api/v1/me/rungs"
+#: The variable the personal key is read from when none is named.
+KEY_ENV = "MCGYVR_HUB_API_KEY"
+#: What the key is called where a refusal names it.
+CARRYING = "your personal hub key"
+#: How long asking the hub may take, in seconds.
+FETCH_TIMEOUT_S = 15.0
+#: The largest answer read; a listing of :data:`MAX_RUNGS` rungs is far smaller.
+MAX_ANSWER_BYTES = 256 * 1024
+#: The most rungs one answer may list.
+MAX_RUNGS = 64
+#: The longest handle and model description kept, in characters.
+MAX_TEXT = 256
+#: The longest privacy warning shown, in characters.
+MAX_PRIVACY = 2000
+#: The longest rung address kept, in characters.
+MAX_ADDRESS = 2048
+#: The widest rung kept: no unit serves more requests at once.
+MAX_WIDTH = 1024
+#: A relief rung's name in ``relief.yaml``: this prefix and the rung's id.
+NAME_PREFIX = "hitchhike-"
+
+_ID = re.compile(r"[0-9a-f]{32}")
+_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
+_HTTP = {"http": "http", "https": "https", "ws": "http", "wss": "https"}
+
+
+class SyncError(Exception):
+    """A sync that could not be made: no setup here, or the hub not reached."""
+
+
+class HubAnswerError(Exception):
+    """The hub's answer is refused: it said no, or said something unreadable."""
+
+
+@dataclass(frozen=True)
+class Ride:
+    """One relief rung, as the hub listed it."""
+
+    id: str
+    hosted_by: str
+    address: str
+    model: str
+    served_model: str
+    width: int
+    position: str
+
+    @property
+    def name(self) -> str:
+        """The rung's name in ``relief.yaml``, keyed on its id."""
+        return f"{NAME_PREFIX}{self.id}"
+
+
+@dataclass(frozen=True)
+class Rides:
+    """The hub's whole answer: whether the rider rides, and what to."""
+
+    ride: bool
+    privacy: str
+    refresh_s: float
+    rungs: tuple[Ride, ...]
+
+
+def _origin(parts: urllib.parse.SplitResult) -> tuple[str, str, int]:
+    """Scheme, host and port, the agent's schemes read as the web's."""
+    scheme = _HTTP[parts.scheme.lower()]
+    port = parts.port or (443 if scheme == "https" else 80)
+    return scheme, (parts.hostname or "").lower(), port
+
+
+def rungs_url(hub: str) -> str:
+    """Where the hub at ``hub`` lists this rider's rungs.
+
+    ``ValueError`` and :class:`~mcgyvr.rig.verbs._RefusalError` as
+    :func:`~mcgyvr.rig.verbs.hub_address` raises them. A kept address that
+    names the agent channel is read as the hub it belongs to.
+    """
+    parts = hub_address(hub, carrying=CARRYING)
+    scheme, _, _ = _origin(parts)
+    path = parts.path.rstrip("/")
+    if path.endswith(AGENT_PATH):
+        path = path[: -len(AGENT_PATH)]
+    return urllib.parse.urlunsplit((scheme, parts.netloc, path + RUNGS_PATH, "", ""))
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse every redirect: it would carry the key to an unchecked address."""
+
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+
+def fetch(hub: str, key: str, *, timeout: float = FETCH_TIMEOUT_S) -> Rides:
+    """Ask the hub at ``hub`` for this rider's rungs, with ``key``, and read them.
+
+    :class:`HubAnswerError` for an error status (the hub's refusal) and for an
+    answer :func:`read` refuses; :class:`SyncError` when the hub cannot be
+    reached. No message carries the key.
+    """
+    url = rungs_url(hub)
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
+        method="GET",
+    )
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            raw: bytes = response.read(MAX_ANSWER_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        raise HubAnswerError(
+            f"the hub refused: {url} answered HTTP {exc.code}"
+        ) from exc
+    except (OSError, ValueError) as exc:
+        raise SyncError(f"the hub at {hub} could not be reached: {exc}") from exc
+    if len(raw) > MAX_ANSWER_BYTES:
+        raise HubAnswerError(
+            f"the hub's answer is refused: it is over {MAX_ANSWER_BYTES} bytes"
+        )
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, ValueError, RecursionError) as exc:
+        raise HubAnswerError("the hub's answer is refused: it is not JSON") from exc
+    return read(document, hub)
+
+
+def _refused(where: str, why: str) -> HubAnswerError:
+    return HubAnswerError(f"the hub's answer is refused: {where} {why}")
+
+
+def _text(value: object, where: str, longest: int) -> str:
+    if not isinstance(value, str) or not value or len(value) > longest:
+        raise _refused(where, f"is not text of 1 to {longest} characters")
+    if not value.isprintable():
+        raise _refused(where, "holds a character that is not printable")
+    return value
+
+
+def _count(value: object, where: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _refused(where, "is not a whole number")
+    if not 1 <= value <= MAX_WIDTH:
+        raise _refused(where, f"is not between 1 and {MAX_WIDTH}")
+    return value
+
+
+def _address(value: object, where: str, origin: tuple[str, str, int]) -> str:
+    address = _text(value, where, MAX_ADDRESS)
+    try:
+        parts = hub_address(address, carrying=CARRYING)
+    except _RefusalError as exc:
+        raise _refused(where, str(exc)) from exc
+    except ValueError as exc:
+        raise _refused(where, f"is not a hub's address: {exc}") from exc
+    if parts.scheme.lower() not in ("http", "https"):
+        raise _refused(where, "is not an http(s) address")
+    if _origin(parts) != origin:
+        raise _refused(
+            where, "is not the hub's own address, and the key would be sent there"
+        )
+    if not parts.path.rstrip("/").endswith("/v1"):
+        raise _refused(where, "does not end in /v1")
+    return address
+
+
+def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
+    if not isinstance(raw, dict):
+        raise _refused(where, "is not an object")
+    rung_id = raw.get("id")
+    if not isinstance(rung_id, str) or not _ID.fullmatch(rung_id):
+        raise _refused(f"{where}.id", "is not 32 lowercase hex digits")
+    model = raw.get("model")
+    if not isinstance(model, str) or not _MODEL.fullmatch(model):
+        raise _refused(f"{where}.model", "is outside the model pattern")
+    if model != f"hitchhike@{rung_id}":
+        raise _refused(f"{where}.model", "does not name this rung")
+    if raw.get("relief") is not True:
+        raise _refused(f"{where}.relief", "is not true")
+    position = raw.get("position")
+    if position not in POSITION_CHOICES:
+        raise _refused(
+            f"{where}.position", f"is not one of {', '.join(POSITION_CHOICES)}"
+        )
+    assert isinstance(position, str)  # one of the choices
+    return Ride(
+        id=rung_id,
+        hosted_by=_text(raw.get("host"), f"{where}.host", MAX_TEXT),
+        address=_address(raw.get("address"), f"{where}.address", origin),
+        model=model,
+        served_model=_text(raw.get("served_model"), f"{where}.served_model", MAX_TEXT),
+        width=_count(raw.get("width"), f"{where}.width"),
+        position=position,
+    )
+
+
+def read(document: object, hub: str) -> Rides:
+    """The hub's answer for the hub at ``hub``, read whole, or refused whole.
+
+    :class:`HubAnswerError` names the first field that fails.
+    """
+    origin = _origin(hub_address(hub, carrying=CARRYING))
+    if not isinstance(document, dict):
+        raise _refused("the answer", "is not a JSON object")
+    ride = document.get("ride")
+    if not isinstance(ride, bool):
+        raise _refused("ride", "is not true or false")
+    privacy = _text(document.get("privacy"), "privacy", MAX_PRIVACY)
+    refresh = document.get("refresh_s")
+    if (
+        isinstance(refresh, bool)
+        or not isinstance(refresh, int | float)
+        or not math.isfinite(refresh)
+        or refresh <= 0
+    ):
+        raise _refused("refresh_s", "is not a number above zero")
+    listed = document.get("rungs")
+    if not isinstance(listed, list):
+        raise _refused("rungs", "is not a list")
+    if len(listed) > MAX_RUNGS:
+        raise _refused("rungs", f"lists more than {MAX_RUNGS}")
+    if listed and not ride:
+        raise _refused("rungs", "are listed for a rider who does not ride")
+    rides = tuple(
+        _ride(raw, f"rungs[{index}]", origin) for index, raw in enumerate(listed)
+    )
+    seen: set[str] = set()
+    for index, each in enumerate(rides):
+        if each.id in seen:
+            raise _refused(f"rungs[{index}].id", "is listed twice")
+        seen.add(each.id)
+    return Rides(ride=ride, privacy=privacy, refresh_s=float(refresh), rungs=rides)
+
+
+def render(rides: Rides, key_env: str) -> str:
+    """``relief.yaml`` for ``rides``, each rung naming ``key_env`` for its key."""
+    block = {
+        each.name: {
+            "address": each.address,
+            "model": each.model,
+            "api_key_env": key_env,
+            "width": each.width,
+            "position": each.position,
+            "hosted_by": each.hosted_by,
+            "served_model": each.served_model,
+        }
+        for each in rides.rungs
+    }
+    header = (
+        "# Written by `mcgyvr rig rungs sync`, which rewrites it whole: an edit\n"
+        "# here lasts until the next sync. Each host can read the prompts sent\n"
+        "# to their rung.\n"
+    )
+    return header + yaml.safe_dump({"relief": block}, sort_keys=False)
+
+
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise SyncError(f"cannot read {path}: {exc}") from exc
+
+
+def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
+    """Ask the hub and keep its answer in ``folder``'s ``relief.yaml``.
+
+    ``folder`` must hold a setup (a ``fleet.yaml``): a sync adds relief rungs to
+    a setup and never starts one. The new file is loaded with the setup before
+    it replaces the old one, and replaces it whole or not at all.
+    """
+    fleet = folder / FLEET_FILENAME
+    if not fleet.is_file():
+        raise SyncError(
+            f"no {FLEET_FILENAME} in {folder}: a sync keeps relief rungs beside a "
+            "setup, and there is none here"
+        )
+    rides = fetch(hub, key)
+    text = render(rides, key_env)
+    try:
+        parse(
+            _read_text(fleet),
+            _read_text(folder / POLICY_FILENAME),
+            path=folder,
+            relief_text=text,
+        )
+    except ConfigError as exc:
+        raise HubAnswerError(
+            f"the hub's answer is refused: the setup would not load with it ({exc})"
+        ) from exc
+    target = folder / RELIEF_FILENAME
+    staging = folder / f".{RELIEF_FILENAME}.part"
+    staging.unlink(missing_ok=True)
+    try:
+        staging.write_text(text, encoding="utf-8")
+        os.replace(staging, target)
+    except BaseException:
+        staging.unlink(missing_ok=True)
+        raise
+    return rides, target

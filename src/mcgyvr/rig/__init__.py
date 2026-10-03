@@ -15,7 +15,10 @@ is stopped, reconnecting with backoff when the channel drops.
 * :mod:`mcgyvr.rig.commands` — what the agent does with each message the hub
   sends; the seam later commands are added at.
 * :mod:`mcgyvr.rig.agent` — the session, the heartbeats and the reconnects.
-* :mod:`mcgyvr.rig.verbs` — ``mcgyvr rig join | run | status | leave | share``.
+* :mod:`mcgyvr.rig.verbs` — ``mcgyvr rig join | run | status | leave | rungs |
+  share``.
+* :mod:`mcgyvr.rig.rungs` — the relief rungs the hub matched this rider to,
+  kept in ``relief.yaml``.
 
 A rig may lend its cards to the hub's pooled-inference sessions:
 

@@ -136,6 +136,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.rig.probe",
     "mcgyvr.rig.protocol",
     "mcgyvr.rig.relay",
+    "mcgyvr.rig.rungs",
     "mcgyvr.rig.session",
     "mcgyvr.rig.sessionwire",
     "mcgyvr.rig.sharing",
