@@ -27,7 +27,11 @@ A setup is two files in one directory, and `mcgyvr init` writes both (by
 default into the working directory):
 
 - `fleet.yaml` — what runs where: `profile`, `units`, `rigs` and `fleets`.
-- `policy.yaml` — how work moves over those units: `ladder` and every other top-level key below.
+- `policy.yaml` — how work moves over those units: `ladder` and every other top-level key below but `relief`.
+
+A third file, `relief.yaml`, holds `relief`: the units other
+people lend you through a hub. `mcgyvr rig rungs sync` writes it whole
+and nothing else does, so it is neither locked nor edited by hand.
 
 Each file refuses a key that belongs in the other. `rigs`, `fleets` and
 each unit's `unit_id` are not in the tables below: `mcgyvr fleet lock`
@@ -93,6 +97,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `serving` | block | no | — | What mcgyvr may do to the machines that serve the units. A unit's HuggingFace cache is a fact about that unit and lives on it, not here: only the policy of starting and stopping a card is a setting. |
 | `manager` | block | no | — | What the ladder manager may do on its own. It runs only under `mcgyvr manage`, and only when `serving.enable_sleep_wake` is on and the ladder has units that can sleep and wake. Within this block it sleeps and wakes those units, changes `fanout` and changes which local unit leads; everything else it notices it prints as a recommendation and leaves alone. A vLLM unit sleeps at level 2, keeping its process and dropping its weights and KV cache; any other unit's containers are stopped. A wake loads the model from disk again. |
 | `journal` | block | no | — | Where mcgyvr keeps its own record of what it dispatched. |
+| `relief` | block map | no | — | Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder. Its host can read your prompts. |
 
 ## `units`
 
@@ -209,3 +214,19 @@ Where mcgyvr keeps its own record of what it dispatched.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `journal.dir` | text | no | `~/.local/state/mcgyvr/journal` | Where every run journals what it asked, what came back and how it landed: one `<orchestrator>.jsonl` per writer, the prompts and replies content-addressed under `blobs/`, and each run's result file under `results/`. Deterministic runs are here too, with a row naming the program instead of a model. This is mcgyvr's own record, it never lands in the repository a run works on, and nothing on the command line moves it: it is the one place every run is, which is what makes it worth asking questions of. `mcgyvr run --record DIR` adds a second copy for your own use. Read either back with `tools/live/review.py DIR`. |
+
+## `relief`
+
+Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder. Its host can read your prompts.
+
+Each entry takes these keys:
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `relief.address` | URL | **yes** | — | The hub's OpenAI-compatible address the rung is asked at, ending in `/v1`. To bind it: e.g. https://hub.example.org/v1, as the hub gave it. |
+| `relief.model` | text | **yes** | — | The model string sent with each request, as the hub gave it. |
+| `relief.api_key_env` | env var name | **yes** | — | NAME of the environment variable holding your personal hub key, which each request carries. To bind it: the variable's NAME (e.g. MCGYVR_HUB_API_KEY), never the key. |
+| `relief.width` | number (min 1) | **yes** | — | How many of your requests the rung takes at once. |
+| `relief.position` | one of `above_ceiling`, `below_floor`, `within` | **yes** | — | Where the host's model sits against the models on your own rigs, as the hub judges it. Shown, never a place on the ladder. |
+| `relief.hosted_by` | text | no | unset | The handle of the person whose unit this is. They can read your prompts and the answers. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
+| `relief.served_model` | text | no | unset | What the host's unit runs, for display. Never sent. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |

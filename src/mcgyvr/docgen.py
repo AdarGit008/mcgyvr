@@ -58,7 +58,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import contract as contract_schema
-from .config import FLEET_FILENAME, POLICY_FILENAME, SCHEMA, Field
+from .config import FLEET_FILENAME, POLICY_FILENAME, RELIEF_FILENAME, SCHEMA, Field
 
 # An HTML comment, so it renders as nothing but survives in the source a
 # would-be editor is looking at.
@@ -246,7 +246,8 @@ def render_reference() -> str:
         "",
         "# Configuration reference",
         "",
-        f"Every key `{FLEET_FILENAME}` and `{POLICY_FILENAME}` accept.",
+        f"Every key `{FLEET_FILENAME}`, `{POLICY_FILENAME}` and "
+        f"`{RELIEF_FILENAME}` accept.",
         "",
         "This page is generated from `SCHEMA` in `src/mcgyvr/config.py` — the same",
         "declaration the loader validates against. It is not a description of the",
@@ -335,7 +336,11 @@ def render_setup() -> str:
         f"- `{FLEET_FILENAME}` — what runs where: `profile`, `units`, `rigs` and "
         "`fleets`.",
         f"- `{POLICY_FILENAME}` — how work moves over those units: `ladder` and "
-        "every other top-level key below.",
+        "every other top-level key below but `relief`.",
+        "",
+        f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
+        "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
+        "and nothing else does, so it is neither locked nor edited by hand.",
         "",
         "Each file refuses a key that belongs in the other. `rigs`, `fleets` and",
         "each unit's `unit_id` are not in the tables below: `mcgyvr fleet lock`",
