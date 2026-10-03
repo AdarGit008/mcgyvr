@@ -53,6 +53,11 @@ class FileChange:
     status: str  # single-letter git status: A, M, D, T (renames are split)
     added_lines: frozenset[int]
     is_binary: bool
+    #: The path is a symlink in the working tree. A worker hands back text and
+    #: never a link, so one here was left by a command; and the gate runs on
+    #: the host, where a link made inside a container names a host path. So no
+    #: check reads through it: its "text" is a file outside the change.
+    is_link: bool = False
 
     @property
     def is_deletion(self) -> bool:
@@ -142,6 +147,7 @@ class ChangeSet:
                 status=status,
                 added_lines=frozenset(added),
                 is_binary=is_binary,
+                is_link=status != "D" and (root / path).is_symlink(),
             )
             for (status, path), (added, is_binary) in zip(statuses, hunks, strict=True)
         )
@@ -157,8 +163,12 @@ class ChangeSet:
         return tuple(f.path for f in self.files)
 
     def text_changes(self) -> tuple[FileChange, ...]:
-        """Non-binary, non-deleted changes — the scannable surface."""
-        return tuple(f for f in self.files if not f.is_binary and not f.is_deletion)
+        """Non-binary, non-deleted, non-link changes — the scannable surface."""
+        return tuple(
+            f
+            for f in self.files
+            if not f.is_binary and not f.is_deletion and not f.is_link
+        )
 
 
 def _resolve_base(root: Path, base: str) -> str:
@@ -306,9 +316,15 @@ def read_added_text(change: FileChange, repo: Path) -> Mapping[int, str]:
     A convenience for checks that scan added content (secrets, structural
     forms). Reads the current on-disk file — the worker's output — and returns
     only the lines :class:`ChangeSet` attributed to the worker. Binary and
-    deleted files yield nothing.
+    deleted files yield nothing, and so does a symlink: what it would yield is
+    the text of whatever it points at (:attr:`FileChange.is_link`).
     """
-    if change.is_binary or change.is_deletion or not change.added_lines:
+    if (
+        change.is_binary
+        or change.is_deletion
+        or change.is_link
+        or not change.added_lines
+    ):
         return {}
     path = repo / change.path
     try:

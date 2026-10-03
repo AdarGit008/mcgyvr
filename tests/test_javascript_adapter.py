@@ -118,9 +118,7 @@ def _fake_eslint(
     messages: list[dict[str, object]],
 ) -> None:
     """Make the adapter's eslint call return one result for ``path``."""
-    monkeypatch.setattr(
-        "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
-    )
+    monkeypatch.setattr("mcgyvr.gate.adapter.require_tool", lambda tool: tool)
     payload = [{"filePath": str(repo / path), "messages": messages}]
 
     def run(argv, *a, **k):  # type: ignore[no-untyped-def]
@@ -176,9 +174,7 @@ def test_a_fatal_eslint_is_a_fault_not_an_empty_result(
     zero findings and passed the change.
     """
     write(tmp_path, "a.ts", "export const x = 1;\n")
-    monkeypatch.setattr(
-        "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
-    )
+    monkeypatch.setattr("mcgyvr.gate.adapter.require_tool", lambda tool: tool)
     monkeypatch.setattr(
         "mcgyvr.gate.adapters.javascript.subprocess.run",
         lambda *a, **k: _Proc(2, "", "Error: no eslint config found"),
@@ -232,9 +228,7 @@ def _fake_prettier(
     formatted: dict[str, str],
 ) -> None:
     """Fake the two prettier calls: list-different, then per-file formatted output."""
-    monkeypatch.setattr(
-        "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
-    )
+    monkeypatch.setattr("mcgyvr.gate.adapter.require_tool", lambda tool: tool)
 
     def run(argv, *a, **k):  # type: ignore[no-untyped-def]
         if "--list-different" in argv:
@@ -282,9 +276,7 @@ def test_a_fatal_prettier_listing_is_a_fault_not_an_all_clear(
 ) -> None:
     """An invalid prettier config exits 2 and lists no file — not "all formatted"."""
     write(tmp_path, "f.ts", "const a=1;\n")
-    monkeypatch.setattr(
-        "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
-    )
+    monkeypatch.setattr("mcgyvr.gate.adapter.require_tool", lambda tool: tool)
     monkeypatch.setattr(
         "mcgyvr.gate.adapters.javascript.subprocess.run",
         lambda *a, **k: _Proc(2, "", "[error] Invalid configuration"),
@@ -300,9 +292,7 @@ def test_a_prettier_that_cannot_print_a_differing_file_is_a_fault(
 ) -> None:
     """The file has already been reported as differing; a bad exit cannot unsay it."""
     write(tmp_path, "f.ts", "const a=1;\n")
-    monkeypatch.setattr(
-        "mcgyvr.gate.adapters.javascript.require_tool", lambda tool: tool
-    )
+    monkeypatch.setattr("mcgyvr.gate.adapter.require_tool", lambda tool: tool)
 
     def run(argv, *a, **k):  # type: ignore[no-untyped-def]
         if "--list-different" in argv:

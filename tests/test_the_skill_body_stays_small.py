@@ -37,7 +37,22 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: remedy per `outcome`, the two outcomes no different contract can move,
 #: `--config`, and what declaring `risk: high` causes. Raising it is a
 #: decision to be argued for.
-MAX_SKILL_BODY_BYTES = 18_300
+#:
+#: 18_300 -> 18_600: the use-case expansion (P1 increment 4) adds four
+#: contract fields — media_kind, transcript, wer_threshold, sources — to the
+#: schema the skill documents, one table row each. The growth is the schema's,
+#: not prose bloat.
+#:
+#: 18_600 -> 18_700: the use-case expansion (seam 2) adds `media_artifact`
+#: to the `output_schema` enum the skill documents, one choice and one clause
+#: in the field's doc. The growth is the schema's, not prose bloat.
+#:
+#: 18_700 -> 18_900: the use-case expansion (P3) adds `chat` and `agent` to
+#: the `task_type` enum the skill documents, and the no-output-cap ruling
+#: makes `limits.max_output_tokens` a whole_file-only key, which the field's
+#: doc and the step-2 prose now state. The growth is the schema's, not prose
+#: bloat.
+MAX_SKILL_BODY_BYTES = 18_900
 
 
 def _body(path: Path) -> str:

@@ -140,7 +140,7 @@ def step_of_run_id(run_id: str, campaign: str, steps: list[str]) -> str | None:
 #: The step a caller gets without naming one. It belongs to no campaign
 #: directory, so it is the one step an unknown --campaign may file under.
 DEFAULT_STEP = Path(__file__).resolve().parent / "default-step.sh"
-#: The door's own steps: the default step and the two serve steps. None
+#: The door's own steps: the default step and the serve steps. None
 #: belongs to a campaign directory — a live ladder files under its host's
 #: envelope (`live-<host>`), not under an experiment's.
 DOOR_STEPS = frozenset(
@@ -148,6 +148,8 @@ DOOR_STEPS = frozenset(
         DEFAULT_STEP,
         Path(__file__).resolve().parent / "serve-up.py",
         Path(__file__).resolve().parent / "serve-down.py",
+        Path(__file__).resolve().parent / "serve-sleep.py",
+        Path(__file__).resolve().parent / "serve-wake.py",
     }
 )
 
@@ -210,7 +212,7 @@ def main() -> int:
             f"(known: {', '.join(known) or 'none'}). A step files under its "
             "campaign's envelope, and a campaign nobody declared has none; "
             "only the door's own steps (gate-scripts/default-step.sh and the "
-            "two serve steps) need no campaign directory. Nothing is minted"
+            "serve steps) need no campaign directory. Nothing is minted"
         )
 
     declared = declarations(step_file)

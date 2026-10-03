@@ -113,19 +113,19 @@ import io
 import re
 import subprocess
 import tarfile
-import tempfile
 from collections import Counter
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from mcgyvr.gate.adapter import (
+    HostRunner,
     ToolFailedError,
+    ToolRunner,
     plain_env,
-    require_tool,
     trusted_stdout,
 )
 from mcgyvr.gate.changeset import ChangeSet
@@ -270,10 +270,16 @@ class TypeCheck:
     files to check come from the change set handed to :meth:`run`. Instances
     are immutable and cheap — the declaration is re-read per run rather than
     cached, because a contract may add the config file it is being judged by.
+
+    ``runner`` is where the checker runs. Its configuration can be code (a
+    mypy plugin named by file path), so over a task's workspace it runs where
+    the task's commands do: a :class:`~mcgyvr.gate.adapter.SandboxRunner` over
+    the open sandbox. The default is the host, for a caller with no sandbox.
     """
 
     repo: Path
     timeout: float | None = TYPECHECK_TIMEOUT_S
+    runner: ToolRunner = field(default_factory=HostRunner)
 
     def declared_command(self) -> list[str] | None:
         """The checker this repository configured, or ``None`` for none.
@@ -313,7 +319,7 @@ class TypeCheck:
         tool = command[0]
         paths = [change.path for change in targets]
         stdout = self._check(command, tool, self.repo, paths)
-        reported = _diagnostics(stdout, paths, self.repo)
+        reported = _diagnostics(stdout, paths, self.repo, self.runner.host_path)
 
         added = {change.path: change.added_lines for change in targets}
 
@@ -330,16 +336,9 @@ class TypeCheck:
         self, command: Sequence[str], tool: str, repo: Path, paths: Sequence[str]
     ) -> str:
         """Run the declared checker over ``paths`` in ``repo``; return its report."""
-        checker = require_tool(tool)
         try:
-            proc = subprocess.run(
-                [checker, *command[1:], *paths],
-                cwd=repo,
-                capture_output=True,
-                text=True,
-                env=plain_env(),
-                timeout=self.timeout,
-                check=False,
+            proc = self.runner.run(
+                tool, [*command[1:], *paths], repo, timeout=self.timeout
             )
         except subprocess.TimeoutExpired as exc:
             # The checker ran out of budget. That is a fact about the machine's
@@ -396,14 +395,17 @@ class TypeCheck:
         the same answer the change set already gives such a repository: a first
         change against no history is attributed as wholly added.
         """
-        with _base_tree(changeset) as root:
+        with _base_tree(changeset, self.runner) as root:
             present = sorted({d.path for d in elsewhere if (root / d.path).is_file()})
             was: Counter[tuple[str, str | None, str]] = Counter()
             if present:
                 was.update(
                     d.key
                     for d in _diagnostics(
-                        self._check(command, tool, root, present), present, root
+                        self._check(command, tool, root, present),
+                        present,
+                        root,
+                        self.runner.host_path,
                     )
                 )
             seen: Counter[tuple[str, str | None, str]] = Counter()
@@ -450,7 +452,12 @@ def _finding(diagnostic: _Diagnostic) -> Finding:
     )
 
 
-def _diagnostics(stdout: str, paths: Sequence[str], repo: Path) -> list[_Diagnostic]:
+def _diagnostics(
+    stdout: str,
+    paths: Sequence[str],
+    repo: Path,
+    host_path: Callable[[str], Path] = Path,
+) -> list[_Diagnostic]:
     """Parse a checker's report, keeping errors in the files that were checked.
 
     A checker follows imports, so it reports on files the worker never touched;
@@ -463,7 +470,9 @@ def _diagnostics(stdout: str, paths: Sequence[str], repo: Path) -> list[_Diagnos
     set keys on first: a checker configured with ``show_absolute_path`` reports
     absolute paths, and a bare report may carry a ``./`` prefix, and either
     spelling must still land on the worker's file or the whole rung silently
-    reports clean over a change it could not attribute.
+    reports clean over a change it could not attribute. An absolute path is
+    read through ``host_path`` first: printed inside a container, it names the
+    workspace at the container's mount.
     """
     wanted = set(paths)
     diagnostics: list[_Diagnostic] = []
@@ -471,7 +480,10 @@ def _diagnostics(stdout: str, paths: Sequence[str], repo: Path) -> list[_Diagnos
         match = _rejecting(raw)
         if match is None:
             continue
-        path = _relative_to_repo(match["path"], repo)
+        printed = match["path"]
+        if Path(printed).is_absolute():
+            printed = str(host_path(printed))
+        path = _relative_to_repo(printed, repo)
         if path not in wanted:
             continue
         message = match["message"].strip()
@@ -496,7 +508,7 @@ def _rejecting(raw: str) -> re.Match[str] | None:
 
 
 @contextmanager
-def _base_tree(changeset: ChangeSet) -> Iterator[Path]:
+def _base_tree(changeset: ChangeSet, runner: ToolRunner) -> Iterator[Path]:
     """The pre-worker tree, checked out whole, for the length of the ``with``.
 
     Whole rather than the changed files alone: a type checker reads the
@@ -507,9 +519,14 @@ def _base_tree(changeset: ChangeSet) -> Iterator[Path]:
     ``git archive`` is used rather than a worktree or a stash because neither
     the repository's index nor its refs are this rung's to touch: the gate is
     judging a tree, not editing one.
+
+    It is laid out where ``runner`` can run the checker over it (its
+    :meth:`~mcgyvr.gate.adapter.ToolRunner.scratch`): inside the sandbox's
+    workspace when the checker runs there, so both runs are the same checker in
+    the same place, and nothing in the base tree runs anywhere the worker's
+    tree does not.
     """
-    with tempfile.TemporaryDirectory(prefix="mcgyvr-typecheck-base-") as name:
-        root = Path(name)
+    with runner.scratch() as root:
         archive = subprocess.run(
             ["git", "archive", "--format=tar", changeset.base],
             cwd=changeset.repo,

@@ -190,6 +190,12 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # decision. init itself never dispatches through it, and both live below the
 # seam — init writes the config that defines the ladder, compose ranks its
 # candidates.
+#
+# `pressure.py` reads one rung's load for the ladder manager. It binds the rung
+# to an endpoint to ask the two questions that need one — does it answer
+# (`availability`'s own probe) and what does the unit say it has in flight (the
+# runner's own status read) — and hands back a `Reading` of numbers and a flag.
+# Nothing travels upward: no endpoint, and no credential, leaves it.
 BELOW_THE_SEAM = {
     "pool.py",
     "runner.py",
@@ -199,6 +205,7 @@ BELOW_THE_SEAM = {
     "compose.py",
     "decision.py",
     "initialize.py",
+    "pressure.py",
     "triage.py",
 }
 

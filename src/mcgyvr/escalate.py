@@ -105,16 +105,19 @@ nothing else.
 :class:`Review` and reviewing the applied diff in fresh context are
 :mod:`mcgyvr.verify`'s; this module fixes only *when* a review is asked for and
 what follows from each answer. :attr:`Judgement.reviewer_failed` keeps a
-reviewer-side failure distinguishable, but an unusable review still ends the
-attempt here, because not accepting is the only answer this module is entitled
-to give. Diagnosing a ladder that declares its families out of rank order is not
-here either: the ascent's order is the catalog's, so an interleaved ladder
-executes in an order the config file does not show.
+reviewer-side failure distinguishable, and it is never charged to the builder:
+an unusable review leaves the gate's acceptance standing and labelled
+``UNVERIFIED``, exactly as an install with no reviewer is, because what failed
+was the review and not the change. It is never ``VERIFIED``. Diagnosing a
+ladder that declares its families out of rank order is not here either: the
+ascent's order is the catalog's, so an interleaved ladder executes in an order
+the config file does not show.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
@@ -190,8 +193,9 @@ class Assurance(StrEnum):
     result is never reported as more assured than it is. ``DETERMINISTIC`` is a
     tool's output through the gate, which is what a ``gate_only`` contract
     describes. ``VERIFIED`` is reachable only by a verifier that ran and
-    agreed. ``UNVERIFIED`` is a model's output that passed the gate in an
-    install with no verifier to satisfy the upgrade — accepted, and labelled.
+    agreed. ``UNVERIFIED`` is a model's output that passed the gate with no
+    verdict to satisfy the upgrade — no independent reviewer, review switched
+    off, or a reviewer that produced nothing usable — accepted, and labelled.
     """
 
     DETERMINISTIC = "deterministic"
@@ -355,6 +359,7 @@ def judge(
     gate: GateResult,
     *,
     verifier: Callable[[], Review] | None = None,
+    absent: str = "",
 ) -> Judgement:
     """Turn a gate run — and, only if it passed, a verifier — into a judgement.
 
@@ -362,6 +367,10 @@ def judge(
     referenced at all on the rejected path, so a gate failure cannot cost
     verifier spend however the caller supplied one. The gate runs before any
     model is asked for an opinion; this is where that is held.
+
+    ``absent`` is why there is no ``verifier``, in the caller's words, and it
+    goes into the judgement's detail: an unverified acceptance that cannot say
+    why is the silent kind this label exists to end.
     """
     policy = required_policy(contract, family)
     upgraded = policy != contract.verification.policy
@@ -392,6 +401,7 @@ def judge(
         )
 
     if verifier is None:
+        why = absent or "this install has none"
         return Judgement(
             verdict=Verdict.PASSED,
             assurance=Assurance.UNVERIFIED,
@@ -400,8 +410,8 @@ def judge(
             detail=(
                 f"accepted on the deterministic gate alone: work in the "
                 f"{family.name!r} family requires a fresh-context verifier and "
-                f"this install has none, so the acceptance is labelled "
-                f"unverified rather than verified."
+                f"{why}, so the acceptance is labelled unverified rather than "
+                f"verified."
             ),
         )
 
@@ -419,22 +429,47 @@ def judge(
             verdict=Verdict.FAILED,
             policy=policy,
             upgraded=upgraded,
-            # The gate passed, so there is nothing of its to repeat: the
-            # refusal is the whole of what failed, and it is what a retry has
-            # to act on.
-            retry=RetryNotes(
-                checks=("verifier",), lines=(f"verifier: {review.detail}",)
-            ),
+            # The gate passed, so none of its findings are repeated: the
+            # refusal is what failed, and it is what a retry has to act on.
+            # What the same reviewer answered to the gate's typed checks goes
+            # with it — they are observations elsewhere, but here they are the
+            # only reasons a typed refusal has, and they are already paid for.
+            retry=_refusal_notes(review, gate),
             detail=f"the verifier refused the change: {review.detail}",
         )
+    # The reviewer's fault, never the builder's: the gate accepted this change
+    # and nothing has since said otherwise. Failing it would spend the
+    # builder's attempt — and climb the ladder — over a review that never
+    # happened, so the acceptance stands on the gate and says exactly that.
     return Judgement(
-        verdict=Verdict.FAILED,
+        verdict=Verdict.PASSED,
+        assurance=Assurance.UNVERIFIED,
         policy=policy,
         upgraded=upgraded,
         reviewer_failed=True,
         detail=(
-            f"the verifier produced no usable verdict ({review.detail}), so the "
-            f"change is not accepted."
+            f"accepted on the deterministic gate alone: the verifier produced "
+            f"no usable verdict ({review.detail}), so the acceptance is "
+            f"labelled unverified rather than verified."
+        ),
+    )
+
+
+def _refusal_notes(review: Review, gate: GateResult) -> RetryNotes:
+    """What a retry is told after the verifier refused an accepted change.
+
+    The refusal itself, and then the reviewer's answers to the gate's typed
+    checks (:attr:`~mcgyvr.gate.GateResult.jev`). Those are the per-file
+    reasons a typed verdict does not carry, asked of the same reviewer over the
+    same change, so the builder is told what was found without a second
+    request being spent to find out.
+    """
+    reasons = () if gate.jev is None else (*gate.jev.findings, *gate.jev.observations)
+    return RetryNotes(
+        checks=("verifier", *(("jev",) if reasons else ())),
+        lines=(
+            f"verifier: {review.detail}",
+            *(finding.for_model() for finding in reasons),
         ),
     )
 
@@ -655,6 +690,14 @@ class Ascent:
         Comparing one rung's load against another's width reports an idle
         narrow rung as full and spends money climbing past it.
 
+        **Free is free by both counts.** A rung is full when this batch's load
+        is at its width *or* its server's own busy count is
+        (:meth:`~mcgyvr.capacity.Capacity.judge`, the one definition the ladder
+        manager reads too): another client's work fills a rung this process's
+        counters cannot see. A server that cannot be read leaves the load to
+        decide alone. The servers are read before the snapshot below, because
+        a read of a machine is not a counter read.
+
         The load is read here rather than stored when the ascent was built,
         because a reading taken before the batch started is only true until the
         batch starts; this is the closest a caller can get to the moment it acts.
@@ -752,19 +795,34 @@ class Ascent:
         """
         if self.fanout is not Fanout.IDLE or self.capacity is None:
             return None
+        # Each server's own busy count, read before the decision is taken: it is
+        # a read of a machine, and nothing slow runs inside `deciding`.
+        servers = {
+            step.rung.name: step.machine.server(self.capacity)
+            for each in self.plans
+            for step in each.climbable
+            if step.machine is not None
+        }
         with self.capacity.deciding():
             for each in self.plans:
                 for step in each.climbable:
                     machine = step.machine
                     width = self.widths.get(step.rung.name)
-                    load = (
+                    # Free by both counts (Capacity.judge): this batch's own
+                    # load, and the server's busy count, which sees the clients
+                    # this process does not.
+                    full = (
                         None
                         if machine is None
-                        else machine.load(self.capacity, step.rung.name)
+                        else machine.full(
+                            self.capacity,
+                            step.rung.name,
+                            servers.get(step.rung.name),
+                        )
                     )
-                    if machine is None or width is None or load is None:
+                    if machine is None or width is None or full is None:
                         return None
-                    if load < width:
+                    if not full:
                         if reserve and self._raises(each.family):
                             machine.claim(self.capacity, step.rung.name)
                         return each.family, step.rung.name, machine
@@ -1002,6 +1060,7 @@ def escalate(
     capacity: Capacity | None = None,
     floor: Family | None = None,
     wake_hook: Callable[[Contract], str | None] | None = None,
+    presence: Callable[[str], AbstractContextManager[object]] | None = None,
 ) -> Delivered | Halted:
     """Climb the ascent until something is accepted or a rule ends the task.
 
@@ -1019,6 +1078,21 @@ def escalate(
     model call, and paying it before a family is spent would charge every task
     for an answer the climb may not need. ``None`` disables the seam entirely,
     which is the ordinary install that did not ask for a fleet manager.
+
+    ``presence`` is the seam a ladder manager reads pressure through: a
+    caller-supplied context manager made per rung, which an attempt runs inside
+    when — and only when — it *climbed*: it is on a rung other than the one the
+    first attempt was spent on, reached after attempts were spent there. That is
+    the evidence a manager wants, tasks that outgrew a cheaper rung and are now
+    working on this one, and it is marked for the length of the attempt under the
+    rung's name. An attempt on the first rung is not, a rung reached past a
+    decline is not (a decline spends nothing, so nothing was tried below it), and
+    a raised entry under ``fanout: idle`` is not: nothing failed to put work
+    there, which is the same reason it is free of an escalation (see
+    :func:`_idle_entry`). The marking is the caller's to make best-effort — a
+    gauge must never fail the work it watches — and an exception raised by the
+    attempt leaves the presence the way a verdict does. ``None`` is exactly the
+    climb that has no such caller.
 
     Both ceilings are enforced through :func:`~mcgyvr.route.climb`'s ``permit``
     rather than by trimming the plan, because a decline costs nothing and a
@@ -1105,8 +1179,20 @@ def escalate(
 
     def observed(this: Try) -> Result:
         nonlocal attempts_spent, accepted_judgement
+        # Reached after attempts were spent on a cheaper rung: a climb. Read
+        # before the attempt, because the attempt is what adds to `spent_rungs`.
+        climbed = (
+            presence is not None
+            and bool(spent_rungs)
+            and this.rung.name != spent_rungs[0]
+        )
         try:
-            judgement = attempt(this)
+            with (
+                presence(this.rung.name)
+                if presence is not None and climbed
+                else nullcontext()
+            ):
+                judgement = attempt(this)
         except Exception as exc:
             # An exception is not a verdict. `climb` lets a raising attempt
             # propagate so it is not misread as "this family cannot do the

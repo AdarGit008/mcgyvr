@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), and what evidence a contract of that type must carry (`required_evidence`). This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated and what was removed from it.",
+  "schema_version": 2,
+  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated and what was removed from it.",
   "vendored_from": {
     "repo": "AdarGit008/local-ai",
     "status": "archived",
@@ -25,10 +25,29 @@
 
   "_families_note": "Ordered cheapest to dearest. A family is the ladder-independent way to say where work starts: rung names are chosen by whoever wrote the config, so a catalog that named rungs would only be valid on the machine it was written for. A family resolves against any ladder — a rung is `api` when its unit declares an `api_key_env` and `local` when it does not.",
 
+  "use_cases": [
+    {
+      "name": "coding",
+      "doc": "Scoped edits to a repository, judged by a deterministic gate over code."
+    },
+    {
+      "name": "chat",
+      "doc": "Raw prompt-to-response over a bound fleet; no gate, an endpoint for a harness."
+    },
+    {
+      "name": "agent",
+      "doc": "Gated personal-assistant tasks, judged by grounded citations plus safety over plain prose; the backend is llama.cpp / vLLM with tool-calling, a serving-layer capability rather than a gate rung."
+    },
+    {
+      "name": "media-gen",
+      "doc": "Image, video and speech generation, judged by media-valid, safety and ASR gates."
+    }
+  ],
+
   "evidence_kinds": [
     {
       "name": "gate",
-      "doc": "The deterministic acceptance gate. Carried by every type; it is the floor, not a choice.",
+      "doc": "The deterministic acceptance gate. The floor under every coding type; chat is ungated, and agent and media-gen are judged by their own structural evidence through the gate's output-checks rung.",
       "needs_commands": false
     },
     {
@@ -63,6 +82,26 @@
       "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit. Carried in the contract's `demonstration` list, not `acceptance`: the two lists have opposite baseline expectations, and one flat list cannot say which command is which (#183).",
       "needs_commands": true,
       "baseline": "fail"
+    },
+    {
+      "name": "media_valid",
+      "doc": "The output artifact is a valid file of the declared media kind — correct format, dimensions or duration. A structural check the gate makes itself, so it needs no contract command.",
+      "needs_commands": false
+    },
+    {
+      "name": "safety_pass",
+      "doc": "A deterministic safety classifier passes on the output. One kind serves media and text outputs alike — the gate runs it, the contract does not.",
+      "needs_commands": false
+    },
+    {
+      "name": "asr_wer",
+      "doc": "An ASR pass transcribes the audio output and its word-error-rate against the transcript stays under the contract's threshold. The transcript is the contract's own target, so the gate judges it without a human.",
+      "needs_commands": false
+    },
+    {
+      "name": "grounded",
+      "doc": "Every claim the reply makes cites a source the contract provided, so nothing is asserted that the corpus did not carry. A structural check, not a judgement.",
+      "needs_commands": false
     }
   ],
 
@@ -71,6 +110,7 @@
   "task_types": [
     {
       "name": "format",
+      "use_case": "coding",
       "starts_on": "deterministic",
       "guarantee": "The target is byte-identical to what the project's own formatter produces. No semantic change, and nothing is decided that the formatter's configuration did not already decide.",
       "required_evidence": ["gate", "tool_idempotent", "no_semantic_change"],
@@ -79,6 +119,7 @@
     },
     {
       "name": "import_sort",
+      "use_case": "coding",
       "starts_on": "deterministic",
       "guarantee": "Imports are ordered as the project's own tool orders them, with no other change to the file.",
       "required_evidence": ["gate", "tool_idempotent", "no_semantic_change"],
@@ -87,6 +128,7 @@
     },
     {
       "name": "lint_fix",
+      "use_case": "coding",
       "starts_on": "deterministic",
       "guarantee": "Every autofix the project's linter applies is applied, and nothing else is. A diagnostic the linter will not fix itself is explicitly out of scope for this type rather than handed to a model under the same name.",
       "required_evidence": ["gate", "tool_idempotent"],
@@ -95,6 +137,7 @@
     },
     {
       "name": "rename_symbol",
+      "use_case": "coding",
       "starts_on": "deterministic",
       "guarantee": "Every reference the index resolved is renamed, across every file that holds one. References the index could not resolve are reported, not silently left behind.",
       "required_evidence": ["gate", "references_resolved", "no_semantic_change"],
@@ -103,6 +146,7 @@
     },
     {
       "name": "docstring",
+      "use_case": "coding",
       "starts_on": "local",
       "guarantee": "Docstrings change and nothing else does — the gate compares the parsed structure and rejects a reply that edited code while claiming to document it.",
       "required_evidence": ["gate", "no_semantic_change"],
@@ -111,6 +155,7 @@
     },
     {
       "name": "type_annotation",
+      "use_case": "coding",
       "starts_on": "local",
       "guarantee": "Annotations are added to the named target and the project's type checker accepts the result. The checker, not the worker, decides whether the inference was right.",
       "required_evidence": ["gate", "type_check", "no_semantic_change"],
@@ -119,6 +164,7 @@
     },
     {
       "name": "function_implementation",
+      "use_case": "coding",
       "starts_on": "local",
       "guarantee": "One function is implemented against the interface the contract states, and the contract's acceptance commands pass.",
       "required_evidence": ["gate", "tests_pass"],
@@ -127,6 +173,7 @@
     },
     {
       "name": "test_scaffold",
+      "use_case": "coding",
       "starts_on": "local",
       "guarantee": "Tests are written for one named target against its stated interface, and they pass. The target itself is outside the contract's scope, so a worker cannot make a test pass by changing what it tests.",
       "required_evidence": ["gate", "tests_pass"],
@@ -135,12 +182,31 @@
     },
     {
       "name": "bug_fix",
+      "use_case": "coding",
       "starts_on": "local",
       "guarantee": "Defined wrong behaviour in one target is corrected, demonstrated by a command that fails before the change and passes after.",
       "required_evidence": ["gate", "failing_test_first"],
       "_evidence_change_note": "tests_pass was required here until #183 made evidence kinds satisfiable per-slot. The guarantee sentence promises only the demonstration, and requiring a pass-at-baseline command besides would force a contract with one demonstrating test — the common real shape — to invent a decorative regression command. A declared `acceptance` list is still welcome and is still held green at preflight; it is just not manufactured where none exists.",
       "warrant": "structural, not measured — coding benchmarks score synthesis against a given signature and say nothing about diagnosis in a repository the model can see (data/README.md), and the product ships no such score, so nothing here warrants the diagnostic step. What makes a cheap attempt safe to make anyway is `failing_test_first`: with a demonstration required up front, a worker that did not understand the defect produces a change that visibly fails rather than a plausible one that lands.",
       "doc": "Correct defined wrong behaviour in one target, with a test that demonstrates the correction."
+    },
+    {
+      "name": "chat",
+      "use_case": "chat",
+      "starts_on": "local",
+      "guarantee": "The reply is the answer. Nothing judges it — chat is a raw prompt-to-response endpoint, and whether the answer is right is the harness's question, not the gate's.",
+      "required_evidence": [],
+      "warrant": "There is no bar to clear — chat is a raw endpoint, so nothing is spent judging and the reply is served straight back.",
+      "doc": "Answer a prompt directly, ungated. The raw endpoint of the chat use case."
+    },
+    {
+      "name": "agent",
+      "use_case": "agent",
+      "starts_on": "local",
+      "guarantee": "The reply cites the contract's sources and clears the safety classifier, as plain prose — every claim is grounded, nothing unsafe is served, and the reply is raw text, not a file.",
+      "required_evidence": ["grounded", "safety_pass"],
+      "warrant": "structural — grounded and safety_pass are checks the gate makes itself, and the prose output protocol is the reply's format, so a wrong, unsafe or malformed answer is caught without a contract command.",
+      "doc": "Answer a prompt with a grounded, safe reply in plain prose, judged by the gate's output checks."
     }
   ],
 

@@ -176,10 +176,15 @@ def _door_files() -> list[str]:
     the lease release — by the names the door itself declares."""
     from mcgyvr.serving import run
 
-    names = [e.script for e in (*run.SEQUENCE, *run.ALWAYS, run.LEASE_RELEASE)]
-    names += [p.name for p in (*run.SERVE_STEPS.values(), *run.READERS)]
+    entries = (*run.SEQUENCE, *run.ALWAYS, *run.LINK_SEQUENCE, run.LEASE_RELEASE)
+    names = [e.script for e in entries]
+    names += [p.name for p in run.SERVE_STEPS.values()]
     names += [f"bin/{shim}" for shim in run.SHIMS]
-    return [f"mcgyvr/serving/gate-scripts/{name}" for name in names]
+    # A reader is named by where it sits in the package: most are beside the
+    # gates, and the link timer is beside the door.
+    package = run.HERE.parent.parent
+    readers = [p.relative_to(package).as_posix() for p in run.READERS]
+    return [f"mcgyvr/serving/gate-scripts/{name}" for name in names] + readers
 
 
 DATA_FILES = (
