@@ -53,6 +53,8 @@ from mcgyvr.serving import (
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
     HF_CACHE_MOUNT,
+    MEDIA_ENGINES,
+    MEDIA_ENGINES_NOT_WIRED,
     ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
@@ -126,6 +128,20 @@ class EmitError(Exception):
     """A launch spec could not be rendered — for a host, an engine or a path."""
 
 
+def _media_engine_not_wired(unit: Unit) -> str:
+    """Why a media engine's unit is refused before it is rendered.
+
+    ComfyUI and the TTS engines land later. Until one does there is no command
+    line and no image for it, and mcgyvr will not render a media unit with
+    another engine's flags.
+    """
+    return (
+        f"{unit.key.slug}: engine {unit.engine!r} is not wired in this build; "
+        "mcgyvr will not render a unit for an engine it has no launch spec "
+        "for rather than emit another engine's flags."
+    )
+
+
 def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     """The launch arguments, once, so the two renderings cannot drift.
 
@@ -153,6 +169,8 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     ``sleep_mode`` adds vLLM's ``--enable-sleep-mode`` (:func:`sleep_mode`), and
     only for a vLLM unit: llama.cpp has no such mode.
     """
+    if unit.engine in MEDIA_ENGINES_NOT_WIRED:
+        raise EmitError(_media_engine_not_wired(unit))
     flags = {**unit.args, "--port": str(unit.port)}
     # vLLM takes the model as its first positional argument, and it is the
     # model id — a repository path the cache resolves — never a file. Then
@@ -477,6 +495,8 @@ def _sequence_on_one_card(
     """
     on_card: dict[int, list[tuple[float, str, int]]] = {}
     for unit in units:
+        if unit.cpu_only:
+            continue
         # A worker or a headless node answers no ``/v1/models``, so a check on
         # it never passes and whatever waits on it never starts; they are not
         # chained.
@@ -542,6 +562,8 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     _check_role(unit)
     if unit.engine == "vllm":
         return _vllm_service(unit, sleep_mode=sleep_mode)
+    if unit.engine in MEDIA_ENGINES:
+        return _media_service(unit)
     if unit.role == ROLE_RPC:
         return _rpc_service(unit)
     return {
@@ -644,12 +666,43 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     }
 
 
+def _media_service(unit: Unit) -> dict[str, object]:
+    """A media unit as a compose service.
+
+    mcgyvr ships no media server image or shell binary: the container image is
+    the operator's and its entrypoint is the server, so the compose file names
+    that image and mounts the weights directory at its own absolute path with
+    no environment of mcgyvr's. The image contract is ENTRYPOINT-as-server:
+    compose ``command`` supplies only the argv. A cpu_only unit (a Piper-class
+    TTS rung) claims no card, so its service carries no GPU reservation.
+    """
+    service: dict[str, object] = {
+        "image": _image(unit),
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
+        "command": list(argv(unit)),
+        "network_mode": "host",
+        "restart": "unless-stopped",
+        "volumes": [f"{unit.weights_dir}:{unit.weights_dir}:ro"],
+    }
+    if not unit.cpu_only:
+        service["deploy"] = _reservation(unit.gpu)
+    return service
+
+
 def _command(unit: Unit) -> tuple[str, ...]:
     _check_role(unit)
     if unit.role == ROLE_RPC:
         return RPC_COMMAND
     command = ENGINE_COMMANDS.get(unit.engine)
     if command is None:
+        if unit.engine in MEDIA_ENGINES_NOT_WIRED:
+            raise EmitError(_media_engine_not_wired(unit))
+        if unit.engine in MEDIA_ENGINES:
+            raise EmitError(
+                f"{unit.key.slug}: engine {unit.engine!r} has no shell command — its "
+                "server is the container image's entrypoint, so render the "
+                "compose file rather than a pasted command"
+            )
         raise EmitError(
             f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"
         )
@@ -691,6 +744,11 @@ def _needs_built_image(unit: Unit) -> bool:
 def _image(unit: Unit) -> str:
     if unit.image:
         return unit.image
+    if unit.engine in MEDIA_ENGINES:
+        raise EmitError(
+            f"{unit.key.slug}: engine {unit.engine!r} has no default container image — "
+            f"set units.<unit>.image to the operator's {unit.engine} server image"
+        )
     if _needs_built_image(unit):
         what = (
             "an rpc-server worker" if unit.role == ROLE_RPC else "a server with --rpc"
@@ -703,6 +761,8 @@ def _image(unit: Unit) -> str:
         )
     image = ENGINE_IMAGES.get(unit.engine)
     if image is None:
+        if unit.engine in MEDIA_ENGINES_NOT_WIRED:
+            raise EmitError(_media_engine_not_wired(unit))
         raise EmitError(
             f"{unit.key.slug}: no container image is known for engine {unit.engine!r}"
         )

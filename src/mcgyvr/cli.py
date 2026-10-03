@@ -22,6 +22,7 @@ from mcgyvr.capability import (
     ESTIMATES_NOTICE,
     GB_PER_GIB,
     CapabilityTableError,
+    Model,
     load,
     table_path,
 )
@@ -338,14 +339,15 @@ def _catalog(args: argparse.Namespace) -> int:
 
 
 def _cap_undeclared(contract: Contract) -> str | None:
-    """Why a model contract with no declared reply cap is refused, or None.
+    """Why a whole-file model contract with no declared reply cap is refused, or None.
 
     The loader derives ``limits.max_output_tokens`` from the task type's own
     evidence, silently, because the bench and the corpus need a number. A
     person's run does not get that silence: a contract whose reply cap nobody
     chose is refused before anything is spent. The derived figure is printed as
     the value to start from. A deterministic contract has no reply to cap and
-    is not asked.
+    is not asked, and neither is a raw-text reply (``prose`` /
+    ``media_artifact``): it carries no cap, so there is nothing to declare.
 
     A ladder unit that declares ``units.*.output_tokens`` does not lift this.
     The two numbers answer different questions — what this unit of work is
@@ -356,7 +358,11 @@ def _cap_undeclared(contract: Contract) -> str | None:
     there is. A refusal lifted by a config the contract never mentions would
     also make this command's answer depend on which machine it was typed on.
     """
-    if contract.is_deterministic or contract.max_output_tokens_declared:
+    if (
+        contract.is_deterministic
+        or contract.max_output_tokens_declared
+        or contract.output_schema != "whole_file"
+    ):
         return None
     return (
         f"limits.max_output_tokens is not declared, and {contract.task_type} is "
@@ -403,8 +409,12 @@ def _contract(args: argparse.Namespace) -> int:
         f"  risk:    {contract.risk} — verified by "
         f"{contract.verification.policy.replace('_', ' ')}"
     )
+    if contract.limits.max_output_tokens is None:
+        output_budget = "uncapped (raw text)"
+    else:
+        output_budget = f"<={contract.limits.max_output_tokens} output tokens"
     print(
-        f"  limits:  <={contract.limits.max_output_tokens} output tokens, "
+        f"  limits:  {output_budget}, "
         f"<={contract.max_input_tokens} prompt tokens, "
         f"{contract.limits.attempts} attempt(s)"
     )
@@ -578,6 +588,8 @@ def _init(args: argparse.Namespace) -> int:
             hosts=tuple(args.host or ()),
             api_units=api_units,
             profile=args.profile,
+            use_case=args.use_case,
+            deployment=args.deployment,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -1981,6 +1993,13 @@ def _report_climb(
             f"{contract.id} was accepted on {outcome.rung} without bound "
             f"content, so there is nothing a delivery could re-judge.",
         )
+    if contract.output_schema in ("prose", "media_artifact"):
+        # A raw-text reply is the answer, not a file that gets committed: the
+        # harness reads it off the result file rather than off a delivery. No
+        # `_commit` is attempted and the accepted exit is returned.
+        report.answer = bound.content
+        print(f"\n{contract.id}: answer —\n{bound.content}")
+        return 0
     landed = outcome.history[-1]
     return _commit(
         args,
@@ -2973,6 +2992,22 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
     return matched[0]
 
 
+def _model_spec(model: Model, moe: bool) -> ModelSpec:
+    """One serving spec from one capability row; the table's decimal GB to GiB."""
+    return ModelSpec(
+        name=model.id,
+        vram_gb=model.vram_gb_working / GB_PER_GIB,
+        ram_gb=0.0,
+        disk_gb=model.weights_gb / GB_PER_GIB,
+        vae_decode_gb=(model.vae_decode_gb or 0.0) / GB_PER_GIB,
+        cpu_only=model.cpu_only,
+        moe=moe,
+        geometry=None,
+        kv_cache_dtype_k="f16",
+        kv_cache_dtype_v="f16",
+    )
+
+
 def _model_specs() -> tuple[ModelSpec, ...]:
     """Serving specs for the rows of the shipped capability estimates.
 
@@ -3002,22 +3037,10 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     :func:`mcgyvr.serving._placement`.
     """
     architectures = _architectures()
-    specs: list[ModelSpec] = []
-    for model in load().models:
-        moe = architectures.get(model.id) == "moe"
-        specs.append(
-            ModelSpec(
-                name=model.id,
-                vram_gb=model.vram_gb_working / GB_PER_GIB,
-                ram_gb=0.0,
-                disk_gb=model.weights_gb / GB_PER_GIB,
-                moe=moe,
-                geometry=None,
-                kv_cache_dtype_k="f16",
-                kv_cache_dtype_v="f16",
-            )
-        )
-    return tuple(specs)
+    return tuple(
+        _model_spec(model, architectures.get(model.id) == "moe")
+        for model in load().models
+    )
 
 
 def _architectures() -> dict[str, str]:
@@ -3348,6 +3371,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     line is the one the caller was typing against
     (tests/test_a_blank_orchestrator_is_refused_not_filed.py).
     """
+    from mcgyvr.catalog import catalog
+
+    use_case_names = tuple(u.name for u in catalog().use_cases)
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
@@ -3654,6 +3680,29 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "'quality', or 'cost') instead of writing the default ladder. The "
             "decision runs on the first detected backend; every number in the "
             "file stays measured or the schema's, never the model's"
+        ),
+    )
+    ini.add_argument(
+        "--use-case",
+        default="coding",
+        choices=use_case_names,
+        metavar="USE_CASE",
+        help=(
+            "which use case this install serves: coding (the deterministic "
+            "gate), chat (raw endpoint), agent (grounded + safety) or "
+            "media-gen (media_valid + safety + ASR-WER); default: coding"
+        ),
+    )
+    ini.add_argument(
+        "--deployment",
+        default=None,
+        choices=("hybrid", "local-only"),
+        metavar="MODEL",
+        help=(
+            "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
+            "local-only (mcgyvr is the backend and provisions a local "
+            "orchestrator for a non-chat use case); default: local-only for "
+            "chat, hybrid otherwise"
         ),
     )
     ini.set_defaults(func=_init)

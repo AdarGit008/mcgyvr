@@ -41,6 +41,7 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     GATE_FIELDS,
     JOURNAL_FIELDS,
+    LOCAL_ONLY,
     POLICY_FILENAME,
     SANDBOX_FIELDS,
     SCHEMA,
@@ -48,6 +49,7 @@ from mcgyvr.config import (
     Config,
     ConfigError,
     Field,
+    local_orchestrator,
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
@@ -540,11 +542,29 @@ def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
     return {name: by_name[name].default for name in names}
 
 
+def _deployment_default(use_case: str) -> str:
+    """The deployment the plan defaults each use case to at install.
+
+    ``chat`` is a raw endpoint, so it defaults to local-only — mcgyvr is the
+    backend. Everything else defaults to hybrid, where an API-tier
+    orchestrator drives mcgyvr and the ladder's dearest rung is an API model.
+
+    This is an *init-time* default and deliberately not the schema's: the
+    schema's ``deployment`` default is ``hybrid``, the one value that is safe
+    for a hand-written config that omits the key. ``chat`` needs no
+    orchestrator under either model, so the split only changes what init
+    writes for a fresh chat install.
+    """
+    return "local-only" if use_case == "chat" else "hybrid"
+
+
 def build(
     detection: Detection,
     proposal: Proposal,
     *,
     api_units: Sequence[ApiUnit] = (),
+    use_case: str = "coding",
+    deployment: str | None = None,
 ) -> dict[str, Any]:
     """The fleet data implied by what was detected, proposed and asked for.
 
@@ -562,6 +582,11 @@ def build(
     estimate in the capability table describes it. They enter as units like any
     other, which is what makes the result the same two files any other init
     writes rather than a second kind of output.
+
+    ``use_case`` is which of the four use cases the install serves, and
+    ``deployment`` is how it is run; ``None`` deployment falls back to
+    :func:`_deployment_default` for the use case, so the file states the choice
+    rather than leaving the schema's ``hybrid`` default to fill it silently.
     """
     backends = {backend.name: backend for backend in detection.backends}
     units: dict[str, Any] = {}
@@ -589,7 +614,14 @@ def build(
     return {
         # Written at its default so the file says which setup it is. The
         # value is the schema's, never spelled here (see `_defaults`).
-        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s"),
+        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s", "users"),
+        # The use case and its deployment model are the install's two choices.
+        # The deployment is written out (rather than left to the schema's
+        # default) so the file states the choice the plan defaults made.
+        "use_case": use_case,
+        "deployment": (
+            deployment if deployment is not None else _deployment_default(use_case)
+        ),
         "units": units,
         # Local rungs first, hosted ones last. A ladder is written
         # cheapest-first, and a rung is `api` exactly when its unit declares a
@@ -856,6 +888,8 @@ def initialize(
     profile: str | None = None,
     decision_endpoint: Endpoint | None = None,
     decision_model: str | None = None,
+    use_case: str = "coding",
+    deployment: str | None = None,
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -884,6 +918,12 @@ def initialize(
     the decision runs; when they are omitted they are taken from the first
     detected backend, and when no backend can run it the deterministic ladder
     is written with a note saying so. Without ``profile`` nothing changes.
+
+    ``use_case`` is which of the four use cases the install serves, and
+    ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
+    ``deployment`` is omitted the plan's default for the use case is written
+    — ``chat`` is local-only, everything else hybrid — so the file states the
+    choice rather than leaving the schema to fill it silently.
     """
     found = (
         detection
@@ -892,7 +932,9 @@ def initialize(
     )
     asked = _distinct_api_units(api_units)
     proposal = propose(sources=_sources_for(found))
-    data: Mapping[str, Any] = build(found, proposal, api_units=asked)
+    data: Mapping[str, Any] = build(
+        found, proposal, api_units=asked, use_case=use_case, deployment=deployment
+    )
     composition: tuple[str, ...] = ()
     compose_limits: tuple[str, ...] = ()
 
@@ -920,7 +962,27 @@ def initialize(
         else:
             compose_limits = (_compose_unavailable_note(profile),)
 
-    decisions = _decisions(found, proposal, asked) + composition
+    chosen_deployment = (
+        deployment if deployment is not None else _deployment_default(use_case)
+    )
+    decisions = (
+        _decisions(found, proposal, asked)
+        + composition
+        + (f"Use case {use_case!r} under deployment {chosen_deployment!r}.",)
+    )
+    # The single-user half of the ruling, surfaced rather than computed and
+    # dropped: a local-only non-chat install on one user is flagged, never
+    # refused.
+    if local_orchestrator(
+        use_case=use_case,
+        local_only=chosen_deployment == LOCAL_ONLY,
+        users=int(data.get("users", 1)),
+    ).flag_single_user:
+        decisions += (
+            "Local-only on a single-user install: the resident orchestrator "
+            "consumes the card the ladder would otherwise use — flagged, not "
+            "refused.",
+        )
     limits = _limits(found, proposal, asked) + compose_limits
     fleet_content = render_fleet(data, decisions)
     policy_content = render_policy(data, _policy_notes(found, data))
