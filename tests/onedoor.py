@@ -266,6 +266,12 @@ case $cmd in
   # The lock's own harness, shipped to the rig by a `read --probe`: the test
   # writes what it measured at 127.0.0.1 into harness.json.
   *"mcgyvr-harness"*) cat >/dev/null; cat "$STUBS/harness.json" ;;
+  # The link timer, shipped by a `link` run: the stub keeps the command and
+  # the source it was handed, and answers with what linktime.json says.
+  *"mcgyvr-linktime"*)
+    printf '%s\\n' "$cmd" > "$STUBS/linktime-cmd.txt"
+    cat > "$STUBS/linktime-source.txt"
+    cat "$STUBS/linktime.json" ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
   # The rig's lease (`~/.mcgyvr/lease` ON the rig): the remote command is
   # run as written, by a real bash, under a HOME of the stub's own — so
@@ -286,8 +292,28 @@ case $cmd in
   *constraint_0_power_limit_uw*) echo 95000000 ;;
   *constraint_1_power_limit_uw*) echo 120000000 ;;
   *query-compute-apps*) : ;;
+  # vLLM's sleep routes, present only once `sleep-route` exists (a unit run
+  # with sleep mode and the dev routes); `asleep-<port>` is each unit's state.
+  *"/sleep?level="*)
+    [ -e "$STUBS/sleep-route" ] || exit 22
+    port=$(printf '%s' "$cmd" | sed -n 's/.*localhost:\\([0-9]*\\).*/\\1/p')
+    touch "$STUBS/asleep-$port" ;;
+  *"/wake_up?tags=kv_cache"*)
+    [ -e "$STUBS/sleep-route" ] || exit 22
+    port=$(printf '%s' "$cmd" | sed -n 's/.*localhost:\\([0-9]*\\).*/\\1/p')
+    rm -f "$STUBS/asleep-$port" ;;
+  *"/wake_up"*|*"/collective_rpc"*)
+    [ -e "$STUBS/sleep-route" ] || exit 22 ;;
   # No sleep route, as a unit without one answers (owner ruling, FLT-02): 404.
-  *"is_sleeping"*) printf '{"error":"Not Found"}\n404' ;;
+  *"is_sleeping"*)
+    port=$(printf '%s' "$cmd" | sed -n 's/.*localhost:\\([0-9]*\\).*/\\1/p')
+    if [ ! -e "$STUBS/sleep-route" ]; then
+      printf '{"error":"Not Found"}\n404'
+    elif [ -e "$STUBS/asleep-$port" ]; then
+      printf '{"is_sleeping": true}\n200'
+    else
+      printf '{"is_sleeping": false}\n200'
+    fi ;;
   *"v1/models"*) echo '{"data":[{"id":"stub-model"}]}' ;;
   *health*) : ;;
   *completion*) echo '{"content":"hi"}' ;;
@@ -996,6 +1022,20 @@ def serving(
         flag.unlink(missing_ok=True)
 
 
+def sleep_route(where: Path, *, asleep: tuple[int, ...] = ()) -> None:
+    """Give the stubbed units vLLM's sleep routes; those on ``asleep`` ports sleep."""
+    (where / "sleep-route").touch()
+    for flag in where.glob("asleep-*"):
+        flag.unlink()
+    for port in asleep:
+        (where / f"asleep-{port}").touch()
+
+
+def asleep_ports(where: Path) -> list[int]:
+    """The ports of the stubbed units that say they are asleep, sorted."""
+    return sorted(int(flag.name.split("-", 1)[1]) for flag in where.glob("asleep-*"))
+
+
 def serve_door(
     root: Path,
     mode: str,
@@ -1005,12 +1045,14 @@ def serve_door(
     date: str = RUN_DATE,
     suffix: str = "",
     env_extra: dict[str, str] | None = None,
+    extra: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """One `serve up|down` invocation from the fixture, to completion."""
+    """One `serve up|down|sleep|wake` invocation from the fixture, to completion."""
     argv = [sys.executable, str(root / DOOR_REL), "serve", mode]
     argv += ["--host", host, "--compose", str(compose), "--date", date]
     if suffix:
         argv += ["--suffix", suffix]
+    argv += extra or []
     env = door_env(root)
     env.update(env_extra or {})
     return subprocess.run(

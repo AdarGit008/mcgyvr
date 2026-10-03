@@ -65,6 +65,16 @@ def test_contract_admits_a_model_contract_that_declares_its_cap(tmp_path: Path) 
     assert lj.main(["contract", str(path)]) == 0
 
 
+@pytest.mark.parametrize("schema", ["prose", "media_artifact"])
+def test_contract_admits_a_raw_text_reply_with_no_declared_cap(
+    tmp_path: Path, schema: str
+) -> None:
+    """A raw-text reply carries no cap, so there is nothing to declare."""
+    text = UNCAPPED + f"output_schema: {schema}\n"
+    path = lj.make_contract(tmp_path / f"{schema}.yaml", text)
+    assert lj.main(["contract", str(path)]) == 0
+
+
 def test_contract_does_not_ask_a_deterministic_contract_for_a_cap(
     tmp_path: Path,
 ) -> None:

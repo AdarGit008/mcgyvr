@@ -386,7 +386,11 @@ NOT_NUMBERS: dict[str, Any] = {
 }
 
 #: The figure a reading of each list carries.
-FIGURE = {"throughput_tok_s": "value"}
+FIGURE = {
+    "throughput_tok_s": "value",
+    "seconds_per_image": "value",
+    "seconds_per_clip": "value",
+}
 
 
 @pytest.mark.parametrize("given", sorted(NOT_NUMBERS))

@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import (
@@ -49,6 +49,9 @@ from mcgyvr.decision import (
 from mcgyvr.gate.changeset import ChangeSet, FileChange, read_added_text
 from mcgyvr.gate.findings import Finding
 from mcgyvr.pool import SourceMap
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.capacity import Capacity
 
 #: The check name every Jev finding carries.
 CHECK = "jev"
@@ -145,19 +148,26 @@ def jev_check_for(
     *,
     timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
     blocking: bool = False,
+    capacity: Capacity | None = None,
 ) -> JevCheck | None:
     """The install's ``role`` as a Jev rung, or ``None`` when it has none.
 
     Mirrors :func:`mcgyvr.verify.reviewer_for` one seam over: the endpoint and
     model stay below the seam inside :func:`~mcgyvr.decision.classify_role`, and
-    only the ``decide`` seam crosses it.
+    only the ``decide`` seam crosses it. ``capacity`` holds the role's source
+    slot for each question, as a dispatch to it would.
     """
     if source_map.role_model(role) is None:
         return None
 
     def decide(state: Any) -> Decision:
         decision = classify_role(
-            source_map, role, state, JEV_QUESTIONS, timeout_s=timeout_s
+            source_map,
+            role,
+            state,
+            JEV_QUESTIONS,
+            capacity=capacity,
+            timeout_s=timeout_s,
         )
         if decision is None:  # the role was bound a moment ago
             raise JevUnavailableError(

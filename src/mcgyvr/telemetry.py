@@ -362,6 +362,10 @@ def _completion_fields(answer: Completion) -> Record:
         "max_output_tokens": answer.max_output_tokens,
         "quality_safe": answer.quality_safe,
     }
+    # ``max_output_tokens`` is the cap the request was issued under, and
+    # ``null`` there means the request was uncapped (a raw-text reply) — a
+    # different fact from the absent-count fields below, which mean the
+    # backend did not report a number.
     if answer.notes:
         fields["notes"] = list(answer.notes)
     # The rule, in the one place it can be broken: a count the backend did not

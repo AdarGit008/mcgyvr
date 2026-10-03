@@ -32,6 +32,8 @@ KEY_SPACES: dict[str, tuple[str, ...]] = {
 _RANGES: dict[str, tuple[float, float]] = {
     "percent": (0.5, 99.5),
     "GiB": (0.0, 40.0),
+    "GiB/s": (0.5, 40.0),
+    "microseconds": (0.5, 900.0),
 }
 
 #: How many generated shapes each generated test runs over.

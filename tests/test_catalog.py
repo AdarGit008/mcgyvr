@@ -78,11 +78,64 @@ def test_every_entry_states_where_it_starts(shipped: Catalog) -> None:
         assert kind.starts_on.name in families
 
 
-def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
+def test_every_entry_states_its_use_case(shipped: Catalog) -> None:
+    use_cases = {u.name for u in shipped.use_cases}
     for kind in shipped.task_types:
+        assert kind.use_case.name in use_cases, f"{kind.name} names no use case"
+
+
+def test_the_use_case_vocabulary_is_the_approved_four(shipped: Catalog) -> None:
+    assert {u.name for u in shipped.use_cases} == {
+        "coding",
+        "chat",
+        "agent",
+        "media-gen",
+    }
+
+
+def test_the_config_use_case_choices_match_the_catalog(shipped: Catalog) -> None:
+    """The catalog is the vocabulary's one home; the config's `use_case` enum
+    must not drift from it into a fifth value nobody declared."""
+    from mcgyvr import config
+
+    use_case = next(f for f in config.SCHEMA if f.name == "use_case")
+    assert set(use_case.choices) == {u.name for u in shipped.use_cases}
+
+
+def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
+    # chat is the sole ungated type: the raw endpoint has no bar to clear, so
+    # it carries no evidence and no gate. Every other type states evidence.
+    # Coding types carry the gate kind as their floor; agent is judged by its
+    # own structural evidence through the gate's output-checks rung instead.
+    for kind in shipped.task_types:
+        if kind.use_case.name == "chat":
+            assert kind.required_evidence == (), f"{kind.name} should be ungated"
+            assert "gate" not in kind.evidence_names, (
+                f"{kind.name} must not carry the gate"
+            )
+            continue
         assert kind.required_evidence, f"{kind.name} requires no evidence"
-        # The gate is the floor under every type, not one option among several.
-        assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
+        if kind.use_case.name == "coding":
+            assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
+        else:
+            assert "gate" not in kind.evidence_names, (
+                f"{kind.name} is judged by its own structural evidence, "
+                f"not the gate kind"
+            )
+
+
+def test_the_chat_type_is_ungated(shipped: Catalog) -> None:
+    chat = shipped.require("chat")
+    assert chat.use_case.name == "chat"
+    assert chat.starts_on.name == "local"
+    assert chat.evidence_names == ()
+
+
+def test_the_agent_type_judges_by_grounding_and_safety(shipped: Catalog) -> None:
+    agent = shipped.require("agent")
+    assert agent.use_case.name == "agent"
+    assert agent.starts_on.name == "local"
+    assert agent.evidence_names == ("grounded", "safety_pass")
 
 
 def test_every_entry_is_documented_and_warranted(shipped: Catalog) -> None:
@@ -105,6 +158,15 @@ def test_evidence_baseline_routes_each_kind_to_the_slot_that_can_satisfy_it(
     for kind in shipped.evidence_kinds:
         if not kind.needs_commands:
             assert kind.baseline == "pass"  # the default; no baseline run exists
+
+
+def test_the_media_and_agent_evidence_kinds_are_declared(shipped: Catalog) -> None:
+    """The new use cases judge by the gate's own tools, not contract commands."""
+    by_name = {e.name: e for e in shipped.evidence_kinds}
+    for name in ("media_valid", "safety_pass", "asr_wer", "grounded"):
+        assert name in by_name, f"{name} is not a declared evidence kind"
+        assert not by_name[name].needs_commands, f"{name} needs a contract command"
+        assert by_name[name].baseline == "pass"
 
 
 def test_the_command_needing_properties_split_by_baseline(shipped: Catalog) -> None:
@@ -182,6 +244,7 @@ def test_a_new_task_type_needs_no_code_change(
         {
             "name": "sql_migration",
             "starts_on": "api",
+            "use_case": "coding",
             "guarantee": "A migration is written and the schema check passes.",
             "required_evidence": ["gate", "tests_pass"],
             "warrant": "invented by a test",
@@ -350,6 +413,47 @@ def test_an_undeclared_starting_family_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "c.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(CatalogError, match="not a declared family"):
+        load(path)
+
+
+def test_an_undeclared_use_case_is_rejected(tmp_path: Path) -> None:
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["task_types"][0]["use_case"] = "teleportation"
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="not a declared use case"):
+        load(path)
+
+
+def test_a_missing_use_case_is_rejected(tmp_path: Path) -> None:
+    """A type that names no use case is incomplete, not defaulted."""
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["task_types"][0]["use_case"] = "coding"
+    raw["task_types"][0].pop("use_case")
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="use_case"):
+        load(path)
+
+
+def test_a_missing_required_evidence_key_is_rejected(tmp_path: Path) -> None:
+    """required_evidence may be empty (chat) but the key must still be present."""
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    chat = next(t for t in raw["task_types"] if t["name"] == "chat")
+    chat.pop("required_evidence")
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="required_evidence"):
+        load(path)
+
+
+def test_a_null_required_evidence_is_rejected(tmp_path: Path) -> None:
+    """A null list is not the empty list chat declares; it is refused by name."""
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["task_types"][0]["required_evidence"] = None
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="required_evidence"):
         load(path)
 
 

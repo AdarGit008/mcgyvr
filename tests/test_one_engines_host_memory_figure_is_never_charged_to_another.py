@@ -30,6 +30,10 @@ from tests import numbers_fixture as nf
 #: The window every sizing here declares.
 WINDOW = 4096
 
+#: The engines that carry a ``runtime_resident_gb`` figure: the one shipped,
+#: plus the ones read on the machine.
+ENGINES = (derived.RUNTIME_RESIDENT_KEY, *derived.RUNTIME_RESIDENT_READ)
+
 #: The invented model: its name, and how many expert blocks it has.
 MODEL = "example-moe"
 BLOCKS = 8
@@ -95,7 +99,7 @@ def test_only_its_own_engines_figure_moves_what_a_unit_is_asked_for(
 ) -> None:
     scan = machine_shapes.scan(machine)
     spec = spilling(scan)
-    engines = derived.KEY_SPACES["engine"]
+    engines = ENGINES
     said: dict[str, list[str]] = {engine: [] for engine in engines}
     for value in SETTINGS:
         nf.write_user_file(

@@ -527,7 +527,9 @@ def detect(
         )
     if not docker:
         notes.append(
-            f"Sandbox falls back to a temp directory ({docker_how}). That is "
+            f"Sandbox: no Docker daemon ({docker_how}), so `sandbox.mode: "
+            f"docker` is refused here. `sandbox.mode: tempdir` (or "
+            f"`sandbox.allow_fallback: true`) runs tasks in a temp directory, "
             f"the explicitly weaker mode: acceptance commands are arbitrary "
             f"shell from a contract."
         )

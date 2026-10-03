@@ -31,6 +31,7 @@ from mcgyvr.config import (
     load,
     parse,
 )
+from mcgyvr.serving import declared_models
 
 LOCAL_ONLY = """\
 units:
@@ -72,9 +73,9 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     # here performs, and every mode committed to the checked-out branch instead.
     assert config.data["delivery"]["mode"] == "branch"
     assert config.get("task_timeout_s") > 0
-    # Verification is off rather than on-and-unbound, so a keyless install
-    # loads and runs without touching the config.
-    assert config.data["verifier"]["enabled"] is False
+    # Review is on unless the config switches it off, and on with no unit named
+    # still loads: the reviewer is picked from the ladder at run time.
+    assert config.data["verifier"]["enabled"] is True
 
 
 def test_a_source_needing_a_key_is_not_local_only() -> None:
@@ -99,6 +100,65 @@ def test_a_source_needing_a_key_is_not_local_only() -> None:
     )
     assert not config.is_local_only
     assert config.units["ceiling"].requires_credential
+
+
+def test_users_defaults_to_a_single_user() -> None:
+    """The orchestrator serves one session per user; one is the working default."""
+    assert parse(LOCAL_ONLY).get("users") == 1
+
+
+def test_users_is_the_orchestrator_slot_count() -> None:
+    config = parse(
+        cfg(
+            """\
+            users: 4
+            units:
+              cheap:
+                address: http://localhost:8080
+                model: qwen2.5-coder:7b
+                rig: local
+            ladder:
+            - cheap
+            """
+        )
+    )
+    assert config.get("users") == 4
+
+
+def test_zero_users_is_refused_not_guessed() -> None:
+    with pytest.raises(ConfigSchemaError, match="users"):
+        parse(
+            cfg(
+                """\
+                users: 0
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: qwen2.5-coder:7b
+                    rig: local
+                ladder:
+                - cheap
+                """
+            )
+        )
+
+
+def test_a_boolean_is_not_a_user_count() -> None:
+    with pytest.raises(ConfigSchemaError, match="users"):
+        parse(
+            cfg(
+                """\
+                users: true
+                units:
+                  cheap:
+                    address: http://localhost:8080
+                    model: qwen2.5-coder:7b
+                    rig: local
+                ladder:
+                - cheap
+                """
+            )
+        )
 
 
 # --- a missing binding is named ------------------------------------------
@@ -164,17 +224,16 @@ def test_duplicate_tier_names_are_rejected() -> None:
         )
 
 
-def test_enabled_verifier_without_a_source_is_rejected_at_load() -> None:
-    with pytest.raises(ConfigSchemaError) as exc:
-        parse(
-            LOCAL_ONLY
-            + cfg("""
-            verifier:
-              enabled: true
-            """)
-        )
-    assert "verifier.unit" in str(exc.value)
-    assert "verifier.enabled: false" in str(exc.value), "name the other way out"
+def test_enabled_verifier_without_a_unit_loads_and_picks_one_at_run_time() -> None:
+    config = parse(
+        LOCAL_ONLY
+        + cfg("""
+        verifier:
+          enabled: true
+        """)
+    )
+    assert config.data["verifier"]["enabled"] is True
+    assert config.data["verifier"]["unit"] is None
 
 
 def test_unbound_optional_fails_at_the_point_of_use_not_at_load() -> None:
@@ -277,6 +336,67 @@ def test_invalid_enum_lists_the_valid_values() -> None:
             )
         )
     assert "llama.cpp" in str(exc.value), "the refusal lists what is valid"
+
+
+def test_a_unit_may_declare_the_diffusers_engine() -> None:
+    config = parse(
+        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: diffusers", 1)
+    )
+    assert config.units["cheap"].engine == "diffusers"
+
+
+def test_declared_models_carries_the_stated_vae_decode_spike() -> None:
+    config = parse(
+        cfg(
+            """\
+            units:
+              cheap:
+                address: http://localhost:8080
+                model: media-image
+                rig: local
+                engine: diffusers
+                launch:
+                  vae_decode_gb: 1.2
+            ladder:
+            - cheap
+            """
+        )
+    )
+    assert declared_models(config)["media-image"].vae_decode_gb == 1.2
+
+
+def test_a_unit_may_declare_the_tts_engine() -> None:
+    config = parse(
+        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: tts", 1)
+    )
+    assert config.units["cheap"].engine == "tts"
+
+
+def test_a_unit_may_declare_the_comfyui_engine() -> None:
+    config = parse(
+        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: comfyui", 1)
+    )
+    assert config.units["cheap"].engine == "comfyui"
+
+
+def test_declared_models_carries_the_cpu_only_marker() -> None:
+    config = parse(
+        cfg(
+            """\
+            units:
+              cheap:
+                address: http://localhost:8080
+                model: media-tts
+                rig: local
+                engine: tts
+                launch:
+                  cpu_only: true
+            ladder:
+            - cheap
+            """
+        )
+    )
+    assert declared_models(config)["media-tts"].cpu_only is True
 
 
 def test_a_url_without_a_scheme_is_rejected() -> None:

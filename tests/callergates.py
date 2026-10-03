@@ -120,7 +120,13 @@ def fake_door(
     (where / "bin").mkdir()
     for shim in run.SHIMS:
         executable(where / "bin" / shim, (run.BIN / shim).read_text("utf-8"))
-    entries = (*run.SEQUENCE, *run.ALWAYS, *run.READ_SEQUENCE, run.LEASE_RELEASE)
+    entries = (
+        *run.SEQUENCE,
+        *run.ALWAYS,
+        *run.READ_SEQUENCE,
+        *run.LINK_SEQUENCE,
+        run.LEASE_RELEASE,
+    )
     for entry in entries:
         values = {
             key: FAKE_VALUES.get(key, str(tmp_path / "out") if "DIR" in key else "x")

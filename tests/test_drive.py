@@ -445,6 +445,29 @@ scope:
   allow: ["src/**"]
 """
 
+CHAT_CONTRACT = """
+id: answer
+task_type: chat
+task: Answer the question.
+target: answer.txt
+stop_conditions: ["The question is not stated."]
+output_schema: prose
+scope:
+  allow: ["answer.txt"]
+"""
+
+AGENT_CONTRACT = """
+id: brief
+task_type: agent
+task: Write a brief.
+target: brief.txt
+stop_conditions: ["The sources are not stated."]
+output_schema: prose
+sources: ["src/report.txt"]
+scope:
+  allow: ["brief.txt"]
+"""
+
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
     from mcgyvr.pool import Protocol
@@ -705,6 +728,160 @@ def test_the_attempt_function_plugs_into_escalate(
     assert outcome.rung == "local_qwen-14b"
     assert outcome.judgement.accepted is not None
     assert outcome.judgement.accepted.content == "VALUE = 1\n"
+
+
+# --- the prose-aware serving path -------------------------------------------
+
+
+def test_gate_prose_workspace_accepts_a_chat_reply_with_no_gate(
+    tmp_path: Path,
+) -> None:
+    """A chat contract declares no output evidence, so its gate is the empty bar.
+
+    The raw-text reply is already staged at ``contract.target`` inside the
+    sandbox by ``best_of``; for a contract with no declared evidence that
+    staged text is the answer and is not judged at all.
+    """
+    from types import SimpleNamespace
+    from typing import cast
+
+    from mcgyvr.drive import gate_prose_workspace
+    from mcgyvr.sandbox.base import Sandbox
+
+    contract = load_contract(CHAT_CONTRACT)
+    sandbox = cast(Sandbox, SimpleNamespace(workspace=tmp_path))
+    (tmp_path / contract.target).write_text(
+        "arbitrary text no gate should read\n", encoding="utf-8"
+    )
+
+    result = gate_prose_workspace(contract, sandbox)
+
+    assert result.accepted
+    assert result.findings == ()
+    assert result.inconclusive == ()
+    assert result.environment_issues == ()
+
+
+def test_gate_prose_workspace_reports_ungrounded_claims_for_an_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An agent reply is gated only by the output checks its contract declares.
+
+    ``agent`` declares grounded and safety evidence. ``safety_pass`` shells out
+    to ``safety-classifier``, so it is stubbed here; the grounded check has no
+    external tool and rejects every sentence that cites no provided source.
+    """
+    from types import SimpleNamespace
+    from typing import cast
+
+    from mcgyvr.drive import gate_prose_workspace
+    from mcgyvr.gate import output as gate_output
+    from mcgyvr.sandbox.base import Sandbox
+
+    monkeypatch.setattr(gate_output, "safety_pass", lambda path, label="": [])
+    contract = load_contract(AGENT_CONTRACT)
+    sandbox = cast(Sandbox, SimpleNamespace(workspace=tmp_path))
+    (tmp_path / contract.target).write_text("The sky is blue.", encoding="utf-8")
+
+    result = gate_prose_workspace(contract, sandbox)
+
+    assert not result.accepted
+    assert [f.check for f in result.findings] == ["grounded"]
+    assert result.findings[0].code == "ungrounded"
+
+
+def test_a_prose_contract_reaches_an_accepted_answer_not_a_file(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A raw-text reply is the answer, accepted with no verifier and no gate findings.
+
+    The drive reuses ``best_of`` unchanged — it stages the parsed prose at
+    ``contract.target`` and binds it via ``Accepted.read`` — but the gate it
+    runs is the output-checks-only rung and the judgement is never handed a
+    verifier, because there is no file change to review.
+    """
+    from mcgyvr.config import parse as parse_config
+    from mcgyvr.drive import worker_attempt
+    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.route import Try, Verdict
+
+    config = parse_config(LADDER)
+    pool = source_map(config)
+    contract = load_contract(CHAT_CONTRACT)
+    _driven(monkeypatch, "The sky is blue.")
+
+    with TempDirSandbox(repo) as sandbox:
+        judgement = worker_attempt(config, pool, contract, sandbox)(
+            Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1)
+        )
+
+    assert judgement.verdict is Verdict.PASSED
+    assert judgement.accepted is not None
+    assert judgement.accepted.content == "The sky is blue."
+    assert judgement.accepted.findings == ()
+    assert judgement.accepted.accepted is True
+
+
+def test_a_prose_delivery_reports_the_answer_and_touches_no_file(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The harness-facing seam: a prose `Delivered` lands the answer in the
+    result and never reaches delivery — no file is placed or committed."""
+    import argparse
+
+    from mcgyvr import cli
+    from mcgyvr.catalog import catalog
+    from mcgyvr.deliver import Accepted
+    from mcgyvr.drive import gate_prose_workspace
+    from mcgyvr.escalate import Assurance, Delivered, Judgement
+    from mcgyvr.result import RunResult
+    from mcgyvr.route import Attempted, Verdict
+
+    contract = load_contract(CHAT_CONTRACT)
+    report = RunResult(
+        contract=contract.id,
+        task_type=contract.task_type,
+        target=contract.target,
+        orchestrator="t",
+    )
+    with TempDirSandbox(repo) as sandbox:
+        # Stage the prose at the scratch target and bind it, exactly as
+        # `best_of` does before `_report_climb` is reached.
+        (sandbox.workspace / contract.target).write_text(
+            "The sky is blue.\n", encoding="utf-8"
+        )
+        result = gate_prose_workspace(contract, sandbox)
+        assert result.accepted
+        bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
+        outcome = Delivered(
+            family=catalog().family("local"),
+            rung="local_qwen-7b",
+            assurance=Assurance.UNVERIFIED,
+            judgement=Judgement(verdict=Verdict.PASSED, accepted=bound),
+            entered=(),
+            history=(
+                Attempted(rung="local_qwen-7b", attempt=1, verdict=Verdict.PASSED),
+            ),
+            attempts_spent=1,
+            escalations=0,
+        )
+        code = cli._report_climb(
+            argparse.Namespace(commit=False),
+            contract,
+            sandbox,
+            repo,
+            outcome,
+            None,
+            report,
+        )
+    printed = capsys.readouterr().out
+
+    assert code == 0
+    assert report.outcome == "accepted"
+    assert report.answer == "The sky is blue.\n"
+    assert not (repo / "answer.txt").exists(), "prose must not place a file"
+    assert "answer" in printed
+    assert "The sky is blue." in printed
 
 
 # --- the production caller ---------------------------------------------------

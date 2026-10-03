@@ -252,15 +252,17 @@ def test_the_locator_evaluates_nothing_in_the_target(tmp_path: Path) -> None:
     grepping, so the guard is about what the code *does* and not about which
     words appear in it.
     """
-    from mcgyvr.gate.adapters import python as python_adapter
+    from mcgyvr.sandbox import declared
 
     reached: list[tuple[str, Callable[..., object]]] = [
         ("PythonAdapter.locate_type_check_command", PY.locate_type_check_command),
         ("JavaScriptAdapter.locate_type_check_command", JS.locate_type_check_command),
-        ("_declares_mypy", python_adapter._declares_mypy),
-        ("_declares_pyright", python_adapter._declares_pyright),
-        ("_has_toml_table", python_adapter._has_toml_table),
-        ("_has_ini_section", python_adapter._has_ini_section),
+        ("declared_type_checker", declared.declared_type_checker),
+        ("declares_mypy", declared.declares_mypy),
+        ("declares_pyright", declared.declares_pyright),
+        ("declares_js", declared.declares_js),
+        ("has_toml_table", declared.has_toml_table),
+        ("has_ini_section", declared.has_ini_section),
     ]
     offenders = {
         f"{name}: {sorted(found)}"

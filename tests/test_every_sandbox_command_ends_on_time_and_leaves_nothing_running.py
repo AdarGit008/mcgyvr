@@ -251,7 +251,7 @@ def test_a_container_whose_start_failed_is_still_removed(
         pass
     (run,) = [c for c in daemon.calls if c[0] == "run"]
     name = run[run.index("--name") + 1]
-    assert ["rm", "--force", name] in daemon.calls
+    assert ["rm", "--force", "--volumes", name] in daemon.calls
 
 
 def test_a_container_that_could_not_be_removed_is_named(
@@ -335,6 +335,7 @@ class _RecordingSandbox(Sandbox):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
         self.timeouts.append(timeout)
         return CommandResult(command=tuple(command), exit_code=0, stdout="", stderr="")

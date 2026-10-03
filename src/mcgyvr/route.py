@@ -343,6 +343,31 @@ class Machine:
             return None
         return capacity.limit(self._source, rung) - capacity.load(self._source, rung)
 
+    def server(self, capacity: Capacity) -> int | None:
+        """What this machine's server says it has in flight; ``None`` unread.
+
+        :meth:`~mcgyvr.capacity.Capacity.server_busy`, read outside any
+        decision because it is a read of the machine and not a counter.
+        """
+        if self._source not in capacity.limits:
+            return None
+        return capacity.server_busy(self._source)
+
+    def full(
+        self, capacity: Capacity, rung: str | None, server: int | None
+    ) -> bool | None:
+        """Whether this machine is full for ``rung``, by both counts, or ``None``.
+
+        :meth:`~mcgyvr.capacity.Capacity.judge` is the answer: full when this
+        process's load or ``server`` — the server's own busy count, from
+        :meth:`server` — is at width, so another client's work, which
+        :meth:`load` cannot see, still fills it. ``None`` for a source this
+        capacity does not bound, as :meth:`load`.
+        """
+        if self._source not in capacity.limits:
+            return None
+        return capacity.judge(self._source, rung, server).full
+
     def claim(self, capacity: Capacity, rung: str | None = None) -> None:
         """Count one more attempt as headed here, before it holds anything.
 

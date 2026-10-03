@@ -303,7 +303,11 @@ def test_factory_tempdir_mode_returns_tempdir_with_weaker_note(git_repo: Path) -
     assert any("weaker" in note for note in sandbox.notes)
 
 
-def test_factory_docker_without_daemon_falls_back_and_says_so(git_repo: Path) -> None:
-    sandbox = open_sandbox(git_repo, mode="docker", docker_available=False)
+def test_factory_docker_without_daemon_falls_back_when_allowed_and_says_so(
+    git_repo: Path,
+) -> None:
+    sandbox = open_sandbox(
+        git_repo, mode="docker", docker_available=False, allow_fallback=True
+    )
     assert isinstance(sandbox, TempDirSandbox)
     assert any("no daemon answered" in note for note in sandbox.notes)

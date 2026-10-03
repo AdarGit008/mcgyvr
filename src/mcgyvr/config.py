@@ -43,6 +43,7 @@ import yaml
 
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
+from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
 
 #: A setup is two files in one directory. ``fleet.yaml`` is locked and holds
@@ -150,16 +151,44 @@ class Field:
     refused, so the config cannot resolve to it."""
 
 
+#: The fan-out modes, spelled once. ``fanout`` takes one of them and
+#: ``manager.fanouts`` lists the ones the ladder manager may choose between, so
+#: the two cannot name different sets.
+FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
+
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
         "enum",
-        "`docker` runs each task in its own container, torn down after. "
-        "`tempdir` is the explicitly weaker fallback for installs without "
-        "Docker: acceptance commands are arbitrary shell from a contract, "
-        "running on someone else's machine.",
+        "`docker` runs each task in its own container, torn down after; with "
+        "no Docker daemon answering, the task is refused unless "
+        "`allow_fallback` is on. `tempdir` is the explicitly weaker mode for "
+        "installs without Docker: acceptance commands are arbitrary shell from "
+        "a contract, running on someone else's machine.",
         default="docker",
         choices=("docker", "tempdir"),
+    ),
+    Field(
+        "allow_fallback",
+        "bool",
+        "What `mode: docker` does when no Docker daemon answers. Off, the task "
+        "is refused and the refusal says how to go on. On, the task runs in "
+        "the `tempdir` sandbox instead and says so once — the weaker mode, "
+        "chosen ahead of time rather than read about after the run started.",
+        default=False,
+    ),
+    Field(
+        "network",
+        "enum",
+        "The network a task container is attached to. `bridge` is Docker's "
+        "default: acceptance commands can fetch dependencies and reach the "
+        "configured worker endpoints — and anything else this machine can "
+        "reach. `none` gives the container no network at all, so a contract "
+        "whose commands download anything fails. `none` needs `mode: docker`: "
+        "the `tempdir` sandbox runs on this host, where the network cannot be "
+        "taken away, and is refused under it.",
+        default="bridge",
+        choices=NETWORKS,
     ),
     Field(
         "image",
@@ -171,7 +200,16 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "setup",
         "str_list",
-        "Commands run once when the task image is built, before any task.",
+        "Commands run once when the task image is built, before any task. In "
+        "docker mode the gate's type checker, eslint and prettier run in the "
+        "task container, because their configuration can load code from the "
+        "task's workspace, so they are found on the image's PATH. The image "
+        "mcgyvr builds installs the one the repository configures (mypy, "
+        "eslint, prettier) when its dependency install does not, at the "
+        "lockfile's version where it pins one; pyright, or a checker the "
+        "repository does not configure, is yours to put on the image, here or "
+        "with `sandbox.image`. A checker the image lacks is skipped and said "
+        "so, as an absent checker is on the host.",
         default=(),
     ),
 )
@@ -390,7 +428,24 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "made under is what a run is reproducible from, and a flag would let "
         "two runs share one config where only one of them started and stopped "
         "containers on a shared rig, putting the rig side effect outside the "
-        "only record that explains the run. It governs the *decisions*: `mcgyvr serve "
+        "only record that explains the run. It also lets `mcgyvr manage`, the "
+        "ladder manager, put an idle unit to sleep and wake it again on its "
+        "own, but only while that command is running: with it on and no "
+        "manager running, nothing sleeps a card except a person. A sleep, "
+        "the manager's or a person's `mcgyvr serve sleep`, rests a vLLM card "
+        "at level 2, which keeps its process and drops its weights and KV "
+        "cache, and stops the containers of any other card, of a vLLM card "
+        "with no sleep route, or of one holding a unit split across machines, "
+        "whose level 2 is not measured; either way the next wake loads the "
+        "model from "
+        "disk. For that sleep it also makes `mcgyvr emit` start every vLLM "
+        "unit with "
+        "`--enable-sleep-mode` and `VLLM_SERVER_DEV_MODE=1`, which registers "
+        "vLLM's development routes -- /sleep, /wake_up, /reset_prefix_cache "
+        "and others -- on the unit's serving port, unauthenticated: anyone who "
+        "can reach that port can sleep, wake or reset the unit. The emitted "
+        "file says so in a comment. With the switch off, emit writes neither. "
+        "It governs the *decisions*: `mcgyvr serve "
         "sleep|wake`, typed by a person who has therefore asked, is not gated "
         "by it. It is a key of its own rather than part of `fanout` because "
         "`fanout` decides where work goes among rungs that exist and "
@@ -442,8 +497,8 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Which server program runs behind this address. Absent means \
 "
         "llama.cpp.",
-        choices=("llama.cpp", "vllm"),
-        bind_hint="e.g. vllm -- leave it out for llama.cpp",
+        choices=("llama.cpp", "vllm", "diffusers", "tts", "comfyui"),
+        bind_hint="e.g. vllm, diffusers, tts or comfyui -- leave it out for llama.cpp",
     ),
     Field(
         "image",
@@ -569,7 +624,39 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "declaring `mtp` is refused: its speculative decoding is \
 "
-        "`--speculative-config`, a different mechanism.",
+        "`--speculative-config`, a different mechanism. Keys that split a \
+"
+        "unit across cards, of one machine or several: `shards`, a list of \
+"
+        "`{rig, gpu}` (with `bind`, the IPv4 address a worker on another \
+"
+        "machine listens on, and `room_mib`, that card's room for the lock), \
+"
+        "the first on the machine the address names; `split` (`layer` | \
+"
+        "`tensor`, llama.cpp; `tensor` spans one machine's cards, and `row` \
+"
+        "has no split buffers on CUDA and is refused); `tensor_parallel` and \
+"
+        "`pipeline_parallel` \
+"
+        "(vLLM); `rpc_port` and `master_port`, the first port of llama.cpp's \
+"
+        "workers and vLLM's rendezvous port, each the engine's own default \
+"
+        "when absent; and `tensor_table_json`, a vLLM unit's `python -m \
+"
+        "mcgyvr.serving.safetensorscan` row. Each card is sized from the \
+"
+        "tensor table. A split left to mcgyvr is tensor across one machine's \
+"
+        "cards and pipeline across machines; what crossing between cards \
+"
+        "costs is reported, as an estimate by link class until your own \
+"
+        "reading replaces it (`mcgyvr fleet probe` times the links an awake \
+"
+        "split unit crosses) or your setting outranks both.",
         bind_hint="the resolved launch, e.g. serve_args, geometry_json, moe, "
         "speculative",
     ),
@@ -594,10 +681,87 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "enabled",
         "bool",
-        "Model verification of the applied diff, on top of the gate.",
-        default=False,
+        "Model verification of the applied diff, on top of the gate. On unless "
+        "set to `false`. With no `unit`, the reviewer is the next dearer local "
+        "rung whose model is not the builder's; where there is none, the work "
+        "is accepted and labelled unverified. A hosted unit reviews only when "
+        "`unit` names it.",
+        default=True,
     ),
     *ROLE_UNIT_FIELDS,
+)
+
+MANAGER_FIELDS: tuple[Field, ...] = (
+    Field(
+        "interval_s",
+        "int",
+        "How often the ladder manager asks its small model for a decision, in "
+        "seconds. The default of 30 is an estimate, not a measurement: nothing "
+        "here has timed how fast a queue builds or drains on your units. Lower "
+        "it to react sooner, at the price of more questions asked of a model "
+        "that is itself running on the ladder's hardware; raise it to ask "
+        "less. The manager runs only under `mcgyvr manage`, and only when "
+        "`serving.enable_sleep_wake` is on and the ladder has units that can "
+        "sleep and wake. Everything it sees that falls outside what this "
+        "block lets it change, it prints as a recommendation and does not "
+        "do.",
+        default=30,
+        min_value=1,
+    ),
+    Field(
+        "confirm",
+        "int",
+        "How many consecutive identical answers the manager must get before it "
+        "acts on one, so a single odd answer from a small model moves nothing. "
+        "The default of 3 is an estimate, not a measurement: it lets one stray "
+        "answer fail to act alone, and it has not been tuned "
+        "against any real queue. With the default interval it means about "
+        "a minute and a half of the same answer before anything happens. Set "
+        "1 to act on every answer.",
+        default=3,
+        min_value=1,
+    ),
+    Field(
+        "dwell_s",
+        "int",
+        "The least time between two switches, in seconds, so the manager "
+        "cannot sleep a unit and wake it again in a loop. A unit that changed "
+        "state without the manager -- a task woke it, or a person ran `mcgyvr "
+        "serve` -- counts as a switch too, and a unit is put to sleep only "
+        "once it has been idle for this long. A vLLM unit sleeps at level 2 "
+        "and keeps its process; any other unit's containers are stopped. "
+        "Either way a wake loads the model from disk again, so every switch "
+        "costs a full load. "
+        "The default of 600 is an estimate, not a measurement. Set it above the "
+        "time your sleeping units take to wake -- `mcgyvr serve wake` prints "
+        "that time -- or the manager can be asking for a unit back before the "
+        "last wake has finished. 0 allows a switch on every decision.",
+        default=600,
+        min_value=0,
+    ),
+    Field(
+        "fanouts",
+        "str_list",
+        "The fan-out modes the manager may choose between, each one of "
+        "`none`, `idle` or `full` as `fanout` spells them, each listed once. "
+        "The manager changes `fanout` only among these, and fewer than two "
+        "means there is nothing to choose between, so it is never asked. "
+        "Empty by default: a manager that was not told which modes it may use "
+        "leaves `fanout` as the file says.",
+        default=(),
+        choices=FANOUT_CHOICES,
+    ),
+    Field(
+        "leads",
+        "str_list",
+        "The local units the manager may move to the front of the local "
+        "family, each listed once. Each must be on the `ladder` and must need "
+        "no credential: a unit that is not on the ladder is not one work "
+        "climbs, and a unit with an `api_key_env` is hosted, not local. Empty "
+        "by default, which means the manager is never asked which unit "
+        "should lead and the ladder's own order stands.",
+        default=(),
+    ),
 )
 
 SCHEMA: tuple[Field, ...] = (
@@ -609,6 +773,28 @@ SCHEMA: tuple[Field, ...] = (
         "outranks dev on the rigs.",
         choices=("live", "dev"),
         default="live",
+    ),
+    Field(
+        "use_case",
+        "enum",
+        "Which of the four use cases this install serves: `coding` (scoped "
+        "edits judged by the deterministic gate), `chat` (a raw un-gated "
+        "endpoint), `agent` (grounded + safety output checks) or "
+        "`media-gen` (media_valid, safety and ASR-WER).",
+        choices=("coding", "chat", "agent", "media-gen"),
+        default="coding",
+    ),
+    Field(
+        "deployment",
+        "enum",
+        "How mcgyvr is run. `hybrid` drives it from an API-tier "
+        "orchestrator in the user's session; scoped work is offloaded to the "
+        "local cheap-to-dear ladder, whose dearest rung is an API model so a "
+        "task always completes. `local-only` makes mcgyvr the backend: a "
+        "non-chat use case provisions a local orchestrator unit, and chat is "
+        "just the ladder serving text.",
+        choices=("hybrid", "local-only"),
+        default="hybrid",
     ),
     Field(
         "units",
@@ -632,7 +818,7 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Whether a batch of contracts spreads across units or queues on one.",
         default="none",
-        choices=("none", "idle", "full"),
+        choices=FANOUT_CHOICES,
     ),
     Field(
         "attempts",
@@ -685,6 +871,18 @@ SCHEMA: tuple[Field, ...] = (
         bind_hint="a share between 0 and 1",
     ),
     Field(
+        "users",
+        "int",
+        "Users this install serves at once, and therefore the slot count the "
+        "local orchestrator unit is served at: one session per user. A "
+        "written `width` on the orchestrator's unit wins. `1` is a "
+        "single-user install, which for a local-only non-chat use case is "
+        "flagged, not refused — the resident orchestrator consumes the card "
+        "the ladder would otherwise use.",
+        default=1,
+        min_value=1,
+    ),
+    Field(
         "orchestrator",
         "block",
         "Which unit turns a prompt plus a repository into contracts.",
@@ -728,6 +926,20 @@ SCHEMA: tuple[Field, ...] = (
         "HuggingFace cache is a fact about that unit and lives on it, not "
         "here: only the policy of starting and stopping a card is a setting.",
         block=SERVING_FIELDS,
+    ),
+    Field(
+        "manager",
+        "block",
+        "What the ladder manager may do on its own. It runs only under "
+        "`mcgyvr manage`, and only when `serving.enable_sleep_wake` is on and "
+        "the ladder has units that can sleep and wake. Within this block it "
+        "sleeps and wakes those units, changes `fanout` and changes which "
+        "local unit leads; everything else it notices it prints as a "
+        "recommendation and leaves alone. A vLLM unit sleeps at level 2, "
+        "keeping its process and dropping its weights and KV cache; any other "
+        "unit's containers are stopped. A wake loads the model from disk "
+        "again.",
+        block=MANAGER_FIELDS,
     ),
     Field(
         "journal",
@@ -822,6 +1034,53 @@ class Ladder:
         return name if name in self.names else None
 
 
+#: The one use case that needs no orchestrator: chat is a raw endpoint.
+CHAT = "chat"
+
+#: The deployment value that means mcgyvr is the backend, not a skill driven
+#: from an API-tier orchestrator.
+LOCAL_ONLY = "local-only"
+
+
+@dataclass(frozen=True)
+class LocalOrchestrator:
+    """What a setup must provision to serve the orchestrator role locally."""
+
+    #: Whether a local orchestrator unit is required at all.
+    provision: bool
+    #: Its width (slot count). ``None`` when no unit is provisioned.
+    width: int | None = None
+    #: Warn the operator about single-user contention; never a refusal.
+    flag_single_user: bool = False
+
+
+def local_orchestrator(
+    *, use_case: str, local_only: bool, users: int
+) -> LocalOrchestrator:
+    """The local orchestrator a ``use_case`` needs, under a deployment model.
+
+    ``local_only`` is whether the deployment is ``deployment: local-only``
+    (mcgyvr is the backend). The hybrid model has an API-tier orchestrator and
+    provisions nothing here; chat is a raw un-gated endpoint and needs none
+    either. A local-only non-chat use case provisions a local orchestrator
+    whose width is the number of users, flagged (never refused) on a
+    single-user install.
+    """
+    if not local_only:
+        return LocalOrchestrator(provision=False)
+    if use_case == CHAT:
+        return LocalOrchestrator(provision=False)
+    if users < 1:
+        raise ValueError(
+            f"users must be at least 1 to provision a local orchestrator, got {users}"
+        )
+    return LocalOrchestrator(
+        provision=True,
+        width=users,
+        flag_single_user=users == 1,
+    )
+
+
 @dataclass(frozen=True)
 class Config:
     """A loaded, validated setup: what runs where, and the policy over it.
@@ -853,6 +1112,31 @@ class Config:
         return not any(
             self.units[name].requires_credential for name in self.ladder.names
         )
+
+    @property
+    def use_case(self) -> str:
+        """The use case this install serves, from the schema's own default."""
+        return str(self.get("use_case", "coding"))
+
+    @property
+    def deployment(self) -> str:
+        """The deployment model this install runs under, from the schema's own
+        default."""
+        return str(self.get("deployment", "hybrid"))
+
+    @property
+    def provisions_local_orchestrator(self) -> bool:
+        """Whether the serving plan must provision a local orchestrator unit.
+
+        The one home of the ruling, so :func:`mcgyvr.serving.units_for` and
+        :class:`mcgyvr.capacity.Capacity` agree without either importing the
+        other's half of the seam.
+        """
+        return local_orchestrator(
+            use_case=self.use_case,
+            local_only=self.deployment == LOCAL_ONLY,
+            users=int(self.get("users", 1)),
+        ).provision
 
     def get(self, key: str, default: Any = None) -> Any:
         """Read a dotted key, or ``default`` when it is unbound."""
@@ -1592,6 +1876,8 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
             "Raise `breadth.temperature`, or set the draws back to 1."
         )
 
+    _cross_validate_manager(data, units)
+
     for role in ("orchestrator", "verifier"):
         bound = data[role].get("unit")
         if bound is not None and bound not in units:
@@ -1600,13 +1886,53 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"Declared: {', '.join(sorted(units))}"
             )
 
-    if data["verifier"]["enabled"] and data["verifier"]["unit"] is None:
-        raise ConfigSchemaError(
-            "verifier.unit: required key is not set. Verification is enabled, "
-            "so it needs a unit to run on — bind one, or set "
-            "`verifier.enabled: false` to accept on the deterministic gate "
-            "alone."
-        )
+
+def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
+    """Refuse a ``manager`` block that asks for more than the ladder can give.
+
+    The bounds are checked here, at load, because the manager acts on a shared
+    rig and a bound it cannot honour is found only when it is acted on. A mode
+    must be one ``fanout`` could be set to; a lead must be a unit the ladder
+    climbs and one that needs no credential, since the manager moves *local*
+    units and a hosted one is not in that family. A name listed twice is one
+    step listed twice, refused the way the ladder refuses it.
+    """
+    manager = data["manager"]
+
+    seen_modes: set[str] = set()
+    for index, mode in enumerate(manager["fanouts"]):
+        if mode not in FANOUT_CHOICES:
+            raise ConfigSchemaError(
+                f"manager.fanouts.{index}: {mode!r} is not a fan-out mode. "
+                f"Valid: {', '.join(FANOUT_CHOICES)}"
+            )
+        if mode in seen_modes:
+            raise ConfigSchemaError(
+                f"manager.fanouts.{index}: {mode!r} is listed more than once. "
+                f"A mode is one choice for the manager."
+            )
+        seen_modes.add(mode)
+
+    on_ladder = tuple(data["ladder"])
+    seen_leads: set[str] = set()
+    for index, name in enumerate(manager["leads"]):
+        if name in seen_leads:
+            raise ConfigSchemaError(
+                f"manager.leads.{index}: {name!r} is listed more than once. "
+                f"A unit is one choice for the manager."
+            )
+        seen_leads.add(name)
+        if name not in on_ladder:
+            raise ConfigSchemaError(
+                f"manager.leads.{index}: {name!r} is not on the ladder. "
+                f"On the ladder: {', '.join(on_ladder)}"
+            )
+        if units[name]["api_key_env"] is not None:
+            raise ConfigSchemaError(
+                f"manager.leads.{index}: {name!r} needs a credential, so it is "
+                f"not a local unit and cannot lead the local family. Name a "
+                f"unit without `api_key_env`."
+            )
 
 
 def _absent_remedy(path: Path | None) -> str:

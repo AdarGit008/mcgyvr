@@ -67,6 +67,15 @@ limits:
   max_output_tokens: 1024
 """
 
+#: The same contract as an uncapped raw-text reply: no declared cap, and a
+#: context ceiling small enough to sit inside the tiny window the preflight
+#: check uses to prove a prose reply is not refused for its (absent) reserve.
+PROSE_CONTRACT = (
+    CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
+    + "context:\n  max_input_tokens: 64\n"
+    + "output_schema: prose\n"
+)
+
 
 def cfg(body: str) -> str:
     return textwrap.dedent(body).strip() + "\n"
@@ -300,3 +309,37 @@ def test_a_contract_with_no_cap_is_still_refused_on_a_ladder_that_declares_one(
 
     assert lj.main(["contract", str(path)]) == 2
     assert "limits.max_output_tokens" in capsys.readouterr().err
+
+
+# --- a raw-text reply is uncapped ----------------------------------------
+
+
+def test_reply_cap_is_none_for_an_uncapped_prose_reply() -> None:
+    """A prose reply has no cap, so the rung's own ``output_tokens`` is not
+    consulted — the reply is uncapped wherever it runs."""
+    from mcgyvr.gate.preflight import reply_cap
+
+    pool = source_map(parse_config(cfg(LADDER)))
+    contract = load_contract(PROSE_CONTRACT)
+    assert contract.limits.max_output_tokens is None
+
+    assert reply_cap(contract, pool.bind("local_qwen3.6-35b-a3b")) is None
+
+
+def test_a_small_window_does_not_refuse_an_uncapped_prose_reply() -> None:
+    """A prose reply reserves nothing, so a window too small for any cap is
+    still not a refusal: there is no cap for the window to hold."""
+    from mcgyvr.gate.preflight import check_contract_against_rung
+
+    small = cfg(LADDER).replace("window: 4096", "window: 64")
+    pool = source_map(parse_config(small))
+    contract = load_contract(PROSE_CONTRACT)
+
+    assert (
+        check_contract_against_rung(
+            contract,
+            "def fetch(url):\n    return url\n",
+            rung=pool.bind("local_qwen3.6-35b-a3b"),
+        )
+        is None
+    )

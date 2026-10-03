@@ -110,6 +110,12 @@ def test_the_manifest_covers_every_file_a_gate_reads(
     shutil.copytree(real, scripts, symlinks=True)
 
     def moved(path: Path) -> Path:
+        # A reader that does not sit beside the gates (the link timer sits
+        # beside the door) is left where it is: it is still on READERS, so
+        # check_manifest still checks it, and nothing here removes it — only
+        # a file in the copy is ever unlinked.
+        if not path.is_relative_to(real):
+            return path
         return scripts / path.relative_to(real)
 
     monkeypatch.setattr(door, "GATE_SCRIPTS", scripts)

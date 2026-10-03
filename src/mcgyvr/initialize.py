@@ -41,11 +41,15 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     GATE_FIELDS,
     JOURNAL_FIELDS,
+    LOCAL_ONLY,
     POLICY_FILENAME,
+    SANDBOX_FIELDS,
     SCHEMA,
+    VERIFIER_UNIT_FIELDS,
     Config,
     ConfigError,
     Field,
+    local_orchestrator,
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
@@ -380,9 +384,13 @@ def _comment(text: str, indent: int) -> list[str]:
     return [f"{pad}# {line}" for line in textwrap.wrap(text, width=width)]
 
 
-def _render_leaf(spec: Field, value: Any, indent: int) -> list[str]:
+def _render_leaf(spec: Field, value: Any, indent: int, note: str = "") -> list[str]:
     pad = " " * indent
     lines = _comment(spec.doc, indent)
+    if note:
+        # What init decided for this key on this machine, beside the key, so
+        # the file says why it holds this value and how to change it.
+        lines.extend(_comment(note, indent))
     if value is None or value == []:
         # Unset and optional. Shown commented so the key is discoverable
         # without being bound to a value nobody chose.
@@ -398,7 +406,11 @@ def _render_leaf(spec: Field, value: Any, indent: int) -> list[str]:
 
 
 def _render_fields(
-    fields: Sequence[Field], data: Mapping[str, Any], indent: int
+    fields: Sequence[Field],
+    data: Mapping[str, Any],
+    indent: int,
+    notes: Mapping[str, str] | None = None,
+    prefix: str = "",
 ) -> list[str]:
     lines: list[str] = []
     for spec in fields:
@@ -406,7 +418,11 @@ def _render_fields(
         if spec.kind == "block":
             lines.extend(_comment(spec.doc, indent))
             lines.append(f"{' ' * indent}{spec.name}:")
-            lines.extend(_render_fields(spec.block, value or {}, indent + 2))
+            lines.extend(
+                _render_fields(
+                    spec.block, value or {}, indent + 2, notes, f"{prefix}{spec.name}."
+                )
+            )
         elif spec.kind == "block_map":
             lines.extend(_comment(spec.doc, indent))
             lines.append(f"{' ' * indent}{spec.name}:")
@@ -419,7 +435,8 @@ def _render_fields(
             for item in value or []:
                 lines.extend(_render_list_item(spec.block, item, indent + 2))
         else:
-            lines.extend(_render_leaf(spec, value, indent))
+            note = (notes or {}).get(f"{prefix}{spec.name}", "")
+            lines.extend(_render_leaf(spec, value, indent, note))
         lines.append("")
     return lines
 
@@ -478,11 +495,34 @@ def render_fleet(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def render_policy(data: Mapping[str, Any]) -> str:
-    """Render ``policy.yaml``: the ladder and the policy over it."""
+#: Written beside ``sandbox.mode`` when init found no Docker daemon to run on.
+NO_DAEMON_MODE_NOTE = (
+    "No Docker daemon answered when init ran, so this is `tempdir`: the "
+    "explicitly weaker mode, in which a contract's acceptance commands run on "
+    "this machine rather than in a container. Once Docker runs here, set "
+    "`mode: docker` to run each task in its own container."
+)
+
+
+def render_policy(
+    data: Mapping[str, Any], notes: Mapping[str, str] | None = None
+) -> str:
+    """Render ``policy.yaml``: the ladder and the policy over it.
+
+    ``notes`` maps a dotted key to what init decided about it on this machine,
+    written as a comment beside the key.
+    """
     lines = _header(POLICY_FILENAME)
-    lines.extend(_render_fields(POLICY_FIELDS, data, 0))
+    lines.extend(_render_fields(POLICY_FIELDS, data, 0, notes))
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, str]:
+    """The decisions said beside their keys: a ``tempdir`` chosen for no daemon."""
+    mode = (data.get("sandbox") or {}).get("mode")
+    if not detection.docker and mode == "tempdir":
+        return {"sandbox.mode": NO_DAEMON_MODE_NOTE}
+    return {}
 
 
 def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
@@ -502,11 +542,29 @@ def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
     return {name: by_name[name].default for name in names}
 
 
+def _deployment_default(use_case: str) -> str:
+    """The deployment the plan defaults each use case to at install.
+
+    ``chat`` is a raw endpoint, so it defaults to local-only — mcgyvr is the
+    backend. Everything else defaults to hybrid, where an API-tier
+    orchestrator drives mcgyvr and the ladder's dearest rung is an API model.
+
+    This is an *init-time* default and deliberately not the schema's: the
+    schema's ``deployment`` default is ``hybrid``, the one value that is safe
+    for a hand-written config that omits the key. ``chat`` needs no
+    orchestrator under either model, so the split only changes what init
+    writes for a fresh chat install.
+    """
+    return "local-only" if use_case == "chat" else "hybrid"
+
+
 def build(
     detection: Detection,
     proposal: Proposal,
     *,
     api_units: Sequence[ApiUnit] = (),
+    use_case: str = "coding",
+    deployment: str | None = None,
 ) -> dict[str, Any]:
     """The fleet data implied by what was detected, proposed and asked for.
 
@@ -524,6 +582,11 @@ def build(
     estimate in the capability table describes it. They enter as units like any
     other, which is what makes the result the same two files any other init
     writes rather than a second kind of output.
+
+    ``use_case`` is which of the four use cases the install serves, and
+    ``deployment`` is how it is run; ``None`` deployment falls back to
+    :func:`_deployment_default` for the use case, so the file states the choice
+    rather than leaving the schema's ``hybrid`` default to fill it silently.
     """
     backends = {backend.name: backend for backend in detection.backends}
     units: dict[str, Any] = {}
@@ -551,7 +614,14 @@ def build(
     return {
         # Written at its default so the file says which setup it is. The
         # value is the schema's, never spelled here (see `_defaults`).
-        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s"),
+        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s", "users"),
+        # The use case and its deployment model are the install's two choices.
+        # The deployment is written out (rather than left to the schema's
+        # default) so the file states the choice the plan defaults made.
+        "use_case": use_case,
+        "deployment": (
+            deployment if deployment is not None else _deployment_default(use_case)
+        ),
         "units": units,
         # Local rungs first, hosted ones last. A ladder is written
         # cheapest-first, and a rung is `api` exactly when its unit declares a
@@ -561,9 +631,19 @@ def build(
         + [api.name for api in api_units],
         "fanout": "none",
         "orchestrator": {"unit": None, "model": None},
-        "verifier": {"enabled": False, "unit": None, "model": None},
+        # Written at its default — on — with no unit: the reviewer of each
+        # rung's work is then the next dearer local rung serving another model.
+        "verifier": {
+            **_defaults(VERIFIER_UNIT_FIELDS, "enabled"),
+            "unit": None,
+            "model": None,
+        },
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
+            # Written at their defaults, each under the comment that names the
+            # other choice: what a run does with no daemon, and the network a
+            # task container reaches, are worth seeing before they matter.
+            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network"),
             "image": None,
             "setup": [],
         },
@@ -669,16 +749,20 @@ def _limits(
         limits.append(
             f"Hosted units are bound and every dispatch to one spends money: "
             f"{named}. Each needs its variable exported — `mcgyvr pool` skips "
-            f"a rung whose variable is unset and says so. `orchestrator` and "
-            f"`verifier` are still unbound; bind them and set "
-            f"`verifier.enabled: true` to spend a hosted unit on those too."
+            f"a rung whose variable is unset and says so. Review is on and "
+            f"picks the next dearer local rung with another model; a hosted "
+            f"unit never reviews on its own, and reviews — spending money on "
+            f"every review — only when `verifier.unit` names it. Work with no "
+            f"such local rung above it is accepted and labelled unverified. "
+            f"`orchestrator` is still unbound."
         )
     else:
         limits.append(
             "No API provider is configured. This is a supported install: the "
-            "deterministic gate is the acceptance bar, and verification is off "
-            "rather than on-and-unbound. Bind `orchestrator` and set "
-            "`verifier.enabled: true` once you have a key."
+            "deterministic gate is the acceptance bar, and each rung's work is "
+            "reviewed by the next dearer local rung serving another model; work with "
+            "no such rung above it is accepted and labelled unverified. Bind "
+            "`orchestrator` once you have a key."
         )
     if not detection.docker:
         limits.append(
@@ -804,6 +888,8 @@ def initialize(
     profile: str | None = None,
     decision_endpoint: Endpoint | None = None,
     decision_model: str | None = None,
+    use_case: str = "coding",
+    deployment: str | None = None,
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -832,6 +918,12 @@ def initialize(
     the decision runs; when they are omitted they are taken from the first
     detected backend, and when no backend can run it the deterministic ladder
     is written with a note saying so. Without ``profile`` nothing changes.
+
+    ``use_case`` is which of the four use cases the install serves, and
+    ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
+    ``deployment`` is omitted the plan's default for the use case is written
+    — ``chat`` is local-only, everything else hybrid — so the file states the
+    choice rather than leaving the schema to fill it silently.
     """
     found = (
         detection
@@ -840,7 +932,9 @@ def initialize(
     )
     asked = _distinct_api_units(api_units)
     proposal = propose(sources=_sources_for(found))
-    data: Mapping[str, Any] = build(found, proposal, api_units=asked)
+    data: Mapping[str, Any] = build(
+        found, proposal, api_units=asked, use_case=use_case, deployment=deployment
+    )
     composition: tuple[str, ...] = ()
     compose_limits: tuple[str, ...] = ()
 
@@ -868,10 +962,30 @@ def initialize(
         else:
             compose_limits = (_compose_unavailable_note(profile),)
 
-    decisions = _decisions(found, proposal, asked) + composition
+    chosen_deployment = (
+        deployment if deployment is not None else _deployment_default(use_case)
+    )
+    decisions = (
+        _decisions(found, proposal, asked)
+        + composition
+        + (f"Use case {use_case!r} under deployment {chosen_deployment!r}.",)
+    )
+    # The single-user half of the ruling, surfaced rather than computed and
+    # dropped: a local-only non-chat install on one user is flagged, never
+    # refused.
+    if local_orchestrator(
+        use_case=use_case,
+        local_only=chosen_deployment == LOCAL_ONLY,
+        users=int(data.get("users", 1)),
+    ).flag_single_user:
+        decisions += (
+            "Local-only on a single-user install: the resident orchestrator "
+            "consumes the card the ladder would otherwise use — flagged, not "
+            "refused.",
+        )
     limits = _limits(found, proposal, asked) + compose_limits
     fleet_content = render_fleet(data, decisions)
-    policy_content = render_policy(data)
+    policy_content = render_policy(data, _policy_notes(found, data))
 
     # Parse our own output before anything is written. It normalizes the
     # proposal the same way a loaded config is normalized, and it makes it

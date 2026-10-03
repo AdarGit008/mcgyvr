@@ -605,11 +605,16 @@ def test_verified_is_unreachable_unless_a_verifier_ran_and_agreed() -> None:
                         f"{declared.verification.policy} on {family.name} with a "
                         f"{label} review reached VERIFIED"
                     )
-                if label in ("refused", "unusable") and verdict.policy == "model":
-                    # Where a verifier was required, its answer is binding. In
+                if label == "refused" and verdict.policy == "model":
+                    # Where a verifier was required, its refusal is binding. In
                     # the deterministic family it is not required, so it is not
                     # asked at all and cannot reject anything.
                     assert verdict.verdict is not Verdict.PASSED
+                if label == "unusable" and verdict.policy == "model":
+                    # A review that produced nothing is the reviewer's failure:
+                    # the gate's acceptance stands, never as verified.
+                    assert verdict.assurance is Assurance.UNVERIFIED
+                    assert verdict.reviewer_failed is True
 
 
 def test_a_keyless_install_is_labelled_unverified_rather_than_accepted_quietly() -> (
@@ -662,12 +667,17 @@ def test_a_refused_review_is_a_failed_attempt_and_carries_what_to_fix() -> None:
 
 
 def test_an_unusable_review_is_neither_an_approval_nor_the_builders_fault() -> None:
-    """#41's rule reaching the policy: a reply that cannot be read is not a verdict."""
+    """#41's rule reaching the policy: a reply that cannot be read is not a verdict.
+
+    Not an approval, so never ``VERIFIED``; not the builder's fault, so the
+    gate's acceptance stands and is labelled ``UNVERIFIED``.
+    """
     verdict = judge(
         contract(), LOCAL, clean(), verifier=lambda: Review.unusable("empty reply")
     )
 
-    assert verdict.verdict is Verdict.FAILED
+    assert verdict.verdict is Verdict.PASSED
+    assert verdict.assurance is Assurance.UNVERIFIED
     assert verdict.reviewer_failed is True
     assert verdict.retry is None  # nothing the worker did, so nothing to tell it
     assert "no usable verdict" in verdict.detail
