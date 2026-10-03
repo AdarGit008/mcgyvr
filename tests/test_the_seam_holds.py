@@ -220,6 +220,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.mcorch.authoring",
     "mcgyvr.mcorch.loop",
     "mcgyvr.mcorch.prompt",
+    "mcgyvr.mcorch.serve",
     "mcgyvr.mcorch.transcript",
     "mcgyvr.mcorch.wire",
     "mcgyvr.orchestrator",

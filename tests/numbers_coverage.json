@@ -71,6 +71,7 @@
     "mcorch/authoring.py": "holds no number that sizes or judges",
     "mcorch/loop.py": "judging",
     "mcorch/prompt.py": "holds no number that sizes or judges",
+    "mcorch/serve.py": "judging",
     "mcorch/transcript.py": "holds no number that sizes or judges",
     "mcorch/wire.py": "holds no number that sizes or judges",
     "lines.py": "holds no number that sizes or judges",

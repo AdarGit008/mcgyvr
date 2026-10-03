@@ -529,6 +529,21 @@
       "says": "The reply room, in tokens, a harness's side request (a title, a summary) gets from the rung where the harness asked for more; a local rung's time is the cost.",
       "moves_to": "mcorch_side_reply_tokens"
     },
+    "mcorch/serve.py:FACADE_PORT": {
+      "kind": "choice",
+      "says": "The port the mcorch facade listens on when the command line names none.",
+      "set_by": "flag --port"
+    },
+    "mcorch/serve.py:MAX_BODY_BYTES": {
+      "kind": "choice",
+      "says": "The most a Messages request body may hold, in bytes: the Messages API's own request limit, so a harness built against the API never meets a smaller one here.",
+      "reason": "a protocol or tool default"
+    },
+    "mcorch/serve.py:PING_INTERVAL_S": {
+      "kind": "estimate",
+      "says": "How often, in seconds, a streaming reply sends a ping while the loop works, so a harness does not give the stream up as silent.",
+      "moves_to": "mcorch_ping_s"
+    },
     "orchestrator/cache.py:CACHE_VERSION": {
       "kind": "choice",
       "says": "The version of the index cache's format on disk; a cache of another version is rebuilt.",
