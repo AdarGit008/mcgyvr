@@ -155,10 +155,11 @@ def _lock(root: Path, policy: str) -> dict[str, bytes]:
         ]
     )
     assert code == 0
+    inputs = {"fleet.yaml", "policy.yaml", "evidence.json"}
     written = {
         str(path.relative_to(root)): path.read_bytes()
-        for path in sorted((root / "records").rglob("*"))
-        if path.is_file()
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and str(path.relative_to(root)) not in inputs
     }
     assert written
     return written
