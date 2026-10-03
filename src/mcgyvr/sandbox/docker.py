@@ -37,6 +37,12 @@ And two connectivity invariants that pull opposite ways (#31):
   environment satisfies ``credential_env_names(env) == frozenset()`` by
   construction — the red-failing security invariant in ``SECURITY.md``.
 
+The first of those is a default, not a promise of reach: on Docker's default
+network a container reaches whatever this machine reaches, and a contract's
+commands with it. ``sandbox.network: none`` takes the network away — no route to
+the host is mapped and no endpoint advertised — at the price of every command
+that downloads or talks to a worker.
+
 And one about WHERE the container is: on this machine's daemon, or nowhere.
 ``DOCKER_HOST`` / ``DOCKER_CONTEXT`` in the environment are refused wherever the
 sandbox reaches a docker daemon (:func:`~mcgyvr.sandbox.image.subprocess_runner`,
@@ -55,7 +61,7 @@ import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import ClassVar
 from urllib.parse import urlparse, urlunparse
 
@@ -64,14 +70,17 @@ from mcgyvr.sandbox.base import (
     CommandResult,
     Sandbox,
     SandboxError,
+    check_network,
     command_timeout,
     merge_env,
+    workdir,
 )
 from mcgyvr.sandbox.image import (
     DockerRunner,
     ImageError,
     ensure_image,
     foreign_daemon,
+    seeded_folders,
     subprocess_runner,
 )
 from mcgyvr.sandbox.stack import detect_stack
@@ -80,6 +89,9 @@ from mcgyvr.sandbox.stack import detect_stack
 # Linux. One name across platforms is what keeps everything above the sandbox
 # from caring which OS it is on — the portability trap #31 names.
 HOST_ALIAS = "host.docker.internal"
+
+#: Where the workspace is mounted inside a task container.
+CONTAINER_WORKSPACE = PurePosixPath("/workspace")
 
 # A benign, credential-free variable carrying where the container can reach
 # workers. Named so it cannot match the credential filter.
@@ -157,11 +169,13 @@ class DockerSandbox(Sandbox):
         setup: Sequence[str] = (),
         endpoints: Sequence[str] = (),
         resources: Resources | None = None,
+        network: str = "bridge",
         notes: Sequence[str] = (),
         runner: DockerRunner = subprocess_runner,
         system: str | None = None,
     ) -> None:
         super().__init__(source, base, notes=notes)
+        self._network = check_network(network)
         self._image_override = image
         self._setup = tuple(setup)
         self._endpoints = tuple(endpoints)
@@ -171,11 +185,17 @@ class DockerSandbox(Sandbox):
         self._container: str | None = None
         self._image_tag: str | None = None
         self._dead: str | None = None
+        self._seeded: tuple[str, ...] = ()
 
     # -- lifecycle --------------------------------------------------------
 
     def _start(self) -> None:
         self._image_tag = self._resolve_image()
+        # The dependency folders mcgyvr's image installed under /workspace,
+        # which the workspace mount would hide. An image the user names is run
+        # as it is.
+        if self._image_override is None:
+            self._seeded = seeded_folders(self._image_tag, self._runner)
         self._container = f"mcgyvr-task-{uuid.uuid4().hex[:12]}"
         # Register a reaper before the container exists, so even a crash during
         # `docker run` reaps by name once the daemon has the container.
@@ -187,9 +207,11 @@ class DockerSandbox(Sandbox):
             image=self._image_tag,
             workspace=self.workspace,
             resources=self._resources,
-            gateway=host_gateway_args(self._system),
+            network=self._network,
+            gateway=host_gateway_args(self._system) if self._reaches_out else [],
             user=_host_user(),
             env=env,
+            seeded=self._seeded,
         )
         result = self._runner(args, None)
         if not result.ok:
@@ -206,11 +228,13 @@ class DockerSandbox(Sandbox):
         """Force-remove the container. Idempotent — safe as a crash reaper too.
 
         Force-remove kills a still-running container and removes it in one
-        step, so teardown never depends on the command having exited.
+        step, so teardown never depends on the command having exited. Its
+        anonymous volumes go with it: removing a container leaves them behind
+        unless asked.
         """
         if self._container is None:
             return
-        removed = self._runner(["rm", "--force", self._container], None)
+        removed = self._runner(["rm", "--force", "--volumes", self._container], None)
         if not removed.ok and "No such container" not in removed.stderr:
             print(
                 f"mcgyvr: task container {self._container} could not be removed: "
@@ -225,6 +249,7 @@ class DockerSandbox(Sandbox):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
         if self._container is None:
             raise SandboxError("container is not running — use as a context manager")
@@ -235,6 +260,7 @@ class DockerSandbox(Sandbox):
             name=self._container,
             command=argv,
             env=merge_env(env),  # per-command extras, vetted; base env is ambient
+            workdir=str(CONTAINER_WORKSPACE / workdir(cwd)),
         )
         result = _docker_exec(exec_args, command_timeout(timeout))
         self._end_leftovers(self._container, result.timed_out)
@@ -245,6 +271,25 @@ class DockerSandbox(Sandbox):
             stderr=result.stderr,
             timed_out=result.timed_out,
         )
+
+    def _kept(self) -> tuple[str, ...]:
+        """The seeded folders' mount points: removing one on the host takes
+        the volume out of the running container."""
+        return self._seeded
+
+    def host_path(self, reported: str) -> Path:
+        """A path printed inside the container, as the host reads it.
+
+        The workspace is bind-mounted at :data:`CONTAINER_WORKSPACE`, so a path
+        under it is the same file under the host workspace. Anything else is
+        not a file of the workspace and comes back as printed.
+        """
+        printed = PurePosixPath(reported)
+        try:
+            within = printed.relative_to(CONTAINER_WORKSPACE)
+        except ValueError:
+            return Path(reported)
+        return self.workspace.joinpath(*within.parts)
 
     def _end_leftovers(self, name: str, timed_out: bool) -> None:
         """Leave the container running its keepalive and nothing else.
@@ -295,16 +340,22 @@ class DockerSandbox(Sandbox):
         except ImageError as exc:
             raise SandboxError(str(exc)) from exc
 
+    @property
+    def _reaches_out(self) -> bool:
+        """Whether the container has a network to reach the host and workers on."""
+        return self._network != "none"
+
     def _container_env(self) -> dict[str, str]:
         """The container's ambient environment: minimal, endpoint-bearing, keyless.
 
         Built from nothing, so no host variable — least of all a credential —
         can leak in. ``HOME`` points at the writable workspace; the translated
-        worker endpoints ride in a benign variable.
+        worker endpoints ride in a benign variable, unless the container has no
+        network to reach them on.
         """
         base: dict[str, str] = {"HOME": "/workspace"}
         reachable = [translate_endpoint(url) for url in self._endpoints]
-        if reachable:
+        if reachable and self._reaches_out:
             base[ENDPOINTS_ENV] = ",".join(reachable)
         return merge_env(base)
 
@@ -321,6 +372,8 @@ def _run_args(
     gateway: Sequence[str],
     user: str | None,
     env: Mapping[str, str],
+    network: str = "bridge",
+    seeded: Sequence[str] = (),
 ) -> list[str]:
     """Build the ``docker run`` argv for a detached, long-lived task container.
 
@@ -330,6 +383,10 @@ def _run_args(
     container see one tree, and its ``.git`` is mounted again read-only on top:
     host git executes what that directory's config and hooks name, so a
     container able to write it could run code on the host.
+
+    Each ``seeded`` folder gets an anonymous volume over its path, which
+    Docker fills from the image: the dependencies the image installed under
+    ``/workspace``, which the workspace mount would otherwise hide.
     """
     args = [
         "run",
@@ -345,7 +402,14 @@ def _run_args(
         # write it.
         "--volume",
         f"{workspace}/.git:/workspace/.git:ro",
+        *(
+            token
+            for folder in seeded
+            for token in ("--volume", str(CONTAINER_WORKSPACE / folder))
+        ),
         *resources.run_args(),
+        # Docker's default network is left implicit, as it always was.
+        *(["--network", network] if network != "bridge" else []),
         *gateway,
     ]
     if user is not None:
@@ -361,9 +425,10 @@ def _exec_args(
     name: str,
     command: Sequence[str],
     env: Mapping[str, str],
+    workdir: str = "/workspace",
 ) -> list[str]:
     """Build the ``docker exec`` argv running one command in the container."""
-    args = ["exec", "--workdir", "/workspace"]
+    args = ["exec", "--workdir", workdir]
     for key, value in sorted(env.items()):
         args += ["--env", f"{key}={value}"]
     args.append(name)

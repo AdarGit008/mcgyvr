@@ -203,11 +203,13 @@ def check_contract_fits(
 
     ``cap`` is the reply the window must hold room for, and ``None`` means the
     contract's own ``limits.max_output_tokens`` — what every caller that
-    reaches this without a rung in hand gets. A caller that *has* a rung passes
-    :func:`reply_cap`'s answer, because the number reserved here has to be the
-    number dispatched: reserving the contract's cap and sending a larger one
-    from the rung is a fit check that passes on a request the window cannot
-    hold.
+    reaches this without a rung in hand gets. A contract whose reply is
+    uncapped (a raw-text reply) has ``limits.max_output_tokens`` of ``None``,
+    so ``None`` also resolves to reserving nothing for output. A caller that
+    *has* a rung passes :func:`reply_cap`'s answer, because the number
+    reserved here has to be the number dispatched: reserving the contract's
+    cap and sending a larger one from the rung is a fit check that passes on a
+    request the window cannot hold.
 
     The contract already states how large its reply may be
     (``limits.max_output_tokens``, sized to the task type by
@@ -237,7 +239,8 @@ def check_contract_fits(
     from mcgyvr.orchestrator.read import estimate_tokens
 
     estimated = estimate_tokens(prompt)
-    reserve = contract.limits.max_output_tokens if cap is None else cap
+    declared = contract.limits.max_output_tokens if cap is None else cap
+    reserve = declared if declared is not None else 0
     does_not_fit = check_prompt_fits(
         estimated,
         context_window,
@@ -315,7 +318,7 @@ def check_window_fraction(
     )
 
 
-def reply_cap(contract: Contract, rung: ServingWindow) -> int:
+def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     """The output cap that will actually be sent, and why the rung's one wins.
 
     Two numbers, one wire. The unit's ``units.*.output_tokens`` where it
@@ -324,6 +327,11 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int:
     :func:`mcgyvr.drive.dispatch_prompt` puts on the request — a reserve and a
     cap sized "the same way" in two places is how a check passes on a request
     that then comes back cut.
+
+    A raw-text reply (``prose`` / ``media_artifact``) is uncapped: its
+    ``limits.max_output_tokens`` is ``None``, and this returns ``None`` before
+    the rung's own ``output_tokens`` is consulted — an uncapped reply stays
+    uncapped wherever it runs.
 
     **They are not the same kind of statement, and that is the whole argument.**
     A contract's cap is written by whoever wrote the work and says what this
@@ -359,12 +367,14 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int:
     checked against the rung's own window by
     :func:`check_contract_against_rung`, which is the bound that matters,
     because the window is the thing the cap actually competes for. And it does
-    not excuse a contract from declaring a cap: ``mcgyvr contract`` and
-    ``mcgyvr run`` still refuse a model contract with none (see
+    not excuse a whole_file contract from declaring a cap: ``mcgyvr contract``
+    and ``mcgyvr run`` still refuse a whole_file model contract with none (see
     :func:`mcgyvr.cli._cap_undeclared`), since the ladder can be re-pointed at
     rungs that declare nothing and the work still has to say what it will
     spend.
     """
+    if contract.limits.max_output_tokens is None:
+        return None
     if rung.output_tokens is None:
         return contract.limits.max_output_tokens
     return rung.output_tokens
@@ -439,7 +449,7 @@ def check_contract_against_rung(
             f"nobody chose",
         )
     cap = reply_cap(contract, rung)
-    if cap >= window:
+    if cap is not None and cap >= window:
         # Which of the two numbers this is decides the repair, so the refusal
         # names it. A message that said "lower the rung's room" about a cap the
         # contract declared would send an operator to edit a key that is not

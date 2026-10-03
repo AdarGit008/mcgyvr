@@ -83,6 +83,18 @@ one bound per unit. Where a rung bound is given:
   is asked per rung, and a hold on one rung leaves another's count at zero. The
   slot files are keyed by the rung alongside the URL for the same reason.
 
+**A source can reserve slots for the role that runs on it.** The local
+orchestrator unit is launched at the user count when the unit declares no width
+of its own, and one of those slots must stay the orchestration role's — a ladder
+batch that filled every slot would leave the resident orchestrator nothing to
+decompose the next task with. ``reserved`` names such slots per source:
+``limits[source]`` is the ladder-facing remainder, the physical slot count is
+``limits[source] + reserved[source]``, and :meth:`hold` gives a dispatch that
+names a rung only the ladder-facing sweep while a role dispatch — one that names
+no rung — takes the full physical pool. The reserved slot is the same physical
+pool, not a second one: role and ladder share the slot files, so together they
+still never exceed the width the unit was actually served at.
+
 The probe is a *parameter*. Nothing here opens a socket, for the same reason
 :mod:`mcgyvr.pool` names :class:`~mcgyvr.pool.SourceProbe` structurally and
 builds nothing: this module's job is to know what to do with the answer.
@@ -509,6 +521,7 @@ class Capacity:
         declared: Mapping[str, int] | None = None,
         rungs: Mapping[str, RungWidth] | None = None,
         urls: Mapping[str, str] | None = None,
+        reserved: Mapping[str, int] | None = None,
         queue_timeout_s: float | None = None,
         gauge: Gauge | None = None,
         busy: Callable[[str], int | None] | None = None,
@@ -536,14 +549,37 @@ class Capacity:
                 f"capacity does not bound. A confirmation is a fact about a "
                 f"source's limit, so there has to be a limit for it to be about."
             )
+        # Slots of a source's *physical* width that ladder dispatches may not
+        # take, held back for the role that runs on the same unit (the local
+        # orchestrator). ``limits`` is therefore the ladder-facing width; a
+        # source's physical width is ``limits[source] + reserved[source]``, and
+        # only a role dispatch — a hold that names no rung — may take the
+        # reserved tail. See the module docstring's role-reservation paragraph.
+        self._role_reserved = dict(reserved or {})
+        unknown = ", ".join(sorted(set(self._role_reserved) - set(self._limits)))
+        if unknown:
+            raise CapacityError(
+                f"reserved slot(s) for source(s) {unknown}, which this "
+                f"capacity does not bound. A reservation is a claim against a "
+                f"bound, so there has to be a bound for it to be about."
+            )
+        for source, count in self._role_reserved.items():
+            if count < 0:
+                raise CapacityError(
+                    f"unit {source!r} reserves {count} slot(s), which is not "
+                    f"a number of slots."
+                )
         # What the config said, for the sources where that is not what is
         # enforced. Only a probe can separate the two — nothing else may widen a
         # bound — so a source whose two numbers differ is always a confirmed
         # one, but not the other way round: a probe reporting exactly the
         # declared width confirms it and widens nothing, and an unconfirmed
-        # source always declares what it enforces. Kept because an
-        # `Endpoint` carries the declaration, and :meth:`hold` has to be able to
-        # check the number it was handed against the number of the same kind.
+        # source always declares what it enforces. The one exception is a
+        # role-reserved source, whose declaration is the served width and whose
+        # enforced number is the ladder-facing remainder — the difference is the
+        # reservation, not a probe. Kept because an `Endpoint` carries the
+        # declaration, and :meth:`hold` has to be able to check the number it
+        # was handed against the number of the same kind.
         self._declared = dict(self._limits)
         for source, width in dict(declared or {}).items():
             enforced = self._limits.get(source)
@@ -559,16 +595,22 @@ class Capacity:
                     f"config schema floors at 1. A capacity cannot be built from "
                     f"a declaration no config could have written."
                 )
-            if width > enforced:
+            physical = enforced + self._role_reserved.get(source, 0)
+            if width > physical:
                 raise CapacityError(
                     f"unit {source!r} declares width={width} but is bounded at "
-                    f"{enforced}. A width is only ever widened from its "
+                    f"{physical}. A width is only ever widened from its "
                     f"declaration and never narrowed — :meth:`of` refuses a "
                     f"machine reporting less rather than quietly lowering the "
                     f"bound — so a bound under the declaration is not something "
                     f"this module can have produced."
                 )
-            if width != enforced and source not in self._confirmed:
+            role_reserved = self._role_reserved.get(source, 0) > 0 and width == physical
+            if (
+                width != enforced
+                and source not in self._confirmed
+                and not role_reserved
+            ):
                 raise CapacityError(
                     f"unit {source!r} declares width={width} and is bounded at "
                     f"{enforced} without a confirmation. Only a machine's own "
@@ -605,7 +647,8 @@ class Capacity:
         # the report — is per bound, and a rung's bound is not a special case of
         # a source's.
         self._bounds: dict[_Bound, int] = {
-            (source, None): limit for source, limit in self._limits.items()
+            (source, None): limit + self._role_reserved.get(source, 0)
+            for source, limit in self._limits.items()
         }
         for name, rung in self._rungs.items():
             self._bounds[(rung.source, name)] = rung.limit
@@ -702,6 +745,12 @@ class Capacity:
         The probe is asked about each unit and never about a rung, and no rung
         bound is built.
 
+        One source may differ from the others before any probe is consulted:
+        the local orchestrator unit — the unit named by ``orchestrator.unit``
+        when it declares no credential — is served at ``users`` slots when it
+        declares no width of its own, and one of those slots is reserved for
+        the orchestration role, so its ladder-facing limit is one narrower.
+
         ``root`` is the directory the slot files live in — :class:`Capacity`'s
         ``lock_dir``, named for what it is to a caller building from a config:
         the rendezvous every mcgyvr process on this host must agree on. Omitted,
@@ -717,18 +766,50 @@ class Capacity:
         """
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
+        reserved: dict[str, int] = {}
         confirmed: list[str] = []
+        orchestrator_name = config.get("orchestrator.unit")
+        # Looked up among the fleet's own units and never among the relief
+        # rungs, so no relief rung is ever reserved for the role. A relief rung
+        # is another rig's unit reached through the hub; the orchestrator runs
+        # on the rider's own local unit, and a slot held back on a ride would
+        # only narrow the ride. Config already keeps the two apart —
+        # ``orchestrator.unit`` must name a unit, and a relief rung may not
+        # share a unit's name — so ``role_orchestrator`` below is never a relief
+        # rung's name, and every relief rung is bounded at its whole width.
+        orchestrator_unit = (
+            config.units.get(orchestrator_name) if orchestrator_name else None
+        )
+        # The ruling's one home: a slot is reserved only when the serving plan
+        # actually provisions a local orchestrator — a local-only non-chat use
+        # case. Hybrid and chat provision nothing, so a bound local unit is
+        # just a ladder rung.
+        role_orchestrator = (
+            orchestrator_name
+            if config.provisions_local_orchestrator
+            and orchestrator_unit is not None
+            and not orchestrator_unit.requires_credential
+            else None
+        )
+        users = int(config.get("users", 1))
+        # The relief rungs are bounded in the same loop, so one width, one load
+        # and one definition of full (:meth:`judge`) cover a ride as they cover
+        # a ladder rung.
         bounded = {**config.units, **config.relief}
         for name, unit in bounded.items():
             declared = unit.width or 1
+            if name == role_orchestrator:
+                # The serving plan launches the local orchestrator unit at the
+                # user count when the unit declares no width of its own. One
+                # of those slots stays the role's, so the ladder sees the rest.
+                declared = unit.width or users
             declarations[name] = declared
             reported = None if probe is None else _reported(probe, name, None)
             if reported is None:
                 # Nobody asked, or the backend does not say. Two different
                 # reasons, one state of knowledge, and neither is evidence.
-                limits[name] = declared
-                continue
-            if reported < declared:
+                enforced = declared
+            elif reported < declared:
                 raise CapacityError(
                     f"unit {name!r} declares {declared} but reports "
                     f"{reported}. Two answers to one question, and this time the "
@@ -740,8 +821,15 @@ class Capacity:
                     f"slow and never as a config that is merely wrong. Declare "
                     f"{reported}, or start the backend with {declared} slots."
                 )
-            limits[name] = reported
-            confirmed.append(name)
+            else:
+                enforced = reported
+                confirmed.append(name)
+            if name == role_orchestrator:
+                ladder = max(enforced - 1, 1)
+                reserved[name] = enforced - ladder
+                limits[name] = ladder
+            else:
+                limits[name] = enforced
 
         return cls(
             limits,
@@ -749,6 +837,7 @@ class Capacity:
             confirmed=confirmed,
             declared=declarations,
             urls={name: unit.address for name, unit in bounded.items()},
+            reserved=reserved,
             # No single wait may exceed the ceiling on the whole task. That
             # bounds each hold and not their sum: a climb of three rungs that
             # queued at every one of them could still wait three ceilings.
@@ -798,14 +887,19 @@ class Capacity:
         because an unknown rung name is a dispatch that named no width, not a
         dispatch to an unknown rig.
         """
-        limit = self._bounds.get(self._bound(source, rung))
-        if limit is None:
-            known = ", ".join(sorted(self._limits)) or "none"
-            raise CapacityError(
-                f"no declared capacity for unit {source!r}, so there is no "
-                f"width to report for it. Known units: {known}"
-            )
-        return limit
+        bound = self._bound(source, rung)
+        if bound in self._bounds:
+            # A rung's own bound is its width; the source's own answer is its
+            # ladder-facing width, which leaves the role's reserved slots out
+            # of the physical count (see the module docstring).
+            if bound[1] is not None:
+                return self._bounds[bound]
+            return self._limits[bound[0]]
+        known = ", ".join(sorted(self._limits)) or "none"
+        raise CapacityError(
+            f"no declared capacity for unit {source!r}, so there is no "
+            f"width to report for it. Known units: {known}"
+        )
 
     def queue(self, source: str, rung: str | None = None) -> str | None:
         """Which queue a dispatch to ``source`` on ``rung`` would actually join.
@@ -899,8 +993,8 @@ class Capacity:
         for rung in self._rungs.values():
             by_source[rung.source] = by_source.get(rung.source, 0) + rung.limit
         return sum(
-            max(limit, by_source.get(source, 0))
-            for source, limit in self._limits.items()
+            max(self._bounds[(source, None)], by_source.get(source, 0))
+            for source in self._limits
         )
 
     def in_use(self, source: str) -> int:
@@ -1257,16 +1351,23 @@ class Capacity:
             )
         declared = self._declared[name]
         if endpoint is not None and endpoint.max_parallel != declared:
-            widened = (
-                ""
-                if self._limits[name] == declared
-                else (
+            if self._limits[name] == declared:
+                widened = ""
+            elif self._role_reserved.get(name, 0):
+                widened = (
+                    f" (This source reserves {self._role_reserved[name]} "
+                    f"slot(s) for its role, so the ladder-facing width is "
+                    f"{self._limits[name]}; an endpoint still carries the "
+                    f"served width, so {declared} is what it has to agree "
+                    f"with.)"
+                )
+            else:
+                widened = (
                     f" (A probe widened this source to {self._limits[name]}, "
                     f"which is what is enforced; an endpoint still carries the "
                     f"declared number, so {declared} is what it has to agree "
                     f"with.)"
                 )
-            )
             raise CapacityError(
                 f"unit {name!r} is bounded at {declared} here "
                 f"but the endpoint declares width="
@@ -1276,6 +1377,14 @@ class Capacity:
             )
         bound = self._bound(name, rung)
         limit = self._bounds[bound]
+        if rung is not None and bound[1] is None:
+            # A ladder dispatch names a rung and falls back to the source's
+            # own bound; a role dispatch names none and takes the full
+            # physical pool. On a source that reserves slots for its role the
+            # ladder must not take the reserved tail, so its sweep is the
+            # ladder-facing width. For every other source the two numbers are
+            # the same and this is a no-op.
+            limit = self._limits[name]
         where = f"unit {bound[1]!r} of unit {name!r}" if bound[1] else f"unit {name!r}"
         # The rig's URL where one is known, and the source's name where it is
         # not: a capacity built from limits alone has no other identity to key

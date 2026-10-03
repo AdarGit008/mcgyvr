@@ -225,6 +225,28 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
     assert "listing.py" in seen[0]
 
 
+def test_the_orchestrator_dispatch_is_uncapped_by_default(
+    repo: Index, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ruling: prose and the orchestrator carry no output cap — a chatty
+    model is a prompting issue, not a cap issue. The default dispatch is None."""
+    import mcgyvr.delegate as delegate
+
+    pool = source_map(parse(cfg(ORCHESTRATOR)))
+    seen: list[int | None] = []
+
+    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+        seen.append(request.max_output_tokens)
+        return completion(DOCSTRING_REPLY)
+
+    monkeypatch.setattr(delegate, "dispatch_role", fake_dispatch_role)
+
+    propose = proposer_for(pool)
+    assert propose is not None
+    propose(evidence_for(repo, "document listing"))
+    assert seen == [None]
+
+
 # --- (b) decompose emits validated contracts end-to-end --------------------
 
 

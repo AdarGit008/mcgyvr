@@ -407,6 +407,20 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
     skipped: list[Skipped] = []
     endpoints: dict[str, Endpoint] = {}
 
+    def _served(unit: Unit, name: str) -> int:
+        # The local orchestrator unit is launched at the user count when the
+        # unit declares no width of its own; the endpoint must carry the
+        # number the capacity's declaration will agree with. That only holds
+        # when the ruling provisions one — a local-only non-chat use case.
+        # Every other unit's served width is the width it declares.
+        if (
+            config.provisions_local_orchestrator
+            and name == config.get("orchestrator.unit")
+            and not unit.requires_credential
+        ):
+            return unit.width or int(config.get("users", 1))
+        return unit.width or 1
+
     for name in config.ladder.names:
         unit = config.units[name]
         reason = _unusable(unit)
@@ -414,7 +428,7 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
             skipped.append(Skipped(name=name, model=unit.model, reason=reason))
             continue
         usable.append(Rung(name=name, model=unit.model))
-        endpoints[name] = _endpoint(unit)
+        endpoints[name] = _endpoint(unit, width=_served(unit, name))
 
     relief: list[Rung] = []
     relief_skipped: list[Skipped] = []
@@ -446,7 +460,11 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         if reason is not None:
             role_skips[role] = reason
             continue
-        roles[role] = RoleBinding(role=role, model=model, endpoint=_endpoint(unit))
+        roles[role] = RoleBinding(
+            role=role,
+            model=model,
+            endpoint=_endpoint(unit, width=_served(unit, bound)),
+        )
 
     if probe is not None:
         # One endpoint per source: a role bound to a unit that is also on the
@@ -581,13 +599,18 @@ def _drop_wrong_model(
 # --- small deterministic helpers -------------------------------------------
 
 
-def _endpoint(unit: Unit) -> Endpoint:
-    """A declared unit as the endpoint a runner dispatches against."""
+def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
+    """A declared unit as the endpoint a runner dispatches against.
+
+    ``width`` overrides the unit's own ``width`` for a unit whose served slot
+    count is derived elsewhere — the local orchestrator unit, which the serving
+    plan runs at ``users`` slots when the unit declares none.
+    """
     return Endpoint(
         source=unit.name,
         base_url=unit.address,
         protocol=Protocol.OPENAI,
-        max_parallel=unit.width or 1,
+        max_parallel=(unit.width or 1) if width is None else width,
         credential_env=unit.api_key_env,
         context_window=unit.window,
         output_tokens=unit.output_tokens,

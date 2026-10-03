@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import fnmatch
 import os
 import re
 import shutil
@@ -43,7 +44,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
 from mcgyvr.redact import scrub
@@ -276,8 +277,13 @@ class Sandbox(ABC):
         self._workspace = Path(tempfile.mkdtemp(prefix=_WORKSPACE_PREFIX))
         _LIVE_REAPERS[id(self)] = (lambda: _remove_tree(self._workspace),)
         try:
-            populated = _populate(self._source, self._workspace, self._base)
+            left_out: list[str] = []
+            populated = _populate(
+                self._source, self._workspace, self._base, left_out=left_out
+            )
             self._base_commit, self._source_commit = populated
+            if left_out:
+                self.notes = (*self.notes, _left_out_note(left_out))
             self._start()
         except BaseException:
             # A failure mid-open must not leave a half-built sandbox behind.
@@ -305,7 +311,7 @@ class Sandbox(ABC):
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", self._base_commit)
         # `-ff` removes nested repositories too; neither command runs their config.
-        _git(self.workspace, "clean", "-ffdx")
+        _git(self.workspace, "clean", "-ffdx", *self._kept_args())
 
     def checkpoint(self) -> str:
         """Commit the workspace's current state and return the commit to restore to.
@@ -344,7 +350,7 @@ class Sandbox(ABC):
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", checkpoint)
-        _git(self.workspace, "clean", "-ffd")
+        _git(self.workspace, "clean", "-ffd", *self._kept_args())
 
     def drop_checkpoint(self) -> None:
         """Return ``HEAD`` to the base commit, keeping the working tree as it is.
@@ -418,6 +424,7 @@ class Sandbox(ABC):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
         """Run one command in the sandbox and capture its result.
 
@@ -428,11 +435,35 @@ class Sandbox(ABC):
         ``timeout`` is a ceiling in seconds; ``None`` asks for the built-in
         :data:`DEFAULT_COMMAND_TIMEOUT_S` rather than for no ceiling at all.
         Nothing a sandbox runs is unbounded.
+
+        ``cwd`` is a directory inside the workspace, relative to it, to run
+        in; ``None`` is the workspace itself (:func:`workdir`).
         """
+
+    def host_path(self, reported: str) -> Path:
+        """A path a command printed, as the host reads it.
+
+        The workspace is the same directory on both sides in the temp-directory
+        mode; the container mode sees it at another path and overrides this.
+        """
+        return Path(reported)
 
     @abstractmethod
     def _start(self) -> None:
         """Mode-specific setup after the workspace exists (create a container)."""
+
+    def _kept(self) -> tuple[str, ...]:
+        """Top-level workspace entries a clean must leave: the mode's own.
+
+        None by default. The container mode names the mount points of the
+        dependency volumes it keeps visible (see
+        :class:`~mcgyvr.sandbox.docker.DockerSandbox`).
+        """
+        return ()
+
+    def _kept_args(self) -> list[str]:
+        # `-e` holds under `-x` too: it is the one ignore rule `-x` keeps.
+        return [arg for name in self._kept() for arg in ("-e", f"/{name}")]
 
     @abstractmethod
     def _stop(self) -> None:
@@ -442,13 +473,17 @@ class Sandbox(ABC):
 # --- workspace population (shared, host-side git) ------------------------
 
 
-def _populate(source: Path, workspace: Path, base: str) -> tuple[str, str]:
+def _populate(
+    source: Path, workspace: Path, base: str, *, left_out: list[str] | None = None
+) -> tuple[str, str]:
     """Fill ``workspace`` from ``source``, commit it, and name both bases.
 
     When ``source`` is a git repository the base tree is taken with
     ``git archive`` — exactly the tracked content of ``base``, no ``.git``,
     no untracked heavyweight directories (``node_modules``, ``.venv``) that a
-    copy would drag in. A non-git source is copied wholesale. Either way the
+    copy would drag in. A non-git source is copied whole minus the files that
+    hold secrets (:func:`_copy_into`), whose paths are appended to
+    ``left_out``. Either way the
     workspace then gets its own fresh git repository with a single base
     commit, which is what makes the worker's change a real diff and
     :meth:`Sandbox.reset` possible.
@@ -464,8 +499,11 @@ def _populate(source: Path, workspace: Path, base: str) -> tuple[str, str]:
         _archive_into(source, workspace, base)
     else:
         # A non-git source, or a git repo with no commit yet to archive, is
-        # copied wholesale; the fresh git repository below becomes its base.
-        _copy_into(source, workspace)
+        # copied minus its secrets; the fresh git repository below becomes its
+        # base.
+        skipped = _copy_into(source, workspace)
+        if left_out is not None:
+            left_out.extend(skipped)
 
     _git(workspace, "init", "--quiet")
     _git(workspace, "add", "-A")
@@ -542,17 +580,100 @@ def _archive_into(source: Path, workspace: Path, base: str) -> None:
         raise SandboxError(f"could not extract archive into {workspace}: {detail}")
 
 
-def _copy_into(source: Path, workspace: Path) -> None:
-    """Copy a non-git ``source`` tree into ``workspace``, skipping VCS metadata."""
+#: File names a non-git source is copied without, whatever they hold: each is a
+#: place a secret is kept. A pattern is matched against the name alone.
+_SECRET_FILES = (
+    ".env",
+    ".env.*",
+    ".envrc",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "*.jks",
+    "*.keystore",
+    ".netrc",
+    "_netrc",
+    ".git-credentials",
+    ".pgpass",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+)
+
+#: Directories a non-git source is copied without: cloud and remote-login
+#: credential folders.
+_SECRET_DIRS = frozenset({".aws", ".gcloud", ".azure", ".ssh", ".gnupg", ".kube"})
+
+#: Credential files that live inside a folder that is otherwise harmless, keyed
+#: by the folder's name: ``.docker/config.json`` holds registry logins,
+#: ``.config/gcloud`` and ``.config/gh`` hold cloud and GitHub tokens.
+_SECRET_UNDER = {
+    ".docker": frozenset({"config.json"}),
+    ".config": frozenset({"gcloud", "gh"}),
+}
+
+#: Package-manager settings files that are copied unless they hold a login: a
+#: registry URL is configuration, a token beside it is a secret.
+_LOGIN_RC = frozenset({".npmrc", ".pypirc", ".yarnrc", ".yarnrc.yml"})
+
+_RC_LOGIN = re.compile(r"(auth|token|password|passwd|secret)\w*\s*[=:]", re.IGNORECASE)
+
+
+def _holds_a_secret(path: Path) -> bool:
+    """Whether a non-git copy leaves ``path`` behind, by its name or its login."""
+    name = path.name
+    if name in _SECRET_DIRS and path.is_dir():
+        return True
+    if name in _SECRET_UNDER.get(path.parent.name, frozenset()):
+        return True
+    if any(fnmatch.fnmatch(name, pattern) for pattern in _SECRET_FILES):
+        return True
+    if name in _LOGIN_RC and path.is_file():
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return True  # unread is not known clean
+        return bool(_RC_LOGIN.search(text)) or scrub(text) != text
+    return False
+
+
+def _copy_into(source: Path, workspace: Path) -> tuple[str, ...]:
+    """Copy a non-git ``source`` into ``workspace``, minus VCS metadata and secrets.
+
+    A git source brings its tracked files only, so an ignored ``.env`` stays
+    behind on its own. A non-git source has no ignore rules to say what is
+    whose, so what is left behind is decided by name: dotenv files, keys and
+    certificates, ``.netrc``, cloud and SSH credential folders, a registry
+    login, and a package-manager settings file that carries a token. The
+    paths left behind come back, relative to ``source``, so the run can say
+    which files its task does not have.
+    """
+    skipped: list[str] = []
+
+    def leave_out(directory: str, names: list[str]) -> set[str]:
+        here = Path(directory)
+        out = {".git"} & set(names)
+        for name in names:
+            if name not in out and _holds_a_secret(here / name):
+                out.add(name)
+                skipped.append((here / name).relative_to(source).as_posix())
+        return out
+
     try:
-        shutil.copytree(
-            source,
-            workspace,
-            dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns(".git"),
-        )
+        shutil.copytree(source, workspace, dirs_exist_ok=True, ignore=leave_out)
     except OSError as exc:
         raise SandboxError(f"could not copy {source} into {workspace}: {exc}") from exc
+    return tuple(sorted(skipped))
+
+
+def _left_out_note(paths: Sequence[str]) -> str:
+    """The note a sandbox carries when its non-git copy left secrets behind."""
+    return (
+        "The source is not a git repository, so it was copied whole except for "
+        "files that hold secrets, which the task does not get: " + ", ".join(paths)
+    )
 
 
 def _git(
@@ -617,25 +738,57 @@ class _SandboxChoice:
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
-def choose_mode(configured: str, docker_available: bool) -> _SandboxChoice:
+def choose_mode(
+    configured: str, docker_available: bool, *, allow_fallback: bool = False
+) -> _SandboxChoice:
     """Resolve the effective sandbox mode from config and Docker availability.
 
-    ``docker`` configured without a daemon does not fail — it falls back to
-    the temp directory and says so once, because locking a user out for the
-    lack of Docker is the opposite of the intent. ``tempdir`` configured is an
-    explicit choice and carries the same weaker-mode note.
+    ``docker`` configured without a daemon is refused (:class:`SandboxError`):
+    falling back puts a contract's acceptance commands on the host, and that is
+    for the user to choose ahead of time, not to read about in a note after the
+    run started. The refusal names both ways on: ``tempdir`` by name, or
+    ``allow_fallback`` (``sandbox.allow_fallback``), which falls back and says
+    so once. ``tempdir`` configured is an explicit choice and carries the same
+    weaker-mode note.
     """
     if configured == "tempdir":
         return _SandboxChoice("tempdir", (_WEAKER_MODE_NOTE,))
     if not docker_available:
+        if not allow_fallback:
+            raise SandboxError(_NO_DAEMON_REFUSAL)
         return _SandboxChoice(
             "tempdir",
             (
-                "Docker was requested but no daemon answered; falling back to "
-                "the temp-directory sandbox. " + _WEAKER_MODE_NOTE,
+                "Docker was requested but no daemon answered; "
+                "`sandbox.allow_fallback` is on, so this task falls back to the "
+                "temp-directory sandbox. " + _WEAKER_MODE_NOTE,
             ),
         )
     return _SandboxChoice("docker")
+
+
+_NO_DAEMON_REFUSAL = (
+    "`sandbox.mode` is `docker` and no Docker daemon answered, so the task is "
+    "not run: falling back would run a contract's acceptance commands on this "
+    "host instead of in a container. Start Docker, or choose the weaker mode "
+    "by name — `sandbox.mode: tempdir`, or `--sandbox tempdir` for one run — "
+    "or keep `docker` and set `sandbox.allow_fallback: true` to fall back to "
+    "it whenever no daemon answers."
+)
+
+#: Where a task container is attached: Docker's own default network, or none.
+#: The names are Docker's, passed to ``--network`` untouched.
+NETWORKS = ("bridge", "none")
+
+
+def check_network(network: str) -> str:
+    """``network`` if a task can be given it, else :class:`SandboxError` by name."""
+    if network not in NETWORKS:
+        raise SandboxError(
+            f"`sandbox.network: {network}` is not a network a task is given; "
+            f"it is one of {', '.join(NETWORKS)}"
+        )
+    return network
 
 
 _WEAKER_MODE_NOTE = (
@@ -655,11 +808,18 @@ def open_sandbox(
     image: str | None = None,
     setup: Sequence[str] = (),
     endpoints: Sequence[str] = (),
+    allow_fallback: bool = False,
+    network: str = "bridge",
 ) -> Sandbox:
     """Construct the sandbox a task should run in, not yet entered.
 
-    ``mode`` comes from ``sandbox.mode`` in config; ``image``/``setup`` from
-    the rest of the ``sandbox`` block. ``endpoints`` are the configured worker
+    ``mode`` comes from ``sandbox.mode`` in config; ``image``/``setup``,
+    ``allow_fallback`` and ``network`` from the rest of the ``sandbox`` block.
+    ``docker`` with no daemon is refused unless ``allow_fallback`` is set
+    (:func:`choose_mode`). ``network="none"`` is kept by a container and
+    refused by the temp-directory mode, which runs commands on the host and
+    cannot take the network away — chosen by name or reached by the fallback,
+    it is not claimed and then not kept. ``endpoints`` are the configured worker
     ``base_url``s the container must be able to reach; loopback ones are
     translated to the host alias by the Docker mode, and they are passed only
     there — the temp-directory mode already runs on the host. Docker
@@ -667,6 +827,7 @@ def open_sandbox(
     callers that already probed). The returned sandbox carries ``notes`` naming
     the weaker mode when one is in force — the caller surfaces them once at open.
     """
+    check_network(network)
     if mode != "tempdir":
         # Before the daemon is even probed: a `docker info` under DOCKER_HOST
         # would go wherever the variable points, a rig included, and the
@@ -682,7 +843,7 @@ def open_sandbox(
 
         docker_available, _ = detect_docker()
 
-    choice = choose_mode(mode, docker_available)
+    choice = choose_mode(mode, docker_available, allow_fallback=allow_fallback)
 
     if choice.mode == "docker":
         from mcgyvr.sandbox.docker import DockerSandbox
@@ -693,12 +854,36 @@ def open_sandbox(
             image=image,
             setup=tuple(setup),
             endpoints=tuple(endpoints),
+            network=network,
             notes=choice.notes,
+        )
+
+    if network != "bridge":
+        raise SandboxError(
+            f"`sandbox.network: {network}` asks for a task with no network, and "
+            f"this task would run in the temp-directory sandbox, on this host, "
+            f"where mcgyvr cannot take the network away. Run it in a container "
+            f"(`sandbox.mode: docker`, with a daemon that answers), or set "
+            f"`sandbox.network: bridge`."
         )
 
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 
     return TempDirSandbox(source, base=base, notes=choice.notes)
+
+
+def workdir(cwd: str | None) -> PurePosixPath:
+    """``cwd`` as a path under the workspace, refused if it would leave it.
+
+    Both modes resolve a command's working directory through this, so a
+    caller's ``cwd`` means the same place in each and never one outside.
+    """
+    if cwd is None:
+        return PurePosixPath(".")
+    within = PurePosixPath(cwd)
+    if within.is_absolute() or ".." in within.parts:
+        raise SandboxError(f"a command runs inside the workspace, not at {cwd!r}")
+    return within
 
 
 def merge_env(*layers: Mapping[str, str] | None) -> dict[str, str]:

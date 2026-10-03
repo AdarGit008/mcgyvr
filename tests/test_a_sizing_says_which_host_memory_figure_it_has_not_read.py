@@ -46,6 +46,11 @@ from tests.test_one_engines_host_memory_figure_is_never_charged_to_another impor
     spilling,
 )
 
+#: The engines that carry a ``runtime_resident_gb`` figure: the one shipped,
+#: plus the ones read on the machine. A media engine (diffusers) prices its
+#: host memory as the spec's stated ``ram_gb``, so it is not in this set.
+ENGINES = (derived.RUNTIME_RESIDENT_KEY, *derived.RUNTIME_RESIDENT_READ)
+
 #: The invented dense model a unit of each engine serves.
 DENSE = "example-dense"
 
@@ -87,7 +92,7 @@ def not_shipped() -> list[str]:
     """The engines a unit may name for which mcgyvr ships no host memory figure."""
     document = json.loads(derived.shipped_path().read_text(encoding="utf-8"))
     shipped = document["numbers"][derived.RUNTIME_RESIDENT]["values"]
-    return [engine for engine in derived.KEY_SPACES["engine"] if engine not in shipped]
+    return [engine for engine in ENGINES if engine not in shipped]
 
 
 def dense(scan: Scan) -> ModelSpec:
@@ -117,7 +122,7 @@ def test_the_line_names_every_engine_whose_figure_it_has_not_read() -> None:
 
 
 @pytest.mark.parametrize("machine", machines(), ids=lambda machine: machine.label)
-@pytest.mark.parametrize("engine", derived.KEY_SPACES["engine"])
+@pytest.mark.parametrize("engine", ENGINES)
 def test_a_unit_that_fits_says_it_only_when_its_figure_is_not_shipped(
     machine: machine_shapes.Shape, engine: str
 ) -> None:
@@ -132,7 +137,7 @@ def test_a_unit_that_fits_says_it_only_when_its_figure_is_not_shipped(
 
 
 @pytest.mark.parametrize("machine", machines(), ids=lambda machine: machine.label)
-@pytest.mark.parametrize("engine", derived.KEY_SPACES["engine"])
+@pytest.mark.parametrize("engine", ENGINES)
 def test_a_refused_unit_says_it_only_when_its_figure_is_not_shipped(
     machine: machine_shapes.Shape, engine: str
 ) -> None:
@@ -144,7 +149,7 @@ def test_a_refused_unit_says_it_only_when_its_figure_is_not_shipped(
     )
 
 
-@pytest.mark.parametrize("engine", derived.KEY_SPACES["engine"])
+@pytest.mark.parametrize("engine", ENGINES)
 def test_your_own_setting_of_that_figure_is_said_to_be_unused(
     engine: str, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
@@ -166,7 +171,7 @@ def test_your_own_setting_of_that_figure_is_said_to_be_unused(
 
 
 @pytest.mark.parametrize("kind", BROKEN)
-@pytest.mark.parametrize("engine", derived.KEY_SPACES["engine"])
+@pytest.mark.parametrize("engine", ENGINES)
 def test_a_numbers_file_that_cannot_be_read_is_named_not_swallowed(
     engine: str, kind: str, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
@@ -187,7 +192,7 @@ def test_a_numbers_file_that_cannot_be_read_is_named_not_swallowed(
 def config(host: str, sizes: dict[str, float]) -> str:
     """One unit of each engine a unit may name, on ``host``, each on its port."""
     blocks = []
-    for port, engine in enumerate(derived.KEY_SPACES["engine"], start=8080):
+    for port, engine in enumerate(ENGINES, start=8080):
         blocks.append(
             f"""\
   unit_{port}:
@@ -203,10 +208,7 @@ def config(host: str, sizes: dict[str, float]) -> str:
       kv_cache_dtype_v: f16
 """
         )
-    ladder = "".join(
-        f"- unit_{port}\n"
-        for port, _ in enumerate(derived.KEY_SPACES["engine"], start=8080)
-    )
+    ladder = "".join(f"- unit_{port}\n" for port, _ in enumerate(ENGINES, start=8080))
     return "units:\n" + "".join(blocks) + "ladder:\n" + ladder
 
 
@@ -232,7 +234,7 @@ def install(
         engine: UnitKey(
             host=host, model=f"{DENSE}-{port}", engine=engine, port=port
         ).slug
-        for port, engine in enumerate(derived.KEY_SPACES["engine"], start=8080)
+        for port, engine in enumerate(ENGINES, start=8080)
     }
     return out, slugs
 

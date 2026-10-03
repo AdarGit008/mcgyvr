@@ -310,6 +310,7 @@ class MissionSandbox(TempDirSandbox):
         *,
         timeout: float | None = None,
         env: Mapping[str, str] | None = None,
+        cwd: str | None = None,
     ) -> CommandResult:
         extra = dict(env or {})
         inherited = extra.get("PYTHONPATH", os.environ.get("PYTHONPATH", ""))
@@ -321,7 +322,7 @@ class MissionSandbox(TempDirSandbox):
         extra["PYTHONPATH"] = os.pathsep.join(
             [*ahead, *([inherited] if inherited else [])]
         )
-        return super().run(command, timeout=timeout, env=extra)
+        return super().run(command, timeout=timeout, env=extra, cwd=cwd)
 
 
 # --- the trace ---------------------------------------------------------------

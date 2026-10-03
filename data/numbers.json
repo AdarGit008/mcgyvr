@@ -214,11 +214,6 @@
       "says": "How decisively the model must commit to a typed choice before a proposer acts on it; below this the proposer refuses rather than guessing, and a caller building a proposer may name its own confidence.",
       "reason": "what a caller that names none gets; the product's callers name one"
     },
-    "delegate.py:ORCHESTRATOR_OUTPUT_TOKENS": {
-      "kind": "estimate",
-      "says": "How many tokens the orchestrator's model spends on a decomposition, a short list of proposals, including any reasoning it writes before them; a reply cut short loses the whole decomposition.",
-      "moves_to": "decomposition_reply_tokens"
-    },
     "delegate.py:_MAX_CHOICE_OPTIONS": {
       "kind": "fact",
       "says": "How many options one typed Choice may carry — the decision primitive's 62 single-token labels — so candidate and symbol lists are capped at it and a classification cannot overrun the label scheme.",
@@ -1815,6 +1810,11 @@
       "says": "Host memory, in GiB, that must stay clear past a model's weights for llama.cpp to map them rather than be told not to; with less clear, mapping costs start time.",
       "moves_to": "mode_ram_headroom_gib"
     },
+    "serving/__init__.py:ModelSpec.vae_decode_gb": {
+      "kind": "choice",
+      "says": "The VAE decode spike a diffusers image unit adds to its card peak when no spec states one. A spec that states none charges none: a spike nobody measured or stated is never invented.",
+      "reason": "what a caller that names none gets; the product's callers name one"
+    },
     "serving/__init__.py:REFUSAL_RAM_HEADROOM_GB": {
       "kind": "estimate",
       "says": "Host memory, in GiB, that must stay clear past the experts a model keeps on the host for decode to hold; with less, the model is refused on that host.",
@@ -1828,6 +1828,11 @@
     "serving/__init__.py:SIZE_TOLERANCE_GB": {
       "kind": "fact",
       "says": "How far a stated file size may sit from the scanned one and still be the same figure written to two decimals.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/__init__.py:Unit.resident_claim_gb": {
+      "kind": "fact",
+      "says": "A unit that is not the resident orchestrator reserves no card room, so co-residency is summed against the ordinary free figure.",
       "reason": "a definition or arithmetic"
     },
     "serving/__init__.py:VLLM_DEFAULT_SEQS": {
@@ -2034,11 +2039,6 @@
       "kind": "choice",
       "says": "How much of a refused key a refusal of a YAML file spells out: a real key in full, and only the start of a value that aliases build far larger than the file.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
-    },
-    "verify.py:REVIEW_OUTPUT_TOKENS": {
-      "kind": "estimate",
-      "says": "How many tokens a reviewing model spends on a review, including any reasoning it writes before its verdict; the verdict is the first word of the reply.",
-      "moves_to": "review_reply_tokens"
     },
     "worker/bundle.py:MAX_BUNDLE_BYTES": {
       "kind": "estimate",

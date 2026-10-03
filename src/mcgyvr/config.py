@@ -45,6 +45,7 @@ import yaml
 
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy, load_relief
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
+from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
 
 #: A setup is two files in one directory. ``fleet.yaml`` is locked and holds
@@ -168,12 +169,35 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
         "enum",
-        "`docker` runs each task in its own container, torn down after. "
-        "`tempdir` is the explicitly weaker fallback for installs without "
-        "Docker: acceptance commands are arbitrary shell from a contract, "
-        "running on someone else's machine.",
+        "`docker` runs each task in its own container, torn down after; with "
+        "no Docker daemon answering, the task is refused unless "
+        "`allow_fallback` is on. `tempdir` is the explicitly weaker mode for "
+        "installs without Docker: acceptance commands are arbitrary shell from "
+        "a contract, running on someone else's machine.",
         default="docker",
         choices=("docker", "tempdir"),
+    ),
+    Field(
+        "allow_fallback",
+        "bool",
+        "What `mode: docker` does when no Docker daemon answers. Off, the task "
+        "is refused and the refusal says how to go on. On, the task runs in "
+        "the `tempdir` sandbox instead and says so once — the weaker mode, "
+        "chosen ahead of time rather than read about after the run started.",
+        default=False,
+    ),
+    Field(
+        "network",
+        "enum",
+        "The network a task container is attached to. `bridge` is Docker's "
+        "default: acceptance commands can fetch dependencies and reach the "
+        "configured worker endpoints — and anything else this machine can "
+        "reach. `none` gives the container no network at all, so a contract "
+        "whose commands download anything fails. `none` needs `mode: docker`: "
+        "the `tempdir` sandbox runs on this host, where the network cannot be "
+        "taken away, and is refused under it.",
+        default="bridge",
+        choices=NETWORKS,
     ),
     Field(
         "image",
@@ -185,7 +209,16 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "setup",
         "str_list",
-        "Commands run once when the task image is built, before any task.",
+        "Commands run once when the task image is built, before any task. In "
+        "docker mode the gate's type checker, eslint and prettier run in the "
+        "task container, because their configuration can load code from the "
+        "task's workspace, so they are found on the image's PATH. The image "
+        "mcgyvr builds installs the one the repository configures (mypy, "
+        "eslint, prettier) when its dependency install does not, at the "
+        "lockfile's version where it pins one; pyright, or a checker the "
+        "repository does not configure, is yours to put on the image, here or "
+        "with `sandbox.image`. A checker the image lacks is skipped and said "
+        "so, as an absent checker is on the host.",
         default=(),
     ),
 )
@@ -473,8 +506,8 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Which server program runs behind this address. Absent means \
 "
         "llama.cpp.",
-        choices=("llama.cpp", "vllm"),
-        bind_hint="e.g. vllm -- leave it out for llama.cpp",
+        choices=("llama.cpp", "vllm", "diffusers", "tts", "comfyui"),
+        bind_hint="e.g. vllm, diffusers, tts or comfyui -- leave it out for llama.cpp",
     ),
     Field(
         "image",
@@ -803,6 +836,28 @@ SCHEMA: tuple[Field, ...] = (
         default="live",
     ),
     Field(
+        "use_case",
+        "enum",
+        "Which of the four use cases this install serves: `coding` (scoped "
+        "edits judged by the deterministic gate), `chat` (a raw un-gated "
+        "endpoint), `agent` (grounded + safety output checks) or "
+        "`media-gen` (media_valid, safety and ASR-WER).",
+        choices=("coding", "chat", "agent", "media-gen"),
+        default="coding",
+    ),
+    Field(
+        "deployment",
+        "enum",
+        "How mcgyvr is run. `hybrid` drives it from an API-tier "
+        "orchestrator in the user's session; scoped work is offloaded to the "
+        "local cheap-to-dear ladder, whose dearest rung is an API model so a "
+        "task always completes. `local-only` makes mcgyvr the backend: a "
+        "non-chat use case provisions a local orchestrator unit, and chat is "
+        "just the ladder serving text.",
+        choices=("hybrid", "local-only"),
+        default="hybrid",
+    ),
+    Field(
         "units",
         "block_map",
         "What runs where, keyed by a name you choose. A unit carries every \
@@ -899,6 +954,18 @@ SCHEMA: tuple[Field, ...] = (
         min_value=0.0,
         max_value=1.0,
         bind_hint="a share between 0 and 1",
+    ),
+    Field(
+        "users",
+        "int",
+        "Users this install serves at once, and therefore the slot count the "
+        "local orchestrator unit is served at: one session per user. A "
+        "written `width` on the orchestrator's unit wins. `1` is a "
+        "single-user install, which for a local-only non-chat use case is "
+        "flagged, not refused — the resident orchestrator consumes the card "
+        "the ladder would otherwise use.",
+        default=1,
+        min_value=1,
     ),
     Field(
         "orchestrator",
@@ -1076,6 +1143,53 @@ class Ladder:
         return name if name in self.names else None
 
 
+#: The one use case that needs no orchestrator: chat is a raw endpoint.
+CHAT = "chat"
+
+#: The deployment value that means mcgyvr is the backend, not a skill driven
+#: from an API-tier orchestrator.
+LOCAL_ONLY = "local-only"
+
+
+@dataclass(frozen=True)
+class LocalOrchestrator:
+    """What a setup must provision to serve the orchestrator role locally."""
+
+    #: Whether a local orchestrator unit is required at all.
+    provision: bool
+    #: Its width (slot count). ``None`` when no unit is provisioned.
+    width: int | None = None
+    #: Warn the operator about single-user contention; never a refusal.
+    flag_single_user: bool = False
+
+
+def local_orchestrator(
+    *, use_case: str, local_only: bool, users: int
+) -> LocalOrchestrator:
+    """The local orchestrator a ``use_case`` needs, under a deployment model.
+
+    ``local_only`` is whether the deployment is ``deployment: local-only``
+    (mcgyvr is the backend). The hybrid model has an API-tier orchestrator and
+    provisions nothing here; chat is a raw un-gated endpoint and needs none
+    either. A local-only non-chat use case provisions a local orchestrator
+    whose width is the number of users, flagged (never refused) on a
+    single-user install.
+    """
+    if not local_only:
+        return LocalOrchestrator(provision=False)
+    if use_case == CHAT:
+        return LocalOrchestrator(provision=False)
+    if users < 1:
+        raise ValueError(
+            f"users must be at least 1 to provision a local orchestrator, got {users}"
+        )
+    return LocalOrchestrator(
+        provision=True,
+        width=users,
+        flag_single_user=users == 1,
+    )
+
+
 @dataclass(frozen=True)
 class Config:
     """A loaded, validated setup: what runs where, and the policy over it.
@@ -1112,6 +1226,31 @@ class Config:
         return not any(
             self.units[name].requires_credential for name in self.ladder.names
         )
+
+    @property
+    def use_case(self) -> str:
+        """The use case this install serves, from the schema's own default."""
+        return str(self.get("use_case", "coding"))
+
+    @property
+    def deployment(self) -> str:
+        """The deployment model this install runs under, from the schema's own
+        default."""
+        return str(self.get("deployment", "hybrid"))
+
+    @property
+    def provisions_local_orchestrator(self) -> bool:
+        """Whether the serving plan must provision a local orchestrator unit.
+
+        The one home of the ruling, so :func:`mcgyvr.serving.units_for` and
+        :class:`mcgyvr.capacity.Capacity` agree without either importing the
+        other's half of the seam.
+        """
+        return local_orchestrator(
+            use_case=self.use_case,
+            local_only=self.deployment == LOCAL_ONLY,
+            users=int(self.get("users", 1)),
+        ).provision
 
     def get(self, key: str, default: Any = None) -> Any:
         """Read a dotted key, or ``default`` when it is unbound."""

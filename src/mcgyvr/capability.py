@@ -102,6 +102,19 @@ class Model:
     requires_backend: str | None
     notes: str
     not_for_fit: str | None = None
+    # Media cost units, empty on a text row. Image and video are reading
+    # lists like ``throughput``; the scalar media fields sit on the row
+    # itself, where the shape document puts them.
+    seconds_per_image: tuple[Measurement, ...] = ()
+    seconds_per_clip: tuple[Measurement, ...] = ()
+    resolution: str = ""
+    steps: float | None = None
+    vae_decode_gb: float | None = None
+    frames: float | None = None
+    temporal_compress: float | None = None
+    sample_rate_hz: float | None = None
+    rtf: float | None = None
+    cpu_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -143,7 +156,15 @@ class CapabilityTable:
 
 
 #: The lists on a model row whose entries are readings, each keyed by a class.
-READING_LISTS = ("throughput_tok_s",)
+#:
+#: Each modality prices its cost in its own unit, but every one of these keeps
+#: the same shape: a list of readings, each an estimate for one declared card
+#: class. Text is ``throughput_tok_s``; image and video add their own lists.
+#: TTS is the exception in shape, not in contract: its ``rtf`` is a scalar on
+#: the row (see the model-row keys), because a real-time factor is a ratio of
+#: seconds of audio to seconds of compute, stated at the row's sample rate,
+#: and a CPU-only rung has no card class to key a reading by.
+READING_LISTS = ("throughput_tok_s", "seconds_per_image", "seconds_per_clip")
 
 #: Every key the table may carry, level by level, and no other.
 #:
@@ -195,6 +216,17 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
                 "vram_gb_working",
                 "requires_backend",
                 *READING_LISTS,
+                # Media rows keep the same cost-only contract, in the unit
+                # their modality is priced in. ``rtf`` is the one media cost
+                # unit that is a scalar, not a reading list: see READING_LISTS.
+                "resolution",
+                "steps",
+                "vae_decode_gb",
+                "frames",
+                "temporal_compress",
+                "sample_rate_hz",
+                "rtf",
+                "cpu_only",
                 "not_for_fit",
                 "notes",
             }
@@ -298,7 +330,24 @@ def _number(value: Any) -> bool:
 
 #: The keys a model row cannot do without, and those of its keys that are numbers.
 _MODEL_REQUIRED = ("id", "family", "params_b", "vram_gb_working", "weights_gb")
-_MODEL_NUMBERS = ("params_b", "active_params_b", "vram_gb_working", "weights_gb")
+_MODEL_NUMBERS = (
+    "params_b",
+    "active_params_b",
+    "vram_gb_working",
+    "weights_gb",
+    # Media row figures. ``steps`` and ``frames`` are counts but are carried
+    # as numbers so a whole number and a fraction are both read and printed
+    # as written; the loader refuses non-numbers, not fractions.
+    "steps",
+    "vae_decode_gb",
+    "frames",
+    "temporal_compress",
+    "sample_rate_hz",
+    "rtf",
+)
+
+#: The keys of a model row that are a true/false fact rather than a number.
+_MODEL_BOOLEANS = ("cpu_only",)
 
 #: The keys of a reading that carry its figure.
 _READING_FIGURES = ("value",)
@@ -397,6 +446,17 @@ def _check_readings(
             f"{path}: {row} gives 'not_for_fit' as {entry['not_for_fit']!r}; it "
             f"is the text saying why the row is never listed as fitting a card"
         )
+    if "resolution" in entry and not _text(entry["resolution"]):
+        raise CapabilityTableError(
+            f"{path}: {row} gives 'resolution' as {entry['resolution']!r}; it "
+            f"is the resolution the row was read at, written as non-empty text"
+        )
+    for key in _MODEL_BOOLEANS:
+        if key in entry and not isinstance(entry[key], bool):
+            raise CapabilityTableError(
+                f"{path}: {row} gives {key!r} as {entry[key]!r}; a model's "
+                f"{key!r} is true or false"
+            )
     for field_name in READING_LISTS:
         if field_name not in entry:
             continue
@@ -518,6 +578,26 @@ def load(path: Path | None = None) -> CapabilityTable:
             requires_backend=entry.get("requires_backend"),
             notes=str(entry.get("notes", "")),
             not_for_fit=str(entry["not_for_fit"]) if "not_for_fit" in entry else None,
+            seconds_per_image=_measurements(
+                entry.get("seconds_per_image", []), "value"
+            ),
+            seconds_per_clip=_measurements(entry.get("seconds_per_clip", []), "value"),
+            resolution=str(entry.get("resolution", "")),
+            steps=float(entry["steps"]) if "steps" in entry else None,
+            vae_decode_gb=(
+                float(entry["vae_decode_gb"]) if "vae_decode_gb" in entry else None
+            ),
+            frames=float(entry["frames"]) if "frames" in entry else None,
+            temporal_compress=(
+                float(entry["temporal_compress"])
+                if "temporal_compress" in entry
+                else None
+            ),
+            sample_rate_hz=(
+                float(entry["sample_rate_hz"]) if "sample_rate_hz" in entry else None
+            ),
+            rtf=float(entry["rtf"]) if "rtf" in entry else None,
+            cpu_only=bool(entry["cpu_only"]) if "cpu_only" in entry else False,
         )
         for entry in raw.get("models", [])
     )

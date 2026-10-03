@@ -22,6 +22,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -125,6 +126,22 @@ def free_port() -> int:
     return port
 
 
+def connect_when_listening(port: int) -> socket.socket:
+    """A connection to the sink on ``port``, once it listens.
+
+    The way :func:`linktime.send` reaches it: a refused connect is tried again
+    until a deadline, because the sink's thread may not be listening yet.
+    """
+    deadline = time.monotonic() + 10
+    while True:
+        try:
+            return socket.create_connection(("127.0.0.1", port), timeout=10)
+        except ConnectionRefusedError:
+            if time.monotonic() > deadline:
+                raise
+            time.sleep(0.05)
+
+
 def test_a_send_to_a_sink_times_every_payload_and_the_sink_ends() -> None:
     port = free_port()
     got: dict[str, Any] = {}
@@ -151,6 +168,10 @@ def test_a_sink_takes_no_more_than_a_reading_needs() -> None:
     failed: dict[str, str] = {}
 
     def listen() -> None:
+        # A thread starts when the scheduler lets it: on a loaded machine the
+        # connect below can come before the sink listens. Start it late on
+        # purpose, so the test holds however late that is.
+        time.sleep(0.5)
         try:
             linktime.sink("127.0.0.1", port)
         except linktime.LinkTimeError as exc:
@@ -158,7 +179,7 @@ def test_a_sink_takes_no_more_than_a_reading_needs() -> None:
 
     thread = threading.Thread(target=listen)
     thread.start()
-    with socket.create_connection(("127.0.0.1", port), timeout=10) as conn:
+    with connect_when_listening(port) as conn:
         conn.sendall((linktime.SINK_MOST_BYTES + 1).to_bytes(8, "big"))
         thread.join(timeout=30)
     assert "more than a reading needs" in failed["why"]
