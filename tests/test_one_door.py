@@ -142,8 +142,12 @@ ALLOWED: dict[str, str] = {
     "src/mcgyvr/serving/gatelib.py": (
         "the ssh spawns in src/ and tools/: gatelib.ssh, which refuses outside "
         "the door and to any host but the door's — gate 2, gate 7, the geometry "
-        "read, `mcgyvr scan` and the serving harness (contract.ssh) all go "
-        "through it — and the shims' own lease check, which admits the same way"
+        "read and the serving harness (contract.ssh) all go through it — the "
+        "shims' own lease check, which admits the same way, and "
+        "gatelib.ssh_read_only, the sanctioned read-only detection path "
+        "(the shipped rig scan, the `*.gguf` discovery, and the "
+        "shipped-reader header read `mcgyvr recommend` runs) that admits "
+        "nothing else"
     ),
     "src/mcgyvr/serving/gate-scripts/bin/ssh": (
         "the `ssh` on the PATH the door exports: admits the door's host through "

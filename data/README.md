@@ -1,11 +1,12 @@
 # Shipped data
 
-Three files ship as data rather than as code:
+Four files ship as data rather than as code:
 `capability-table.json` (estimates, by card class, of what a model costs to
 serve, below), `task-catalog.json` (the vocabulary of what mcgyvr can be
-asked to do, after it) and `numbers.json` (estimates mcgyvr sizes and judges
+asked to do, after it), `numbers.json` (estimates mcgyvr sizes and judges
 a machine with, and what many other such numbers in its code are, at the end
-of this file).
+of this file) and `model-catalog.json` (the downloadable HuggingFace
+checkpoints `mcgyvr recommend` falls back to when no local store fits).
 
 ## Capability data
 

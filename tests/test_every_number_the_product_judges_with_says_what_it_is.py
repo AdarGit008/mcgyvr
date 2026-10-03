@@ -131,6 +131,7 @@ FILES_CHANGING_NOW: frozenset[str] = frozenset(
         "serving/gate-scripts/serve-down.py",
         "serving/gate-scripts/serve-up.py",
         "serving/gatelib.py",
+        "serving/rigscan.py",
         "serving/run.py",
         "session.py",
         "telemetry.py",
