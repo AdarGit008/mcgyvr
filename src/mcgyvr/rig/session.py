@@ -154,6 +154,13 @@ FEATURES = (
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
 )
+#: How many sessions may live on this rig at once: one per tunnel port
+#: (:meth:`mcgyvr.rig.sharing.Sharing.tunnel_ports`), the most a hello names.
+MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
+#: How many times the machine is asked for a free loopback port for a head's
+#: API before the session is refused: a port another session holds is not
+#: taken.
+API_PORT_TRIES = 8
 #: The tunnel port's binding requests to the hub's responders: how long each
 #: round waits, in milliseconds; then one request each this many seconds
 #: until the tunnel comes up, for at most this long.
@@ -641,16 +648,32 @@ class Sessions:
                     SessionCode.NOT_CAPABLE,
                     "this rig has no LAN address its peers could reach",
                 )
+            listen_port = self._tunnel_port(share)
+            if listen_port is None:
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.BUSY,
+                    "every tunnel port of this rig is in another session",
+                )
+            api_port = None
+            if asked.role == "head":
+                api_port = self._api_port()
+                if api_port is None:
+                    return sessionwire.refusal(
+                        envelope.id,
+                        SessionCode.BUSY,
+                        "no loopback port is free for the head's API",
+                    )
             session = _Session(
                 id=asked.session_id,
                 role=asked.role,
                 traversal=asked.traversal,
                 sharing=share,
-                listen_port=share.listen_port,
-                api_port=self.machine.free_port() if asked.role == "head" else None,
+                listen_port=listen_port,
+                api_port=api_port,
                 endpoints=tuple(
                     sessionwire.Endpoint(
-                        host=h, port=share.listen_port, kind=endpoint_kind(h)
+                        host=h, port=listen_port, kind=endpoint_kind(h)
                     )
                     for h in hosts
                 ),
@@ -846,6 +869,26 @@ class Sessions:
     def _held(self, but: _Session | None = None) -> frozenset[int]:
         """The cards the sessions but ``but`` hold now."""
         return frozenset(card for found in self._holding(but) for card in found.cards)
+
+    def _tunnel_port(self, share: sharing_module.Sharing) -> int | None:
+        """The tunnel port of a new session: the lowest of the owner's
+        (:meth:`mcgyvr.rig.sharing.Sharing.tunnel_ports`) no session holds;
+        ``None`` when every one is held, or as many sessions live as a hello
+        names."""
+        holding = self._holding()
+        if sum(found.state in LIVE for found in holding) >= MAX_LIVE_SESSIONS:
+            return None
+        held = {found.listen_port for found in holding}
+        return next((p for p in share.tunnel_ports() if p not in held), None)
+
+    def _api_port(self) -> int | None:
+        """A loopback port for a new head's API that no session holds."""
+        held = {found.api_port for found in self._holding()}
+        for _ in range(API_PORT_TRIES):
+            port = self.machine.free_port()
+            if port not in held:
+                return port
+        return None
 
     def _taken(self, session: _Session, cards: Sequence[int]) -> str | None:
         """Why ``session`` may not have ``cards``: one another session holds;
