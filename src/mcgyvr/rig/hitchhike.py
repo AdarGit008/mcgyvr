@@ -1,7 +1,8 @@
 """The units this host shares with riders (hitchhike), as its agent tells the hub.
 
-A host runs their own units for themselves. A unit whose ``rider_slots`` is 1
-or more (:mod:`mcgyvr.config`) lends that many of its slots, at most, to
+A host runs their own units for themselves. A unit the policy's
+``rider_slots`` gives 1 or more (:mod:`mcgyvr.config`; policy, so no part of
+the setup's identity) lends that many of its slots, at most, to
 riders the hub matches: people whose requests for the unit's model the agent
 passes to it, and whose prompts the host can read. The hub learns which units
 from the agent's ``unit_advert`` (:func:`mcgyvr.rig.sessionwire.unit_advert`),

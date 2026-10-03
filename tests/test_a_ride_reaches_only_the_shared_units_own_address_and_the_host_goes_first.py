@@ -221,7 +221,6 @@ def _host(
         f"    model: {MODEL}\n"
         f"    width: {width}\n"
         "    window: 8192\n"
-        f"    rider_slots: {rider_slots}\n"
     )
     if second:
         text += (
@@ -230,9 +229,10 @@ def _host(
             "    model: other.gguf\n"
             "    width: 2\n"
             "    window: 4096\n"
-            "    rider_slots: 1\n"
         )
     text += "ladder: [coder" + (", other" if second else "") + "]\n"
+    text += f"rider_slots: {{coder: {rider_slots}" + (", other: 1" if second else "")
+    text += "}\n"
     config = parse(text)
     capacity = Capacity.of(config, root=tmp_path / "slots")
     busy: dict[str, int | None] = {"coder": 0, "other": 0}

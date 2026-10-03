@@ -1,7 +1,7 @@
 """A host advertises the units it shares, and never a relief or a hosted rung.
 
 A host runs their own units and may let riders the hub matches use open slots
-of them (hitchhike, ``units.<name>.rider_slots``). The host's agent tells the
+of them (hitchhike, the policy's ``rider_slots``). The host's agent tells the
 hub which, in a ``unit_advert`` (:mod:`mcgyvr.rig.hitchhike`):
 
 * **What is shared.** A unit of the ladder, in ladder order, with
@@ -52,14 +52,18 @@ def _setup(
     *units: dict[str, Any], ladder: list[str] | None = None, relief: str = ""
 ) -> Config:
     lines = ["units:"]
+    shares = []
     for unit in units:
         lines.append(f"  {unit['name']}:")
         lines.append(f"    address: {unit.get('address', 'http://127.0.0.1:8080')}")
         for key, value in unit.items():
-            if key not in ("name", "address"):
+            if key == "rider_slots":
+                shares.append(f"{unit['name']}: {value}")
+            elif key not in ("name", "address"):
                 lines.append(f"    {key}: {value}")
     names = ladder if ladder is not None else [unit["name"] for unit in units]
     lines.append(f"ladder: [{', '.join(names)}]")
+    lines.append(f"rider_slots: {{{', '.join(shares)}}}")
     return parse("\n".join(lines) + "\n" + relief)
 
 
