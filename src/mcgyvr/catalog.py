@@ -43,7 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config, Unit
 
 CATALOG_FILENAME = "task-catalog.json"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class CatalogError(Exception):
@@ -56,6 +56,14 @@ class Family:
 
     name: str
     rank: int
+    doc: str
+
+
+@dataclass(frozen=True)
+class UseCase:
+    """One use case the vocabulary serves; task types are grouped by it."""
+
+    name: str
     doc: str
 
 
@@ -90,6 +98,7 @@ class TaskType:
 
     name: str
     starts_on: Family
+    use_case: UseCase
     guarantee: str
     required_evidence: tuple[Evidence, ...]
     warrant: str
@@ -148,6 +157,7 @@ class Catalog:
     """The loaded catalog."""
 
     families: tuple[Family, ...]
+    use_cases: tuple[UseCase, ...]
     evidence_kinds: tuple[Evidence, ...]
     task_types: tuple[TaskType, ...]
     excluded: tuple[Excluded, ...]
@@ -285,6 +295,13 @@ def load(path: Path | None = None) -> Catalog:
     if not families:
         raise CatalogError(f"{path} declares no families")
 
+    use_cases = tuple(
+        UseCase(name=str(u["name"]), doc=str(u.get("doc", "")))
+        for u in raw.get("use_cases", [])
+    )
+    if not use_cases:
+        raise CatalogError(f"{path} declares no use cases")
+
     evidence = tuple(
         Evidence(
             name=str(e["name"]),
@@ -308,15 +325,18 @@ def load(path: Path | None = None) -> Catalog:
             )
     by_evidence = {e.name: e for e in evidence}
     by_family = {f.name: f for f in families}
+    by_use_case = {u.name: u for u in use_cases}
 
     task_types: list[TaskType] = []
     seen: set[str] = set()
     for entry in raw.get("task_types", []):
         name = str(entry.get("name", ""))
         where = f"task_types[{name or len(task_types)}]"
-        _require_keys(
-            entry, ("name", "starts_on", "guarantee", "required_evidence"), where
-        )
+        _require_keys(entry, ("name", "starts_on", "use_case", "guarantee"), where)
+        if "required_evidence" not in entry:
+            raise CatalogError(f"{where}: missing required_evidence")
+        if not isinstance(entry["required_evidence"], list):
+            raise CatalogError(f"{where}: required_evidence must be a list")
         if name in seen:
             raise CatalogError(f"{where}: {name!r} is declared more than once")
         seen.add(name)
@@ -326,6 +346,12 @@ def load(path: Path | None = None) -> Catalog:
             raise CatalogError(
                 f"{where}: starts_on {entry['starts_on']!r} is not a declared "
                 f"family. Valid: {', '.join(by_family)}"
+            )
+        use_case = by_use_case.get(str(entry["use_case"]))
+        if use_case is None:
+            raise CatalogError(
+                f"{where}: use_case {entry['use_case']!r} is not a declared "
+                f"use case. Valid: {', '.join(by_use_case)}"
             )
         kinds: list[Evidence] = []
         for kind in entry["required_evidence"]:
@@ -343,6 +369,7 @@ def load(path: Path | None = None) -> Catalog:
             TaskType(
                 name=name,
                 starts_on=family,
+                use_case=use_case,
                 guarantee=str(entry["guarantee"]),
                 required_evidence=tuple(kinds),
                 warrant=str(entry.get("warrant", "")),
@@ -375,6 +402,7 @@ def load(path: Path | None = None) -> Catalog:
 
     return Catalog(
         families=families,
+        use_cases=use_cases,
         evidence_kinds=evidence,
         task_types=tuple(task_types),
         excluded=excluded,

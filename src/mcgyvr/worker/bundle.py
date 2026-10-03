@@ -28,10 +28,11 @@ harm. The marker stating a file's standing is stripped by
 :func:`strip_provenance`, which keeps the standing sayable in the file without
 spending the worker's prompt on it.
 
-One bundle per language adapter, selected by asking the gate's adapters which
-one owns the contract's target. That reuses the ownership rules the gate
-already applies (:meth:`~mcgyvr.gate.adapter.LanguageAdapter.owns`) instead of
-growing a second, driftable table of file extensions.
+One bundle per use case; only the coding use case splits by language, selected
+by asking the gate's adapters which one owns the contract's target. Chat gets
+no bundle — it is a raw un-gated endpoint, and a system prompt would bias a
+pass-through. Agent and media-gen each carry one bundle, unmeasured until a
+sweep is run on them (``BundleStanding.UNMEASURED``).
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from importlib import resources
 
+from mcgyvr.config import CHAT
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 
@@ -52,15 +54,6 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 # separated from c0, so there is no JS/TS peak to place a different ceiling
 # at.
 MAX_BUNDLE_BYTES = 2048
-
-# Which bundle serves which adapter, keyed by `LanguageAdapter.name`. A language
-# with no entry gets no bundle rather than another language's: the standards and
-# pitfalls sections are language-specific, and handing a Go worker the Python
-# rules would be worse than handing it nothing.
-_BUNDLE_FILES: dict[str, str] = {
-    "python": "python.md",
-    "js/ts": "javascript.md",
-}
 
 
 class BundleStanding(StrEnum):
@@ -101,14 +94,33 @@ class BundleStanding(StrEnum):
     difference between a fact and a shrug."""
 
 
-# What each shipped bundle's own measurement found. A language absent from this
-# table has had no sweep; `js/ts` is here with a null result rather than absent,
-# because "measured, and it did nothing" is a different fact from "unmeasured"
-# and only one of them is settled.
-_STANDING: dict[str, BundleStanding] = {
-    "python": BundleStanding.MEASURED_REDUNDANT,
-    "js/ts": BundleStanding.MEASURED_NO_EFFECT,
+# The coding use case keeps per-language bundles, keyed by
+# ``LanguageAdapter.name``. A language with no entry gets no bundle rather
+# than another language's: the standards and pitfalls sections are
+# language-specific, and handing a Go worker the Python rules would be worse
+# than handing it nothing.
+_LANGUAGE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
+    "python": ("python.md", BundleStanding.MEASURED_REDUNDANT),
+    "js/ts": ("javascript.md", BundleStanding.MEASURED_NO_EFFECT),
 }
+
+#: The use-case bundles, keyed by use-case name. Chat is deliberately absent:
+#: it is a raw endpoint and gets no system prompt. Agent and media-gen are
+#: unmeasured — no sweep has been run on either artifact yet.
+_USE_CASE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
+    "agent": ("agent.md", BundleStanding.UNMEASURED),
+    "media-gen": ("media-gen.md", BundleStanding.UNMEASURED),
+}
+
+#: The one registry ``load_bundle`` reads, so a key names exactly one artifact
+#: and its standing, whatever axis (language or use case) it came from.
+_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
+    **_LANGUAGE_BUNDLES,
+    **_USE_CASE_BUNDLES,
+}
+
+#: The use case whose worker edits files, and so keeps per-language bundles.
+CODING = "coding"
 
 _DEFAULT_ADAPTERS: tuple[LanguageAdapter, ...] = (PythonAdapter(), JavaScriptAdapter())
 
@@ -140,9 +152,12 @@ class BundleMissingError(BundleError):
 
 @dataclass(frozen=True)
 class Bundle:
-    """One language's system prompt, with what is known about its standing."""
+    """One bundle's system prompt, with what is known about its standing."""
 
-    language: str
+    key: str
+    """The registry key this bundle was loaded under — a language for the
+    coding use case, a use-case name for the others."""
+
     text: str
     size_bytes: int
     standing: BundleStanding
@@ -196,53 +211,63 @@ def strip_provenance(text: str) -> str:
     return rest if separator else text
 
 
-def load_bundle(language: str) -> Bundle:
-    """Load one language's bundle, refusing it if it broke the ceiling.
+def load_bundle(key: str) -> Bundle:
+    """Load one bundle by registry key, refusing it if it broke the ceiling.
 
-    The bundle is the file's body: a leading provenance marker is stripped by
-    :func:`strip_provenance` before anything else, so neither the ceiling nor
-    the worker ever sees it.
+    A key is a language (the coding use case) or a use-case name (agent,
+    media-gen). The bundle is the file's body: a leading provenance marker is
+    stripped by :func:`strip_provenance` before anything else, so neither the
+    ceiling nor the worker ever sees it.
 
-    Raises :class:`BundleMissingError` for a language with no bundle file and
+    Raises :class:`BundleMissingError` for a key with no bundle file and
     :class:`BundleTooLargeError` for one that outgrew the measurement.
     """
-    filename = _BUNDLE_FILES.get(language)
-    if filename is None:
+    entry = _BUNDLES.get(key)
+    if entry is None:
         raise BundleMissingError(
-            f"no bundle is registered for language {language!r} "
-            f"(registered: {', '.join(sorted(_BUNDLE_FILES))})"
+            f"no bundle is registered for {key!r} "
+            f"(registered: {', '.join(sorted(_BUNDLES))})"
         )
+    filename, standing = entry
     raw = _read(filename)
     if raw is None:
         raise BundleMissingError(
-            f"bundle file {filename!r} for language {language!r} is not present "
-            f"in this installation"
+            f"bundle file {filename!r} for {key!r} is not present in this installation"
         )
     text = strip_provenance(raw)
     size = len(text.encode("utf-8"))
     if size > MAX_BUNDLE_BYTES:
         raise BundleTooLargeError(filename, size)
     return Bundle(
-        language=language,
+        key=key,
         text=text,
         size_bytes=size,
-        standing=_STANDING.get(language, BundleStanding.UNMEASURED),
+        standing=standing,
     )
 
 
 def bundle_for(
-    target: str,
+    use_case: str,
+    target: str = "",
     adapters: Sequence[LanguageAdapter] | None = None,
 ) -> Bundle | None:
-    """The bundle for the language that owns ``target``, or ``None``.
+    """The bundle for ``use_case``, or ``None``.
 
-    ``None`` is a real answer: a target no adapter owns has no language-specific
-    standards to state, and inventing some would put unmeasured instructions in
-    front of a worker. A caller that gets ``None`` dispatches with no system
-    prompt — the c0 condition — and should say so rather than silently
-    substituting another language's bundle.
+    Chat is a raw endpoint and gets none; coding picks the language bundle
+    whose adapter owns ``target`` (or none, when no adapter does); agent and
+    media-gen each get their one bundle. ``None`` is a real answer: a coding
+    target no adapter owns has no language-specific standards to state, and
+    inventing some would put unmeasured instructions in front of a worker. A
+    caller that gets ``None`` dispatches with no system prompt — the c0
+    condition — and should say so rather than silently substituting another
+    bundle.
     """
-    for adapter in adapters if adapters is not None else _DEFAULT_ADAPTERS:
-        if adapter.owns(target) and adapter.name in _BUNDLE_FILES:
-            return load_bundle(adapter.name)
+    if use_case == CHAT:
+        return None
+    if use_case in _USE_CASE_BUNDLES:
+        return load_bundle(use_case)
+    if use_case == CODING:
+        for adapter in adapters if adapters is not None else _DEFAULT_ADAPTERS:
+            if adapter.owns(target) and adapter.name in _LANGUAGE_BUNDLES:
+                return load_bundle(adapter.name)
     return None

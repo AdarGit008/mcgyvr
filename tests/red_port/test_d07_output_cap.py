@@ -76,7 +76,9 @@ LARGE = "function_implementation"
 
 def _cap(task_type: str) -> int:
     """The output cap a contract of this task type carries when it declares none."""
-    return loads(CONTRACT.format(task_type=task_type)).limits.max_output_tokens
+    cap = loads(CONTRACT.format(task_type=task_type)).limits.max_output_tokens
+    assert cap is not None, "a whole_file contract must still derive a cap"
+    return cap
 
 
 def _cap_in_a_fresh_process(task_type: str, hash_seed: str) -> int:
@@ -167,6 +169,7 @@ def test_a_contract_that_cannot_fit_its_window_is_refused_at_zero_spend() -> Non
     check = _budget_check()
     contract = loads(CONTRACT.format(task_type=LARGE))
     cap = contract.limits.max_output_tokens
+    assert cap is not None, "a whole_file contract must still derive a cap"
 
     prompt = "x" * (4 * 4000)
     estimated = estimate_tokens(prompt)

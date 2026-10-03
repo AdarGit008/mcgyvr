@@ -87,6 +87,9 @@ class RunResult:
     commit: str = ""
     branch: str = ""
     handoff: str = ""
+    #: The raw-text reply (prose / media_artifact), for a run whose answer is
+    #: text rather than a committed file. Empty for a whole_file run.
+    answer: str = ""
     exit_code: int | None = None
     #: A copy of the journal the caller asked for (``--record DIR``) that could
     #: not be written, and why — keyed by the directory. Empty on almost every

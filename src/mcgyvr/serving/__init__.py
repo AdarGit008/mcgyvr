@@ -58,6 +58,23 @@ from mcgyvr.serving import vramfit
 # and llama-server both speak ``openai`` and take entirely different argv.
 DEFAULT_ENGINE = "llama.cpp"
 
+#: The engines this build has a sizing law and a launch spec for. ``fit`` and
+#: ``unit_for`` refuse any engine outside it by name rather than apply a text
+#: engine's law or invent a number nobody measured.
+KNOWN_ENGINES = ("llama.cpp", "vllm", "diffusers", "tts", "comfyui")
+
+#: The media engines this build sizes and renders. Each is served by the
+#: operator's container image — mcgyvr ships no media server image or shell
+#: binary — sized from stated numbers with no text-engine law, and mounted at
+#: its own weights directory.
+MEDIA_ENGINES = ("diffusers", "tts", "comfyui")
+
+#: Media engines this build names at the serving seam but does not yet size or
+#: render. A unit declaring one is refused by name rather than sized with a
+#: text engine's law or rendered into another engine's launch spec. All the
+#: media engines are wired now; an unwired one slots in here.
+MEDIA_ENGINES_NOT_WIRED: tuple[str, ...] = ()
+
 # There is no module-level context number. ``ctx_per_slot`` is threaded from
 # the run's own declaration through every reader that prices a cache against
 # it -- :func:`units_for`, :func:`unit_for`, :func:`fit`, :func:`_placement` --
@@ -177,6 +194,26 @@ DEFAULT_SPEC_DRAFT_N_MAX = 2
 
 _BYTES_PER_GIB = 1024**3
 
+#: What a process is to the model it serves (:attr:`Unit.role`). A model split
+#: across machines is several processes: the one that answers requests, and on
+#: every other machine one that lends its cards to it.
+ROLE_SERVE = "serve"
+ROLE_RPC = "rpc"
+ROLE_HEADLESS = "headless"
+ROLES = (ROLE_SERVE, ROLE_RPC, ROLE_HEADLESS)
+
+#: The ``launch`` key that splits a unit across cards: the cards it spans, the
+#: first on the machine its address points at (:func:`_sharded_units`).
+SHARDS_KEY = "shards"
+#: The port llama.cpp's ``rpc-server`` listens on when nothing tells it
+#: otherwise: the first worker port a split uses unless ``launch.rpc_port``
+#: says another.
+RPC_DEFAULT_PORT = 50052
+#: The rendezvous port vLLM's multi-node launch uses when nothing tells it
+#: otherwise, stated so every node is told the same one; ``launch.master_port``
+#: says another.
+VLLM_MASTER_PORT = 29501
+
 
 class UnitError(Exception):
     """A serving unit could not be built for a host, a model or a rung."""
@@ -213,6 +250,15 @@ class ModelSpec:
     operator knows that this module cannot see. How much actually spills is
     derived per machine by :func:`fit`.
 
+    ``vae_decode_gb`` is the one-shot VAE decode spike a diffusers image unit
+    adds to its card peak (c-01). It is stated, and its default of 0.0 means
+    none was stated, so none is charged: a spike nobody measured or stated is
+    never invented.
+
+    ``cpu_only`` is the marker a TTS row carries for a Piper-class rung that
+    needs no card (d-01): the unit claims no GPU, its fit charges no card, and
+    the compose service carries no device reservation. Stated, default False.
+
     ``moe`` is not cosmetic and not inferable from the scalar numbers: it says
     the model has a knob for *where* its weights sit, which is the difference
     between "does not fit" and "fits differently on this machine". Every unit
@@ -224,11 +270,11 @@ class ModelSpec:
     file at one size are one spec; the geometry is a reading of that file, not
     a further fact about it.
 
-    ``hf_cache`` is where a vLLM model's weights are on the rig — the
-    HuggingFace cache a repository id resolves in — and ``serve_args`` is what
-    the server needs said that no scan can derive: the utilisation vLLM sizes
-    its cache from, or the template argument that turns a thinking model's
-    reasoning off. Both are the operator's, read off the unit
+    ``hf_cache`` is where a vLLM or diffusers model's weights are on the rig
+    — the HuggingFace cache a repository id resolves in — and ``serve_args`` is
+    what the server needs said that no scan can derive: the utilisation vLLM
+    sizes its cache from, or the template argument that turns a thinking
+    model's reasoning off. Both are the operator's, read off the unit
     (``units.<unit>.hf_cache``, ``units.<unit>.launch.serve_args``), and both
     ride on the spec because they are facts about serving this model and not
     about any machine.
@@ -259,6 +305,8 @@ class ModelSpec:
     vram_gb: float
     ram_gb: float
     disk_gb: float
+    vae_decode_gb: float = 0.0
+    cpu_only: bool = False
     moe: bool = False
     geometry: Mapping[str, Any] | None = field(default=None, compare=False)
     hf_cache: str = ""
@@ -462,15 +510,43 @@ class Unit:
     port: int = DEFAULT_PORT
     rungs: tuple[str, ...] = ()
     #: The container image the source pinned, or ``None`` for the engine's
-    #: default. A vLLM unit's ``weights`` is the HuggingFace cache directory
-    #: itself, and ``extra`` is the spec's ``serve_args``, appended verbatim.
+    #: default. A vLLM or diffusers unit's ``weights`` is the HuggingFace
+    #: cache directory itself, and ``extra`` is the spec's ``serve_args``,
+    #: appended verbatim.
     image: str | None = None
     extra: tuple[str, ...] = ()
+    #: Whether this unit runs on the CPU alone and claims no card — a
+    #: Piper-class TTS rung. Its fit charges no VRAM, its compose service
+    #: carries no device reservation, and it never contends for a card.
+    cpu_only: bool = False
+    #: The VRAM this unit reserves as a resident, in GiB. Set only on the
+    #: local orchestrator unit: its card figure is claimed before the ladder
+    #: is sized, so co-residency sums against the full card, not the reduced
+    #: figure the ladder recorded (:func:`_card_free_gb`).
+    resident_claim_gb: float = 0.0
+    #: Every card this process holds, in the order its engine numbers them,
+    #: when it holds more than :attr:`gpu` alone -- a model split across the
+    #: cards of one machine (:mod:`mcgyvr.serving.sharding`). Empty means
+    #: ``(gpu,)``; :attr:`cards` reads it either way.
+    gpus: tuple[int, ...] = ()
+    #: What this process is to the model it serves: :data:`ROLE_SERVE` answers
+    #: requests; :data:`ROLE_RPC` is a llama.cpp ``rpc-server`` lending one
+    #: card to a server on another machine; :data:`ROLE_HEADLESS` is a vLLM
+    #: node that runs its ranks and answers nothing.
+    role: str = ROLE_SERVE
+    #: Environment the engine reads beside its argv, for what it takes no
+    #: flag for: the order it numbers cards in, a pipeline's layer split.
+    env: Mapping[str, str] = field(default_factory=dict)
+
+    @property
+    def cards(self) -> tuple[int, ...]:
+        """Every card this process holds."""
+        return self.gpus or (self.gpu,)
 
     @property
     def weights_dir(self) -> Path:
         """The directory to mount; the container sees the file inside it."""
-        if self.engine == "vllm":
+        if self.engine == "vllm" or self.engine in MEDIA_ENGINES:
             return self.weights
         return self.weights.parent
 
@@ -495,6 +571,10 @@ def fit(
     :func:`_placement`: the lowest offload the card admits decides what
     memory is asked to hold, so a card that admits none is refused as a card
     and a spill the host cannot hold is refused as memory.
+
+    A name outside :data:`KNOWN_ENGINES` is refused before any of that, by
+    name; a unit of an engine in :data:`MEDIA_ENGINES` takes the media sizing
+    path, which prices no window, cache or offload.
 
     ``width`` is the slot count the unit will be emitted at, when someone
     wrote one. The cache and the recurrent state are priced per slot, so the
@@ -522,6 +602,14 @@ def fit(
     Never raises. An unmeasurable machine is a machine nothing is claimed
     about — the same rule :mod:`mcgyvr.scan` runs on.
     """
+    if engine not in KNOWN_ENGINES:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=_engine_not_wired(spec.name, engine),
+        )
+    if engine in MEDIA_ENGINES:
+        return _sized_media(scan, spec, engine=engine)
     sized = _sized(scan, spec, engine=engine, width=width, ctx_per_slot=ctx_per_slot)
     notes = _host_figure_notes(engine)
     if not notes:
@@ -688,6 +776,64 @@ def _sized(
     )
 
 
+def _sized_media(scan: Scan, spec: ModelSpec, *, engine: str) -> Fit:
+    """Whether ``scan``'s machine can hold a media unit.
+
+    A media unit prices no context window, no KV cache, no offload knob and no
+    load mode. Its card peak is the stated working set — for a diffusers image
+    unit, plus the one-shot VAE decode spike; a ``cpu_only`` unit (a
+    Piper-class TTS rung) claims no card at all. Its host claim is the stated
+    ``ram_gb`` (the once-per-run components offloaded to RAM, c-03), charged
+    directly against ``MemAvailable`` with no text-engine margin. All stated,
+    so a figure nobody stated is never invented.
+    """
+    free_vram = _free_vram_bytes(scan) / _BYTES_PER_GIB
+    available_ram = scan.memory.available_gb if scan.memory else 0.0
+    if scan.disk is not None and spec.disk_gb > scan.disk.free_gb:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {spec.disk_gb:.1f} GB of disk, "
+                f"{scan.disk.free_gb:.1f} GB free at {scan.disk.path}"
+            ),
+        )
+    spike = spec.vae_decode_gb if engine == "diffusers" else 0.0
+    peak = 0.0 if spec.cpu_only else spec.vram_gb + spike
+    if not spec.cpu_only and peak + DEFAULT_HEADROOM_GB > free_vram:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {peak:.1f} GB on the card plus "
+                f"{DEFAULT_HEADROOM_GB:.1f} GB headroom, "
+                f"{free_vram:.1f} GB free"
+            ),
+        )
+    if spec.ram_gb > available_ram:
+        return Fit(
+            fits=False,
+            headroom_gb=DEFAULT_HEADROOM_GB,
+            why=(
+                f"{spec.name}: needs {spec.ram_gb:.1f} GB of RAM for the "
+                f"offloaded components, against {available_ram:.1f} GB available"
+            ),
+        )
+    ram_clause = f", {spec.ram_gb:.1f} GB in RAM" if spec.ram_gb else ""
+    if spec.cpu_only:
+        card_clause = "runs on the CPU"
+    else:
+        card_clause = f"{peak:.1f} GB on the card of {free_vram:.1f} GB free"
+    return Fit(
+        fits=True,
+        vram_gb=peak,
+        ram_gb=spec.ram_gb,
+        headroom_gb=0.0 if spec.cpu_only else DEFAULT_HEADROOM_GB,
+        card_free_gb=0.0 if spec.cpu_only else free_vram,
+        why=(f"{spec.name}: {card_clause}{ram_clause}"),
+    )
+
+
 def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
     """The KV cache dtypes a unit must state, refused by name when absent.
 
@@ -724,6 +870,20 @@ def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
     return kv_k, kv_v
 
 
+def _engine_not_wired(name: str, engine: str) -> str:
+    """Why an engine this build has no sizing law or launch spec for is refused.
+
+    mcgyvr will not size or render a unit for an engine it has no law or launch
+    spec for rather than apply a text engine's law or invent a number nobody
+    measured.
+    """
+    return (
+        f"{name}: engine {engine!r} is not wired in this build; mcgyvr will not "
+        "size or render a unit for an engine it has no law or launch spec for "
+        "rather than apply a text engine's law or invent a number nobody measured."
+    )
+
+
 def unit_for(
     scan: Scan,
     spec: ModelSpec,
@@ -749,6 +909,37 @@ def unit_for(
     ``--max-model-len`` on vLLM — and the same number priced the cache the fit
     approved, which is what makes the launch and the law one number.
     """
+    if engine not in KNOWN_ENGINES:
+        raise UnitError(_engine_not_wired(spec.name, engine))
+    if engine in MEDIA_ENGINES:
+        if not spec.hf_cache:
+            raise UnitError(
+                f"{spec.name}: served by {engine}, which loads its weights from "
+                f"the rig's weights directory, and nothing says where it is — "
+                f"set units.<unit>.hf_cache to its absolute path on the rig"
+            )
+        sized = fit(scan, spec, engine=engine, width=1, ctx_per_slot=ctx_per_slot)
+        if not sized.fits:
+            raise UnitError(f"{scan.machine.host}: {sized.why}")
+        weights = Path(spec.hf_cache)
+        gpu_index = -1 if spec.cpu_only else _roomiest_gpu(scan).index
+        return Unit(
+            key=UnitKey(
+                host=scan.machine.host, model=spec.name, engine=engine, port=port
+            ),
+            host=scan.machine.host,
+            model=spec.name,
+            engine=engine,
+            gpu=gpu_index,
+            weights=weights,
+            width=Width(value=1, how="default"),
+            args={"--model": str(weights)},
+            fit=sized,
+            port=port,
+            rungs=(),
+            extra=spec.serve_args,
+            cpu_only=spec.cpu_only,
+        )
     cache_type_k, cache_type_v = _require_cache_types(engine, spec)
     if engine == "vllm" and spec.speculative != SPECULATIVE_NONE:
         raise UnitError(
@@ -879,7 +1070,7 @@ def units_for(
     specs: Iterable[ModelSpec],
     ctx_per_slot: int | None,
 ) -> tuple[Unit, ...]:
-    """The processes a ladder implies: one per port on one host, not one per rung.
+    """The processes a ladder implies, plus the local role units beside it.
 
     Tiers are grouped, not iterated: every rung that resolves to the same
     process is collected onto the one :class:`Unit` that serves it, and the
@@ -937,8 +1128,40 @@ def units_for(
     #: not a scalar because two sources can name one URL, and two windows on
     #: one process is a disagreement to report rather than one to resolve.
     windows: dict[UnitKey, dict[int, list[str]]] = {}
+    #: The launch of every process split across cards, which it is sized from.
+    splits: dict[UnitKey, dict[str, Any]] = {}
 
-    for name in config.ladder.names:
+    users = config.get("users", 1)
+    # The ruling's one home, read here and in capacity: chat and hybrid
+    # provision nothing locally, so a bound local orchestrator unit is only
+    # served for a local-only non-chat use case.
+    provision = config.provisions_local_orchestrator
+
+    def _local(name: str | None) -> bool:
+        unit = config.units.get(name) if name else None
+        return unit is not None and not unit.requires_credential
+
+    # The role units enter the serving plan when they are local. The
+    # orchestrator joins the ladder as its dearest rung; the verifier is
+    # served beside the ladder, never on it.
+    served = list(config.ladder.names)
+    orchestrator_name = config.get("orchestrator.unit")
+    if (
+        provision
+        and orchestrator_name
+        and _local(orchestrator_name)
+        and orchestrator_name not in served
+    ):
+        served.append(orchestrator_name)
+    role_extra: list[str] = []
+    verifier_name = (
+        config.get("verifier.unit") if config.get("verifier.enabled") else None
+    )
+    if verifier_name and _local(verifier_name) and verifier_name not in served:
+        role_extra.append(verifier_name)
+
+    orchestrator_key: UnitKey | None = None
+    for name in (*served, *role_extra):
         unit = config.units.get(name)
         if unit is None:
             raise UnitError(f"{name}: no unit named {name!r}")
@@ -967,6 +1190,8 @@ def units_for(
             engine=unit.engine or DEFAULT_ENGINE,
             port=port_of(unit.address),
         )
+        if provision and name == orchestrator_name:
+            orchestrator_key = key
         grouped.setdefault(key, []).append(name)
         if unit.window is not None:
             windows.setdefault(key, {}).setdefault(unit.window, []).append(name)
@@ -977,25 +1202,305 @@ def units_for(
             # One process, one slot count. Two units asking for different
             # widths get the larger.
             widths[key] = max(widths.get(key, 0), unit.width)
+        elif provision and name == orchestrator_name and _local(orchestrator_name):
+            # The local orchestrator's slot count is the user count when
+            # nobody wrote a width on the unit: one session per user.
+            widths[key] = max(widths.get(key, 0), users)
+        if SHARDS_KEY in unit.launch:
+            # A split across cards is a fact about the process, so every unit
+            # naming its URL must state the same one.
+            stated = dict(unit.launch)
+            first = splits.setdefault(key, stated)
+            if first != stated:
+                raise UnitError(
+                    f"{name}: names the process {key.slug}, which another unit "
+                    f"declares with a different launch; one process is split "
+                    f"one way"
+                )
 
-    units = tuple(
-        replace(
-            _with_rungs(
-                unit_for(
-                    hosts[key],
-                    models[key],
-                    engine=key.engine,
-                    width=widths.get(key),
-                    port=key.port,
-                    ctx_per_slot=_window_for(key, windows.get(key, {}), ctx_per_slot),
+    def _sized(
+        key: UnitKey,
+        rungs: list[str],
+        scan: Scan,
+        reduced: Mapping[str, Scan],
+    ) -> list[Unit]:
+        """The units for one process: a split's head and workers, or one fit."""
+        window = _window_for(key, windows.get(key, {}), ctx_per_slot)
+        if key in splits:
+            head, *workers = _sharded_units(
+                config,
+                reduced,
+                models[key],
+                key=key,
+                launch=splits[key],
+                width=widths.get(key),
+                ctx_per_slot=window,
+            )
+            return [
+                replace(head, rungs=tuple(rungs), image=images[key]),
+                *(replace(worker, image=images[key]) for worker in workers),
+            ]
+        return [
+            replace(
+                _with_rungs(
+                    unit_for(
+                        scan,
+                        models[key],
+                        engine=key.engine,
+                        width=widths.get(key),
+                        port=key.port,
+                        ctx_per_slot=window,
+                    ),
+                    tuple(rungs),
                 ),
-                tuple(rungs),
-            ),
-            image=images[key],
+                image=images[key],
+            )
+        ]
+
+    # Resident first: the orchestrator's process claims the card before the
+    # ladder and the verifier are sized against what is left. The claim is the
+    # card figure the fit just produced, so the same law sized both.
+    ordered = list(grouped.items())
+    ordered.sort(key=lambda pair: pair[0] != orchestrator_key)
+    built: list[Unit] = []
+    claimed: dict[str, float] = {}
+    reduced = dict(scans)
+    for key, rungs in ordered:
+        scan = hosts[key]
+        if key.host in claimed:
+            scan = _remaining_scan(scan, claimed[key.host])
+            reduced[key.host] = scan
+        sized = _sized(key, rungs, scan, reduced)
+        if key == orchestrator_key:
+            claimed[key.host] = sized[0].fit.vram_gb
+            sized[0] = replace(sized[0], resident_claim_gb=sized[0].fit.vram_gb)
+        built.extend(sized)
+    return tuple(built)
+
+
+def _sharded_units(
+    config: Config,
+    scans: Mapping[str, Scan],
+    spec: ModelSpec,
+    *,
+    key: UnitKey,
+    launch: Mapping[str, Any],
+    width: int | None,
+    ctx_per_slot: int,
+) -> tuple[Unit, ...]:
+    """The processes of one model split across the cards its unit names.
+
+    The cards come from ``launch.shards`` and their free memory from each
+    machine's scan, so a card nobody scanned is refused as an unscanned host
+    is. What each card holds is :func:`mcgyvr.serving.sharding.choose`'s,
+    from the tensor table -- the GGUF scan for llama.cpp, the safetensors scan
+    named by ``launch.tensor_table_json`` for vLLM -- and the argv of every
+    process is :func:`mcgyvr.serving.shardlaunch.processes`', from that same
+    plan, so the split that was sized is the split that is launched.
+
+    The serving process comes first and answers at the unit's address; every
+    other machine's process lends its cards to it. Each carries a fit of its
+    own: its fullest card's figure against that card's free memory, and the
+    whole plan, crossing estimate and its sources included, as ``why``.
+    """
+    from mcgyvr.serving import sharding, shardlaunch
+
+    engine = key.engine
+    cache_type_k, cache_type_v = _require_cache_types(engine, spec)
+    if spec.speculative != SPECULATIVE_NONE:
+        raise UnitError(
+            f"{spec.name}: declares speculative {spec.speculative!r} and a split "
+            f"across cards; a split is sized with every block on its cards and "
+            f"no draft head, so the two are not combined"
         )
-        for key, rungs in grouped.items()
-    )
-    return units
+    targets = _shard_targets(spec.name, launch.get(SHARDS_KEY), scans)
+    if targets[0].host.lower() != key.host.lower():
+        raise UnitError(
+            f"{spec.name}: its first shard is on {targets[0].host} and its address "
+            f"is on {key.host}; the first card a unit names is one of the machine "
+            f"its address points at, where the serving process runs"
+        )
+    head_scan = scans[key.host]
+    if engine == "vllm":
+        if not spec.hf_cache:
+            raise UnitError(
+                f"{spec.name}: served by vLLM, which loads a repository id from "
+                f"the rig's HuggingFace cache, and nothing says where that cache "
+                f"is — set units.<unit>.hf_cache to its absolute path on the rig"
+            )
+        table = _tensor_table(config, spec.name, launch.get("tensor_table_json"))
+        weights = Path(spec.hf_cache)
+        slots = Width(value=width or VLLM_DEFAULT_SEQS, how=_how(width))
+    else:
+        if spec.geometry is None:
+            raise UnitError(_needs_geometry(spec))
+        table = spec.geometry
+        weights = _weights_path(head_scan, spec)
+        slots = Width(value=width or 1, how=_how(width))
+    if head_scan.disk is not None and spec.disk_gb > head_scan.disk.free_gb:
+        raise UnitError(
+            f"{spec.name}: needs {spec.disk_gb:.1f} GB of disk, "
+            f"{head_scan.disk.free_gb:.1f} GB free at {head_scan.disk.path}"
+        )
+    try:
+        plan = sharding.choose(
+            table,
+            targets,
+            engine=engine,
+            slots=slots.value,
+            ctx_per_slot=ctx_per_slot,
+            cache_type_k=cache_type_k,
+            cache_type_v=cache_type_v,
+            n_ubatch=DEFAULT_UBATCH,
+            name=spec.name,
+            split=_stated_text(spec.name, launch, "split"),
+            tensor=_stated_count(spec.name, launch, "tensor_parallel"),
+            pipeline=_stated_count(spec.name, launch, "pipeline_parallel"),
+        )
+        launched = shardlaunch.processes(
+            plan,
+            model=spec.name,
+            weights=weights,
+            port=key.port,
+            cache_type_k=cache_type_k,
+            cache_type_v=cache_type_v,
+            threads=_threads(head_scan),
+            n_ubatch=DEFAULT_UBATCH,
+            rpc_port=_stated_count(spec.name, launch, "rpc_port") or RPC_DEFAULT_PORT,
+            master_port=_stated_count(spec.name, launch, "master_port")
+            or VLLM_MASTER_PORT,
+        )
+    except (sharding.ShardingError, shardlaunch.LaunchError) as exc:
+        raise UnitError(str(exc)) from exc
+    notes = _host_figure_notes(engine)
+    allowance = plan.shards[0].allowance_bytes / _BYTES_PER_GIB
+    units: list[Unit] = []
+    for process in launched:
+        held = process.shards
+        said = f"{spec.name}: split across cards, {plan.says()}"
+        units.append(
+            Unit(
+                key=UnitKey(
+                    host=process.host, model=spec.name, engine=engine, port=process.port
+                ),
+                host=process.host,
+                model=spec.name,
+                engine=engine,
+                gpu=process.gpus[0],
+                weights=weights,
+                width=slots,
+                args=process.args,
+                fit=Fit(
+                    fits=True,
+                    headroom_gb=allowance,
+                    why=" ".join((said, *notes)),
+                    vram_gb=max(s.required_bytes for s in held) / _BYTES_PER_GIB,
+                    card_free_gb=min(s.target.free_bytes for s in held)
+                    / _BYTES_PER_GIB,
+                    notes=notes,
+                ),
+                port=process.port,
+                rungs=(),
+                extra=(
+                    (*process.extra, *spec.serve_args)
+                    if process.role != ROLE_RPC
+                    else process.extra
+                ),
+                gpus=process.gpus,
+                role=process.role,
+                env=dict(process.env),
+            )
+        )
+    return tuple(units)
+
+
+def _how(width: int | None) -> str:
+    return "written" if width is not None else "default"
+
+
+def _shard_targets(name: str, declared: object, scans: Mapping[str, Scan]) -> list[Any]:
+    """The cards ``launch.shards`` names, each with the free memory its scan read."""
+    from mcgyvr.fleet.spans import SpanError, parse_shard
+    from mcgyvr.serving.sharding import Target
+
+    if not isinstance(declared, list) or not declared:
+        raise UnitError(
+            f"{name}: launch.{SHARDS_KEY} is {declared!r}; it is a list of the "
+            f"cards the unit is split across, each `{{rig: <host>, gpu: <index>}}`, "
+            f"the first on the machine the unit's address points at"
+        )
+    targets = []
+    for index, entry in enumerate(declared):
+        where = f"{name}: launch.{SHARDS_KEY}[{index}]"
+        try:
+            shard = parse_shard(name, index, entry)
+        except SpanError as exc:
+            raise UnitError(str(exc)) from exc
+        rig, gpu, bind = shard.rig, shard.gpu, shard.bind
+        scan = scans.get(rig)
+        if scan is None:
+            raise UnitError(
+                f"{where}: host {rig!r} is unscanned — run `mcgyvr scan` on "
+                f"{rig} before splitting a unit across its cards"
+            )
+        card = next((g for g in scan.gpus if g.index == gpu), None)
+        if card is None:
+            found = ", ".join(str(g.index) for g in scan.gpus) or "none"
+            raise UnitError(
+                f"{where}: {rig} has no card {gpu} in its scan (cards: {found})"
+            )
+        targets.append(
+            Target(host=rig, gpu=gpu, free_bytes=card.vram.free_mib << 20, bind=bind)
+        )
+    return targets
+
+
+def _stated_count(name: str, launch: Mapping[str, Any], field_name: str) -> int | None:
+    """A whole number ``launch`` states for ``field_name``, or ``None``."""
+    stated = launch.get(field_name)
+    if stated is None:
+        return None
+    if isinstance(stated, bool) or not isinstance(stated, int) or stated < 1:
+        raise UnitError(f"{name}: launch.{field_name} is {stated!r}, not a count")
+    return stated
+
+
+def _stated_text(name: str, launch: Mapping[str, Any], field_name: str) -> str | None:
+    stated = launch.get(field_name)
+    if stated is None or isinstance(stated, str):
+        return stated
+    raise UnitError(f"{name}: launch.{field_name} is {stated!r}, not a word")
+
+
+def _tensor_table(config: Config, name: str, stated: object) -> Mapping[str, Any]:
+    """The safetensors scan a vLLM unit split across cards is sized from."""
+    if not isinstance(stated, str) or not stated:
+        raise UnitError(
+            f"{name}: a vLLM unit split across cards is sized from its tensor "
+            f"table, and launch.tensor_table_json names none. Run python -m "
+            f"mcgyvr.serving.safetensorscan <model dir> where the weights are "
+            f"and point launch.tensor_table_json at what it printed"
+        )
+    where = Path(stated).expanduser()
+    if not where.is_absolute() and config.path is not None:
+        where = config.path / where
+    try:
+        raw = json.loads(where.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise UnitError(f"{where}: cannot read a tensor table from it: {exc}") from exc
+    rows = raw if isinstance(raw, list) else [raw]
+    if len(rows) != 1 or not isinstance(rows[0], dict):
+        raise UnitError(
+            f"{where}: holds {len(rows)} rows; a vLLM unit's tensor table is one "
+            f"safetensorscan row"
+        )
+    if "error" in rows[0]:
+        raise UnitError(
+            f"{where}: the scan could not read {rows[0].get('file')!r}: "
+            f"{rows[0]['error']}"
+        )
+    table: dict[str, Any] = rows[0]
+    return table
 
 
 def alternate(one: Unit, other: Unit) -> bool:
@@ -1014,12 +1519,23 @@ def alternate(one: Unit, other: Unit) -> bool:
     A card figure of zero means nobody measured the card — a unit built by hand
     rather than sized against a scan — and an unmeasured card claims nothing:
     the pair reads as co-resident. See :attr:`Fit.card_free_gb`.
+
+    **A process that holds several cards shares none of them.** It is split
+    across them because one was not enough, its figure is per card and not
+    summable onto one, so any other unit on any of its cards is its
+    alternative.
     """
     if one.host != other.host:
         return False
     if one.port == other.port:
         return True
-    if one.gpu != other.gpu:
+    if one.cpu_only or other.cpu_only:
+        # A CPU-only unit takes no card, so it never contends for one.
+        return False
+    shared = set(one.cards) & set(other.cards)
+    if shared and (len(one.cards) > 1 or len(other.cards) > 1):
+        return True
+    if not shared:
         # Two cards on one host do not contend for VRAM. They still contend for
         # host RAM, and that sum is :func:`hold_together`'s — taken over what a
         # launch spec brings up together, which is what this function decides.
@@ -1037,9 +1553,18 @@ def _card_free_gb(units: Iterable[Unit]) -> float:
     units sized against two readings of one card are held to the tighter of
     them. That happens when a scan is retaken between two ``emit`` runs, and
     the tighter figure is the one that will still be true when both are up.
+
+    One exception: a resident orchestrator's claim is already *inside* the
+    reduced figure every ladder unit on its card recorded, so a set that
+    includes it is summed against the full card — the largest figure — rather
+    than the reduced remainder.
     """
     figures = [unit.fit.card_free_gb for unit in units if unit.fit.card_free_gb > 0]
-    return min(figures) if figures else 0.0
+    if not figures:
+        return 0.0
+    if any(unit.resident_claim_gb > 0 for unit in units):
+        return max(figures)
+    return min(figures)
 
 
 def _co_resident(chosen: tuple[Unit, ...], candidate: Unit) -> bool:
@@ -1280,17 +1805,27 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
             continue
         hungriest = sorted(spec.units, key=lambda unit: unit.key.slug)
         wanted = sum(unit.fit.ram_gb for unit in hungriest)
-        if wanted and wanted + REFUSAL_RAM_HEADROOM_GB > memory.available_gb:
+        # The refusal margin is a *text-engine* figure — room held clear past
+        # spilled experts for decode. A media engine's host memory is its
+        # stated ``ram_gb``, charged directly against ``MemAvailable`` with no
+        # mcgyvr-invented margin (:func:`_sized_media`), so a media-only spec
+        # is summed with no margin rather than carrying a text engine's law.
+        margin = (
+            REFUSAL_RAM_HEADROOM_GB
+            if any(unit.engine not in MEDIA_ENGINES for unit in hungriest)
+            else 0.0
+        )
+        if wanted and wanted + margin > memory.available_gb:
             listed = ", ".join(
                 f"{unit.model} ({unit.fit.ram_gb:.2f} GB "
                 f"{'unmapped' if unit.fit.load_mode == 'none' else 'mapped'})"
                 for unit in hungriest
                 if unit.fit.ram_gb
             )
+            margin_clause = f" with {margin:.1f} GB held back" if margin else ""
             raise UnitError(
                 f"{spec.host}: {listed} fit host memory one at a time and not "
-                f"together — {wanted:.2f} GB summed with "
-                f"{REFUSAL_RAM_HEADROOM_GB:.1f} GB held back, against "
+                f"together — {wanted:.2f} GB summed{margin_clause}, against "
                 f"{memory.available_gb:.2f} GB available. Serve one of them "
                 f"from another host, drop one, or narrow a window"
             )
@@ -1598,6 +2133,8 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             vram_gb=block.get("vram_gb") or 0.0,
             ram_gb=block.get("ram_gb") or 0.0,
             disk_gb=block.get("disk_gb") or 0.0,
+            vae_decode_gb=block.get("vae_decode_gb") or 0.0,
+            cpu_only=bool(block.get("cpu_only")),
             moe=bool(block.get("moe")),
             geometry=geometry,
             hf_cache=str(block.get("hf_cache") or ""),
@@ -1763,6 +2300,34 @@ def _free_vram_bytes(scan: Scan) -> int:
     if not scan.gpus:
         return 0
     return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
+
+
+def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
+    """``scan`` with the roomiest card's free VRAM reduced by ``claim_gb``.
+
+    The orchestrator's process claims the card first (resident), so the ladder
+    and the verifier on its host are sized against what is left: the free VRAM
+    minus the orchestrator's card figure. ``claim_gb`` is that figure,
+    :attr:`Fit.vram_gb` in GiB as the same law produced it.
+    """
+    if claim_gb <= 0 or not scan.gpus:
+        return scan
+    claim_mib = int(claim_gb * 1024)
+    gpus = list(scan.gpus)
+    index = max(range(len(gpus)), key=lambda i: gpus[i].vram.free_mib)
+    gpu = gpus[index]
+    taken = min(claim_mib, gpu.vram.free_mib)
+    # The four numbers close on every scan (`total == used + free + reserved`),
+    # so the claim moves from ``free`` to ``used`` rather than vanishing.
+    gpus[index] = replace(
+        gpu,
+        vram=replace(
+            gpu.vram,
+            used_mib=gpu.vram.used_mib + taken,
+            free_mib=gpu.vram.free_mib - taken,
+        ),
+    )
+    return replace(scan, gpus=tuple(gpus))
 
 
 def _allowance_gb(spec: ModelSpec) -> float:

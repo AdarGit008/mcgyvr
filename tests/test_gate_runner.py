@@ -16,6 +16,7 @@ import pytest
 from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
+from mcgyvr.gate.output import MEDIA_IMAGE, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.runner import Gate
 from mcgyvr.scope import Scope
 
@@ -218,3 +219,41 @@ def test_subprocess_count_is_flat_across_change_size(
 
     assert counts[0] == 2, f"expected exactly two ruff calls, got {counts[0]}"
     assert counts[0] == counts[1], f"gate subprocess count grew with size: {counts}"
+
+
+def test_the_gate_folds_output_check_findings(tmp_path: Path) -> None:
+    """An output check's finding is a gate finding under the same check name."""
+    repo = repo_with_base(tmp_path)
+    (repo / "out.png").write_bytes(b"not an image")
+    output = OutputChecks(
+        checks=(MEDIA_VALID,),
+        workspace=repo,
+        target="out.png",
+        media_kind=MEDIA_IMAGE,
+    )
+
+    result = Gate().run(ChangeSet.detect(repo), output=output)
+
+    assert not result.accepted
+    assert {f.check for f in result.findings} == {MEDIA_VALID}
+
+
+def test_an_unwired_output_check_is_inconclusive_not_accepted(
+    tmp_path: Path,
+) -> None:
+    """P2 posture: a missing validator is inconclusive, never accepted.
+
+    This is the flip from a missing linter — absent is a visible hole, but a
+    safety or ASR validator that never ran must not be reported clean, so it
+    rejects the change.
+    """
+    repo = repo_with_base(tmp_path)
+    output = OutputChecks(checks=(SAFETY_PASS,), workspace=repo, target="out.png")
+
+    result = Gate().run(ChangeSet.detect(repo), output=output)
+
+    assert not result.accepted
+    assert len(result.inconclusive) == 1
+    assert result.inconclusive[0].rung == SAFETY_PASS
+    assert result.inconclusive[0].adapter == "output"
+    assert any(SAFETY_PASS in issue for issue in result.environment_issues)

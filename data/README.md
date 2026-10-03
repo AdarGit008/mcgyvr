@@ -43,7 +43,11 @@ machine.
 
 Speed is generation rate in tokens per second; a figure's `note` says
 when it is not a single request (one vLLM figure is an aggregate at 16
-concurrent requests).
+concurrent requests). Media rows carry the same cost-only contract in their
+modality's unit: `seconds_per_image` at the row's `resolution` for image
+models, `seconds_per_clip` at its `frames` budget for video, and a scalar
+`rtf` at `sample_rate_hz` for TTS, whose CPU-only rungs are marked
+`cpu_only` and need no card class.
 
 A row that carries `not_for_fit` is never listed as fitting a card
 (`mcgyvr capabilities --vram`), and `mcgyvr capabilities` marks it; the key's
@@ -73,8 +77,8 @@ CAV-01 and CAV-02 are both consequences of not doing so.
 
 `task-catalog.json` is the vocabulary of what mcgyvr can be asked to do (#15).
 Each entry states what accepting it promises (`guarantee`), which family of the
-ladder it may start on (`starts_on`), and what evidence a contract of that type
-must carry (`required_evidence`).
+ladder it may start on (`starts_on`), which use case it belongs to (`use_case`),
+and what evidence a contract of that type must carry (`required_evidence`).
 
 It is data, not code, for a reason with teeth: adding a task type must be an
 edit to this file and nothing else. `tests/test_catalog.py` proves that by

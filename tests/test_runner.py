@@ -228,10 +228,9 @@ def test_neither_protocol_streams(monkeypatch: pytest.MonkeyPatch) -> None:
 # --- a hard output cap, enforced by both ---------------------------------
 
 
-def test_an_uncapped_request_cannot_be_expressed() -> None:
-    """There is no default and no sentinel: the ceiling is thought about or the
-    request does not exist. CAV-03 is a record of what an unconsidered output
-    budget costs."""
+def test_an_uncapped_request_is_expressible_and_a_non_positive_cap_is_not() -> None:
+    """``None`` is the uncapped dispatch; a number below 1 is not a ceiling."""
+    assert Request(prompt="p", max_output_tokens=None).max_output_tokens is None
     with pytest.raises(ValueError, match="max_output_tokens"):
         Request(prompt="p", max_output_tokens=0)
     with pytest.raises(ValueError, match="max_output_tokens"):
@@ -250,6 +249,32 @@ def test_a_backend_that_ignores_the_cap_is_caught_by_its_own_count(
     )
     assert done.overran_cap is True
     assert any("did not honour the ceiling" in note for note in done.notes)
+
+
+def test_an_uncapped_request_has_no_cap_to_overrun(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An uncapped dispatch sent a ceiling of ``None``, so ``overran_cap``
+    cannot be checked and is ``None`` whatever the backend reported."""
+    stub_post(monkeypatch, openai_answer(completion_tokens=999))
+    done = runner_for(LOCAL_OPENAI).generate(
+        "m", Request(prompt="p", max_output_tokens=None)
+    )
+    assert done.overran_cap is None
+    assert done.max_output_tokens is None
+
+
+def test_the_openai_payload_omits_the_cap_when_uncapped_and_sends_it_when_capped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``max_tokens`` must be absent when uncapped, never present-and-null."""
+    sent = stub_post(monkeypatch, openai_answer())
+    runner_for(LOCAL_OPENAI).generate("m", Request(prompt="p", max_output_tokens=None))
+    assert "max_tokens" not in sent.payload
+
+    sent = stub_post(monkeypatch, openai_answer())
+    runner_for(LOCAL_OPENAI).generate("m", Request(prompt="p", max_output_tokens=64))
+    assert sent.payload["max_tokens"] == 64
 
 
 def test_a_respected_cap_is_distinct_from_an_uncheckable_one(
@@ -396,6 +421,21 @@ def test_a_truncated_reply_is_named_as_a_failure(
     assert done.truncated is True
     assert any("must not be applied to a file" in note for note in done.notes)
     assert any("64-token cap" in note for note in done.notes)
+
+
+def test_an_uncapped_truncated_reply_names_the_backends_own_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An uncapped request has no ceiling of ours to hit, so a backend that
+    reports a length stop is described as stopping at its own limit."""
+    stub_post(monkeypatch, openai_answer(finish_reason="length"))
+    done = runner_for(LOCAL_OPENAI).generate(
+        "m", Request(prompt="p", max_output_tokens=None)
+    )
+    assert done.truncated is True
+    assert any(
+        "its own length limit" in note and "uncapped" in note for note in done.notes
+    )
 
 
 # --- token counts and latency, for telemetry -----------------------------

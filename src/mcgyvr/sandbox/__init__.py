@@ -9,9 +9,11 @@ interface (:mod:`mcgyvr.sandbox.base`):
 - ``docker`` (:mod:`mcgyvr.sandbox.docker`): one container per task, built
   from an image that carries the repository's own dependencies
   (:mod:`mcgyvr.sandbox.image`), torn down afterwards.
-- ``tempdir`` (:mod:`mcgyvr.sandbox.tempdir`): the explicitly weaker
-  fallback for installs without Docker — an ephemeral directory with a git
-  repository, commands executed on the host.
+- ``tempdir`` (:mod:`mcgyvr.sandbox.tempdir`): the explicitly weaker mode
+  for installs without Docker — an ephemeral directory with a git repository,
+  commands executed on the host. Used when chosen by name, or when ``docker``
+  has no daemon and ``sandbox.allow_fallback`` opts into it; ``docker`` with
+  no daemon and no opt-in is refused.
 
 What the target repository needs to run its own checks is detected once
 (:mod:`mcgyvr.sandbox.stack`). Provider credentials never enter either mode
