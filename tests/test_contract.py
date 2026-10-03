@@ -170,6 +170,18 @@ def test_a_media_artifact_output_schema_is_accepted() -> None:
     assert contract.output_schema == "media_artifact"
 
 
+def test_raw_text_replies_are_uncapped_but_whole_file_is_not() -> None:
+    """prose and media_artifact carry no output cap; whole_file still derives one."""
+    prose = loads(MINIMAL + "\noutput_schema: prose\n")
+    media = loads(MINIMAL + "\noutput_schema: media_artifact\n")
+    whole = loads(MINIMAL)
+
+    assert prose.limits.max_output_tokens is None
+    assert media.limits.max_output_tokens is None
+    assert whole.limits.max_output_tokens == output_cap(whole.task_type)
+    assert whole.limits.max_output_tokens is not None
+
+
 # --- acceptance: a glob target on a model-tier type is rejected -------------
 
 

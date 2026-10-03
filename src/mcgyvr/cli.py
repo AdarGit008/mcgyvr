@@ -337,14 +337,15 @@ def _catalog(args: argparse.Namespace) -> int:
 
 
 def _cap_undeclared(contract: Contract) -> str | None:
-    """Why a model contract with no declared reply cap is refused, or None.
+    """Why a whole-file model contract with no declared reply cap is refused, or None.
 
     The loader derives ``limits.max_output_tokens`` from the task type's own
     evidence, silently, because the bench and the corpus need a number. A
     person's run does not get that silence: a contract whose reply cap nobody
     chose is refused before anything is spent. The derived figure is printed as
     the value to start from. A deterministic contract has no reply to cap and
-    is not asked.
+    is not asked, and neither is a raw-text reply (``prose`` /
+    ``media_artifact``): it carries no cap, so there is nothing to declare.
 
     A ladder unit that declares ``units.*.output_tokens`` does not lift this.
     The two numbers answer different questions — what this unit of work is
@@ -355,7 +356,11 @@ def _cap_undeclared(contract: Contract) -> str | None:
     there is. A refusal lifted by a config the contract never mentions would
     also make this command's answer depend on which machine it was typed on.
     """
-    if contract.is_deterministic or contract.max_output_tokens_declared:
+    if (
+        contract.is_deterministic
+        or contract.max_output_tokens_declared
+        or contract.output_schema != "whole_file"
+    ):
         return None
     return (
         f"limits.max_output_tokens is not declared, and {contract.task_type} is "
@@ -402,8 +407,12 @@ def _contract(args: argparse.Namespace) -> int:
         f"  risk:    {contract.risk} — verified by "
         f"{contract.verification.policy.replace('_', ' ')}"
     )
+    if contract.limits.max_output_tokens is None:
+        output_budget = "uncapped (raw text)"
+    else:
+        output_budget = f"<={contract.limits.max_output_tokens} output tokens"
     print(
-        f"  limits:  <={contract.limits.max_output_tokens} output tokens, "
+        f"  limits:  {output_budget}, "
         f"<={contract.max_input_tokens} prompt tokens, "
         f"{contract.limits.attempts} attempt(s)"
     )

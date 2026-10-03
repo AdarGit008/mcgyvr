@@ -190,8 +190,10 @@ def task_type(name: str) -> CatalogTaskType:
 # They are defaults in the loader's sense: what it fills in for a contract that
 # states no cap, and the figure the generated examples and the command line's
 # refusal offer as the value to start from. Omitting the cap is not accepted
-# there: `mcgyvr contract` and `mcgyvr run` refuse a model contract that
-# declares none (`mcgyvr.cli._cap_undeclared`).
+# there for a whole_file contract: `mcgyvr contract` and `mcgyvr run` refuse a
+# whole_file model contract that declares none
+# (`mcgyvr.cli._cap_undeclared`); a raw-text reply (prose / media_artifact)
+# carries no cap and is not refused.
 #
 # Nor are they the last word. A contract states its own cap with
 # `limits.max_output_tokens`, and a unit that declares
@@ -421,10 +423,14 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "int",
         "The cap this contract declares on the worker's reply. A reply cut "
         "off at the cap is a named failure and is never applied to a file. "
-        "Declare it for any task type a model executes: `mcgyvr contract` and "
-        "`mcgyvr run` refuse a model contract that leaves it out (exit 2) and "
+        "Declare it for any whole_file task type a model executes: "
+        "`mcgyvr contract` and "
+        "`mcgyvr run` refuse a whole_file model contract that leaves it out "
+        "(exit 2) and "
         "print the figure the type's own evidence would derive (`output_cap`) "
-        "as the value to start from. It is the one key in the schema with no "
+        "as the value to start from. A raw-text reply (`prose` / "
+        "`media_artifact`) carries no cap and declares nothing. It is the one "
+        "key in the schema with no "
         "static default: a single number for every type is wrong for at least "
         "one of them. What this states is what the *work* is worth.",
         default=None,
@@ -715,7 +721,7 @@ class Verification:
 class Limits:
     """Hard ceilings on one execution of a contract."""
 
-    max_output_tokens: int
+    max_output_tokens: int | None
     attempts: int
     #: The share of a rung's window this contract may claim, or ``None`` when
     #: it declared none. ``None`` rather than ``1.0`` because "no share was
@@ -962,8 +968,15 @@ def parse(text: str, path: Path | None = None) -> Contract:
         # The one key the schema cannot default statically: how big a reply may
         # be depends on what the reply has to be. Filled before
         # `_cross_validate`, so the cap is checked against the prompt budget on
-        # the same terms whether it was declared or derived.
-        data["limits"]["max_output_tokens"] = output_cap(data["task_type"])
+        # the same terms whether it was declared or derived. A raw-text reply
+        # (prose / media_artifact) carries no cap at all — a chatty model is a
+        # prompting issue, not a cap issue — so only a whole_file reply gets a
+        # derived number.
+        data["limits"]["max_output_tokens"] = (
+            output_cap(data["task_type"])
+            if data["output_schema"] == "whole_file"
+            else None
+        )
     _cross_validate(data)
     return _build(data, max_output_tokens_declared=declared_cap)
 
@@ -1368,7 +1381,10 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             )
         seen.add(dep["path"])
 
-    if data["limits"]["max_output_tokens"] > data["context"]["max_input_tokens"]:
+    if (
+        data["limits"]["max_output_tokens"] is not None
+        and data["limits"]["max_output_tokens"] > data["context"]["max_input_tokens"]
+    ):
         raise ContractSchemaError(
             f"limits.max_output_tokens: {data['limits']['max_output_tokens']} "
             f"exceeds context.max_input_tokens "

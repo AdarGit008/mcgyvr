@@ -50,6 +50,8 @@ scope:
 
 DECLARED = FUNCTION_IMPL + "limits:\n  max_output_tokens: 2048\n"
 
+PROSE = FUNCTION_IMPL + "output_schema: prose\n"
+
 
 def test_a_derived_cap_stays_on_the_loaded_object_and_not_in_the_emitted_form() -> None:
     """The runtime budget is derived; the identity carries the declaration only."""
@@ -76,6 +78,15 @@ def test_the_round_trip_still_holds_for_both_shapes() -> None:
     """``parse(dumps(c)) == c``, derived or declared."""
     assert parse(dumps(loads(FUNCTION_IMPL))) == loads(FUNCTION_IMPL)
     assert parse(dumps(loads(DECLARED))) == loads(DECLARED)
+
+
+def test_a_prose_reply_is_uncapped_and_still_round_trips() -> None:
+    """A prose reply carries ``null`` in the emitted form and ``None`` loaded."""
+    contract = loads(PROSE)
+
+    assert contract.limits.max_output_tokens is None
+    assert '"max_output_tokens": null' in dumps(contract)
+    assert parse(dumps(contract)) == contract
 
 
 def test_editing_the_catalog_does_not_move_the_identity(

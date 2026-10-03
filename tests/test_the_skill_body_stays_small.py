@@ -46,7 +46,13 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: 18_600 -> 18_700: the use-case expansion (seam 2) adds `media_artifact`
 #: to the `output_schema` enum the skill documents, one choice and one clause
 #: in the field's doc. The growth is the schema's, not prose bloat.
-MAX_SKILL_BODY_BYTES = 18_700
+#:
+#: 18_700 -> 18_900: the use-case expansion (P3) adds `chat` and `agent` to
+#: the `task_type` enum the skill documents, and the no-output-cap ruling
+#: makes `limits.max_output_tokens` a whole_file-only key, which the field's
+#: doc and the step-2 prose now state. The growth is the schema's, not prose
+#: bloat.
+MAX_SKILL_BODY_BYTES = 18_900
 
 
 def _body(path: Path) -> str:

@@ -31,7 +31,7 @@ each one.
 | --- | --- | --- | --- | --- |
 | `version` | number (min 1) | no | `1` | Schema version this contract is written against. A contract declaring a version this build does not read is rejected rather than interpreted under the wrong rules. (orchestrator-facing) |
 | `id` | text | **yes** | — | Identity: how this contract is referred to in records, telemetry and branch names. Letters, digits, dot, dash and underscore, up to 64 characters. e.g. fetch-helper-retry. (worker-facing) |
-| `task_type` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol`, `docstring`, `type_annotation`, `function_implementation`, `test_scaffold`, `bug_fix` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
+| `task_type` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol`, `docstring`, `type_annotation`, `function_implementation`, `test_scaffold`, `bug_fix`, `chat`, `agent` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
 | `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any task type a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a task type that is executed deterministically. e.g. src/pkg/fetch.py. (worker-facing) |
 | `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
@@ -96,7 +96,7 @@ Hard ceilings on what one execution of this contract may spend.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `limits.max_output_tokens` | number (min 1) | no | unset | The cap this contract declares on the worker's reply. A reply cut off at the cap is a named failure and is never applied to a file. Declare it for any task type a model executes: `mcgyvr contract` and `mcgyvr run` refuse a model contract that leaves it out (exit 2) and print the figure the type's own evidence would derive (`output_cap`) as the value to start from. It is the one key in the schema with no static default: a single number for every type is wrong for at least one of them. What this states is what the *work* is worth. (orchestrator-facing) |
+| `limits.max_output_tokens` | number (min 1) | no | unset | The cap this contract declares on the worker's reply. A reply cut off at the cap is a named failure and is never applied to a file. Declare it for any whole_file task type a model executes: `mcgyvr contract` and `mcgyvr run` refuse a whole_file model contract that leaves it out (exit 2) and print the figure the type's own evidence would derive (`output_cap`) as the value to start from. A raw-text reply (`prose` / `media_artifact`) carries no cap and declares nothing. It is the one key in the schema with no static default: a single number for every type is wrong for at least one of them. What this states is what the *work* is worth. (orchestrator-facing) |
 | `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract may claim: its assembled prompt and `max_output_tokens` together, over the whole window. A different question from whether the two fit, which `context.max_input_tokens` already bounds — a contract that fits with nothing to spare leaves nothing to hold anything beside it and nothing to absorb an estimate that ran long. Declared here because it is a statement about this unit of work, and enforced wherever the work is executed. Unset means no share is enforced, which is not the same as 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave a quarter of the window clear. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times the work may be retried before escalating. Retrying forever is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
@@ -123,10 +123,11 @@ mcgyvr contract CONTRACT.yaml
 ```
 
 Prints what the contract resolves to, or names the key that is wrong. Fix
-the contract; never guess a field. A contract a model executes must
-declare `limits.max_output_tokens`, or this and `run` refuse it (exit 2)
-and print the figure to start from: a reply cut at a cap nobody chose
-is spent silently.
+the contract; never guess a field. A whole_file contract a model executes
+must declare `limits.max_output_tokens`, or this and `run` refuse it
+(exit 2) and print the figure to start from: a reply cut at a cap nobody
+chose is spent silently. A prose or media_artifact reply is uncapped and
+declares nothing.
 
 ## Step 3 — run it, then read the result file
 

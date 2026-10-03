@@ -289,7 +289,9 @@ def dispatch_prompt(
     :func:`~mcgyvr.gate.preflight.reply_cap`'s: the rung's own
     ``units.*.output_tokens`` where it declared one, and the contract's
     ``limits.max_output_tokens`` where it did not. The argument for which of
-    the two wins is written where the choice is made, in ``reply_cap``.
+    the two wins is written where the choice is made, in ``reply_cap``. A
+    raw-text reply (``prose`` / ``media_artifact``) is uncapped, so ``cap`` is
+    ``None`` there and the runner omits the wire field.
 
     ``contract`` is taken whole rather than as a cap, because a binding given
     only a number cannot be the place the fit refusal happens, and the refusal
@@ -317,7 +319,7 @@ def dispatch_prompt(
     endpoint = source_map.bind(rung)
     cap = reply_cap(contract, endpoint)
     window = endpoint.context_window
-    if window is not None and cap >= window:
+    if window is not None and cap is not None and cap >= window:
         raise OutputCapTooLargeError(
             f"rung {rung!r}: a reply cap of {cap} tokens does not fit the "
             f"{window}-token window {endpoint.source!r} serves, leaving nothing "
