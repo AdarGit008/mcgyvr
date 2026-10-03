@@ -96,14 +96,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: silently never found.
 VERIFIER_ROLE = "verifier"
 
-#: What a review is allowed to write. The protocol is one token and brief notes,
-#: so a large ceiling buys an essay nobody reads; and truncation cannot hide the
-#: verdict, because the verdict is the first word of the reply.
-#: :class:`~mcgyvr.runner.Request` refuses an uncapped dispatch outright, so
-#: this is a number someone had to choose rather than a default inherited from a
-#: backend.
-REVIEW_OUTPUT_TOKENS = 512
-
 #: What the reviewer is asked, given the prompt. One string in, one string out:
 #: everything about *where* it runs is the seam's business, which is what lets
 #: every rule in this module be asserted without a backend.
@@ -693,7 +685,7 @@ def reviewer_for(
     source_map: SourceMap,
     *,
     capacity: Capacity | None = None,
-    max_output_tokens: int = REVIEW_OUTPUT_TOKENS,
+    max_output_tokens: int | None = None,
 ) -> Ask | None:
     """The install's verifier role as something :func:`verify` can ask, or ``None``.
 
@@ -709,6 +701,11 @@ def reviewer_for(
     quality-caveated backend outright (CAV-01); a review is work, and refusing
     would turn the ordinary local install into one with no verifier at all
     while telling the operator nothing.
+
+    ``max_output_tokens`` is ``None`` (uncapped) by default: the ruling is
+    that the orchestrator/verifier dispatches carry no output cap — a chatty
+    model is a prompting/model issue, not a cap issue. The verdict is still
+    the first word of the reply, so an uncapped review cannot hide it.
     """
     # ``role_model`` rather than ``role``: this is a presence check, and a
     # ``RoleBinding`` would hand this module an endpoint and its

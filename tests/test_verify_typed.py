@@ -167,6 +167,56 @@ def test_verdict_state_carries_the_contract_and_the_change(contract: Any) -> Non
     assert state["target"] == "src/pkg/fetch.py"
 
 
+def test_the_free_text_reviewer_dispatch_is_uncapped_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ruling: the verifier carries no output cap — a chatty model is a
+    prompting issue, not a cap issue. The default dispatch is None."""
+    import mcgyvr.verify as verify_module
+    from mcgyvr.config import parse
+    from mcgyvr.pool import source_map
+    from mcgyvr.runner import Completion, StopReason
+    from mcgyvr.verify import reviewer_for
+
+    config = parse(
+        """\
+units:
+  reviewer:
+    address: http://localhost:8080
+    model: qwen2.5-coder:7b
+    rig: local
+ladder:
+- reviewer
+verifier:
+  enabled: true
+  unit: reviewer
+  model: qwen2.5-coder:7b
+"""
+    )
+    pool = source_map(config)
+    seen: list[int | None] = []
+
+    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+        seen.append(request.max_output_tokens)
+        return Completion(
+            text="approve",
+            stop_reason=StopReason.COMPLETE,
+            raw_stop_reason="stop",
+            model="qwen2.5-coder:7b",
+            source="reviewer",
+            protocol=Protocol.OPENAI,
+            max_output_tokens=None,
+            latency_s=0.0,
+        )
+
+    monkeypatch.setattr(verify_module, "dispatch_role", fake_dispatch_role)
+
+    reviewer = reviewer_for(pool)
+    assert reviewer is not None
+    assert reviewer("is this change approved?") == "approve"
+    assert seen == [None]
+
+
 def test_decider_for_returns_none_without_a_verifier_role() -> None:
     pool = SourceMap(rungs=(), skipped=(), endpoints={}, roles={}, role_skips={})
     assert decider_for(pool) is None
