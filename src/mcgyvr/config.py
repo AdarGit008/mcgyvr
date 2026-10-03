@@ -2156,6 +2156,13 @@ def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) ->
             "local rung does best is measured. Name one of `direct`, `prose`, "
             "`classifier`."
         )
+    if data["jev"].get("unit") is None:
+        raise ConfigSchemaError(
+            f"jev.unit: {MCORCH} asks the jev unit every bounded question — is a "
+            "request chat or work, is a contract ready to run, what comes after a "
+            "result — and no jev unit is bound. Name one of the units declared "
+            f"under `units`: {', '.join(sorted(units))}."
+        )
 
 
 def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:

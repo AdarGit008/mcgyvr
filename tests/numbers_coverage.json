@@ -69,6 +69,7 @@
     "mcorch/__init__.py": "holds no number that sizes or judges",
     "mcorch/anthropic.py": "holds no number that sizes or judges",
     "mcorch/authoring.py": "holds no number that sizes or judges",
+    "mcorch/bind.py": "holds no number that sizes or judges",
     "mcorch/loop.py": "judging",
     "mcorch/prompt.py": "holds no number that sizes or judges",
     "mcorch/serve.py": "judging",

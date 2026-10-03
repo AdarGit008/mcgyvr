@@ -72,6 +72,8 @@ def setup(
         ladder: [small, agent]
         orchestrator:
           {orchestrator}
+        jev:
+          unit: small
         """
     ).format(deployment=deployment, orchestrator=orchestrator, window=window)
 

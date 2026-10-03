@@ -42,6 +42,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from mcgyvr.config import MCORCH
+
 CLAUDE_SESSION_VAR = "CLAUDE_CODE_SESSION_ID"
 CLAUDE_CONFIG_VAR = "CLAUDE_CONFIG_DIR"
 PI_SESSION_VAR = "PI_SESSION_FILE"
@@ -53,8 +55,8 @@ PI = "pi"
 #: only a loaded config names, so it is attached by
 #: :func:`with_mcorch_transcript` once a run knows that directory — never
 #: refused here for want of a file, because the id is the server's own and not
-#: a claim about a harness's transcript.
-MCORCH = "mcorch"
+#: a claim about a harness's transcript. The word is the config's
+#: (:data:`mcgyvr.config.MCORCH`), imported so the two cannot drift.
 
 #: What a session id may look like. It is spliced into a file-system glob, a
 #: journal file name and every attempt id, so a metacharacter in it would
