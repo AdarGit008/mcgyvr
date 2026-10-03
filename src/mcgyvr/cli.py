@@ -1126,6 +1126,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.drive import Recording, gate_adapters
     from mcgyvr.result import RunResult, result_path, run_stamp, write
+    from mcgyvr.session import with_mcorch_transcript
 
     session: Session = args.session
 
@@ -1182,6 +1183,9 @@ def _run(args: argparse.Namespace) -> int:
     # those questions is about *all* the runs there have been.
     configured = config.get("journal.dir") if config is not None else None
     journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+    # An mcorch writer's transcript is under this directory and nowhere the
+    # parser could have looked: attached now that the directory is known.
+    session = with_mcorch_transcript(session, journal_dir)
     # Theirs, for their own reading. A complete copy — every line, every blob,
     # the result file — so `tools/live/review.py DIR` reads it exactly as it
     # reads ours, and a failure to write one is a note rather than the end of a

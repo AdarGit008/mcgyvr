@@ -48,6 +48,13 @@ PI_SESSION_VAR = "PI_SESSION_FILE"
 
 CLAUDE = "claude"
 PI = "pi"
+#: An mcorch server (:mod:`mcgyvr.mcorch`) is a writer too: ``mcorch-<stamp>``,
+#: minted when it starts. Its transcript is under the journal directory, which
+#: only a loaded config names, so it is attached by
+#: :func:`with_mcorch_transcript` once a run knows that directory — never
+#: refused here for want of a file, because the id is the server's own and not
+#: a claim about a harness's transcript.
+MCORCH = "mcorch"
 
 #: What a session id may look like. It is spliced into a file-system glob, a
 #: journal file name and every attempt id, so a metacharacter in it would
@@ -185,3 +192,22 @@ def _pi_id(path: Path) -> str:
     stem = path.stem
     _, sep, uuid = stem.rpartition("_")
     return uuid if sep else stem
+
+
+def with_mcorch_transcript(named: Session, journal_dir: Path) -> Session:
+    """``named`` with its mcorch transcript attached, where there is one to attach.
+
+    An ``mcorch-`` writer's transcript lives at
+    ``<journal_dir>/mcorch/<id>.jsonl`` (:mod:`mcgyvr.mcorch.transcript`). A
+    writer of any other kind, one that already carries a file, or one whose
+    transcript is not there yet comes back unchanged: the id is still a name,
+    and a row named by it is still filed under it.
+    """
+    if named.session_file is not None or not named.orchestrator.startswith(
+        f"{MCORCH}-"
+    ):
+        return named
+    path = journal_dir / MCORCH / f"{named.orchestrator}.jsonl"
+    if not path.is_file():
+        return named
+    return Session(named.orchestrator, path.resolve())
