@@ -509,6 +509,22 @@ UNIT_FIELDS: tuple[Field, ...] = (
         bind_hint="e.g. 8 -- the slot count the backend was started with",
     ),
     Field(
+        "rider_slots",
+        "int",
+        "How many of this unit's slots riders may use at once (hitchhike): "
+        "people the hub matches to you, whose requests for this unit's model "
+        "the agent of `mcgyvr rig` passes to it and whose prompts you can "
+        "read. 0, the default, shares none. Below `width`, so you always keep "
+        "a slot, and your own requests go first: a ride is refused when it "
+        "would leave you fewer than `width` less this many free. A unit is "
+        "shared only when it is on the `ladder`, needs no key (`api_key_env`), "
+        "states its `window`, the context of each slot, and has a `width` of "
+        "at most 16, the most the hub takes; one unit per model.",
+        default=0,
+        min_value=0,
+        bind_hint="e.g. 1 -- at most one below `width`",
+    ),
+    Field(
         "window",
         "int",
         "Tokens this unit serves in one request. Read it back off the \
@@ -1022,6 +1038,10 @@ class Unit:
     container: str | None = None
     hf_cache: str | None = None
     launch: Mapping[str, Any] = field(default_factory=dict)
+    #: How many of its slots riders the hub matches may use at once
+    #: (hitchhike): 0, the default, shares none, and it is always below
+    #: ``width``.
+    rider_slots: int = 0
     #: Another person's unit, lent through a hub (``relief.yaml``): a rung that
     #: takes work when the rider's own is full and is never a step of the
     #: ladder. ``position``, ``hosted_by`` and ``served_model`` are what the
@@ -1762,6 +1782,7 @@ def _build(
             container=block["container"],
             hf_cache=block["hf_cache"],
             launch=block["launch"],
+            rider_slots=block["rider_slots"],
         )
         for name, block in data["units"].items()
     }
@@ -1801,6 +1822,7 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
 
     for name, block in units.items():
         _refuse_userinfo(name, str(block["address"]))
+        _refuse_a_share_it_cannot_give(name, block)
 
     seen: set[str] = set()
     if not data["ladder"]:
@@ -1867,6 +1889,34 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"{role}.unit: {bound!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
+
+
+def _refuse_a_share_it_cannot_give(name: str, block: Mapping[str, Any]) -> None:
+    """Refuse a ``rider_slots`` the unit cannot give riders.
+
+    A share is a part of the unit's width that riders may use, so it is below
+    the width — the host keeps a slot of their own — and a unit whose width
+    is unset serves one request at once and has none to share. A unit that
+    needs a key is a hosted provider's, and not the host's to share.
+    """
+    shared = block["rider_slots"]
+    if not shared:
+        return
+    where = f"units.{name}.rider_slots"
+    if block["api_key_env"] is not None:
+        raise ConfigSchemaError(
+            f"{where}: the unit names `api_key_env`, so it is a hosted "
+            f"provider's and not yours to share with riders. Share a unit "
+            f"you run, or remove the key."
+        )
+    width = block["width"]
+    if width is None or shared >= width:
+        stated = "unset, so 1" if width is None else str(width)
+        raise ConfigSchemaError(
+            f"{where}: {shared} is not below the unit's `width` ({stated}). "
+            f"Riders use part of the slots the unit serves at once, and you "
+            f"keep at least one: set it below `width`, or 0 to share none."
+        )
 
 
 def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:

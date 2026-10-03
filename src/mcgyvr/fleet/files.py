@@ -46,6 +46,7 @@ _UNIT_KEYS = frozenset(
         "api_key_env",
         "model",
         "width",
+        "rider_slots",
         "window",
         "output_tokens",
         "request_timeout_s",
