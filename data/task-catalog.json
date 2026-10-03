@@ -36,7 +36,7 @@
     },
     {
       "name": "agent",
-      "doc": "Gated personal-assistant tasks, each with a target and a deterministic check."
+      "doc": "Gated personal-assistant tasks, judged by grounded citations plus safety over plain prose; the backend is llama.cpp / vLLM with tool-calling, a serving-layer capability rather than a gate rung."
     },
     {
       "name": "media-gen",
