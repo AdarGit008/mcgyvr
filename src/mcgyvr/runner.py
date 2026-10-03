@@ -84,7 +84,9 @@ length of one request so that escalating across sources cannot leak a slot.
 Choosing *which* rung to send a contract to, and escalating when it fails, are
 :mod:`mcgyvr.route`'s and :mod:`mcgyvr.escalate`'s. Assembling the prompt and
 parsing a worker's file-shaped answer are :mod:`mcgyvr.worker`'s — a
-:class:`Request` here carries text.
+:class:`Request` here carries text. A multi-turn conversation is the caller's
+too: a request may carry the turns before it and the function tools on offer,
+both sent verbatim.
 """
 
 from __future__ import annotations
@@ -96,6 +98,7 @@ import time
 import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, ClassVar
@@ -243,6 +246,12 @@ _STOP_REASONS: dict[str, StopReason] = {
 }
 
 
+# The roles a turn of :attr:`Request.turns` may carry. ``system`` is a role the
+# protocol knows and is refused by name, not as unknown: its home is
+# :attr:`Request.system`.
+_TURN_ROLES = frozenset({"user", "assistant", "tool"})
+
+
 @dataclass(frozen=True)
 class Request:
     """One generation, described without reference to who will serve it.
@@ -276,6 +285,16 @@ class Request:
     allowed to. So it changes what is asked for and nothing about what may be
     believed, which is why :func:`~mcgyvr.worker.reply.parse_pinned` reads both
     shapes and no caller has to know which arrived.
+
+    ``turns`` is the conversation so far, each turn an OpenAI chat message kept
+    verbatim — a user's, the assistant's own (with any ``tool_calls`` it made),
+    or a tool's answer — placed after the system prompt and before ``prompt``,
+    which becomes the last user message. A request that only continues after a
+    tool answered leaves ``prompt`` empty and gets no user message appended.
+    There is no system turn: the system prompt has one home, ``system``.
+    ``tools`` are the OpenAI function tools on offer, sent with
+    ``tool_choice: "auto"``; empty sends neither key. Both default empty, so a
+    single-turn request is unchanged.
     """
 
     prompt: str
@@ -285,6 +304,8 @@ class Request:
     timeout_s: float = GENERATE_TIMEOUT_S
     quality_sensitive: bool = False
     response_schema: dict[str, Any] | None = None
+    turns: tuple[Mapping[str, Any], ...] = ()
+    tools: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if self.max_output_tokens is not None and self.max_output_tokens < 1:
@@ -295,6 +316,20 @@ class Request:
             )
         if self.timeout_s <= 0:
             raise ValueError(f"timeout_s must be positive, got {self.timeout_s}")
+        for index, turn in enumerate(self.turns):
+            role = turn.get("role") if isinstance(turn, Mapping) else None
+            if role == "system":
+                raise ValueError(
+                    f"turn {index} is a system turn; the system prompt is "
+                    f"Request.system, and a second one among the turns would "
+                    f"be a different request depending on which a server reads."
+                )
+            if role not in _TURN_ROLES:
+                raise ValueError(
+                    f"turn {index} is not a chat message with a role in "
+                    f"{sorted(_TURN_ROLES)}: {type(turn).__name__} with role "
+                    f"{role!r}"
+                )
 
 
 @dataclass(frozen=True)
@@ -635,10 +670,12 @@ class OpenAIRunner(Runner):
     honours_response_schema: ClassVar[bool] = True
 
     def _payload(self, model: str, request: Request) -> dict[str, Any]:
-        messages: list[dict[str, str]] = []
+        messages: list[Mapping[str, Any]] = []
         if request.system:
             messages.append({"role": "system", "content": request.system})
-        messages.append({"role": "user", "content": request.prompt})
+        messages.extend(request.turns)
+        if request.prompt or not request.turns:
+            messages.append({"role": "user", "content": request.prompt})
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -664,6 +701,11 @@ class OpenAIRunner(Runner):
                     "schema": request.response_schema,
                 },
             }
+        if request.tools:
+            # Both keys absent unless tools are on offer, so a single-turn
+            # request is the body it always was.
+            payload["tools"] = list(request.tools)
+            payload["tool_choice"] = "auto"
         return payload
 
     def _parse(self, document: dict[str, Any]) -> _Parsed:
