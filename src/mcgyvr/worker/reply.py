@@ -28,9 +28,10 @@ than stop sequences, bounds a reply precisely so that an over-long one arrives
 *named* rather than silently shortened; reading that name is this module's
 half of the bargain.
 
-**Only ``whole_file`` parses.** A contract declaring ``unified_diff`` is
-refused by name rather than parsed as if it were whole-file content, which
-would apply a patch's ``+``-prefixed body lines as source.
+**Only ``whole_file``, ``prose`` and ``media_artifact`` parse.** A contract
+declaring ``unified_diff`` is refused by name rather than parsed as if it were
+whole-file content, which would apply a patch's ``+``-prefixed body lines as
+source.
 
 **No stop sequences are derived here.** This parser is where the derivation
 would belong, since the sequence that terminates a reply and the sequence a
@@ -128,6 +129,8 @@ from mcgyvr.runner import StopReason
 # The shape this module implements. A contract declaring anything else is
 # refused rather than best-effort parsed.
 WHOLE_FILE = "whole_file"
+PROSE = "prose"
+MEDIA_ARTIFACT = "media_artifact"
 
 # The field a carrier object is assumed to hold the file in when the schema
 # does not say otherwise. It is local-ai's name for it and the one the bundles
@@ -325,11 +328,11 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
     does. Both are facts about the dispatch rather than about the text, and a
     second copy of them would be a second chance to disagree.
     """
-    if output_schema != WHOLE_FILE:
+    if output_schema not in (WHOLE_FILE, PROSE, MEDIA_ARTIFACT):
         return ReplyError(
             "unsupported-schema",
             f"output_schema {output_schema!r} has no parser; only "
-            f"{WHOLE_FILE!r} is implemented",
+            f"{WHOLE_FILE!r}, {PROSE!r} and {MEDIA_ARTIFACT!r} are implemented",
         )
     if stop_reason is not StopReason.COMPLETE:
         return ReplyError(
@@ -339,6 +342,16 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
             f"and still be missing its tail",
         )
     return None
+
+
+def _prose(text: str) -> str:
+    """The reply's raw text, line endings normalised; the raw-text answer.
+
+    Raw text is not a file: there is no fence to find, no carrier to open and
+    no refusal to judge. What the worker said is the answer — whether it is
+    complete is :func:`_unreadable`'s job, decided before this runs.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _refusal(target: str) -> ReplyError:
@@ -448,6 +461,11 @@ def parse_reply(
     structural rules, plus the one envelope rule that is right under either
     reading.
     """
+    unreadable = _unreadable(output_schema, stop_reason)
+    if unreadable is not None:
+        return unreadable
+    if output_schema in (PROSE, MEDIA_ARTIFACT):
+        return ParsedFile(content=_prose(text))
     parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
     if isinstance(parsed, ReplyError):
         if parsed.code == "no-fenced-block" and target is None:
@@ -514,6 +532,12 @@ def parse_pinned(
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
+    if output_schema in (PROSE, MEDIA_ARTIFACT):
+        # The same sibling short-circuit as parse_reply: a pinned schema never
+        # turns prose or a media-artifact request into a fence hunt. A caller
+        # that pins one asks for the reply's shape, not its kind — both are
+        # the raw text, schema or no.
+        return ParsedFile(content=_prose(text))
 
     field = _schema_field(response_schema)
     info = ""

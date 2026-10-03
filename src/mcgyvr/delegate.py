@@ -51,13 +51,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: silently never found.
 ORCHESTRATOR_ROLE = "orchestrator"
 
-#: How much room the orchestrator's reply is given. A decomposition is a JSON
-#: array of proposals — several short directives, not a file — and a cap that
-#: cuts a proposal in half costs the whole decomposition: nothing downstream
-#: can read half a JSON array. Generous enough for a handful of contracts,
-#: small enough that a runaway reply is still bounded.
-ORCHESTRATOR_OUTPUT_TOKENS = 4096
-
 #: The documented answer a keyless install gets. ``proposer_for`` returns
 #: ``None``; the CLI prints this and exits REFUSED, never a traceback.
 NO_ORCHESTRATOR_ROLE = (
@@ -321,7 +314,7 @@ def proposer_for(
     source_map: SourceMap,
     *,
     capacity: Capacity | None = None,
-    max_output_tokens: int = ORCHESTRATOR_OUTPUT_TOKENS,
+    max_output_tokens: int | None = None,
 ) -> Proposer | None:
     """The install's orchestrator role as a :class:`Proposer`, or ``None``.
 
@@ -332,6 +325,11 @@ def proposer_for(
     verifier's is not — a proposal is work, and refusing a caveated backend
     would turn the ordinary local install into one with no orchestrator at all
     while telling the operator nothing.
+
+    ``max_output_tokens`` is ``None`` (uncapped) by default: the ruling is
+    that the orchestrator carries no output cap — a chatty model is a
+    prompting/model issue, not a cap issue. A caller that still wants a bound
+    on a decomposition may pass one.
     """
     if source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None

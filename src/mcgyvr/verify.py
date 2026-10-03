@@ -128,16 +128,6 @@ VERIFIER_ROLE = "verifier"
 #: A hosted rung costs money per request, so review spends it only where
 #: ``verifier.unit`` says to.
 LOCAL_FAMILY = "local"
-
-#: What a review is allowed to write. The protocol is one token and brief notes,
-#: so a large ceiling buys an essay nobody reads. A review that reaches it is
-#: unusable rather than read: the verdict is the first word, but the notes the
-#: cap cut off may be what the verdict was conditional on.
-#: :class:`~mcgyvr.runner.Request` refuses an uncapped dispatch outright, so
-#: this is a number someone had to choose rather than a default inherited from a
-#: backend.
-REVIEW_OUTPUT_TOKENS = 512
-
 #: What the reviewer is asked, given the prompt. One string in, one string out:
 #: everything about *where* it runs is the seam's business, which is what lets
 #: every rule in this module be asserted without a backend.
@@ -780,7 +770,7 @@ def reviewer_for(
     source_map: SourceMap,
     *,
     capacity: Capacity | None = None,
-    max_output_tokens: int = REVIEW_OUTPUT_TOKENS,
+    max_output_tokens: int | None = None,
 ) -> Ask | None:
     """The install's verifier role as something :func:`verify` can ask, or ``None``.
 
@@ -796,6 +786,11 @@ def reviewer_for(
     quality-caveated backend outright (CAV-01); a review is work, and refusing
     would turn the ordinary local install into one with no verifier at all
     while telling the operator nothing.
+
+    ``max_output_tokens`` is ``None`` (uncapped) by default: the ruling is
+    that the orchestrator/verifier dispatches carry no output cap — a chatty
+    model is a prompting/model issue, not a cap issue. The verdict is still
+    the first word of the reply, so an uncapped review cannot hide it.
     """
     # ``role_model`` rather than ``role``: this is a presence check, and a
     # ``RoleBinding`` would hand this module an endpoint and its
@@ -823,15 +818,16 @@ def reviewer_for(
 def _review_text(completion: Completion, who: str) -> str:
     """The text of a review, or :class:`ReviewTruncatedError` for one that was cut.
 
-    The cap is :data:`REVIEW_OUTPUT_TOKENS`, and a review that reached it is not
-    read at all: ``APPROVE`` followed by notes the cap cut off is an approval
-    whose conditions nobody saw. Raised rather than returned, so it lands where
-    every other reviewer-side failure does — unusable, never the builder's.
+    The verifier carries no output cap (the ruling: a chatty model is a
+    prompting issue, not a cap issue), but a backend can still stop a review at
+    its own limit, and a review that stopped is not read at all: ``APPROVE``
+    followed by notes the stop cut off is an approval whose conditions nobody
+    saw. Raised rather than returned, so it lands where every other
+    reviewer-side failure does — unusable, never the builder's.
     """
     if completion.truncated:
         raise ReviewTruncatedError(
-            f"the review from {who} stopped at its output cap of "
-            f"{completion.max_output_tokens} tokens, so its verdict is not read"
+            f"the review from {who} was cut short, so its verdict is not read"
         )
     return completion.text
 
@@ -985,7 +981,7 @@ def _on_rung(
         completion = dispatch(
             source_map,
             rung,
-            Request(prompt=prompt, max_output_tokens=REVIEW_OUTPUT_TOKENS),
+            Request(prompt=prompt, max_output_tokens=None),
             capacity=capacity,
         )
         return _review_text(completion, f"rung {rung!r}")

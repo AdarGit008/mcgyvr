@@ -103,6 +103,36 @@ def test_the_generated_file_loads_without_edits(tmp_path: Path, label: str) -> N
     assert "version" not in config.data
 
 
+def test_init_writes_the_use_case_and_its_deployment_default(tmp_path: Path) -> None:
+    """The install's two choices are stated in the file, not left to the schema."""
+    initialize(tmp_path / "setup", detection=KEYLESS_RIG)
+    config = load_config(tmp_path / "setup")
+    assert config.use_case == "coding"
+    assert config.deployment == "hybrid"
+    assert config.provisions_local_orchestrator is False
+
+
+def test_chat_defaults_to_local_only_and_an_explicit_deployment_wins(
+    tmp_path: Path,
+) -> None:
+    initialize(tmp_path / "chat", detection=KEYLESS_RIG, use_case="chat")
+    chat = load_config(tmp_path / "chat")
+    assert chat.use_case == "chat"
+    assert chat.deployment == "local-only"
+    assert chat.provisions_local_orchestrator is False  # chat needs no orchestrator
+
+    initialize(
+        tmp_path / "agent",
+        detection=KEYLESS_RIG,
+        use_case="agent",
+        deployment="local-only",
+    )
+    agent = load_config(tmp_path / "agent")
+    assert agent.use_case == "agent"
+    assert agent.deployment == "local-only"
+    assert agent.provisions_local_orchestrator is True
+
+
 def test_a_machine_with_no_backend_refuses_rather_than_writing(tmp_path: Path) -> None:
     """No GPU, no backend, nothing to dispatch to.
 
