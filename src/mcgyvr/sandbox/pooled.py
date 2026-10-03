@@ -461,13 +461,14 @@ class HeadSpec:
     gpus: tuple[int, ...]  # the vendor's own indexes, in bus order
     models_dir: Path
     model: str  # the file, relative to ``models_dir``
-    ctx: int
+    ctx: int  # the context of one slot
     n_gpu_layers: int
     devices: tuple[str, ...]  # the engine's device names, in the hub's order
     tensor_split: tuple[int, ...]
     rpc: tuple[str, ...]  # ``address:port`` of each worker, RPC0 first
     bind: str  # the namespace's bridge address, where the published port lands
     memory_mb: int
+    slots: int = 1  # how many requests it serves at once, each with ``ctx``
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -623,7 +624,15 @@ def worker_argv(spec: WorkerSpec, owner: Owner) -> list[str]:
 
 def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     """``docker run`` of the session's model server, without the leading
-    ``docker``."""
+    ``docker``.
+
+    It serves ``spec.slots`` requests at once, each slot with ``spec.ctx`` of
+    context of its own: ``-np`` slots and ``-c`` slots times ``ctx``, which the
+    engine divides between them. ``-np`` is always given, since the engine
+    shares one cache among every slot when it picks the count itself, and a
+    shared cache that fills fails every request it holds. ``-dev`` and
+    ``-ts`` are in the hub's order, unchanged: the last device holds the
+    output layer."""
     argv = [
         "run",
         "--detach",
@@ -654,9 +663,9 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         "-sm",
         "layer",
         "-np",
-        "1",
+        str(spec.slots),
         "-c",
-        str(spec.ctx),
+        str(spec.slots * spec.ctx),
         "-fa",
         "on",
         "-ctk",
