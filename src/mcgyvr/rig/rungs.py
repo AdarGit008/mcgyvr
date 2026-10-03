@@ -1,8 +1,9 @@
 """The relief rungs a hub matched this rider to, kept in ``relief.yaml``.
 
 A hub matches a rider to other people's open slots (hitchhike) and lists them
-at ``GET /api/v1/me/rungs``. :func:`sync` asks for that list with the rider's
-*personal* key — not the rig token — and writes it whole into ``relief.yaml``
+at ``/api/v1/me/rungs``. :func:`sync` ``POST``s the rider's ladder there
+(:func:`ladder_report`) and reads the list back, with the rider's *personal*
+key — not the rig token — and writes it whole into ``relief.yaml``
 beside the setup (:data:`mcgyvr.config.RELIEF_FILENAME`): one relief rung per
 listed rung, so a rung the hub no longer lists is gone, and nothing else in the
 setup is touched. Each rung names the variable that holds the key
@@ -15,6 +16,15 @@ every unit's.
 would carry the key to an address nobody checked. Every address a rung names is
 held to the same rule and must be the hub's own (scheme, host and port), since
 the key is sent there with every ride.
+
+**The rider reports their ladder, and only its shape.** The hub places each
+host's model against the rider's own (above their ceiling, below their floor,
+or within) from the model rungs in the order work climbs them, each with its
+family, the weights file's size and the parameter count where the product
+knows them (a unit's geometry scan, else the shipped capability table for the
+count), and ``floor`` and ``ceiling``: the rung work starts on and the highest
+one ``max_escalations`` lets it reach. No address, key or variable name is in
+it, and no relief rung; it is checked against the contract before it is sent.
 
 **The answer is hostile until read.** :func:`read` checks every field the
 contract names — its type, its size, the model's pattern and that it names its
@@ -57,7 +67,9 @@ from mcgyvr.config import (
     POLICY_FILENAME,
     POSITION_CHOICES,
     RELIEF_FILENAME,
+    Config,
     ConfigError,
+    Unit,
     config_path,
     parse,
 )
@@ -85,6 +97,10 @@ MAX_ADDRESS = 2048
 MAX_RUNG_WIDTH = 1024
 #: A relief rung's name in ``relief.yaml``: this prefix and the rung's id.
 NAME_PREFIX = "hitchhike-"
+#: The most rungs a reported ladder may hold, as the hub takes it.
+MAX_LADDER_RUNGS = 64
+#: A reported rung's model, as the hub takes it.
+_LADDER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@/:-]{0,127}")
 #: How long the agent's refresher waits after a sync that failed, in seconds:
 #: the hub's own re-match interval in the contract's example.
 RETRY_S = 60.0
@@ -159,8 +175,97 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def fetch(hub: str, key: str, *, timeout: float = FETCH_TIMEOUT_S) -> Rides:
-    """Ask the hub at ``hub`` for this rider's rungs, with ``key``, and read them.
+def ladder_report(config: Config) -> dict[str, Any]:
+    """The rider's ladder as the hub is told it: ``{"ladder": {...}}``.
+
+    The model rungs of ``config``'s ladder in the order work climbs them —
+    families by the catalog's rank, the ladder's own order within each, which
+    is the ladder's written order whenever it is written cheapest first — and
+    the floor and ceiling as indexes into them. Relief rungs are not in it.
+    :class:`SyncError` for a ladder the contract cannot carry, so nothing is
+    sent that the hub would refuse.
+    """
+    from mcgyvr.catalog import catalog
+    from mcgyvr.escalate import Ceiling
+
+    known = catalog()
+    units = [config.units[name] for name in config.ladder.names]
+    climbing = sorted(units, key=lambda unit: known.family_of(unit).rank)
+    if not 1 <= len(climbing) <= MAX_LADDER_RUNGS:
+        raise SyncError(
+            f"the ladder cannot be reported: it has {len(climbing)} rungs, and "
+            f"the hub takes 1 to {MAX_LADDER_RUNGS}"
+        )
+    rungs = []
+    for unit in climbing:
+        if not _LADDER_MODEL.fullmatch(unit.model):
+            raise SyncError(
+                f"the ladder cannot be reported: unit {unit.name!r} serves "
+                f"{unit.model!r}, which is outside the hub's model pattern"
+            )
+        size, params = _what_is_known(unit)
+        rungs.append(
+            {
+                "model": unit.model,
+                "family": known.family_of(unit).name,
+                "size_bytes": size,
+                "params_b": params,
+            }
+        )
+    lowest = min(kind.starts_on.rank for kind in known.task_types)
+    floor = next(
+        index
+        for index, unit in enumerate(climbing)
+        if known.family_of(unit).rank >= lowest
+    )
+    reach = min(len(climbing) - floor, Ceiling.of(config).escalations + 1)
+    return {"ladder": {"rungs": rungs, "floor": floor, "ceiling": floor + reach - 1}}
+
+
+def _what_is_known(unit: Unit) -> tuple[int | None, float | None]:
+    """The weights file's size and the parameter count in billions, or ``None``.
+
+    Read from the unit's geometry scan (``launch.geometry_json``) where it names
+    one that reads; the count otherwise from the shipped capability table by
+    the unit's model. Anything that does not read is not known: a report says
+    ``null`` rather than guess.
+    """
+    size: int | None = None
+    params: float | None = None
+    stated = unit.launch.get("geometry_json") if unit.launch else None
+    if stated:
+        from mcgyvr.serving import UnitError, load_geometry
+
+        try:
+            row = load_geometry(str(stated), name=unit.model)
+        except UnitError:
+            row = {}
+        scanned = row.get("size_bytes")
+        if isinstance(scanned, int) and not isinstance(scanned, bool) and scanned >= 1:
+            size = scanned
+        total = row.get("params_total")
+        if isinstance(total, int | float) and not isinstance(total, bool) and total > 0:
+            params = total / 1e9
+    if params is None:
+        from mcgyvr.capability import CapabilityTableError, load
+
+        try:
+            listed = load().get(unit.model)
+        except CapabilityTableError:
+            listed = None
+        if listed is not None and listed.params_b > 0:
+            params = listed.params_b
+    return size, params
+
+
+def fetch(
+    hub: str,
+    key: str,
+    report: Mapping[str, Any],
+    *,
+    timeout: float = FETCH_TIMEOUT_S,
+) -> Rides:
+    """Report ``report`` to the hub at ``hub`` with ``key``, and read its rungs.
 
     :class:`HubAnswerError` for an error status (the hub's refusal) and for an
     answer :func:`read` refuses; :class:`SyncError` when the hub cannot be
@@ -169,8 +274,13 @@ def fetch(hub: str, key: str, *, timeout: float = FETCH_TIMEOUT_S) -> Rides:
     url = rungs_url(hub)
     request = urllib.request.Request(
         url,
-        headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
-        method="GET",
+        data=json.dumps(report).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        method="POST",
     )
     opener = urllib.request.build_opener(_NoRedirect)
     try:
@@ -344,7 +454,13 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
             f"no {FLEET_FILENAME} in {folder}: a sync keeps relief rungs beside a "
             "setup, and there is none here"
         )
-    rides = fetch(hub, key)
+    try:
+        own = parse(
+            _read_text(fleet), _read_text(folder / POLICY_FILENAME), path=folder
+        )
+    except ConfigError as exc:
+        raise SyncError(f"the setup in {folder} does not load: {exc}") from exc
+    rides = fetch(hub, key, ladder_report(own))
     text = render(rides, key_env)
     try:
         parse(

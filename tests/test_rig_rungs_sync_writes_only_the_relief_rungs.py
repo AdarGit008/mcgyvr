@@ -1,7 +1,10 @@
 """``mcgyvr rig rungs sync`` keeps the hub's relief rungs, and touches nothing else.
 
 The hub matches this rider to other people's open slots (hitchhike) and lists
-them at ``GET /api/v1/me/rungs``. The sync asks with the rider's *personal*
+them at ``/api/v1/me/rungs``; the sync ``POST``s the rider's ladder there (what
+it holds is the business of
+``tests/test_a_sync_reports_the_riders_ladder_and_nothing_else.py``) and reads
+the same listing back. The sync asks with the rider's *personal*
 key — read from a variable whose NAME it is told (``MCGYVR_HUB_API_KEY`` when
 it is told none), never the rig token, never printed and never written — and
 writes the answer whole into ``relief.yaml`` beside the setup: one relief rung
@@ -109,9 +112,15 @@ class Hub:
 @contextlib.contextmanager
 def serving(hub: Hub) -> Iterator[Hub]:
     class _Hub(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length") or 0)
             hub.asked.append(
-                {"path": self.path, "authorization": self.headers.get("Authorization")}
+                {
+                    "path": self.path,
+                    "authorization": self.headers.get("Authorization"),
+                    "content_type": self.headers.get("Content-Type"),
+                    "body": self.rfile.read(length),
+                }
             )
             self.send_response(hub.status)
             self.send_header("Content-Type", "application/json")

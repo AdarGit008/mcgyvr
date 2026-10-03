@@ -959,6 +959,11 @@
       "says": "The largest answer, in bytes, a sync reads from a hub's list of relief rungs; a larger one is refused.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "rig/rungs.py:MAX_LADDER_RUNGS": {
+      "kind": "fact",
+      "says": "The most rungs the hub takes in a rider's reported ladder; a ladder of more is not sent.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/rungs.py:MAX_PRIVACY": {
       "kind": "choice",
       "says": "The longest privacy warning, in characters, a sync reads from a hub and shows; a longer one is refused.",
