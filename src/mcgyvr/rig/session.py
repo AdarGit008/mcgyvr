@@ -128,12 +128,15 @@ DIGEST_CHUNK = 1 << 22
 HEALTH_TIMEOUT_S = 2.0
 #: How many times teardown looks again for what is left of a session.
 TEARDOWN_ROUNDS = 3
+#: The feature a rig that shares units with riders speaks: it advertises them
+#: (``unit_advert``) and serves rides to them (:mod:`mcgyvr.rig.hitchhike`).
+HITCHHIKE_FEATURE = "hitchhike_units"
 #: The optional behaviours of the hub's protocol this agent speaks while it
 #: lends: the latency probe (:mod:`mcgyvr.rig.probe`), the traversal of a
 #: session's tunnel through the rigs' NATs (``tunnel_up`` is answered
-#: ``tunnel_report``), and a head of several slots (``head_start``'s
-#: ``slots``; :func:`mcgyvr.sandbox.pooled.head_argv`).
-FEATURES = ("probe", "traversal", "head_slots")
+#: ``tunnel_report``), a head of several slots (``head_start``'s ``slots``;
+#: :func:`mcgyvr.sandbox.pooled.head_argv`), and the shared units.
+FEATURES = ("probe", "traversal", "head_slots", HITCHHIKE_FEATURE)
 #: The tunnel port's binding requests to the hub's responders: how long each
 #: round waits, in milliseconds; then one request each this many seconds
 #: until the tunnel comes up, for at most this long.
@@ -1593,11 +1596,28 @@ def offer(
     held: inventory.Inventory,
     hosts: Sequence[str],
     running: tuple[str, ...],
+    *,
+    shares_units: bool = False,
 ) -> protocol.Offer | None:
-    """What a hello says this rig lends, or ``None`` when it lends nothing."""
+    """What a hello says this rig lends, or ``None`` when it lends nothing.
+
+    A rig that lends no session but shares units with riders
+    (``shares_units``, :mod:`mcgyvr.rig.hitchhike`) offers no role and speaks
+    the one feature that says so, so the hub takes its adverts and sends it
+    nothing else.
+    """
     roles = share.offered_roles()
     if not roles:
-        return None
+        if not shares_units:
+            return None
+        return protocol.Offer(
+            roles=(),
+            runtime=None,
+            endpoints=(),
+            models=(),
+            sessions=running,
+            features=(HITCHHIKE_FEATURE,),
+        )
     return protocol.Offer(
         roles=roles,
         runtime=share.image,

@@ -87,6 +87,7 @@
     "rig/commands.py": "holds no number that sizes or judges",
     "rig/credentials.py": "judging",
     "rig/hardware.py": "judging",
+    "rig/hitchhike.py": "judging",
     "rig/inventory.py": "judging",
     "rig/outbox.py": "judging",
     "rig/probe.py": "judging",

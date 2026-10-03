@@ -744,6 +744,21 @@
       "says": "How long, in seconds, the machine reader takes on this machine, its card tools included; past it the machine is not reported to the hub.",
       "moves_to": "machine_read_timeout_s"
     },
+    "rig/hitchhike.py:CHECK_GAP_S": {
+      "kind": "fact",
+      "says": "The soonest, in seconds, a check of the units a host shares with riders follows the one before, so an advert goes at most once a second, as the hub's agent protocol asks.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/hitchhike.py:_DIGEST_DIGITS": {
+      "kind": "choice",
+      "says": "How many hex digits of a unit name's digest the id of a shared unit carries when the name cannot be the id.",
+      "reason": "a code or version other programs or files read"
+    },
+    "rig/hitchhike.py:_MAX_ID": {
+      "kind": "fact",
+      "says": "The longest id, in characters, the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/inventory.py:MAX_DEPTH": {
       "kind": "choice",
       "says": "How many folders deep under the owner's models folder a rig agent looks for model files.",

@@ -139,6 +139,7 @@ def run_agent(kept: Credentials) -> int:
         commands,
         credentials,
         hardware,
+        hitchhike,
         inventory,
         outbox,
         probe,
@@ -267,20 +268,40 @@ def run_agent(kept: Credentials) -> int:
             file=sys.stderr,
         )
 
+    # The units this host shares with riders (hitchhike), read from its own
+    # setup: advertised once the hello is acked, then kept fresh on the
+    # heartbeat and a ticker of their own.
+    units = hitchhike.Units(send=box.put)
+    if units.shares():
+        print("hitchhike: sharing units of this setup with riders", file=sys.stderr)
+
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
-        return session.offer(share, models(), hosts, sessions.running())
+        return session.offer(
+            share, models(), hosts, sessions.running(), shares_units=units.shares()
+        )
+
+    def online() -> None:
+        sessions.online()
+        units.online()
 
     def offline() -> None:
         relays.cancel_all()
         probes.close()
         sessions.offline()
+        units.offline()
 
     def on_exit() -> None:
         relays.cancel_all()
         probes.close()
         sessions.close()
+        units.close()
+
+    def beat() -> None:
+        if refresher is not None:
+            refresher.tick()
+        units.soon()
 
     running = agent.Agent(
         connect=connect,
@@ -290,12 +311,12 @@ def run_agent(kept: Credentials) -> int:
         dispatcher=dispatcher,
         outbox=box,
         offer=offer,
-        on_online=sessions.online,
+        on_online=online,
         on_offline=offline,
         on_exit=on_exit,
         hurry=sessions.waiting,
         on_hub_error=sessions.hub_error,
-        on_beat=refresher.tick if refresher is not None else None,
+        on_beat=beat,
     )
     sessions.on_end(lambda ended: running.beat_soon())
 
@@ -317,6 +338,7 @@ def run_agent(kept: Credentials) -> int:
     previous = {
         sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGHUP)
     }
+    units.run_ticker()
     try:
         ended = running.run()
     finally:
