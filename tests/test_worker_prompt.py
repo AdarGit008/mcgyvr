@@ -107,9 +107,9 @@ def test_the_js_bundle_states_its_null_result_in_the_file_but_not_in_the_prompt(
 # --- the ceiling is enforced, not documented -------------------------------
 
 
-@pytest.mark.parametrize("language", ["python", "js/ts"])
-def test_shipped_bundles_are_within_the_measured_ceiling(language: str) -> None:
-    assert load_bundle(language).size_bytes <= MAX_BUNDLE_BYTES
+@pytest.mark.parametrize("key", ["python", "js/ts", "agent", "media-gen"])
+def test_shipped_bundles_are_within_the_measured_ceiling(key: str) -> None:
+    assert load_bundle(key).size_bytes <= MAX_BUNDLE_BYTES
 
 
 def test_an_oversized_bundle_is_refused_by_the_loader(
@@ -143,14 +143,14 @@ def test_an_unregistered_language_raises_rather_than_substituting() -> None:
 
 
 def test_bundle_is_selected_by_the_adapter_that_owns_the_target() -> None:
-    assert bundle_for("src/pkg/fetch.py").language == "python"  # type: ignore[union-attr]
-    assert bundle_for("src/pkg/fetch.ts").language == "js/ts"  # type: ignore[union-attr]
+    assert bundle_for("coding", "src/pkg/fetch.py").key == "python"  # type: ignore[union-attr]
+    assert bundle_for("coding", "src/pkg/fetch.ts").key == "js/ts"  # type: ignore[union-attr]
 
 
-def test_a_target_no_adapter_owns_gets_no_bundle() -> None:
+def test_a_coding_target_no_adapter_owns_gets_no_bundle() -> None:
     """None is a real answer: another language's standards are worse than none."""
-    assert bundle_for("README.md") is None
-    assert bundle_for("main.go") is None
+    assert bundle_for("coding", "README.md") is None
+    assert bundle_for("coding", "main.go") is None
 
 
 def test_a_custom_adapter_set_is_honoured() -> None:
@@ -158,7 +158,26 @@ def test_a_custom_adapter_set_is_honoured() -> None:
     from mcgyvr.gate.adapters import JavaScriptAdapter
 
     adapters: list[LanguageAdapter] = [JavaScriptAdapter()]
-    assert bundle_for("src/pkg/fetch.py", adapters) is None
+    assert bundle_for("coding", "src/pkg/fetch.py", adapters) is None
+
+
+def test_agent_and_media_gen_carry_one_bundle_each_unmeasured() -> None:
+    agent = bundle_for("agent")
+    media = bundle_for("media-gen")
+    assert agent is not None and agent.key == "agent"
+    assert media is not None and media.key == "media-gen"
+    assert agent.standing is BundleStanding.UNMEASURED
+    assert media.standing is BundleStanding.UNMEASURED
+    assert agent.measured is False and media.measured is False
+
+
+def test_chat_gets_no_bundle() -> None:
+    """Chat is a raw un-gated endpoint; a system prompt would bias a pass-through."""
+    assert bundle_for("chat") is None
+
+
+def test_an_unknown_use_case_gets_no_bundle() -> None:
+    assert bundle_for("teleportation") is None
 
 
 # --- the worker-view boundary ----------------------------------------------
