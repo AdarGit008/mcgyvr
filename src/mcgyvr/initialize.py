@@ -43,7 +43,9 @@ from mcgyvr.config import (
     JOURNAL_FIELDS,
     LOCAL_ONLY,
     POLICY_FILENAME,
+    SANDBOX_FIELDS,
     SCHEMA,
+    VERIFIER_UNIT_FIELDS,
     Config,
     ConfigError,
     Field,
@@ -382,9 +384,13 @@ def _comment(text: str, indent: int) -> list[str]:
     return [f"{pad}# {line}" for line in textwrap.wrap(text, width=width)]
 
 
-def _render_leaf(spec: Field, value: Any, indent: int) -> list[str]:
+def _render_leaf(spec: Field, value: Any, indent: int, note: str = "") -> list[str]:
     pad = " " * indent
     lines = _comment(spec.doc, indent)
+    if note:
+        # What init decided for this key on this machine, beside the key, so
+        # the file says why it holds this value and how to change it.
+        lines.extend(_comment(note, indent))
     if value is None or value == []:
         # Unset and optional. Shown commented so the key is discoverable
         # without being bound to a value nobody chose.
@@ -400,7 +406,11 @@ def _render_leaf(spec: Field, value: Any, indent: int) -> list[str]:
 
 
 def _render_fields(
-    fields: Sequence[Field], data: Mapping[str, Any], indent: int
+    fields: Sequence[Field],
+    data: Mapping[str, Any],
+    indent: int,
+    notes: Mapping[str, str] | None = None,
+    prefix: str = "",
 ) -> list[str]:
     lines: list[str] = []
     for spec in fields:
@@ -408,7 +418,11 @@ def _render_fields(
         if spec.kind == "block":
             lines.extend(_comment(spec.doc, indent))
             lines.append(f"{' ' * indent}{spec.name}:")
-            lines.extend(_render_fields(spec.block, value or {}, indent + 2))
+            lines.extend(
+                _render_fields(
+                    spec.block, value or {}, indent + 2, notes, f"{prefix}{spec.name}."
+                )
+            )
         elif spec.kind == "block_map":
             lines.extend(_comment(spec.doc, indent))
             lines.append(f"{' ' * indent}{spec.name}:")
@@ -421,7 +435,8 @@ def _render_fields(
             for item in value or []:
                 lines.extend(_render_list_item(spec.block, item, indent + 2))
         else:
-            lines.extend(_render_leaf(spec, value, indent))
+            note = (notes or {}).get(f"{prefix}{spec.name}", "")
+            lines.extend(_render_leaf(spec, value, indent, note))
         lines.append("")
     return lines
 
@@ -480,11 +495,34 @@ def render_fleet(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def render_policy(data: Mapping[str, Any]) -> str:
-    """Render ``policy.yaml``: the ladder and the policy over it."""
+#: Written beside ``sandbox.mode`` when init found no Docker daemon to run on.
+NO_DAEMON_MODE_NOTE = (
+    "No Docker daemon answered when init ran, so this is `tempdir`: the "
+    "explicitly weaker mode, in which a contract's acceptance commands run on "
+    "this machine rather than in a container. Once Docker runs here, set "
+    "`mode: docker` to run each task in its own container."
+)
+
+
+def render_policy(
+    data: Mapping[str, Any], notes: Mapping[str, str] | None = None
+) -> str:
+    """Render ``policy.yaml``: the ladder and the policy over it.
+
+    ``notes`` maps a dotted key to what init decided about it on this machine,
+    written as a comment beside the key.
+    """
     lines = _header(POLICY_FILENAME)
-    lines.extend(_render_fields(POLICY_FIELDS, data, 0))
+    lines.extend(_render_fields(POLICY_FIELDS, data, 0, notes))
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, str]:
+    """The decisions said beside their keys: a ``tempdir`` chosen for no daemon."""
+    mode = (data.get("sandbox") or {}).get("mode")
+    if not detection.docker and mode == "tempdir":
+        return {"sandbox.mode": NO_DAEMON_MODE_NOTE}
+    return {}
 
 
 def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
@@ -593,9 +631,19 @@ def build(
         + [api.name for api in api_units],
         "fanout": "none",
         "orchestrator": {"unit": None, "model": None},
-        "verifier": {"enabled": False, "unit": None, "model": None},
+        # Written at its default — on — with no unit: the reviewer of each
+        # rung's work is then the next dearer local rung serving another model.
+        "verifier": {
+            **_defaults(VERIFIER_UNIT_FIELDS, "enabled"),
+            "unit": None,
+            "model": None,
+        },
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
+            # Written at their defaults, each under the comment that names the
+            # other choice: what a run does with no daemon, and the network a
+            # task container reaches, are worth seeing before they matter.
+            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network"),
             "image": None,
             "setup": [],
         },
@@ -701,16 +749,20 @@ def _limits(
         limits.append(
             f"Hosted units are bound and every dispatch to one spends money: "
             f"{named}. Each needs its variable exported — `mcgyvr pool` skips "
-            f"a rung whose variable is unset and says so. `orchestrator` and "
-            f"`verifier` are still unbound; bind them and set "
-            f"`verifier.enabled: true` to spend a hosted unit on those too."
+            f"a rung whose variable is unset and says so. Review is on and "
+            f"picks the next dearer local rung with another model; a hosted "
+            f"unit never reviews on its own, and reviews — spending money on "
+            f"every review — only when `verifier.unit` names it. Work with no "
+            f"such local rung above it is accepted and labelled unverified. "
+            f"`orchestrator` is still unbound."
         )
     else:
         limits.append(
             "No API provider is configured. This is a supported install: the "
-            "deterministic gate is the acceptance bar, and verification is off "
-            "rather than on-and-unbound. Bind `orchestrator` and set "
-            "`verifier.enabled: true` once you have a key."
+            "deterministic gate is the acceptance bar, and each rung's work is "
+            "reviewed by the next dearer local rung serving another model; work with "
+            "no such rung above it is accepted and labelled unverified. Bind "
+            "`orchestrator` once you have a key."
         )
     if not detection.docker:
         limits.append(
@@ -933,7 +985,7 @@ def initialize(
         )
     limits = _limits(found, proposal, asked) + compose_limits
     fleet_content = render_fleet(data, decisions)
-    policy_content = render_policy(data)
+    policy_content = render_policy(data, _policy_notes(found, data))
 
     # Parse our own output before anything is written. It normalizes the
     # proposal the same way a loaded config is normalized, and it makes it

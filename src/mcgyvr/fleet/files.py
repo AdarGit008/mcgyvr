@@ -75,6 +75,7 @@ _POLICY_KEYS = frozenset(
         "sandbox",
         "delivery",
         "serving",
+        "manager",
         "journal",
     }
 )

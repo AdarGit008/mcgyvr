@@ -40,6 +40,42 @@
         "llama.cpp": 1.53
       },
       "note": "A starting value, not a reading of your machine. It may differ with the model and the context size."
+    },
+    "link_gib_s": {
+      "kind": "estimate",
+      "estimates": "How much data, in GiB per second, a link of this class carries between two cards: the usable rate of the bus between two cards in one machine, or of the network between two machines.",
+      "used_for": "Priced into the traffic between the shards of a model split across cards: the time a split spends moving data between its shards is the size of that data over this rate, plus the latency of each crossing. The first reading of your own link replaces it.",
+      "unit": "GiB/s",
+      "key": "link_class",
+      "values": {
+        "pcie": 12.0,
+        "network": 0.11
+      },
+      "note": "A starting value, not a reading of your machine. It is taken from the published rate of a class of link (a PCIe 3.0 x16 bus, and one gigabit Ethernet), and your link may be faster or slower. The first reading of your own link replaces it, and you can set your own value in numbers.yaml before then."
+    },
+    "link_latency_us": {
+      "kind": "estimate",
+      "estimates": "How long, in microseconds, a small message takes to cross a link of this class between two cards: the fixed cost of a transfer, however small.",
+      "used_for": "Added to each crossing between the shards of a model split across cards, so a split that sends many small messages is priced by the number of its crossings and not only by their size. The first reading of your own link replaces it.",
+      "unit": "microseconds",
+      "key": "link_class",
+      "values": {
+        "pcie": 10.0,
+        "network": 200.0
+      },
+      "note": "A starting value, not a reading of your machine. The latency of a link depends on its hardware, its driver and what else uses it. The first reading of your own link replaces it, and you can set your own value in numbers.yaml before then."
+    },
+    "shard_allowance_gib": {
+      "kind": "estimate",
+      "estimates": "Card memory, in GiB, that each card of a tensor split holds beyond its share of the weights and its cache: its CUDA context, compute scratch, and the buffers its all-reduces go through. For vLLM, each rank of any split; for llama.cpp, each card of its --split-mode tensor.",
+      "used_for": "Added to the weights and cache of each shard of a vLLM unit split across cards, and of each card of a llama.cpp unit under --split-mode tensor, when the shard's card room is sized. A llama.cpp layer split charges the single-card allowance instead.",
+      "unit": "GiB",
+      "key": "engine",
+      "values": {
+        "vllm": 1.5,
+        "llama.cpp": 1.0
+      },
+      "note": "A starting value, not a reading of your machine. It may differ with the model, the context size, the batch, the engine version and the width of the split. llama.cpp's is its single-card scratch and context bound (768 MiB) with room for the meta device's reduction buffers. Set your own value in numbers.yaml when your own reading of a card's memory differs."
     }
   },
   "constants": {
@@ -258,6 +294,11 @@
       "says": "How long, in seconds, a unit takes to read its weights and take its card, which depends on the disk and the model; the container runtime does not call a unit unhealthy before this.",
       "moves_to": "unit_load_time_s"
     },
+    "emit.py:_locked_service(cards)": {
+      "kind": "choice",
+      "says": "The card a locked unit reserves when its caller names none: card 0, the one a locked unit that names no card in launch.shards has always reserved.",
+      "reason": "what a caller that names none gets; the product's callers name one"
+    },
     "escalate.py:Judgement.draw": {
       "kind": "fact",
       "says": "A verdict that names no draw is about the first, and draws are numbered from zero.",
@@ -368,6 +409,16 @@
       "says": "How many tokens the warm-up request of a probe generates before any sample is taken.",
       "reason": "the method a stored reading was made with"
     },
+    "fleet/linkread.py:DOOR_WAIT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a link run through the door takes past the timer's own bound to start and reach the rig; one slower than this is ended and its link not read.",
+      "moves_to": "link_run_timeout_s"
+    },
+    "fleet/linkread.py:MOST_TRANSFERS": {
+      "kind": "choice",
+      "says": "How many timed transfers a link timer's answer is read for; a longer answer is refused as no reading.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
     "fleet/machine.py:NAME_MAX": {
       "kind": "choice",
       "says": "The longest card or process name, in characters, a machine reading takes; a longer one is left empty and named unread.",
@@ -457,6 +508,11 @@
       "kind": "choice",
       "says": "The width comments in a written setup file are wrapped to.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "ladder_manager.py:_Streak.count": {
+      "kind": "fact",
+      "says": "A run of identical answers from the ladder manager's model starts at none.",
+      "reason": "where a count starts"
     },
     "orchestrator/cache.py:CACHE_VERSION": {
       "kind": "choice",
@@ -744,6 +800,11 @@
       "says": "Host memory, in GiB, that must stay clear past the experts a model keeps on the host for decode to hold; with less, the model is refused on that host.",
       "moves_to": "refusal_ram_headroom_gib"
     },
+    "serving/__init__.py:RPC_DEFAULT_PORT": {
+      "kind": "fact",
+      "says": "The port llama.cpp's rpc-server listens on when nothing tells it otherwise; the first worker port of a split unless launch.rpc_port names another.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "serving/__init__.py:SIZE_TOLERANCE_GB": {
       "kind": "fact",
       "says": "How far a stated file size may sit from the scanned one and still be the same figure written to two decimals.",
@@ -760,6 +821,11 @@
       "set_by": "config units.width",
       "moves_to": "default_parallel_sequences"
     },
+    "serving/__init__.py:VLLM_MASTER_PORT": {
+      "kind": "fact",
+      "says": "The rendezvous port vLLM's multi-node launch uses when nothing tells it otherwise; launch.master_port names another.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "serving/__init__.py:_BYTES_PER_GIB": {
       "kind": "fact",
       "says": "How many bytes make one GiB.",
@@ -769,6 +835,11 @@
       "kind": "fact",
       "says": "A placement that declares no prediction head charges none for it.",
       "reason": "a definition or arithmetic"
+    },
+    "serving/gate-scripts/link-01-time.py:TIMER": {
+      "kind": "fact",
+      "says": "Where the link timer sits: beside the door that ships it, one folder up from the gate.",
+      "reason": "the layout of the package or its checkout"
     },
     "serving/ggufscan.py:NAME": {
       "kind": "fact",
@@ -780,6 +851,76 @@
       "says": "How many elements each block of a GGUF tensor type holds and how many bytes it takes, as the format defines them.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "serving/interconnect.py:READINGS_SCHEMA": {
+      "kind": "choice",
+      "says": "The version of the link readings file's format this code reads; a file of another version is refused by name.",
+      "reason": "a code or version other programs or files read"
+    },
+    "serving/interconnect.py:_BYTES_PER_GIB": {
+      "kind": "fact",
+      "says": "How many bytes make one GiB, to turn a fitted seconds-per-byte into GiB per second.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/interconnect.py:_MICROSECONDS_PER_SECOND": {
+      "kind": "fact",
+      "says": "How many microseconds make one second, to state a fitted latency in microseconds.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/linktime.py:ACCEPT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a link timer's sink waits for the sender on the other rig to connect; a sender later than this gets no reading.",
+      "moves_to": "link_sink_accept_s"
+    },
+    "serving/linktime.py:CONNECT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a link timer's sender keeps trying to reach the sink on the other rig before the link is not read.",
+      "moves_to": "link_send_connect_s"
+    },
+    "serving/linktime.py:HEADROOM_BYTES": {
+      "kind": "estimate",
+      "says": "Card memory, in bytes, a card must still have free past a payload before the link timer copies to it, so the timer never takes room a unit on that card is about to need.",
+      "moves_to": "link_timer_headroom_mib"
+    },
+    "serving/linktime.py:IDLE_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, either end of a timed exchange waits for one message or its answer; a link slower than this is not read.",
+      "moves_to": "link_message_timeout_s"
+    },
+    "serving/linktime.py:LINK_PORT": {
+      "kind": "choice",
+      "says": "The port a link timer's sink listens on at the worker's bind address when the probe names none.",
+      "reason": "a protocol or tool default"
+    },
+    "serving/linktime.py:NETWORK_PAYLOADS": {
+      "kind": "choice",
+      "says": "The payload sizes, in bytes, a link between two rigs is timed with: a small one, where latency is most of the time, and two larger, where bandwidth is.",
+      "reason": "the method a stored reading was made with"
+    },
+    "serving/linktime.py:PEER_PAYLOADS": {
+      "kind": "choice",
+      "says": "The payload sizes, in bytes, a link between two cards of a rig is timed with: a small one, where latency is most of the time, and two larger, where bandwidth is.",
+      "reason": "the method a stored reading was made with"
+    },
+    "serving/linktime.py:REPEATS": {
+      "kind": "choice",
+      "says": "How many times each payload of a link timing is timed.",
+      "reason": "the method a stored reading was made with"
+    },
+    "serving/linktime.py:SINK_MOST_BYTES": {
+      "kind": "fact",
+      "says": "The most a link timer's sink reads before it ends the exchange: every payload the sender sends, each repeat and its warm-up.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/linktime.py:WHOLE_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a whole link timing may take on a rig, whatever it waits on; one longer than this is ended and not read.",
+      "moves_to": "link_timer_bound_s"
+    },
+    "serving/safetensorscan.py:_DTYPE_BYTES": {
+      "kind": "fact",
+      "says": "How many bytes one element of each safetensors dtype takes, as the format defines them; any F8_* variant is one byte.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "serving/servelib.py:_LEVEL_ONE_RAM_GIB": {
       "kind": "estimate",
       "says": "Host memory, in GiB, an engine keeps for the life of its process once it is put to sleep at level one, stated in the refusal of that level.",
@@ -789,6 +930,41 @@
       "kind": "estimate",
       "says": "How long, in seconds, one compose command against a unit's compose file takes, starting or stopping its containers; one slower than this fails.",
       "moves_to": "compose_timeout_s"
+    },
+    "serving/sharding.py:ACTIVATION_BYTES": {
+      "kind": "fact",
+      "says": "How many bytes one element of a hidden state takes as it crosses between the cards of a split, by engine: llama.cpp computes its activations in 32-bit floats, vLLM serves in a 16-bit dtype.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/sharding.py:ALL_REDUCES_PER_BLOCK": {
+      "kind": "fact",
+      "says": "How many all-reduces one transformer block costs per token under a tensor split: one after the attention, one after the feed-forward.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/sharding.py:VLLM_CACHE_ELEM_BYTES": {
+      "kind": "fact",
+      "says": "How many bytes one cache element takes under each vLLM --kv-cache-dtype that names a width.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/sharding.py:_GIB": {
+      "kind": "fact",
+      "says": "How many bytes make one GiB.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/sharding.py:_MIB": {
+      "kind": "fact",
+      "says": "How many bytes make one MiB.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/sharding.py:_Sizing.kv(tensor)": {
+      "kind": "fact",
+      "says": "The width of the tensor split a cache is sized for when its caller names none: one card, holding every head of the layers it runs.",
+      "reason": "a definition or arithmetic"
+    },
+    "serving/sharding.py:_US": {
+      "kind": "fact",
+      "says": "How many seconds make one microsecond.",
+      "reason": "a definition or arithmetic"
     },
     "serving/vramfit.py:CACHE_ELEM_BYTES": {
       "kind": "fact",

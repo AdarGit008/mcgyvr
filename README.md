@@ -30,7 +30,7 @@ deterministic gate.
 | git | the repository a task runs against must be a git checkout |
 | The project's own tools on `PATH` | tool task types run them; the quickstart's `format` task ran `ruff format` |
 | At least one unit, for model task types | a local OpenAI-compatible server (llama.cpp or vLLM), or an API model whose key is in an environment variable |
-| Docker (optional) | task commands run in a throwaway container by default; with no Docker daemon, `mcgyvr run` falls back to `tempdir` and says so |
+| Docker (optional) | task commands run in a throwaway container by default; with no Docker daemon, `mcgyvr run` refuses unless `sandbox.mode: tempdir` (or `--sandbox tempdir`) chooses the weaker mode, or `sandbox.allow_fallback: true` falls back to it and says so |
 
 ## Install
 

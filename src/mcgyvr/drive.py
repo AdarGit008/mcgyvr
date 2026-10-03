@@ -53,8 +53,10 @@ from mcgyvr.escalate import (
 )
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import DID_NOT_RUN, Acceptance
+from mcgyvr.gate.adapter import SandboxRunner
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
+from mcgyvr.gate.jev import JevCheck
 from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.gate.semantic import SemanticCheck
@@ -64,7 +66,7 @@ from mcgyvr.runner import Completion, Request, RunnerError, dispatch
 from mcgyvr.sandbox.base import nested_git
 from mcgyvr.scope import inside
 from mcgyvr.telemetry import observe
-from mcgyvr.verify import VERIFIER_ROLE, verify
+from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, independent, verify
 from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, ReplyError, parse_reply
@@ -76,11 +78,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.cooldown import Cooldown
+    from mcgyvr.decision import Decision
     from mcgyvr.deterministic import ToolStep
     from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.pool import SourceMap
     from mcgyvr.sandbox.base import CommandResult, Sandbox
-    from mcgyvr.verify import Ask
+    from mcgyvr.verify import Ask, Reviewers
+    from mcgyvr.wake import Waker
     from mcgyvr.worker.prompt import WorkerPrompt
 
 
@@ -506,6 +510,7 @@ def worker_attempt(
     reviewer: Ask | None = None,
     recording: Recording | None = None,
     cooldown: Cooldown | None = None,
+    reviewers: Reviewers | None = None,
 ) -> Callable[[Try], Judgement]:
     """The attempt function :func:`~mcgyvr.escalate.escalate` takes.
 
@@ -600,6 +605,21 @@ def worker_attempt(
     becomes one of these, and ``None`` is an ordinary answer — an install with
     no verifier accepts on the gate and ``judge`` labels it ``UNVERIFIED``.
 
+    **``reviewers`` is the same seam, chosen per builder, and it is what
+    ``mcgyvr run`` hands in.** :func:`~mcgyvr.verify.reviewers_for` names the
+    reviewer of each rung's work — the bound ``verifier`` role, or the next
+    dearer local rung with another model — or says why there is none, and that
+    sentence reaches the judgement. Each reviewer is asked for a typed verdict
+    first and in prose where it serves no probabilities, and the same typed
+    seam is the gate's Jev rung (:class:`~mcgyvr.gate.jev.JevCheck`): its
+    questions are asked of the reviewer over the added lines of the change
+    the gate accepted — once, never of a draw the gate rejected or of one that
+    lost — and its answers arrive as observations, which reject nothing. A
+    reviewer's dispatches go through the same waker as the builder's, so a
+    reviewer on a sleeping card is woken rather than counted unusable.
+    ``reviewer`` is the older, prose-only spelling and is used only when
+    ``reviewers`` is not given.
+
     The pre-change file goes with it, read off the workspace in the moment
     between the reset and the first draw. A reviewer shown only the new content
     of an edited file is being asked to judge a change it cannot see, and the
@@ -608,12 +628,15 @@ def worker_attempt(
     hand-authored one.
     """
     notes: dict[str, RetryNotes | None] = {}
-    # Asked once, and only when there is a reviewer to name: `role_model`
-    # raises for a role declared but unusable, and an install that is not
-    # verifying has not asked that question. An empty name is left to `verify`,
-    # which refuses it — a review is worth the distance between two names, and
-    # an unnamed reviewer establishes no distance.
-    reviewer_model = pool.role_model(VERIFIER_ROLE) if reviewer is not None else None
+    if reviewers is None and reviewer is not None:
+        # The prose-only seam, as one reviewer for every builder. Its model is
+        # asked once, and only because there is a reviewer to name:
+        # `role_model` raises for a role declared but unusable. An empty name
+        # is left to `verify`, which refuses it — a review is worth the
+        # distance between two names, and an unnamed reviewer establishes no
+        # distance.
+        only = Reviewer(model=pool.role_model(VERIFIER_ROLE) or "", ask=reviewer)
+        reviewers = lambda builder: only  # noqa: E731
     # What the draws after the first sample at. Draw 0 never reads it: it is
     # greedy whatever this says, and the loader has refused `0.0` wherever any
     # unit draws more than once. The breadth itself is read per attempt, below,
@@ -659,6 +682,15 @@ def worker_attempt(
     def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
         prose = contract.output_schema in (PROSE, MEDIA_ARTIFACT)
+        # Who reviews this rung's work, read before anything is dispatched.
+        # Its dispatches go through the waker, as the builder's do below: a
+        # reviewer on a card that is asleep refuses the connection, and
+        # without the wake every review on such an install is unusable.
+        chosen: Reviewer | NoReviewer | None = (
+            reviewers(this.rung.name) if reviewers is not None else None
+        )
+        reviewing = _through(waker, chosen) if isinstance(chosen, Reviewer) else None
+        jev = _jev_for(this.rung.model, reviewing)
         if cooldown is not None:
             # Ask before a prompt is built or a sandbox is opened: a rung on a
             # source that has just failed several dispatches in a row is
@@ -905,6 +937,11 @@ def worker_attempt(
                 gate, bound = _cleaned(
                     contract, sandbox, gate, bound, adapters=adapters, config=config
                 )
+            # The reviewer's typed checks, asked once, of the change that is
+            # delivered, and only once the gate has accepted it: each is a
+            # request to the reviewer, so neither a draw the gate rejected nor
+            # a draw that lost to another is worth one.
+            gate, bound = _typed_checks(contract, sandbox, gate, bound, jev)
             judgement = judge(
                 contract,
                 family,
@@ -920,7 +957,7 @@ def worker_attempt(
                 # verifier whatever an install configured.
                 verifier=(
                     None
-                    if prose or reviewer is None
+                    if prose or reviewing is None
                     else partial(
                         verify,
                         contract,
@@ -928,10 +965,16 @@ def worker_attempt(
                         gate=gate,
                         change=bound.content,
                         builder=this.rung.model,
-                        reviewer=reviewer_model or "",
-                        ask=reviewer,
+                        reviewer=reviewing.model,
+                        ask=reviewing.ask,
                         original=original,
+                        decide=reviewing.decide,
                     )
+                ),
+                absent=(
+                    chosen.reason
+                    if isinstance(chosen, NoReviewer)
+                    else "this install has none"
                 ),
             )
             # Which draw the verdict is about, how many were asked for, and how
@@ -965,6 +1008,84 @@ def worker_attempt(
         return judgement
 
     return attempt
+
+
+def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
+    """The gate's typed-question rung, asked of ``builder``'s reviewer, or ``None``.
+
+    ``None`` where there is no reviewer, where it has no typed seam, and where
+    it is not independent of the builder: the rung's questions are asked of
+    the reviewer, and a model judging its own added lines is the self-review
+    :func:`~mcgyvr.verify.verify` refuses before a verdict — so it is refused
+    before the gate's questions too, before anything is spent.
+    """
+    if reviewing is None or not independent(builder, reviewing.model):
+        return None
+    return reviewing.jev
+
+
+def _through(waker: Waker | None, reviewer: Reviewer) -> Reviewer:
+    """``reviewer`` with every seam sent through ``waker``, as a builder's is.
+
+    The same :meth:`~mcgyvr.wake.Waker.dispatching` the builder's dispatch
+    goes through, keyed by the unit the reviewer runs on: a refused port wakes
+    that card once and the ask is sent again. ``waker`` is ``None`` for a
+    config that did not enable sleep and wake, and then nothing changes.
+    """
+    if waker is None or reviewer.unit is None:
+        return reviewer
+    unit = reviewer.unit
+    ask, decide, jev = reviewer.ask, reviewer.decide, reviewer.jev
+
+    def woken_ask(prompt: str) -> str:
+        return waker.dispatching(unit, lambda: ask(prompt))
+
+    def woken(seam: Callable[[Any], Decision]) -> Callable[[Any], Decision]:
+        return lambda state: waker.dispatching(unit, lambda: seam(state))
+
+    return replace(
+        reviewer,
+        ask=woken_ask,
+        decide=woken(decide) if decide is not None else None,
+        jev=replace(jev, decide=woken(jev.decide)) if jev is not None else None,
+    )
+
+
+def _typed_checks(
+    contract: Contract,
+    sandbox: Sandbox,
+    gate: GateResult,
+    bound: Accepted,
+    jev: JevCheck | None,
+) -> tuple[GateResult, Accepted]:
+    """Ask the reviewer's typed checks of the accepted change, once.
+
+    The gate's Jev rung, run here rather than inside every draw's gate: each
+    question is a request to the reviewer, and a draw the gate rejected, or
+    one that lost to another draw, is not worth one. Nothing is asked of a
+    change the gate did not accept.
+
+    The winning bytes are written back into the workspace — ``best_of`` has
+    restored it after every draw — so the rung reads the added lines from the
+    tree, as it does inside the gate, and the binding is minted again from that
+    tree with the answers in it, the verdict and its bytes moving together as
+    :func:`_cleaned` moves them.
+    """
+    if jev is None or not gate.accepted:
+        return gate, bound
+    sandbox.reset()
+    target = inside(sandbox.workspace, contract.target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(bound.content.encode("utf-8", "surrogateescape"))
+    report = jev.run(ChangeSet.detect(sandbox.workspace), contract.prose)
+    asked = replace(
+        gate,
+        findings=(*gate.findings, *report.findings),
+        observations=(*gate.observations, *report.observations),
+        environment_issues=(*gate.environment_issues, *report.environment_issues),
+        jev=report,
+    )
+    return asked, Accepted.read(repo=sandbox.workspace, contract=contract, result=asked)
 
 
 def _temperature_of(draw: int, sampled: float) -> float:
@@ -1382,7 +1503,12 @@ def gate_workspace(
             )
         )
     acceptance = acceptance_for(contract, sandbox, config=config)
-    return Gate(adapters if adapters is not None else gate_adapters(config)).run(
+    # The checkers that load code from the workspace's own configuration — the
+    # type checker's plugins, eslint's and prettier's config modules — run
+    # where the task's commands do, never on the host beside it.
+    runner = SandboxRunner(sandbox)
+    owners = adapters if adapters is not None else gate_adapters(config)
+    return Gate(tuple(adapter.running_in(runner) for adapter in owners)).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
@@ -1391,7 +1517,7 @@ def gate_workspace(
         # sandbox, and the workspace the declaration lives in. A repository
         # that declares no checker still gets `None` from
         # `TypeCheck.declared_command`, so the absence is not a rejection.
-        typecheck=TypeCheck(repo=sandbox.workspace),
+        typecheck=TypeCheck(repo=sandbox.workspace, runner=runner),
         semantic=SemanticCheck(sandbox=sandbox),
         output=output_checks_for(contract, sandbox.workspace),
         contract_text=contract.prose,

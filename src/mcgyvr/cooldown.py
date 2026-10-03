@@ -54,7 +54,10 @@ takes out exactly one unit. The seam that consumes this
 **What this is not.** It is not a retry policy: it says which sources are worth
 offering, never how many attempts a contract gets, which is escalation's. It is not
 a circuit breaker across runs — like ``Availability``, one instance is for one run,
-and the state dies with it. And it does not decide what counts as a failure. The
+and its streaks die with it. The one thing that outlives it is a sentence handed
+to a ``shared`` record (:class:`SharedHold`), which every process on the host that
+reads the record honours until it ends. And it does not decide what counts as a
+failure. The
 dispatcher does, and calls :meth:`Cooldown.record_failure`; a refusal the worker
 produced correctly is not this module's business.
 """
@@ -65,6 +68,7 @@ import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Protocol
 
 from mcgyvr.availability import (
     PROBE_TIMEOUT_S,
@@ -84,6 +88,20 @@ CONSECUTIVE_FAILURES = 3
 # restart, a model load, a machine waking. Long enough that the ladder does not
 # spend the interval re-discovering the fault, short enough that a run outlives it.
 COOLDOWN_S = 60.0
+
+
+class SharedHold(Protocol):
+    """A host-wide record of which sources are held out, and for how long.
+
+    Written by any process whose own streak earned a source the sentence, and
+    read by every process's cooldown: a unit that failed for anyone on the host
+    is held out for everyone. :class:`mcgyvr.pressure.HostCooling` is the one
+    there is; this module holds only the shape, so it reads no file itself.
+    """
+
+    def hold(self, source: str, seconds: float) -> None: ...
+
+    def held(self, source: str) -> float | None: ...
 
 
 @dataclass
@@ -115,6 +133,11 @@ class Cooldown:
     sleeping is a slow test that is also flaky. It must be monotonic — the default
     is :func:`time.monotonic` — because a wall clock stepping backwards over an
     NTP correction would hold a source out for longer than it was ever sentenced.
+
+    ``shared`` is the host-wide record (:class:`SharedHold`). A sentence this
+    cooldown passes is written there too, and a source held there by another
+    process is held out here. Without it, this cooldown is its own process's
+    alone, as it always was.
     """
 
     def __init__(
@@ -124,6 +147,7 @@ class Cooldown:
         cooldown_s: float = COOLDOWN_S,
         threshold: int = CONSECUTIVE_FAILURES,
         timeout_s: float = PROBE_TIMEOUT_S,
+        shared: SharedHold | None = None,
     ) -> None:
         if cooldown_s <= 0:
             raise ValueError(f"cooldown_s must be positive, got {cooldown_s}")
@@ -137,6 +161,7 @@ class Cooldown:
         self._cooldown_s = cooldown_s
         self._threshold = threshold
         self._records: dict[str, _Record] = {}
+        self._shared = shared
         # The draws of one attempt are dispatched together, so their
         # successes and failures land here from several threads at once. A
         # streak is counted, and a count two threads increment unlocked can
@@ -166,8 +191,13 @@ class Cooldown:
         with self._lock:
             record = self._records.setdefault(source, _Record())
             record.failures += 1
-            if record.failures >= self._threshold:
+            sentenced = record.failures >= self._threshold
+            if sentenced:
                 record.until = self._clock() + self._cooldown_s
+        # Outside the lock: the host-wide record is a file, and nothing slow
+        # runs while the streak is held.
+        if sentenced and self._shared is not None:
+            self._shared.hold(source, self._cooldown_s)
 
     def record_success(self, source: str) -> None:
         """One dispatch against ``source`` worked, so the streak is over.
@@ -205,9 +235,24 @@ class Cooldown:
             if endpoint.source in down:
                 continue
             cooling = self._cooling(endpoint.source, now)
+            if cooling is None:
+                cooling = self._held(endpoint.source)
             if cooling is not None:
                 down[endpoint.source] = cooling
         return down
+
+    def _held(self, source: str) -> str | None:
+        """Why ``source`` is held out host-wide, or ``None`` if it is not."""
+        if self._shared is None:
+            return None
+        left = self._shared.held(source)
+        if left is None:
+            return None
+        return (
+            f"source {source!r} failed for another process on this host, which "
+            f"held it out for everyone; another {left:.0f}s before it is offered "
+            f"again"
+        )
 
     def _cooling(self, source: str, now: float) -> str | None:
         """Why ``source`` is being held out at ``now``, or ``None`` if it is not.

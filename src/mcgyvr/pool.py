@@ -397,9 +397,17 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
     for role in _ROLES:
         block = config.get(role) or {}
         bound, model = block.get("unit"), block.get("model")
-        if bound is None or model is None:
+        if bound is None:
             continue
         unit = config.units[bound]
+        if model is None and role == "verifier":
+            # `model` absent means the unit's own. Said for the verifier and
+            # acted on here, because a reviewer left unbound for want of a
+            # spelling is a review that silently never happens — and the model
+            # it would have named is the one its independence is checked on.
+            model = unit.model
+        if model is None:
+            continue
         reason = _unusable(unit)
         if reason is not None:
             role_skips[role] = reason

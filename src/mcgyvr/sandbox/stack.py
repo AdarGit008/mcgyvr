@@ -30,9 +30,19 @@ used and said so.
 
 from __future__ import annotations
 
+import json
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+
+from mcgyvr.sandbox.declared import (
+    ESLINT,
+    PRETTIER,
+    PYRIGHT,
+    declared_type_checker,
+    declares_js,
+)
 
 # Config keys that override detection, named in every "undetectable" message
 # so the remedy travels with the failure.
@@ -45,6 +55,28 @@ SETUP_OVERRIDE_KEY = "sandbox.setup"
 # base omits (uv, poetry, corepack) rather than assuming a fat base.
 _PYTHON_BASE = "python:3.12-slim"
 _NODE_BASE = "node:22-slim"
+
+#: Where the image's dependency install leaves its environments. The task
+#: keeps each one the image populated visible over the workspace's mount
+#: (:mod:`mcgyvr.sandbox.docker`), and their tool folders lead the PATH.
+WORKSPACE = "/workspace"
+VENV = f"{WORKSPACE}/.venv"
+NODE_MODULES = f"{WORKSPACE}/node_modules"
+TOOL_PATH = f"{VENV}/bin:{NODE_MODULES}/.bin"
+
+
+@dataclass(frozen=True)
+class CheckerInstall:
+    """A checker the repository declares, installed into the image if absent.
+
+    ``command`` installs it only when the dependency install did not provide
+    it. ``pin`` is the version the repository's lockfile holds for it, or
+    ``None`` when nothing pins it and the install is unpinned (said in a note).
+    """
+
+    tool: str
+    command: str
+    pin: str | None
 
 
 @dataclass(frozen=True)
@@ -77,6 +109,7 @@ class Stack:
     components: tuple[StackComponent, ...]
     base_image: str | None
     notes: tuple[str, ...] = ()
+    checkers: tuple[CheckerInstall, ...] = ()
 
     @property
     def detected(self) -> bool:
@@ -94,6 +127,10 @@ class Stack:
     def install_commands(self) -> tuple[tuple[str, ...], ...]:
         """The install command of each component, in detection order."""
         return tuple(c.install for c in self.components)
+
+    def checker_commands(self) -> tuple[str, ...]:
+        """The command installing each declared checker the install may lack."""
+        return tuple(c.command for c in self.checkers)
 
 
 # Each detector returns a component when its language is present. Ordered so
@@ -119,7 +156,14 @@ def _detect_python(repo: Path) -> StackComponent | None:
             "python",
             "poetry",
             _present(repo, "pyproject.toml", "poetry.lock"),
-            ("pip install poetry", "poetry install --no-root --no-interaction"),
+            # In the project, so the environment is /workspace/.venv: by
+            # default poetry keeps it under root's home, which is off the PATH
+            # and unreadable to the task's user.
+            (
+                "pip install poetry",
+                "POETRY_VIRTUALENVS_IN_PROJECT=true "
+                "poetry install --no-root --no-interaction",
+            ),
             pinned=True,
             how="poetry.lock present",
         )
@@ -255,7 +299,138 @@ def detect_stack(repo: str | Path) -> Stack:
             f"carries both — every language's install command is still run."
         )
 
-    return Stack(components=components, base_image=base_image, notes=tuple(notes))
+    checkers: list[CheckerInstall] = []
+    for component in components:
+        for tool in _declared_for(root, component.language):
+            if tool == PYRIGHT:
+                notes.append(
+                    "pyright: declared, and not installed in the image: its "
+                    "PyPI package fetches its Node build on first run, which a "
+                    "task container may have no network for. Put it on the "
+                    f"image yourself (`{IMAGE_OVERRIDE_KEY}`); until then its "
+                    "rung is skipped and said so."
+                )
+                continue
+            pin, source = _pin(root, component, tool)
+            checkers.append(
+                CheckerInstall(tool, _checker_command(component, tool, pin), pin)
+            )
+            if pin is None:
+                notes.append(
+                    f"{tool}: declared, and {source} pins no version of it — "
+                    f"installed unpinned where the dependency install does not "
+                    f"provide it, so the image is not reproducible in it. Pin "
+                    f"it in the lockfile."
+                )
+
+    return Stack(
+        components=components,
+        base_image=base_image,
+        notes=tuple(notes),
+        checkers=tuple(checkers),
+    )
+
+
+def _declared_for(repo: Path, language: str) -> tuple[str, ...]:
+    """The checkers ``repo`` declares that the gate runs over ``language``."""
+    if language == "python":
+        checker = declared_type_checker(repo)
+        return (checker,) if checker is not None else ()
+    return tuple(tool for tool in (ESLINT, PRETTIER) if declares_js(repo, tool))
+
+
+def _checker_command(component: StackComponent, tool: str, pin: str | None) -> str:
+    """Install ``tool`` into ``component``'s environment unless it is there."""
+    if component.language == "node":
+        spec = f"{tool}@{pin}" if pin else tool
+        return f"[ -x {NODE_MODULES}/.bin/{tool} ] || npm install --global '{spec}'"
+    spec = f"{tool}=={pin}" if pin else tool
+    if component.package_manager == "uv":
+        return (
+            f"[ -x {VENV}/bin/{tool} ] || "
+            f"uv pip install --python {VENV}/bin/python '{spec}'"
+        )
+    if component.package_manager == "poetry":
+        return f"[ -x {VENV}/bin/{tool} ] || {VENV}/bin/python -m pip install '{spec}'"
+    # pip and pipenv install into the base image's own Python.
+    return f"command -v {tool} >/dev/null || pip install '{spec}'"
+
+
+def _pin(repo: Path, component: StackComponent, tool: str) -> tuple[str | None, str]:
+    """The version ``component``'s lockfile pins for ``tool``, and what was read.
+
+    Read as data, never raising: a lockfile that does not parse pins nothing.
+    """
+    manager = component.package_manager
+    if manager in ("uv", "poetry"):
+        name = "uv.lock" if manager == "uv" else "poetry.lock"
+        return _toml_lock_pin(repo / name, tool), name
+    if manager == "pipenv":
+        return _pipfile_pin(repo / "Pipfile.lock", tool), "Pipfile.lock"
+    if manager == "pip":
+        files = [m for m in component.manifests if m.startswith("requirements")]
+        return _requirements_pin(repo, files, tool), " or ".join(files) or "no lockfile"
+    if manager == "npm" and (repo / "package-lock.json").is_file():
+        return _package_lock_pin(repo / "package-lock.json", tool), "package-lock.json"
+    return None, component.how
+
+
+def _toml_lock_pin(path: Path, tool: str) -> str | None:
+    try:
+        with path.open("rb") as handle:
+            packages = tomllib.load(handle).get("package")
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return None
+    for package in packages if isinstance(packages, list) else ():
+        if isinstance(package, dict) and _normal(package.get("name")) == tool:
+            version = package.get("version")
+            return version if isinstance(version, str) else None
+    return None
+
+
+def _pipfile_pin(path: Path, tool: str) -> str | None:
+    lock = _json(path)
+    for section in ("default", "develop"):
+        entries = lock.get(section) if isinstance(lock, dict) else None
+        entry = entries.get(tool) if isinstance(entries, dict) else None
+        version = entry.get("version") if isinstance(entry, dict) else None
+        if isinstance(version, str) and version.startswith("=="):
+            return version[2:]
+    return None
+
+
+def _requirements_pin(repo: Path, files: list[str], tool: str) -> str | None:
+    pattern = re.compile(rf"^\s*{re.escape(tool)}\s*==\s*([A-Za-z0-9.+!_-]+)", re.I)
+    for name in files:
+        try:
+            text = (repo / name).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            found = pattern.match(line)
+            if found:
+                return found.group(1)
+    return None
+
+
+def _package_lock_pin(path: Path, tool: str) -> str | None:
+    lock = _json(path)
+    packages = lock.get("packages") if isinstance(lock, dict) else None
+    entry = packages.get(f"node_modules/{tool}") if isinstance(packages, dict) else None
+    version = entry.get("version") if isinstance(entry, dict) else None
+    return version if isinstance(version, str) else None
+
+
+def _json(path: Path) -> object:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+def _normal(name: object) -> str:
+    """A package name as PyPI compares them: lower case, ``_``/``.`` as ``-``."""
+    return re.sub(r"[-_.]+", "-", name).lower() if isinstance(name, str) else ""
 
 
 def _present(repo: Path, *names: str) -> tuple[str, ...]:

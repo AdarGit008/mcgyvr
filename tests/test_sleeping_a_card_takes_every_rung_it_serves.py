@@ -123,9 +123,11 @@ def test_two_rungs_behind_one_url_pair_are_one_card_and_one_launch_spec(
 def test_sleeping_the_card_takes_both_rungs_down_in_one_door_run(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """One card, one compose file, one ``serve down`` — not one per rung.
+    """One card, one compose file, one door run — not one per rung.
 
-    The door's ``down`` step runs against the whole compose file under one
+    Both units are vLLM, so the run is the door's ``sleep`` (level 2, the
+    processes kept); a card of any other engine is ``serve down``. Either step
+    runs against the whole compose file under one
     pinned project, so the operator never spells a container name and cannot
     take half a card down. A second door run would be a second envelope for one
     eviction, and gate 5's ``O_CREAT|O_EXCL`` claim on the RUN_ID is what would
@@ -150,7 +152,7 @@ def test_sleeping_the_card_takes_both_rungs_down_in_one_door_run(
     )
     (argv,) = spawned
     assert "mcgyvr.serving.run" in argv, argv
-    assert argv[argv.index("serve") + 1] == "down", argv
+    assert argv[argv.index("serve") + 1] == "sleep", argv
     assert HOST in argv, argv
     assert str(specs / f"compose.{HOST}.yml") in argv, (
         f"the sleep did not hand the door the launch spec emit wrote: {argv}"
@@ -182,7 +184,7 @@ def test_an_operators_own_sleep_is_not_gated_by_the_automatic_switch(
     code = lj.main(sleep_argv(config))
 
     assert code == 0, "an operator was refused their own card by a switch"
-    assert len(spawned) == 1 and spawned[0][spawned[0].index("serve") + 1] == "down"
+    assert len(spawned) == 1 and spawned[0][spawned[0].index("serve") + 1] == "sleep"
 
 
 def test_a_dispatch_in_flight_is_never_cut_by_a_sleep(
@@ -238,4 +240,4 @@ def test_a_dispatch_in_flight_is_never_cut_by_a_sleep(
     )
     assert finished == [0], finished
     assert len(spawned) == 1, spawned
-    assert spawned[0][spawned[0].index("serve") + 1] == "down", spawned
+    assert spawned[0][spawned[0].index("serve") + 1] == "sleep", spawned

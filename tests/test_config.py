@@ -73,9 +73,9 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     # here performs, and every mode committed to the checked-out branch instead.
     assert config.data["delivery"]["mode"] == "branch"
     assert config.get("task_timeout_s") > 0
-    # Verification is off rather than on-and-unbound, so a keyless install
-    # loads and runs without touching the config.
-    assert config.data["verifier"]["enabled"] is False
+    # Review is on unless the config switches it off, and on with no unit named
+    # still loads: the reviewer is picked from the ladder at run time.
+    assert config.data["verifier"]["enabled"] is True
 
 
 def test_a_source_needing_a_key_is_not_local_only() -> None:
@@ -224,17 +224,16 @@ def test_duplicate_tier_names_are_rejected() -> None:
         )
 
 
-def test_enabled_verifier_without_a_source_is_rejected_at_load() -> None:
-    with pytest.raises(ConfigSchemaError) as exc:
-        parse(
-            LOCAL_ONLY
-            + cfg("""
-            verifier:
-              enabled: true
-            """)
-        )
-    assert "verifier.unit" in str(exc.value)
-    assert "verifier.enabled: false" in str(exc.value), "name the other way out"
+def test_enabled_verifier_without_a_unit_loads_and_picks_one_at_run_time() -> None:
+    config = parse(
+        LOCAL_ONLY
+        + cfg("""
+        verifier:
+          enabled: true
+        """)
+    )
+    assert config.data["verifier"]["enabled"] is True
+    assert config.data["verifier"]["unit"] is None
 
 
 def test_unbound_optional_fails_at_the_point_of_use_not_at_load() -> None:

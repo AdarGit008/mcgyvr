@@ -361,3 +361,29 @@ def classify_role(
         return classify(
             binding.endpoint, binding.model, state, questions, timeout_s=timeout_s
         )
+
+
+def classify_rung(
+    source_map: SourceMap,
+    rung: str,
+    state: Any,
+    questions: Mapping[str, Question],
+    *,
+    capacity: Capacity | None = None,
+    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+) -> Decision:
+    """Answer ``questions`` on the model a ladder ``rung`` serves.
+
+    :func:`classify_role` one seam over, for a rung rather than a role: the
+    endpoint is the rung's own (:meth:`~mcgyvr.pool.SourceMap.bind`), the model
+    is the one the rung names, and the slot is the per-source one a dispatch
+    to that rung holds. Raises what ``bind`` raises for a rung the ladder does
+    not offer, because asking a rung that is not there is a caller's mistake.
+    """
+    endpoint = source_map.bind(rung)
+    offered = source_map.get(rung)
+    model = offered.model if offered is not None else rung
+    if capacity is None:
+        return classify(endpoint, model, state, questions, timeout_s=timeout_s)
+    with capacity.hold(endpoint):
+        return classify(endpoint, model, state, questions, timeout_s=timeout_s)
