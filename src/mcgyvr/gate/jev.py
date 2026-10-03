@@ -12,8 +12,14 @@ findings arrive as ``observations`` that never fail a change, exactly as the
 semantic rung (:mod:`mcgyvr.gate.semantic`) ships. Flipping ``blocking`` is a
 policy decision and out of scope here.
 
-**Only added lines are judged.** The state sent to the model is built from
-:func:`~mcgyvr.gate.changeset.read_added_text`, so pre-existing lines in a
+**The whole change is shown; only added lines are judged.** The state sent
+to the model carries the file at the change's base (``original``), the file
+as the worker left it (``change``) and the worker's added lines — the same
+material :func:`mcgyvr.verify.verdict_state` shows the reviewer, because in
+the pilot a rung shown added lines alone scored AUROC 0.44-0.65 and the
+reviewer shown both scored 0.73-0.75 (owner ruling). What is judged has not
+moved: a finding is attributed to an added line
+(:func:`~mcgyvr.gate.changeset.read_added_text`), so a pre-existing line in a
 touched file can never fail a worker. A change with no added lines is a no-op.
 
 **A model that cannot run is an environment issue, never a rejection.** An
@@ -46,7 +52,13 @@ from mcgyvr.decision import (
     ScoreAnswer,
     classify_for,
 )
-from mcgyvr.gate.changeset import ChangeSet, FileChange, read_added_text
+from mcgyvr.gate.changeset import (
+    ChangeSet,
+    FileChange,
+    read_added_text,
+    read_base_text,
+    read_current_text,
+)
 from mcgyvr.gate.findings import Finding
 from mcgyvr.pool import SourceMap
 
@@ -185,14 +197,18 @@ def build_state(
 ) -> dict[str, object]:
     """The JSON state a decision is asked over, for one changed file.
 
-    Only the worker's added lines are included — read through
-    :func:`~mcgyvr.gate.changeset.read_added_text` — so pre-existing state in a
-    touched file is never shown, let alone judged.
+    ``original`` is the file at the change's base — read from git, empty where
+    the base has no such file or the repository cannot say — and ``change`` is
+    the file as the worker left it; ``added_lines`` are the worker's, read
+    through :func:`~mcgyvr.gate.changeset.read_added_text`, and are the only
+    lines a finding is attributed to.
     """
     added = read_added_text(change, changeset.repo)
     return {
         "task": contract_text,
         "path": change.path,
+        "original": read_base_text(change, changeset),
+        "change": read_current_text(change, changeset.repo),
         "added_lines": [
             {"line": line, "text": text} for line, text in sorted(added.items())
         ],
