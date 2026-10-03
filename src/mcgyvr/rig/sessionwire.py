@@ -4,10 +4,12 @@ The hub's schema is the one definition (``tests/rig_schema.py`` pins it);
 this module reads the commands the hub sends a rig that offered to lend
 (``session_prepare``, ``tunnel_up``, ``worker_start``, ``head_start``,
 ``session_query``, ``session_stop``, ``relay_request``, ``relay_data``,
-``relay_credit``, ``relay_cancel``, and the latency probe's ``probe_open``
-and ``probe_run``) and writes the agent's side (``session_prepared``,
-``session_status``, ``tunnel_report``, ``relay_response``, ``relay_data``,
-``relay_end``, ``peer_rtt``, ``probe_opened``, ``probe_result``).
+``relay_credit``, ``relay_cancel``, the latency probe's ``probe_open`` and
+``probe_run``, and a ride to a shared unit, ``unit_relay_request``) and writes
+the agent's side (``session_prepared``, ``session_status``,
+``tunnel_report``, ``relay_response``, ``relay_data``, ``relay_end``,
+``peer_rtt``, ``probe_opened``, ``probe_result``, and the shared units'
+``unit_advert``).
 
 Reading is the shape and the bounds the schema states, checked here with
 nothing taken on trust: every field is read by name and type (a ``true`` is
@@ -50,6 +52,13 @@ MAX_GPU_LAYERS = 4096
 #: speaks the ``head_slots`` feature.
 MAX_SLOTS = 16
 DEFAULT_SLOTS = 1
+#: The units a host shares with riders (hitchhike, the ``hitchhike_units``
+#: feature): the most one ``unit_advert`` carries; how often, in seconds, the
+#: agent sends one at least; and how old, in seconds, one is when the hub takes
+#: it as withdrawn.
+MAX_UNITS = 16
+UNIT_ADVERT_INTERVAL_S = 60
+UNIT_ADVERT_STALE_S = 180
 MAX_KEEPALIVE_S = 600
 DEFAULT_KEEPALIVE_S = 25
 DEFAULT_GPU_LAYERS = 999
@@ -137,6 +146,7 @@ class SessionCode:
     CANCELLED = "cancelled"
     MODEL_MISMATCH = "model_mismatch"
     NO_PATH = "no_path"
+    UNKNOWN_UNIT = "unknown_unit"
 
 
 # --- what the hub sends ----------------------------------------------------------
@@ -269,6 +279,21 @@ class SessionStop:
 @dataclass(frozen=True, kw_only=True)
 class RelayRequest:
     session_id: str
+    request_id: str
+    endpoint: str
+    body_bytes: int
+    stream: bool
+    timeout_s: int
+    max_response_bytes: int
+    window: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class UnitRelayRequest:
+    """A ride: a ``relay_request`` aimed at a unit this host shares, named by
+    the ``unit_id`` its advert gave it, in place of a session."""
+
+    unit_id: str
     request_id: str
     endpoint: str
     body_bytes: int
@@ -633,20 +658,34 @@ def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
     )
 
 
+def _relayed(body: _Body) -> dict[str, Any]:
+    """The fields a relay and a ride share, read one way for both."""
+    return {
+        "request_id": body.text("request_id", protocol.MESSAGE_ID),
+        "endpoint": body.one_of("endpoint", tuple(RELAY_PATHS)),
+        "body_bytes": body.number("body_bytes", 0, RELAY_MAX_REQUEST_BYTES),
+        "stream": body.flag("stream"),
+        "timeout_s": body.number("timeout_s", 1, RELAY_MAX_TIMEOUT_S),
+        "max_response_bytes": body.number(
+            "max_response_bytes", 1, RELAY_MAX_RESPONSE_BYTES
+        ),
+        "window": body.number("window", 1, RELAY_MAX_WINDOW),
+    }
+
+
 def read_relay_request(envelope: protocol.Envelope) -> RelayRequest:
     """The ``relay_request`` in ``envelope``, or :class:`ProtocolError`."""
     body = _start(envelope)
     return RelayRequest(
-        session_id=body.text("session_id", SESSION_ID),
-        request_id=body.text("request_id", protocol.MESSAGE_ID),
-        endpoint=body.one_of("endpoint", tuple(RELAY_PATHS)),
-        body_bytes=body.number("body_bytes", 0, RELAY_MAX_REQUEST_BYTES),
-        stream=body.flag("stream"),
-        timeout_s=body.number("timeout_s", 1, RELAY_MAX_TIMEOUT_S),
-        max_response_bytes=body.number(
-            "max_response_bytes", 1, RELAY_MAX_RESPONSE_BYTES
-        ),
-        window=body.number("window", 1, RELAY_MAX_WINDOW),
+        session_id=body.text("session_id", SESSION_ID), **_relayed(body)
+    )
+
+
+def read_unit_relay_request(envelope: protocol.Envelope) -> UnitRelayRequest:
+    """The ``unit_relay_request`` in ``envelope``, or :class:`ProtocolError`."""
+    body = _start(envelope)
+    return UnitRelayRequest(
+        unit_id=body.text("unit_id", protocol.MESSAGE_ID), **_relayed(body)
     )
 
 
@@ -934,6 +973,65 @@ def peer_rtt(samples: Sequence[tuple[str, int]]) -> str:
         _need(0 <= rtt_us <= MAX_RTT_US, "rtt_us: out of bounds")
         body.append({"rig_id": rig_id, "rtt_us": rtt_us})
     return _frame("peer_rtt", {"samples": body}, None)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AdvertisedUnit:
+    """One unit a host shares with riders, as its advert says it.
+
+    ``slots`` is how many requests the unit serves at once and ``ctx`` the
+    context of each; ``free_slots`` the slots the host's own requests leave
+    free now (the rides it serves are not taken off); ``rider_cap`` the most
+    rides at once the host allows, below ``slots``: the host keeps one.
+    """
+
+    unit_id: str
+    model: str
+    slots: int
+    ctx: int
+    free_slots: int
+    rider_cap: int
+
+
+def _whole(value: object, low: int, high: int) -> bool:
+    return type(value) is int and low <= value <= high
+
+
+def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
+    """The ``unit_advert`` of every unit the host shares, the whole set: an
+    empty one withdraws them all. ``ValueError`` for one the schema refuses."""
+    _need(len(units) <= MAX_UNITS, f"units: more than {MAX_UNITS}")
+    _need(len({unit.unit_id for unit in units}) == len(units), "units: an id twice")
+    _need(len({unit.model for unit in units}) == len(units), "units: a model twice")
+    body = []
+    for unit in units:
+        _need(
+            isinstance(unit.unit_id, str)
+            and bool(protocol.MESSAGE_ID.fullmatch(unit.unit_id)),
+            "unit_id: not an id",
+        )
+        _need(
+            isinstance(unit.model, str) and bool(MODEL_NAME.fullmatch(unit.model)),
+            "model: not of its shape",
+        )
+        _need(_whole(unit.slots, 1, MAX_SLOTS), f"slots: not 1 to {MAX_SLOTS}")
+        _need(_whole(unit.ctx, MIN_CTX, MAX_CTX), "ctx: out of bounds")
+        _need(_whole(unit.free_slots, 0, unit.slots), "free_slots: not 0 to slots")
+        _need(
+            _whole(unit.rider_cap, 1, unit.slots - 1),
+            "rider_cap: not 1 to one below slots",
+        )
+        body.append(
+            {
+                "unit_id": unit.unit_id,
+                "model": unit.model,
+                "slots": unit.slots,
+                "ctx": unit.ctx,
+                "free_slots": unit.free_slots,
+                "rider_cap": unit.rider_cap,
+            }
+        )
+    return _frame("unit_advert", {"units": body}, None)
 
 
 def ack(re: str) -> str:

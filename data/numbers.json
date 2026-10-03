@@ -1219,6 +1219,21 @@
       "says": "The slots a head start serves at once when the hub names none, as the hub's agent protocol defaults it.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "rig/sessionwire.py:MAX_UNITS": {
+      "kind": "fact",
+      "says": "The most shared units one unit_advert of the hub's agent protocol carries.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:UNIT_ADVERT_INTERVAL_S": {
+      "kind": "fact",
+      "says": "How often, in seconds, a host's agent sends the hub its shared units at least, as the hub's agent protocol asks.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:UNIT_ADVERT_STALE_S": {
+      "kind": "fact",
+      "says": "How old, in seconds, a unit_advert is when the hub takes its units as withdrawn, as the hub's agent protocol states.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/sessionwire.py:MAX_KEEPALIVE_S": {
       "kind": "fact",
       "says": "The longest tunnel keepalive, in seconds, the hub's agent protocol carries.",
