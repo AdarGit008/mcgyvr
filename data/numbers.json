@@ -514,6 +514,21 @@
       "says": "A run of identical answers from the ladder manager's model starts at none.",
       "reason": "where a count starts"
     },
+    "mcorch/loop.py:MAX_ROUNDS": {
+      "kind": "choice",
+      "says": "How many internal rounds one mcorch request may take -- authoring and argument repairs between the rung and mcorch's own tools -- before the turn is ended with what the rung said last.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "mcorch/loop.py:REQUEST_CHARS": {
+      "kind": "choice",
+      "says": "How much of a user request Jev is shown when asked whether it is chat or work, in characters; the question is about kind, not detail.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "mcorch/loop.py:SIDE_REPLY_TOKENS": {
+      "kind": "estimate",
+      "says": "The reply room, in tokens, a harness's side request (a title, a summary) gets from the rung where the harness asked for more; a local rung's time is the cost.",
+      "moves_to": "mcorch_side_reply_tokens"
+    },
     "orchestrator/cache.py:CACHE_VERSION": {
       "kind": "choice",
       "says": "The version of the index cache's format on disk; a cache of another version is rebuilt.",
