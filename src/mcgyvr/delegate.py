@@ -36,7 +36,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
-from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question, classify_role
+from mcgyvr.decision import (
+    Choice,
+    ChoiceAnswer,
+    Decision,
+    Question,
+    classify_for,
+    jev_bound,
+)
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 from mcgyvr.runner import Request, dispatch_role
@@ -181,6 +188,8 @@ def _reply_format() -> str:
         "REQUIRES demonstration commands.\n"
         '- "risk" (string, optional): "low", "medium" or "high"; omit to take '
         "the default.\n"
+        '- "max_output_tokens" (whole number, optional): the reply cap; omit '
+        "and the type's own evidence sizes it.\n"
         "Omit optional fields rather than writing null. Return [] when nothing "
         "can be proposed."
     )
@@ -253,6 +262,7 @@ def _proposal_of(item: object) -> Proposal:
         deps=_deps(item),
         allow=_strings(item, "allow"),
         forbid=_strings(item, "forbid"),
+        max_output_tokens=_optional_cap(item),
         stop_conditions=_strings(item, "stop_conditions"),
         acceptance=_strings(item, "acceptance"),
         demonstration=_strings(item, "demonstration"),
@@ -265,6 +275,18 @@ def _required_str(item: dict[str, object], key: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise UnreadableProposalError(
             f"a proposal is missing a non-empty string {key!r}"
+        )
+    return value
+
+
+def _optional_cap(item: dict[str, object]) -> int | None:
+    """``max_output_tokens`` as a whole number of at least 1, or ``None``."""
+    value = item.get("max_output_tokens")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise UnreadableProposalError(
+            f"max_output_tokens: {value!r} is not a whole number of at least 1"
         )
     return value
 
@@ -375,7 +397,7 @@ class ClassifierProposer:
     Where :func:`proposer_for` asks the orchestrator role for a free-text JSON
     reply and parses it, this proposer asks three
     :class:`~mcgyvr.decision.Choice` questions through
-    :func:`~mcgyvr.decision.classify` — the task type over the servable
+    :func:`~mcgyvr.decision.classify_for` — the task type over the servable
     vocabulary, the target file over the resolver's ranked shortlist, and the
     symbol the task works on over that target's definitions — and builds one
     proposal from the answers. The model's contribution is *relevance*; the
@@ -394,11 +416,11 @@ class ClassifierProposer:
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
         targets = _candidate_targets(evidence)
-        vocabulary = evidence.vocabulary
+        vocabulary = completable(evidence.vocabulary)
         if not targets or not vocabulary:
             return ()
 
-        state = _state(evidence, targets)
+        state = _state(evidence, targets, vocabulary)
         decision = self.classify(
             state,
             {
@@ -457,30 +479,28 @@ def classifier_proposer_for(
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
 ) -> Proposer | None:
-    """The install's orchestrator role as a typed :class:`Proposer`, or ``None``.
+    """A typed :class:`Proposer` over the ``jev.unit`` or the orchestrator role,
+    or ``None`` when neither is bound.
 
     The same ``None`` contract as :func:`proposer_for`: a keyless install has no
     orchestrator, answered with :data:`NO_ORCHESTRATOR_ROLE` rather than a
     failure. The decisions are dispatched through
-    :func:`~mcgyvr.decision.classify_role`, below the seam, so this factory
-    holds no endpoint and the proposer it returns holds none either.
+    :func:`~mcgyvr.decision.classify_for`, below the seam — to the ``jev.unit``
+    when one is bound, which is then all this proposer needs, and to the
+    orchestrator role's unit when not — so this factory holds no endpoint and
+    the proposer it returns holds none either.
     """
-    if source_map.role_model(ORCHESTRATOR_ROLE) is None:
+    if not jev_bound(source_map) and source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        decision = classify_role(
+        return classify_for(
             source_map,
-            ORCHESTRATOR_ROLE,
             state,
             questions,
+            role=ORCHESTRATOR_ROLE,
             capacity=capacity,
         )
-        if decision is None:  # the role was bound a moment ago
-            raise OrchestratorUnavailableError(
-                f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
-            )
-        return decision
 
     return ClassifierProposer(classify=classify, confidence=confidence)
 
@@ -576,10 +596,56 @@ def _subject(target: str, symbol: str | None) -> str:
     return target if symbol is None else f"{symbol} in {target}"
 
 
-def _state(evidence: Evidence, targets: tuple[str, ...]) -> dict[str, Any]:
-    """The state the decision prompt carries: the request and what was shortlisted."""
+def _state(
+    evidence: Evidence, targets: tuple[str, ...], vocabulary: Sequence[TaskType]
+) -> dict[str, Any]:
+    """The state the decision prompt carries: the request and what is on offer."""
     return {
         "request": evidence.prompt,
         "candidates": list(targets),
-        "task_types": [task.name for task in evidence.vocabulary],
+        "task_types": [task.name for task in vocabulary],
     }
+
+
+def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
+    """The task types whose contract this proposer can complete.
+
+    A type whose evidence needs commands — ``acceptance`` that passes at
+    baseline, or a ``demonstration`` that fails there — needs a contract that
+    carries them, and this proposer writes neither: its contribution is
+    relevance, three single-token choices. A contract of such a type from it
+    is one the loader refuses (``contract.py``: "acceptance: is empty, but
+    task type ... requires"), and in the pilot every one was. So those types
+    are not offered; a vocabulary that leaves none is answered with nothing,
+    and the caller falls back to a proposer that writes commands.
+    """
+    return tuple(
+        task
+        for task in vocabulary
+        if not task.needs_acceptance_commands and not task.needs_demonstration_commands
+    )
+
+
+def proposer_by_authoring(
+    strategy: str | None, *, typed: Proposer | None, prose: Proposer | None
+) -> Proposer | None:
+    """The proposer ``orchestrator.authoring`` names for ``mcgyvr delegate``.
+
+    ``classifier`` asks ``typed`` first and falls back to ``prose`` when it
+    returns nothing — a low-confidence refusal or a request outside what it
+    can complete. Any other value is ``prose``, the proposer the command has
+    always used: ``direct`` is a strategy only a conversing rung carries out,
+    and an unbound field is the file not choosing. ``None`` where there is no
+    prose proposer to fall back to, which is the ``NO_ORCHESTRATOR_ROLE``
+    answer the command already gives.
+    """
+    if strategy != "classifier" or typed is None:
+        return prose
+    if prose is None:
+        return None
+
+    def propose(evidence: Evidence) -> Sequence[Proposal]:
+        proposals = typed(evidence)
+        return proposals if proposals else prose(evidence)
+
+    return propose

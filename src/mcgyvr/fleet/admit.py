@@ -10,11 +10,17 @@ and what to restore. ``wake`` finds the one listed switch that wakes a unit.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.fleet.layout import combination_id, layout_sha256
+from mcgyvr.fleet.layout import (
+    FleetError,
+    combination_id,
+    layout_sha256,
+    mcorch_units,
+)
 
 
 class LiveRefusedError(Exception):
@@ -60,11 +66,16 @@ def admit_live(
     fleet: dict[str, Any],
     fleet_name: str | None,
     observed: dict[str, Any],
+    *,
+    policy: Mapping[str, Any] | None = None,
 ) -> Plan:
     """Refuse a live run the lock does not approve, else say what to do.
 
     ``observed`` maps each rig name to ``{rig_id, units: {unit id: state},
-    foreign: [process]}`` — what is actually on the rig right now.
+    foreign: [process]}`` — what is actually on the rig right now. ``policy``
+    is the live setup's ``policy.yaml``, as written: an mcorch orchestrator
+    refuses a fleet that does not hold its units awake
+    (:func:`mcgyvr.fleet.layout.mcorch_units`).
     """
     if fleet_name is None:
         raise LiveRefusedError("no fleet named for a live run")
@@ -83,6 +94,11 @@ def admit_live(
         raise LiveRefusedError(
             f"{fleet_name}: the layout no longer matches its pin — re-lock"
         )
+    if policy is not None:
+        try:
+            mcorch_units(policy, layout, name=fleet_name)
+        except FleetError as exc:
+            raise LiveRefusedError(str(exc)) from exc
 
     rig_ids = {name: block["rig_id"] for name, block in fleet.get("rigs", {}).items()}
     unit_ids = _unit_ids(fleet)

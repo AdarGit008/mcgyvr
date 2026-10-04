@@ -11,6 +11,64 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `units.<unit>.sampling`: who sets a request's sampling parameters. `request`
+  (the default) sends `temperature` as before -- 0.0 for the greedy first
+  draw, `breadth.temperature` after it; `server` says the unit's model fixes
+  its own sampling and refuses the field, so the runner and every typed
+  decision send none to it (the hosted Claude models from Opus 4.7 on answer a
+  `temperature` with HTTP 400 -- in the campaign every dispatch to
+  `claude-opus-5-5` did). A `server` unit asked for more than one draw is
+  refused at load. A fact of the unit, so it is in `fleet.yaml`.
+- The Jev unit is resident. A bound `jev.unit` is dedicated VRAM, an opt-in
+  at setup, and is never slept or woken: the card that holds it is excluded
+  from the ladder manager's switches, `mcgyvr serve sleep|wake`, and the
+  waker a dispatch goes through, and a typed decision never wakes anything
+  first. `mcgyvr init --jev UNIT` dedicates a written unit (no model is picked
+  for you); `mcgyvr init --mcorch UNIT --window TOKENS` enables mcorch on a
+  written unit, needs `--jev`, and writes `orchestrator.type: mcorch`,
+  `authoring: direct`, `deployment: local-only`. Under mcorch, `prose` and
+  `classifier` authoring now work: evidence rides the harness the way it does
+  for a pi agent — mcorch has the harness's shell tool (`Bash` or `bash`) run
+  `mcgyvr read "<request>" --json` in the working directory, assembles the
+  index from the document that comes back (the whole text of every
+  shortlisted and read file), proposes and decomposes server-side, and hands
+  the rung the contracts to write; the repository never touches the server.
+  `mcgyvr read --json` is that document, and it carries the type checker each
+  language adapter locates where the repository is (`located`), so a
+  `type_annotation` under mcorch is emitted with the command the repository
+  declared and refused by name where it declared none — never guessed.
+- `orchestrator.type: mcorch`, an opt-in orchestrator that is a model to the
+  user's harness. `mcgyvr mcorch serve` serves an Anthropic Messages API
+  address (`ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude`, or pi's
+  `anthropic-messages` provider); behind it the bound local rung holds the
+  conversation, the `jev` unit answers every bounded question (is a request
+  chat or work, is a contract ready to run, what comes after a result), and
+  the harness runs every tool — mcorch executes nothing, holds no repository
+  path and never edits a source file. Running a contract is the rung emitting
+  the harness's own tool calls: write the contract, `mcgyvr contract`,
+  `mcgyvr run --orchestrator mcorch-<stamp>`, read the result file, replan —
+  the `/mcgyvr` skill's flow with the rung in the API-tier agent's seat.
+  `orchestrator.authoring` names how a request becomes a contract (`direct`,
+  `prose`, `classifier`; no default, the choice is being measured; `prose`
+  and `classifier` are refused at serve time until the server has a way to
+  the repository's index) and `orchestrator.tools` names the harness tools the
+  rung keeps; the harness's system prompt is replaced by `prompts/mcorch.md`
+  with the contract vocabulary rendered from the schema, and what was dropped
+  is counted in the server's transcript under `<journal.dir>/mcorch/`. mcorch
+  requires `deployment: local-only`, a bound `jev.unit`, and a rung whose
+  `window` is stated; a fleet that does not hold both units awake is refused
+  by `mcgyvr fleet lock`, `mcgyvr fleet promote` and live admission, each for
+  the fleet it is about. The runner can now carry a conversation's turns and
+  the function tools on offer to a rung, and read a reply's `tool_calls`.
+- A `jev:` block in `policy.yaml`, naming the one unit every typed decision
+  asks: the gate's Jev rung, the reviewer's verdict, fleet wake routing, the
+  ladder manager's choices and the typed proposer. `unit` names it and
+  `model` defaults to the unit's own; a local jev unit is served beside the
+  ladder, never on it, and the ladder manager never sleeps its card. Left
+  unbound, each of those keeps asking what it asked before — the verifier
+  role, the reviewing rung, the cheapest local rung, the orchestrator role —
+  so an existing setup reads exactly as it did. `mcgyvr init` writes the
+  block unbound and `mcgyvr pool` prints the role.
 - Relief rungs (hitchhike): units other opted-in users lend you through a
   hub, used to shorten a queue and never to climb. `mcgyvr rig rungs sync`
   reports your ladder's shape to the hub (`POST /api/v1/me/rungs`: each
@@ -195,6 +253,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A delegated contract (`mcgyvr delegate`, mcorch's prose and classifier
+  paths) now carries `limits.max_output_tokens` for every whole-file model
+  type, from the one derivation the loader and `mcgyvr contract` already make
+  (`contract.output_cap`, the type's own evidence) -- it carried none, so
+  every such contract validated and was then refused by `mcgyvr run` (exit 2,
+  a cap nobody chose). A proposal that states `max_output_tokens` wins; a
+  deterministic or raw-text type carries none, as before.
+- Decision `0013-decomposition-is-api-tier-only` (#178, below) is rescinded
+  entirely, owner ruling: the `orchestrator` role may bind to any unit, local
+  or hosted, for any orchestrator type, and nothing enforces an api-family
+  binding at load or at runtime (nothing ever did in code; the rule was prose).
+  `orchestrator.type: mcorch` binds a local rung by design.
 - Prose that nothing in the repository reads — decision records, evidence
   and measurement write-ups, `docs/`, the corpus and header READMEs — moved
   to AdarGit008/mcgyvr-lab at the same paths; the data they describe stays
@@ -211,6 +281,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   at a time as before. A raise in one draw is charged to the lowest draw that
   raised; a draw declined for want of a slot is skipped, and the attempt is
   declined only when every draw was.
+
+### Fixed
+
+- Two worker sessions on one rig no longer share its tensor cache at once.
+  The engine writes a cached tensor in place and reads one back unchecked, so
+  two sessions sent the same model's tensors could each load the other's
+  half-written file as whole weights, without an error. The first worker
+  session to start holds the cache until its teardown has trimmed it; a
+  worker session started meanwhile runs without one (sent every tensor), and
+  the next one after takes it.
 
 ## [0.2.0] - 2026-09-16
 

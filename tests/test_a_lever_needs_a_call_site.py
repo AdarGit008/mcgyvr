@@ -796,7 +796,7 @@ def _reviews(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     and the gate's typed checks are refused the way such a unit refuses them,
     and the verdict is asked in prose — the path these tests are about.
     """
-    import mcgyvr.gate.jev as jev
+    import mcgyvr.decision as decision
     import mcgyvr.verify as verify
     from mcgyvr.decision import DecisionError
 
@@ -813,8 +813,9 @@ def _reviews(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
         raise DecisionError("the endpoint answered without logprobs content")
 
     monkeypatch.setattr(verify, "dispatch_role", fake_dispatch_role)
-    monkeypatch.setattr(verify, "classify_role", no_probabilities)
-    monkeypatch.setattr(jev, "classify_role", no_probabilities)
+    # Both typed seams — the verdict and the gate's Jev rung — reach the
+    # verifier's unit through `decision.classify_role` (via `classify_for`).
+    monkeypatch.setattr(decision, "classify_role", no_probabilities)
     return asked
 
 

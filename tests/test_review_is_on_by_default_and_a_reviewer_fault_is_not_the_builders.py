@@ -207,8 +207,13 @@ def _typed(
     jev_yes: bool = True,
     raises: Exception | None = None,
 ) -> list[tuple[str, tuple[str, ...]]]:
-    """Answer the reviewer's typed questions; record (rung, question names)."""
-    import mcgyvr.verify as verify
+    """Answer the reviewer's typed questions; record (rung, question names).
+
+    Patched at :func:`mcgyvr.decision.classify_rung`, which the reviewer's
+    typed half reaches through :func:`~mcgyvr.decision.classify_for` when no
+    ``jev.unit`` is bound.
+    """
+    import mcgyvr.decision as decision
 
     asked: list[tuple[str, tuple[str, ...]]] = []
 
@@ -230,7 +235,7 @@ def _typed(
                 )
         return Decision(answers=answers)
 
-    monkeypatch.setattr(verify, "classify_rung", fake)
+    monkeypatch.setattr(decision, "classify_rung", fake)
     return asked
 
 
@@ -659,8 +664,8 @@ def test_a_typed_refusal_tells_the_retry_what_the_reviewer_found(
 def test_a_picked_reviewer_on_a_sleeping_card_is_woken(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import mcgyvr.decision as decision
     import mcgyvr.drive as drive
-    import mcgyvr.verify as verify
     from mcgyvr.runner import RefusedConnectionError
 
     awake: set[str] = set()
@@ -687,7 +692,7 @@ def test_a_picked_reviewer_on_a_sleeping_card_is_woken(
             )
         return Decision(answers=answers)
 
-    monkeypatch.setattr(verify, "classify_rung", sleepy)
+    monkeypatch.setattr(decision, "classify_rung", sleepy)
     _worker_replies(monkeypatch, ACCEPTED)
     _prose_reviews(monkeypatch)
 

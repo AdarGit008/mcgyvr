@@ -1142,8 +1142,9 @@ def units_for(
         return unit is not None and not unit.requires_credential
 
     # The role units enter the serving plan when they are local. The
-    # orchestrator joins the ladder as its dearest rung; the verifier is
-    # served beside the ladder, never on it.
+    # orchestrator joins the ladder as its dearest rung; the verifier and the
+    # Jev unit are served beside the ladder, never on it, and once each where
+    # one unit is both.
     served = list(config.ladder.names)
     orchestrator_name = config.get("orchestrator.unit")
     if (
@@ -1159,6 +1160,14 @@ def units_for(
     )
     if verifier_name and _local(verifier_name) and verifier_name not in served:
         role_extra.append(verifier_name)
+    jev_name = config.get("jev.unit")
+    if (
+        jev_name
+        and _local(jev_name)
+        and jev_name not in served
+        and jev_name not in role_extra
+    ):
+        role_extra.append(jev_name)
 
     orchestrator_key: UnitKey | None = None
     for name in (*served, *role_extra):
