@@ -67,10 +67,13 @@ def git_repo(tmp_path: Path) -> Path:
 
 
 def _alive(pid: int) -> bool:
-    """Whether ``pid`` is a live process: present and not a zombie."""
+    """Whether ``pid`` is a live process: present and not a zombie.
+
+    A process can go at any moment of the read: before the open (``ENOENT``)
+    or after it, once reaped (``ESRCH``, a ``ProcessLookupError``)."""
     try:
         state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
-    except (FileNotFoundError, IndexError):
+    except (OSError, IndexError):
         return False
     return state not in {"Z", "X"}
 
@@ -83,6 +86,21 @@ def _gone_soon(pid: int) -> bool:
             return True
         time.sleep(0.05)
     return False
+
+
+@pytest.mark.parametrize("gone", [FileNotFoundError, ProcessLookupError])
+def test_a_process_that_goes_while_its_state_is_read_is_not_alive(
+    monkeypatch: pytest.MonkeyPatch, gone: type[OSError]
+) -> None:
+    """A process reaped between the open of its ``/proc/<pid>/stat`` and the
+    read fails the read with ESRCH — ``ProcessLookupError``, not
+    ``FileNotFoundError`` — and that process is gone, not an error."""
+
+    def vanished(path: Path, *args: object, **kwargs: object) -> str:
+        raise gone(f"{path}: the process went")
+
+    monkeypatch.setattr(Path, "read_text", vanished)
+    assert _alive(os.getpid()) is False
 
 
 # --- temp directory: the whole process group, not the direct child ----------
