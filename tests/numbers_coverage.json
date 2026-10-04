@@ -111,6 +111,7 @@
     "rig/sessionwire.py": "judging",
     "rig/sharing.py": "judging",
     "rig/state.py": "holds no number that sizes or judges",
+    "rig/tensorcache.py": "judging",
     "rig/tunnel.py": "judging",
     "rig/udpwire.py": "judging",
     "rig/verbs.py": "judging",
