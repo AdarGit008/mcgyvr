@@ -9,7 +9,8 @@ of them (:func:`register` puts its handlers on the dispatcher):
 * ``session_prepare`` starts the session's tunnel container
   (:mod:`mcgyvr.sandbox.pooled`), which makes the session's WireGuard key on
   this rig; it is answered ``session_prepared`` with the public key, the
-  listen port and the LAN endpoints, once the tunnel says it is ready. When
+  listen port and the LAN endpoints (none when the rig has no LAN address:
+  a session of one rig needs none), once the tunnel says it is ready. When
   it carries ``traversal`` (the hub's token and binding responders), the
   tunnel's own port — before WireGuard takes it — asks the responders where
   it is seen from, and keeps asking until the tunnel comes up, so the
@@ -660,13 +661,9 @@ class Sessions:
                     SessionCode.BUSY,
                     "every card this rig lends is in another session",
                 )
+            # None is no refusal: a session of one rig needs no tunnel, and
+            # one of several with nothing to aim at fails at tunnel_up.
             hosts = endpoint_hosts(share, self.machine.interfaces)
-            if not hosts:
-                return sessionwire.refusal(
-                    envelope.id,
-                    SessionCode.NOT_CAPABLE,
-                    "this rig has no LAN address its peers could reach",
-                )
             listen_port = self._tunnel_port(share)
             if listen_port is None:
                 return sessionwire.refusal(
@@ -1501,6 +1498,10 @@ class Sessions:
                     )
                     samples.append((walk.peer.rig_id, rtt))
             paths.append(result)
+        lost = [p.rig_id for p in paths if p.path == "none"]
+        if not lost:
+            # Up before the report says so: the hub acts on the report at once.
+            self._move(session, "tunnel_up")
         with self._lock:
             session.report = tuple(paths)
             waiting, session.reported_to = session.reported_to, []
@@ -1508,14 +1509,12 @@ class Sessions:
             self._say(sessionwire.tunnel_report(re, session_id=session.id, peers=paths))
         if samples:
             self._say(sessionwire.peer_rtt(samples[: sessionwire.MAX_RTT_SAMPLES]))
-        lost = [p.rig_id for p in paths if p.path == "none"]
         if lost:
             raise _FailureError(
                 SessionCode.NO_PATH,
                 f"no path reached peer {lost[0]}: no candidate answered and no "
                 "relay carried it",
             )
-        self._move(session, "tunnel_up")
 
     def _cache(self, session: _Session) -> Path | None:
         """The rig's cache folder for ``session``'s workers, which then hold
