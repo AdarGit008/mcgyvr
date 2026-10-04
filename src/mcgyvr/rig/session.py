@@ -21,7 +21,9 @@ of them (:func:`register` puts its handlers on the dispatcher):
   the hub's order, :attr:`Timing.attempt_s` each (or the hub's
   ``attempt_s``), until a WireGuard handshake confirms one — both rigs walk
   at once, so each side's handshakes open its own NAT for the other's — then
-  the peer's relay, bound from this machine (:func:`bind_relay`). It is
+  the peer's relay, bound from this machine (:func:`bind_relay`), which it
+  stays pointed at until :attr:`Timing.connect_s` (or the hub's
+  ``connect_timeout_s``) is over: the peer may reach the relay later. It is
   answered ``tunnel_report``: each peer's path (``lan``, ``direct``,
   ``relay`` or ``none``), the endpoint WireGuard uses and the round trip
   over the tunnel (also sent as ``peer_rtt``). The tunnel's table lets
@@ -1391,7 +1393,12 @@ class Sessions:
                     walk.held = seen.endpoints[key]
                     walk.result = self._confirmed(walk, walk.held)
                     changed = True
-                elif walk.aim is None or now - walk.since >= attempt:
+                elif walk.aim is None or (
+                    not walk.relayed and now - walk.since >= attempt
+                ):
+                    # A candidate has its time; the relay, the last resort,
+                    # is held until the deadline: the peer, walking a longer
+                    # list, may only reach it later.
                     self._next_aim(walk)
                     walk.since = self._clock()
                     changed = True
@@ -1412,8 +1419,8 @@ class Sessions:
         self._report(session, walks)
 
     def _next_aim(self, walk: _Walk) -> None:
-        """Point ``walk`` at the peer's next candidate, then its relay, then
-        at nothing: the peer has no path."""
+        """Point ``walk`` at the peer's next candidate, then its relay, or,
+        with no relay to bind, at nothing: the peer has no path."""
         walk.moved = True
         candidates = walk.peer.candidates
         if walk.aim is not None and not walk.relayed:

@@ -117,6 +117,12 @@ TUNNEL_MEMORY_MB = 1024
 #: Go's soft memory limit for wireguard-go, in MiB, well under the cap: it
 #: collects its garbage harder as it nears this instead of being OOM-killed.
 TUNNEL_GO_MEMORY_MB = TUNNEL_MEMORY_MB * 3 // 4
+#: The MTU of the tunnel's interface. WireGuard adds its header and tag (32
+#: bytes), UDP (8) and, at most, an IPv6 header (40) to each packet: 80 bytes,
+#: which must fit the smallest MTU an IPv6 path may have, 1280 -- a relay's
+#: path can be that small, and the tunnel's table drops the ICMP that would
+#: say a packet was too big, so a larger packet is lost without a word.
+TUNNEL_MTU = 1200
 #: The writable scratch each container gets, as tmpfs options.
 TUNNEL_TMPFS = "/run:rw,nosuid,nodev,noexec,size=1m"
 ENGINE_TMPFS = "/tmp:rw,nosuid,nodev,noexec,size=64m"
@@ -125,7 +131,8 @@ ENGINE_TMPFS = "/tmp:rw,nosuid,nodev,noexec,size=64m"
 #: say what the agent needs, then live as long as the lease. ``$1`` is the
 #: listen port (WireGuard takes it only when the tunnel comes up:
 #: :data:`TUNNEL_SCRIPT`), ``$2`` the lease in seconds.
-TUNNEL_ENTRY = r"""set -eu
+TUNNEL_ENTRY = (
+    r"""set -eu
 umask 077
 port="$1"
 lease_s="$2"
@@ -161,8 +168,9 @@ while [ ! -S /run/wireguard/wg0.sock ]; do
   sleep 0.1
 done
 wg genkey | wg set wg0 private-key /dev/stdin
-ip link set wg0 up
-echo "public-key $(wg show wg0 public-key)"
+"""
+    + f"ip link set wg0 mtu {TUNNEL_MTU} up\n"
+    + r"""echo "public-key $(wg show wg0 public-key)"
 echo "address $(ip -4 -o addr show dev eth0 | awk '{print $4; exit}')"
 echo "gateway $(ip -4 route show default | awk '{print $3; exit}')"
 echo "ready"
@@ -179,6 +187,7 @@ done
 echo "wireguard ended"
 exit 4
 """
+)
 
 #: Let the hub's binding responders be asked from the tunnel's port: ``$1``
 #: the port, then each responder's address and port. Only those, from and to

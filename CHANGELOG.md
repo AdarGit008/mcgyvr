@@ -306,6 +306,20 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   session to start holds the cache until its teardown has trimmed it; a
   worker session started meanwhile runs without one (sent every tensor), and
   the next one after takes it.
+- A pooled session's tunnel carries a model over a relay. Its interface came
+  up at WireGuard's default MTU, 1420; over a path with a smaller one the
+  larger packets were lost, and the tunnel's table drops the ICMP that would
+  have said so, so a load through the relay moved a few megabytes and stalled
+  until its timeout. The interface now comes up at `TUNNEL_MTU`, 1200: with
+  WireGuard's 80 bytes over IPv6 a packet fits the smallest MTU an IPv6 path
+  may have, 1280. Every path gets the smaller MTU, a LAN one too.
+- A tunnel's walk stays on its relay until the time to connect is over. The
+  relay was given one candidate's time (`attempt_s`) like any other, then the
+  peer was reported `none`; two rigs holding different numbers of candidates
+  reach the relay at different moments, so the first could leave it before
+  the second arrived and the session failed `no_path`. A relay that cannot be
+  bound still fails at once; one that never answers now fails at
+  `connect_timeout_s`.
 
 ## [0.2.0] - 2026-09-16
 

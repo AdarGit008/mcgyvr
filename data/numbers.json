@@ -1774,6 +1774,11 @@
       "says": "The soft memory limit, in MiB, under the tunnel container's cap, from which wireguard-go collects its garbage harder instead of being killed for memory.",
       "moves_to": "tunnel_go_memory_mb"
     },
+    "sandbox/pooled.py:TUNNEL_MTU": {
+      "kind": "fact",
+      "says": "The MTU of a session's tunnel interface: the largest whose packets, with the 80 bytes WireGuard adds over IPv6 (its header and tag 32, UDP 8, IPv6 40), fit the smallest MTU an IPv6 path may have, 1280.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "sandbox/pooled.py:TUNNEL_PIDS": {
       "kind": "choice",
       "says": "The most processes and threads a session's tunnel container may run.",

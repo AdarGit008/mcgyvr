@@ -9,10 +9,12 @@ peers is the one WireGuard's packets will leave by; the answer to
 point WireGuard at each peer's candidates in the hub's order, a time per
 candidate (both rigs at once: each side's handshakes open its own NAT for the
 other's), until a handshake completes; a peer no candidate reaches is
-pointed at its relay, once bound; ``tunnel_report`` answers with each peer's
-path (``lan``, ``direct``, ``relay`` or ``none``), the endpoint WireGuard
-uses and the round trip. A peer no path reaches fails the session as
-``no_path``.
+pointed at its relay, once bound, and stays pointed at it for as long as
+the hub gave the tunnel to connect: the relay is the last resort, and the
+peer, with more candidates to walk, may come to it later; ``tunnel_report``
+answers with each peer's path (``lan``, ``direct``, ``relay`` or ``none``),
+the endpoint WireGuard uses and the round trip. A peer no path reaches fails
+the session as ``no_path``.
 
 The table stays as tight as before: while a candidate is tried, only its
 address may reach the port; once a path is confirmed, only that endpoint,
@@ -25,6 +27,7 @@ named by a host name.
 from __future__ import annotations
 
 import ipaddress
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -174,6 +177,44 @@ def test_a_peer_no_candidate_reaches_is_reached_through_its_relay(pool: Pool) ->
     assert (bound.host, bound.port, bound.ticket) == (RELAY, 3478, "T" * 30)
     tight = _scripts(pool, "PATH_SCRIPT")[-1]
     assert tight == ("51820", fakes.PEER_KEY, RELAY, "40001", "exact", "0")
+
+
+def test_a_relay_that_answers_after_a_candidates_time_is_still_the_path(
+    pool: Pool,
+) -> None:
+    """The peer holds more candidates, so it reaches the relay later."""
+    pool.docker.answering = set()
+    _prepare(pool, **_traversal())
+    grant = {"host": RELAY, "port": 3478, "ticket": "T" * 30}
+    assert pool.ask("tunnel_up", "t1", **_body([_reflexive()], relay=grant)) is None
+    deadline = time.monotonic() + 5.0
+    while not pool.relayed and time.monotonic() < deadline:
+        time.sleep(0.005)
+    assert pool.relayed, "the walk never reached its relay"
+    timing = pool.sessions.timing
+    late = timing.attempt_s * 6
+    assert timing.attempt_s < late < timing.connect_s / 2
+    time.sleep(late)
+    pool.docker.answering = {(RELAY, 40001)}
+    (peer,) = pool.report("t1")["body"]["peers"]
+    assert peer["path"] == "relay"
+    assert peer["endpoint"] == {"host": RELAY, "port": 40001, "kind": "relay"}
+    assert len(pool.relayed) == 1
+    assert pool.sessions.state_of("s1") == ("tunnel_up", "worker")
+
+
+def test_a_relay_that_never_answers_is_given_up_when_the_time_to_connect_ends(
+    pool: Pool,
+) -> None:
+    pool.docker.answering = set()
+    _prepare(pool, **_traversal())
+    grant = {"host": RELAY, "port": 3478, "ticket": "T" * 30}
+    began = time.monotonic()
+    report = pool.up("t1", **_body([_reflexive()], relay=grant))
+    assert time.monotonic() - began >= pool.sessions.timing.connect_s
+    assert report["body"]["peers"] == [{"rig_id": "rig-peer", "path": "none"}]
+    pool.wait_for("session_status", "failed")
+    assert pool.box.of_type("session_status")[-1]["body"]["error_code"] == "no_path"
 
 
 def test_a_peer_no_path_reaches_fails_the_session_as_no_path(pool: Pool) -> None:
