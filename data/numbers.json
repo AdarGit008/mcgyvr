@@ -1444,6 +1444,36 @@
       "says": "The largest lending settings file read back, in bytes; what the agent writes is far smaller.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "rig/tensorcache.py:FNV_OFFSET": {
+      "kind": "fact",
+      "says": "FNV-1a 64's offset basis, as the engine's fnv_hash starts a cached tensor's name.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/tensorcache.py:FNV_PRIME": {
+      "kind": "fact",
+      "says": "FNV-1a 64's prime, as the engine's fnv_hash multiplies by it.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/tensorcache.py:_MASK": {
+      "kind": "fact",
+      "says": "The low 64 bits, which FNV-1a 64 keeps after each multiply.",
+      "reason": "a definition or arithmetic"
+    },
+    "rig/tensorcache.py:CHUNK": {
+      "kind": "choice",
+      "says": "How many bytes of a cached tensor are read at a time while the agent hashes it.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/tensorcache.py:HASHERS": {
+      "kind": "choice",
+      "says": "How many cached tensors the agent hashes at once, each in a process of its own: half the machine's cores, at least one and at most four.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/tensorcache.py:HASHER_POLL_S": {
+      "kind": "choice",
+      "says": "How often, in seconds, the agent looks at the processes hashing its tensor cache.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
     "rig/tunnel.py:NARROWEST_PREFIX": {
       "kind": "fact",
       "says": "The narrowest IPv4 network that holds two hosts.",
