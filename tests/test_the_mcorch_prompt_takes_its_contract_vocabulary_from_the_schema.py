@@ -37,6 +37,21 @@ def test_the_prompt_file_is_the_source_and_carries_no_hand_kept_table() -> None:
     assert "Jev" in source
 
 
+def test_the_prompt_leaves_a_run_result_to_the_rung_with_no_jev_note_promised() -> None:
+    """J3 is decommissioned (lab issue #61): the prompt must not tell the rung to
+    wait for or obey a ``Jev:`` note about what comes after a result; the rung
+    itself judges done / a different contract / ask the user from the result."""
+    # Unwrapped, so a phrase the file breaks across lines still reads as one.
+    rendered = " ".join(prompt.render(writer="mcorch-2026", authoring="direct").split())
+    jev = rendered[rendered.index("## Jev") : rendered.index("## Replies")]
+    assert "chat or work" in jev
+    assert "ready to run" in jev
+    assert "what to do after a result" not in rendered
+    assert "yours to judge" in jev
+    assert "no `Jev:` note" in jev
+    assert "only the user" in rendered  # the ask-the-user branch is the rung's
+
+
 def test_the_prompt_explains_preflight_refusals_and_forbids_target_edits() -> None:
     """The pilot rung read a refusal as a broken tool and edited the target itself."""
     rendered = prompt.render(writer="mcorch-2026", authoring="direct")
