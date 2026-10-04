@@ -1487,6 +1487,10 @@ class Sessions:
                     )
                     samples.append((walk.peer.rig_id, rtt))
             paths.append(result)
+        lost = [p.rig_id for p in paths if p.path == "none"]
+        if not lost:
+            # Up before the report says so: the hub acts on the report at once.
+            self._move(session, "tunnel_up")
         with self._lock:
             session.report = tuple(paths)
             waiting, session.reported_to = session.reported_to, []
@@ -1494,14 +1498,12 @@ class Sessions:
             self._say(sessionwire.tunnel_report(re, session_id=session.id, peers=paths))
         if samples:
             self._say(sessionwire.peer_rtt(samples[: sessionwire.MAX_RTT_SAMPLES]))
-        lost = [p.rig_id for p in paths if p.path == "none"]
         if lost:
             raise _FailureError(
                 SessionCode.NO_PATH,
                 f"no path reached peer {lost[0]}: no candidate answered and no "
                 "relay carried it",
             )
-        self._move(session, "tunnel_up")
 
     def _cache(self, session: _Session) -> Path | None:
         """The rig's cache folder for ``session``'s workers, which then hold
