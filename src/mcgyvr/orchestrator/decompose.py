@@ -71,7 +71,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import TaskType, catalog
-from mcgyvr.contract import Contract, ContractError
+from mcgyvr.contract import Contract, ContractError, output_cap
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.orchestrator.index import Index
@@ -145,6 +145,10 @@ class Proposal:
     allow: tuple[str, ...] = ()
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
+    #: The reply cap the proposal states, or ``None`` for the type's own
+    #: derivation (:func:`mcgyvr.contract.output_cap`), written on the
+    #: document so ``mcgyvr run`` meets a cap somebody chose.
+    max_output_tokens: int | None = None
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
     """Commands that must fail at baseline and pass after — `failing_test_first`
@@ -693,7 +697,31 @@ def _document(
         document["risk"] = proposal.risk
     if max_input_tokens is not None:
         document["context"] = {"max_input_tokens": max_input_tokens}
+    cap = _reply_cap(proposal, new_file=not target_content)
+    if cap is not None:
+        document["limits"] = {"max_output_tokens": cap}
     return document
+
+
+def _reply_cap(proposal: Proposal, *, new_file: bool) -> int | None:
+    """The ``limits.max_output_tokens`` a delegated contract is written with.
+
+    ``mcgyvr run`` refuses a whole-file model contract that declares no cap
+    (``cli._cap_undeclared``): a reply cut at a cap nobody chose is spent
+    silently. The loader fills the number in only to load, so an emitted
+    document has to carry it. The proposal's own figure wins; otherwise the
+    one derivation the loader and ``mcgyvr contract`` already make,
+    :func:`mcgyvr.contract.output_cap`, from the type's own evidence — nothing
+    here invents a number — with the new-file step the loader cannot know and
+    this module can. A deterministic type has no reply to cap and a raw-text
+    type (``prose``, ``media_artifact``) carries none, so both get ``None``.
+    """
+    if proposal.max_output_tokens is not None:
+        return proposal.max_output_tokens
+    kind = catalog().require(proposal.task_type)
+    if kind.deterministic or kind.use_case.name != "coding":
+        return None
+    return output_cap(proposal.task_type, new_file=new_file)
 
 
 def _load(document: dict[str, Any]) -> Contract | Refusal:
