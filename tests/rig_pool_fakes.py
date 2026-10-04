@@ -11,6 +11,7 @@ a daemon, a card, or the network.
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import threading
@@ -404,7 +405,8 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
         interfaces=interfaces,
         owner=pooled.Owner(uid=1000, gid=1000, agent_pid=os.getpid()),
         cache_dir=tmp_path / "cache",
-        free_port=lambda: 18080,
+        # a port of its own each time, as the machine's free_port gives one
+        free_port=itertools.count(18080).__next__,
         head_health=head_health,
         warm_up=warm_up,
         bind_relay=bind_relay,

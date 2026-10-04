@@ -22,8 +22,9 @@ machine's loopback alone (:mod:`mcgyvr.sandbox.pooled`). A relay is:
 A head serves as many requests at once as it has slots (``head_start``'s
 ``slots``), so a session takes at most that many relays at once, and the
 next is answered ``busy`` without reaching the head. :data:`MAX_ACTIVE`
-bounds the relays of the whole rig besides: a rig is in one session at a
-time, so it is never below what that session's head may take.
+bounds each head's relays besides, never below what a head may take: a rig
+may serve several heads at once (a session per card), and a head with a
+slot free is never refused because another head is full.
 
 A ride (``unit_relay_request``) is the same relay aimed elsewhere: at a unit
 this host runs for themselves and shares with riders (hitchhike,
@@ -36,8 +37,8 @@ no advert named ends ``unknown_unit``; a unit that has its riders, or whose
 host would be left short, ends ``busy`` (:meth:`Units.ride`, which also holds
 one of the unit's slots for as long as the ride runs). The body goes as the
 hub gave it, with the unit's model already in it, and the answer comes back as
-the unit gives it. Rides count in :data:`MAX_ACTIVE` and share the relays'
-request ids.
+the unit gives it. The rides together are bounded by :data:`MAX_ACTIVE` as a
+head's relays are, and share the relays' request ids.
 
 A cancel or a deadline hangs up on the head, which stops generating. What a
 relay carries is the users' and is never printed or put in a message: a
@@ -62,10 +63,11 @@ from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
 
-#: How many relays may run at once on one rig, whatever its sessions, rides
-#: to its shared units included: a safety net under each head's own bound
-#: (its slots) and each unit's (its riders). A rig is in one session at a
-#: time, so this is the most slots one head may have.
+#: How many relays may run at once to one head, and how many rides to the
+#: shared units together: a safety net under each head's own bound (its
+#: slots) and each unit's (its riders), never below the most slots one head
+#: may have. It bounds each head, not the rig: a rig in several sessions at
+#: once serves each head its own slots.
 MAX_ACTIVE = sessionwire.MAX_SLOTS
 #: How many request ids are remembered, so one is never used twice.
 REMEMBERED_IDS = 4096
@@ -220,10 +222,7 @@ class Relays:
                 if isinstance(running.asked, sessionwire.RelayRequest)
                 and running.asked.session_id == asked.session_id
             )
-            if (
-                taken >= self._heads.head_slots(asked.session_id)
-                or len(self._active) >= self._max_active
-            ):
+            if taken >= min(self._heads.head_slots(asked.session_id), self._max_active):
                 return sessionwire.relay_end(
                     asked.request_id, outcome="error", error_code=SessionCode.BUSY
                 )
@@ -263,13 +262,13 @@ class Relays:
                     outcome="error",
                     error_code=SessionCode.UNKNOWN_UNIT,
                 )
-            riding = sum(
-                1
+            rides = [
+                running.asked
                 for running in self._active.values()
                 if isinstance(running.asked, sessionwire.UnitRelayRequest)
-                and running.asked.unit_id == asked.unit_id
-            )
-            if riding >= unit.rider_cap or len(self._active) >= self._max_active:
+            ]
+            riding = sum(1 for ride in rides if ride.unit_id == asked.unit_id)
+            if riding >= unit.rider_cap or len(rides) >= self._max_active:
                 return sessionwire.relay_end(
                     asked.request_id, outcome="error", error_code=SessionCode.BUSY
                 )
