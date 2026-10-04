@@ -25,7 +25,8 @@ then only what the owner allows is lent:
 * ``cache`` — whether a worker keeps the tensors its heads sent in a cache
   folder of its own, so a reload sends only what changed, up to
   ``cache_max_mb``. One session at a time holds the folder; a worker session
-  started while another holds it runs without one.
+  started while another holds it, or before the agent has hashed every file
+  in it (:mod:`mcgyvr.rig.tensorcache`), runs without one.
 
 It is kept in ``$MCGYVR_HOME/rig-sharing.json`` beside the rig credentials,
 written whole (a staging file, then a rename) and holding no secret. A file
