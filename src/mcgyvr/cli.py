@@ -99,7 +99,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.orchestrator.decompose import Decomposition
+    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
+    from mcgyvr.pool import SourceMap
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
@@ -171,6 +172,7 @@ def _config(args: argparse.Namespace) -> int:
 
 
 def _pool(args: argparse.Namespace) -> int:
+    from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import draws_for, family_of
@@ -255,7 +257,7 @@ def _pool(args: argparse.Namespace) -> int:
         for skip in pool.relief_skipped:
             print(f"  {skip.name:<20} skipped\n      ↳ {skip.reason}")
 
-    for role in ("orchestrator", "verifier"):
+    for role in ("orchestrator", "verifier", JEV_ROLE):
         try:
             model = pool.role_model(role)
         except SourceUnavailableError as exc:
@@ -610,6 +612,9 @@ def _init(args: argparse.Namespace) -> int:
             profile=args.profile,
             use_case=args.use_case,
             deployment=args.deployment,
+            jev=args.jev,
+            mcorch=args.mcorch,
+            window=args.window,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -843,6 +848,10 @@ def _read(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    if args.json:
+        print(json.dumps(_read_document(args.query, root, index, resolution, plan)))
+        return 0
+
     state = "exhausted" if plan.exhausted else "complete"
     saved = f", {plan.saved} saved" if plan.saved else ""
     print(
@@ -868,6 +877,53 @@ def _read(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_document(
+    query: str, root: Path, index: Any, resolution: Any, plan: Any
+) -> dict[str, Any]:
+    """The `read --json` document: shortlist, reads, and every such file's text.
+
+    The texts come from the index the command built, not from a second read
+    of the disk, so the document is the index: a server that assembles one
+    from it (:mod:`mcgyvr.mcorch.evidence`) holds what this command held.
+    ``located`` is the adapters' checker lookup, made here because only here
+    is the repository on disk.
+    """
+    from mcgyvr.orchestrator.decompose import locate_checkers
+
+    wanted = [candidate.path for candidate in resolution.candidates]
+    wanted += [read.path for read in plan.reads if read.path not in wanted]
+    by_path = {file.path: file for file in index.files}
+    return {
+        "prompt": query,
+        "root": str(root),
+        "resolution": {
+            "verdict": resolution.verdict.value,
+            "candidates": [
+                {"path": c.path, "score": c.score, "evidence": list(c.evidence)}
+                for c in resolution.candidates
+            ],
+        },
+        "reads": [
+            {
+                "path": read.path,
+                "start": read.start,
+                "end": read.end,
+                "reason": read.reason,
+                "text": read.text,
+            }
+            for read in plan.reads
+        ],
+        "files": [
+            {"path": path, "text": "\n".join(by_path[path].lines)}
+            for path in wanted
+            if path in by_path
+        ],
+        # The checker each language adapter locates here, where the repository
+        # is: the one lookup a server reading this document cannot make itself.
+        "located": locate_checkers(root),
+    }
+
+
 def _delegate(args: argparse.Namespace) -> int:
     """Turn a prompt plus a repository into validated contracts.
 
@@ -887,7 +943,7 @@ def _delegate(args: argparse.Namespace) -> int:
     """
 
     from mcgyvr.config import ConfigError, ConfigMissingError, named_config_path
-    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError, proposer_for
+    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
     from mcgyvr.exits import Exit
     from mcgyvr.orchestrator import (
         AttachError,
@@ -925,7 +981,7 @@ def _delegate(args: argparse.Namespace) -> int:
 
     pool = source_map(config)
     try:
-        propose = proposer_for(pool)
+        propose = _proposer_for_delegate(config, pool)
     except SourceUnavailableError as exc:
         print(
             f"error: the orchestrator role is declared but cannot run: {exc}. "
@@ -968,6 +1024,28 @@ def _delegate(args: argparse.Namespace) -> int:
         # a reviewer-side fault, reported, never a traceback.
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
+    """The proposer ``mcgyvr delegate`` drafts with, by ``orchestrator.authoring``.
+
+    ``classifier`` puts the typed proposer (the jev unit, or the orchestrator
+    role when none is bound) first and the prose proposer behind it; anything
+    else is the prose proposer alone, as before the field existed.
+    """
+    from mcgyvr.delegate import (
+        classifier_proposer_for,
+        proposer_by_authoring,
+        proposer_for,
+    )
+
+    strategy = config.get("orchestrator.authoring")
+    typed = classifier_proposer_for(pool) if strategy == "classifier" else None
+    return proposer_by_authoring(
+        None if not isinstance(strategy, str) else strategy,
+        typed=typed,
+        prose=proposer_for(pool),
+    )
 
 
 def _report_decomposition(dec: Decomposition) -> None:
@@ -1126,6 +1204,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.drive import Recording, gate_adapters
     from mcgyvr.result import RunResult, result_path, run_stamp, write
+    from mcgyvr.session import with_mcorch_transcript
 
     session: Session = args.session
 
@@ -1182,6 +1261,9 @@ def _run(args: argparse.Namespace) -> int:
     # those questions is about *all* the runs there have been.
     configured = config.get("journal.dir") if config is not None else None
     journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+    # An mcorch writer's transcript is under this directory and nowhere the
+    # parser could have looked: attached now that the directory is known.
+    session = with_mcorch_transcript(session, journal_dir)
     # Theirs, for their own reading. A complete copy — every line, every blob,
     # the result file — so `tools/live/review.py DIR` reads it exactly as it
     # reads ours, and a failure to write one is a note rather than the end of a
@@ -2612,7 +2694,10 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     stated = config.units[fast.name].request_timeout_s
     bounds = ladder_manager.Bounds.of(config)
     board = Board()
-    view = ladder_manager.View.of(config, jev=fast.name)
+    # The card the decisions run on is never slept: the `jev.unit` when one
+    # is bound (every decision asks it), the fast rung when not.
+    jev = config.get("jev.unit") or fast.name
+    view = ladder_manager.View.of(config, jev=jev)
     switches = wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config))
     manager = ladder_manager.Manager(
         view,
@@ -2631,7 +2716,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     print(
         f"managing {', '.join(view.resident)}; can sleep and wake: "
         f"{', '.join(ladder_manager.sleepable_rungs(config))}; Jev runs on "
-        f"{fast.name}; every {bounds.interval_s:g}s"
+        f"{jev}; every {bounds.interval_s:g}s"
     )
     for rung, alone in wakelib.left_alone(config).items():
         print(f"note: {rung} is left alone: {alone}")
@@ -3182,6 +3267,59 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
         args.session = resolve(args.orchestrator)
     except SessionError as exc:
         run.error(str(exc))
+
+
+def _mcorch_serve(args: argparse.Namespace) -> int:
+    """Serve the orchestrator rung as the agent, at an Anthropic Messages address.
+
+    Refuses a config whose orchestrator is not ``type: mcorch`` — the command
+    has nothing to serve then — and, under a live profile, a fleet live
+    admission does not admit (:func:`_admitted_live`), as ``run`` is. Binds the
+    loopback and the facade's own port unless told otherwise; prints where it
+    listens and the writer id it journals under, so a reader can find the
+    transcript; runs until interrupted.
+    """
+    from mcgyvr.config import MCORCH
+    from mcgyvr.decision import UnboundRoleError
+    from mcgyvr.mcorch import bind, serve
+    from mcgyvr.mcorch.authoring import AuthoringUnavailableError
+    from mcgyvr.pool import SourceUnavailableError
+
+    try:
+        config = load_config(Path(args.config) if args.config else None)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    if config.get("orchestrator.type") != MCORCH:
+        print(
+            f"refused: orchestrator.type is {config.get('orchestrator.type')!r}, "
+            f"and `mcgyvr mcorch serve` serves only `orchestrator.type: {MCORCH}`. "
+            "Set it, with `orchestrator.unit`, `orchestrator.authoring` and "
+            "`jev.unit`, or use the orchestrator the config has.",
+            file=sys.stderr,
+        )
+        return Exit.REFUSED
+    if config.get("profile") == "live" and _admitted_live() is not None:
+        return Exit.REFUSED
+    try:
+        bound = bind.bind(config, journal_dir=bind.journal_dir(config))
+    except (UnboundRoleError, SourceUnavailableError, AuthoringUnavailableError) as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return Exit.REFUSED
+
+    address = args.bind if args.bind else serve.DEFAULT_BIND
+    port = args.port if args.port is not None else serve.FACADE_PORT
+    server = serve.make_server(bind.facade(bound), bind=address, port=port)
+    host, bound_port = str(server.server_address[0]), int(server.server_address[1])
+    print(f"mcorch serving http://{host}:{bound_port} as writer {bound.writer}")
+    print(f"transcript: {bound.transcript.path}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return Exit.OK
 
 
 def _fleet_lock(args: argparse.Namespace) -> int:
@@ -3791,6 +3929,36 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "chat, hybrid otherwise"
         ),
     )
+    ini.add_argument(
+        "--jev",
+        default=None,
+        metavar="UNIT",
+        help=(
+            "dedicate VRAM to a Jev unit: the written unit every typed decision "
+            "asks, never slept or woken (an opt-in; no model is picked for you)"
+        ),
+    )
+    ini.add_argument(
+        "--mcorch",
+        default=None,
+        metavar="UNIT",
+        help=(
+            "enable mcorch on a written unit: the conversational agent a harness "
+            "points at (`mcgyvr mcorch serve`); needs --jev and --window, and "
+            "writes orchestrator.type mcorch, authoring direct, deployment "
+            "local-only"
+        ),
+    )
+    ini.add_argument(
+        "--window",
+        default=None,
+        type=int,
+        metavar="TOKENS",
+        help=(
+            "with --mcorch: the tokens the agent's unit serves in one request, "
+            "read back off the running process"
+        ),
+    )
     ini.set_defaults(func=_init)
 
     att = sub.add_parser(
@@ -3934,6 +4102,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "(repeatable)"
         ),
     )
+    rd.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "print one JSON document instead of the report: the request, the "
+            "shortlist, the regions read, and the whole text of every shortlisted "
+            "and read file — what a server with no path to this repository needs "
+            "to index it (mcorch gathers evidence this way, through the harness)"
+        ),
+    )
     rd.set_defaults(func=_read)
 
     fleet = sub.add_parser(
@@ -4060,6 +4238,40 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     from mcgyvr.rig import verbs as rig_verbs
 
     rig_verbs.add_parser(sub)
+
+    mcorch = sub.add_parser(
+        "mcorch",
+        help="serve the orchestrator rung as the agent a harness talks to",
+    )
+    mcorch_sub = mcorch.add_subparsers(dest="mcorch_command", required=True)
+    mserve = mcorch_sub.add_parser(
+        "serve",
+        help=(
+            "serve an Anthropic Messages API address for a harness to point at "
+            "(ANTHROPIC_BASE_URL); needs `orchestrator.type: mcorch`"
+        ),
+    )
+    mserve.add_argument(
+        "--config",
+        default=None,
+        type=_named_path,
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
+    )
+    mserve.add_argument(
+        "--bind",
+        default=None,
+        help=(
+            "the address to listen on (default: the loopback; a LAN or tailnet "
+            "address lets another machine's harness reach it)"
+        ),
+    )
+    mserve.add_argument(
+        "--port",
+        default=None,
+        type=int,
+        help="the port to listen on (default: the facade's own)",
+    )
+    mserve.set_defaults(func=_mcorch_serve)
 
     run = sub.add_parser(
         "run",

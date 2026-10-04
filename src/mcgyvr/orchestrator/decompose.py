@@ -65,13 +65,13 @@ from __future__ import annotations
 import hashlib
 import json
 import shlex
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import TaskType, catalog
-from mcgyvr.contract import Contract, ContractError
+from mcgyvr.contract import Contract, ContractError, output_cap
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.orchestrator.index import Index
@@ -145,6 +145,10 @@ class Proposal:
     allow: tuple[str, ...] = ()
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
+    #: The reply cap the proposal states, or ``None`` for the type's own
+    #: derivation (:func:`mcgyvr.contract.output_cap`), written on the
+    #: document so ``mcgyvr run`` meets a cap somebody chose.
+    max_output_tokens: int | None = None
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
     """Commands that must fail at baseline and pass after — `failing_test_first`
@@ -236,6 +240,7 @@ def decompose(
     budget: int | None = None,
     adapters: Sequence[LanguageAdapter] | None = None,
     max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
+    located: Mapping[str, Sequence[str]] | None = None,
 ) -> Decomposition:
     """Turn ``prompt`` and an indexed repository into validated contracts.
 
@@ -262,6 +267,14 @@ def decompose(
     enough to send. The default is a policy number — see
     :data:`_DEFAULT_MAX_INPUT_TOKENS` — so a caller that knows what its
     ladder can actually accept should pass its own.
+
+    ``located`` is the checker each adapter located, by adapter name, found by
+    a caller that ran where the repository is (``mcgyvr read --json``); when
+    given it stands in for every read of the disk :func:`_acceptance_for`
+    would make, so a server holding an index assembled from a document — whose
+    ``index.root`` is a label, not a repository — emits a ``type_annotation``
+    with the command the repository declared and refuses one it did not, the
+    same answers the disk gives. ``None`` reads the disk as before.
 
     Never raises for an undecomposable request: a prompt nothing can be made of
     returns a :class:`Decomposition` whose ``contracts`` is empty and whose
@@ -304,7 +317,9 @@ def decompose(
     refusals: list[Refusal] = []
     seen: dict[str, str] = {}
     for proposal in proposals:
-        emitted = _emit(proposal, index, vocabulary, seen, owners, max_input_tokens)
+        emitted = _emit(
+            proposal, index, vocabulary, seen, owners, max_input_tokens, located
+        )
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
             continue
@@ -347,6 +362,7 @@ def _emit(
     seen: dict[str, str],
     adapters: Sequence[LanguageAdapter],
     ceiling: int,
+    located: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[Contract, str] | Refusal:
     """One proposal as a validated contract, or the reason it is not one.
 
@@ -374,7 +390,7 @@ def _emit(
         )
 
     kind = next(t for t in vocabulary if t.name == proposal.task_type)
-    acceptance = _acceptance_for(proposal, kind, index.root, adapters)
+    acceptance = _acceptance_for(proposal, kind, index.root, adapters, located)
     if isinstance(acceptance, Refusal):
         return acceptance
     proposal = replace(proposal, acceptance=acceptance)
@@ -454,8 +470,13 @@ def _acceptance_for(
     kind: TaskType,
     root: Path,
     adapters: Sequence[LanguageAdapter],
+    located: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[str, ...] | Refusal:
     """The contract's acceptance list: the proposal's, or the repository's checker.
+
+    ``located`` is a caller's answer to the lookup — adapter name → argv, read
+    where the repository is — and when given replaces the read of ``root``
+    entirely: ``root`` is then a label and is not opened.
 
     The schema demands a type-check command for the one task type whose
     guarantee requires one. The locator (#114) reads what the repository
@@ -529,8 +550,12 @@ def _acceptance_for(
             f"in the proposal's acceptance",
         )
 
-    located = owner.locate_type_check_command(root)
-    if located is None:
+    command = (
+        owner.locate_type_check_command(root)
+        if located is None
+        else (list(located[owner.name]) if located.get(owner.name) else None)
+    )
+    if command is None:
         return Refusal(
             proposal.target,
             f"this repository declares no type checker, so {kind.name!r} is not "
@@ -539,7 +564,25 @@ def _acceptance_for(
             f"than choosing one. Configure a checker in the "
             f"repository, or declare the command in the proposal's acceptance",
         )
-    return (shlex.join(located),)
+    return (shlex.join(command),)
+
+
+def locate_checkers(
+    root: Path, adapters: Sequence[LanguageAdapter] | None = None
+) -> dict[str, list[str]]:
+    """Every checker the adapters locate in ``root``, by adapter name.
+
+    The lookup :func:`_acceptance_for` makes, done once for a whole repository
+    by whoever stands where it is (``mcgyvr read --json``), so that a reader
+    elsewhere can pass the answer back as ``located``. An adapter that locates
+    none is absent, never filled in.
+    """
+    found: dict[str, list[str]] = {}
+    for adapter in adapters if adapters is not None else _default_adapters():
+        command = adapter.locate_type_check_command(root)
+        if command is not None:
+            found[adapter.name] = list(command)
+    return found
 
 
 def _owner(path: str, adapters: Sequence[LanguageAdapter]) -> LanguageAdapter | None:
@@ -654,7 +697,31 @@ def _document(
         document["risk"] = proposal.risk
     if max_input_tokens is not None:
         document["context"] = {"max_input_tokens": max_input_tokens}
+    cap = _reply_cap(proposal, new_file=not target_content)
+    if cap is not None:
+        document["limits"] = {"max_output_tokens": cap}
     return document
+
+
+def _reply_cap(proposal: Proposal, *, new_file: bool) -> int | None:
+    """The ``limits.max_output_tokens`` a delegated contract is written with.
+
+    ``mcgyvr run`` refuses a whole-file model contract that declares no cap
+    (``cli._cap_undeclared``): a reply cut at a cap nobody chose is spent
+    silently. The loader fills the number in only to load, so an emitted
+    document has to carry it. The proposal's own figure wins; otherwise the
+    one derivation the loader and ``mcgyvr contract`` already make,
+    :func:`mcgyvr.contract.output_cap`, from the type's own evidence — nothing
+    here invents a number — with the new-file step the loader cannot know and
+    this module can. A deterministic type has no reply to cap and a raw-text
+    type (``prose``, ``media_artifact``) carries none, so both get ``None``.
+    """
+    if proposal.max_output_tokens is not None:
+        return proposal.max_output_tokens
+    kind = catalog().require(proposal.task_type)
+    if kind.deterministic or kind.use_case.name != "coding":
+        return None
+    return output_cap(proposal.task_type, new_file=new_file)
 
 
 def _load(document: dict[str, Any]) -> Contract | Refusal:

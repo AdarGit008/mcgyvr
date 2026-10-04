@@ -67,7 +67,7 @@ from typing import Protocol as TypingProtocol
 
 from mcgyvr.config import Config, Unit
 
-_ROLES = ("orchestrator", "verifier")
+_ROLES = ("orchestrator", "verifier", "jev")
 
 
 class SourceProbe(TypingProtocol):
@@ -174,6 +174,11 @@ class Endpoint:
     #: A relief rung's ``served_model``: the host's model, which a ridden
     #: answer must name, or ``None`` where the rung's entry states none.
     served_model: str | None = None
+    #: Who sets a request's sampling parameters (``units.<unit>.sampling``):
+    #: ``request`` sends a temperature, ``server`` sends none because the
+    #: unit's model refuses the parameter. Carried, not enforced: the runner
+    #: and the decision primitive read it when they build a body.
+    sampling: str = "request"
 
     @property
     def requires_credential(self) -> bool:
@@ -232,7 +237,7 @@ class Skipped:
 
 @dataclass(frozen=True)
 class RoleBinding:
-    """A non-ladder role (orchestrator, verifier) resolved to somewhere to run."""
+    """A non-ladder role (orchestrator, verifier, jev) resolved to somewhere to run."""
 
     role: str
     model: str
@@ -448,14 +453,14 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         if bound is None:
             continue
         unit = config.units[bound]
-        if model is None and role == "verifier":
-            # `model` absent means the unit's own. Said for the verifier and
-            # acted on here, because a reviewer left unbound for want of a
-            # spelling is a review that silently never happens — and the model
-            # it would have named is the one its independence is checked on.
-            model = unit.model
         if model is None:
-            continue
+            # `model` absent means the unit's own, for every role: the schema
+            # says so of each role block, and a bound unit with no spelling is
+            # a binding, not a decision to bind nothing. A reviewer left
+            # unbound for want of a spelling is a review that silently never
+            # happens; an orchestrator left unbound is `mcgyvr delegate`
+            # reporting a role the file plainly binds as unconfigured.
+            model = unit.model
         reason = _unusable(unit)
         if reason is not None:
             role_skips[role] = reason
@@ -618,6 +623,7 @@ def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
         engine=unit.engine,
         relief=unit.relief,
         served_model=unit.served_model,
+        sampling=unit.sampling,
     )
 
 

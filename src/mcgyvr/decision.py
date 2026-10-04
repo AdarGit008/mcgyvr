@@ -28,8 +28,10 @@ Two limits are named rather than hidden:
 
 The transport is :func:`~mcgyvr.runner._post_json` and
 :func:`~mcgyvr.runner._url_for`, the same wire path the runner uses, so a
-decision and a dispatch reach a unit identically. The only difference is the
-request body: ``logprobs`` instead of a generation cap.
+decision and a dispatch reach a unit identically. The only differences are in
+the request body: ``logprobs`` instead of a generation cap, and the template
+argument that turns a thinking model's thinking off for the one token asked
+(``chat_template_kwargs``).
 """
 
 from __future__ import annotations
@@ -41,8 +43,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-from mcgyvr.pool import Endpoint, SourceMap
-from mcgyvr.runner import _post_json, _url_for
+from mcgyvr.pool import Endpoint, PoolError, SourceMap
+from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -58,9 +60,17 @@ _YES_LABELS = ("Yes", "No")
 #: The highest ``top_logprobs`` the compatible servers agree to return.
 _MAX_TOP_LOGPROBS = 20
 
+#: What the pool calls the unit that answers every typed decision, once
+#: ``jev.unit`` binds one (:func:`classify_for`).
+JEV_ROLE = "jev"
+
 
 class DecisionError(Exception):
     """The endpoint answered, but not in a shape a decision can be read from."""
+
+
+class UnboundRoleError(PoolError):
+    """A decision was asked of a role that has no unit bound to answer it."""
 
 
 # --- questions -------------------------------------------------------------
@@ -318,11 +328,26 @@ def classify(
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 1,
-            "temperature": 0.0,
             "stream": False,
             "logprobs": True,
             "top_logprobs": min(_MAX_TOP_LOGPROBS, len(labels)),
+            # A thinking model's template opens every reply with its thinking
+            # tag — Qwen3's first token was `<think>` at probability 1.0 in the
+            # pilot — so no label can appear in the first token's top_logprobs
+            # and every question is unreadable. The template argument turns
+            # it off for this request alone, whatever the unit was launched
+            # with: llama-server and vLLM both read `chat_template_kwargs` as
+            # template arguments (the llama.cpp server README: "Allows sending
+            # additional parameters to the json templating system. For
+            # example: {"enable_thinking": false}"; vllm ChatCompletionRequest
+            # .chat_template_kwargs). A generation (mcgyvr.runner) sends none:
+            # a conversing model keeps its thinking.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
+        if endpoint.sampling != SERVER_SAMPLED:
+            # Greedy, as a decision must be; a unit whose server fixes its own
+            # sampling refuses the field (`units.<unit>.sampling: server`).
+            payload["temperature"] = 0.0
         document = _post_json(url, payload, headers, timeout_s)
         answers[name] = answer_for(question, _top_logprobs(document))
     return Decision(answers=answers)
@@ -387,3 +412,59 @@ def classify_rung(
         return classify(endpoint, model, state, questions, timeout_s=timeout_s)
     with capacity.hold(endpoint):
         return classify(endpoint, model, state, questions, timeout_s=timeout_s)
+
+
+def jev_bound(source_map: SourceMap) -> bool:
+    """Whether ``jev.unit`` binds a unit, so every typed decision asks it.
+
+    Raises what :meth:`~mcgyvr.pool.SourceMap.role_model` raises for a Jev
+    unit declared on a source that cannot serve: a ``jev.unit`` that is
+    misconfigured is not the same answer as no ``jev.unit`` at all, and
+    falling back to the old askers in silence would hide the binding.
+    """
+    return source_map.role_model(JEV_ROLE) is not None
+
+
+def classify_for(
+    source_map: SourceMap,
+    state: Any,
+    questions: Mapping[str, Question],
+    *,
+    role: str | None = None,
+    rung: str | None = None,
+    capacity: Capacity | None = None,
+    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+) -> Decision:
+    """Ask the Jev unit when one is bound; else the ``role`` or ``rung`` named.
+
+    The one place that chooses who answers a typed decision. With ``jev.unit``
+    bound, every caller's questions go to that unit (:func:`classify_role` on
+    :data:`JEV_ROLE`). Without it, each caller's go where they went before a
+    Jev unit existed: the fallback ``role`` through :func:`classify_role`, or
+    the fallback ``rung`` through :func:`classify_rung`. Exactly one of the two
+    is named, or this raises :class:`ValueError`.
+
+    A fallback role with no unit raises :class:`UnboundRoleError` rather than
+    returning ``None``: every caller checked that its role was bound before it
+    built the thing that asks, so reaching an unbound one here is a fault, not
+    an ordinary absence.
+    """
+    if (role is None) == (rung is None):
+        raise ValueError(
+            "classify_for falls back to a role or a rung: name exactly one, "
+            f"not role={role!r} and rung={rung!r}"
+        )
+    asked = JEV_ROLE if jev_bound(source_map) else role
+    if asked is None:
+        assert rung is not None  # narrowed by the check above
+        return classify_rung(
+            source_map, rung, state, questions, capacity=capacity, timeout_s=timeout_s
+        )
+    decision = classify_role(
+        source_map, asked, state, questions, capacity=capacity, timeout_s=timeout_s
+    )
+    if decision is None:
+        raise UnboundRoleError(
+            f"the {asked!r} role has no unit bound to answer a decision"
+        )
+    return decision

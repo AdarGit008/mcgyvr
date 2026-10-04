@@ -42,7 +42,7 @@ import yaml
 from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
-from mcgyvr.fleet.layout import layout_sha256
+from mcgyvr.fleet.layout import FleetError, layout_sha256, mcorch_units
 from mcgyvr.fleet.roots import (
     TAG,
     LiveFleetError,
@@ -179,6 +179,12 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     except SpanError as exc:
         raise PromoteRefusedError(
             f"{exc}; a fleet that splits a unit is not promoted"
+        ) from exc
+    try:
+        mcorch_units(dev_policy, fleets[name].get("layout") or {}, name=name)
+    except FleetError as exc:
+        raise PromoteRefusedError(
+            f"{exc}; a fleet that cannot serve its mcorch policy is not promoted"
         ) from exc
 
     lock_path = dev_root / LOCK_DIR / f"{name}.json"

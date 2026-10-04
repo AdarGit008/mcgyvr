@@ -54,6 +54,7 @@ _UNIT_KEYS = frozenset(
         "attention_backend",
         "container",
         "hf_cache",
+        "sampling",
         "launch",
     }
 )
@@ -78,6 +79,7 @@ _POLICY_KEYS = frozenset(
         "gate",
         "orchestrator",
         "verifier",
+        "jev",
         "sandbox",
         "delivery",
         "serving",

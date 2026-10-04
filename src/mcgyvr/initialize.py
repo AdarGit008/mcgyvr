@@ -42,6 +42,8 @@ from mcgyvr.config import (
     GATE_FIELDS,
     JOURNAL_FIELDS,
     LOCAL_ONLY,
+    MCORCH,
+    ORCHESTRATOR_FIELDS,
     POLICY_FILENAME,
     SANDBOX_FIELDS,
     SCHEMA,
@@ -632,7 +634,13 @@ def build(
         "ladder": [rung.name for rung in proposal.rungs]
         + [api.name for api in api_units],
         "fanout": "none",
-        "orchestrator": {"unit": None, "model": None},
+        # The type is written at its default, so the file says the bound unit
+        # drafts contracts and names the key that makes it the agent instead.
+        "orchestrator": {
+            **_defaults(ORCHESTRATOR_FIELDS, "type"),
+            "unit": None,
+            "model": None,
+        },
         # Written at its default — on — with no unit: the reviewer of each
         # rung's work is then the next dearer local rung serving another model.
         "verifier": {
@@ -640,6 +648,8 @@ def build(
             "unit": None,
             "model": None,
         },
+        # Unbound: every typed decision asks the unit it asks without one.
+        "jev": {"unit": None, "model": None},
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
             # Written at their defaults, each under the comment that names the
@@ -663,6 +673,57 @@ def build(
         # are recorded, and a key they can see is a key they can move.
         "journal": _defaults(JOURNAL_FIELDS, "dir"),
     }
+
+
+def _opt_ins(
+    data: dict[str, Any], *, jev: str | None, mcorch: str | None, window: int | None
+) -> dict[str, Any]:
+    """``data`` with the two opt-ins written in, each naming a written unit.
+
+    ``jev`` binds ``jev.unit``: dedicated VRAM, never slept or woken, that
+    every typed decision asks. ``mcorch`` makes that unit the agent itself —
+    ``orchestrator.type: mcorch``, ``authoring: direct`` (the strategy a rung
+    carries out with no index of its own), and the ``window`` the operator
+    read off it, which the loader requires. No model is picked here: a unit
+    init did not write is refused naming the ones it did.
+    """
+    units = dict(data["units"])
+    for flag, name in (("--jev", jev), ("--mcorch", mcorch)):
+        if name is not None and name not in units:
+            raise InitError(
+                f"{flag} {name!r} names no unit this init writes. The units are: "
+                f"{', '.join(sorted(units))}."
+            )
+    if jev is not None:
+        data["jev"] = {"unit": jev, "model": None}
+    if mcorch is not None:
+        data["orchestrator"] = {
+            **dict(data["orchestrator"]),
+            "type": MCORCH,
+            "unit": mcorch,
+            "authoring": "direct",
+        }
+        units[mcorch] = {**dict(units[mcorch]), "window": window}
+        data["units"] = units
+    return data
+
+
+def _opt_in_decisions(
+    *, jev: str | None, mcorch: str | None, window: int | None
+) -> tuple[str, ...]:
+    said: tuple[str, ...] = ()
+    if jev is not None:
+        said += (
+            f"Jev unit {jev!r} dedicated: every typed decision asks it, and it is "
+            "never slept or woken.",
+        )
+    if mcorch is not None:
+        said += (
+            f"mcorch enabled on {mcorch!r} (window {window}): orchestrator.type "
+            f"mcorch, authoring direct, deployment {LOCAL_ONLY}; serve it with "
+            "`mcgyvr mcorch serve`.",
+        )
+    return said
 
 
 def _sources_for(detection: Detection) -> list[AvailableSource]:
@@ -892,6 +953,9 @@ def initialize(
     decision_model: str | None = None,
     use_case: str = "coding",
     deployment: str | None = None,
+    jev: str | None = None,
+    mcorch: str | None = None,
+    window: int | None = None,
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -934,8 +998,30 @@ def initialize(
     )
     asked = _distinct_api_units(api_units)
     proposal = propose(sources=_sources_for(found))
-    data: Mapping[str, Any] = build(
-        found, proposal, api_units=asked, use_case=use_case, deployment=deployment
+    # The two opt-ins, checked before anything is composed or written: a
+    # refusal here costs the operator nothing but the flag they retype.
+    if mcorch is not None:
+        if jev is None:
+            raise InitError(
+                "--mcorch needs the Jev unit as its helper: pass --jev UNIT as well, "
+                "naming the unit every typed decision asks."
+            )
+        if window is None:
+            raise InitError(
+                "--mcorch needs the tokens the agent's unit serves in one request: "
+                "pass --window TOKENS, read back off the running process (what the "
+                "unit reports, not what you hoped for)."
+            )
+        if deployment is not None and deployment != LOCAL_ONLY:
+            raise InitError(
+                f"--mcorch serves a local unit as the agent and needs deployment "
+                f"{LOCAL_ONLY!r}; --deployment {deployment!r} contradicts it."
+            )
+        deployment = LOCAL_ONLY
+    data: dict[str, Any] = dict(
+        build(
+            found, proposal, api_units=asked, use_case=use_case, deployment=deployment
+        )
     )
     composition: tuple[str, ...] = ()
     compose_limits: tuple[str, ...] = ()
@@ -959,10 +1045,13 @@ def initialize(
             except (DecisionError, RunnerError) as exc:
                 compose_limits = (_compose_failed_note(profile, exc),)
             else:
-                data = recommendation.selected.data
+                data = dict(recommendation.selected.data)
                 composition = (_composition_note(profile, recommendation, data),)
         else:
             compose_limits = (_compose_unavailable_note(profile),)
+
+    # After the composition, so a composed candidate carries the opt-ins too.
+    data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
 
     chosen_deployment = (
         deployment if deployment is not None else _deployment_default(use_case)
@@ -971,6 +1060,7 @@ def initialize(
         _decisions(found, proposal, asked)
         + composition
         + (f"Use case {use_case!r} under deployment {chosen_deployment!r}.",)
+        + _opt_in_decisions(jev=jev, mcorch=mcorch, window=window)
     )
     # The single-user half of the ruling, surfaced rather than computed and
     # dropped: a local-only non-chat install on one user is flagged, never

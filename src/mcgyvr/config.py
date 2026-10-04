@@ -607,6 +607,22 @@ UNIT_FIELDS: tuple[Field, ...] = (
         bind_hint="e.g. /home/<user>/.cache/huggingface, as the rig sees it",
     ),
     Field(
+        "sampling",
+        "enum",
+        "Who sets the sampling parameters of a request to this unit. "
+        "`request`: the request states `temperature` -- 0.0 for the greedy "
+        "first draw, `breadth.temperature` for the draws after it -- which is "
+        "what a deterministic gate needs from a local unit. `server`: the "
+        "unit's model fixes its own sampling and refuses the parameters, so "
+        "none is sent; the hosted Claude models from Opus 4.7 on answer a "
+        "request naming `temperature` with HTTP 400 (Anthropic's model "
+        "migration guide). A `server` unit cannot be asked for more than one "
+        "draw: without a temperature every draw is the first draw again. A "
+        "fact about the unit's server, so it is here and not in the policy.",
+        default="request",
+        choices=("request", "server"),
+    ),
+    Field(
         "launch",
         "mapping",
         "The resolved launch, whole. Free-form by design: a unit hashes its \
@@ -736,6 +752,70 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
         "Model identifier as that unit names it; absent means the unit's own.",
         bind_hint="name a model the bound unit serves",
     ),
+)
+
+#: The orchestrator types. ``proposer`` is the behaviour that shipped before
+#: the key existed; ``mcorch`` serves the bound unit as the agent itself.
+ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer", "mcorch")
+
+#: The orchestrator type that makes the bound unit the conversational agent.
+MCORCH = "mcorch"
+
+ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
+    Field(
+        "type",
+        "enum",
+        "What the bound unit is. `proposer` is today's behaviour: the bound "
+        "unit drafts contracts for `mcgyvr delegate`. `mcorch` makes the bound "
+        "unit the conversational agent itself, served at an Anthropic Messages "
+        "address by `mcgyvr mcorch serve` for a harness (Claude Code, pi) to "
+        "point at, with the `jev` unit answering its typed decisions. `mcorch` "
+        "requires `deployment: local-only`, because it replaces the API-tier "
+        "orchestrator that `hybrid` describes; a bound `unit` whose `window` is "
+        "stated, because the window is the one fact the agent budgets a "
+        "conversation by; and `authoring`.",
+        default="proposer",
+        choices=ORCHESTRATOR_TYPES,
+    ),
+    Field(
+        "authoring",
+        "enum",
+        "How `type: mcorch` turns a request into contracts. `direct`: the rung "
+        "writes the contract itself. `prose`: the rung is asked for JSON "
+        "proposals the way `mcgyvr delegate` asks (`delegate.build_prompt`), "
+        "and the deterministic decomposer turns them into contracts. "
+        "`classifier`: the `jev` unit answers typed questions (task type, "
+        "target, symbol), and the strategy falls back to `prose` when its "
+        "confidence is low. No default is shipped, because which strategy a "
+        "local rung does best is being measured, and the file must say which.",
+        choices=("direct", "prose", "classifier"),
+        bind_hint="name one of `direct`, `prose`, `classifier`",
+    ),
+    Field(
+        "tools",
+        "str_list",
+        "The harness tools, by name, that `type: mcorch` keeps in the rung's "
+        "prompt. Every other tool the harness offers is dropped, and the drop "
+        "is logged in the mcorch transcript, so a local rung's prompt stays "
+        "short and unconfusing. Matching is exact on the tool's name. Empty "
+        "means keep every tool.",
+        default=(
+            "Read",
+            "Write",
+            "Edit",
+            "Bash",
+            "Glob",
+            "Grep",
+            "read",
+            "write",
+            "edit",
+            "bash",
+            "grep",
+            "find",
+            "ls",
+        ),
+    ),
+    *ROLE_UNIT_FIELDS,
 )
 
 VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
@@ -970,14 +1050,27 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "orchestrator",
         "block",
-        "Which unit turns a prompt plus a repository into contracts.",
-        block=ROLE_UNIT_FIELDS,
+        "Which unit turns a prompt plus a repository into contracts, and what "
+        "that unit is.",
+        block=ORCHESTRATOR_FIELDS,
     ),
     Field(
         "verifier",
         "block",
         "Which unit reads an applied diff in fresh context.",
         block=VERIFIER_UNIT_FIELDS,
+    ),
+    Field(
+        "jev",
+        "block",
+        "Which one unit answers every typed decision: a question answered "
+        "with a single-token label rather than prose. Those are the gate's "
+        "Jev rung, the reviewer's verdict, the fleet's choice of whether to "
+        "wake a smarter rung, the ladder manager's choices and the typed "
+        "proposer. Left unbound, each of those keeps asking the unit it asks "
+        "today: the verifier, the reviewing rung, the fast rung or the "
+        "orchestrator.",
+        block=ROLE_UNIT_FIELDS,
     ),
     Field("sandbox", "block", "Where a task's commands run.", block=SANDBOX_FIELDS),
     Field(
@@ -1112,6 +1205,9 @@ class Unit:
     attention_backend: str | None = None
     container: str | None = None
     hf_cache: str | None = None
+    #: Who sets a request's sampling parameters: ``request`` (the default,
+    #: a temperature on every request) or ``server`` (none is sent).
+    sampling: str = "request"
     launch: Mapping[str, Any] = field(default_factory=dict)
     #: How many of its slots riders the hub matches may use at once
     #: (hitchhike), from the policy's ``rider_slots``: 0, the default, shares
@@ -1929,6 +2025,7 @@ def _build(
             attention_backend=block["attention_backend"],
             container=block["container"],
             hf_cache=block["hf_cache"],
+            sampling=block.get("sampling") or "request",
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
         )
@@ -2025,18 +2122,79 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
             "draw the first draw again, buying N gate runs and nothing else. "
             "Raise `breadth.temperature`, or set the draws back to 1."
         )
+    fixed = {
+        name: count
+        for name, count in widened.items()
+        if units[name].get("sampling") == "server"
+    }
+    if fixed:
+        listed = ", ".join(f"{name} draws {count}" for name, count in fixed.items())
+        raise ConfigSchemaError(
+            f"{listed}, and `sampling: server` sends that unit no temperature, "
+            "so every draw would be the first draw again. Set its draws to 1, "
+            "or point the breadth at a unit whose requests state a temperature."
+        )
 
     _cross_validate_manager(data, units)
     _cross_validate_relief(data, units)
     _cross_validate_shares(data, units)
 
-    for role in ("orchestrator", "verifier"):
+    for role in ("orchestrator", "verifier", "jev"):
         bound = data[role].get("unit")
         if bound is not None and bound not in units:
             raise ConfigSchemaError(
                 f"{role}.unit: {bound!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
+
+    _cross_validate_mcorch(data, units)
+
+
+def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
+    """Refuse a ``type: mcorch`` orchestrator that cannot be served as the agent.
+
+    Each key is legal alone; it is mcorch that needs the rest: a local-only
+    deployment (it replaces the API-tier orchestrator ``hybrid`` describes), a
+    bound unit that states its window (what a conversation is budgeted by),
+    and a stated authoring strategy, which ships no default.
+    """
+    orchestrator = data["orchestrator"]
+    if orchestrator["type"] != MCORCH:
+        return
+    if data["deployment"] != LOCAL_ONLY:
+        raise ConfigSchemaError(
+            f"orchestrator.type: {MCORCH} needs `deployment: {LOCAL_ONLY}`, and "
+            f"deployment is {data['deployment']!r}. mcorch serves a local unit as "
+            "the agent, replacing the API-tier orchestrator `hybrid` describes. "
+            f"Set `deployment: {LOCAL_ONLY}`, or `orchestrator.type: proposer`."
+        )
+    bound = orchestrator["unit"]
+    if bound is None:
+        raise ConfigSchemaError(
+            f"orchestrator.unit: {MCORCH} serves the bound unit as the agent, and "
+            "no unit is bound. Name one of the units declared under `units`: "
+            f"{', '.join(sorted(units))}."
+        )
+    if units[bound]["window"] is None:
+        raise ConfigSchemaError(
+            f"units.{bound}.window: {MCORCH} budgets a conversation by its unit's "
+            f"window, and {bound!r} states none. State the tokens the unit serves "
+            "in one request, read back off the running process."
+        )
+    if orchestrator["authoring"] is None:
+        raise ConfigSchemaError(
+            f"orchestrator.authoring: {MCORCH} needs to be told how it turns a "
+            "request into contracts, and no default ships while which strategy a "
+            "local rung does best is measured. Name one of `direct`, `prose`, "
+            "`classifier`."
+        )
+    if data["jev"].get("unit") is None:
+        raise ConfigSchemaError(
+            f"jev.unit: {MCORCH} asks the jev unit every bounded question — is a "
+            "request chat or work, is a contract ready to run, what comes after a "
+            "result — and no jev unit is bound. Name one of the units declared "
+            f"under `units`: {', '.join(sorted(units))}."
+        )
 
 
 def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:

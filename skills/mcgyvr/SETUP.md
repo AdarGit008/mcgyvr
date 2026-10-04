@@ -91,8 +91,9 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
 | `max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a unit's context window one contract may claim. To bind it: a share between 0 and 1. |
 | `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only non-chat use case is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
-| `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts. |
+| `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts, and what that unit is. |
 | `verifier` | block | no | — | Which unit reads an applied diff in fresh context. |
+| `jev` | block | no | — | Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the ladder manager's choices and the typed proposer. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator. |
 | `sandbox` | block | no | — | Where a task's commands run. |
 | `delivery` | block | no | — | How accepted work gets back to you. |
 | `breadth` | block | no | — | How many answers one attempt asks for. |
@@ -126,14 +127,18 @@ Each entry takes these keys:
 | `units.attention_backend` | text | no | unset | The attention backend this vLLM unit pins, because the card decides what is valid. To bind it: e.g. FLASH_ATTN: the backend the unit's own log names. |
 | `units.container` | text | no | unset | The container name this unit runs under. To bind it: e.g. `mcgyvr-<host>-<unit>`. |
 | `units.hf_cache` | text | no | unset | The HuggingFace cache on the rig holding this unit's weights, as an absolute path there. A serving fact about this unit, not a knob. To bind it: e.g. /home/<user>/.cache/huggingface, as the rig sees it. |
+| `units.sampling` | one of `request`, `server` | no | `request` | Who sets the sampling parameters of a request to this unit. `request`: the request states `temperature` -- 0.0 for the greedy first draw, `breadth.temperature` for the draws after it -- which is what a deterministic gate needs from a local unit. `server`: the unit's model fixes its own sampling and refuses the parameters, so none is sent; the hosted Claude models from Opus 4.7 on answer a request naming `temperature` with HTTP 400 (Anthropic's model migration guide). A `server` unit cannot be asked for more than one draw: without a temperature every draw is the first draw again. A fact about the unit's server, so it is here and not in the policy. |
 | `units.launch` | free-form block | no | — | The resolved launch, whole. Free-form by design: a unit hashes its whole resolved launch with no hand-kept field list, so a flag this reader has never heard of cannot go unhashed. Two keys sizing reads, llama.cpp only: `speculative` (`none` \| `mtp`, default `none`) runs the GGUF's own grafted multi-token-prediction head as the draft (`--spec-type draft-mtp`), and `spec_draft_n_max` (a count, at least 1, default 2) is its `--spec-draft-n-max`. The head is read off the scan's tensor table and charged to the card, so the `--n-cpu-moe` floor rises, and a scan with no nextn block refuses the declaration. Whether it pays depends on the card and the width. A vLLM unit declaring `mtp` is refused: its speculative decoding is `--speculative-config`, a different mechanism. Keys that split a unit across cards, of one machine or several: `shards`, a list of `{rig, gpu}` (with `bind`, the IPv4 address a worker on another machine listens on, and `room_mib`, that card's room for the lock), the first on the machine the address names; `split` (`layer` \| `tensor`, llama.cpp; `tensor` spans one machine's cards, and `row` has no split buffers on CUDA and is refused); `tensor_parallel` and `pipeline_parallel` (vLLM); `rpc_port` and `master_port`, the first port of llama.cpp's workers and vLLM's rendezvous port, each the engine's own default when absent; and `tensor_table_json`, a vLLM unit's `python -m mcgyvr.serving.safetensorscan` row. Each card is sized from the tensor table. A split left to mcgyvr is tensor across one machine's cards and pipeline across machines; what crossing between cards costs is reported, as an estimate by link class until your own reading replaces it (`mcgyvr fleet probe` times the links an awake split unit crosses) or your setting outranks both. To bind it: the resolved launch, e.g. serve_args, geometry_json, moe, speculative. |
 
 ## `orchestrator`
 
-Which unit turns a prompt plus a repository into contracts.
+Which unit turns a prompt plus a repository into contracts, and what that unit is.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
+| `orchestrator.type` | one of `proposer`, `mcorch` | no | `proposer` | What the bound unit is. `proposer` is today's behaviour: the bound unit drafts contracts for `mcgyvr delegate`. `mcorch` makes the bound unit the conversational agent itself, served at an Anthropic Messages address by `mcgyvr mcorch serve` for a harness (Claude Code, pi) to point at, with the `jev` unit answering its typed decisions. `mcorch` requires `deployment: local-only`, because it replaces the API-tier orchestrator that `hybrid` describes; a bound `unit` whose `window` is stated, because the window is the one fact the agent budgets a conversation by; and `authoring`. |
+| `orchestrator.authoring` | one of `direct`, `prose`, `classifier` | no | unset | How `type: mcorch` turns a request into contracts. `direct`: the rung writes the contract itself. `prose`: the rung is asked for JSON proposals the way `mcgyvr delegate` asks (`delegate.build_prompt`), and the deterministic decomposer turns them into contracts. `classifier`: the `jev` unit answers typed questions (task type, target, symbol), and the strategy falls back to `prose` when its confidence is low. No default is shipped, because which strategy a local rung does best is being measured, and the file must say which. To bind it: name one of `direct`, `prose`, `classifier`. |
+| `orchestrator.tools` | list of text | no | `['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'read', 'write', 'edit', 'bash', 'grep', 'find', 'ls']` | The harness tools, by name, that `type: mcorch` keeps in the rung's prompt. Every other tool the harness offers is dropped, and the drop is logged in the mcorch transcript, so a local rung's prompt stays short and unconfusing. Matching is exact on the tool's name. Empty means keep every tool. |
 | `orchestrator.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `orchestrator.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
@@ -146,6 +151,15 @@ Which unit reads an applied diff in fresh context.
 | `verifier.enabled` | boolean | no | `true` | Model verification of the applied diff, on top of the gate. On unless set to `false`. With no `unit`, the reviewer is the next dearer local rung whose model is not the builder's; where there is none, the work is accepted and labelled unverified. A hosted unit reviews only when `unit` names it. |
 | `verifier.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `verifier.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
+
+## `jev`
+
+Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the ladder manager's choices and the typed proposer. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `jev.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
+| `jev.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
 ## `sandbox`
 

@@ -299,7 +299,7 @@ def test_classifier_proposer_for_returns_none_without_an_orchestrator_role() -> 
 def test_classifier_proposer_for_dispatches_through_classify_role(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import mcgyvr.delegate as delegate
+    import mcgyvr.decision as decision
 
     pool = source_map(parse(cfg(ORCHESTRATOR)))
     sent: list[tuple[Any, Mapping[str, Question]]] = []
@@ -324,7 +324,7 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
             }
         )
 
-    monkeypatch.setattr(delegate, "classify_role", fake_classify_role)
+    monkeypatch.setattr(decision, "classify_role", fake_classify_role)
 
     propose = classifier_proposer_for(pool)
     assert propose is not None
@@ -338,7 +338,7 @@ def test_decompose_emits_a_validated_contract_through_the_classifier_proposer(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import mcgyvr.contract as contract_module
-    import mcgyvr.delegate as delegate
+    import mcgyvr.decision as decision
 
     config = parse(cfg(ORCHESTRATOR))
     pool = source_map(config)
@@ -361,7 +361,7 @@ def test_decompose_emits_a_validated_contract_through_the_classifier_proposer(
             }
         )
 
-    monkeypatch.setattr(delegate, "classify_role", fake_classify_role)
+    monkeypatch.setattr(decision, "classify_role", fake_classify_role)
 
     propose = classifier_proposer_for(pool)
     assert propose is not None
