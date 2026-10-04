@@ -611,6 +611,9 @@ def _init(args: argparse.Namespace) -> int:
             profile=args.profile,
             use_case=args.use_case,
             deployment=args.deployment,
+            jev=args.jev,
+            mcorch=args.mcorch,
+            window=args.window,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -3806,6 +3809,36 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "local-only (mcgyvr is the backend and provisions a local "
             "orchestrator for a non-chat use case); default: local-only for "
             "chat, hybrid otherwise"
+        ),
+    )
+    ini.add_argument(
+        "--jev",
+        default=None,
+        metavar="UNIT",
+        help=(
+            "dedicate VRAM to a Jev unit: the written unit every typed decision "
+            "asks, never slept or woken (an opt-in; no model is picked for you)"
+        ),
+    )
+    ini.add_argument(
+        "--mcorch",
+        default=None,
+        metavar="UNIT",
+        help=(
+            "enable mcorch on a written unit: the conversational agent a harness "
+            "points at (`mcgyvr mcorch serve`); needs --jev and --window, and "
+            "writes orchestrator.type mcorch, authoring direct, deployment "
+            "local-only"
+        ),
+    )
+    ini.add_argument(
+        "--window",
+        default=None,
+        type=int,
+        metavar="TOKENS",
+        help=(
+            "with --mcorch: the tokens the agent's unit serves in one request, "
+            "read back off the running process"
         ),
     )
     ini.set_defaults(func=_init)
