@@ -18,8 +18,9 @@ ladder with nothing to sleep or wake behaves exactly as it did before this
 module existed.
 
 **Jev decides, in types and never in prose.** Every ``interval_s`` the manager
-reads the queue on each local rung and asks Jev — a small local model,
-through :func:`mcgyvr.decision.classify` — a :class:`~mcgyvr.decision.Choice`
+reads the queue on each local rung and asks Jev — the ``jev.unit`` when one
+is bound, the fast local rung when not, through
+:func:`mcgyvr.decision.classify_for` — a :class:`~mcgyvr.decision.Choice`
 for each decision that has more than one legal answer: the ladder move (hold,
 wake a sleeping unit, put an idle one back to sleep), the fan-out mode and the
 lead rung. A question with one legal answer is not asked, so a quiet ladder
@@ -927,17 +928,16 @@ def for_task(
 
 
 def decide_on(pool: SourceMap, rung: str, *, timeout_s: float) -> Decide:
-    """Jev on ``rung``: :func:`mcgyvr.decision.classify` through its endpoint."""
-    resolved = pool.get(rung)
-    if resolved is None:
+    """Jev through :func:`mcgyvr.decision.classify_for`: the ``jev.unit`` when
+    one is bound, ``rung`` when not. Nothing here binds an endpoint."""
+    if pool.get(rung) is None:
         raise ValueError(f"no rung named {rung!r} for the ladder manager to ask")
-    model = resolved.model
 
     def decide(
         state: Mapping[str, Any], questions: Mapping[str, decision.Question]
     ) -> decision.Decision:
-        return decision.classify(
-            pool.bind(rung), model, dict(state), questions, timeout_s=timeout_s
+        return decision.classify_for(
+            pool, dict(state), questions, rung=rung, timeout_s=timeout_s
         )
 
     return decide
