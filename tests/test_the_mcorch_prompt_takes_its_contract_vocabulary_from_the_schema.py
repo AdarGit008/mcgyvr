@@ -38,7 +38,7 @@ def test_the_prompt_file_is_the_source_and_carries_no_hand_kept_table() -> None:
 
 
 def test_the_prompt_leaves_a_run_result_to_the_rung_with_no_jev_note_promised() -> None:
-    """J3 is decommissioned (mcgyvr-lab#61): the prompt must not tell the rung to
+    """J3 is decommissioned (lab issue #61): the prompt must not tell the rung to
     wait for or obey a ``Jev:`` note about what comes after a result; the rung
     itself judges done / a different contract / ask the user from the result."""
     # Unwrapped, so a phrase the file breaks across lines still reads as one.

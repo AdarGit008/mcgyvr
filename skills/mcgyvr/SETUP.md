@@ -161,7 +161,7 @@ Which one unit answers every typed decision: a question answered with a single-t
 | `jev.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `jev.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
-The measured recommendation for the unit is Qwen3.5-4B (Q4_K_M, about 3.4 GB), owner ruling of 2026-10-04 on the jev-mcorch run (mcgyvr-lab `records/evidence/2026-10-04-jev-mcorch/`): it reads mcorch's J1 intent at 0.97 and J2 ready_to_run at 0.88, and judges the reviewer's verdict at AUROC 0.77 (satisfies_task 0.81). Qwen3.5-9B scores higher on judging code (verdict AUROC 0.86) at 5.7 GB, for a card with the room. Models of 3B and under are not usable in this role.
+The measured recommendation for the unit is Qwen3.5-4B (Q4_K_M, about 3.4 GB), owner ruling of 2026-10-04 on the jev-mcorch run (lab evidence `2026-10-04-jev-mcorch`): it reads mcorch's J1 intent at 0.97 and J2 ready_to_run at 0.88, and judges the reviewer's verdict at AUROC 0.77 (satisfies_task 0.81). Qwen3.5-9B scores higher on judging code (verdict AUROC 0.86) at 5.7 GB, for a card with the room. Models of 3B and under are not usable in this role.
 
 ## `sandbox`
 

@@ -5,7 +5,7 @@ request, Jev says whether it is chat or work (J1); the rung reasons freely
 only inside the room that answer leaves, and the answer reaches it as a
 ``Jev:`` note in its system prompt. After a ``mcgyvr run`` result comes back
 through the harness, Jev is asked nothing: the "what comes next" question (J3)
-is decommissioned until proven otherwise (mcgyvr-lab#61 — it read at chance
+is decommissioned until proven otherwise (lab issue #61 — it read at chance
 on every Jev model measured), and the rung judges the result on its own, with
 no ``Jev:`` note. A request that offers no
 tools is a side request — a harness's title or summary call — answered by the
@@ -125,7 +125,7 @@ RUN_RESULT_TURNS: tuple[dict[str, object], ...] = (
 
 
 def test_a_run_result_from_the_harness_is_not_put_to_jev_the_rung_judges_it() -> None:
-    """J3 is decommissioned (mcgyvr-lab#61): no question, no ``Jev:`` note.
+    """J3 is decommissioned (lab issue #61): no question, no ``Jev:`` note.
 
     A ``ScriptedJev`` with no ``next`` answer raises the moment it is asked, so
     the loop asking J3 is a failure here, not a wrong answer.

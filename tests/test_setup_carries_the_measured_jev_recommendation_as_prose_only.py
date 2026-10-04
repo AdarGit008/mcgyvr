@@ -14,7 +14,7 @@ from __future__ import annotations
 from mcgyvr import config, docgen
 
 MODEL = "Qwen3.5-4B"
-EVIDENCE = "records/evidence/2026-10-04-jev-mcorch/"
+EVIDENCE = "2026-10-04-jev-mcorch"
 
 
 def _section(text: str, heading: str) -> str:

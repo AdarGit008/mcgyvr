@@ -22,8 +22,8 @@ until proven otherwise (owner ruling, 2026-10-04): in the jev-mcorch run every
 Jev model answered it at chance (0.38 to 0.55) while J1 and J2 scored well, so
 after a run result the rung judges what comes next on its own and gets no
 ``Jev:`` note. The question (:data:`NEXT`) and its asker (:func:`_next`) are
-kept, unasked, so recommissioning is one call; the investigation is
-mcgyvr-lab issue #61.
+kept, unasked, so recommissioning is one call; the investigation is lab
+issue #61 (the development repository).
 
 The harness's system prompt is replaced by mcorch's own (a harness sends many
 thousand tokens written for a frontier model; a local rung pays for every one
@@ -78,7 +78,7 @@ INTENT = Choice(
 
 #: J3: after a run result, what comes next.
 #: Decommissioned until proven otherwise (owner ruling, 2026-10-04; the
-#: investigation is mcgyvr-lab issue #61): defined, never asked. :func:`respond`
+#: investigation is lab issue #61): defined, never asked. :func:`respond`
 #: does not call :func:`_next`; the rung judges a run result on its own.
 NEXT = Choice(
     "A mcgyvr run came to this result. What should the orchestrator do next?",
@@ -165,7 +165,7 @@ def respond(
     asked: list[tuple[str, str]] = []
     notes: list[str] = []
     intent = _intent(request.messages, jev, asked, notes)
-    # J3 is decommissioned until proven otherwise (mcgyvr-lab#61): a run result
+    # J3 is decommissioned until proven otherwise (lab issue #61): a run result
     # is the rung's to judge, so ``_next`` is not called and no note is added.
     following = None
     prompt = system.replace("{jev_notes}", "\n".join(notes))
@@ -558,8 +558,8 @@ def _next(
 ) -> str | None:
     """Ask Jev J3 over the run result the latest message carries, and note it.
 
-    Decommissioned: nothing calls this until J3 is proven otherwise
-    (mcgyvr-lab#61). It is kept whole, typechecked, so recommissioning is
+    Decommissioned: nothing calls this until J3 is proven otherwise (lab
+    issue #61). It is kept whole, typechecked, so recommissioning is
     restoring its one call in :func:`respond`.
     """
     result = _run_result(messages)

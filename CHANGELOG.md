@@ -256,14 +256,14 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 - mcorch no longer asks the `jev` unit what comes after a `mcgyvr run` result
   (J3 "next": done, replan or ask the user) -- owner ruling of 2026-10-04,
-  decommissioned until proven otherwise. In the jev-mcorch run (mcgyvr-lab
-  `records/evidence/2026-10-04-jev-mcorch/`, step 8) every Jev model answered
+  decommissioned until proven otherwise. In the jev-mcorch run (lab evidence
+  `2026-10-04-jev-mcorch`, step 8) every Jev model answered
   it at chance, 0.38 to 0.55, while J1 intent (0.97) and J2 ready_to_run
   (0.88) scored well. After a run result the rung judges done / a different
   contract / ask the user on its own, with no `Jev:` note, and the prompt says
   so; J1 and J2 are unchanged. The question stays defined in
   `mcorch/loop.py`, unasked, and the transcript's `next` key is always null.
-  The investigation is mcgyvr-lab issue #61.
+  The investigation is lab issue #61.
 - `skills/mcgyvr/SETUP.md` says, under `jev`, which model the Jev unit was
   measured to want: Qwen3.5-4B (Q4_K_M, about 3.4 GB), with the 9B as the
   higher-scoring option on judging code. Prose with its evidence cited, not a
