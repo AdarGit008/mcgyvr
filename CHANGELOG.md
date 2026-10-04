@@ -11,6 +11,21 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- The Jev unit is resident. A bound `jev.unit` is dedicated VRAM, an opt-in
+  at setup, and is never slept or woken: the card that holds it is excluded
+  from the ladder manager's switches, `mcgyvr serve sleep|wake`, and the
+  waker a dispatch goes through, and a typed decision never wakes anything
+  first. `mcgyvr init --jev UNIT` dedicates a written unit (no model is picked
+  for you); `mcgyvr init --mcorch UNIT --window TOKENS` enables mcorch on a
+  written unit, needs `--jev`, and writes `orchestrator.type: mcorch`,
+  `authoring: direct`, `deployment: local-only`. Under mcorch, `prose` and
+  `classifier` authoring now work: evidence rides the harness the way it does
+  for a pi agent — mcorch has the harness's shell tool (`Bash` or `bash`) run
+  `mcgyvr read "<request>" --json` in the working directory, assembles the
+  index from the document that comes back (the whole text of every
+  shortlisted and read file), proposes and decomposes server-side, and hands
+  the rung the contracts to write; the repository never touches the server.
+  `mcgyvr read --json` is that document.
 - `orchestrator.type: mcorch`, an opt-in orchestrator that is a model to the
   user's harness. `mcgyvr mcorch serve` serves an Anthropic Messages API
   address (`ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude`, or pi's
