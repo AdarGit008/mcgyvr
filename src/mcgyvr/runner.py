@@ -84,7 +84,10 @@ length of one request so that escalating across sources cannot leak a slot.
 Choosing *which* rung to send a contract to, and escalating when it fails, are
 :mod:`mcgyvr.route`'s and :mod:`mcgyvr.escalate`'s. Assembling the prompt and
 parsing a worker's file-shaped answer are :mod:`mcgyvr.worker`'s — a
-:class:`Request` here carries text.
+:class:`Request` here carries text. A multi-turn conversation is the caller's
+too: a request may carry the turns before it and the function tools on offer,
+both sent verbatim, and a reply that calls a tool comes back as
+:class:`ToolCall` entries the caller runs and answers in its next request.
 """
 
 from __future__ import annotations
@@ -96,6 +99,7 @@ import time
 import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, ClassVar
@@ -226,6 +230,9 @@ class StopReason(StrEnum):
     COMPLETE = "complete"
     TRUNCATED = "truncated"
     FILTERED = "filtered"
+    #: The model stopped to ask for tools. Not complete: the answer is still
+    #: owed, after the caller runs the calls and sends their results back.
+    TOOL_CALLS = "tool_calls"
     UNKNOWN = "unknown"
 
 
@@ -240,7 +247,29 @@ _STOP_REASONS: dict[str, StopReason] = {
     "length": StopReason.TRUNCATED,
     "max_tokens": StopReason.TRUNCATED,
     "content_filter": StopReason.FILTERED,
+    "tool_calls": StopReason.TOOL_CALLS,
 }
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """One function call the model asked for: the server's id, the tool's name and its
+    arguments as the JSON text the model wrote (parsed by the caller, never here).
+
+    The arguments stay text because JSON the model wrote badly is a fact about
+    the model, which the caller answers in the conversation; reading it here
+    would turn it into a protocol fault and end the conversation instead.
+    """
+
+    id: str
+    name: str
+    arguments: str
+
+
+# The roles a turn of :attr:`Request.turns` may carry. ``system`` is a role the
+# protocol knows and is refused by name, not as unknown: its home is
+# :attr:`Request.system`.
+_TURN_ROLES = frozenset({"user", "assistant", "tool"})
 
 
 @dataclass(frozen=True)
@@ -276,6 +305,16 @@ class Request:
     allowed to. So it changes what is asked for and nothing about what may be
     believed, which is why :func:`~mcgyvr.worker.reply.parse_pinned` reads both
     shapes and no caller has to know which arrived.
+
+    ``turns`` is the conversation so far, each turn an OpenAI chat message kept
+    verbatim — a user's, the assistant's own (with any ``tool_calls`` it made),
+    or a tool's answer — placed after the system prompt and before ``prompt``,
+    which becomes the last user message. A request that only continues after a
+    tool answered leaves ``prompt`` empty and gets no user message appended.
+    There is no system turn: the system prompt has one home, ``system``.
+    ``tools`` are the OpenAI function tools on offer, sent with
+    ``tool_choice: "auto"``; empty sends neither key. Both default empty, so a
+    single-turn request is unchanged.
     """
 
     prompt: str
@@ -285,6 +324,8 @@ class Request:
     timeout_s: float = GENERATE_TIMEOUT_S
     quality_sensitive: bool = False
     response_schema: dict[str, Any] | None = None
+    turns: tuple[Mapping[str, Any], ...] = ()
+    tools: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if self.max_output_tokens is not None and self.max_output_tokens < 1:
@@ -295,6 +336,20 @@ class Request:
             )
         if self.timeout_s <= 0:
             raise ValueError(f"timeout_s must be positive, got {self.timeout_s}")
+        for index, turn in enumerate(self.turns):
+            role = turn.get("role") if isinstance(turn, Mapping) else None
+            if role == "system":
+                raise ValueError(
+                    f"turn {index} is a system turn; the system prompt is "
+                    f"Request.system, and a second one among the turns would "
+                    f"be a different request depending on which a server reads."
+                )
+            if role not in _TURN_ROLES:
+                raise ValueError(
+                    f"turn {index} is not a chat message with a role in "
+                    f"{sorted(_TURN_ROLES)}: {type(turn).__name__} with role "
+                    f"{role!r}"
+                )
 
 
 @dataclass(frozen=True)
@@ -358,11 +413,22 @@ class Completion:
     #: reported none; a reported zero is a count and is kept.
     draft_n: int | None = None
     draft_n_accepted: int | None = None
+    #: The function calls the reply asked for, in the order the server listed
+    #: them; empty for a reply in text alone.
+    tool_calls: tuple[ToolCall, ...] = ()
 
     @property
     def complete(self) -> bool:
         """Whether the backend said it finished. ``UNKNOWN`` is not this."""
         return self.stop_reason is StopReason.COMPLETE
+
+    @property
+    def wants_tools(self) -> bool:
+        """Whether the reply asked for tools, by its stop reason or by its calls.
+
+        Either is evidence: some servers report ``stop`` beside the calls.
+        """
+        return self.stop_reason is StopReason.TOOL_CALLS or bool(self.tool_calls)
 
     @property
     def truncated(self) -> bool:
@@ -408,6 +474,8 @@ class _Parsed:
     #: The draft counts of the same ``timings``, present only when it drafted.
     draft_n: int | None = None
     draft_n_accepted: int | None = None
+    #: The function calls the answer asked for; empty when it asked for none.
+    tool_calls: tuple[ToolCall, ...] = ()
 
 
 class Runner(ABC):
@@ -511,6 +579,7 @@ class Runner(ABC):
             in_flight_source=in_flight_source,
             draft_n=parsed.draft_n,
             draft_n_accepted=parsed.draft_n_accepted,
+            tool_calls=parsed.tool_calls,
         )
 
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
@@ -635,10 +704,12 @@ class OpenAIRunner(Runner):
     honours_response_schema: ClassVar[bool] = True
 
     def _payload(self, model: str, request: Request) -> dict[str, Any]:
-        messages: list[dict[str, str]] = []
+        messages: list[Mapping[str, Any]] = []
         if request.system:
             messages.append({"role": "system", "content": request.system})
-        messages.append({"role": "user", "content": request.prompt})
+        messages.extend(request.turns)
+        if request.prompt or not request.turns:
+            messages.append({"role": "user", "content": request.prompt})
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -664,6 +735,11 @@ class OpenAIRunner(Runner):
                     "schema": request.response_schema,
                 },
             }
+        if request.tools:
+            # Both keys absent unless tools are on offer, so a single-turn
+            # request is the body it always was.
+            payload["tools"] = list(request.tools)
+            payload["tool_choice"] = "auto"
         return payload
 
     def _parse(self, document: dict[str, Any]) -> _Parsed:
@@ -677,6 +753,13 @@ class OpenAIRunner(Runner):
         first = choices[0]
         message = first.get("message") if isinstance(first, dict) else None
         content = message.get("content") if isinstance(message, dict) else None
+        tool_calls = self._tool_calls(
+            message.get("tool_calls") if isinstance(message, dict) else None
+        )
+        # A reply that calls tools may carry no text; one that calls none and
+        # has no string content is what an empty file would be made from.
+        if content is None and tool_calls:
+            content = ""
         if not isinstance(content, str):
             raise ProtocolError(
                 f"{self.endpoint.source!r} answered chat completions without "
@@ -704,7 +787,46 @@ class OpenAIRunner(Runner):
             # zero accepted, and that zero is the measurement.
             draft_n=_as_int(timings.get("draft_n")),
             draft_n_accepted=_as_int(timings.get("draft_n_accepted")),
+            tool_calls=tool_calls,
         )
+
+    def _tool_calls(self, entries: object) -> tuple[ToolCall, ...]:
+        """Read ``choices[0].message.tool_calls``, raising on a malformed entry.
+
+        Absent or ``null`` is no calls. An entry without the id or the name is
+        refused rather than skipped, because a call the caller cannot run and
+        answer by id would leave the conversation owing a reply it cannot send.
+        Absent arguments are ``""``, which is what a tool taking none is sent.
+        """
+        if entries is None:
+            return ()
+        where = f"{self.endpoint.source!r} answered chat completions with"
+        if not isinstance(entries, list):
+            raise ProtocolError(
+                f"{where} choices[0].message.tool_calls that is not a list "
+                f"({type(entries).__name__})"
+            )
+        calls: list[ToolCall] = []
+        for index, entry in enumerate(entries):
+            at = f"choices[0].message.tool_calls[{index}]"
+            if not isinstance(entry, dict):
+                raise ProtocolError(f"{where} {at} that is not an object")
+            call_id = entry.get("id")
+            if not isinstance(call_id, str):
+                raise ProtocolError(f"{where} {at} without a string id")
+            function = entry.get("function")
+            if not isinstance(function, dict):
+                raise ProtocolError(f"{where} {at} without a function object")
+            name = function.get("name")
+            if not isinstance(name, str):
+                raise ProtocolError(f"{where} {at} without a string function.name")
+            arguments = function.get("arguments", "")
+            if not isinstance(arguments, str):
+                raise ProtocolError(
+                    f"{where} {at} whose function.arguments is not a string"
+                )
+            calls.append(ToolCall(id=call_id, name=name, arguments=arguments))
+        return tuple(calls)
 
 
 _RUNNERS: dict[Protocol, type[Runner]] = {

@@ -42,6 +42,7 @@ from mcgyvr.config import (
     GATE_FIELDS,
     JOURNAL_FIELDS,
     LOCAL_ONLY,
+    ORCHESTRATOR_FIELDS,
     POLICY_FILENAME,
     SANDBOX_FIELDS,
     SCHEMA,
@@ -632,7 +633,13 @@ def build(
         "ladder": [rung.name for rung in proposal.rungs]
         + [api.name for api in api_units],
         "fanout": "none",
-        "orchestrator": {"unit": None, "model": None},
+        # The type is written at its default, so the file says the bound unit
+        # drafts contracts and names the key that makes it the agent instead.
+        "orchestrator": {
+            **_defaults(ORCHESTRATOR_FIELDS, "type"),
+            "unit": None,
+            "model": None,
+        },
         # Written at its default — on — with no unit: the reviewer of each
         # rung's work is then the next dearer local rung serving another model.
         "verifier": {

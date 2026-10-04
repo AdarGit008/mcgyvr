@@ -398,6 +398,10 @@ def _completion_fields(answer: Completion) -> Record:
     ):
         if value is not None:
             fields[key] = value
+    # How many tools the reply asked for, only when it asked for any: a row
+    # with no calls has no count, by the same rule as the counts above.
+    if answer.tool_calls:
+        fields["tool_calls"] = len(answer.tool_calls)
     return fields
 
 

@@ -161,6 +161,20 @@ class Report:
         return 1 if self.failed or self.links_failed else 0
 
 
+def folder_policy(folder: Path | None) -> dict[str, Any]:
+    """A fleet folder's ``policy.yaml``, as written; empty where it has none.
+
+    :class:`ProbeError` when the file is there and cannot be read.
+    """
+    policy_path = None if folder is None else folder / "policy.yaml"
+    if policy_path is None or not policy_path.is_file():
+        return {}
+    try:
+        return load_policy(policy_path.read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        raise ProbeError(f"{policy_path} cannot be read: {exc}") from exc
+
+
 def journal_dir(folder: Path | None) -> Path:
     """``<journal.dir>/fleet`` for a live fleet folder, where the probe files.
 
@@ -168,15 +182,9 @@ def journal_dir(folder: Path | None) -> Path:
     none stated, it is the config's default.
     """
     configured: Any = None
-    policy_path = None if folder is None else folder / "policy.yaml"
-    if policy_path is not None and policy_path.is_file():
-        try:
-            policy = load_policy(policy_path.read_text(encoding="utf-8"))
-        except (OSError, FleetFileError) as exc:
-            raise ProbeError(f"{policy_path} cannot be read: {exc}") from exc
-        block = policy.get("journal")
-        if isinstance(block, Mapping):
-            configured = block.get("dir")
+    block = folder_policy(folder).get("journal")
+    if isinstance(block, Mapping):
+        configured = block.get("dir")
     base = str(configured) if configured else JOURNAL_DIR_DEFAULT
     return Path(base).expanduser() / JOURNAL_SUBDIR
 

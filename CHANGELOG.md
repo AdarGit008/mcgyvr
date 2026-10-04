@@ -11,6 +11,29 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `orchestrator.type: mcorch`, an opt-in orchestrator that is a model to the
+  user's harness. `mcgyvr mcorch serve` serves an Anthropic Messages API
+  address (`ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude`, or pi's
+  `anthropic-messages` provider); behind it the bound local rung holds the
+  conversation, the `jev` unit answers every bounded question (is a request
+  chat or work, is a contract ready to run, what comes after a result), and
+  the harness runs every tool — mcorch executes nothing, holds no repository
+  path and never edits a source file. Running a contract is the rung emitting
+  the harness's own tool calls: write the contract, `mcgyvr contract`,
+  `mcgyvr run --orchestrator mcorch-<stamp>`, read the result file, replan —
+  the `/mcgyvr` skill's flow with the rung in the API-tier agent's seat.
+  `orchestrator.authoring` names how a request becomes a contract (`direct`,
+  `prose`, `classifier`; no default, the choice is being measured; `prose`
+  and `classifier` are refused at serve time until the server has a way to
+  the repository's index) and `orchestrator.tools` names the harness tools the
+  rung keeps; the harness's system prompt is replaced by `prompts/mcorch.md`
+  with the contract vocabulary rendered from the schema, and what was dropped
+  is counted in the server's transcript under `<journal.dir>/mcorch/`. mcorch
+  requires `deployment: local-only`, a bound `jev.unit`, and a rung whose
+  `window` is stated; a fleet that does not hold both units awake is refused
+  by `mcgyvr fleet lock`, `mcgyvr fleet promote` and live admission, each for
+  the fleet it is about. The runner can now carry a conversation's turns and
+  the function tools on offer to a rung, and read a reply's `tool_calls`.
 - A `jev:` block in `policy.yaml`, naming the one unit every typed decision
   asks: the gate's Jev rung, the reviewer's verdict, fleet wake routing, the
   ladder manager's choices and the typed proposer. `unit` names it and
@@ -204,6 +227,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- Decision `0013-decomposition-is-api-tier-only` (#178, below) is rescinded
+  entirely, owner ruling: the `orchestrator` role may bind to any unit, local
+  or hosted, for any orchestrator type, and nothing enforces an api-family
+  binding at load or at runtime (nothing ever did in code; the rule was prose).
+  `orchestrator.type: mcorch` binds a local rung by design.
 - Prose that nothing in the repository reads — decision records, evidence
   and measurement write-ups, `docs/`, the corpus and header READMEs — moved
   to AdarGit008/mcgyvr-lab at the same paths; the data they describe stays
