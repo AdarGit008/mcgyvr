@@ -884,7 +884,11 @@ def _read_document(
     The texts come from the index the command built, not from a second read
     of the disk, so the document is the index: a server that assembles one
     from it (:mod:`mcgyvr.mcorch.evidence`) holds what this command held.
+    ``located`` is the adapters' checker lookup, made here because only here
+    is the repository on disk.
     """
+    from mcgyvr.orchestrator.decompose import locate_checkers
+
     wanted = [candidate.path for candidate in resolution.candidates]
     wanted += [read.path for read in plan.reads if read.path not in wanted]
     by_path = {file.path: file for file in index.files}
@@ -913,6 +917,9 @@ def _read_document(
             for path in wanted
             if path in by_path
         ],
+        # The checker each language adapter locates here, where the repository
+        # is: the one lookup a server reading this document cannot make itself.
+        "located": locate_checkers(root),
     }
 
 
