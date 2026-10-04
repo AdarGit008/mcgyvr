@@ -11,6 +11,14 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `units.<unit>.sampling`: who sets a request's sampling parameters. `request`
+  (the default) sends `temperature` as before -- 0.0 for the greedy first
+  draw, `breadth.temperature` after it; `server` says the unit's model fixes
+  its own sampling and refuses the field, so the runner and every typed
+  decision send none to it (the hosted Claude models from Opus 4.7 on answer a
+  `temperature` with HTTP 400 -- in the campaign every dispatch to
+  `claude-opus-5-5` did). A `server` unit asked for more than one draw is
+  refused at load. A fact of the unit, so it is in `fleet.yaml`.
 - The Jev unit is resident. A bound `jev.unit` is dedicated VRAM, an opt-in
   at setup, and is never slept or woken: the card that holds it is excluded
   from the ladder manager's switches, `mcgyvr serve sleep|wake`, and the
@@ -245,6 +253,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A delegated contract (`mcgyvr delegate`, mcorch's prose and classifier
+  paths) now carries `limits.max_output_tokens` for every whole-file model
+  type, from the one derivation the loader and `mcgyvr contract` already make
+  (`contract.output_cap`, the type's own evidence) -- it carried none, so
+  every such contract validated and was then refused by `mcgyvr run` (exit 2,
+  a cap nobody chose). A proposal that states `max_output_tokens` wins; a
+  deterministic or raw-text type carries none, as before.
 - Decision `0013-decomposition-is-api-tier-only` (#178, below) is rescinded
   entirely, owner ruling: the `orchestrator` role may bind to any unit, local
   or hosted, for any orchestrator type, and nothing enforces an api-family
