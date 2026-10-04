@@ -99,7 +99,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.orchestrator.decompose import Decomposition
+    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
+    from mcgyvr.pool import SourceMap
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
@@ -888,7 +889,7 @@ def _delegate(args: argparse.Namespace) -> int:
     """
 
     from mcgyvr.config import ConfigError, ConfigMissingError, named_config_path
-    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError, proposer_for
+    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
     from mcgyvr.exits import Exit
     from mcgyvr.orchestrator import (
         AttachError,
@@ -926,7 +927,7 @@ def _delegate(args: argparse.Namespace) -> int:
 
     pool = source_map(config)
     try:
-        propose = proposer_for(pool)
+        propose = _proposer_for_delegate(config, pool)
     except SourceUnavailableError as exc:
         print(
             f"error: the orchestrator role is declared but cannot run: {exc}. "
@@ -969,6 +970,28 @@ def _delegate(args: argparse.Namespace) -> int:
         # a reviewer-side fault, reported, never a traceback.
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
+    """The proposer ``mcgyvr delegate`` drafts with, by ``orchestrator.authoring``.
+
+    ``classifier`` puts the typed proposer (the jev unit, or the orchestrator
+    role when none is bound) first and the prose proposer behind it; anything
+    else is the prose proposer alone, as before the field existed.
+    """
+    from mcgyvr.delegate import (
+        classifier_proposer_for,
+        proposer_by_authoring,
+        proposer_for,
+    )
+
+    strategy = config.get("orchestrator.authoring")
+    typed = classifier_proposer_for(pool) if strategy == "classifier" else None
+    return proposer_by_authoring(
+        None if not isinstance(strategy, str) else strategy,
+        typed=typed,
+        prose=proposer_for(pool),
+    )
 
 
 def _report_decomposition(dec: Decomposition) -> None:
@@ -1127,6 +1150,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.drive import Recording, gate_adapters
     from mcgyvr.result import RunResult, result_path, run_stamp, write
+    from mcgyvr.session import with_mcorch_transcript
 
     session: Session = args.session
 
@@ -1183,6 +1207,9 @@ def _run(args: argparse.Namespace) -> int:
     # those questions is about *all* the runs there have been.
     configured = config.get("journal.dir") if config is not None else None
     journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+    # An mcorch writer's transcript is under this directory and nowhere the
+    # parser could have looked: attached now that the directory is known.
+    session = with_mcorch_transcript(session, journal_dir)
     # Theirs, for their own reading. A complete copy — every line, every blob,
     # the result file — so `tools/live/review.py DIR` reads it exactly as it
     # reads ours, and a failure to write one is a note rather than the end of a
@@ -3188,6 +3215,59 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
         run.error(str(exc))
 
 
+def _mcorch_serve(args: argparse.Namespace) -> int:
+    """Serve the orchestrator rung as the agent, at an Anthropic Messages address.
+
+    Refuses a config whose orchestrator is not ``type: mcorch`` — the command
+    has nothing to serve then — and, under a live profile, a fleet live
+    admission does not admit (:func:`_admitted_live`), as ``run`` is. Binds the
+    loopback and the facade's own port unless told otherwise; prints where it
+    listens and the writer id it journals under, so a reader can find the
+    transcript; runs until interrupted.
+    """
+    from mcgyvr.config import MCORCH
+    from mcgyvr.decision import UnboundRoleError
+    from mcgyvr.mcorch import bind, serve
+    from mcgyvr.mcorch.authoring import AuthoringUnavailableError
+    from mcgyvr.pool import SourceUnavailableError
+
+    try:
+        config = load_config(Path(args.config) if args.config else None)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    if config.get("orchestrator.type") != MCORCH:
+        print(
+            f"refused: orchestrator.type is {config.get('orchestrator.type')!r}, "
+            f"and `mcgyvr mcorch serve` serves only `orchestrator.type: {MCORCH}`. "
+            "Set it, with `orchestrator.unit`, `orchestrator.authoring` and "
+            "`jev.unit`, or use the orchestrator the config has.",
+            file=sys.stderr,
+        )
+        return Exit.REFUSED
+    if config.get("profile") == "live" and _admitted_live() is not None:
+        return Exit.REFUSED
+    try:
+        bound = bind.bind(config, journal_dir=bind.journal_dir(config))
+    except (UnboundRoleError, SourceUnavailableError, AuthoringUnavailableError) as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return Exit.REFUSED
+
+    address = args.bind if args.bind else serve.DEFAULT_BIND
+    port = args.port if args.port is not None else serve.FACADE_PORT
+    server = serve.make_server(bind.facade(bound), bind=address, port=port)
+    host, bound_port = str(server.server_address[0]), int(server.server_address[1])
+    print(f"mcorch serving http://{host}:{bound_port} as writer {bound.writer}")
+    print(f"transcript: {bound.transcript.path}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return Exit.OK
+
+
 def _fleet_lock(args: argparse.Namespace) -> int:
     """Write the fleet lock from the fleet, evidence and policy files named."""
     import json
@@ -4064,6 +4144,40 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     from mcgyvr.rig import verbs as rig_verbs
 
     rig_verbs.add_parser(sub)
+
+    mcorch = sub.add_parser(
+        "mcorch",
+        help="serve the orchestrator rung as the agent a harness talks to",
+    )
+    mcorch_sub = mcorch.add_subparsers(dest="mcorch_command", required=True)
+    mserve = mcorch_sub.add_parser(
+        "serve",
+        help=(
+            "serve an Anthropic Messages API address for a harness to point at "
+            "(ANTHROPIC_BASE_URL); needs `orchestrator.type: mcorch`"
+        ),
+    )
+    mserve.add_argument(
+        "--config",
+        default=None,
+        type=_named_path,
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
+    )
+    mserve.add_argument(
+        "--bind",
+        default=None,
+        help=(
+            "the address to listen on (default: the loopback; a LAN or tailnet "
+            "address lets another machine's harness reach it)"
+        ),
+    )
+    mserve.add_argument(
+        "--port",
+        default=None,
+        type=int,
+        help="the port to listen on (default: the facade's own)",
+    )
+    mserve.set_defaults(func=_mcorch_serve)
 
     run = sub.add_parser(
         "run",

@@ -26,7 +26,12 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet import ids
-from mcgyvr.fleet.layout import combination_id, layout_sha256
+from mcgyvr.fleet.layout import (
+    FleetError,
+    combination_id,
+    layout_sha256,
+    mcorch_units,
+)
 from mcgyvr.fleet.spans import (
     Span,
     SpanError,
@@ -439,6 +444,13 @@ def write(
                 raise LockRefusedError(
                     f"policy ladder names {name!r}, a unit this fleet does not have"
                 )
+        # An mcorch policy needs its agent and its jev unit awake in every
+        # fleet it may run on, so a fleet that lacks either is not locked.
+        try:
+            for fleet_name, block in fleets.items():
+                mcorch_units(policy, block.get("layout", {}), name=fleet_name)
+        except FleetError as exc:
+            raise LockRefusedError(str(exc)) from exc
 
     # A unit's span is declared, and a layout holds it whole, before anything
     # is written: a unit split across a fleet's rigs is refused by name.

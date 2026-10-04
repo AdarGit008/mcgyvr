@@ -7,13 +7,14 @@ guess, and the lock is read from the live fleet's own folder
 
 :func:`admit` refuses (:class:`~mcgyvr.fleet.admit.LiveRefusedError`) when no
 fleet is named or it has no lock, when its layout was edited after locking,
-before any rig is read; and, once each rig is read, when a rig is not the rig
-it was locked on or a process that is not ours holds its card, or when the door
-could not read a rig at all. Otherwise it returns the plan: what would be
-cleaned and restored, with the door commands that would do it. Carrying a plan
-out stops and starts containers on a rig, and the owner has not ruled that
-mcgyvr may do so: the callers refuse a non-empty plan and print the commands,
-and run none of them.
+or when the live folder's ``policy.yaml`` names an mcorch orchestrator whose
+units the fleet does not hold awake, before any rig is read; and, once each rig
+is read, when a rig is not the rig it was locked on or a process that is not
+ours holds its card, or when the door could not read a rig at all. Otherwise it
+returns the plan: what would be cleaned and restored, with the door commands
+that would do it. Carrying a plan out stops and starts containers on a rig, and
+the owner has not ruled that mcgyvr may do so: the callers refuse a non-empty
+plan and print the commands, and run none of them.
 """
 
 from __future__ import annotations
@@ -45,7 +46,7 @@ class Admission:
 def admit(reader: Reader | None = None) -> Admission:
     """Read each rig of the live fleet through the door, and hold it to the lock."""
     from mcgyvr.fleet import read
-    from mcgyvr.fleet.probe import journal_dir
+    from mcgyvr.fleet.probe import ProbeError, folder_policy, journal_dir
     from mcgyvr.fleet.roots import LiveFleetError, live_file, live_fleet
     from mcgyvr.serving.run import mint_read_id
 
@@ -63,8 +64,15 @@ def admit(reader: Reader | None = None) -> Admission:
         fleet = read.live()
     except read.ReadError as exc:
         raise LiveRefusedError(str(exc)) from exc
-    # The lock and its pin first: a fleet that cannot be admitted costs no read.
-    admit_live(fleet.folder, fleet.fleet, fleet.name, {})
+    # The live setup's own policy, beside its fleet.yaml: an mcorch
+    # orchestrator holds the live fleet to its units.
+    try:
+        policy = folder_policy(fleet.folder)
+    except ProbeError as exc:
+        raise LiveRefusedError(str(exc)) from exc
+    # The lock, its pin and the policy first: a fleet that cannot be admitted
+    # costs no read.
+    admit_live(fleet.folder, fleet.fleet, fleet.name, {}, policy=policy)
 
     spawn = reader if reader is not None else read.spawn_read
     run_id = mint_read_id()
@@ -89,7 +97,7 @@ def admit(reader: Reader | None = None) -> Admission:
             "units": row.get("units") or {},
             "foreign": row.get("foreign") or [],
         }
-    plan = admit_live(fleet.folder, fleet.fleet, fleet.name, observed)
+    plan = admit_live(fleet.folder, fleet.fleet, fleet.name, observed, policy=policy)
     return Admission(fleet.name, plan, door_commands(fleet.fleet, fleet.name, plan))
 
 
