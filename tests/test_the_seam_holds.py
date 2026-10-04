@@ -222,6 +222,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.mcorch.anthropic",
     "mcgyvr.mcorch.authoring",
     "mcgyvr.mcorch.bind",
+    "mcgyvr.mcorch.evidence",
     "mcgyvr.mcorch.guard",
     "mcgyvr.mcorch.loop",
     "mcgyvr.mcorch.prompt",

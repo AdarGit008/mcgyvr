@@ -11,6 +11,32 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `units.<unit>.sampling`: who sets a request's sampling parameters. `request`
+  (the default) sends `temperature` as before -- 0.0 for the greedy first
+  draw, `breadth.temperature` after it; `server` says the unit's model fixes
+  its own sampling and refuses the field, so the runner and every typed
+  decision send none to it (the hosted Claude models from Opus 4.7 on answer a
+  `temperature` with HTTP 400 -- in the campaign every dispatch to
+  `claude-opus-5-5` did). A `server` unit asked for more than one draw is
+  refused at load. A fact of the unit, so it is in `fleet.yaml`.
+- The Jev unit is resident. A bound `jev.unit` is dedicated VRAM, an opt-in
+  at setup, and is never slept or woken: the card that holds it is excluded
+  from the ladder manager's switches, `mcgyvr serve sleep|wake`, and the
+  waker a dispatch goes through, and a typed decision never wakes anything
+  first. `mcgyvr init --jev UNIT` dedicates a written unit (no model is picked
+  for you); `mcgyvr init --mcorch UNIT --window TOKENS` enables mcorch on a
+  written unit, needs `--jev`, and writes `orchestrator.type: mcorch`,
+  `authoring: direct`, `deployment: local-only`. Under mcorch, `prose` and
+  `classifier` authoring now work: evidence rides the harness the way it does
+  for a pi agent — mcorch has the harness's shell tool (`Bash` or `bash`) run
+  `mcgyvr read "<request>" --json` in the working directory, assembles the
+  index from the document that comes back (the whole text of every
+  shortlisted and read file), proposes and decomposes server-side, and hands
+  the rung the contracts to write; the repository never touches the server.
+  `mcgyvr read --json` is that document, and it carries the type checker each
+  language adapter locates where the repository is (`located`), so a
+  `type_annotation` under mcorch is emitted with the command the repository
+  declared and refused by name where it declared none — never guessed.
 - `orchestrator.type: mcorch`, an opt-in orchestrator that is a model to the
   user's harness. `mcgyvr mcorch serve` serves an Anthropic Messages API
   address (`ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude`, or pi's
@@ -227,6 +253,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A delegated contract (`mcgyvr delegate`, mcorch's prose and classifier
+  paths) now carries `limits.max_output_tokens` for every whole-file model
+  type, from the one derivation the loader and `mcgyvr contract` already make
+  (`contract.output_cap`, the type's own evidence) -- it carried none, so
+  every such contract validated and was then refused by `mcgyvr run` (exit 2,
+  a cap nobody chose). A proposal that states `max_output_tokens` wins; a
+  deterministic or raw-text type carries none, as before.
 - Decision `0013-decomposition-is-api-tier-only` (#178, below) is rescinded
   entirely, owner ruling: the `orchestrator` role may bind to any unit, local
   or hosted, for any orchestrator type, and nothing enforces an api-family

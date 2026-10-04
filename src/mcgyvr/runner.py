@@ -241,6 +241,10 @@ class StopReason(StrEnum):
 # a new backend inventing a word should surface as "it did not say", not as a
 # clean finish. `eos_token` is TGI's; `max_tokens` appears on some
 # OpenAI-compatible servers where the reference implementation says `length`.
+#: The ``units.<unit>.sampling`` value under which no sampling parameter is
+#: sent: the unit's model fixes its own and refuses the field.
+SERVER_SAMPLED = "server"
+
 _STOP_REASONS: dict[str, StopReason] = {
     "stop": StopReason.COMPLETE,
     "eos_token": StopReason.COMPLETE,
@@ -713,9 +717,13 @@ class OpenAIRunner(Runner):
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
-            "temperature": request.temperature,
             "stream": False,
         }
+        if self.endpoint.sampling != SERVER_SAMPLED:
+            # A unit whose server fixes its own sampling refuses the parameter
+            # (`units.<unit>.sampling: server`); every other unit is sent the
+            # draw's temperature, 0.0 for the greedy first draw.
+            payload["temperature"] = request.temperature
         if request.max_output_tokens is not None:
             # `max_tokens`, not `max_completion_tokens`, and never both. The
             # key is absent when the request is uncapped, never present and
