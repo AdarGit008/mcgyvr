@@ -475,6 +475,11 @@ class Sessions:
         self._ended_hooks: list[Callable[[str], None]] = []
         self._prepare_hooks: list[Callable[[], None]] = []
         self._said: dict[str, str] = {}  # frame id -> session id
+        # The worker session whose workers mount the rig's cache, until its
+        # teardown has trimmed it: the engine writes a cached tensor in place
+        # and reads one back unchecked, so two sessions sent the same tensors
+        # would each load the other's half-written file as whole.
+        self._cache_holder: _Session | None = None
 
     # -- what the agent asks -------------------------------------------------
 
@@ -1498,10 +1503,16 @@ class Sessions:
             )
         self._move(session, "tunnel_up")
 
-    def _cache(self, share: sharing_module.Sharing) -> Path | None:
+    def _cache(self, session: _Session) -> Path | None:
+        """The rig's cache folder for ``session``'s workers, which then hold
+        it until their teardown; ``None`` while another session holds it."""
         folder = self.machine.cache_dir
-        if not share.cache or folder is None:
+        if not session.sharing.cache or folder is None:
             return None
+        with self._lock:
+            if self._cache_holder not in (None, session):
+                return None
+            self._cache_holder = session
         folder.mkdir(mode=0o700, parents=True, exist_ok=True)
         return folder
 
@@ -1512,7 +1523,7 @@ class Sessions:
         self._move(session, "starting")
         own = str(session.plan.address.ip)
         nets = [str(net) for net in session.plan.peer_nets()]
-        cache = self._cache(share)
+        cache = self._cache(session)
         names: dict[tuple[int, int, int], str] = {}
         for worker in session.workers:
             _, gpu, port = worker
@@ -1657,19 +1668,17 @@ class Sessions:
             names = []
         with self._lock:
             session.released = True
-            # The cache is the rig's, not the session's: a worker of another
-            # session may be reading it, so the last worker out trims it.
-            sharing_cache = any(
-                found.role == "worker" for found in self._holding(session)
-            )
-        if (
-            session.role == "worker"
-            and self.machine.cache_dir is not None
-            and not sharing_cache
-        ):
-            with contextlib.suppress(OSError):
-                if self.machine.cache_dir.is_dir():
-                    trim_cache(self.machine.cache_dir, session.sharing.cache_max_mb)
+            holder = self._cache_holder is session
+        # The holder trims the cache before letting it go, so no other
+        # session's worker is reading a file while it is removed.
+        if holder and self.machine.cache_dir is not None:
+            try:
+                with contextlib.suppress(OSError):
+                    if self.machine.cache_dir.is_dir():
+                        trim_cache(self.machine.cache_dir, session.sharing.cache_max_mb)
+            finally:
+                with self._lock:
+                    self._cache_holder = None
         for hook in self._ended_hooks:
             with contextlib.suppress(Exception):
                 hook(session.id)
