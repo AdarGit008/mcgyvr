@@ -25,7 +25,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   index from the document that comes back (the whole text of every
   shortlisted and read file), proposes and decomposes server-side, and hands
   the rung the contracts to write; the repository never touches the server.
-  `mcgyvr read --json` is that document.
+  `mcgyvr read --json` is that document, and it carries the type checker each
+  language adapter locates where the repository is (`located`), so a
+  `type_annotation` under mcorch is emitted with the command the repository
+  declared and refused by name where it declared none — never guessed.
 - `orchestrator.type: mcorch`, an opt-in orchestrator that is a model to the
   user's harness. `mcgyvr mcorch serve` serves an Anthropic Messages API
   address (`ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude`, or pi's

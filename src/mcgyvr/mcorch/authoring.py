@@ -241,7 +241,13 @@ class Evidenced:
         index = evidence.index_from(document)
         prompt = document.prompt
         decomposition = decompose(
-            index, prompt, propose=self._proposer(max_output_tokens), config=self.config
+            index,
+            prompt,
+            propose=self._proposer(max_output_tokens),
+            config=self.config,
+            # The checker lookup, made where the repository is and carried in
+            # the document: nothing here opens a path.
+            located=document.located,
         )
         return self._digest(decomposition)
 

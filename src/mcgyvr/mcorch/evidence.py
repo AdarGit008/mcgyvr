@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import shlex
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +61,9 @@ class Document:
     root: str
     files: tuple[tuple[str, str], ...]
     candidates: tuple[str, ...]
+    #: The checker each adapter located where the repository is, by adapter
+    #: name — the one lookup the server cannot make. Empty: none declared.
+    located: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 def parse_document(text: str) -> Document | None:
@@ -94,11 +97,16 @@ def parse_document(text: str) -> Document | None:
         if isinstance(resolution, dict)
         else ()
     )
+    located: dict[str, tuple[str, ...]] = {}
+    for name, argv in (raw.get("located") or {}).items():
+        if isinstance(argv, list) and argv and all(isinstance(a, str) for a in argv):
+            located[str(name)] = tuple(argv)
     return Document(
         prompt=str(raw.get("prompt", "")),
         root=str(raw.get("root", "")),
         files=tuple(files),
         candidates=candidates,
+        located=located,
     )
 
 
