@@ -292,6 +292,22 @@ def render_reference() -> str:
 #: another in the schema the loader walks.
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
+#: Prose SETUP.md adds under a block's own section, after its key table, keyed
+#: by the block's name. It is advice to the machine's owner, not schema: the
+#: loader never reads it, no default follows from it, and it names what was
+#: measured and where, so the reader can weigh it. Paragraphs, each one string.
+_SETUP_NOTES: dict[str, tuple[str, ...]] = {
+    "jev": (
+        "The measured recommendation for the unit is Qwen3.5-4B (Q4_K_M, about "
+        "3.4 GB), owner ruling of 2026-10-04 on the jev-mcorch run "
+        "(mcgyvr-lab `records/evidence/2026-10-04-jev-mcorch/`): it reads "
+        "mcorch's J1 intent at 0.97 and J2 ready_to_run at 0.88, and judges the "
+        "reviewer's verdict at AUROC 0.77 (satisfies_task 0.81). Qwen3.5-9B "
+        "scores higher on judging code (verdict AUROC 0.86) at 5.7 GB, for a "
+        "card with the room. Models of 3B and under are not usable in this role.",
+    ),
+}
+
 
 def render_setup() -> str:
     """``SETUP.md``, as text: the first run, the levers, then every key.
@@ -379,6 +395,8 @@ def render_setup() -> str:
     for field in SCHEMA:
         if field.block:
             lines += _section(field, field.name, 2, dotted=True)
+            for note in _SETUP_NOTES.get(field.name, ()):
+                lines += [note, ""]
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
