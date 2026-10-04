@@ -225,7 +225,7 @@ def test_decider_for_returns_none_without_a_verifier_role() -> None:
 def test_decider_for_reads_a_typed_verdict_through_classify_role(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import mcgyvr.verify as verify_module
+    import mcgyvr.decision as decision_module
 
     pool = SourceMap(
         rungs=(),
@@ -256,7 +256,7 @@ def test_decider_for_reads_a_typed_verdict_through_classify_role(
             }
         )
 
-    monkeypatch.setattr(verify_module, "classify_role", fake_classify_role)
+    monkeypatch.setattr(decision_module, "classify_role", fake_classify_role)
     decide = decider_for(pool)
     assert decide is not None
     review = read_typed_verdict(decide({"change": CHANGE}))

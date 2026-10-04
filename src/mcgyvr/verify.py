@@ -99,8 +99,7 @@ from mcgyvr.decision import (
     DecisionError,
     Noul,
     Question,
-    classify_role,
-    classify_rung,
+    classify_for,
 )
 from mcgyvr.escalate import GATE_ONLY, Opinion, Review, required_policy
 from mcgyvr.gate.jev import JEV_QUESTIONS, JevCheck, jev_check_for
@@ -741,7 +740,8 @@ def decider_for(
 
     Mirrors :func:`reviewer_for` one seam over: where that one dispatches a
     prose reply, this one reads a typed :class:`~mcgyvr.decision.Decision`
-    through :func:`~mcgyvr.decision.classify_role`. ``None`` is an ordinary
+    through :func:`~mcgyvr.decision.classify_for` — the ``jev.unit`` when one
+    is bound, the verifier role's own unit when not. ``None`` is an ordinary
     answer — an install with no verifier role bound has no verifier — and a
     role declared but unusable raises the same way :func:`reviewer_for` does.
     """
@@ -749,19 +749,14 @@ def decider_for(
         return None
 
     def decide(state: Any) -> Decision:
-        decision = classify_role(
+        return classify_for(
             source_map,
-            VERIFIER_ROLE,
             state,
             {VERDICT_KEY: VERDICT_QUESTION},
+            role=VERIFIER_ROLE,
             capacity=capacity,
             timeout_s=timeout_s,
         )
-        if decision is None:  # the role was bound a moment ago
-            raise ReviewerUnavailableError(
-                f"the {VERIFIER_ROLE!r} role has no source to dispatch to"
-            )
-        return decision
 
     return decide
 
@@ -987,11 +982,13 @@ def _on_rung(
         return _review_text(completion, f"rung {rung!r}")
 
     def by_rung(state: Any, questions: Mapping[str, Question]) -> Decision:
-        return classify_rung(
+        # The typed half: the `jev.unit` when one is bound, the reviewing rung
+        # when not. The prose `ask` above stays on the rung either way.
+        return classify_for(
             source_map,
-            rung,
             state,
             questions,
+            rung=rung,
             capacity=capacity,
             timeout_s=timeout_s,
         )

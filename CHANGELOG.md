@@ -11,6 +11,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- A `jev:` block in `policy.yaml`, naming the one unit every typed decision
+  asks: the gate's Jev rung, the reviewer's verdict, fleet wake routing, the
+  ladder manager's choices and the typed proposer. `unit` names it and
+  `model` defaults to the unit's own; a local jev unit is served beside the
+  ladder, never on it, and the ladder manager never sleeps its card. Left
+  unbound, each of those keeps asking what it asked before — the verifier
+  role, the reviewing rung, the cheapest local rung, the orchestrator role —
+  so an existing setup reads exactly as it did. `mcgyvr init` writes the
+  block unbound and `mcgyvr pool` prints the role.
 - Relief rungs (hitchhike): units other opted-in users lend you through a
   hub, used to shorten a queue and never to climb. `mcgyvr rig rungs sync`
   reports your ladder's shape to the hub (`POST /api/v1/me/rungs`: each

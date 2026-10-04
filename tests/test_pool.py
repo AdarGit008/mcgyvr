@@ -181,7 +181,7 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # a unit a question and reads the answer from next-token probabilities, so it
 # takes an `Endpoint` exactly as a runner does and sends exactly one request
 # shape through the same transport (`runner._post_json`). Nothing travels
-# upward — `delegate.py` calls it through `classify_role`, below the seam, and
+# upward — `delegate.py` calls it through `classify_for`, below the seam, and
 # the typed proposer it returns holds no endpoint.
 #
 # `initialize.py` and `compose.py` reach an endpoint to run the Jev-composed

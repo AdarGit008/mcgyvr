@@ -171,6 +171,7 @@ def _config(args: argparse.Namespace) -> int:
 
 
 def _pool(args: argparse.Namespace) -> int:
+    from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import draws_for, family_of
@@ -255,7 +256,7 @@ def _pool(args: argparse.Namespace) -> int:
         for skip in pool.relief_skipped:
             print(f"  {skip.name:<20} skipped\n      ↳ {skip.reason}")
 
-    for role in ("orchestrator", "verifier"):
+    for role in ("orchestrator", "verifier", JEV_ROLE):
         try:
             model = pool.role_model(role)
         except SourceUnavailableError as exc:
@@ -2612,7 +2613,10 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     stated = config.units[fast.name].request_timeout_s
     bounds = ladder_manager.Bounds.of(config)
     board = Board()
-    view = ladder_manager.View.of(config, jev=fast.name)
+    # The card the decisions run on is never slept: the `jev.unit` when one
+    # is bound (every decision asks it), the fast rung when not.
+    jev = config.get("jev.unit") or fast.name
+    view = ladder_manager.View.of(config, jev=jev)
     switches = wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config))
     manager = ladder_manager.Manager(
         view,
@@ -2631,7 +2635,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     print(
         f"managing {', '.join(view.resident)}; can sleep and wake: "
         f"{', '.join(ladder_manager.sleepable_rungs(config))}; Jev runs on "
-        f"{fast.name}; every {bounds.interval_s:g}s"
+        f"{jev}; every {bounds.interval_s:g}s"
     )
     for rung, alone in wakelib.left_alone(config).items():
         print(f"note: {rung} is left alone: {alone}")
