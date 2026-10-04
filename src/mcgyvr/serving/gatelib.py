@@ -12,6 +12,12 @@ else, so a hand-set ``RUN_*`` environment admits nothing. Everything else
 that decides whether a run may proceed belongs in a gate, where the door can
 see it in :data:`~mcgyvr.serving.run.SEQUENCE`.
 
+One narrow exception is named, not hidden: :func:`ssh_read_only` opens a rig
+for a read-only detection command — the remote scan, the ``*.gguf`` discovery
+and the shipped-reader header read ``mcgyvr recommend`` runs — without the
+door. It admits only those three command shapes, so launch, sleep, wake and
+every step still require the door through :func:`ssh`.
+
 Nothing here runs at import. A product module imports this, and a module that
 read the environment or touched a descriptor on import would make "import
 gatelib" an action.
@@ -19,6 +25,7 @@ gatelib" an action.
 
 from __future__ import annotations
 
+import base64
 import getpass
 import os
 import re
@@ -207,8 +214,10 @@ def ssh(
 ) -> subprocess.CompletedProcess[str]:
     """How everything in this repository reaches a rig.
 
-    The one other ssh spawn is the shims' own lease check
-    (:func:`_direct_ssh`), which applies the same rule. Refuses — exit 2,
+    The other ssh spawns are the shims' own lease check (:func:`_direct_ssh`),
+    which applies the same door rule, and :func:`ssh_read_only`, the one
+    sanctioned read-only detection path (the remote scan, the ``*.gguf``
+    discovery and the shipped-reader header read). This function refuses — exit 2,
     naming the door — unless this process descends from
     ``mcgyvr.serving.run`` and ``host`` is the one it was opened for.
     ``BatchMode=yes`` so a host that wants a password fails in seconds instead
@@ -232,6 +241,167 @@ def ssh(
             command,
         ],
         input=input,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+#: The fixed suffix of the one read-only line that ships the rig scanner.
+_SCAN_READ_SUFFIX = " | base64 -d | python3 -"
+
+#: The fixed middle of the one read-only line that ships the header reader.
+_HEADER_READ_MIDDLE = " | base64 -d | python3 - "
+
+
+def _header_read_blob() -> str:
+    """The shipped header reader, base64-encoded, the only payload it ships.
+
+    Read lazily so importing gatelib still touches nothing. The reader is
+    :mod:`mcgyvr.serving.ggufscan`, the one copy, read by file — a second copy
+    would be a second parser, and the first thing a second parser does is
+    disagree with the first about the file a published measurement was
+    computed from.
+    """
+    from mcgyvr.serving import ggufscan
+
+    source = Path(ggufscan.__file__)
+    return base64.b64encode(source.read_bytes()).decode("ascii")
+
+
+def _scan_read_blob() -> str:
+    """The shipped rig scanner, base64-encoded, the only payload it ships.
+
+    Read lazily so importing gatelib still touches nothing. The scanner is
+    :mod:`mcgyvr.serving.rigscan`, the one copy, read by file — the same
+    single-copy rule as the header reader, because the far end measures the
+    machine and two scanners would be two opinions about what the same rig
+    reported.
+    """
+    from mcgyvr.serving import rigscan
+
+    source = Path(rigscan.__file__)
+    return base64.b64encode(source.read_bytes()).decode("ascii")
+
+
+def _single_quote(token: str) -> str:
+    """``token`` as one single-quoted shell word, refusing an embedded quote.
+
+    ``shlex.quote`` leaves a safe token unquoted, which is still a single
+    shell word but not a shape the sanction can prove by looking at it. The
+    sanction admits only the single-quoted form, so the builders produce that
+    form, and a token with an embedded single quote is refused rather than
+    shipped in a shape the sanction cannot prove.
+    """
+    if "'" in token:
+        raise ValueError(
+            "a read-only path or directory with an embedded single quote "
+            "cannot be proven safe; refuse rather than ship it"
+        )
+    return f"'{token}'"
+
+
+def scan_read_command() -> str:
+    """The one read-only remote line that scans a rig.
+
+    The scanner ships as ``python3 -`` and nothing lands on the rig's disk; the
+    blob never comes back. It takes no argument: the scanner measures the
+    machine it runs on, so a fresh rig needs only python3 plus the tools the
+    scanner reads.
+    """
+    return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX}"
+
+
+def header_read_command(path: str) -> str:
+    """The one read-only remote line that reads a checkpoint header on the rig.
+
+    ``path`` is a rig-local ``*.gguf`` path already discovered by the ``find``
+    line. The reader ships as ``python3 -`` and nothing lands on the rig's
+    disk; the blob never comes back. The path travels as one single-quoted
+    token, so it reaches the far shell as a filename argument and never as a
+    command.
+    """
+    return f"echo {_header_read_blob()}{_HEADER_READ_MIDDLE}{_single_quote(path)}"
+
+
+def _read_only_command(command: str) -> bool:
+    """Whether ``command`` is a sanctioned read-only detection line.
+
+    Three shapes are admitted, and nothing else:
+
+    * the shipped-scan line ``echo <scanner> | base64 -d | python3 -``, whose
+      payload is exactly the shipped rig scanner (base64) and which carries no
+      argument;
+    * the model-store discovery line ``mcgyvr recommend`` builds,
+      ``find '<dir>' -maxdepth 1 -name '*.gguf' -print``, whose directory is
+      one single-quoted token with no embedded quote;
+    * the header-read line ``echo <reader> | base64 -d | python3 - '<path>'``,
+      whose payload is exactly the shipped ggufscan reader (base64) and whose
+      path is one single-quoted token with no embedded quote.
+
+    The quote is what makes a directory or a path a filename argument on the
+    far shell and never a command, so the sanction refuses one it could not
+    prove was quoted. The base64 is the lock that keeps an arbitrary script
+    out of the read-only path: only the shipped scanner or reader matches.
+    """
+    if command.startswith("echo ") and command.endswith(_SCAN_READ_SUFFIX):
+        blob = command[len("echo ") : -len(_SCAN_READ_SUFFIX)]
+        return blob == _scan_read_blob()
+
+    prefix = "find "
+    suffix = " -maxdepth 1 -name '*.gguf' -print"
+    if command.startswith(prefix) and command.endswith(suffix):
+        directory = command[len(prefix) : -len(suffix)]
+        return (
+            len(directory) >= 2
+            and directory[0] == "'"
+            and directory[-1] == "'"
+            and "'" not in directory[1:-1]
+            and bool(directory[1:-1])
+        )
+
+    if not command.startswith("echo ") or _HEADER_READ_MIDDLE not in command:
+        return False
+    blob, _sep, tail = command[len("echo ") :].partition(_HEADER_READ_MIDDLE)
+    if len(tail) < 2 or tail[0] != "'" or tail[-1] != "'":
+        return False
+    if "'" in tail[1:-1] or not tail[1:-1]:
+        return False
+    return blob == _header_read_blob()
+
+
+def ssh_read_only(
+    host: str,
+    command: str,
+    timeout: float | None = 120.0,
+) -> subprocess.CompletedProcess[str]:
+    """Open ssh for a sanctioned read-only detection command, outside the door.
+
+    The ONE exception to the door rule, and it is narrow: ``command`` must be
+    the shipped-scan line, the ``*.gguf`` discovery shape, or the
+    shipped-reader header-read shape :func:`_read_only_command` admits. Nothing
+    that launches, sleeps, wakes, writes, or runs a step is admitted here;
+    those all still require the door through :func:`ssh`. The door's
+    launch/sleep/wake path is untouched.
+    """
+    if not _read_only_command(command):
+        refuse(
+            "ssh_read_only refused: the command is not a sanctioned read-only "
+            "detection line (only the shipped scan, the *.gguf discovery and "
+            f"the shipped-reader header read are admitted), not "
+            f"{shlex.quote(command)[:80]}"
+        )
+    return subprocess.run(
+        [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            host,
+            command,
+        ],
         capture_output=True,
         text=True,
         timeout=timeout,

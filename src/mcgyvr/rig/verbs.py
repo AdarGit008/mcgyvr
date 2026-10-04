@@ -637,7 +637,9 @@ def _share(args: argparse.Namespace) -> int:
     endpoints = (
         ", ".join(wanted.endpoints) if wanted.endpoints else "this machine's LAN"
     )
-    print(f"tunnel:  udp {wanted.listen_port} on {endpoints}")
+    ports = wanted.tunnel_ports()
+    udp = f"{ports[0]}" if len(ports) == 1 else f"{ports[0]}-{ports[-1]}"
+    print(f"tunnel:  udp {udp} on {endpoints} (one port per session at once)")
     cache = f"up to {wanted.cache_max_mb} MiB" if wanted.cache else "off"
     print(f"cache:   {cache}")
     for note in wanted.notes:
@@ -712,7 +714,11 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     )
     share.add_argument("--models", help="the folder models are served from, or none")
     share.add_argument("--endpoints", help="LAN addresses to be reached at, or none")
-    share.add_argument("--listen-port", type=int, help="the tunnel's UDP port")
+    share.add_argument(
+        "--listen-port",
+        type=int,
+        help="the first tunnel UDP port; each further session at once takes the next",
+    )
     cache = share.add_mutually_exclusive_group()
     cache.add_argument("--cache", dest="cache", action="store_const", const=True)
     cache.add_argument("--no-cache", dest="cache", action="store_const", const=False)
