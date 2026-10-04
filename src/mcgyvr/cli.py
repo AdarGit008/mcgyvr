@@ -847,6 +847,10 @@ def _read(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    if args.json:
+        print(json.dumps(_read_document(args.query, root, index, resolution, plan)))
+        return 0
+
     state = "exhausted" if plan.exhausted else "complete"
     saved = f", {plan.saved} saved" if plan.saved else ""
     print(
@@ -870,6 +874,46 @@ def _read(args: argparse.Namespace) -> int:
             print(f"    #{item.candidate_rank} {item.path}:{item.start}-{item.end}")
     # Exhaustion is a reported plan, not a command failure — the caller decides.
     return 0
+
+
+def _read_document(
+    query: str, root: Path, index: Any, resolution: Any, plan: Any
+) -> dict[str, Any]:
+    """The `read --json` document: shortlist, reads, and every such file's text.
+
+    The texts come from the index the command built, not from a second read
+    of the disk, so the document is the index: a server that assembles one
+    from it (:mod:`mcgyvr.mcorch.evidence`) holds what this command held.
+    """
+    wanted = [candidate.path for candidate in resolution.candidates]
+    wanted += [read.path for read in plan.reads if read.path not in wanted]
+    by_path = {file.path: file for file in index.files}
+    return {
+        "prompt": query,
+        "root": str(root),
+        "resolution": {
+            "verdict": resolution.verdict.value,
+            "candidates": [
+                {"path": c.path, "score": c.score, "evidence": list(c.evidence)}
+                for c in resolution.candidates
+            ],
+        },
+        "reads": [
+            {
+                "path": read.path,
+                "start": read.start,
+                "end": read.end,
+                "reason": read.reason,
+                "text": read.text,
+            }
+            for read in plan.reads
+        ],
+        "files": [
+            {"path": path, "text": "\n".join(by_path[path].lines)}
+            for path in wanted
+            if path in by_path
+        ],
+    }
 
 
 def _delegate(args: argparse.Namespace) -> int:
@@ -3982,6 +4026,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "a path whose current content you already hold; verified against the "
             "index, and if it matches its regions cost the budget nothing "
             "(repeatable)"
+        ),
+    )
+    rd.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "print one JSON document instead of the report: the request, the "
+            "shortlist, the regions read, and the whole text of every shortlisted "
+            "and read file — what a server with no path to this repository needs "
+            "to index it (mcorch gathers evidence this way, through the harness)"
         ),
     )
     rd.set_defaults(func=_read)
