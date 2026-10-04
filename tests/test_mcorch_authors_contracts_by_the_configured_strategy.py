@@ -10,11 +10,11 @@ tools run inside one request and are never shown to the harness; a reply that
 mixes an internal call with harness calls runs the internal ones and tells the
 rung to call the harness again after reading them.
 
-``prose`` and ``classifier`` need the repository's index, which the server does
-not hold (it executes nothing and knows no path), so asking for them is refused
-by name at serve time rather than failing mid-conversation. The default is not
-picked here: a config that leaves ``authoring`` unbound is refused by the config
-loader, not filled in.
+``prose`` and ``classifier`` need the repository's index; the server holds no
+path of its own, so the evidence rides the harness (``mcgyvr read --json``
+through the shell tool) and each is served as an ``Evidenced`` strategy. The
+default is not picked here: a config that leaves ``authoring`` unbound is
+refused by the config loader, not filled in.
 """
 
 from __future__ import annotations
@@ -140,13 +140,24 @@ def test_internal_and_harness_calls_in_one_reply_run_the_internal_ones_first() -
 
 
 @pytest.mark.parametrize("strategy", ["prose", "classifier"])
-def test_prose_and_classifier_are_refused_by_name_while_the_server_has_no_index(
+def test_prose_and_classifier_propose_from_evidence_the_harness_gathers(
     strategy: str,
 ) -> None:
-    with pytest.raises(authoring.AuthoringUnavailableError) as refused:
+    """Owner ruling: evidence rides the harness, so both strategies are served.
+
+    Bound with the rung that converses (the one that answers a prose proposer's
+    prompt), each is an `Evidenced` strategy; without a rung there is nothing to
+    propose through, and the refusal says so by name.
+    """
+    chosen = authoring.authoring_for(
+        strategy, jev=ScriptedJev(), rung=ScriptedRung(), config=None
+    )
+    assert isinstance(chosen, authoring.Evidenced)
+    assert chosen.name == strategy
+    assert chosen.needs_evidence
+    assert [tool["function"]["name"] for tool in chosen.tools()] == ["gather_evidence"]
+    with pytest.raises(authoring.AuthoringUnavailableError, match=strategy):
         authoring.authoring_for(strategy, jev=ScriptedJev())
-    assert strategy in str(refused.value)
-    assert "index" in str(refused.value)
 
 
 def test_an_unknown_strategy_is_a_callers_mistake() -> None:

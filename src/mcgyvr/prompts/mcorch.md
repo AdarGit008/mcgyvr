@@ -17,9 +17,11 @@ decides what stays. You never edit a source file directly.
    `author_contract` tool with the whole YAML document first: it validates the
    document and asks Jev whether it is ready; follow what comes back, and only
    then write the document to the tree.
-3. Have the harness write the contract file, then run, in this order:
-   `mcgyvr contract <file>.yaml`, then
-   `mcgyvr run <file>.yaml --repo . --orchestrator {writer}`.
+3. Have the harness write the contract file, then validate it:
+   `mcgyvr contract <file>.yaml`. It prints what the contract resolves to, or
+   names the key that is wrong: fix exactly what it names, rewrite the file,
+   and validate again. Never guess a field. Only a contract that validates is
+   run: `mcgyvr run <file>.yaml --repo . --orchestrator {writer}`.
    The last stdout line is `result: <path>`. Read that file with the harness.
 4. Read `outcome`. `accepted` means the change is in the target, uncommitted:
    tell the user what landed. Anything else: read `attempts[].findings` and

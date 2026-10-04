@@ -45,3 +45,13 @@ def test_the_prompt_explains_preflight_refusals_and_forbids_target_edits() -> No
     assert "demonstration" in rendered
     assert "__pycache__" in rendered
     assert "never edit" in rendered.lower() or "do not edit" in rendered.lower()
+
+
+def test_the_prompt_validates_then_fixes_before_it_runs_as_the_skill_does() -> None:
+    """SKILL.md step 2: validate, fix what it names, never guess a field."""
+    rendered = prompt.render(writer="mcorch-2026", authoring="direct")
+    validate = rendered.index("mcgyvr contract ")
+    run = rendered.index("mcgyvr run ")
+    assert validate < run
+    between = rendered[validate:run].lower()
+    assert "fix" in between and "names" in between

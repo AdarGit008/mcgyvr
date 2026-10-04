@@ -188,6 +188,8 @@ def _reply_format() -> str:
         "REQUIRES demonstration commands.\n"
         '- "risk" (string, optional): "low", "medium" or "high"; omit to take '
         "the default.\n"
+        '- "max_output_tokens" (whole number, optional): the reply cap; omit '
+        "and the type's own evidence sizes it.\n"
         "Omit optional fields rather than writing null. Return [] when nothing "
         "can be proposed."
     )
@@ -260,6 +262,7 @@ def _proposal_of(item: object) -> Proposal:
         deps=_deps(item),
         allow=_strings(item, "allow"),
         forbid=_strings(item, "forbid"),
+        max_output_tokens=_optional_cap(item),
         stop_conditions=_strings(item, "stop_conditions"),
         acceptance=_strings(item, "acceptance"),
         demonstration=_strings(item, "demonstration"),
@@ -272,6 +275,18 @@ def _required_str(item: dict[str, object], key: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise UnreadableProposalError(
             f"a proposal is missing a non-empty string {key!r}"
+        )
+    return value
+
+
+def _optional_cap(item: dict[str, object]) -> int | None:
+    """``max_output_tokens`` as a whole number of at least 1, or ``None``."""
+    value = item.get("max_output_tokens")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise UnreadableProposalError(
+            f"max_output_tokens: {value!r} is not a whole number of at least 1"
         )
     return value
 

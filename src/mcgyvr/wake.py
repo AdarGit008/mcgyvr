@@ -72,7 +72,7 @@ from typing import TYPE_CHECKING, TypeVar
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import Config
 from mcgyvr.runner import RefusedConnectionError
-from mcgyvr.serving import Card, cards, port_of
+from mcgyvr.serving import Card, cards, host_of, port_of
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.scan import Scan
@@ -479,8 +479,32 @@ def compose_for(card: Card) -> Path | None:
     return None
 
 
+def resident_units(config: Config) -> frozenset[str]:
+    """The units that are never slept and never woken: the bound ``jev.unit``.
+
+    Owner ruling: the Jev unit is dedicated VRAM, an opt-in at setup, resident
+    so that every typed decision is answered at once. Any card that holds it
+    goes with it — a sleep acts on the card whole — so the question every
+    sleep or wake path asks is :func:`holds_resident`.
+    """
+    bound = config.get("jev.unit")
+    return frozenset({str(bound)}) if bound else frozenset()
+
+
+def holds_resident(config: Config, card: Card) -> str | None:
+    """The resident unit ``card`` holds, or ``None``: a unit on the card's host."""
+    for name in resident_units(config):
+        unit = config.units.get(name)
+        if unit is not None and host_of(unit.address) == card.host:
+            return name
+    return None
+
+
 def wakeable_rungs(config: Config) -> tuple[str, ...]:
     """The rung names whose card this config can wake, in ladder order.
+
+    A card holding a resident unit (:func:`holds_resident`) is not among them,
+    whatever spec it holds: it is never slept, so there is nothing to wake.
 
     The read-only half of :meth:`Waker.wake_for`: which rungs *could* be woken
     — their card is asleep, meaning down but holding exactly one launch spec
@@ -490,7 +514,9 @@ def wakeable_rungs(config: Config) -> tuple[str, ...]:
     :meth:`Waker.wake_for`.
     """
     return tuple(
-        name for name, card in cards(config).items() if compose_for(card) is not None
+        name
+        for name, card in cards(config).items()
+        if compose_for(card) is not None and holds_resident(config, card) is None
     )
 
 
@@ -653,6 +679,12 @@ class Waker:
         fault it actually had.
         """
         card = self._cards.get(rung)
+        if rung in resident_units(self._config) or (
+            card is not None and holds_resident(self._config, card) is not None
+        ):
+            # Resident: never slept, so a refusal is the rung's own fault and
+            # no wake is tried for it.
+            return send()
         if card is not None and any(
             resting(card.host, port) for port in _ports(self._config, (rung,))
         ):
@@ -795,7 +827,9 @@ def sleep(config: Config, host: str) -> Wake:
     correct only where there is no capacity at all; with one and unused, it is
     putting a card down under requests that were already admitted.
     """
-    return put_down(config, card_named(config, host))
+    card = card_named(config, host)
+    _refuse_resident(config, card, "slept")
+    return put_down(config, card)
 
 
 def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
@@ -815,6 +849,7 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
     the one unit of a shared vLLM card to sleep; the fallback stops the whole
     card, which is the only stop there is.
     """
+    _refuse_resident(config, card, "slept")
     compose = compose_for(card)
     if compose is None:
         raise WakeError(_why_not_one(card))
@@ -837,9 +872,20 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
     return _run_door(config, card, "down", compose)
 
 
+def _refuse_resident(config: Config, card: Card, verb: str) -> None:
+    held = holds_resident(config, card)
+    if held is not None:
+        raise WakeError(
+            f"{card.host} holds {held!r}, the jev unit, which is resident: it is "
+            f"never slept or woken, so its card is not {verb}. Unbind `jev.unit` "
+            "to make the card a switch again."
+        )
+
+
 def wake(config: Config, host: str) -> Wake:
     """Bring the whole card back, through the door and through nothing else."""
     card = card_named(config, host)
+    _refuse_resident(config, card, "woken")
     compose = compose_for(card)
     if compose is None:
         # Two refusals in one sentence, and `_why_not_one` tells them apart. No
@@ -939,14 +985,23 @@ class CardSwitches:
             and self._config.get("serving.compose_dir")
         )
 
+    def _resident(self, rung: str) -> bool:
+        """Whether ``rung`` is, or shares its card with, the resident jev unit."""
+        if rung in resident_units(self._config):
+            return True
+        card = self._cards.get(rung)
+        return card is not None and holds_resident(self._config, card) is not None
+
     def wake(self, rung: str) -> bool:
         """Bring the rung's card back through the door; ``False`` if it was not."""
+        if self._resident(rung):
+            return False
         waker = for_config(self._config)
         return waker is not None and waker.wake_for(rung)
 
     def sleep(self, rung: str) -> bool:
         """Drain the rung's card and take it down; ``False`` if it was not."""
-        if not self._allowed():
+        if not self._allowed() or self._resident(rung):
             return False
         card = self._cards.get(rung)
         if card is None or compose_for(card) is None:

@@ -41,9 +41,9 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from mcgyvr.decision import Choice, ChoiceAnswer
-from mcgyvr.mcorch import anthropic, guard
+from mcgyvr.mcorch import anthropic, evidence, guard
 from mcgyvr.mcorch.anthropic import MessagesRequest
-from mcgyvr.mcorch.authoring import Authoring
+from mcgyvr.mcorch.authoring import GATHER, Authoring, Evidenced
 from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungReply, RungToolCall
 
 #: How many internal rounds one request may take before the turn is ended with
@@ -108,6 +108,12 @@ class Trace:
     next: str | None
     #: Targets of open contracts the rung asked the harness to edit, refused.
     refused_edits: tuple[str, ...] = ()
+    #: What happened to repository evidence this turn, under an evidenced
+    #: strategy: ``asked`` (the harness was sent to read), ``used`` (a read
+    #: came back and was proposed from), ``unreadable``, ``no-shell``.
+    evidence: str | None = None
+    #: How many contracts the digest handed the rung, ready to write.
+    contracts: int = 0
 
 
 @dataclass(frozen=True)
@@ -155,6 +161,43 @@ def respond(
     refused_edits: list[str] = []
     targets = guard.open_targets(request.messages)
     history = list(turns)
+
+    # Evidence rides the harness. Under a strategy that needs the index, a
+    # work request is answered by sending the harness to read before the rung
+    # is asked anything; the read's result, when it comes back, is proposed
+    # from here and the rung sees the digest where the document was.
+    evidenced = next((s for s in internal if isinstance(s, Evidenced)), None)
+    gathered: str | None = None
+    contracts = 0
+    if evidenced is not None:
+        latest = evidence.latest_result(request.messages)
+        if latest is not None:
+            document = evidence.parse_document(latest.text)
+            if document is None:
+                digest = _UNREADABLE
+                gathered = "unreadable"
+            else:
+                digest = evidenced.propose(
+                    document, max_output_tokens=request.max_tokens
+                )
+                contracts = digest.count(_READY)
+                gathered = "used"
+            _replace_tool_turn(history, latest.tool_use_id, digest)
+        elif intent == "work" and not evidence.gathered_since_request(request.messages):
+            return _gather(
+                _latest_user_text(request.messages) or "",
+                request,
+                evidenced,
+                intent,
+                asked,
+                dropped_tools,
+                dropped_blocks,
+            )
+        # Earlier reads are a repository dump the rung has already acted on;
+        # a note in their place keeps the prompt short.
+        for tool_use_id in evidence.read_calls(request.messages):
+            if latest is None or tool_use_id != latest.tool_use_id:
+                _replace_tool_turn(history, tool_use_id, _ALREADY_READ)
     reply = RungReply(text="", tool_calls=())
     while rounds < limits.max_rounds:
         rounds += 1
@@ -188,6 +231,8 @@ def respond(
                     rounds,
                     internal_calls,
                     refused_edits,
+                    gathered,
+                    contracts,
                 ),
             )
         theirs = [call for call in reply.tool_calls if call not in mine]
@@ -200,6 +245,16 @@ def respond(
             else:
                 internal_calls.append(call.name)
                 answer = _answer_internal(call, unreadable, internal)
+                if answer.startswith(GATHER) and evidenced is not None:
+                    return _gather(
+                        answer.removeprefix(GATHER),
+                        request,
+                        evidenced,
+                        intent,
+                        asked,
+                        dropped_tools,
+                        dropped_blocks,
+                    )
             history.append({"role": "tool", "tool_call_id": call.id, "content": answer})
         if theirs:
             names = ", ".join(sorted({call.name for call in theirs}))
@@ -229,6 +284,8 @@ def respond(
             rounds,
             internal_calls,
             refused_edits,
+            gathered,
+            contracts,
         ),
     )
 
@@ -290,6 +347,80 @@ def _guarded(
     return found
 
 
+#: The mark a digest leaves on every contract it hands over ready.
+_READY = "ready: contract "
+
+_UNREADABLE = (
+    "refused: the read's result could not be read as one whole document — a "
+    "harness cuts a long result short. Have the harness run the same "
+    "`mcgyvr read` command again with a smaller shortlist: add `--limit 3`."
+)
+
+_ALREADY_READ = (
+    "(the repository was read here; the proposals that followed were acted on)"
+)
+
+
+def _replace_tool_turn(
+    history: list[dict[str, Any]], tool_call_id: str, content: str
+) -> None:
+    for turn in history:
+        if turn.get("role") == "tool" and turn.get("tool_call_id") == tool_call_id:
+            turn["content"] = content
+
+
+def _gather(
+    request_text: str,
+    request: MessagesRequest,
+    evidenced: Authoring,
+    intent: str | None,
+    asked: Sequence[tuple[str, str]],
+    dropped_tools: Sequence[str],
+    dropped_blocks: Sequence[str],
+) -> Turn:
+    """End the turn by sending the harness to read the repository, or say why not."""
+    shell = evidence.shell_tool(request.tools)
+    if shell is None:
+        reply = RungReply(
+            text=(
+                f"mcorch: `orchestrator.authoring: {evidenced.name}` reads the "
+                "repository through the harness's shell tool, and this harness "
+                f"offers none ({' or '.join(evidence.SHELL_TOOLS)}). Offer one, or "
+                "set `orchestrator.authoring: direct`."
+            ),
+            tool_calls=(),
+        )
+        gathered = "no-shell"
+    else:
+        reply = RungReply(
+            text="",
+            tool_calls=(
+                RungToolCall(
+                    id=anthropic.new_id("call"),
+                    name=shell,
+                    arguments=json.dumps({"command": evidence.command(request_text)}),
+                ),
+            ),
+        )
+        gathered = "asked"
+    return Turn(
+        reply=reply,
+        trace=_trace(
+            intent,
+            None,
+            asked,
+            dropped_tools,
+            request,
+            dropped_blocks,
+            0,
+            (),
+            (),
+            gathered,
+            0,
+        ),
+    )
+
+
 def _trace(
     intent: str | None,
     following: str | None,
@@ -300,6 +431,8 @@ def _trace(
     rounds: int,
     internal_calls: Sequence[str],
     refused_edits: Sequence[str] = (),
+    gathered: str | None = None,
+    contracts: int = 0,
 ) -> Trace:
     return Trace(
         kind="main",
@@ -312,6 +445,8 @@ def _trace(
         internal_calls=tuple(internal_calls),
         next=following,
         refused_edits=tuple(refused_edits),
+        evidence=gathered,
+        contracts=contracts,
     )
 
 

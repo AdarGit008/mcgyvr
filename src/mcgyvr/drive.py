@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.capacity import Outcome, SlotUnavailableError, run_batch
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
+from mcgyvr.decision import jev_bound
 from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import (
     DispatchRaisedError,
@@ -689,7 +690,11 @@ def worker_attempt(
         chosen: Reviewer | NoReviewer | None = (
             reviewers(this.rung.name) if reviewers is not None else None
         )
-        reviewing = _through(waker, chosen) if isinstance(chosen, Reviewer) else None
+        reviewing = (
+            _through(waker, chosen, jev_resident=jev_bound(pool))
+            if isinstance(chosen, Reviewer)
+            else None
+        )
         jev = _jev_for(this.rung.model, reviewing)
         if cooldown is not None:
             # Ask before a prompt is built or a sandbox is opened: a rung on a
@@ -1024,13 +1029,20 @@ def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
     return reviewing.jev
 
 
-def _through(waker: Waker | None, reviewer: Reviewer) -> Reviewer:
+def _through(
+    waker: Waker | None, reviewer: Reviewer, *, jev_resident: bool = False
+) -> Reviewer:
     """``reviewer`` with every seam sent through ``waker``, as a builder's is.
 
     The same :meth:`~mcgyvr.wake.Waker.dispatching` the builder's dispatch
     goes through, keyed by the unit the reviewer runs on: a refused port wakes
     that card once and the ask is sent again. ``waker`` is ``None`` for a
     config that did not enable sleep and wake, and then nothing changes.
+
+    ``jev_resident`` says a ``jev.unit`` answers the typed seams (``decide`` and
+    the Jev rung): that unit is resident and never woken (owner ruling), so
+    those seams go around the waker and only the prose ``ask`` still goes
+    through it. A typed decision never wakes anything first.
     """
     if waker is None or reviewer.unit is None:
         return reviewer
@@ -1041,6 +1053,8 @@ def _through(waker: Waker | None, reviewer: Reviewer) -> Reviewer:
         return waker.dispatching(unit, lambda: ask(prompt))
 
     def woken(seam: Callable[[Any], Decision]) -> Callable[[Any], Decision]:
+        if jev_resident:
+            return seam
         return lambda state: waker.dispatching(unit, lambda: seam(state))
 
     return replace(
