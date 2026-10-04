@@ -607,6 +607,22 @@ UNIT_FIELDS: tuple[Field, ...] = (
         bind_hint="e.g. /home/<user>/.cache/huggingface, as the rig sees it",
     ),
     Field(
+        "sampling",
+        "enum",
+        "Who sets the sampling parameters of a request to this unit. "
+        "`request`: the request states `temperature` -- 0.0 for the greedy "
+        "first draw, `breadth.temperature` for the draws after it -- which is "
+        "what a deterministic gate needs from a local unit. `server`: the "
+        "unit's model fixes its own sampling and refuses the parameters, so "
+        "none is sent; the hosted Claude models from Opus 4.7 on answer a "
+        "request naming `temperature` with HTTP 400 (Anthropic's model "
+        "migration guide). A `server` unit cannot be asked for more than one "
+        "draw: without a temperature every draw is the first draw again. A "
+        "fact about the unit's server, so it is here and not in the policy.",
+        default="request",
+        choices=("request", "server"),
+    ),
+    Field(
         "launch",
         "mapping",
         "The resolved launch, whole. Free-form by design: a unit hashes its \
@@ -1189,6 +1205,9 @@ class Unit:
     attention_backend: str | None = None
     container: str | None = None
     hf_cache: str | None = None
+    #: Who sets a request's sampling parameters: ``request`` (the default,
+    #: a temperature on every request) or ``server`` (none is sent).
+    sampling: str = "request"
     launch: Mapping[str, Any] = field(default_factory=dict)
     #: How many of its slots riders the hub matches may use at once
     #: (hitchhike), from the policy's ``rider_slots``: 0, the default, shares
@@ -2006,6 +2025,7 @@ def _build(
             attention_backend=block["attention_backend"],
             container=block["container"],
             hf_cache=block["hf_cache"],
+            sampling=block.get("sampling") or "request",
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
         )
@@ -2101,6 +2121,18 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
             "Draw 0 is always greedy, so a temperature of zero makes every "
             "draw the first draw again, buying N gate runs and nothing else. "
             "Raise `breadth.temperature`, or set the draws back to 1."
+        )
+    fixed = {
+        name: count
+        for name, count in widened.items()
+        if units[name].get("sampling") == "server"
+    }
+    if fixed:
+        listed = ", ".join(f"{name} draws {count}" for name, count in fixed.items())
+        raise ConfigSchemaError(
+            f"{listed}, and `sampling: server` sends that unit no temperature, "
+            "so every draw would be the first draw again. Set its draws to 1, "
+            "or point the breadth at a unit whose requests state a temperature."
         )
 
     _cross_validate_manager(data, units)

@@ -44,7 +44,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.pool import Endpoint, PoolError, SourceMap
-from mcgyvr.runner import _post_json, _url_for
+from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -328,7 +328,6 @@ def classify(
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 1,
-            "temperature": 0.0,
             "stream": False,
             "logprobs": True,
             "top_logprobs": min(_MAX_TOP_LOGPROBS, len(labels)),
@@ -345,6 +344,10 @@ def classify(
             # a conversing model keeps its thinking.
             "chat_template_kwargs": {"enable_thinking": False},
         }
+        if endpoint.sampling != SERVER_SAMPLED:
+            # Greedy, as a decision must be; a unit whose server fixes its own
+            # sampling refuses the field (`units.<unit>.sampling: server`).
+            payload["temperature"] = 0.0
         document = _post_json(url, payload, headers, timeout_s)
         answers[name] = answer_for(question, _top_logprobs(document))
     return Decision(answers=answers)

@@ -174,6 +174,11 @@ class Endpoint:
     #: A relief rung's ``served_model``: the host's model, which a ridden
     #: answer must name, or ``None`` where the rung's entry states none.
     served_model: str | None = None
+    #: Who sets a request's sampling parameters (``units.<unit>.sampling``):
+    #: ``request`` sends a temperature, ``server`` sends none because the
+    #: unit's model refuses the parameter. Carried, not enforced: the runner
+    #: and the decision primitive read it when they build a body.
+    sampling: str = "request"
 
     @property
     def requires_credential(self) -> bool:
@@ -618,6 +623,7 @@ def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
         engine=unit.engine,
         relief=unit.relief,
         served_model=unit.served_model,
+        sampling=unit.sampling,
     )
 
 
