@@ -1029,6 +1029,11 @@
       "says": "How long, in seconds, the rig agent waits after a relief rung sync failed before it tries again.",
       "reason": "how often or how many times the product tries its own step again"
     },
+    "rig/session.py:API_PORT_TRIES": {
+      "kind": "choice",
+      "says": "How many times a rig agent asks the machine for a free loopback port for a new head's API before it refuses the session, when the port offered is one another session holds.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
     "rig/session.py:DIGEST_CHUNK": {
       "kind": "choice",
       "says": "How many bytes of a model file are read at a time while its digest is taken.",
@@ -1416,7 +1421,7 @@
     },
     "rig/sharing.py:DEFAULT_LISTEN_PORT": {
       "kind": "choice",
-      "says": "The UDP port a session's tunnel listens on when the owner names none: WireGuard's own.",
+      "says": "The first of the UDP ports sessions' tunnels listen on, one per session at once, when the owner names none: WireGuard's own.",
       "reason": "a protocol or tool default"
     },
     "rig/sharing.py:LOWEST_PORT": {

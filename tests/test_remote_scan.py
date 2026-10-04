@@ -27,6 +27,12 @@ SCAN_JSON = """
 """
 
 
+def _shipped_scan_command() -> str:
+    from mcgyvr.serving import gatelib
+
+    return gatelib.scan_read_command()
+
+
 class RecordedSsh:
     def __init__(self, reachable: tuple[str, ...]) -> None:
         self.reachable = reachable
@@ -70,7 +76,7 @@ def test_both_transports_return_the_same_shape(local: None, ssh: Ssh) -> None:
 def test_a_remote_scan_runs_the_scan_on_the_remote_host(local: None, ssh: Ssh) -> None:
     recorder = ssh("desktop-1")
     scan_over(Reach.ssh("desktop-1"))
-    assert recorder.commands == [("desktop-1", "mcgyvr scan --json")]
+    assert recorder.commands == [("desktop-1", _shipped_scan_command())]
 
 
 def test_a_local_reach_opens_no_connection(local: None, ssh: Ssh) -> None:

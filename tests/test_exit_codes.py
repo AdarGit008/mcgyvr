@@ -5,8 +5,8 @@ outcomes are neither: a host nobody has scanned is a refusal rather than a
 crash, and hardware that stopped matching its record is a successful scan with
 something to say. A caller that cannot tell those apart has to read prose.
 
-``scan --json`` is the remote transport's wire format, so its contract is here
-too: stdout is the scan and nothing else, or the ssh reader has nothing to parse.
+``scan --json`` prints the wire format ``mcgyvr.scan.Scan.from_json`` reads,
+so its contract is here too: stdout is the scan and nothing else.
 """
 
 from __future__ import annotations

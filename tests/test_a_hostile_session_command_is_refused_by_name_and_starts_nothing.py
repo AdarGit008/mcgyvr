@@ -7,8 +7,8 @@ reached only at a loopback or named host, a public address called a LAN
 one, or a kind of endpoint the agent does not walk; an RPC device outside the
 session's tunnel; a card the owner does not lend; a port no unprivileged
 server binds; a frame over the protocol's size; a command for a session this
-rig is not in, or for a second session while one runs; any session at all
-while lending is off. Each is answered with the hub's code and a message
+rig is not in, or for a second session while every lent card is held; any
+session at all while lending is off. Each is answered with the hub's code and a message
 naming the field — never echoing the value — and nothing more is started.
 """
 
@@ -216,10 +216,17 @@ def test_a_command_for_a_session_this_rig_is_not_in_is_unknown(
     assert len(pool.docker.runs()) == 1
 
 
-def test_a_second_session_while_one_runs_is_busy(pool: Pool) -> None:
+def test_a_second_session_while_every_lent_card_is_held_is_busy(pool: Pool) -> None:
     prepared(pool)
+    pool.up("t1", **fakes.tunnel_up_body())
+    cards = [{"card_index": 0, "port": 50052}, {"card_index": 1, "port": 50053}]
+    ack = pool.ask("worker_start", "w1", session_id="s1", cards=cards)
+    assert ack is not None and ack["type"] == "ack", ack
+    pool.wait_for("session_status", "ready")
+    runs = len(pool.docker.runs())
     _refused(pool.ask("session_prepare", "p2", session_id="s2", role="worker"), "busy")
-    assert len(pool.docker.runs()) == 1
+    pool.settle()
+    assert len(pool.docker.runs()) == runs
 
 
 def test_nothing_is_lent_while_lending_is_off(tmp_path: Path) -> None:
