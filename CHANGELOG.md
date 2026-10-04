@@ -282,6 +282,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   raised; a draw declined for want of a slot is skipped, and the attempt is
   declined only when every draw was.
 
+### Fixed
+
+- Two worker sessions on one rig no longer share its tensor cache at once.
+  The engine writes a cached tensor in place and reads one back unchecked, so
+  two sessions sent the same model's tensors could each load the other's
+  half-written file as whole weights, without an error. The first worker
+  session to start holds the cache until its teardown has trimmed it; a
+  worker session started meanwhile runs without one (sent every tensor), and
+  the next one after takes it.
+
 ## [0.2.0] - 2026-09-16
 
 The first release with the fleet, the serving door and delegation in it — none
