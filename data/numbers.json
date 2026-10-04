@@ -529,6 +529,16 @@
       "says": "The reply room, in tokens, a harness's side request (a title, a summary) gets from the rung where the harness asked for more; a local rung's time is the cost.",
       "moves_to": "mcorch_side_reply_tokens"
     },
+    "mcorch/loop.py:Trace.contracts": {
+      "kind": "fact",
+      "says": "How many contracts a turn handed the rung starts at none.",
+      "reason": "where a count starts"
+    },
+    "mcorch/loop.py:_trace(contracts)": {
+      "kind": "fact",
+      "says": "A trace built without a contract count holds none.",
+      "reason": "where a count starts"
+    },
     "mcorch/serve.py:FACADE_PORT": {
       "kind": "choice",
       "says": "The port the mcorch facade listens on when the command line names none.",

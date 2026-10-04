@@ -113,7 +113,9 @@ def bind(config: Config, *, journal_dir: Path, pool: SourceMap | None = None) ->
         return decision
 
     writer = writer_id()
-    strategy = authoring_for(str(config.get("orchestrator.authoring")), jev=jev)
+    strategy = authoring_for(
+        str(config.get("orchestrator.authoring")), jev=jev, rung=rung, config=config
+    )
     return Bound(
         rung=rung,
         jev=jev,

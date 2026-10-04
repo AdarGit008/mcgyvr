@@ -15,22 +15,37 @@ have".
   one comes back canonical, for the rung to write to the tree verbatim.
 * ``prose`` and ``classifier`` need the repository's index
   (:mod:`mcgyvr.orchestrator`) to shortlist targets and read regions. The
-  server executes nothing and holds no path to the user's repository, so it
-  has no index; asking for either is refused by name when the server starts
-  rather than failing mid-conversation. How the rung could hand evidence over
-  is a design question that is asked, not guessed at here.
+  server holds no path to the user's repository, so the evidence rides the
+  harness (owner ruling: what a pi agent does, mcorch does): the loop has the
+  harness run ``mcgyvr read "<request>" --json`` and
+  :class:`Evidenced` assembles the index from the document that comes back
+  (:mod:`mcgyvr.mcorch.evidence`), asks the proposer — the rung for prose
+  proposals, Jev for typed ones with prose behind it — and runs the
+  deterministic decomposer over that index. The contracts come back to the
+  rung as a digest, ready to write, the same ``ready:`` shape ``direct``
+  answers with; the rung's internal tool ``gather_evidence`` asks for a fresh
+  read when a replan needs one.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from mcgyvr import contract
+from mcgyvr import contract, delegate
+from mcgyvr.config import Config
 from mcgyvr.decision import BoolAnswer, Noul
-from mcgyvr.mcorch.wire import Jev, RungToolCall
+from mcgyvr.mcorch import evidence
+from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungToolCall
+from mcgyvr.orchestrator.decompose import (
+    Decomposition,
+    Evidence,
+    Proposal,
+    Proposer,
+    decompose,
+)
 
 #: The strategies the config may name, as the schema spells them.
 STRATEGIES = ("direct", "prose", "classifier")
@@ -49,11 +64,21 @@ class AuthoringUnavailableError(RuntimeError):
     """The named strategy cannot run on this server, and the message says why."""
 
 
+#: What an internal tool answers to say "the harness must read the repository
+#: for this request": the loop turns it into a shell call.
+GATHER = "gather:"
+
+
 class Authoring(Protocol):
     """An internal tool set: what it offers the rung, and how it answers a call."""
 
     @property
     def name(self) -> str: ...
+
+    @property
+    def needs_evidence(self) -> bool:
+        """Whether a work request is answered by reading the repository first."""
+        ...
 
     def tools(self) -> tuple[dict[str, Any], ...]:
         """OpenAI function tools, offered beside the harness's."""
@@ -73,6 +98,10 @@ class Direct:
     @property
     def name(self) -> str:
         return "direct"
+
+    @property
+    def needs_evidence(self) -> bool:
+        return False
 
     def tools(self) -> tuple[dict[str, Any], ...]:
         return (
@@ -150,18 +179,138 @@ def _arguments(text: str) -> Mapping[str, Any] | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def authoring_for(strategy: str, *, jev: Jev) -> Authoring:
+@dataclass(frozen=True)
+class Evidenced:
+    """``prose`` or ``classifier``: the index rides the harness, the server proposes.
+
+    ``rung`` answers the prose proposer's prompt (the orchestrator unit, the
+    same one that converses); ``jev`` answers the classifier's typed choices
+    and J2; ``config`` says which task types the ladder can serve.
+    """
+
+    strategy: str
+    jev: Jev
+    rung: Rung
+    config: Config | None = None
+
+    @property
+    def name(self) -> str:
+        return self.strategy
+
+    @property
+    def needs_evidence(self) -> bool:
+        return True
+
+    def tools(self) -> tuple[dict[str, Any], ...]:
+        return (
+            {
+                "type": "function",
+                "function": {
+                    "name": "gather_evidence",
+                    "description": (
+                        "Have the repository read for a request: mcorch runs "
+                        "`mcgyvr read` through the harness and proposes contracts "
+                        "from what it finds. Call it when a replan needs fresh "
+                        "evidence; a new request is read without asking."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "request": {
+                                "type": "string",
+                                "description": "What to find, in words.",
+                            }
+                        },
+                        "required": ["request"],
+                    },
+                },
+            },
+        )
+
+    def handle(self, call: RungToolCall) -> str | None:
+        if call.name != "gather_evidence":
+            return None
+        arguments = _arguments(call.arguments)
+        request = arguments.get("request") if arguments is not None else None
+        if not isinstance(request, str) or not request.strip():
+            return "refused: `request` must say, in words, what to find."
+        return f"{GATHER}{request.strip()}"
+
+    def propose(self, document: evidence.Document, *, max_output_tokens: int) -> str:
+        """The digest the rung reads in place of the document: contracts to write."""
+        index = evidence.index_from(document)
+        prompt = document.prompt
+        decomposition = decompose(
+            index, prompt, propose=self._proposer(max_output_tokens), config=self.config
+        )
+        return self._digest(decomposition)
+
+    def _proposer(self, max_output_tokens: int) -> Proposer:
+        def prose(found: Evidence) -> Sequence[Proposal]:
+            reply = self.rung(
+                RungCall(
+                    system="",
+                    turns=({"role": "user", "content": delegate.build_prompt(found)},),
+                    tools=(),
+                    max_output_tokens=max_output_tokens,
+                )
+            )
+            try:
+                return delegate.proposals_from_reply(reply.text)
+            except delegate.UnreadableProposalError:
+                return ()
+
+        typed = delegate.ClassifierProposer(classify=self.jev)
+        chosen = delegate.proposer_by_authoring(self.strategy, typed=typed, prose=prose)
+        assert chosen is not None  # prose is always there to fall back to
+        return chosen
+
+    def _digest(self, decomposition: Decomposition) -> str:
+        lines: list[str] = []
+        for authored, document in zip(
+            decomposition.contracts, decomposition.documents, strict=True
+        ):
+            decision = self.jev(_summary(authored), {READY_QUESTION: READY})
+            answer = decision.answers.get(READY_QUESTION)
+            if isinstance(answer, BoolAnswer) and not answer.value:
+                lines.append(
+                    f"Jev: contract {authored.id!r} is not ready to run "
+                    f"(probability ready {answer.probability_true:.2f}); revise it "
+                    "before writing it:\n" + document
+                )
+                continue
+            lines.append(
+                f"ready: contract {authored.id!r} validates. Write exactly this "
+                f"document to {authored.id}.yaml with the harness, validate it with "
+                "`mcgyvr contract`, then run it:\n" + document
+            )
+        for refusal in decomposition.refusals:
+            lines.append(f"refused: {refusal.subject}: {refusal.reason}")
+        if not lines:
+            lines.append(
+                "refused: nothing could be proposed from the evidence; narrow the "
+                "request or name the target file."
+            )
+        return "\n\n".join(lines)
+
+
+def authoring_for(
+    strategy: str,
+    *,
+    jev: Jev,
+    rung: Rung | None = None,
+    config: Config | None = None,
+) -> Authoring:
     """The named strategy as an internal tool set, or a refusal naming why not."""
     if strategy == "direct":
         return Direct(jev=jev)
     if strategy in STRATEGIES:
-        raise AuthoringUnavailableError(
-            f"orchestrator.authoring: {strategy!r} needs the repository's index to "
-            "shortlist targets and read regions, and this server holds no index: "
-            "it executes nothing and knows no path to the user's repository. "
-            "Bind `direct`, or wait for the evidence seam that hands the index "
-            "over through the harness."
-        )
+        if rung is None:
+            raise AuthoringUnavailableError(
+                f"orchestrator.authoring: {strategy!r} proposes through the rung, "
+                "and this server was bound without one."
+            )
+        return Evidenced(strategy=strategy, jev=jev, rung=rung, config=config)
     raise ValueError(
         f"orchestrator.authoring: {strategy!r} is not one of {', '.join(STRATEGIES)}"
     )
