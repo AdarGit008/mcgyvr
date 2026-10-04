@@ -27,6 +27,8 @@ A rig may lend its cards to the hub's pooled-inference sessions:
 * :mod:`mcgyvr.rig.sessionwire` — the session and relay messages.
 * :mod:`mcgyvr.rig.tunnel` — which addresses a session's tunnel may use.
 * :mod:`mcgyvr.rig.session` — one state machine per session, and teardown.
+* :mod:`mcgyvr.rig.tensorcache` — the workers' tensor cache, hashed before
+  it is mounted.
 * :mod:`mcgyvr.rig.relay` — a relayed request to the head, and its answer.
 * :mod:`mcgyvr.rig.outbox` — what sessions and relays say, waiting its turn.
 
