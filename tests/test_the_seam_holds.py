@@ -143,6 +143,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.rig.sessionwire",
     "mcgyvr.rig.sharing",
     "mcgyvr.rig.state",
+    "mcgyvr.rig.tensorcache",
     "mcgyvr.rig.tunnel",
     "mcgyvr.rig.udpwire",
     "mcgyvr.rig.verbs",

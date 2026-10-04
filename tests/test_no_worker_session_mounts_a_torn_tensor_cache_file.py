@@ -5,7 +5,7 @@ under the tensor's hash, and loads it back by that name alone. In the pinned
 engine (``llama.cpp`` b10644, ``ggml/src/ggml-rpc/ggml-rpc.cpp``):
 
 * ``rpc_server::set_tensor`` writes ``<LLAMA_CACHE>/rpc/<hash>`` in place with
-  a truncating ``std::ofstream`` (``tools/rpc/rpc-server.cpp``,
+  a truncating ``std::ofstream`` (the engine's ``rpc-server.cpp``:
   ``fs_get_cache_directory() + "rpc"``), where ``<hash>`` is
   ``snprintf("%016" PRIx64, fnv_hash(data, size))``: the FNV-1a 64 of the
   whole tensor, sixteen lower-case hex digits;

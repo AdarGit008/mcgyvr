@@ -5,8 +5,8 @@ sent, over the engine's hash threshold, in a file named by the tensor's hash,
 and loads it back by that name alone. In the pinned engine (``llama.cpp``
 b10644):
 
-* ``tools/rpc/rpc-server.cpp`` puts the files in ``<LLAMA_CACHE>/rpc/``
-  (``fs_get_cache_directory() + "rpc"``);
+* the engine's RPC server program (``rpc-server.cpp``) puts the files in
+  ``<LLAMA_CACHE>/rpc/`` (``fs_get_cache_directory() + "rpc"``);
 * ``ggml/src/ggml-rpc/ggml-rpc.cpp``, ``rpc_server::set_tensor``, names one
   ``snprintf("%016" PRIx64, fnv_hash(data, size))`` — the FNV-1a 64 of the
   whole tensor (``fnv_hash``: offset basis ``0xcbf29ce484222325``, prime
@@ -55,7 +55,7 @@ CHUNK = 1 << 22
 #: machine's cores, at most four (pure Python hashes about 9 MB/s a core).
 HASHERS = max(1, min(4, (os.cpu_count() or 1) // 2))
 #: How often a hashing process is looked at, in seconds.
-POLL_S = 0.01
+HASHER_POLL_S = 0.01
 
 #: What says a file is the one the agent hashed: its device, inode, size,
 #: and the times any write to it changes.
@@ -105,7 +105,7 @@ def hash_files(paths: Sequence[Path], stop: threading.Event) -> dict[Path, str]:
                 name = out.decode("ascii", "replace").strip()
                 if process.returncode == 0 and NAME.fullmatch(name):
                     found[path] = name
-            time.sleep(POLL_S)
+            time.sleep(HASHER_POLL_S)
         return found
     finally:
         for process in running.values():
