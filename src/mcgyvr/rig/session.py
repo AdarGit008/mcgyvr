@@ -102,6 +102,7 @@ from mcgyvr.rig import (
     inventory,
     protocol,
     sessionwire,
+    tensorcache,
     tunnel,
     udpwire,
 )
@@ -476,10 +477,16 @@ class Sessions:
         self._prepare_hooks: list[Callable[[], None]] = []
         self._said: dict[str, str] = {}  # frame id -> session id
         # The worker session whose workers mount the rig's cache, until its
-        # teardown has trimmed it: the engine writes a cached tensor in place
-        # and reads one back unchecked, so two sessions sent the same tensors
-        # would each load the other's half-written file as whole.
+        # teardown hands it to the check: the engine writes a cached tensor in
+        # place and reads one back unchecked, so two sessions sent the same
+        # tensors would each load the other's half-written file as whole.
         self._cache_holder: _Session | None = None
+        # The files of the cache this agent hashed, and the thread hashing
+        # and trimming it now, which holds it until it is done: a worker
+        # killed mid-write leaves a torn file under a whole tensor's name.
+        self._cache_ledger = tensorcache.Ledger()
+        self._cache_check: threading.Thread | None = None
+        self._cache_stop = threading.Event()
 
     # -- what the agent asks -------------------------------------------------
 
@@ -526,7 +533,9 @@ class Sessions:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             with self._lock:
-                if all(s.outstanding == 0 for s in self._sessions.values()):
+                if self._cache_check is None and all(
+                    s.outstanding == 0 for s in self._sessions.values()
+                ):
                     return True
             time.sleep(min(self.timing.poll_s, 0.01))
         return False
@@ -585,6 +594,11 @@ class Sessions:
         for found in live:
             if found.thread is not None:
                 found.thread.join(self.timing.stop_wait_s)
+        self._cache_stop.set()
+        with self._lock:
+            check = self._cache_check
+        if check is not None:
+            check.join(self.timing.stop_wait_s)
         with contextlib.suppress(pooled.PoolError):
             mine = [
                 o.name
@@ -1505,16 +1519,45 @@ class Sessions:
 
     def _cache(self, session: _Session) -> Path | None:
         """The rig's cache folder for ``session``'s workers, which then hold
-        it until their teardown; ``None`` while another session holds it."""
+        it until their teardown; ``None`` while another session holds it or
+        the agent checks it, and while it holds a file the agent has not
+        hashed (the check is started then)."""
         folder = self.machine.cache_dir
         if not session.sharing.cache or folder is None:
             return None
         with self._lock:
-            if self._cache_holder not in (None, session):
-                return None
-            self._cache_holder = session
+            if self._cache_holder is not session:
+                if self._cache_holder is not None or self._cache_check is not None:
+                    return None
+                if not self._cache_ledger.trusted(folder):
+                    self._check_cache(folder, session.sharing.cache_max_mb)
+                    return None
+                self._cache_holder = session
         folder.mkdir(mode=0o700, parents=True, exist_ok=True)
         return folder
+
+    def _check_cache(self, folder: Path, max_mb: int) -> None:
+        """Hash ``folder``, removing every file that is not whole, then trim
+        it; the check holds the folder until it is done. Called under the
+        lock, with no session holding the folder."""
+        if self._cache_check is not None or self._closed:
+            return
+
+        def run() -> None:
+            try:
+                with contextlib.suppress(OSError):
+                    if folder.is_dir():
+                        self._cache_ledger.check(folder, self._cache_stop)
+                        if not self._cache_stop.is_set():
+                            trim_cache(folder, max_mb)
+            finally:
+                with self._lock:
+                    self._cache_check = None
+
+        self._cache_check = threading.Thread(
+            target=run, name="mcgyvr-cache-check", daemon=True
+        )
+        self._cache_check.start()
 
     def _do_worker(self, session: _Session) -> None:
         share = session.sharing
@@ -1666,19 +1709,17 @@ class Sessions:
                 break
             self._docker.remove(names)
             names = []
+        # The holder hands the cache to the check (the hashing, then the
+        # trim), which holds it until it is done: no worker mounts a file
+        # the engine left torn, or reads one while it is removed.
         with self._lock:
             session.released = True
-            holder = self._cache_holder is session
-        # The holder trims the cache before letting it go, so no other
-        # session's worker is reading a file while it is removed.
-        if holder and self.machine.cache_dir is not None:
-            try:
-                with contextlib.suppress(OSError):
-                    if self.machine.cache_dir.is_dir():
-                        trim_cache(self.machine.cache_dir, session.sharing.cache_max_mb)
-            finally:
-                with self._lock:
-                    self._cache_holder = None
+            if self._cache_holder is session:
+                self._cache_holder = None
+                if self.machine.cache_dir is not None:
+                    self._check_cache(
+                        self.machine.cache_dir, session.sharing.cache_max_mb
+                    )
         for hook in self._ended_hooks:
             with contextlib.suppress(Exception):
                 hook(session.id)
