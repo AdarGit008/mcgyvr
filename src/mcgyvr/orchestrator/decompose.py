@@ -65,7 +65,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shlex
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
@@ -236,6 +236,7 @@ def decompose(
     budget: int | None = None,
     adapters: Sequence[LanguageAdapter] | None = None,
     max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
+    located: Mapping[str, Sequence[str]] | None = None,
 ) -> Decomposition:
     """Turn ``prompt`` and an indexed repository into validated contracts.
 
@@ -262,6 +263,14 @@ def decompose(
     enough to send. The default is a policy number — see
     :data:`_DEFAULT_MAX_INPUT_TOKENS` — so a caller that knows what its
     ladder can actually accept should pass its own.
+
+    ``located`` is the checker each adapter located, by adapter name, found by
+    a caller that ran where the repository is (``mcgyvr read --json``); when
+    given it stands in for every read of the disk :func:`_acceptance_for`
+    would make, so a server holding an index assembled from a document — whose
+    ``index.root`` is a label, not a repository — emits a ``type_annotation``
+    with the command the repository declared and refuses one it did not, the
+    same answers the disk gives. ``None`` reads the disk as before.
 
     Never raises for an undecomposable request: a prompt nothing can be made of
     returns a :class:`Decomposition` whose ``contracts`` is empty and whose
@@ -304,7 +313,9 @@ def decompose(
     refusals: list[Refusal] = []
     seen: dict[str, str] = {}
     for proposal in proposals:
-        emitted = _emit(proposal, index, vocabulary, seen, owners, max_input_tokens)
+        emitted = _emit(
+            proposal, index, vocabulary, seen, owners, max_input_tokens, located
+        )
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
             continue
@@ -347,6 +358,7 @@ def _emit(
     seen: dict[str, str],
     adapters: Sequence[LanguageAdapter],
     ceiling: int,
+    located: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[Contract, str] | Refusal:
     """One proposal as a validated contract, or the reason it is not one.
 
@@ -374,7 +386,7 @@ def _emit(
         )
 
     kind = next(t for t in vocabulary if t.name == proposal.task_type)
-    acceptance = _acceptance_for(proposal, kind, index.root, adapters)
+    acceptance = _acceptance_for(proposal, kind, index.root, adapters, located)
     if isinstance(acceptance, Refusal):
         return acceptance
     proposal = replace(proposal, acceptance=acceptance)
@@ -454,8 +466,13 @@ def _acceptance_for(
     kind: TaskType,
     root: Path,
     adapters: Sequence[LanguageAdapter],
+    located: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[str, ...] | Refusal:
     """The contract's acceptance list: the proposal's, or the repository's checker.
+
+    ``located`` is a caller's answer to the lookup — adapter name → argv, read
+    where the repository is — and when given replaces the read of ``root``
+    entirely: ``root`` is then a label and is not opened.
 
     The schema demands a type-check command for the one task type whose
     guarantee requires one. The locator (#114) reads what the repository
@@ -529,8 +546,12 @@ def _acceptance_for(
             f"in the proposal's acceptance",
         )
 
-    located = owner.locate_type_check_command(root)
-    if located is None:
+    command = (
+        owner.locate_type_check_command(root)
+        if located is None
+        else (list(located[owner.name]) if located.get(owner.name) else None)
+    )
+    if command is None:
         return Refusal(
             proposal.target,
             f"this repository declares no type checker, so {kind.name!r} is not "
@@ -539,7 +560,25 @@ def _acceptance_for(
             f"than choosing one. Configure a checker in the "
             f"repository, or declare the command in the proposal's acceptance",
         )
-    return (shlex.join(located),)
+    return (shlex.join(command),)
+
+
+def locate_checkers(
+    root: Path, adapters: Sequence[LanguageAdapter] | None = None
+) -> dict[str, list[str]]:
+    """Every checker the adapters locate in ``root``, by adapter name.
+
+    The lookup :func:`_acceptance_for` makes, done once for a whole repository
+    by whoever stands where it is (``mcgyvr read --json``), so that a reader
+    elsewhere can pass the answer back as ``located``. An adapter that locates
+    none is absent, never filled in.
+    """
+    found: dict[str, list[str]] = {}
+    for adapter in adapters if adapters is not None else _default_adapters():
+        command = adapter.locate_type_check_command(root)
+        if command is not None:
+            found[adapter.name] = list(command)
+    return found
 
 
 def _owner(path: str, adapters: Sequence[LanguageAdapter]) -> LanguageAdapter | None:
