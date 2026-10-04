@@ -1,10 +1,13 @@
 """mcorch asks Jev every bounded question and lets the rung reason only between them.
 
 One HTTP request is one turn of the loop. Before the rung sees a new user
-request, Jev says whether it is chat or work (J1); after a ``mcgyvr run``
-result comes back through the harness, Jev says what comes next (J3); the
-rung reasons freely only inside the room those answers leave, and the answers
-reach it as ``Jev:`` notes in its system prompt. A request that offers no
+request, Jev says whether it is chat or work (J1); the rung reasons freely
+only inside the room that answer leaves, and the answer reaches it as a
+``Jev:`` note in its system prompt. After a ``mcgyvr run`` result comes back
+through the harness, Jev is asked nothing: the "what comes next" question (J3)
+is decommissioned until proven otherwise (lab issue #61 — it read at chance
+on every Jev model measured), and the rung judges the result on its own, with
+no ``Jev:`` note. A request that offers no
 tools is a side request — a harness's title or summary call — answered by the
 rung alone, short, with no Jev and no prompt replacement: nothing without a
 harness behind it can drive the mcgyvr flow, so nothing is spent steering it.
@@ -82,55 +85,79 @@ def test_chat_is_still_answered_but_told_it_is_chat() -> None:
     assert "chat" in rung.calls[0].system
 
 
-def test_a_run_result_from_the_harness_is_judged_by_jev_before_replanning() -> None:
-    result = {
-        "contract": "format-a",
-        "task_type": "format",
-        "target": "src/a.py",
-        "orchestrator": "mcorch-x",
-        "outcome": "rejected",
-        "detail": "the gate refused",
-        "attempts": [
-            {"rung": "r", "attempt": 1, "verdict": "failed", "findings": ["lint: E501"]}
+RUN_RESULT = {
+    "contract": "format-a",
+    "task_type": "format",
+    "target": "src/a.py",
+    "orchestrator": "mcorch-x",
+    "outcome": "rejected",
+    "detail": "the gate refused",
+    "attempts": [
+        {"rung": "r", "attempt": 1, "verdict": "failed", "findings": ["lint: E501"]}
+    ],
+}
+
+#: A conversation whose latest message is the harness reading a run result back.
+RUN_RESULT_TURNS: tuple[dict[str, object], ...] = (
+    {"role": "user", "content": "format src/a.py"},
+    {
+        "role": "assistant",
+        "content": [
+            {
+                "type": "tool_use",
+                "id": "toolu_1",
+                "name": "Read",
+                "input": {"file_path": "/x/results/format-a.json"},
+            }
         ],
-    }
+    },
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_1",
+                "content": json.dumps(RUN_RESULT),
+            }
+        ],
+    },
+)
+
+
+def test_a_run_result_from_the_harness_is_not_put_to_jev_the_rung_judges_it() -> None:
+    """J3 is decommissioned (lab issue #61): no question, no ``Jev:`` note.
+
+    A ``ScriptedJev`` with no ``next`` answer raises the moment it is asked, so
+    the loop asking J3 is a failure here, not a wrong answer.
+    """
     rung = ScriptedRung(text("I will narrow the contract."))
-    jev = ScriptedJev(next="replan")
+    jev = ScriptedJev()
+    turn = _turn(_request(*RUN_RESULT_TURNS), rung, jev)
+    assert jev.asked == []
+    assert turn.trace.next is None
+    assert turn.trace.jev == ()
+    assert turn.trace.intent is None  # a tool result is not a new request
+    assert "Jev:" not in rung.calls[0].system
+    assert turn.reply.text == "I will narrow the contract."
+
+
+def test_a_new_request_after_a_run_result_still_asks_jev_its_intent() -> None:
+    rung = ScriptedRung(text("Done."), text("Sure."))
+    jev = ScriptedJev(intent="work")
+    _turn(_request(*RUN_RESULT_TURNS), rung, jev)
     turn = _turn(
         _request(
-            {"role": "user", "content": "format src/a.py"},
-            {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "tool_use",
-                        "id": "toolu_1",
-                        "name": "Read",
-                        "input": {"file_path": "/x/results/format-a.json"},
-                    }
-                ],
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": "toolu_1",
-                        "content": json.dumps(result),
-                    }
-                ],
-            },
+            *RUN_RESULT_TURNS,
+            {"role": "assistant", "content": "The run was refused; narrowing."},
+            {"role": "user", "content": "also sort the imports in src/b.py"},
         ),
         rung,
         jev,
     )
-    assert [name for name, _ in jev.asked] == ["next"]
-    state = jev.asked[0][1]
-    assert state["outcome"] == "rejected"
-    assert state["findings"] == ["lint: E501"]
-    assert turn.trace.next == "replan"
-    assert turn.trace.intent is None  # a tool result is not a new request
-    assert "replan" in rung.calls[0].system
+    assert [name for name, _ in jev.asked] == ["intent"]
+    assert jev.asked[0][1]["request"] == "also sort the imports in src/b.py"
+    assert turn.trace.intent == "work"
+    assert "Jev: this request is work" in rung.calls[1].system
 
 
 def test_the_harness_system_prompt_is_replaced_and_tools_are_filtered() -> None:
