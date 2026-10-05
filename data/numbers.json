@@ -1079,6 +1079,11 @@
       "says": "How many lines of a session container's output a failure carries to the hub.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "rig/session.py:RELAY_ATTEMPTS": {
+      "kind": "choice",
+      "says": "How many candidates' time a tunnel's walk keeps for a peer's relay (a handshake through it and one retry) when a peer's candidates would not all fit the time to connect.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
     "rig/session.py:SAID_KEPT": {
       "kind": "choice",
       "says": "How many of its sessions' frames a rig agent remembers by id, so the hub's unknown_session names the session it means.",

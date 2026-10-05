@@ -417,6 +417,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   range (`listen_port` .. `listen_port + 3`). With every free port still
   resting it takes the one that rested longest and says so on standard
   error; no start is refused that was not refused before.
+- A tunnel's walk reaches a peer's relay however many candidates the peer
+  has. Each candidate had the hub's `attempt_s` whatever their number, so
+  with a longer `attempt_s` (a hub that gives a candidate 6 s, to outlast one
+  WireGuard handshake retry) five candidates used the whole
+  `connect_timeout_s` of 30 s and the relay was never tried. A walk now keeps
+  two candidates' time for the relay (at most half the time to connect) and
+  the candidates share the rest: at 6 s and 30 s, up to three candidates
+  have their 6 s each, four have 4.5 s, eight 2.25 s. A walk that fitted
+  before is unchanged.
 - A tunnel's walk stays on its relay until the time to connect is over. The
   relay was given one candidate's time (`attempt_s`) like any other, then the
   peer was reported `none`; two rigs holding different numbers of candidates

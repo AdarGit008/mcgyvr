@@ -19,11 +19,13 @@ of them (:func:`register` puts its handlers on the dispatcher):
 * ``tunnel_up`` brings the tunnel up to the peers the hub names, as far as
   :func:`mcgyvr.rig.tunnel.plan` allows, and walks each peer's candidates in
   the hub's order, :attr:`Timing.attempt_s` each (or the hub's
-  ``attempt_s``), until a WireGuard handshake confirms one — both rigs walk
-  at once, so each side's handshakes open its own NAT for the other's — then
-  the peer's relay, bound from this machine (:func:`bind_relay`), which it
-  stays pointed at until :attr:`Timing.connect_s` (or the hub's
-  ``connect_timeout_s``) is over: the peer may reach the relay later. A
+  ``attempt_s``; less when a peer's candidates would not leave its relay
+  time, :func:`candidate_time`), until a WireGuard handshake confirms one —
+  both rigs walk at once, so each side's handshakes open its own NAT for the
+  other's — then the peer's relay, bound from this machine
+  (:func:`bind_relay`), which it stays pointed at until
+  :attr:`Timing.connect_s` (or the hub's ``connect_timeout_s``) is over: the
+  peer may reach the relay later. A
   path a handshake confirms is sent a ping as large as the tunnel's interface
   carries (:data:`mcgyvr.sandbox.pooled.PING_SCRIPT`): one that answers a
   small ping and loses those cannot carry a model, so a candidate found so
@@ -176,6 +178,8 @@ FEATURES = (
 #: How many sessions may live on this rig at once: one per tunnel port
 #: (:meth:`mcgyvr.rig.sharing.Sharing.tunnel_ports`), the most a hello names.
 MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
+#: How many candidates' time a walk keeps for a peer's relay.
+RELAY_ATTEMPTS = 2
 #: How many times the machine is asked for a free loopback port for a head's
 #: API before the session is refused: a port another session holds is not
 #: taken.
@@ -438,6 +442,7 @@ class _Walk:
     step: int
     aim: tuple[str, int] | None
     since: float
+    attempt: float  # how long each candidate is tried
     relayed: bool = False
     result: sessionwire.PeerPath | None = None
     held: tuple[str, int] | None = None  # the confirmed endpoint
@@ -449,6 +454,19 @@ class _Walk:
     why: str = ""  # what was lost, for the failure of a peer left no path
     # The walk ended on a path found so, with nothing after it to try.
     too_narrow: bool = False
+
+
+def candidate_time(
+    attempt: float, connect: float, *, candidates: int, relay: bool
+) -> float:
+    """How long a walk stays on each of a peer's ``candidates``: ``attempt``
+    seconds, or less when that many would not fit ``connect``, the time the
+    whole walk has. A peer with a relay keeps :data:`RELAY_ATTEMPTS`
+    candidates' time for it (a handshake through it and one retry), at most
+    half the walk's; the candidates share the rest, so the last resort is
+    reached however many there are."""
+    kept = min(RELAY_ATTEMPTS * attempt, connect / 2) if relay else 0.0
+    return min(attempt, (connect - kept) / max(candidates, 1))
 
 
 def _log(line: str) -> None:
@@ -1482,6 +1500,12 @@ class Sessions:
                     step=0,
                     aim=(str(first.host), first.port) if first else None,
                     since=now,
+                    attempt=candidate_time(
+                        attempt,
+                        connect,
+                        candidates=len(peer.candidates),
+                        relay=peer.relay is not None,
+                    ),
                 )
             )
         while True:
@@ -1527,7 +1551,7 @@ class Sessions:
                         )
                     changed = True
                 elif walk.aim is None or (
-                    not walk.relayed and now - walk.since >= attempt
+                    not walk.relayed and now - walk.since >= walk.attempt
                 ):
                     # A candidate has its time; the relay, the last resort,
                     # is held until the deadline: the peer, walking a longer

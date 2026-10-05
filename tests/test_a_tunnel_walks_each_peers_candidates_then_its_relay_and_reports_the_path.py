@@ -300,3 +300,51 @@ def test_an_address_the_owner_names_outside_the_lan_is_offered_as_public(
         assert [kind for _, _, kind in offer.endpoints] == ["lan", "public"]
     finally:
         made.sessions.close()
+
+
+def test_a_candidate_has_the_hubs_time_while_the_walk_fits_the_time_to_connect() -> (
+    None
+):
+    """A candidate outlives one WireGuard handshake retry (5 s) at the hub's
+    6 s; a walk of more candidates than fit shares what the relay leaves."""
+    from mcgyvr.rig.session import candidate_time
+
+    # the relay keeps two candidates' time: its own handshake and a retry
+    assert candidate_time(6, 30, candidates=2, relay=True) == 6
+    assert candidate_time(6, 30, candidates=3, relay=True) == 6
+    assert candidate_time(6, 30, candidates=4, relay=True) == 4.5
+    assert candidate_time(6, 30, candidates=8, relay=True) == 2.25
+    # nothing changes for a walk that fitted: 3 s each, as the hub gave before
+    assert candidate_time(3, 30, candidates=8, relay=True) == 3
+    # with no relay to keep time for, the candidates have all of it
+    assert candidate_time(6, 30, candidates=5, relay=False) == 6
+    assert candidate_time(6, 30, candidates=8, relay=False) == 3.75
+    # a time to connect too short for two candidates' time: the relay has half
+    assert candidate_time(6, 10, candidates=1, relay=True) == 5
+    assert candidate_time(6, 30, candidates=0, relay=True) == 6
+
+
+def test_a_walk_of_many_candidates_still_reaches_its_relay_in_time(
+    pool: Pool,
+) -> None:
+    """Four candidates at 1 s each would outlast 3 s to connect, and the
+    relay, the one path that answers, would never be tried."""
+    pool.docker.answering = {(RELAY, 40001)}
+    _prepare(pool, **_traversal())
+    grant = {"host": RELAY, "port": 3478, "ticket": "T" * 30}
+    candidates = [_lan(), *(_reflexive(port=40000 + n) for n in range(3))]
+    began = time.monotonic()
+    report = pool.up(
+        "t1", **_body(candidates, relay=grant), attempt_s=1, connect_timeout_s=3
+    )
+    assert time.monotonic() - began < 3
+    (peer,) = report["body"]["peers"]
+    assert peer["path"] == "relay"
+    tried = [args[2:4] for args in _scripts(pool, "PATH_SCRIPT") if args[4] == "host"]
+    # after the first, every candidate had its turn, in order, then the relay
+    assert list(dict.fromkeys(tried)) == [
+        (REFLEXIVE, "40000"),
+        (REFLEXIVE, "40001"),
+        (REFLEXIVE, "40002"),
+        (RELAY, "40001"),
+    ]
