@@ -12,9 +12,14 @@ walk goes on to the next, then to the relay — and the agent's log says why.
 The handshake made on the spent candidate still stands, so what comes after
 it is taken only once a full-size ping crosses it. A relay found so ends the
 walk at once, as a relay that cannot be bound does: nothing comes after it,
-and the session fails as ``no_path``, saying what was lost. A path that
-carries both is taken as before, and a peer that answers no ping at all is
-not judged by this: the watch of a session's peers is what finds it.
+and the session fails as ``path_too_narrow``, saying what was lost. That code
+is for the peer whose last path was found so, and for no other: the rig
+answers the hub's ``tunnel_up`` with an ``error`` of that code in place of a
+report (a report saying ``none`` is what the hub reads as ``no_path``), and
+its ``session_status`` says ``failed`` with the same code. A peer whose last
+path never answered stays ``no_path``, a narrow candidate before it or not.
+A path that carries both is taken as before, and a peer that answers no ping
+at all is not judged by this: the watch of a session's peers is what finds it.
 """
 
 from __future__ import annotations
@@ -95,6 +100,10 @@ def test_what_follows_a_spent_candidate_is_taken_only_once_a_full_size_ping_cros
     assert len(_why(pool)) == 1
 
 
+def _refused(pool: Pool, message_id: str = "t1") -> list[dict[str, Any]]:
+    return [f for f in pool.box.of_type("error") if f.get("re") == message_id]
+
+
 def test_a_relay_that_loses_full_size_packets_fails_the_session_at_once(
     pool: Pool,
 ) -> None:
@@ -102,16 +111,64 @@ def test_a_relay_that_loses_full_size_packets_fails_the_session_at_once(
     pool.docker.answering = {(RELAY, 40001)}
     _prepare(pool)
     began = time.monotonic()
-    report = pool.up("t1", **_body([DIRECT], relay=GRANT))
-    assert report["body"]["peers"] == [{"rig_id": "rig-peer", "path": "none"}]
+    assert pool.ask("tunnel_up", "t1", **_body([DIRECT], relay=GRANT)) is None
     pool.wait_for("session_status", "failed")
     assert time.monotonic() - began < pool.sessions.timing.connect_s / 2
+    # The hub's command is answered with the code, not with a report of
+    # `none`, which the hub would read as `no_path`.
+    (refused,) = _refused(pool)
+    assert refused["body"]["code"] == "path_too_narrow"
+    assert "full-size" in refused["body"]["message"]
+    assert pool.box.of_type("tunnel_report") == []
     failed = pool.box.of_type("session_status")[-1]["body"]
-    assert failed["error_code"] == "no_path"
+    assert failed["error_code"] == "path_too_narrow"
     assert "full-size" in failed["log_excerpt"] and "1172" in failed["log_excerpt"]
     assert "relay" in failed["log_excerpt"]
     assert len(_why(pool)) == 1
     assert pool.docker.of_session("s1") == []
+
+
+def test_a_last_candidate_that_loses_full_size_packets_is_too_narrow_as_well(
+    pool: Pool,
+) -> None:
+    # No relay to fall back to: the narrow candidate was the last path.
+    pool.docker.narrow = {(fakes.PEER_ADDRESS, 51820)}
+    _prepare(pool)
+    assert pool.ask("tunnel_up", "t1", **_body([LAN])) is None
+    pool.wait_for("session_status", "failed")
+    (refused,) = _refused(pool)
+    assert refused["body"]["code"] == "path_too_narrow"
+    failed = pool.box.of_type("session_status")[-1]["body"]
+    assert failed["error_code"] == "path_too_narrow"
+    assert "candidate" in failed["log_excerpt"]
+
+
+def test_a_peer_that_never_answers_still_fails_as_no_path(pool: Pool) -> None:
+    pool.docker.answering = set()
+    _prepare(pool)
+    report = pool.up("t1", **_body([DIRECT], relay=GRANT))
+    assert report["body"]["peers"] == [{"rig_id": "rig-peer", "path": "none"}]
+    pool.wait_for("session_status", "failed")
+    failed = pool.box.of_type("session_status")[-1]["body"]
+    assert failed["error_code"] == "no_path"
+    assert _refused(pool) == [] and _why(pool) == []
+
+
+def test_a_relay_that_never_answers_after_a_narrow_candidate_is_no_path(
+    pool: Pool,
+) -> None:
+    # The last path, the relay, never answered: that is what failed. What the
+    # candidate before it lost is still said.
+    pool.docker.narrow = {(fakes.PEER_ADDRESS, 51820)}
+    pool.docker.answering = {(fakes.PEER_ADDRESS, 51820)}
+    _prepare(pool)
+    report = pool.up("t1", **_body([LAN], relay=GRANT))
+    assert report["body"]["peers"] == [{"rig_id": "rig-peer", "path": "none"}]
+    pool.wait_for("session_status", "failed")
+    failed = pool.box.of_type("session_status")[-1]["body"]
+    assert failed["error_code"] == "no_path"
+    assert "full-size" in failed["log_excerpt"]
+    assert _refused(pool) == []
 
 
 def test_a_path_that_carries_both_pings_is_taken_as_before(pool: Pool) -> None:

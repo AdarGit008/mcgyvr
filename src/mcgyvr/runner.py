@@ -63,12 +63,18 @@ unauthenticated-looking credential. No error message here interpolates a key.
 
 **A relief rung that cannot take the request now is full.** A relief rung's
 endpoint is a hub relaying to another person's unit, and the hub answers ``503``
-``hitchhike_not_served_yet`` while it cannot relay, and ``404``
-``model_not_found`` for a rung it no longer matches this rider to. Neither is a
+``hitchhike_not_served_yet`` while it cannot relay, ``503``
+``hitchhike_host_away`` when the host has just gone away, and ``404``
+``model_not_found`` for a rung it no longer matches this rider to. None is a
 verdict on anything: no model was asked. So on a relief endpoint, and only
-there, those two answers are :class:`ReliefUnavailableError`, a
+there, those three answers are :class:`ReliefUnavailableError`, a
 :class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
-around as a full rung. From a ladder rung the same body is that rung's error.
+around as a full rung. The rung is asked once and never again for the same
+request: a host that left is not waited for, whatever the answer says of
+retrying. From a ladder rung the same body is that rung's error.
+A hub that cannot place a pooled model answers ``503`` ``model_unplaced``,
+on any rung: the same kind of answer, :class:`ModelUnplacedError`, and the
+climb tries the next rung at once, another model's included.
 A ridden answer is held to the host's model, not to the ``hitchhike@<id>`` it
 was asked for (the hub's name for the rung): the hub passes the host's real
 model name through, and an answer naming any other — or none — is the rung
@@ -189,11 +195,31 @@ class ReliefUnavailableError(SlotUnavailableError):
 
 
 #: The hub's answers that say a relief rung cannot take the request now: not
-#: served yet (the relay to the host's unit), or no longer matched (a stale
-#: ``relief.yaml``).
+#: served yet (the relay to the host's unit), its host gone away (a hub that
+#: does not know that code yet says "not served yet" for it), or no longer
+#: matched (a stale ``relief.yaml``).
 RELIEF_UNAVAILABLE: frozenset[tuple[int, str]] = frozenset(
-    {(503, "hitchhike_not_served_yet"), (404, "model_not_found")}
+    {
+        (503, "hitchhike_not_served_yet"),
+        (503, "hitchhike_host_away"),
+        (404, "model_not_found"),
+    }
 )
+
+
+class ModelUnplacedError(SlotUnavailableError):
+    """A hub said nothing can serve the rung's model now.
+
+    A full rung, not a failure, on any rung: no model was asked, and the
+    request is not pinned to this one, so the climb goes on to the next rung
+    at once (see the module docstring).
+    """
+
+
+#: A hub's answer for a pooled model it held the request for and cannot
+#: place: the rig that held it is gone, and the answer carries no
+#: ``Retry-After``.
+MODEL_UNPLACED: tuple[int, str] = (503, "model_unplaced")
 
 
 class ProtocolError(RunnerError):
@@ -547,6 +573,11 @@ class Runner(ABC):
                 raise ReliefUnavailableError(
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
+                ) from exc
+            if (exc.status, exc.code) == MODEL_UNPLACED:
+                raise ModelUnplacedError(
+                    f"rung {self.endpoint.source!r} names a model its hub "
+                    f"cannot place now: {exc}"
                 ) from exc
             raise
         latency_s = time.monotonic() - started

@@ -254,14 +254,49 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A ride whose host went away is passed over at once (hitchhike). The hub
+  answers such a ride `503 hitchhike_host_away`, with no `Retry-After`; the
+  runner reads it on a relief rung as it reads `503 hitchhike_not_served_yet`
+  and a stale rung's 404: a full rung, asked once, so the request goes on to
+  the rider's own ladder. A hub that does not send the new code yet is read
+  as before.
+- A rung whose model the hub cannot place is passed over, not failed. A hub
+  ends a hold nothing can satisfy with `503 model_unplaced` and no
+  `Retry-After`. That answer ended the whole run as an error on the rung that
+  got it. It is now read as a full rung, on any rung: asked once, no attempt
+  spent, and the climb tries the next rung at once, another model's included.
+  Any other 503 is still the rung's error.
+- A path that cannot carry full-size packets fails the session as
+  `path_too_narrow`, not `no_path`. When the last path to a peer (its relay,
+  or its last candidate where it has no relay) answers a small ping and
+  loses every full-size one, the rig's `session_status` says `failed` with
+  that code, and it answers the hub's `tunnel_up` with an `error` of that
+  code in place of a report: a report saying `none` is what the hub records
+  as `no_path`, and the code of a refused command is what it keeps. A peer
+  whose last path never answered still fails `no_path`, with a report, a
+  narrow candidate before it or not. `path_too_narrow` is a new value of a
+  session's `error_code`, an open set.
+- `load_stalled` and `path_too_narrow` are in the rig agent's shared list of
+  session codes (`SessionCode`), and in the pinned copy of the hub's protocol
+  schema the agent's tests hold it to (`x-error-codes`). The copy's text on
+  hitchhiking now states the rule both sides run: a ride is admitted while
+  the unit has a free slot and its rides are below the rider cap, and the rig
+  decides last. Both edits are by hand, ahead of the hub's file; the copy is
+  re-pinned from it once the hub publishes them.
+- A ride for a contract with no output cap is sent the local unit's limit
+  (hitchhike). A contract with no cap (a raw-text reply) was sent uncapped on
+  a relief rung as on every rung. On a relief rung it is now sent the local
+  unit's `output_tokens`, the local unit being the first usable rung of the
+  rider's own ladder, as below. Where that unit declares none the ride is
+  still sent no limit, and the rider's own rungs are unchanged.
 - A relief rung is sent the smaller of the contract's output cap and the
   local unit's (hitchhike). It was sent the contract's
   `limits.max_output_tokens` whatever the rider's own unit declared, so one
   request got one cap on the rider's rung (its `units.<unit>.output_tokens`)
   and another on the ride that stood in for it. The local unit is the first
   usable rung of the rider's own ladder. Where it declares no
-  `output_tokens` the ride is sent the contract's cap, and a contract with no
-  cap (a raw-text reply) is sent uncapped, as on every rung. On the rider's
+  `output_tokens` the ride is sent the contract's cap (for a contract with
+  no cap, see above). On the rider's
   own rungs nothing changes: a unit's `output_tokens` still wins there.
 - A shared unit takes a ride while it has a free slot (hitchhike, the host
   first). A ride was admitted only while the host left `rider_slots` slots
@@ -405,8 +440,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   on; what follows it is taken only once a full-size ping crosses it, since
   the handshake made on the spent candidate still stands. A relay found so
   ends the walk at once instead of being held until `connect_timeout_s` —
-  waiting does not widen a path — and the session fails `no_path`, saying
-  what was lost. The round trip is now measured when each path is
+  waiting does not widen a path — and the session fails `path_too_narrow`
+  (see above), saying what was lost. The round trip is now measured when each path is
   confirmed, not after the whole walk.
 
 ## [0.2.0] - 2026-09-16

@@ -22,6 +22,14 @@ To move to a new hub schema::
 
 rewrites the copy and prints both digests to paste below.
 
+The copy is, for now, ahead of the hub file :data:`HUB_SCHEMA_SHA256` names,
+by hand, in two places the hub is publishing at the same time: the error
+codes ``load_stalled`` and ``path_too_narrow`` in ``x-error-codes``, and the
+paragraph on hitchhiking in ``description``, which states the rule both sides
+run (a ride is admitted while the unit has a free slot and its rides are
+below the rider cap; the rig decides last). Re-pin from the hub's file once
+it carries both, which replaces this copy's wording with the hub's.
+
 :func:`validate` is a validator for the keywords this schema uses, and only
 those: a keyword it does not know fails the check rather than being skipped,
 so a hub schema that starts saying something new cannot pass unread.
@@ -39,10 +47,10 @@ from typing import Any
 FIXTURE = Path(__file__).parent / "fixtures" / "hub_protocol_v1.schema.json"
 
 #: The hub's ``schemas/protocol.schema.json``, byte for byte, that the copy
-#: was pinned from.
+#: was last pinned from (see above for what the copy says beyond it).
 HUB_SCHEMA_SHA256 = "395c7e6c11d6fca6afb5b6646b96f17f52a3641598ccf17fce5c90323f06f9ba"
 #: :data:`FIXTURE`, byte for byte.
-PINNED_SHA256 = "faeb3540bbc6200e67318d830f063f2a768c086455d51703ba68d99ee9ad3aa6"
+PINNED_SHA256 = "1a166ccdd46b1317f39a231ada4476c246bcb57cdc6bb0813b03338feb400cdb"
 
 #: The variable naming a hub checkout's schema file, for the drift check.
 HUB_SCHEMA_ENV = "MCGYVR_HUB_SCHEMA"
