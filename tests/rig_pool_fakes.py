@@ -58,6 +58,8 @@ class FakeDocker:
     peer_silent: bool = False
     transfer_said: str | None = None
     peer_rx: int = 0
+    #: The bytes the tunnel has sent the peer: a test raises it as a load moves.
+    peer_tx: int = 4096
     #: The endpoints a WireGuard handshake completes at (None: every one), and
     #: where WireGuard ends up when a peer's NAT moved the port.
     answering: set[tuple[str, int]] | None = None
@@ -110,7 +112,7 @@ class FakeDocker:
             with self.lock:
                 if not self.peer_silent:
                     self.peer_rx += 148
-                return f"{PEER_KEY}\t{self.peer_rx}\t4096\n"
+                return f"{PEER_KEY}\t{self.peer_rx}\t{self.peer_tx}\n"
         return "ok\n"
 
     def _aim(self, args: Sequence[str], width: int, aims: Any) -> None:
@@ -314,6 +316,7 @@ class Pool:
     warm_with: Any = None
     relay_port: int | None = 40001
     relayed: list[Any] = field(default_factory=list)
+    logged: list[str] = field(default_factory=list)
 
     def report(self, message_id: str = "t1") -> dict[str, Any]:
         """The tunnel_report answering tunnel_up ``message_id``, once sent."""
@@ -411,12 +414,17 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
         warm_up=warm_up,
         bind_relay=bind_relay,
     )
+    logged: list[str] = []
     sessions = rs.Sessions(
-        docker=docker, machine=machine, send=box.put, timing=rs.Timing.quick()
+        docker=docker,
+        machine=machine,
+        send=box.put,
+        timing=rs.Timing.quick(),
+        log=logged.append,
     )
     dispatcher = commands.Dispatcher()
     rs.register(dispatcher, sessions)
-    made.append(Pool(docker, box, sessions, dispatcher, health))
+    made.append(Pool(docker, box, sessions, dispatcher, health, logged=logged))
     return made[0]
 
 

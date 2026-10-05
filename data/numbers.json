@@ -1069,6 +1069,11 @@
       "says": "How long, in seconds, a tunnel's port keeps its NAT mapping alive waiting for tunnel_up; past it the keeper ends on its own.",
       "moves_to": "binding_keep_for_s"
     },
+    "rig/session.py:LOAD_STALL_BYTES": {
+      "kind": "estimate",
+      "says": "How many bytes a loading head's tunnel sends its workers, within the stall time, for the load to count as moving; under it the session fails as load_stalled.",
+      "moves_to": "load_stall_bytes"
+    },
     "rig/session.py:LOG_LINES": {
       "kind": "choice",
       "says": "How many lines of a session container's output a failure carries to the hub.",
@@ -1144,6 +1149,11 @@
       "says": "How often, in seconds, a living session renews its tunnel's lease.",
       "reason": "how often or how many times the product tries its own step again"
     },
+    "rig/session.py:Timing.stall_s": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a loading head can go without its tunnel sending its workers the bytes that count as moving, as when it reads its own layers from disk; past it the session fails as load_stalled.",
+      "moves_to": "load_stall_s"
+    },
     "rig/session.py:Timing.start_s": {
       "kind": "estimate",
       "says": "How long, in seconds, a worker's RPC server takes to start listening.",
@@ -1187,6 +1197,11 @@
     "rig/session.py:_Session.outstanding": {
       "kind": "fact",
       "says": "The steps a session has queued, before any is.",
+      "reason": "where a count starts"
+    },
+    "rig/session.py:_Session.quiet_s": {
+      "kind": "fact",
+      "says": "The longest a load took to send its workers the bytes that count as moving, before it has sent any.",
       "reason": "where a count starts"
     },
     "rig/session.py:_Session.renewed_at": {

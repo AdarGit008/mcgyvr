@@ -41,7 +41,12 @@ of them (:func:`register` puts its handlers on the dispatcher):
   its workers over the tunnel (:meth:`Sessions._watch`): a worker not heard
   from for :attr:`Timing.peer_lost_s` fails the session as ``no_path`` (the
   hub's code for a peer no path reaches) — an engine whose worker's rig is
-  gone is never told so, and would wait out its whole load. A head on this
+  gone is never told so, and would wait out its whole load. While it loads,
+  it also counts what the tunnel sends its workers (:meth:`Sessions._moving`):
+  a load that has not sent them :data:`LOAD_STALL_BYTES` in
+  :attr:`Timing.stall_s` fails the session as ``load_stalled`` — a path that
+  carries a ping and loses a full packet leaves the worker heard from and
+  the weights standing still. A head on this
   rig's cards alone (a session of one rig) needs no ``tunnel_up``, only the
   prepared tunnel container its head runs in;
 * ``session_query`` is answered with where the session stands;
@@ -91,6 +96,7 @@ import json
 import os
 import queue
 import socket
+import sys
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -178,6 +184,14 @@ WARM_UP_TOKENS = 32
 #: The share of the session's context the warm-up's prompt may take, as a
 #: divisor: a quarter, so prompt, template and answer fit any context.
 WARM_UP_CONTEXT_SHARE = 4
+#: The code of a head whose load stopped moving. The hub's list does not name
+#: it: a session's ``error_code`` is an open set, which the hub passes on.
+LOAD_STALLED = "load_stalled"
+#: What a loading head sends its workers over the tunnel, in bytes, within
+#: :attr:`Timing.stall_s`, to count as moving: far above what pings,
+#: keepalives and a stuck connection's retries send in that time, far below
+#: what a load sends over the slowest link that finishes one.
+LOAD_STALL_BYTES = 1 << 20
 
 
 class Docker(Protocol):
@@ -222,6 +236,7 @@ class Timing:
     stop_wait_s: float = 120.0
     ping_s: float = 30.0
     peer_lost_s: float = 45.0
+    stall_s: float = 240.0
     warm_s: float = 300.0
     attempt_s: float = 5.0
     connect_s: float = 60.0
@@ -242,6 +257,7 @@ class Timing:
             stop_wait_s=5.0,
             ping_s=0.5,
             peer_lost_s=0.2,
+            stall_s=5.0,
             warm_s=1.0,
             attempt_s=0.05,
             connect_s=2.0,
@@ -304,6 +320,9 @@ class _Session:
     checked_at: float = 0.0
     watched_at: float = 0.0
     heard: dict[str, tuple[int, float]] = field(default_factory=dict)
+    sent: int | None = None  # the bytes the tunnel sent its workers, last look
+    moved: tuple[int, float] | None = None  # ``sent`` a stall's worth ago, when
+    quiet_s: float = 0.0  # the longest a load took to send a stall's worth
     traversal: sessionwire.Traversal | None = None
     stun_rtt_us: int | None = None
     report: tuple[sessionwire.PeerPath, ...] | None = None
@@ -414,6 +433,11 @@ class _Walk:
     moved: bool = False
 
 
+def _log(line: str) -> None:
+    """Say ``line`` where the agent says what it does: its standard error."""
+    print(line, file=sys.stderr, flush=True)
+
+
 def _ipv4(text: str) -> ipaddress.IPv4Address | None:
     try:
         return ipaddress.IPv4Address(text)
@@ -466,8 +490,10 @@ class Sessions:
         send: Callable[[str], bool],
         timing: Timing | None = None,
         clock: Callable[[], float] = time.monotonic,
+        log: Callable[[str], None] = _log,
     ) -> None:
         self.machine = machine
+        self._log = log
         self.timing = timing or Timing()
         self._docker = docker
         self._send = send
@@ -1178,6 +1204,9 @@ class Sessions:
         except pooled.PoolError:
             said = ""
         received = pooled.read_transfer(said)
+        sent = pooled.read_sent(said)
+        if any(key in sent for key in watched):
+            session.sent = sum(sent.get(key, 0) for key in watched)
         now = self._clock()
         for key, host in watched.items():
             last, at = session.heard[key]
@@ -1193,6 +1222,53 @@ class Sessions:
                         pooled.container_name(session.id, "head"), LOG_LINES
                     ),
                 )
+
+    def _moving(self, session: _Session) -> None:
+        """A loading head's look at what the tunnel sent its workers, all of
+        them together (they take their layers one after another, so one
+        waits while another loads): a load that has not sent them
+        :data:`LOAD_STALL_BYTES` in :attr:`Timing.stall_s` has stalled. The
+        longest it took to send that much is kept (``quiet_s``). A head
+        alone has no worker and is never looked at. What the head reads
+        from its own disk is not counted — the engine maps the file, and a
+        read the machine has cached reaches no counter — so the time must
+        cover the longest a head reads without sending."""
+        if session.sent is None:
+            return
+        now = self._clock()
+        if session.moved is None:
+            session.moved = (session.sent, now)
+            return
+        before, at = session.moved
+        if session.sent - before >= LOAD_STALL_BYTES:
+            session.quiet_s = max(session.quiet_s, now - at)
+            session.moved = (session.sent, now)
+        elif now - at > self.timing.stall_s:
+            session.quiet_s = max(session.quiet_s, now - at)
+            raise _FailureError(
+                LOAD_STALLED,
+                f"the load stalled: the tunnel sent the workers "
+                f"{max(0, session.sent - before)} bytes in {now - at:.1f} s, "
+                f"under the {LOAD_STALL_BYTES} that count as moving in "
+                f"{self.timing.stall_s:g} s",
+                self._docker.logs(pooled.container_name(session.id, "head"), LOG_LINES),
+            )
+
+    def _loaded(self, session: _Session, started: float, how: str) -> None:
+        """Say how a split load went: how long it took, and the longest it
+        took to send its workers :data:`LOAD_STALL_BYTES`, which is what
+        :attr:`Timing.stall_s` is to be set above."""
+        if session.sent is None:
+            return
+        now = self._clock()
+        if session.moved is not None:
+            session.quiet_s = max(session.quiet_s, now - session.moved[1])
+        self._log(
+            f"session {session.id}: the head's load {how} after "
+            f"{now - started:.0f} s; the longest it took to send its workers "
+            f"{LOAD_STALL_BYTES} bytes was {session.quiet_s:.0f} s "
+            f"(stalled past {self.timing.stall_s:g} s)"
+        )
 
     def _warm(self, session: _Session, name: str) -> None:
         """Warm the loaded head (:func:`warm_up`) while the session lives on:
@@ -1676,25 +1752,32 @@ class Sessions:
         self._docker.start(pooled.head_argv(session.head, self.machine.owner))
         self._move(session, "loading")
         self._say(self._status(session, None))
-        deadline = self._clock() + self.timing.load_s
-        while True:
-            if self._docker.state(name) != "running":
-                raise _FailureError(
-                    SessionCode.START_FAILED,
-                    "the head ended while loading",
-                    self._docker.logs(name, LOG_LINES),
-                )
-            self._watch(session)
-            if self.machine.head_health(session.api_port) == "ok":
-                break
-            if self._clock() > deadline:
-                raise _FailureError(
-                    SessionCode.START_FAILED,
-                    "the head did not load in time",
-                    self._docker.logs(name, LOG_LINES),
-                )
-            if self._pause(session):
-                return
+        started = self._clock()
+        deadline = started + self.timing.load_s
+        how = "ended"
+        try:
+            while True:
+                if self._docker.state(name) != "running":
+                    raise _FailureError(
+                        SessionCode.START_FAILED,
+                        "the head ended while loading",
+                        self._docker.logs(name, LOG_LINES),
+                    )
+                self._watch(session)
+                if self.machine.head_health(session.api_port) == "ok":
+                    how = "was done"
+                    break
+                self._moving(session)
+                if self._clock() > deadline:
+                    raise _FailureError(
+                        SessionCode.START_FAILED,
+                        "the head did not load in time",
+                        self._docker.logs(name, LOG_LINES),
+                    )
+                if self._pause(session):
+                    return
+        finally:
+            self._loaded(session, started, how)
         self._warm(session, name)
         if session.stopping.is_set():
             return

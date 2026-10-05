@@ -384,10 +384,11 @@ ping -c 1 -W 2 -q "$1" >/dev/null
 ping -c 5 -i 0.2 -W 1 -q "$1" | awk -F/ '/min\/avg/ {print $4}'
 """
 
-#: What the tunnel has heard from each peer: WireGuard's byte counts per peer
-#: key (received, sent), read after one ping over the tunnel to each address
-#: given (``"$@"``), so a quiet peer is asked for a word first. An unanswered
-#: ping is no error here: the counts say whether anything came back.
+#: What the tunnel has heard from each peer and sent it: WireGuard's byte
+#: counts per peer key (received, sent), read after one ping over the tunnel
+#: to each address given (``"$@"``), so a quiet peer is asked for a word
+#: first. An unanswered ping is no error here: the counts say whether
+#: anything came back, and whether a load's weights go out.
 TRANSFER_SCRIPT = r"""for host in "$@"; do
   ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
 done
@@ -716,16 +717,26 @@ def read_tunnel_hello(logs: str) -> TunnelHello | None:
     )
 
 
+def _read_counts(said: str, column: int) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for line in said.splitlines():
+        found = _TRANSFER_LINE.fullmatch(line.strip())
+        if found:
+            counts[found.group(1)] = int(found.group(column))
+    return counts
+
+
 def read_transfer(said: str) -> dict[str, int]:
     """The bytes the tunnel received from each peer, by the peer's key, from
     what :data:`TRANSFER_SCRIPT` printed; a line that does not read is left
     out, so a peer it names counts as not heard from."""
-    heard: dict[str, int] = {}
-    for line in said.splitlines():
-        found = _TRANSFER_LINE.fullmatch(line.strip())
-        if found:
-            heard[found.group(1)] = int(found.group(2))
-    return heard
+    return _read_counts(said, 2)
+
+
+def read_sent(said: str) -> dict[str, int]:
+    """The bytes the tunnel sent each peer, by the peer's key, from what
+    :data:`TRANSFER_SCRIPT` printed; a line that does not read is left out."""
+    return _read_counts(said, 3)
 
 
 @dataclass(frozen=True, kw_only=True)
