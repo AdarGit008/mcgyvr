@@ -71,10 +71,16 @@ there, those three answers are :class:`ReliefUnavailableError`, a
 :class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
 around as a full rung. The rung is asked once and never again for the same
 request: a host that left is not waited for, whatever the answer says of
-retrying. From a ladder rung the same body is that rung's error.
+retrying. From a ladder rung the two ``503`` bodies are that rung's error.
 A hub that cannot place a pooled model answers ``503`` ``model_unplaced``,
 on any rung: the same kind of answer, :class:`ModelUnplacedError`, and the
 climb tries the next rung at once, another model's included.
+A ladder rung that answers ``404`` ``model_not_found`` was asked for a model
+its address does not know — a hub that dropped it from its pool, a provider
+that never had it, a name typed wrong. The same kind of answer again,
+:class:`UnknownModelError`, on every rung of the ladder, with a key or
+without. A rung skipped so is skipped every time, so each such dispatch
+writes one line on stderr naming the rung and the model.
 A ridden answer is held to the host's model, not to the ``hitchhike@<id>`` it
 was asked for (the hub's name for the rung): the hub passes the host's real
 model name through, and an answer naming any other — or none — is the rung
@@ -220,6 +226,20 @@ class ModelUnplacedError(SlotUnavailableError):
 #: place: the rig that held it is gone, and the answer carries no
 #: ``Retry-After``.
 MODEL_UNPLACED: tuple[int, str] = (503, "model_unplaced")
+
+
+class UnknownModelError(SlotUnavailableError):
+    """A ladder rung's address said it does not know the rung's model.
+
+    A full rung, not a failure: no model was asked, so the climb goes on to
+    the next rung at once, and one line on stderr says which rung and which
+    model (see the module docstring).
+    """
+
+
+#: The answer of an address asked for a model it does not know. On a relief
+#: rung it is in :data:`RELIEF_UNAVAILABLE`, a stale rung, and is read there.
+UNKNOWN_MODEL: tuple[int, str] = (404, "model_not_found")
 
 
 class ProtocolError(RunnerError):
@@ -579,6 +599,15 @@ class Runner(ABC):
                     f"rung {self.endpoint.source!r} names a model its hub "
                     f"cannot place now: {exc}"
                 ) from exc
+            if (exc.status, exc.code) == UNKNOWN_MODEL:
+                said = (
+                    f"rung {self.endpoint.source!r} asked for model {model!r}, "
+                    f"which its address does not know (HTTP 404 "
+                    f"model_not_found); the rung is passed over. Check the "
+                    f"rung's `model`"
+                )
+                print(f"note: {said}", file=sys.stderr)
+                raise UnknownModelError(said) from exc
             raise
         latency_s = time.monotonic() - started
         after = _status(self.endpoint)
