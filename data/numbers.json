@@ -759,6 +759,11 @@
       "says": "The longest single wait, in seconds, a rig agent makes on its channel while its sessions' frames wait to be sent.",
       "reason": "how often or how many times the product tries its own step again"
     },
+    "rig/agent.py:READ_AHEAD_S": {
+      "kind": "choice",
+      "says": "How long, in seconds, before a heartbeat is due a rig agent begins reading the machine for it on a thread of its own, so the reading (a second or two) is normally whole when the beat goes.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
     "rig/agent.py:RECEIVE_SLICE_S": {
       "kind": "choice",
       "says": "The longest single wait, in seconds, a rig agent makes on its channel, so a request to stop is heard within it.",

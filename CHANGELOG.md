@@ -359,6 +359,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A rig agent's heartbeat no longer pauses everything the agent sends. Each
+  heartbeat read the machine (the machine reader, about 1.7 s on a rig) on
+  the one thread that sends to the hub, so every relayed stream stopped for
+  that long every 15 s and the hub's commands waited too. The machine is now
+  read on a thread of its own, begun 5 s before the beat is due, one read at
+  a time. A heartbeat goes on time with the latest whole reading: normally
+  the one begun for it; when that read is slower, an older one, and the read
+  serves the next beat. A read that fails gives a heartbeat with no reading
+  and a note, as before. An early heartbeat (a session ended and freed
+  memory) waits, still sending, for a reading begun after it was asked.
 - A requester who leaves early is charged what the rig made, exactly. The
   rig stopped at once and said nothing, so the hub charged a stream it
   estimated and an answer not streamed nothing at all, though its model had

@@ -2,7 +2,7 @@
 
 The agent reads the machine before it connects, says hello with that reading
 first, and waits for the hub's ack, which sets the heartbeat interval. Each
-heartbeat carries a fresh reading. A channel that drops, times out, or is
+heartbeat carries a reading taken for it. A channel that drops, times out, or is
 throttled is reopened after a backoff that grows to a cap and starts over once
 a session has held — and, while the rig's sessions wait out the grace the hub
 keeps them for, after no more than a short wait, so the agent is back in
@@ -238,6 +238,9 @@ def _agent(
         on_status=on_status,
         draw=lambda: 1.0,
         say=(said.append if said is not None else lambda line: None),
+        # a heartbeat's read in place: the fake clock moves only when the agent
+        # waits on its channel, which a read on a thread of its own would race
+        aside=lambda job: job(),
         **more,
     )
     return made, channels
