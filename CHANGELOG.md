@@ -254,6 +254,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A ride whose host went away is passed over at once (hitchhike). The hub
+  answers such a ride `503 hitchhike_host_away`, with no `Retry-After`; the
+  runner reads it on a relief rung as it reads `503 hitchhike_not_served_yet`
+  and a stale rung's 404: a full rung, asked once, so the request goes on to
+  the rider's own ladder. A hub that does not send the new code yet is read
+  as before.
 - A relief rung is sent the smaller of the contract's output cap and the
   local unit's (hitchhike). It was sent the contract's
   `limits.max_output_tokens` whatever the rider's own unit declared, so one
