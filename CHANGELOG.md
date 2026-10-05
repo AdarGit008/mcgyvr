@@ -281,8 +281,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   schema the agent's tests hold it to (`x-error-codes`). The copy's text on
   hitchhiking now states the rule both sides run: a ride is admitted while
   the unit has a free slot and its rides are below the rider cap, and the rig
-  decides last. Both edits are by hand, ahead of the hub's file; the copy is
-  re-pinned from it once the hub publishes them.
+  decides last. The copy is the hub's file as the hub publishes it, pinned
+  by both digests.
 - A ride for a contract with no output cap is sent the local unit's limit
   (hitchhike). A contract with no cap (a raw-text reply) was sent uncapped on
   a relief rung as on every rung. On a relief rung it is now sent the local
