@@ -54,6 +54,12 @@ def test_the_agents_session_limits_shapes_and_sets_are_the_schemas(
         value for name, value in vars(w.SessionCode).items() if name.isupper()
     }
 
+    # The two codes the rig itself names a failed session with.
+    assert w.SessionCode.LOAD_STALLED == "load_stalled"
+    assert w.SessionCode.PATH_TOO_NARROW == "path_too_narrow"
+    assert {"load_stalled", "path_too_narrow"} <= set(schema["x-error-codes"])
+    assert schema["x-error-codes"] == sorted(schema["x-error-codes"])
+
     hello = _props(schema, "HelloBody")
     assert hello["models"]["maxItems"] == p.MAX_MODELS
     assert hello["endpoints"]["maxItems"] == p.MAX_ENDPOINTS == w.MAX_ENDPOINTS

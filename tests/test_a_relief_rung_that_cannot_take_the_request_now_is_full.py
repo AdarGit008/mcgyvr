@@ -1,15 +1,19 @@
 """A relief rung that cannot take the request now is a full rung, not a failure.
 
 The hub answers a request to a relief rung it cannot serve yet with ``503``
-and the code ``hitchhike_not_served_yet``, and one to a rung it no longer
-matches this rider to (a stale ``relief.yaml``) with ``404`` and
-``model_not_found``. Neither is a verdict on the work: nothing was asked of a
-model. So the dispatch ends as :class:`~mcgyvr.capacity.SlotUnavailableError`,
-the one capacity error a climb may route around — the driver turns it into a
-decline, which spends no attempt and funds no escalation, and the climb goes
-on as if the rung had been full.
+and the code ``hitchhike_not_served_yet``, one whose host went away with
+``503`` and ``hitchhike_host_away``, and one to a rung it no longer matches
+this rider to (a stale ``relief.yaml``) with ``404`` and ``model_not_found``.
+None is a verdict on the work: nothing was asked of a model. So the dispatch
+ends as :class:`~mcgyvr.capacity.SlotUnavailableError`, the one capacity error
+a climb may route around — the driver turns it into a decline, which spends no
+attempt and funds no escalation, and the climb goes on as if the rung had been
+full.
 
-Only those two answers, and only from a relief rung. Any other error status
+A host that left is not waited for: the rung is asked once and passed over,
+whatever the answer says of retrying.
+
+Only those three answers, and only from a relief rung. Any other error status
 from a relief rung is still the error it was, and the same body from a unit
 of the rider's own ladder is that unit's error: a ladder rung that says a
 model is not found is misconfigured, not busy.
@@ -52,7 +56,10 @@ def error(status: int, code: str) -> tuple[int, bytes]:
 
 
 NOT_SERVED_YET = error(503, "hitchhike_not_served_yet")
+HOST_AWAY = error(503, "hitchhike_host_away")
 STALE = error(404, "model_not_found")
+UNAVAILABLE = [NOT_SERVED_YET, HOST_AWAY, STALE]
+IDS = ["503", "503-host-away", "404"]
 
 
 @contextlib.contextmanager
@@ -122,7 +129,7 @@ def ask(address: str, rung: str, tmp_path: Path) -> tuple[Capacity, Any]:
         return capacity, exc
 
 
-@pytest.mark.parametrize("answer", [NOT_SERVED_YET, STALE], ids=["503", "404"])
+@pytest.mark.parametrize("answer", UNAVAILABLE, ids=IDS)
 def test_a_relief_rung_that_cannot_take_it_now_is_a_full_rung(
     tmp_path: Path, answer: tuple[int, bytes]
 ) -> None:
@@ -135,6 +142,19 @@ def test_a_relief_rung_that_cannot_take_it_now_is_a_full_rung(
     assert not isinstance(outcome, RunnerError)
     assert RIDE in str(outcome)
     assert capacity.load(RIDE) == 0, "the slot it held is given back"
+
+
+def test_a_ride_whose_host_went_away_is_passed_over_without_a_retry(
+    tmp_path: Path,
+) -> None:
+    seen: list[dict[str, Any]] = []
+    with answering(*HOST_AWAY, seen) as address:
+        capacity, outcome = ask(address, RIDE, tmp_path)
+
+    assert isinstance(outcome, SlotUnavailableError)
+    assert len(seen) == 1, "the rung was asked once and not again"
+    assert "hitchhike_host_away" in str(outcome)
+    assert capacity.load(RIDE) == 0
 
 
 def test_a_ride_is_asked_with_the_hubs_model_and_the_personal_key(
@@ -166,7 +186,7 @@ def test_any_other_error_from_a_relief_rung_is_still_that_error(
     assert not isinstance(outcome, SlotUnavailableError)
 
 
-@pytest.mark.parametrize("answer", [NOT_SERVED_YET, STALE], ids=["503", "404"])
+@pytest.mark.parametrize("answer", UNAVAILABLE, ids=IDS)
 def test_the_same_answer_from_a_rung_of_the_riders_own_ladder_is_its_error(
     tmp_path: Path, answer: tuple[int, bytes]
 ) -> None:

@@ -33,7 +33,11 @@ of them (:func:`register` puts its handlers on the dispatcher):
   ``relay`` or ``none``), the endpoint WireGuard uses and the round trip
   over the tunnel (also sent as ``peer_rtt``). The tunnel's table lets
   WireGuard reach only the candidate being tried, then only the confirmed
-  endpoint; a peer no path reaches fails the session as ``no_path``;
+  endpoint; a peer no path reaches fails the session as ``no_path``. A peer
+  whose last path answered a small ping and lost every full-size one fails
+  it as ``path_too_narrow`` instead, and the ``tunnel_up`` is then answered
+  with an ``error`` of that code, not with a report: a report saying
+  ``none`` is what the hub reads as ``no_path``;
 * ``worker_start`` starts one RPC server per lent card, bound to the tunnel
   address and reachable by the session's peers only, and says ``ready`` when
   each listens;
@@ -189,9 +193,6 @@ WARM_UP_TOKENS = 32
 #: The share of the session's context the warm-up's prompt may take, as a
 #: divisor: a quarter, so prompt, template and answer fit any context.
 WARM_UP_CONTEXT_SHARE = 4
-#: The code of a head whose load stopped moving. The hub's list does not name
-#: it: a session's ``error_code`` is an open set, which the hub passes on.
-LOAD_STALLED = "load_stalled"
 #: What a loading head sends its workers over the tunnel, in bytes, within
 #: :attr:`Timing.stall_s`, to count as moving: far above what pings,
 #: keepalives and a stuck connection's retries send in that time, far below
@@ -441,6 +442,8 @@ class _Walk:
     # still stands, so what is tried after it is proved by a ping, not by it.
     narrowed: bool = False
     why: str = ""  # what was lost, for the failure of a peer left no path
+    # The walk ended on a path found so, with nothing after it to try.
+    too_narrow: bool = False
 
 
 def _log(line: str) -> None:
@@ -1256,7 +1259,7 @@ class Sessions:
         elif now - at > self.timing.stall_s:
             session.quiet_s = max(session.quiet_s, now - at)
             raise _FailureError(
-                LOAD_STALLED,
+                SessionCode.LOAD_STALLED,
                 f"the load stalled: the tunnel sent the workers "
                 f"{max(0, session.sent - before)} bytes in {now - at:.1f} s, "
                 f"under the {LOAD_STALL_BYTES} that count as moving in "
@@ -1575,9 +1578,12 @@ class Sessions:
         if walk.relayed:
             walk.aim = None
             walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
-            return
-        self._next_aim(walk)
-        walk.since = self._clock()
+        else:
+            self._next_aim(walk)
+            walk.since = self._clock()
+        # Nothing after it, relay or last candidate: the path that ended the
+        # walk is this one, and the failure is named for what it lost.
+        walk.too_narrow = walk.result is not None
 
     def _confirmed(
         self, walk: _Walk, endpoint: tuple[str, int]
@@ -1621,7 +1627,12 @@ class Sessions:
     def _report(self, session: _Session, walks: Sequence[_Walk]) -> None:
         """Answer every ``tunnel_up`` waiting with the report — each
         confirmed path with the round trip measured over it when it was
-        confirmed — and fail the session when a peer has no path."""
+        confirmed — and fail the session when a peer has no path. A peer
+        whose last path lost full-size packets fails it as
+        ``path_too_narrow``, and the ``tunnel_up`` is answered with an
+        ``error`` of that code in place of the report: the hub fails a
+        session whose report says ``none`` as ``no_path`` by itself, and
+        keeps the code of a command an agent refused."""
         paths = []
         samples = []
         for walk in walks:
@@ -1638,6 +1649,9 @@ class Sessions:
                 samples.append((walk.peer.rig_id, rtt))
             paths.append(result)
         lost = [p.rig_id for p in paths if p.path == "none"]
+        narrow = next(
+            (w for w in walks if w.too_narrow and w.peer.rig_id in lost), None
+        )
         if not lost:
             # Up before the report says so: the hub acts on the report at once.
             self._move(session, "tunnel_up")
@@ -1645,9 +1659,20 @@ class Sessions:
             session.report = tuple(paths)
             waiting, session.reported_to = session.reported_to, []
         for re in waiting:
+            if narrow is not None:
+                self._say(
+                    sessionwire.refusal(re, SessionCode.PATH_TOO_NARROW, narrow.why)
+                )
+                continue
             self._say(sessionwire.tunnel_report(re, session_id=session.id, peers=paths))
         if samples:
             self._say(sessionwire.peer_rtt(samples[: sessionwire.MAX_RTT_SAMPLES]))
+        if narrow is not None:
+            raise _FailureError(
+                SessionCode.PATH_TOO_NARROW,
+                f"no path to peer {narrow.peer.rig_id} carries a full-size "
+                f"packet: {narrow.why}",
+            )
         if lost:
             why = next(
                 (f"; {w.why}" for w in walks if w.peer.rig_id == lost[0] and w.why),

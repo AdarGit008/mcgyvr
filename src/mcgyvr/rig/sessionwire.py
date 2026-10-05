@@ -147,6 +147,11 @@ class SessionCode:
     MODEL_MISMATCH = "model_mismatch"
     NO_PATH = "no_path"
     UNKNOWN_UNIT = "unknown_unit"
+    #: A head whose load stopped moving.
+    LOAD_STALLED = "load_stalled"
+    #: A peer whose last path answers a small ping and loses every full-size
+    #: one.
+    PATH_TOO_NARROW = "path_too_narrow"
 
 
 # --- what the hub sends ----------------------------------------------------------

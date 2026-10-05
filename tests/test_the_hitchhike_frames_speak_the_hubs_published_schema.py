@@ -33,6 +33,18 @@ def _props(schema: dict[str, Any], name: str) -> dict[str, Any]:
     return found
 
 
+def test_the_protocol_text_says_a_free_slot_is_enough(schema: dict[str, Any]) -> None:
+    """The rule both sides run (``mcgyvr.rig.hitchhike``): a ride is admitted
+    while the unit has a free slot and its rides are below the rider cap, and
+    the rig decides last. Not the older one, a ride only while the host left
+    ``slots - rider_cap`` slots untouched."""
+    text = " ".join(schema["description"].split())
+    assert "a free slot is enough" in text
+    assert "fewer than ``rider_cap``" in text
+    assert "decides last" in text
+    assert "slots - rider_cap" not in text
+
+
 def test_the_agents_hitchhike_bounds_are_the_schemas(schema: dict[str, Any]) -> None:
     from mcgyvr.rig import protocol as p
     from mcgyvr.rig import sessionwire as w

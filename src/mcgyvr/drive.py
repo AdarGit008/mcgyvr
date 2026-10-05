@@ -297,7 +297,8 @@ def dispatch_prompt(
     ceiling the rung carries. The argument for which of
     the two wins is written where the choice is made, in ``reply_cap``. A
     raw-text reply (``prose`` / ``media_artifact``) is uncapped, so ``cap`` is
-    ``None`` there and the runner omits the wire field.
+    ``None`` there and the runner omits the wire field — except on a ride,
+    which is sent the ceiling it carries.
 
     ``contract`` is taken whole rather than as a cap, because a binding given
     only a number cannot be the place the fit refusal happens, and the refusal

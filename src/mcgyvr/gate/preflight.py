@@ -337,7 +337,8 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     A raw-text reply (``prose`` / ``media_artifact``) is uncapped: its
     ``limits.max_output_tokens`` is ``None``, and this returns ``None`` before
     the rung's own ``output_tokens`` is consulted — an uncapped reply stays
-    uncapped wherever it runs.
+    uncapped on every rung of one's own. On a ride it is given the ceiling
+    the rung carries, where it carries one (below).
 
     **They are not the same kind of statement, and that is the whole argument.**
     A contract's cap is written by whoever wrote the work and says what this
@@ -386,13 +387,15 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     model that answers here, so it cannot say what that model needs and does
     not win as a rung's own number does; it only keeps the same request from
     being given more room on the stand-in than on the unit it stood in for.
-    So the cap chosen above is sent, or the ceiling where that is smaller: the
-    contract's where no ceiling is carried, and still nothing where the
-    contract has no cap.
+    So the cap chosen above is sent, or the ceiling where that is smaller, and
+    the contract's where no ceiling is carried. A contract with no cap is sent
+    the ceiling: the local unit's limit applies to the ride whatever the
+    contract says, so another person's unit is not asked for a reply nothing
+    bounds. Where the local unit declares none either, nothing is sent.
     """
     declared = contract.limits.max_output_tokens
     if declared is None:
-        return None
+        return rung.output_ceiling
     cap = declared if rung.output_tokens is None else rung.output_tokens
     if rung.output_ceiling is not None:
         return min(cap, rung.output_ceiling)

@@ -200,7 +200,8 @@ def task_type(name: str) -> CatalogTaskType:
 # `units.<name>.output_tokens` sends that number for every contract it serves,
 # in place of the contract's (`mcgyvr.gate.preflight.reply_cap`). A relief rung
 # (another person's unit, ridden when the rider's own is full) is sent the
-# smaller of the contract's cap and the local unit's.
+# smaller of the contract's cap and the local unit's, and the local unit's
+# where the contract has none.
 #
 # A cap derived here for a contract loaded from text is not part of that
 # contract's emitted form: `dumps` writes `null` for it, so changing these
