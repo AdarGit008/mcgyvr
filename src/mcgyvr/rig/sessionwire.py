@@ -987,7 +987,11 @@ class AdvertisedUnit:
     ``slots`` is how many requests the unit serves at once and ``ctx`` the
     context of each; ``free_slots`` the slots the host's own requests leave
     free now (the rides it serves are not taken off); ``rider_cap`` the most
-    rides at once the host allows, below ``slots``: the host keeps one.
+    rides at once the host allows, below ``slots``, so rides alone never fill
+    a unit. The host's own requests go first, and a free slot is enough: a
+    unit takes a ride while one of its slots is free and fewer than
+    ``rider_cap`` rides run on it; no slot is kept free for the host beyond
+    that.
     """
 
     unit_id: str
