@@ -23,7 +23,12 @@ of them (:func:`register` puts its handlers on the dispatcher):
   at once, so each side's handshakes open its own NAT for the other's — then
   the peer's relay, bound from this machine (:func:`bind_relay`), which it
   stays pointed at until :attr:`Timing.connect_s` (or the hub's
-  ``connect_timeout_s``) is over: the peer may reach the relay later. It is
+  ``connect_timeout_s``) is over: the peer may reach the relay later. A
+  path a handshake confirms is sent a ping as large as the tunnel's interface
+  carries (:data:`mcgyvr.sandbox.pooled.PING_SCRIPT`): one that answers a
+  small ping and loses those cannot carry a model, so a candidate found so
+  is spent like one that never answered, and a relay found so ends the walk
+  at once. It is
   answered ``tunnel_report``: each peer's path (``lan``, ``direct``,
   ``relay`` or ``none``), the endpoint WireGuard uses and the round trip
   over the tunnel (also sent as ``peer_rtt``). The tunnel's table lets
@@ -41,7 +46,12 @@ of them (:func:`register` puts its handlers on the dispatcher):
   its workers over the tunnel (:meth:`Sessions._watch`): a worker not heard
   from for :attr:`Timing.peer_lost_s` fails the session as ``no_path`` (the
   hub's code for a peer no path reaches) — an engine whose worker's rig is
-  gone is never told so, and would wait out its whole load. A head on this
+  gone is never told so, and would wait out its whole load. While it loads,
+  it also counts what the tunnel sends its workers (:meth:`Sessions._moving`):
+  a load that has not sent them :data:`LOAD_STALL_BYTES` in
+  :attr:`Timing.stall_s` fails the session as ``load_stalled`` — a path that
+  carries a ping and loses a full packet leaves the worker heard from and
+  the weights standing still. A head on this
   rig's cards alone (a session of one rig) needs no ``tunnel_up``, only the
   prepared tunnel container its head runs in;
 * ``session_query`` is answered with where the session stands;
@@ -91,6 +101,7 @@ import json
 import os
 import queue
 import socket
+import sys
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -178,6 +189,14 @@ WARM_UP_TOKENS = 32
 #: The share of the session's context the warm-up's prompt may take, as a
 #: divisor: a quarter, so prompt, template and answer fit any context.
 WARM_UP_CONTEXT_SHARE = 4
+#: The code of a head whose load stopped moving. The hub's list does not name
+#: it: a session's ``error_code`` is an open set, which the hub passes on.
+LOAD_STALLED = "load_stalled"
+#: What a loading head sends its workers over the tunnel, in bytes, within
+#: :attr:`Timing.stall_s`, to count as moving: far above what pings,
+#: keepalives and a stuck connection's retries send in that time, far below
+#: what a load sends over the slowest link that finishes one.
+LOAD_STALL_BYTES = 1 << 20
 
 
 class Docker(Protocol):
@@ -222,6 +241,7 @@ class Timing:
     stop_wait_s: float = 120.0
     ping_s: float = 30.0
     peer_lost_s: float = 45.0
+    stall_s: float = 240.0
     warm_s: float = 300.0
     attempt_s: float = 5.0
     connect_s: float = 60.0
@@ -242,6 +262,7 @@ class Timing:
             stop_wait_s=5.0,
             ping_s=0.5,
             peer_lost_s=0.2,
+            stall_s=5.0,
             warm_s=1.0,
             attempt_s=0.05,
             connect_s=2.0,
@@ -304,6 +325,9 @@ class _Session:
     checked_at: float = 0.0
     watched_at: float = 0.0
     heard: dict[str, tuple[int, float]] = field(default_factory=dict)
+    sent: int | None = None  # the bytes the tunnel sent its workers, last look
+    moved: tuple[int, float] | None = None  # ``sent`` a stall's worth ago, when
+    quiet_s: float = 0.0  # the longest a load took to send a stall's worth
     traversal: sessionwire.Traversal | None = None
     stun_rtt_us: int | None = None
     report: tuple[sessionwire.PeerPath, ...] | None = None
@@ -412,6 +436,16 @@ class _Walk:
     result: sessionwire.PeerPath | None = None
     held: tuple[str, int] | None = None  # the confirmed endpoint
     moved: bool = False
+    rtt_us: int | None = None  # the round trip over the confirmed path
+    # A path of this peer lost full-size packets: the handshake made on it
+    # still stands, so what is tried after it is proved by a ping, not by it.
+    narrowed: bool = False
+    why: str = ""  # what was lost, for the failure of a peer left no path
+
+
+def _log(line: str) -> None:
+    """Say ``line`` where the agent says what it does: its standard error."""
+    print(line, file=sys.stderr, flush=True)
 
 
 def _ipv4(text: str) -> ipaddress.IPv4Address | None:
@@ -466,8 +500,10 @@ class Sessions:
         send: Callable[[str], bool],
         timing: Timing | None = None,
         clock: Callable[[], float] = time.monotonic,
+        log: Callable[[str], None] = _log,
     ) -> None:
         self.machine = machine
+        self._log = log
         self.timing = timing or Timing()
         self._docker = docker
         self._send = send
@@ -1178,6 +1214,9 @@ class Sessions:
         except pooled.PoolError:
             said = ""
         received = pooled.read_transfer(said)
+        sent = pooled.read_sent(said)
+        if any(key in sent for key in watched):
+            session.sent = sum(sent.get(key, 0) for key in watched)
         now = self._clock()
         for key, host in watched.items():
             last, at = session.heard[key]
@@ -1193,6 +1232,53 @@ class Sessions:
                         pooled.container_name(session.id, "head"), LOG_LINES
                     ),
                 )
+
+    def _moving(self, session: _Session) -> None:
+        """A loading head's look at what the tunnel sent its workers, all of
+        them together (they take their layers one after another, so one
+        waits while another loads): a load that has not sent them
+        :data:`LOAD_STALL_BYTES` in :attr:`Timing.stall_s` has stalled. The
+        longest it took to send that much is kept (``quiet_s``). A head
+        alone has no worker and is never looked at. What the head reads
+        from its own disk is not counted — the engine maps the file, and a
+        read the machine has cached reaches no counter — so the time must
+        cover the longest a head reads without sending."""
+        if session.sent is None:
+            return
+        now = self._clock()
+        if session.moved is None:
+            session.moved = (session.sent, now)
+            return
+        before, at = session.moved
+        if session.sent - before >= LOAD_STALL_BYTES:
+            session.quiet_s = max(session.quiet_s, now - at)
+            session.moved = (session.sent, now)
+        elif now - at > self.timing.stall_s:
+            session.quiet_s = max(session.quiet_s, now - at)
+            raise _FailureError(
+                LOAD_STALLED,
+                f"the load stalled: the tunnel sent the workers "
+                f"{max(0, session.sent - before)} bytes in {now - at:.1f} s, "
+                f"under the {LOAD_STALL_BYTES} that count as moving in "
+                f"{self.timing.stall_s:g} s",
+                self._docker.logs(pooled.container_name(session.id, "head"), LOG_LINES),
+            )
+
+    def _loaded(self, session: _Session, started: float, how: str) -> None:
+        """Say how a split load went: how long it took, and the longest it
+        took to send its workers :data:`LOAD_STALL_BYTES`, which is what
+        :attr:`Timing.stall_s` is to be set above."""
+        if session.sent is None:
+            return
+        now = self._clock()
+        if session.moved is not None:
+            session.quiet_s = max(session.quiet_s, now - session.moved[1])
+        self._log(
+            f"session {session.id}: the head's load {how} after "
+            f"{now - started:.0f} s; the longest it took to send its workers "
+            f"{LOAD_STALL_BYTES} bytes was {session.quiet_s:.0f} s "
+            f"(stalled past {self.timing.stall_s:g} s)"
+        )
 
     def _warm(self, session: _Session, name: str) -> None:
         """Warm the loaded head (:func:`warm_up`) while the session lives on:
@@ -1384,14 +1470,26 @@ class Sessions:
             changed = False
             for walk in open_:
                 key = walk.peer.public_key
-                if (
-                    seen is not None
+                shaken = (
+                    seen.endpoints.get(key)
+                    if seen is not None
                     and walk.aim is not None
                     and seen.handshakes.get(key, 0) > 0
-                    and key in seen.endpoints
+                    else None
+                )
+                ping = self._ping(session, walk) if shaken is not None else None
+                if ping is not None and ping.narrow:
+                    self._spend(session, walk, ping)
+                    changed = True
+                elif shaken is not None and (
+                    not walk.narrowed or (ping is not None and ping.full)
                 ):
-                    walk.held = seen.endpoints[key]
-                    walk.result = self._confirmed(walk, walk.held)
+                    walk.held = shaken
+                    walk.result = self._confirmed(walk, shaken)
+                    if ping is not None and ping.rtt_ms is not None:
+                        walk.rtt_us = min(
+                            round(ping.rtt_ms * 1000), sessionwire.MAX_RTT_US
+                        )
                     changed = True
                 elif walk.aim is None or (
                     not walk.relayed and now - walk.since >= attempt
@@ -1439,6 +1537,48 @@ class Sessions:
         walk.aim = None
         walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
 
+    def _ping(self, session: _Session, walk: _Walk) -> pooled.PingSeen | None:
+        """What a ping over the tunnel to ``walk``'s peer says of the path a
+        handshake just confirmed: its round trip, and whether it carries a
+        full-size packet. ``None`` when the peer has no address to ping or
+        the ping could not be run or answered."""
+        host = walk.peer.tunnel_host
+        if host is None:
+            return None
+        try:
+            return pooled.read_ping(
+                self._docker.run_script(
+                    session.tunnel_name, pooled.PING_SCRIPT, str(host)
+                )
+            )
+        except pooled.PoolError:
+            return None
+
+    def _spend(self, session: _Session, walk: _Walk, ping: pooled.PingSeen) -> None:
+        """Leave the path ``walk`` is aimed at, which answers a small ping
+        and loses every full-size one: a candidate is spent and the walk
+        goes on; the relay, with nothing after it, leaves the peer no path —
+        now, not at the deadline: waiting does not widen a path."""
+        assert walk.aim is not None
+        host, port = walk.aim
+        what = "its relay" if walk.relayed else "a candidate"
+        walk.why = (
+            f"{what} answered a small ping and lost every full-size one "
+            f"({ping.size} bytes of data): the path's MTU is too small for "
+            "the tunnel"
+        )
+        self._log(
+            f"session {session.id}: peer {walk.peer.rig_id} at {host}:{port}: "
+            f"{walk.why}"
+        )
+        walk.narrowed = True
+        if walk.relayed:
+            walk.aim = None
+            walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
+            return
+        self._next_aim(walk)
+        walk.since = self._clock()
+
     def _confirmed(
         self, walk: _Walk, endpoint: tuple[str, int]
     ) -> sessionwire.PeerPath:
@@ -1479,31 +1619,23 @@ class Sessions:
         self._docker.run_script(session.tunnel_name, pooled.PATH_SCRIPT, *args)
 
     def _report(self, session: _Session, walks: Sequence[_Walk]) -> None:
-        """Measure each confirmed path over the tunnel, answer every
-        ``tunnel_up`` waiting with the report, and fail the session when a
-        peer has no path."""
+        """Answer every ``tunnel_up`` waiting with the report — each
+        confirmed path with the round trip measured over it when it was
+        confirmed — and fail the session when a peer has no path."""
         paths = []
         samples = []
         for walk in walks:
             result = walk.result
             assert result is not None
-            host = walk.peer.tunnel_host
-            if result.path != "none" and host is not None:
-                try:
-                    said = self._docker.run_script(
-                        session.tunnel_name, pooled.PING_SCRIPT, str(host)
-                    ).strip()
-                    rtt = min(round(float(said) * 1000), sessionwire.MAX_RTT_US)
-                except (pooled.PoolError, ValueError):
-                    rtt = None
-                if rtt is not None and rtt >= 0:
-                    result = sessionwire.PeerPath(
-                        rig_id=result.rig_id,
-                        path=result.path,
-                        endpoint=result.endpoint,
-                        rtt_us=rtt,
-                    )
-                    samples.append((walk.peer.rig_id, rtt))
+            rtt = walk.rtt_us
+            if result.path != "none" and rtt is not None:
+                result = sessionwire.PeerPath(
+                    rig_id=result.rig_id,
+                    path=result.path,
+                    endpoint=result.endpoint,
+                    rtt_us=rtt,
+                )
+                samples.append((walk.peer.rig_id, rtt))
             paths.append(result)
         lost = [p.rig_id for p in paths if p.path == "none"]
         if not lost:
@@ -1517,10 +1649,14 @@ class Sessions:
         if samples:
             self._say(sessionwire.peer_rtt(samples[: sessionwire.MAX_RTT_SAMPLES]))
         if lost:
+            why = next(
+                (f"; {w.why}" for w in walks if w.peer.rig_id == lost[0] and w.why),
+                "",
+            )
             raise _FailureError(
                 SessionCode.NO_PATH,
                 f"no path reached peer {lost[0]}: no candidate answered and no "
-                "relay carried it",
+                f"relay carried it{why}",
             )
 
     def _cache(self, session: _Session) -> Path | None:
@@ -1676,25 +1812,32 @@ class Sessions:
         self._docker.start(pooled.head_argv(session.head, self.machine.owner))
         self._move(session, "loading")
         self._say(self._status(session, None))
-        deadline = self._clock() + self.timing.load_s
-        while True:
-            if self._docker.state(name) != "running":
-                raise _FailureError(
-                    SessionCode.START_FAILED,
-                    "the head ended while loading",
-                    self._docker.logs(name, LOG_LINES),
-                )
-            self._watch(session)
-            if self.machine.head_health(session.api_port) == "ok":
-                break
-            if self._clock() > deadline:
-                raise _FailureError(
-                    SessionCode.START_FAILED,
-                    "the head did not load in time",
-                    self._docker.logs(name, LOG_LINES),
-                )
-            if self._pause(session):
-                return
+        started = self._clock()
+        deadline = started + self.timing.load_s
+        how = "ended"
+        try:
+            while True:
+                if self._docker.state(name) != "running":
+                    raise _FailureError(
+                        SessionCode.START_FAILED,
+                        "the head ended while loading",
+                        self._docker.logs(name, LOG_LINES),
+                    )
+                self._watch(session)
+                if self.machine.head_health(session.api_port) == "ok":
+                    how = "was done"
+                    break
+                self._moving(session)
+                if self._clock() > deadline:
+                    raise _FailureError(
+                        SessionCode.START_FAILED,
+                        "the head did not load in time",
+                        self._docker.logs(name, LOG_LINES),
+                    )
+                if self._pause(session):
+                    return
+        finally:
+            self._loaded(session, started, how)
         self._warm(session, name)
         if session.stopping.is_set():
             return

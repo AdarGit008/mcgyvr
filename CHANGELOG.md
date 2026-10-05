@@ -320,6 +320,34 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   the second arrived and the session failed `no_path`. A relay that cannot be
   bound still fails at once; one that never answers now fails at
   `connect_timeout_s`.
+- A split load that stops moving fails as `load_stalled`, on the rig, instead
+  of holding its cards until the hub's start timeout. The head's watch of its
+  workers counts any byte received as life, and a path that loses full
+  packets still answers a ping, so it never fired on such a load. While it
+  loads, a head now also counts what its tunnel sends its workers, all
+  together: under 1 MiB (`LOAD_STALL_BYTES`) in 240 s (`Timing.stall_s`) is a
+  stall. Healthy loads were measured quiet for up to about 85 s while the
+  head read its own layers from disk; those reads are not counted (the
+  engine maps the file, and a cached read reaches no counter), so the time
+  alone covers them. A slow load that keeps moving is not judged, a ready
+  unit is not judged, and a head alone on one rig has no tunnel to count.
+  Each split load says, in the agent's log, the longest it took to send its
+  workers that much, so the time can be set from real loads. `load_stalled`
+  is a new value of a session's `error_code`, an open set.
+- A tunnel's path is taken only if it carries a full-size packet. A
+  handshake and a ping are small; a path whose MTU is smaller than the
+  tunnel was sized for passed both and lost a model's weights. When a
+  handshake confirms a path, the step that measures its round trip now also
+  sends pings as large as the tunnel's interface carries (its MTU, read from
+  the interface, less the ping's 28 bytes of headers). A path that answers
+  the small ping and none of those is not taken, and the agent's log says
+  why: a candidate is spent like one that never answered and the walk goes
+  on; what follows it is taken only once a full-size ping crosses it, since
+  the handshake made on the spent candidate still stands. A relay found so
+  ends the walk at once instead of being held until `connect_timeout_s` —
+  waiting does not widen a path — and the session fails `no_path`, saying
+  what was lost. The round trip is now measured when each path is
+  confirmed, not after the whole walk.
 
 ## [0.2.0] - 2026-09-16
 
