@@ -260,6 +260,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   and a stale rung's 404: a full rung, asked once, so the request goes on to
   the rider's own ladder. A hub that does not send the new code yet is read
   as before.
+- A rung whose model the hub cannot place is passed over, not failed. A hub
+  ends a hold nothing can satisfy with `503 model_unplaced` and no
+  `Retry-After`. That answer ended the whole run as an error on the rung that
+  got it. It is now read as a full rung, on any rung: asked once, no attempt
+  spent, and the climb tries the next rung at once, another model's included.
+  Any other 503 is still the rung's error.
 - A relief rung is sent the smaller of the contract's output cap and the
   local unit's (hitchhike). It was sent the contract's
   `limits.max_output_tokens` whatever the rider's own unit declared, so one

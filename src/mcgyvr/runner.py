@@ -72,6 +72,9 @@ there, those three answers are :class:`ReliefUnavailableError`, a
 around as a full rung. The rung is asked once and never again for the same
 request: a host that left is not waited for, whatever the answer says of
 retrying. From a ladder rung the same body is that rung's error.
+A hub that cannot place a pooled model answers ``503`` ``model_unplaced``,
+on any rung: the same kind of answer, :class:`ModelUnplacedError`, and the
+climb tries the next rung at once, another model's included.
 A ridden answer is held to the host's model, not to the ``hitchhike@<id>`` it
 was asked for (the hub's name for the rung): the hub passes the host's real
 model name through, and an answer naming any other — or none — is the rung
@@ -202,6 +205,21 @@ RELIEF_UNAVAILABLE: frozenset[tuple[int, str]] = frozenset(
         (404, "model_not_found"),
     }
 )
+
+
+class ModelUnplacedError(SlotUnavailableError):
+    """A hub said nothing can serve the rung's model now.
+
+    A full rung, not a failure, on any rung: no model was asked, and the
+    request is not pinned to this one, so the climb goes on to the next rung
+    at once (see the module docstring).
+    """
+
+
+#: A hub's answer for a pooled model it held the request for and cannot
+#: place: the rig that held it is gone, and the answer carries no
+#: ``Retry-After``.
+MODEL_UNPLACED: tuple[int, str] = (503, "model_unplaced")
 
 
 class ProtocolError(RunnerError):
@@ -555,6 +573,11 @@ class Runner(ABC):
                 raise ReliefUnavailableError(
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
+                ) from exc
+            if (exc.status, exc.code) == MODEL_UNPLACED:
+                raise ModelUnplacedError(
+                    f"rung {self.endpoint.source!r} names a model its hub "
+                    f"cannot place now: {exc}"
                 ) from exc
             raise
         latency_s = time.monotonic() - started
