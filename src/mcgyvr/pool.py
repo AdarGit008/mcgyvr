@@ -160,9 +160,10 @@ class Endpoint:
     #: ``None`` for no such bound. Set for a relief rung, which declares no
     #: ``output_tokens`` of its own: it is the local unit's, the first usable
     #: rung of the rider's own ladder (the one a ride stands in for when it is
-    #: full), so a ride is sent the smaller of the contract's cap and that. A
-    #: bound and never a number that wins: it can lower the cap sent, not
-    #: raise it (:func:`mcgyvr.gate.preflight.reply_cap`).
+    #: full), so a ride is sent the smaller of the contract's cap and that,
+    #: and that alone where the contract has no cap. A bound and never a
+    #: number that wins: it can lower the cap sent, not raise it
+    #: (:func:`mcgyvr.gate.preflight.reply_cap`).
     output_ceiling: int | None = None
     #: How long one dispatch to this unit may take, from the unit's own
     #: ``request_timeout_s``, or ``None`` when it declared none. Per unit, not
