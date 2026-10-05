@@ -11,14 +11,18 @@ A session ends one of three ways, and each is judged once, by
 :func:`_judge`:
 
 * **asked to stop** — the channel is closed with 1000 and the agent ends;
-* **refused** — the hub refused the token at the upgrade, revoked it, bound
-  the rig to another machine, speaks another protocol version, or handed the
-  rig to a newer agent. Asking again would be refused again (or would take
-  the rig back from that newer agent, and so on, forever), so the agent ends
-  and says what the user can do;
+* **refused** — the hub refused the token at the upgrade (401, 403), revoked
+  it, bound the rig to another machine, speaks another protocol version, or
+  handed the rig to a newer agent. Asking again would be refused again (or
+  would take the rig back from that newer agent, and so on, forever), so the
+  agent ends and says what the user can do;
 * **lost** — anything else: the channel dropped, the hub timed the agent out
   or throttled it, the hub could not be reached, the machine could not be
-  read, a hello or :data:`MISSED_ACKS` heartbeats in a row went unacked. The
+  read, a hello or :data:`MISSED_ACKS` heartbeats in a row went unacked. Any
+  other answer at the upgrade is here too, a 404 among them: the hub itself
+  refuses a token with 403 and has no 404 of its own for a rig, while a proxy
+  in front of it answers 404 (or 502, 503, 504) while the hub restarts, and
+  an agent that ended on it would stay off until someone started it. The
   agent waits (:class:`Backoff`) and starts a new session — no longer than
   :data:`HURRY_S` while the rig's sessions wait out the grace the hub keeps
   them for (``hurry``), so it is back in time for its hello to resume them.
@@ -224,8 +228,10 @@ def _judge(failure: Exception, last_error: protocol.Error | None) -> Exception:
                 "showed when the rig was created, or rotate it and join again"
             )
         if failure.status == 404:
-            return _RefusedError(
-                "the hub has no agent channel at this address; check the hub's address"
+            return _LostError(
+                "the hub's address answered HTTP 404: no agent channel is there "
+                "now (a proxy answers so while the hub behind it restarts); if "
+                "this goes on, check the hub's address"
             )
         return _LostError(f"the hub could not be reached: {shown(str(failure))}")
     if isinstance(failure, websocket.ClosedError):

@@ -1489,6 +1489,16 @@
       "says": "How often, in seconds, the agent looks at the processes hashing its tensor cache.",
       "reason": "how often or how many times the product tries its own step again"
     },
+    "rig/tensorcache.py:SAVED_VERSION": {
+      "kind": "choice",
+      "says": "The version of the saved tensor-cache ledger's format; a ledger of another version is not read, and the cache folder is hashed again.",
+      "reason": "a code or version other programs or files read"
+    },
+    "rig/tensorcache.py:MAX_SAVED_BYTES": {
+      "kind": "choice",
+      "says": "The largest saved tensor-cache ledger read back, in bytes; what the agent writes is far smaller, and a larger file is not read.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
     "rig/tunnel.py:NARROWEST_PREFIX": {
       "kind": "fact",
       "says": "The narrowest IPv4 network that holds two hosts.",

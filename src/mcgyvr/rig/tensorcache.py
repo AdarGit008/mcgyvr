@@ -23,8 +23,24 @@ the folder before a worker mounts it (:meth:`Ledger.check`): a file whose
 content hashes to its name is kept, anything else under the folder — a torn
 file, a file of any other name, a link — is removed, and the folder is
 mounted only while every file in it is one the agent hashed and that has not
-changed since (:meth:`Ledger.trusted`). The ledger is the agent's memory, so
-a new agent hashes the whole folder once.
+changed since (:meth:`Ledger.trusted`).
+
+The ledger outlives the agent. After each check it is written beside the
+cache folder (:func:`saved_beside`; never in it, since a worker mounts the
+folder), and a new agent reads it back, so the first worker session after an
+agent restart mounts the cache instead of being sent every tensor again while
+the whole folder is hashed once more. What is read back is trusted no further
+than the agent's own memory was: a file counts only while its device, inode,
+size and times are what the last agent hashed, so a file written to, cut
+short or replaced since is hashed again, a file the ledger does not name is
+too, and one that is gone is forgotten. The cache is addressed by content — a
+file's name is its tensor's hash, whatever model sent it — so a file that is
+whole is right for any model that asks for that name, and the ledger never
+says more of a file than that it is whole. The saved ledger names the boot it
+was written in (:func:`boot_id`) and is read in that boot alone: a machine
+that went down may have lost a file's content and kept its size and times, so
+after a reboot, or where the boot cannot be told, the folder is hashed as
+before. A saved ledger that does not read is no ledger.
 
 The hashing runs in processes of their own at the lowest priority
 (:func:`hash_files`), so the agent's threads never wait on it.
@@ -33,6 +49,7 @@ The hashing runs in processes of their own at the lowest priority
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import re
 import stat
@@ -56,6 +73,12 @@ CHUNK = 1 << 22
 HASHERS = max(1, min(4, (os.cpu_count() or 1) // 2))
 #: How often a hashing process is looked at, in seconds.
 HASHER_POLL_S = 0.01
+
+#: Where the kernel names this boot of the machine.
+BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
+#: The saved ledger's shape, and the most of one that is read, in bytes.
+SAVED_VERSION = 1
+MAX_SAVED_BYTES = 64 << 20
 
 #: What says a file is the one the agent hashed: its device, inode, size,
 #: and the times any write to it changes.
@@ -141,11 +164,100 @@ def _remove(path: Path) -> None:
         path.unlink()
 
 
-class Ledger:
-    """The files of a cache folder this agent hashed, as they were then."""
+def boot_id() -> str | None:
+    """This boot of the machine, as its kernel names it; ``None`` where it
+    does not say."""
+    try:
+        found = BOOT_ID.read_text(encoding="ascii").strip()
+    except (OSError, ValueError):
+        return None
+    return found or None
 
-    def __init__(self) -> None:
-        self._known: dict[Path, Identity] = {}
+
+def saved_beside(folder: Path) -> Path:
+    """Where the ledger of cache ``folder`` is kept: beside it, not in it."""
+    return folder.with_name(folder.name + ".ledger.json")
+
+
+def _read_saved(saved: Path) -> dict[Path, Identity]:
+    """What ``saved`` says was hashed, when it was written in this boot and
+    reads whole; nothing otherwise."""
+    boot = boot_id()
+    if boot is None:
+        return {}
+    try:
+        descriptor = os.open(saved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return {}
+    try:
+        with os.fdopen(descriptor, "rb") as handle:
+            found = os.fstat(handle.fileno())
+            if not stat.S_ISREG(found.st_mode) or found.st_size > MAX_SAVED_BYTES:
+                return {}
+            document = json.loads(handle.read(MAX_SAVED_BYTES + 1))
+    except (OSError, ValueError, RecursionError):
+        return {}
+    if (
+        not isinstance(document, dict)
+        or document.get("v") != SAVED_VERSION
+        or document.get("boot") != boot
+        or not isinstance(document.get("files"), dict)
+    ):
+        return {}
+    known: dict[Path, Identity] = {}
+    for name, identity in document["files"].items():
+        path = Path(name)
+        if (
+            not path.is_absolute()
+            or not NAME.fullmatch(path.name)
+            or not isinstance(identity, list)
+            or len(identity) != 5
+            or not all(type(part) is int for part in identity)
+        ):
+            return {}
+        known[path] = (
+            identity[0],
+            identity[1],
+            identity[2],
+            identity[3],
+            identity[4],
+        )
+    return known
+
+
+class Ledger:
+    """The files of a cache folder an agent hashed, as they were then: this
+    agent's, and with ``saved`` the last agent's of this boot, read from it
+    and written back after each check."""
+
+    def __init__(self, saved: Path | None = None) -> None:
+        self._saved = saved
+        self._known: dict[Path, Identity] = {} if saved is None else _read_saved(saved)
+
+    def _save(self) -> None:
+        """Write what is known to the saved ledger, whole or not at all; a
+        ledger that could not be written is one the next agent hashes for."""
+        boot = boot_id()
+        if self._saved is None or boot is None:
+            return
+        document = {
+            "v": SAVED_VERSION,
+            "boot": boot,
+            "files": {str(path): list(i) for path, i in sorted(self._known.items())},
+        }
+        partial = self._saved.with_name(f"{self._saved.name}.{os.getpid()}.tmp")
+        try:
+            _remove(partial)
+            descriptor = os.open(
+                partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+            )
+            with os.fdopen(descriptor, "w", encoding="ascii") as handle:
+                json.dump(document, handle)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(partial, self._saved)
+        except OSError:
+            _remove(partial)
 
     def trusted(self, folder: Path) -> bool:
         """Whether every file under ``folder`` is one this agent hashed, and
@@ -185,6 +297,7 @@ class Ledger:
                 self._known[path] = identity
             else:
                 _remove(path)
+        self._save()
 
 
 if __name__ == "__main__":

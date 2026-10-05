@@ -8,9 +8,13 @@ a session has held — and, while the rig's sessions wait out the grace the hub
 keeps them for, after no more than a short wait, so the agent is back in
 time to resume them; a hub that refuses the token, revokes it, binds it to
 another machine, or hands the rig to a newer agent ends the agent instead,
-since asking again would be refused again. A hub that stops acking is given
-up on. Whatever the hub floods the agent with, the agent answers within a
-rate the hub allows and keeps beating. A session that ended and freed its
+since asking again would be refused again. An address that answers 404 (or
+502, 503, 504) at the upgrade is not such a refusal: a proxy in front of the
+hub answers so while the hub behind it restarts, so the agent keeps asking,
+with the same backoff, and says the address may be wrong. A hub that stops
+acking is given up on. Whatever the hub floods the agent with, the agent
+answers within a rate the hub allows and keeps beating. A session that ended
+and freed its
 memory has a heartbeat go at once (no sooner than a second after the last),
 so the hub's reading of the rig is not stale; an error the hub sends reaches
 the rig's sessions. Asked to stop, it closes the channel cleanly.
@@ -294,7 +298,6 @@ def test_a_channel_that_drops_is_reopened(ending: Any, error: str | None) -> Non
     [
         ("handshake 403", "refused"),
         ("handshake 401", "refused"),
-        ("handshake 404", "agent channel"),
         ("revoked", "revoked"),
         ("superseded", "another agent"),
         ("machine_mismatch", "another machine"),
@@ -321,6 +324,39 @@ def test_a_refusal_ends_the_agent_without_asking_again(step: str, words: str) ->
     assert words in ended.why
     assert len(channels) <= 1
     assert not clock.waits
+
+
+@pytest.mark.parametrize("status", [404, 502, 503, 504])
+def test_an_address_that_answers_as_a_proxy_without_its_hub_is_asked_again(
+    status: int,
+) -> None:
+    from mcgyvr.rig import agent as rig_agent
+    from mcgyvr.rig import websocket
+
+    clock = Clock()
+    backoff = rig_agent.Backoff()
+    away = [
+        websocket.HandshakeError(f"the server answered HTTP {status}", status=status)
+        for _ in range(3)
+    ]
+    statuses: list[Any] = []
+    said: list[str] = []
+    agent, channels = _agent(
+        [*away, Hub(beats=2)], clock, said=said, on_status=statuses.append
+    )
+    agent.run()  # ends when the plan does, after the hub took it
+    # never refused on the way: the fourth ask was taken, and it was online
+    online = next(i for i, line in enumerate(said) if line.startswith("online as"))
+    assert not any(line.startswith("refused") for line in said[:online])
+    assert len(channels) == 1
+    assert any(s.connected for s in statuses)
+    assert clock.waits[:3] == pytest.approx(
+        [backoff.first_s, backoff.first_s * 2, backoff.first_s * 4]
+    )
+    lost = [line for line in said if line.startswith("lost the hub")]
+    assert len(lost) >= 3 and all(str(status) in line for line in lost[:3])
+    if status == 404:
+        assert "address" in lost[0]
 
 
 def test_the_backoff_grows_to_its_cap_and_starts_over_after_a_steady_session() -> None:
