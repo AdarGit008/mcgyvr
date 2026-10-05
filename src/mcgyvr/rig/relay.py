@@ -40,7 +40,14 @@ hub gave it, with the unit's model already in it, and the answer comes back as
 the unit gives it. The rides together are bounded by :data:`MAX_ACTIVE` as a
 head's relays are, and share the relays' request ids.
 
-A cancel or a deadline hangs up on the head, which stops generating. What a
+A cancel or a deadline hangs up on the head, which stops generating: so
+does a requester who leaves mid-answer (the hub cancels the relay, or its
+channel takes no more frames), a normal end that is one ``relay_end`` and
+nothing printed. Hanging up shuts the head's socket down under the relay's
+read and no more; the relay's own thread, woken by it, closes the connection.
+``http.client`` closed from another thread while a read of it ends fails in
+whichever loses (an ``AttributeError`` on the file it no longer has), so the
+connection is closed by the one thread that reads it. What a
 relay carries is the users' and is never printed or put in a message: a
 failure says only its class.
 """
@@ -233,7 +240,9 @@ class Relays:
                 deadline=self._clock() + asked.timeout_s,
             )
             self._active[asked.request_id] = relay
-        threading.Thread(target=self._run, args=(relay,), daemon=True).start()
+        threading.Thread(
+            target=self._run, args=(relay,), name="mcgyvr-relay", daemon=True
+        ).start()
         return None
 
     def unit_request(self, envelope: protocol.Envelope) -> str | None:
@@ -289,7 +298,9 @@ class Relays:
                 deadline=self._clock() + asked.timeout_s,
             )
             self._active[asked.request_id] = relay
-        threading.Thread(target=self._run, args=(relay,), daemon=True).start()
+        threading.Thread(
+            target=self._run, args=(relay,), name="mcgyvr-relay", daemon=True
+        ).start()
         return None
 
     def data(self, envelope: protocol.Envelope) -> str | None:
@@ -436,7 +447,9 @@ class Relays:
             timer.cancel()
             with relay.changed:
                 connection, relay.connection = relay.connection, None
-            _hang_up(connection)
+            if connection is not None:
+                with contextlib.suppress(OSError):
+                    connection.close()
             self._end(relay)
 
     def _relay(self, relay: _Relay) -> None:
@@ -505,15 +518,15 @@ class Relays:
 
 
 def _hang_up(connection: http.client.HTTPConnection | None) -> None:
-    """Close ``connection``'s socket under whoever is reading it."""
+    """Shut ``connection``'s socket down under the relay reading it, which
+    then ends and closes it: the head sees the hang-up at once, and the
+    connection is never closed from two threads."""
     if connection is None:
         return
     sock = connection.sock
     if sock is not None:
         with contextlib.suppress(OSError):
             sock.shutdown(socket.SHUT_RDWR)
-    with contextlib.suppress(OSError):
-        connection.close()
 
 
 def register(dispatcher: commands.Dispatcher, relays: Relays) -> None:

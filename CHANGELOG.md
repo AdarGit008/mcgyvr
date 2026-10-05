@@ -352,6 +352,37 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A requester who leaves mid-answer no longer leaves an unhandled exception
+  in the rig agent's log. Ending a relay closed the head's connection from
+  the thread that asked, while the relay's own thread was still reading it;
+  `http.client` closed from both at once failed in one of them
+  (`AttributeError: 'NoneType' object has no attribute 'close'`). Whoever
+  ends a relay now only shuts the socket down, which the head sees at once
+  and stops generating, and the relay's thread closes the connection it
+  reads. Nothing is printed: it is a normal end.
+- A rig agent no longer ends for good when the hub's address answers 404. A
+  reverse proxy in front of a hub answers 404 for a moment while the hub
+  restarts; the agent read that as a refusal ("no agent channel at this
+  address") and exited, so the rig stayed offline until someone started it
+  again. A 404 at the upgrade is now a lost hub like 502, 503 and 504: the
+  agent keeps asking with its usual backoff (up to a minute apart) and says
+  to check the hub's address if it goes on. What still ends the agent is the
+  hub's own refusal: a token refused at the upgrade (401, 403), a revoked
+  token, a rig bound to another machine, another protocol version, a hello
+  not taken, or a newer agent taking the rig over.
+- The first worker session after a rig agent restart mounts the tensor cache.
+  Which cache files the agent had hashed was its memory alone, so a new
+  agent's first worker session ran without the cache (every tensor sent
+  again) while the whole folder was hashed once more. The agent now writes
+  what it hashed beside the cache folder (`<cache folder>.ledger.json`,
+  outside what a worker mounts) and a new agent reads it back. A file counts
+  only while its device, inode, size and times are what was hashed: one
+  written to, cut short or replaced since, or never hashed, is hashed before
+  any worker mounts the folder, as before. The saved ledger is read in the
+  boot it was written in alone, so after a reboot the folder is hashed once
+  as before; nothing in the cache is removed because the agent started, and
+  the trim to `cache_max_mb` runs when a holder's session ends, as before.
+
 - Two worker sessions on one rig no longer share its tensor cache at once.
   The engine writes a cached tensor in place and reads one back unchecked, so
   two sessions sent the same model's tensors could each load the other's

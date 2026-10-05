@@ -12,6 +12,14 @@ exactly one ``relay_end``: ``complete``, ``cancelled`` on the hub's word,
 code for a session that is not there or not ready, a request id used before,
 a body that runs over or out of order, or a head that fails. The prompt is
 never printed, and never put in a message the agent writes.
+
+A requester who leaves mid-answer is a normal end: the hub cancels the relay
+(or its channel no longer takes a frame), the agent hangs up on the head, so
+its slot stops generating for nobody, and the relay's thread ends with its
+one ``relay_end`` and no error of its own. Only the relay's own thread closes
+the connection it reads; whoever stops it only shuts the socket down under
+that read, since ``http.client`` closed from two threads at once fails in
+either.
 """
 
 from __future__ import annotations
@@ -414,3 +422,134 @@ def test_a_sessions_end_ends_its_relays(made: Relay) -> None:
     time.sleep(0.1)
     made.relays.session_ended("s1")
     assert made.ended()["outcome"] == "cancelled"
+
+
+class _Socket:
+    """An upstream socket that says when it was shut down."""
+
+    def __init__(self) -> None:
+        self.shut = threading.Event()
+
+    def shutdown(self, how: int) -> None:
+        self.shut.set()
+
+
+class _Upstream:
+    """A head's connection and its streamed answer in one: a first chunk,
+    then a read that waits, as a head's does between tokens, until the
+    socket is shut down under it; who closed it, and from which thread."""
+
+    status = 200
+
+    def __init__(self) -> None:
+        self.sock = _Socket()
+        self.reader: int | None = None
+        self.closers: list[int] = []
+        self.reads = 0
+
+    def request(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def getresponse(self) -> _Upstream:
+        return self
+
+    def getheader(self, name: str, default: str = "") -> str:
+        return "text/event-stream"
+
+    def read1(self, n: int) -> bytes:
+        self.reader = threading.get_ident()
+        self.reads += 1
+        if self.reads == 1:
+            return b"data: x\n\n"
+        assert self.sock.shut.wait(5.0)
+        return b""
+
+    def close(self) -> None:
+        self.closers.append(threading.get_ident())
+
+
+@pytest.fixture
+def unhandled(monkeypatch: pytest.MonkeyPatch) -> list[BaseException | None]:
+    """Every exception a thread ended with, unhandled."""
+    seen: list[BaseException | None] = []
+    monkeypatch.setattr(
+        threading, "excepthook", lambda args: seen.append(args.exc_value)
+    )
+    return seen
+
+
+def _threads_done() -> None:
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        if not any(t.name.startswith("mcgyvr-relay") for t in threading.enumerate()):
+            return
+        time.sleep(0.005)
+    raise AssertionError("a relay's thread is still running")
+
+
+def test_a_cancel_mid_answer_shuts_the_heads_socket_and_only_the_relay_closes_it(
+    made: Relay,
+    monkeypatch: pytest.MonkeyPatch,
+    unhandled: list[BaseException | None],
+) -> None:
+    from mcgyvr.rig import relay
+
+    upstream = _Upstream()
+    monkeypatch.setattr(relay.Target, "connect", lambda self, timeout: upstream)
+    made.request(_body(), stream=True)
+    deadline = time.monotonic() + 5.0
+    while not made.box.of_type("relay_data") and time.monotonic() < deadline:
+        time.sleep(0.005)
+    made.send("relay_cancel", "c1", request_id="q1", reason="client_gone")
+
+    assert made.ended() == {
+        "request_id": "q1",
+        "outcome": "cancelled",
+        "error_code": "cancelled",
+    }
+    _threads_done()
+    assert upstream.sock.shut.is_set()
+    # closed, and by the thread that read it alone: never under its read
+    assert upstream.closers and set(upstream.closers) == {upstream.reader}
+    assert unhandled == []
+    assert len(made.box.of_type("relay_end")) == 1
+
+
+def test_a_channel_that_stops_taking_frames_mid_answer_ends_the_relay_quietly(
+    made: Relay,
+    unhandled: list[BaseException | None],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    made.head.chunks = [b"data: x\n\n"] * 200
+    made.head.pause_s = 0.02
+    made.request(_body(), stream=True)
+    deadline = time.monotonic() + 5.0
+    while not made.box.of_type("relay_data") and time.monotonic() < deadline:
+        time.sleep(0.005)
+    made.box.open = False  # the hub's side is gone: no frame is taken
+
+    assert made.head.hung_up.wait(5.0)
+    _threads_done()
+    assert unhandled == []
+    assert not made.box.of_type("relay_end")  # nobody is left to tell
+    said = capsys.readouterr()
+    assert "Traceback" not in said.out + said.err
+
+
+def test_many_requesters_leaving_mid_answer_leave_no_error_behind(
+    made: Relay, unhandled: list[BaseException | None]
+) -> None:
+    made.head.chunks = [b"data: x\n\n"] * 2000
+    made.head.pause_s = 0.001
+    for turn in range(40):
+        made.request(_body(), stream=True, request_id=f"q{turn}")
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not any(
+            f["body"]["request_id"] == f"q{turn}"
+            for f in made.box.of_type("relay_data")
+        ):
+            time.sleep(0.001)
+        made.send("relay_cancel", "c1", request_id=f"q{turn}", reason="client_gone")
+        assert made.ended(f"q{turn}")["outcome"] == "cancelled"
+    _threads_done()
+    assert unhandled == []
