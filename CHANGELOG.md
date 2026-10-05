@@ -334,6 +334,20 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   Each split load says, in the agent's log, the longest it took to send its
   workers that much, so the time can be set from real loads. `load_stalled`
   is a new value of a session's `error_code`, an open set.
+- A tunnel's path is taken only if it carries a full-size packet. A
+  handshake and a ping are small; a path whose MTU is smaller than the
+  tunnel was sized for passed both and lost a model's weights. When a
+  handshake confirms a path, the step that measures its round trip now also
+  sends pings as large as the tunnel's interface carries (its MTU, read from
+  the interface, less the ping's 28 bytes of headers). A path that answers
+  the small ping and none of those is not taken, and the agent's log says
+  why: a candidate is spent like one that never answered and the walk goes
+  on; what follows it is taken only once a full-size ping crosses it, since
+  the handshake made on the spent candidate still stands. A relay found so
+  ends the walk at once instead of being held until `connect_timeout_s` —
+  waiting does not widen a path — and the session fails `no_path`, saying
+  what was lost. The round trip is now measured when each path is
+  confirmed, not after the whole walk.
 
 ## [0.2.0] - 2026-09-16
 

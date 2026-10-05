@@ -1769,6 +1769,11 @@
       "says": "A result that states no journal rows left one, the row of its single draw.",
       "reason": "a definition or arithmetic"
     },
+    "sandbox/pooled.py:FULL_PINGS": {
+      "kind": "choice",
+      "says": "How many pings as large as the tunnel's interface carries a newly confirmed path is sent; one answer says the path carries them.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
     "sandbox/pooled.py:HEAD_API_PORT": {
       "kind": "choice",
       "says": "The port a session head's API listens on inside its own network namespace: the engine image's own.",
@@ -1778,6 +1783,11 @@
       "kind": "choice",
       "says": "The most processes and threads a session's head container may run.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "sandbox/pooled.py:PING_HEADERS": {
+      "kind": "fact",
+      "says": "The bytes a ping adds to its data inside a session's tunnel: an IPv4 header (20) and an ICMP header (8).",
+      "reason": "the specification of a format, protocol or tool"
     },
     "sandbox/pooled.py:TUNNEL_MEMORY_MB": {
       "kind": "estimate",

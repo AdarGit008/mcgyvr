@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -123,6 +124,13 @@ TUNNEL_GO_MEMORY_MB = TUNNEL_MEMORY_MB * 3 // 4
 #: path can be that small, and the tunnel's table drops the ICMP that would
 #: say a packet was too big, so a larger packet is lost without a word.
 TUNNEL_MTU = 1200
+#: What a ping adds to its data inside the tunnel: an IPv4 header (20 bytes)
+#: and an ICMP header (8). A ping with the interface's MTU less this much of
+#: data is the largest packet the interface carries whole.
+PING_HEADERS = 28
+#: How many full-size pings a new path is sent: one answer says it carries
+#: them, so a single packet lost on a path that does is not taken for an MTU.
+FULL_PINGS = 3
 #: The writable scratch each container gets, as tmpfs options.
 TUNNEL_TMPFS = "/run:rw,nosuid,nodev,noexec,size=1m"
 ENGINE_TMPFS = "/tmp:rw,nosuid,nodev,noexec,size=64m"
@@ -219,7 +227,7 @@ echo "open"
 #: address, and only that, may send to and receive from the listen port (any
 #: of its ports while candidates are walked: :data:`PATH_SCRIPT` narrows it);
 #: ICMP echo between the rig and its peers' addresses is let through, for the
-#: round-trip probe and the head's watch of its workers.
+#: round-trip probe, its full-size ping and the head's watch of its workers.
 TUNNEL_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
@@ -378,11 +386,28 @@ grep -q " $hex:$port 00000000:0000 0A " /proc/net/tcp
 """
 
 #: The mean round trip to ``$1`` over the tunnel, in milliseconds, once the
-#: tunnel's handshake is done: the first packet to a peer waits for it.
-PING_SCRIPT = r"""set -eu
+#: tunnel's handshake is done: the first packet to a peer waits for it. Then
+#: whether the path carries a packet as large as the interface does, ``full
+#: ok`` or ``full lost`` and the ping's size: :data:`FULL_PINGS` pings of the
+#: interface's own MTU (read from it, never assumed) less
+#: :data:`PING_HEADERS`. Such a packet is never split inside the tunnel, and
+#: WireGuard's own packet around it is one the path must carry whole, so no
+#: don't-fragment flag is asked for (this image's ``ping`` has none). A path
+#: with a smaller MTU carries the small pings and loses these
+#: (:func:`read_ping`).
+PING_SCRIPT = (
+    r"""set -eu
 ping -c 1 -W 2 -q "$1" >/dev/null
 ping -c 5 -i 0.2 -W 1 -q "$1" | awk -F/ '/min\/avg/ {print $4}'
 """
+    + f"size=$(( $(cat /sys/class/net/wg0/mtu) - {PING_HEADERS} ))\n"
+    + f'if ping -c {FULL_PINGS} -i 0.2 -W 1 -q -s "$size" "$1" >/dev/null 2>&1; then\n'
+    + r"""  echo "full ok $size"
+else
+  echo "full lost $size"
+fi
+"""
+)
 
 #: What the tunnel has heard from each peer and sent it: WireGuard's byte
 #: counts per peer key (received, sent), read after one ping over the tunnel
@@ -737,6 +762,49 @@ def read_sent(said: str) -> dict[str, int]:
     """The bytes the tunnel sent each peer, by the peer's key, from what
     :data:`TRANSFER_SCRIPT` printed; a line that does not read is left out."""
     return _read_counts(said, 3)
+
+
+_FULL_LINE = re.compile(r"full (ok|lost) (\d{1,5})")
+
+
+@dataclass(frozen=True, kw_only=True)
+class PingSeen:
+    """What :data:`PING_SCRIPT` printed: the mean round trip in milliseconds
+    (``None`` when no small ping answered), whether a full-size ping answered
+    (``None`` when it did not say) and that ping's bytes of data."""
+
+    rtt_ms: float | None = None
+    full: bool | None = None
+    size: int | None = None
+
+    @property
+    def narrow(self) -> bool:
+        """Whether the path carries small packets and loses full-size ones:
+        a small ping answered and no full-size one did. A peer that answers
+        nothing says nothing of the path's MTU."""
+        return self.rtt_ms is not None and self.full is False
+
+
+def read_ping(said: str) -> PingSeen:
+    """What the tunnel said of a ping to a peer; a line that does not read
+    is left out, so it says nothing against the path."""
+    rtt: float | None = None
+    full: bool | None = None
+    size: int | None = None
+    for line in said.splitlines():
+        line = line.strip()
+        found = _FULL_LINE.fullmatch(line)
+        if found:
+            full, size = found.group(1) == "ok", int(found.group(2))
+            continue
+        if rtt is None and len(line) < _COUNT_DIGITS:
+            try:
+                read = float(line)
+            except ValueError:
+                continue
+            if math.isfinite(read) and read >= 0:
+                rtt = read
+    return PingSeen(rtt_ms=rtt, full=full, size=size)
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -64,7 +64,10 @@ class FakeDocker:
     #: where WireGuard ends up when a peer's NAT moved the port.
     answering: set[tuple[str, int]] | None = None
     roams: dict[tuple[str, int], tuple[str, int]] = field(default_factory=dict)
+    #: The endpoints whose path carries a small ping and loses a full-size one.
+    narrow: set[tuple[str, int]] = field(default_factory=set)
     aims: dict[str, tuple[str, int]] = field(default_factory=dict)
+    nets: dict[str, str] = field(default_factory=dict)
     shaken: dict[str, tuple[str, int]] = field(default_factory=dict)
     peers_said: str | None = None
     stun_said: str = "rtt 203.0.113.9 3478 1500\n"
@@ -99,8 +102,11 @@ class FakeDocker:
 
             raise PoolError("docker exec failed (1): nft said no")
         if script == pooled.PING_SCRIPT:
-            return "0.512\n"
+            return self._ping(args[0])
         if script == pooled.TUNNEL_SCRIPT:
+            with self.lock:
+                for at in range(2, len(args) - 4, 5):
+                    self.nets[args[at]] = args[at + 4]
             self._aim(args[2:], 5, lambda a: True)
         if script == pooled.PATH_SCRIPT:
             self._aim(args[1:], 5, lambda a: a[4] == "1")
@@ -120,7 +126,37 @@ class FakeDocker:
             for at in range(0, len(args) - width + 1, width):
                 one = args[at : at + width]
                 if one[1] != "-" and aims(one):
-                    self.aims[one[0]] = (one[1], int(one[2]))
+                    aim = (one[1], int(one[2]))
+                    if one[0] in self.shaken and self.aims.get(one[0]) != aim:
+                        # WireGuard keeps its handshake and sends where it
+                        # is pointed, whether or not anything answers there.
+                        self.shaken[one[0]] = self.roams.get(aim, aim)
+                    self.aims[one[0]] = aim
+
+    def _ping(self, host: str) -> str:
+        """What :data:`PING_SCRIPT` prints of the peer at tunnel address
+        ``host``: nothing answers where no handshake would."""
+        import ipaddress
+
+        from mcgyvr.sandbox.pooled import PoolError
+
+        with self.lock:
+            aim = next(
+                (
+                    self.aims.get(key)
+                    for key, nets in self.nets.items()
+                    if any(
+                        ipaddress.ip_address(host) in ipaddress.ip_network(net)
+                        for net in nets.split(",")
+                    )
+                ),
+                None,
+            )
+            if self.answering is not None and aim not in self.answering:
+                raise PoolError("docker exec failed (1): ")
+            if aim in self.narrow:
+                return "0.512\nfull lost 1172\n"
+            return "0.512\nfull ok 1172\n"
 
     def _peers(self) -> str:
         if self.peers_said is not None:

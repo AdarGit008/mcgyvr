@@ -23,7 +23,12 @@ of them (:func:`register` puts its handlers on the dispatcher):
   at once, so each side's handshakes open its own NAT for the other's — then
   the peer's relay, bound from this machine (:func:`bind_relay`), which it
   stays pointed at until :attr:`Timing.connect_s` (or the hub's
-  ``connect_timeout_s``) is over: the peer may reach the relay later. It is
+  ``connect_timeout_s``) is over: the peer may reach the relay later. A
+  path a handshake confirms is sent a ping as large as the tunnel's interface
+  carries (:data:`mcgyvr.sandbox.pooled.PING_SCRIPT`): one that answers a
+  small ping and loses those cannot carry a model, so a candidate found so
+  is spent like one that never answered, and a relay found so ends the walk
+  at once. It is
   answered ``tunnel_report``: each peer's path (``lan``, ``direct``,
   ``relay`` or ``none``), the endpoint WireGuard uses and the round trip
   over the tunnel (also sent as ``peer_rtt``). The tunnel's table lets
@@ -431,6 +436,11 @@ class _Walk:
     result: sessionwire.PeerPath | None = None
     held: tuple[str, int] | None = None  # the confirmed endpoint
     moved: bool = False
+    rtt_us: int | None = None  # the round trip over the confirmed path
+    # A path of this peer lost full-size packets: the handshake made on it
+    # still stands, so what is tried after it is proved by a ping, not by it.
+    narrowed: bool = False
+    why: str = ""  # what was lost, for the failure of a peer left no path
 
 
 def _log(line: str) -> None:
@@ -1460,14 +1470,26 @@ class Sessions:
             changed = False
             for walk in open_:
                 key = walk.peer.public_key
-                if (
-                    seen is not None
+                shaken = (
+                    seen.endpoints.get(key)
+                    if seen is not None
                     and walk.aim is not None
                     and seen.handshakes.get(key, 0) > 0
-                    and key in seen.endpoints
+                    else None
+                )
+                ping = self._ping(session, walk) if shaken is not None else None
+                if ping is not None and ping.narrow:
+                    self._spend(session, walk, ping)
+                    changed = True
+                elif shaken is not None and (
+                    not walk.narrowed or (ping is not None and ping.full)
                 ):
-                    walk.held = seen.endpoints[key]
-                    walk.result = self._confirmed(walk, walk.held)
+                    walk.held = shaken
+                    walk.result = self._confirmed(walk, shaken)
+                    if ping is not None and ping.rtt_ms is not None:
+                        walk.rtt_us = min(
+                            round(ping.rtt_ms * 1000), sessionwire.MAX_RTT_US
+                        )
                     changed = True
                 elif walk.aim is None or (
                     not walk.relayed and now - walk.since >= attempt
@@ -1515,6 +1537,48 @@ class Sessions:
         walk.aim = None
         walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
 
+    def _ping(self, session: _Session, walk: _Walk) -> pooled.PingSeen | None:
+        """What a ping over the tunnel to ``walk``'s peer says of the path a
+        handshake just confirmed: its round trip, and whether it carries a
+        full-size packet. ``None`` when the peer has no address to ping or
+        the ping could not be run or answered."""
+        host = walk.peer.tunnel_host
+        if host is None:
+            return None
+        try:
+            return pooled.read_ping(
+                self._docker.run_script(
+                    session.tunnel_name, pooled.PING_SCRIPT, str(host)
+                )
+            )
+        except pooled.PoolError:
+            return None
+
+    def _spend(self, session: _Session, walk: _Walk, ping: pooled.PingSeen) -> None:
+        """Leave the path ``walk`` is aimed at, which answers a small ping
+        and loses every full-size one: a candidate is spent and the walk
+        goes on; the relay, with nothing after it, leaves the peer no path —
+        now, not at the deadline: waiting does not widen a path."""
+        assert walk.aim is not None
+        host, port = walk.aim
+        what = "its relay" if walk.relayed else "a candidate"
+        walk.why = (
+            f"{what} answered a small ping and lost every full-size one "
+            f"({ping.size} bytes of data): the path's MTU is too small for "
+            "the tunnel"
+        )
+        self._log(
+            f"session {session.id}: peer {walk.peer.rig_id} at {host}:{port}: "
+            f"{walk.why}"
+        )
+        walk.narrowed = True
+        if walk.relayed:
+            walk.aim = None
+            walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
+            return
+        self._next_aim(walk)
+        walk.since = self._clock()
+
     def _confirmed(
         self, walk: _Walk, endpoint: tuple[str, int]
     ) -> sessionwire.PeerPath:
@@ -1555,31 +1619,23 @@ class Sessions:
         self._docker.run_script(session.tunnel_name, pooled.PATH_SCRIPT, *args)
 
     def _report(self, session: _Session, walks: Sequence[_Walk]) -> None:
-        """Measure each confirmed path over the tunnel, answer every
-        ``tunnel_up`` waiting with the report, and fail the session when a
-        peer has no path."""
+        """Answer every ``tunnel_up`` waiting with the report — each
+        confirmed path with the round trip measured over it when it was
+        confirmed — and fail the session when a peer has no path."""
         paths = []
         samples = []
         for walk in walks:
             result = walk.result
             assert result is not None
-            host = walk.peer.tunnel_host
-            if result.path != "none" and host is not None:
-                try:
-                    said = self._docker.run_script(
-                        session.tunnel_name, pooled.PING_SCRIPT, str(host)
-                    ).strip()
-                    rtt = min(round(float(said) * 1000), sessionwire.MAX_RTT_US)
-                except (pooled.PoolError, ValueError):
-                    rtt = None
-                if rtt is not None and rtt >= 0:
-                    result = sessionwire.PeerPath(
-                        rig_id=result.rig_id,
-                        path=result.path,
-                        endpoint=result.endpoint,
-                        rtt_us=rtt,
-                    )
-                    samples.append((walk.peer.rig_id, rtt))
+            rtt = walk.rtt_us
+            if result.path != "none" and rtt is not None:
+                result = sessionwire.PeerPath(
+                    rig_id=result.rig_id,
+                    path=result.path,
+                    endpoint=result.endpoint,
+                    rtt_us=rtt,
+                )
+                samples.append((walk.peer.rig_id, rtt))
             paths.append(result)
         lost = [p.rig_id for p in paths if p.path == "none"]
         if not lost:
@@ -1593,10 +1649,14 @@ class Sessions:
         if samples:
             self._say(sessionwire.peer_rtt(samples[: sessionwire.MAX_RTT_SAMPLES]))
         if lost:
+            why = next(
+                (f"; {w.why}" for w in walks if w.peer.rig_id == lost[0] and w.why),
+                "",
+            )
             raise _FailureError(
                 SessionCode.NO_PATH,
                 f"no path reached peer {lost[0]}: no candidate answered and no "
-                "relay carried it",
+                f"relay carried it{why}",
             )
 
     def _cache(self, session: _Session) -> Path | None:
