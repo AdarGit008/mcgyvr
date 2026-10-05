@@ -1,8 +1,10 @@
 """A ridden answer from a model other than the rung's is the rung refusing it.
 
 A relief rung is asked for ``hitchhike@<id>``, and the hub passes the host's
-real model name through in the answer's ``model``: exactly the
-``served_model`` the rung was matched on. An answer naming anything else — or
+real model name through in the answer's ``model``: the ``served_model`` the
+rung was matched on, or that model's weights file as the host's server names it
+(``tests/test_a_unit_answers_by_the_name_its_rung_declares.py``). An answer
+naming anything else — or
 nothing — is not an answer from the unit the rider was matched to, so the
 dispatch ends as :class:`~mcgyvr.runner.ReliefUnavailableError`: the rung
 refused the request, and the climb passes it over as a full rung. One line

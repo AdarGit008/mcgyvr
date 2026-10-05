@@ -320,6 +320,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   the second arrived and the session failed `no_path`. A relay that cannot be
   bound still fails at once; one that never answers now fails at
   `connect_timeout_s`.
+- A ride's answer names the model the rider was matched on. `mcgyvr emit`
+  wrote a llama.cpp unit's launch with no `--alias`, so the server named every
+  answer after the weights path it was handed: a rider received the host's
+  file path as the answer's model, and the rider's own runner, which held a
+  relief answer to its `served_model` by exact equality, discarded it after
+  the hub had charged for it. An emitted llama.cpp server now carries
+  `--alias <the unit's model>` (an alias stated in `launch.serve_args` is kept
+  and none is added), and a relief answer is read by the rule a rung of one's
+  own is read by: the name, or that model's weights file. Emitted compose
+  files change by this one flag; re-emit and restart a shared unit to serve
+  it.
 
 ## [0.2.0] - 2026-09-16
 

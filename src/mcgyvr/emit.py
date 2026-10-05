@@ -71,6 +71,9 @@ from mcgyvr.serving import (
 # argv shape for is refused rather than guessed at: llama.cpp's flags on a vLLM
 # image is a server that fails at load with a message about neither.
 ENGINE_COMMANDS = {"llama.cpp": ("llama-server",), "vllm": ("vllm", "serve")}
+# How llama-server is told the name its answers carry, in both spellings: a
+# unit whose ``serve_args`` state one keeps it, and :func:`argv` adds none.
+ALIAS_FLAGS = ("--alias", "-a")
 # What a llama.cpp process that only lends its card to a server on another
 # machine runs (:data:`mcgyvr.serving.ROLE_RPC`): the worker binary, not the
 # server. It takes no model, because the head sends it the tensors it holds.
@@ -168,10 +171,24 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
 
     ``sleep_mode`` adds vLLM's ``--enable-sleep-mode`` (:func:`sleep_mode`), and
     only for a vLLM unit: llama.cpp has no such mode.
+
+    ``--alias`` is the unit's model, on a llama.cpp server: without it
+    llama-server names every answer after the path it was handed, so a request
+    for the model the setup declares is answered under a file path, and a
+    rider this unit is shared with (:mod:`mcgyvr.rig.hitchhike`) receives that
+    path as the answer's model. An alias the spec's ``serve_args`` state is the
+    owner's and is the only one written; a worker (``rpc``) answers no request
+    and gets none, and vLLM already serves the id it was started with.
     """
     if unit.engine in MEDIA_ENGINES_NOT_WIRED:
         raise EmitError(_media_engine_not_wired(unit))
     flags = {**unit.args, "--port": str(unit.port)}
+    if (
+        unit.engine == "llama.cpp"
+        and unit.role == ROLE_SERVE
+        and not any(flag in ALIAS_FLAGS for flag in (*flags, *unit.extra))
+    ):
+        flags["--alias"] = unit.model
     # vLLM takes the model as its first positional argument, and it is the
     # model id — a repository path the cache resolves — never a file. Then
     # the derived flags, then whatever the spec's ``serve_args`` said, in the
