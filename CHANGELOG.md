@@ -254,6 +254,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A relief rung is sent the smaller of the contract's output cap and the
+  local unit's (hitchhike). It was sent the contract's
+  `limits.max_output_tokens` whatever the rider's own unit declared, so one
+  request got one cap on the rider's rung (its `units.<unit>.output_tokens`)
+  and another on the ride that stood in for it. The local unit is the first
+  usable rung of the rider's own ladder. Where it declares no
+  `output_tokens` the ride is sent the contract's cap, and a contract with no
+  cap (a raw-text reply) is sent uncapped, as on every rung. On the rider's
+  own rungs nothing changes: a unit's `output_tokens` still wins there.
 - A shared unit takes a ride while it has a free slot (hitchhike, the host
   first). A ride was admitted only while the host left `rider_slots` slots
   untouched, so a unit of `width` 2 lending 1 took a ride only while the host

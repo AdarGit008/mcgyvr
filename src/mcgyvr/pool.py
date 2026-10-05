@@ -61,7 +61,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Protocol as TypingProtocol
 
@@ -156,6 +156,14 @@ class Endpoint:
     #: ``None`` falls back to the contract's ``limits.max_output_tokens``; see
     #: :func:`mcgyvr.gate.preflight.reply_cap`, where that happens once.
     output_tokens: int | None = None
+    #: The most room a reply here is given whatever else was declared, or
+    #: ``None`` for no such bound. Set for a relief rung, which declares no
+    #: ``output_tokens`` of its own: it is the local unit's, the first usable
+    #: rung of the rider's own ladder (the one a ride stands in for when it is
+    #: full), so a ride is sent the smaller of the contract's cap and that. A
+    #: bound and never a number that wins: it can lower the cap sent, not
+    #: raise it (:func:`mcgyvr.gate.preflight.reply_cap`).
+    output_ceiling: int | None = None
     #: How long one dispatch to this unit may take, from the unit's own
     #: ``request_timeout_s``, or ``None`` when it declared none. Per unit, not
     #: per config: two units on one host are two processes with two budgets.
@@ -510,6 +518,15 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
                 usable, skipped, endpoints = _drop_wrong_model(
                     config, usable, skipped, endpoints, elsewhere
                 )
+
+    # A ride stands in for the rider's own rung when it is full, so it is given
+    # no more room than that rung's replies are: the first rung still usable,
+    # after the probe, in the ladder's own order. Read here, once, and carried
+    # on the relief endpoint for `reply_cap` to bound the contract's cap by.
+    if usable and relief:
+        local = endpoints[usable[0].name].output_tokens
+        for rung in relief:
+            endpoints[rung.name] = replace(endpoints[rung.name], output_ceiling=local)
 
     return SourceMap(
         rungs=tuple(usable),

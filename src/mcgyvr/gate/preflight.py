@@ -96,6 +96,12 @@ class ServingWindow(Protocol):
         Still not a way to dispatch — it is a number, like the window beside it.
         """
 
+    @property
+    def output_ceiling(self) -> int | None:
+        """The most room a reply on this rung is given whatever else was
+        declared, or ``None`` when nothing bounds it. A bound, read after the
+        choice between the two declared numbers, that can only lower it."""
+
 
 @dataclass(frozen=True)
 class PreflightIssue:
@@ -372,12 +378,25 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     :func:`mcgyvr.cli._cap_undeclared`), since the ladder can be re-pointed at
     rungs that declare nothing and the work still has to say what it will
     spend.
+
+    **A ceiling is the one place the lower of two numbers is sent.** A rung may
+    carry an ``output_ceiling`` (:attr:`mcgyvr.pool.Endpoint.output_ceiling`):
+    the room another unit's replies are given, on a rung that stands in for
+    that unit and declares nothing of its own. It was not measured on the
+    model that answers here, so it cannot say what that model needs and does
+    not win as a rung's own number does; it only keeps the same request from
+    being given more room on the stand-in than on the unit it stood in for.
+    So the cap chosen above is sent, or the ceiling where that is smaller: the
+    contract's where no ceiling is carried, and still nothing where the
+    contract has no cap.
     """
-    if contract.limits.max_output_tokens is None:
+    declared = contract.limits.max_output_tokens
+    if declared is None:
         return None
-    if rung.output_tokens is None:
-        return contract.limits.max_output_tokens
-    return rung.output_tokens
+    cap = declared if rung.output_tokens is None else rung.output_tokens
+    if rung.output_ceiling is not None:
+        return min(cap, rung.output_ceiling)
+    return cap
 
 
 def check_contract_against_rung(
