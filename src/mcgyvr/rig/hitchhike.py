@@ -58,12 +58,16 @@ request of theirs.
 **A ride** (``unit_relay_request``) is relayed by the head relay's own code
 (:mod:`mcgyvr.rig.relay`) to the address of a unit this link advertised; the
 hub names only its id. :meth:`Units.ride` admits it, the host first: a unit
-takes at most its ``rider_slots`` rides at once, and none that would leave the
-host fewer than ``slots - rider_slots`` free slots by the unit's own count at
-that moment. An admitted ride holds one of the unit's slots, host-wide, for as
-long as it runs (:meth:`mcgyvr.capacity.Capacity.hold`, without waiting), so
-the host's own dispatches see it, and a unit with none free refuses it. A ride
-that ends asks for a check, since the unit's free slots may have moved.
+takes at most its ``rider_slots`` rides at once, and a ride only while a slot
+is free: the host's own requests in flight and the rides in flight together
+fewer than its ``slots``, by the unit's own count at that moment. The hub
+sends a ride on what the last advert said; the count read here as the ride
+arrives is what admits it. Riders hold at most ``rider_slots`` slots, so the
+other ``slots - rider_slots`` are the host's whatever rides run. An admitted
+ride holds one of the unit's slots, host-wide, for as long as it runs
+(:meth:`mcgyvr.capacity.Capacity.hold`, without waiting), so the host's own
+dispatches see it, and a unit with none free refuses it. A ride that ends asks
+for a check, since the unit's free slots may have moved.
 """
 
 from __future__ import annotations
@@ -376,10 +380,11 @@ class Units:
         """Admit one ride to ``unit_id`` for the block, the host first.
 
         :class:`~mcgyvr.rig.relay.RideRefusedError` ``unknown_unit`` for a unit
-        no longer advertised, ``busy`` when the unit has its riders or the
-        ride would leave the host fewer than ``slots - rider_cap`` free slots
-        by the unit's own count now (``rides + 1 > rider_cap - (slots -
-        free)``), or when no slot of the unit is free host-wide. An admitted
+        no longer advertised, ``busy`` when the unit has its riders (``rides
+        >= rider_cap``), when the host's own requests and the rides leave no
+        slot free by the unit's own count now (``rides >= free``; a server
+        that does not say is read as full), or when no slot of the unit is
+        free host-wide. An admitted
         ride holds one of the unit's slots, which the host's own dispatches
         count, and counts as a ride (not the host's) in the free slots an
         advert says until it ends; its end asks for a check of the advert.
@@ -393,7 +398,7 @@ class Units:
         with self._lock:
             riding = self._riding.get(unit_id, 0)
             free = free_slots(unit.slots, in_flight, riding)
-            if riding + 1 > unit.rider_cap - (unit.slots - free):
+            if riding >= unit.rider_cap or riding >= free:
                 raise RideRefusedError(SessionCode.BUSY)
             self._riding[unit_id] = riding + 1
         try:

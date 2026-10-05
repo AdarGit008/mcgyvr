@@ -13,10 +13,11 @@ through the head relay's own code, its target the unit's address:
   put the unit's model in it) and the answer comes back as the unit gives it,
   so it names the unit's real model.
 * **The host goes first.** A unit takes at most its ``rider_slots`` rides at
-  once, and a ride is refused ``busy`` when admitting it would leave the
-  host's own requests fewer than ``width - rider_slots`` free slots, by the
-  unit's own count at that moment (a ride the agent serves is not the
-  host's). A ride holds one of the unit's slots, host-wide, for as long as it
+  once, and a ride is refused ``busy`` when the host's own requests and the
+  rides leave no slot free, by the unit's own count at that moment (a ride the
+  agent serves is not the host's;
+  ``tests/test_a_ride_is_admitted_while_the_unit_has_a_free_slot.py``). A ride
+  holds one of the unit's slots, host-wide, for as long as it
   runs, so the host's own dispatches see it; with none free it is ``busy``.
 * **Like a head relay.** Rides count in the rig's own bound of relays at
   once, share the relays' request ids, end on the hub's cancel, and a
@@ -395,12 +396,13 @@ def test_a_unit_takes_no_more_rides_at_once_than_its_rider_slots(host: Host) -> 
     ("own", "admitted"),
     [
         (0, 2),  # all four free: up to the rider cap
-        (1, 1),  # the host keeps width - rider_slots = 2 free: one ride
-        (2, 0),  # the host's own take what riders may not
-        (4, 0),
+        (1, 2),
+        (2, 2),  # the host busy on two: the two free are lent
+        (3, 1),  # one free: one ride
+        (4, 0),  # none free: the host's own take them all
     ],
 )
-def test_a_ride_is_busy_where_it_would_leave_the_host_short(
+def test_a_ride_is_busy_where_the_unit_has_no_slot_free(
     host: Host, own: int, admitted: int
 ) -> None:
     host.unit.hold = True

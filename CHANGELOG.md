@@ -254,6 +254,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A shared unit takes a ride while it has a free slot (hitchhike, the host
+  first). A ride was admitted only while the host left `rider_slots` slots
+  untouched, so a unit of `width` 2 lending 1 took a ride only while the host
+  had nothing in flight. Now a ride is admitted when the host's own requests
+  and the rides in flight are together fewer than `width`, and the rides
+  fewer than `rider_slots`. Riders still hold at most `rider_slots` slots, a
+  unit whose server does not say what it has in flight still takes none, and
+  the rig decides at the moment the ride arrives, by its unit's own count.
+  The advert is unchanged.
 - mcorch no longer asks the `jev` unit what comes after a `mcgyvr run` result
   (J3 "next": done, replan or ask the user) -- owner ruling of 2026-10-04,
   decommissioned until proven otherwise. In the jev-mcorch run (lab evidence
