@@ -317,6 +317,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A requester who leaves mid-answer no longer leaves an unhandled exception
+  in the rig agent's log. Ending a relay closed the head's connection from
+  the thread that asked, while the relay's own thread was still reading it;
+  `http.client` closed from both at once failed in one of them
+  (`AttributeError: 'NoneType' object has no attribute 'close'`). Whoever
+  ends a relay now only shuts the socket down, which the head sees at once
+  and stops generating, and the relay's thread closes the connection it
+  reads. Nothing is printed: it is a normal end.
+
 - Two worker sessions on one rig no longer share its tensor cache at once.
   The engine writes a cached tensor in place and reads one back unchecked, so
   two sessions sent the same model's tensors could each load the other's
