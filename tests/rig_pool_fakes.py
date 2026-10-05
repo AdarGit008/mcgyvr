@@ -16,7 +16,7 @@ import json
 import os
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -247,8 +247,9 @@ class Box:
         self.lock = threading.Lock()
         self.open = True
 
-    def put(self, frame: str, timeout: float | None = None) -> bool:
-        message = json.loads(frame)
+    def put(self, frame: str | Callable[[], str], timeout: float | None = None) -> bool:
+        # A frame made when it is sent (a relay's answer) is sent at once here.
+        message = json.loads(frame if isinstance(frame, str) else frame())
         rig_schema.validate(message, rig_schema.load(), "#/$defs/AgentMessage")
         if not self.open:
             return False

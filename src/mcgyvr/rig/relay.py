@@ -14,7 +14,15 @@ machine's loopback alone (:mod:`mcgyvr.sandbox.pooled`). A relay is:
 * the answer as ``relay_response`` (status, content type), then ``relay_data``
   frames of at most :data:`~mcgyvr.rig.sessionwire.RELAY_MAX_CHUNK_BYTES`
   each, never more of them uncredited than the hub's window: out of credit,
-  the relay stops reading the head, and the head's own socket holds it;
+  the relay stops reading the head, and the head's own socket holds it. A
+  frame is filled when the agent takes it to send, not when it is queued
+  (:meth:`Relays._data`): it carries all the head wrote up to then, and one
+  frame of a relay waits at a time. The agent's frame rate is for all the
+  rig's relays together and a head writes each token as an event of its own,
+  so a frame per read would cap the rig's tokens at that rate; filled late,
+  a frame that waited its turn carries the events written meanwhile, and the
+  first is not held back for more. The bytes go unchanged and in order, and
+  a relay whose full frame waits stops reading the head;
 * exactly one ``relay_end`` — ``complete``; ``cancelled`` on the hub's
   ``relay_cancel`` or when the session ends; ``timeout`` past the hub's time;
   ``too_large`` past its size; or ``error`` with the hub's code.
@@ -171,6 +179,9 @@ class _Relay:
     changed: threading.Condition = field(default_factory=threading.Condition)
     connection: http.client.HTTPConnection | None = None
     deadline: float = 0.0
+    pending: bytearray = field(default_factory=bytearray)  # read, in no frame yet
+    queued: bool = False  # a frame of the answer waits to be sent
+    seq: int = 0  # the next frame of the answer
 
     @property
     def complete(self) -> bool:
@@ -493,28 +504,46 @@ class Relays:
             self._stop(relay, "cancelled", SessionCode.CANCELLED)
             return
         sent = 0
-        seq = 0
-        while relay.outcome is None:
-            chunk = response.read1(sessionwire.RELAY_MAX_CHUNK_BYTES)
+        limit = sessionwire.RELAY_MAX_CHUNK_BYTES
+        while True:
+            with relay.changed:
+                # A full frame waits its turn: the head's socket holds the rest.
+                while relay.outcome is None and len(relay.pending) >= limit:
+                    relay.changed.wait(max(0.0, self._left(relay)))
+                if relay.outcome is not None:
+                    return
+                room = limit - len(relay.pending)
+            chunk = response.read1(room)
             if not chunk:
                 return
             if sent + len(chunk) > relay.asked.max_response_bytes:
                 self._stop(relay, "too_large", SessionCode.TOO_LARGE)
                 return
+            sent += len(chunk)
             with relay.changed:
+                relay.pending += chunk
+                if relay.queued:  # the frame that waits carries this too
+                    continue
                 while relay.outcome is None and relay.credit <= 0:
                     relay.changed.wait(max(0.0, self._left(relay)))
                 if relay.outcome is not None:
                     return
                 relay.credit -= 1
-            if not self._send(
-                sessionwire.relay_data(relay.asked.request_id, seq=seq, data=chunk),
-                timeout=SEND_WAIT_S,
-            ):
+                relay.queued = True
+            if not self._send(lambda: self._data(relay), timeout=SEND_WAIT_S):
                 self._stop(relay, "cancelled", SessionCode.CANCELLED)
                 return
-            sent += len(chunk)
-            seq += 1
+
+    @staticmethod
+    def _data(relay: _Relay) -> str:
+        """The frame of ``relay``'s answer that waits, made as the agent
+        takes it to send: all that was read and is in no frame yet."""
+        with relay.changed:
+            data, relay.pending = bytes(relay.pending), bytearray()
+            seq, relay.seq = relay.seq, relay.seq + 1
+            relay.queued = False
+            relay.changed.notify_all()
+        return sessionwire.relay_data(relay.asked.request_id, seq=seq, data=data)
 
 
 def _hang_up(connection: http.client.HTTPConnection | None) -> None:

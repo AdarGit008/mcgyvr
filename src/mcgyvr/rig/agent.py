@@ -35,7 +35,10 @@ reason, the rig id) is shown printable and short (:func:`shown`).
 A rig that lends (:mod:`mcgyvr.rig.session`) says so in its hello (the
 ``offer``), and its sessions and relays speak on their own through the
 outbox (:mod:`mcgyvr.rig.outbox`), which the agent empties between reads at
-the same rate, delaying rather than dropping. A put wakes the agent from a
+the same rate, delaying rather than dropping. The rate is of frames, not of
+what they carry: a relay's frame of an answer is made when it is taken to be
+sent, with all its head wrote by then (:mod:`mcgyvr.rig.relay`). A put wakes
+the agent from a
 read that waits (:meth:`Channel.wake`), so a frame goes out at once, not when
 the read's :data:`RECEIVE_SLICE_S` ends. The agent tells them when the
 channel is up (``on_online``), when it is lost (``on_offline``: the outbox
@@ -383,7 +386,9 @@ class Agent:
             frame = self._outbox.take()
             if frame is None:
                 return
-            channel.send_text(frame)
+            # A frame made now carries all there is to say by now (a relay's
+            # answer: every event its head wrote while the frame waited).
+            channel.send_text(frame if isinstance(frame, str) else frame())
             self._sent.append(self._clock())
 
     def _session(self, held_from: list[float]) -> None:

@@ -994,6 +994,11 @@
       "says": "The number of the first relay_data frame of a request's body.",
       "reason": "where a count starts"
     },
+    "rig/relay.py:_Relay.seq": {
+      "kind": "fact",
+      "says": "The number of the first relay_data frame of a relayed answer.",
+      "reason": "where a count starts"
+    },
     "rig/rungs.py:FETCH_TIMEOUT_S": {
       "kind": "estimate",
       "says": "How long, in seconds, a hub takes to answer a rider's request for their relief rungs; past it the sync fails and is tried again.",

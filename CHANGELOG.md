@@ -359,6 +359,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A stream relayed through a rig agent is no longer capped at the agent's
+  frame rate. A head writes each token as an event of its own and each event
+  went out as a frame of its own, so the agent's 49 frames a second, shared
+  by every stream of every unit on the rig, was a cap on tokens: two units
+  that made 118 tokens a second between them delivered 43. The frame rate
+  stays (it protects the hub's link), but a frame of an answer is now filled
+  when the agent takes it to send, with all the head wrote while it waited,
+  up to the protocol's chunk; one frame of a relay waits at a time. The first
+  token is not held back, and the bytes reach the hub unchanged and in order.
 - A requester who leaves mid-answer no longer leaves an unhandled exception
   in the rig agent's log. Ending a relay closed the head's connection from
   the thread that asked, while the relay's own thread was still reading it;
