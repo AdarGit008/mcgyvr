@@ -248,7 +248,8 @@ class Timing:
     peer_lost_s: float = 45.0
     stall_s: float = 240.0
     warm_s: float = 300.0
-    attempt_s: float = 5.0
+    # Longer than the 5 s after which WireGuard sends a lost handshake again.
+    attempt_s: float = 6.0
     connect_s: float = 60.0
     # How long a tunnel port rests after the session that held it: as long
     # as Linux keeps a UDP flow that carried traffic, and with it the

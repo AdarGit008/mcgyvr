@@ -348,3 +348,16 @@ def test_a_walk_of_many_candidates_still_reaches_its_relay_in_time(
         (REFLEXIVE, "40002"),
         (RELAY, "40001"),
     ]
+
+
+def test_the_agents_own_candidate_time_outlives_a_handshake_retry() -> None:
+    """With a hub that names no ``attempt_s`` the agent uses its own, which
+    must not be shorter than the hub's 6 s: WireGuard sends a handshake that
+    was lost again after 5 s and a little, and a candidate left by then had
+    one handshake from each side."""
+    from mcgyvr.rig.session import Timing
+
+    wireguard_retry_s = 5
+    assert Timing().attempt_s == 6.0 > wireguard_retry_s
+    # every candidate the hub may name still fits the agent's own time
+    assert Timing().attempt_s * 8 <= Timing().connect_s

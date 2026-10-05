@@ -426,6 +426,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   the candidates share the rest: at 6 s and 30 s, up to three candidates
   have their 6 s each, four have 4.5 s, eight 2.25 s. A walk that fitted
   before is unchanged.
+- The agent's own time per candidate (`Timing.attempt_s`, used when the hub's
+  `tunnel_up` names none) is 6 s, was 5 s: WireGuard sends a lost or crossed
+  handshake again after 5 s and a little, so a candidate left at 5 s had one
+  handshake from each side, and one lost packet cost the path.
 - A tunnel's walk stays on its relay until the time to connect is over. The
   relay was given one candidate's time (`attempt_s`) like any other, then the
   peer was reported `none`; two rigs holding different numbers of candidates
