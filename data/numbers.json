@@ -1139,6 +1139,11 @@
       "says": "How often, in seconds, a starting session looks again at its containers.",
       "reason": "how often or how many times the product tries its own step again"
     },
+    "rig/session.py:Timing.port_rest_s": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a host keeps forwarding a tunnel's UDP port to where its last session was; a port is not given to another session sooner while another port is free.",
+      "moves_to": "tunnel_port_rest_s"
+    },
     "rig/session.py:Timing.prepare_s": {
       "kind": "estimate",
       "says": "How long, in seconds, a session's tunnel container takes to start and make its key, its image built first if need be.",

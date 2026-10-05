@@ -246,6 +246,10 @@ class Timing:
     warm_s: float = 300.0
     attempt_s: float = 5.0
     connect_s: float = 60.0
+    # How long a tunnel port rests after the session that held it: as long
+    # as Linux keeps a UDP flow that carried traffic, and with it the
+    # container address the host forwarded the port to.
+    port_rest_s: float = 120.0
 
     @classmethod
     def quick(cls) -> Timing:
@@ -267,6 +271,7 @@ class Timing:
             warm_s=1.0,
             attempt_s=0.05,
             connect_s=2.0,
+            port_rest_s=0.0,
         )
 
 
@@ -513,6 +518,8 @@ class Sessions:
         self._clock = clock
         self._lock = threading.RLock()
         self._sessions: dict[str, _Session] = {}
+        # When each tunnel port was last let go (by this agent's clock).
+        self._port_left: dict[int, float] = {}
         self._closed = False
         self._grace: threading.Timer | None = None
         self._ended_hooks: list[Callable[[str], None]] = []
@@ -935,14 +942,33 @@ class Sessions:
 
     def _tunnel_port(self, share: sharing_module.Sharing) -> int | None:
         """The tunnel port of a new session: the lowest of the owner's
-        (:meth:`mcgyvr.rig.sharing.Sharing.tunnel_ports`) no session holds;
-        ``None`` when every one is held, or as many sessions live as a hello
-        names."""
+        (:meth:`mcgyvr.rig.sharing.Sharing.tunnel_ports`) no session holds
+        and none held in the last :attr:`Timing.port_rest_s` — the host
+        still forwards a port just left to where its last session was, so a
+        new session's first handshakes could go to another's container.
+        With every free port still resting, the one that rested longest: a
+        refused start is worse than a first handshake that may be lost.
+        ``None`` when every one is held, or as many sessions live as a
+        hello names."""
         holding = self._holding()
         if sum(found.state in LIVE for found in holding) >= MAX_LIVE_SESSIONS:
             return None
         held = {found.listen_port for found in holding}
-        return next((p for p in share.tunnel_ports() if p not in held), None)
+        free = [p for p in share.tunnel_ports() if p not in held]
+        if not free:
+            return None
+        now, rest = self._clock(), self.timing.port_rest_s
+        for port in free:
+            left = self._port_left.get(port)
+            if left is None or now - left >= rest:
+                return port
+        port = min(free, key=lambda p: self._port_left[p])
+        self._log(
+            f"tunnel port {port} is taken again {now - self._port_left[port]:.0f} s "
+            f"after its last session: every free port was held in the last "
+            f"{rest:.0f} s"
+        )
+        return port
 
     def _api_port(self) -> int | None:
         """A loopback port for a new head's API that no session holds."""
@@ -1894,6 +1920,7 @@ class Sessions:
         # the engine left torn, or reads one while it is removed.
         with self._lock:
             session.released = True
+            self._port_left[session.listen_port] = self._clock()
             if self._cache_holder is session:
                 self._cache_holder = None
                 if self.machine.cache_dir is not None:

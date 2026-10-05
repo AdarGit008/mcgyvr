@@ -8,8 +8,10 @@ holds, so a rig in one session listens where it always did. The port
 travels in the session's own ``session_prepared`` (``listen_port`` and each
 endpoint's ``port``), the hub hands it back in ``tunnel_up``, and the
 tunnel is published and started on it. A port is held until the session
-holding it is torn down. With every port of the range held — or none left
-below 65536 — a new session is refused ``busy``.
+holding it is torn down, and then rests before another session takes it
+(``test_a_tunnel_port_rests_before_another_session_takes_it``; the rest is
+no time at all in these tests). With every port of the range held — or none
+left below 65536 — a new session is refused ``busy``.
 
 A head's API is published on a loopback port of its own too; a port the
 machine offers that another session holds is not taken.

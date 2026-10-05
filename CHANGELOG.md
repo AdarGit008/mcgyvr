@@ -404,6 +404,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   until its timeout. The interface now comes up at `TUNNEL_MTU`, 1200: with
   WireGuard's 80 bytes over IPv6 a packet fits the smallest MTU an IPv6 path
   may have, 1280. Every path gets the smaller MTU, a LAN one too.
+- A tunnel port rests for two minutes after the session that held it. Each
+  session took the lowest free port of the owner's range, so a rig's next
+  session listened where its last one had, with a peer doing the same. The
+  host forwards a published port to its container by address and keeps a UDP
+  flow for 120 s after its last packet: the new session's first handshake
+  could be delivered to where the old one's container had been -- another
+  session's tunnel, when two started in the same moment -- and two rigs on
+  one LAN then met over the relay. A new session now takes the lowest free
+  port no session held in the last 120 s (`Timing.port_rest_s`), so a rig
+  that starts a session soon after another may listen on a later port of the
+  range (`listen_port` .. `listen_port + 3`). With every free port still
+  resting it takes the one that rested longest and says so on standard
+  error; no start is refused that was not refused before.
 - A tunnel's walk stays on its relay until the time to connect is over. The
   relay was given one candidate's time (`attempt_s`) like any other, then the
   peer was reported `none`; two rigs holding different numbers of candidates
