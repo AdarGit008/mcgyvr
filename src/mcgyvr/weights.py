@@ -4,14 +4,17 @@
 repository id a config names — and those compare as strings. llama.cpp's is
 the **path it was handed**, as ``/models/dense/<name>.gguf``
 (``records/evidence/serving-2026-08-30/lcpp-srv1.json``), against a config that
-declares ``<name>``: ``emit`` passes ``--model <path>`` and no ``--alias``, so
-the declared name and the served id differ by construction.
+declares ``<name>``. ``emit`` passes ``--alias <name>`` beside ``--model
+<path>``, so a unit it rendered serves the declared name; a server started
+without one (by hand, or from a file emitted before the alias was written)
+still lists and answers by its path, and the two differ by construction.
 
 This rule lives in a module of its own because two layers need it and it belongs
 to neither. :mod:`mcgyvr.availability` reads it against a rig's *listing*, to
 decide whether a rung is in service. :mod:`mcgyvr.runner` reads it against the
 model a completion says it *answered with*, to decide whether an answer came
-from the weights that were asked for. One rule, spelled once: a reading that
+from the weights that were asked for, on a rung of one's own and on a relief
+rung alike. One rule, spelled once: a reading that
 drifted between those two would put a rung in service on one definition and
 refuse its answers on the other.
 """

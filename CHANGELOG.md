@@ -254,6 +254,24 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- A relief rung is sent the smaller of the contract's output cap and the
+  local unit's (hitchhike). It was sent the contract's
+  `limits.max_output_tokens` whatever the rider's own unit declared, so one
+  request got one cap on the rider's rung (its `units.<unit>.output_tokens`)
+  and another on the ride that stood in for it. The local unit is the first
+  usable rung of the rider's own ladder. Where it declares no
+  `output_tokens` the ride is sent the contract's cap, and a contract with no
+  cap (a raw-text reply) is sent uncapped, as on every rung. On the rider's
+  own rungs nothing changes: a unit's `output_tokens` still wins there.
+- A shared unit takes a ride while it has a free slot (hitchhike, the host
+  first). A ride was admitted only while the host left `rider_slots` slots
+  untouched, so a unit of `width` 2 lending 1 took a ride only while the host
+  had nothing in flight. Now a ride is admitted when the host's own requests
+  and the rides in flight are together fewer than `width`, and the rides
+  fewer than `rider_slots`. Riders still hold at most `rider_slots` slots, a
+  unit whose server does not say what it has in flight still takes none, and
+  the rig decides at the moment the ride arrives, by its unit's own count.
+  The advert is unchanged.
 - mcorch no longer asks the `jev` unit what comes after a `mcgyvr run` result
   (J3 "next": done, replan or ask the user) -- owner ruling of 2026-10-04,
   decommissioned until proven otherwise. In the jev-mcorch run (lab evidence
@@ -320,6 +338,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   the second arrived and the session failed `no_path`. A relay that cannot be
   bound still fails at once; one that never answers now fails at
   `connect_timeout_s`.
+- A ride's answer names the model the rider was matched on. `mcgyvr emit`
+  wrote a llama.cpp unit's launch with no `--alias`, so the server named every
+  answer after the weights path it was handed: a rider received the host's
+  file path as the answer's model, and the rider's own runner, which held a
+  relief answer to its `served_model` by exact equality, discarded it after
+  the hub had charged for it. An emitted llama.cpp server now carries
+  `--alias <the unit's model>` (an alias stated in `launch.serve_args` is kept
+  and none is added), and a relief answer is read by the rule a rung of one's
+  own is read by: the name, or that model's weights file. Emitted compose
+  files change by this one flag; re-emit and restart a shared unit to serve
+  it.
 - A split load that stops moving fails as `load_stalled`, on the rig, instead
   of holding its cards until the hub's start timeout. The head's watch of its
   workers counts any byte received as life, and a path that loses full

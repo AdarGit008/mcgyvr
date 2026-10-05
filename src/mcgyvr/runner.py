@@ -611,13 +611,18 @@ class Runner(ABC):
         """Raise unless a ridden answer names the model the rung was matched on.
 
         The relief rung's ``served_model`` is what the hub said the host runs,
-        and the hub passes the host's real model name through in the answer.
-        An answer naming another, or none, did not come from the unit the rider
-        was matched to: the rung refused the request, which is a full rung
+        and the hub passes the host's answer through, which names the model as
+        the host's server does: the name itself, or the weights file it was
+        handed. So it is read by the rule a rung of the rider's own is read by
+        (:func:`mcgyvr.weights.is_model`), not by equality. An answer naming
+        another, or none, did not come from the unit the rider was matched to:
+        the rung refused the request, which is a full rung
         (:class:`ReliefUnavailableError`) and not a verdict on the work.
+        Silence is refused here, unlike on a rung of one's own: a ride is paid
+        for, and an answer nothing ties to the matched unit is not kept.
         """
         expected = self.endpoint.served_model
-        if expected is not None and served == expected:
+        if expected is not None and served is not None and is_model(served, expected):
             return
         said = (
             f"relief rung {self.endpoint.source!r} answered from "

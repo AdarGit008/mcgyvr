@@ -293,7 +293,8 @@ def dispatch_prompt(
     instructions for no language at all — and the output cap is
     :func:`~mcgyvr.gate.preflight.reply_cap`'s: the rung's own
     ``units.*.output_tokens`` where it declared one, and the contract's
-    ``limits.max_output_tokens`` where it did not. The argument for which of
+    ``limits.max_output_tokens`` where it did not, and never more than a
+    ceiling the rung carries. The argument for which of
     the two wins is written where the choice is made, in ``reply_cap``. A
     raw-text reply (``prose`` / ``media_artifact``) is uncapped, so ``cap`` is
     ``None`` there and the runner omits the wire field.
