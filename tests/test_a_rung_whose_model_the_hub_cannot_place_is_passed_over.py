@@ -9,7 +9,9 @@ task's error and not a reason to ask again: the dispatch ends as
 decline, and the climb tries the next rung at once, another model's included.
 It spends no attempt and the cooldown does not learn the rung as failing.
 
-Only that answer. Any other ``503`` is still the rung's error.
+Only that answer. Any other ``503`` is still the rung's error. (A ``404``
+``model_not_found`` is passed over too, with a line in the log:
+``tests/test_a_rung_whose_model_is_not_known_where_it_points_is_passed_over.py``.)
 
 Every server here is a loopback one this test starts.
 """
@@ -187,8 +189,8 @@ def test_a_model_the_hub_cannot_place_is_a_full_rung_asked_once(
 
 @pytest.mark.parametrize(
     "refusal",
-    [error(503, "pool_unavailable"), error(404, "model_not_found"), (503, b"{}")],
-    ids=["503-other", "404", "503-no-code"],
+    [error(503, "pool_unavailable"), error(404, "not_found"), (503, b"{}")],
+    ids=["503-other", "404-other", "503-no-code"],
 )
 def test_any_other_error_is_still_the_rungs_error(
     tmp_path: Path, refusal: tuple[int, bytes]

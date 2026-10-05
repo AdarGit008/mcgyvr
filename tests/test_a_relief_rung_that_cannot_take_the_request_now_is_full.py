@@ -14,9 +14,10 @@ A host that left is not waited for: the rung is asked once and passed over,
 whatever the answer says of retrying.
 
 Only those three answers, and only from a relief rung. Any other error status
-from a relief rung is still the error it was, and the same body from a unit
-of the rider's own ladder is that unit's error: a ladder rung that says a
-model is not found is misconfigured, not busy.
+from a relief rung is still the error it was, and either ``503`` body from a
+unit of the rider's own ladder is that unit's error. (A ladder rung's ``404``
+``model_not_found`` is passed over by its own rule, with a line in the log:
+``tests/test_a_rung_whose_model_is_not_known_where_it_points_is_passed_over.py``.)
 
 Every server here is a loopback one this test starts.
 """
@@ -186,7 +187,7 @@ def test_any_other_error_from_a_relief_rung_is_still_that_error(
     assert not isinstance(outcome, SlotUnavailableError)
 
 
-@pytest.mark.parametrize("answer", UNAVAILABLE, ids=IDS)
+@pytest.mark.parametrize("answer", [NOT_SERVED_YET, HOST_AWAY], ids=IDS[:2])
 def test_the_same_answer_from_a_rung_of_the_riders_own_ladder_is_its_error(
     tmp_path: Path, answer: tuple[int, bytes]
 ) -> None:
