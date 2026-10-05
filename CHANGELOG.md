@@ -266,6 +266,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   got it. It is now read as a full rung, on any rung: asked once, no attempt
   spent, and the climb tries the next rung at once, another model's included.
   Any other 503 is still the rung's error.
+- A path that cannot carry full-size packets fails the session as
+  `path_too_narrow`, not `no_path`. When the last path to a peer (its relay,
+  or its last candidate where it has no relay) answers a small ping and
+  loses every full-size one, the rig's `session_status` says `failed` with
+  that code, and it answers the hub's `tunnel_up` with an `error` of that
+  code in place of a report: a report saying `none` is what the hub records
+  as `no_path`, and the code of a refused command is what it keeps. A peer
+  whose last path never answered still fails `no_path`, with a report, a
+  narrow candidate before it or not. `path_too_narrow` is a new value of a
+  session's `error_code`, an open set.
 - A relief rung is sent the smaller of the contract's output cap and the
   local unit's (hitchhike). It was sent the contract's
   `limits.max_output_tokens` whatever the rider's own unit declared, so one
@@ -386,8 +396,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   on; what follows it is taken only once a full-size ping crosses it, since
   the handshake made on the spent candidate still stands. A relay found so
   ends the walk at once instead of being held until `connect_timeout_s` —
-  waiting does not widen a path — and the session fails `no_path`, saying
-  what was lost. The round trip is now measured when each path is
+  waiting does not widen a path — and the session fails `path_too_narrow`
+  (see above), saying what was lost. The round trip is now measured when each path is
   confirmed, not after the whole walk.
 
 ## [0.2.0] - 2026-09-16
