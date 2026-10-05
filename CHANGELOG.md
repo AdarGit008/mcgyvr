@@ -276,6 +276,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   whose last path never answered still fails `no_path`, with a report, a
   narrow candidate before it or not. `path_too_narrow` is a new value of a
   session's `error_code`, an open set.
+- `load_stalled` and `path_too_narrow` are in the rig agent's shared list of
+  session codes (`SessionCode`), and in the pinned copy of the hub's protocol
+  schema the agent's tests hold it to (`x-error-codes`). The copy's text on
+  hitchhiking now states the rule both sides run: a ride is admitted while
+  the unit has a free slot and its rides are below the rider cap, and the rig
+  decides last. Both edits are by hand, ahead of the hub's file; the copy is
+  re-pinned from it once the hub publishes them.
 - A relief rung is sent the smaller of the contract's output cap and the
   local unit's (hitchhike). It was sent the contract's
   `limits.max_output_tokens` whatever the rider's own unit declared, so one

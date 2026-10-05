@@ -193,12 +193,6 @@ WARM_UP_TOKENS = 32
 #: The share of the session's context the warm-up's prompt may take, as a
 #: divisor: a quarter, so prompt, template and answer fit any context.
 WARM_UP_CONTEXT_SHARE = 4
-#: The code of a head whose load stopped moving. The hub's list does not name
-#: it: a session's ``error_code`` is an open set, which the hub passes on.
-LOAD_STALLED = "load_stalled"
-#: The code of a peer whose last path answers a small ping and loses every
-#: full-size one. The hub's list does not name it either.
-PATH_TOO_NARROW = "path_too_narrow"
 #: What a loading head sends its workers over the tunnel, in bytes, within
 #: :attr:`Timing.stall_s`, to count as moving: far above what pings,
 #: keepalives and a stuck connection's retries send in that time, far below
@@ -1265,7 +1259,7 @@ class Sessions:
         elif now - at > self.timing.stall_s:
             session.quiet_s = max(session.quiet_s, now - at)
             raise _FailureError(
-                LOAD_STALLED,
+                SessionCode.LOAD_STALLED,
                 f"the load stalled: the tunnel sent the workers "
                 f"{max(0, session.sent - before)} bytes in {now - at:.1f} s, "
                 f"under the {LOAD_STALL_BYTES} that count as moving in "
@@ -1635,7 +1629,7 @@ class Sessions:
         confirmed path with the round trip measured over it when it was
         confirmed — and fail the session when a peer has no path. A peer
         whose last path lost full-size packets fails it as
-        :data:`PATH_TOO_NARROW`, and the ``tunnel_up`` is answered with an
+        ``path_too_narrow``, and the ``tunnel_up`` is answered with an
         ``error`` of that code in place of the report: the hub fails a
         session whose report says ``none`` as ``no_path`` by itself, and
         keeps the code of a command an agent refused."""
@@ -1666,14 +1660,16 @@ class Sessions:
             waiting, session.reported_to = session.reported_to, []
         for re in waiting:
             if narrow is not None:
-                self._say(sessionwire.refusal(re, PATH_TOO_NARROW, narrow.why))
+                self._say(
+                    sessionwire.refusal(re, SessionCode.PATH_TOO_NARROW, narrow.why)
+                )
                 continue
             self._say(sessionwire.tunnel_report(re, session_id=session.id, peers=paths))
         if samples:
             self._say(sessionwire.peer_rtt(samples[: sessionwire.MAX_RTT_SAMPLES]))
         if narrow is not None:
             raise _FailureError(
-                PATH_TOO_NARROW,
+                SessionCode.PATH_TOO_NARROW,
                 f"no path to peer {narrow.peer.rig_id} carries a full-size "
                 f"packet: {narrow.why}",
             )
