@@ -325,6 +325,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   ends a relay now only shuts the socket down, which the head sees at once
   and stops generating, and the relay's thread closes the connection it
   reads. Nothing is printed: it is a normal end.
+- A rig agent no longer ends for good when the hub's address answers 404. A
+  reverse proxy in front of a hub answers 404 for a moment while the hub
+  restarts; the agent read that as a refusal ("no agent channel at this
+  address") and exited, so the rig stayed offline until someone started it
+  again. A 404 at the upgrade is now a lost hub like 502, 503 and 504: the
+  agent keeps asking with its usual backoff (up to a minute apart) and says
+  to check the hub's address if it goes on. What still ends the agent is the
+  hub's own refusal: a token refused at the upgrade (401, 403), a revoked
+  token, a rig bound to another machine, another protocol version, a hello
+  not taken, or a newer agent taking the rig over.
 
 - Two worker sessions on one rig no longer share its tensor cache at once.
   The engine writes a cached tensor in place and reads one back unchecked, so
