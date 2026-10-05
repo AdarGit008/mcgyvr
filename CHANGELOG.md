@@ -335,6 +335,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   hub's own refusal: a token refused at the upgrade (401, 403), a revoked
   token, a rig bound to another machine, another protocol version, a hello
   not taken, or a newer agent taking the rig over.
+- The first worker session after a rig agent restart mounts the tensor cache.
+  Which cache files the agent had hashed was its memory alone, so a new
+  agent's first worker session ran without the cache (every tensor sent
+  again) while the whole folder was hashed once more. The agent now writes
+  what it hashed beside the cache folder (`<cache folder>.ledger.json`,
+  outside what a worker mounts) and a new agent reads it back. A file counts
+  only while its device, inode, size and times are what was hashed: one
+  written to, cut short or replaced since, or never hashed, is hashed before
+  any worker mounts the folder, as before. The saved ledger is read in the
+  boot it was written in alone, so after a reboot the folder is hashed once
+  as before; nothing in the cache is removed because the agent started, and
+  the trim to `cache_max_mb` runs when a holder's session ends, as before.
 
 - Two worker sessions on one rig no longer share its tensor cache at once.
   The engine writes a cached tensor in place and reads one back unchecked, so

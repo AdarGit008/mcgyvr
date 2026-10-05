@@ -523,7 +523,13 @@ class Sessions:
         # The files of the cache this agent hashed, and the thread hashing
         # and trimming it now, which holds it until it is done: a worker
         # killed mid-write leaves a torn file under a whole tensor's name.
-        self._cache_ledger = tensorcache.Ledger()
+        # What the last agent hashed is read back from beside the folder, so
+        # the first worker session after an agent restart mounts the cache.
+        self._cache_ledger = tensorcache.Ledger(
+            None
+            if machine.cache_dir is None
+            else tensorcache.saved_beside(machine.cache_dir)
+        )
         self._cache_check: threading.Thread | None = None
         self._cache_stop = threading.Event()
 
