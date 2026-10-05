@@ -969,10 +969,20 @@
       "says": "The version of the hub's agent protocol this agent speaks.",
       "reason": "a code or version other programs or files read"
     },
+    "rig/relay.py:MAX_PAGE_BYTES": {
+      "kind": "choice",
+      "says": "The most of a head's status page a rig agent reads, in bytes, when a relay is cancelled; the page of a server with every slot at work is far smaller, and a larger one is not read.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
     "rig/relay.py:REMEMBERED_IDS": {
       "kind": "choice",
       "says": "How many relay request ids a rig agent remembers, so none is used twice.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/relay.py:REPORT_WAIT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, a cancelled relay's hang-up waits for its head's status page, which says what the head made; under the moment the hub waits for the relay's end, and past it the relay ends with no counts.",
+      "moves_to": "relay_report_wait_s"
     },
     "rig/relay.py:SEND_WAIT_S": {
       "kind": "estimate",
@@ -1432,6 +1442,11 @@
     "rig/sessionwire.py:RELAY_MAX_TIMEOUT_S": {
       "kind": "fact",
       "says": "The longest a relay may take, in seconds, in the hub's agent protocol.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/sessionwire.py:RELAY_MAX_TOKENS": {
+      "kind": "fact",
+      "says": "The most a relay_end of the hub's agent protocol reports of either token count.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/sessionwire.py:RELAY_MAX_WINDOW": {

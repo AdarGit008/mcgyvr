@@ -40,9 +40,9 @@ FIXTURE = Path(__file__).parent / "fixtures" / "hub_protocol_v1.schema.json"
 
 #: The hub's ``schemas/protocol.schema.json``, byte for byte, that the copy
 #: was pinned from.
-HUB_SCHEMA_SHA256 = "f481c970881ee04383688747853639d8b691e265c6b2384dd97854522b44de00"
+HUB_SCHEMA_SHA256 = "111b96ea467e0651790eb242888f31bc9ec9befed0c8280946adbf7974f42e9f"
 #: :data:`FIXTURE`, byte for byte.
-PINNED_SHA256 = "c838a30c1ee06035d40b6d96507a592899779a2869ba7ea44cc22b3120979c09"
+PINNED_SHA256 = "d02ed58fec7f4dcac939f9c01b4296c74996cfaa0a06169aefcb01951610e349"
 
 #: The variable naming a hub checkout's schema file, for the drift check.
 HUB_SCHEMA_ENV = "MCGYVR_HUB_SCHEMA"

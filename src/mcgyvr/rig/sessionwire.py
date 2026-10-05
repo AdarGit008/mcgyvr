@@ -70,6 +70,8 @@ RELAY_MAX_RESPONSE_BYTES = 64 << 20
 RELAY_MAX_WINDOW = 64
 RELAY_MAX_TIMEOUT_S = 3600
 RELAY_MAX_SEQ = 1 << 31
+#: The most a ``relay_end`` reports of either count.
+RELAY_MAX_TOKENS = 1 << 31
 MAX_CONTENT_TYPE = 128
 #: The longest base64 text of one relay chunk.
 RELAY_MAX_CHUNK_B64 = 4 * -(-RELAY_MAX_CHUNK_BYTES // 3)
@@ -958,14 +960,29 @@ def relay_data(request_id: str, *, seq: int, data: bytes) -> str:
     )
 
 
-def relay_end(request_id: str, *, outcome: str, error_code: str | None = None) -> str:
-    """The one ``relay_end`` of a relayed request."""
+def relay_end(
+    request_id: str,
+    *,
+    outcome: str,
+    error_code: str | None = None,
+    made: tuple[int, int] | None = None,
+) -> str:
+    """The one ``relay_end`` of a relayed request. ``made`` is what the rig
+    made before it stopped, as its model server counted it: the prompt's
+    tokens and the tokens generated (``tokens_in``, ``tokens_out``; both or
+    neither, and a hub that does not know them reads past them)."""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
     _need(outcome in RELAY_OUTCOMES, "outcome: not a relay outcome")
     body: dict[str, Any] = {"request_id": request_id, "outcome": outcome}
     if error_code is not None:
         _need(bool(protocol.TAG.fullmatch(error_code)), "error_code: not a code")
         body["error_code"] = error_code
+    if made is not None:
+        _need(
+            all(0 <= count <= RELAY_MAX_TOKENS for count in made),
+            "made: a count out of bounds",
+        )
+        body["tokens_in"], body["tokens_out"] = made
     return _frame("relay_end", body, None)
 
 

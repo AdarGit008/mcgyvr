@@ -359,6 +359,22 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A requester who leaves early is charged what the rig made, exactly. The
+  rig stopped at once and said nothing, so the hub charged a stream it
+  estimated and an answer not streamed nothing at all, though its model had
+  worked. A relay the hub cancels now reads its head's own status page
+  (llama.cpp's `/slots`) just before it hangs up and says the prompt's tokens
+  and the tokens generated in its `relay_end` (`tokens_in`, `tokens_out`:
+  optional fields of the hub's protocol, whose pinned copy moves with them;
+  a hub that does not know them reads past them). The page does not say
+  which slot serves which request, so the counts are sent only when the one
+  slot at work cannot be another's: the relay is alone in its head and the
+  head is still working on it. Otherwise (no such page, a server that is not
+  llama.cpp, several slots at work, another relay in the same head, an
+  answer already given, a ride to a unit its host uses too, a page that takes
+  over a second) the relay ends as it always did and the hub does what it
+  did before. The page is read on a thread of its own, never the one that
+  sends the agent's frames.
 - A stream relayed through a rig agent is no longer capped at the agent's
   frame rate. A head writes each token as an event of its own and each event
   went out as a frame of its own, so the agent's 49 frames a second, shared
