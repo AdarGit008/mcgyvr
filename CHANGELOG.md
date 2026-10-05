@@ -266,6 +266,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   got it. It is now read as a full rung, on any rung: asked once, no attempt
   spent, and the climb tries the next rung at once, another model's included.
   Any other 503 is still the rung's error.
+- A ladder rung that answers `404 model_not_found` is passed over, with one
+  line in the run log naming the rung and the model. That answer ended the
+  whole run as an error on the rung that got it. It is now read as a full
+  rung on every rung of the ladder, with a key or without: asked once, no
+  attempt spent, and the climb tries the next rung at once. Because a
+  mistyped model is then skipped too, each such dispatch says so on standard
+  error. A relief rung's 404 is a stale rung, as before.
 - A path that cannot carry full-size packets fails the session as
   `path_too_narrow`, not `no_path`. When the last path to a peer (its relay,
   or its last candidate where it has no relay) answers a small ping and
