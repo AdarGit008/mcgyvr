@@ -99,6 +99,7 @@ class Unit:
     status: int = 200
     refused: bytes | None = None  # a body in place of an answer
     whole_json: bool = False  # answers a stream asked with a whole JSON body
+    logprobs: list[dict[str, Any]] | None = None  # one entry per piece
     seen: list[dict[str, Any]] = field(default_factory=list)
     events: list[str] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -134,14 +135,15 @@ class Unit:
 
     def whole(self) -> dict[str, Any]:
         """The answer a request not streamed gets."""
+        choice: dict[str, Any] = {
+            "finish_reason": self.finish_reason,
+            "index": 0,
+            "message": {"role": "assistant", "content": "".join(self.pieces)},
+        }
+        if self.logprobs:
+            choice["logprobs"] = {"content": self.logprobs}
         answer: dict[str, Any] = {
-            "choices": [
-                {
-                    "finish_reason": self.finish_reason,
-                    "index": 0,
-                    "message": {"role": "assistant", "content": "".join(self.pieces)},
-                }
-            ],
+            "choices": [choice],
             "created": 1_770_000_000,
             "model": MODEL,
             "object": "chat.completion",
@@ -168,7 +170,11 @@ class Unit:
         events = [
             chunk([{"index": 0, "delta": {"role": "assistant", "content": None}}])
         ]
-        events += [chunk([{"index": 0, "delta": {"content": p}}]) for p in self.pieces]
+        for n, piece in enumerate(self.pieces):
+            choice: dict[str, Any] = {"index": 0, "delta": {"content": piece}}
+            if self.logprobs and n < len(self.logprobs):
+                choice["logprobs"] = {"content": [self.logprobs[n]]}
+            events.append(chunk([choice]))
         events.append(
             chunk([{"index": 0, "delta": {}, "finish_reason": self.finish_reason}])
         )

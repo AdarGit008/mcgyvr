@@ -393,8 +393,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   as the status it says, a stream that ends without its answer as a transport
   failure. The transport is `http.client` directly now, so the proxy
   variables of the environment no longer apply to a dispatch, and a redirect
-  is not followed (it is read as an error status); a typed decision's
-  one-token request is read whole, as before.
+  is not followed (it is read as an error status). A typed decision (the Jev
+  unit's one token and its `top_logprobs`) goes the same way as every
+  dispatch: asked as a stream, assembled whole with the token's `logprobs`
+  under its choice as the unit's answer not streamed carries them, under the
+  thread's `Hangup` and the deadline, so its probabilities read as before.
 - A rider who leaves a ride not streamed stops the host's unit at once. The
   rig agent's relay now uses the product's `mcgyvr.whole` for the hub's pool
   requests and for rides, and its own copy of the assembler is gone. Before,

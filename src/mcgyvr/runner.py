@@ -1306,11 +1306,11 @@ def _post_json(
 ) -> dict[str, Any]:
     """POST a JSON document and return the JSON answer.
 
-    A payload asking for a stream (``stream: true``, as the runner's every
-    payload does) is read as it comes and assembled into the whole answer
-    (:class:`mcgyvr.whole.Whole`), so a hang-up reaches the unit at its next
-    write; one that asks for none (a typed decision's one token) is read
-    whole. ``timeout`` bounds the dispatch end to end, connect included; the
+    A payload asking for a stream (``stream: true``, as every payload of the
+    runner's and of a typed decision's does) is read as it comes and assembled
+    into the whole answer (:class:`mcgyvr.whole.Whole`), so a hang-up reaches
+    the unit at its next write; one that asks for none is read whole.
+    ``timeout`` bounds the dispatch end to end, connect included; the
     :class:`Hangup` of the thread and the process's hang up on it meanwhile.
 
     Every failure is named rather than folded into one: unreachable is not the
