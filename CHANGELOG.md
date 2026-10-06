@@ -368,6 +368,21 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A rider who leaves mid-answer is charged, and the host paid, what the
+  host's unit made, exactly. A ride's cancel ended with no counts, so the
+  hub could only estimate a stream and, for an answer not streamed, had only
+  the prompt to go by. The rig agent now reads the unit's own status page
+  (llama.cpp's `/slots`, at the root of the address the ride posts to) just
+  before it hangs up and says in the ride's `relay_end` what the unit made
+  (`tokens_in`, `tokens_out`), by the same reading as a head's relay: the same
+  counts, the same one-off allowance, the same rule that in any doubt nothing
+  is said and the hub does what it did before. The unit is the host's own and
+  may not be llama.cpp, so the doubt is wider: a unit with no such page, or
+  one that answers it differently, reports nothing, as does one its host is
+  using too (the host's request at work is a second slot at work), another
+  ride on the unit, or a page that takes over a second. The page is read on a
+  thread of its own, never the one that sends the agent's frames, as a
+  head's is.
 - A unit stops decoding when whoever asked has gone, on every path through
   the product. A model server notices a hang-up only when it writes, and an
   answer not streamed is written once, at its end, so a dispatch left
@@ -406,8 +421,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   streamed is now asked of its unit as a stream and assembled whole by the
   same piece, as a head's request is. A unit that answers anything but a 200
   stream is passed through as it answers (status, type and body), whatever
-  engine it runs. A ride's cancel still reads no `/slots` page and reports no
-  counts.
+  engine it runs.
 - A requester who leaves a request not streamed stops the model server at
   once, as one who leaves a stream does. The head (llama.cpp) notices a
   hang-up only when it writes, and an answer not streamed is written once, at
