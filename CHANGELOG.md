@@ -359,6 +359,47 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A rig agent's heartbeat no longer pauses everything the agent sends. Each
+  heartbeat read the machine (the machine reader, about 1.7 s on a rig) on
+  the one thread that sends to the hub, so every relayed stream stopped for
+  that long every 15 s and the hub's commands waited too. The machine is now
+  read on a thread of its own, begun 5 s before the beat is due, one read at
+  a time. A heartbeat goes on time with the latest whole reading: normally
+  the one begun for it; when that read is slower, an older one, and the read
+  serves the next beat. A read that fails gives a heartbeat with no reading
+  and a note, as before. An early heartbeat (a session ended and freed
+  memory) waits, still sending, for a reading begun after it was asked.
+- A requester who leaves early is charged what the rig made, exactly. The
+  rig stopped at once and said nothing, so the hub charged a stream it
+  estimated and an answer not streamed nothing at all, though its model had
+  worked. A relay the hub cancels now reads its head's own status page
+  (llama.cpp's `/slots`) just before it hangs up and says the prompt's tokens
+  and the tokens generated in its `relay_end` (`tokens_in`, `tokens_out`:
+  optional fields of the hub's protocol, whose pinned copy moves with them;
+  a hub that does not know them reads past them). The page does not say
+  which slot serves which request, so the counts are sent only when the one
+  slot at work cannot be another's: the relay is alone in its head and the
+  head is still working on it. Otherwise (no such page, a server that is not
+  llama.cpp, several slots at work, another relay in the same head, an
+  answer already given, a ride to a unit its host uses too, a page that takes
+  over a second) the relay ends as it always did and the hub does what it
+  did before. The page is read on a thread of its own, never the one that
+  sends the agent's frames. The counts are read as the heads' own build
+  (llama.cpp b10644) keeps them: the prompt is the slot's tokens processed
+  plus those reused from its cache, the answer its `n_decoded`, and the
+  slot's `n_prompt_tokens`, which on that build is the whole context and
+  grows with the answer, must equal the prompt or the prompt and the answer
+  together; a page whose counts do not add up (a slot at the first instant
+  of a new task still shows the last one's) reports nothing.
+- A stream relayed through a rig agent is no longer capped at the agent's
+  frame rate. A head writes each token as an event of its own and each event
+  went out as a frame of its own, so the agent's 49 frames a second, shared
+  by every stream of every unit on the rig, was a cap on tokens: two units
+  that made 118 tokens a second between them delivered 43. The frame rate
+  stays (it protects the hub's link), but a frame of an answer is now filled
+  when the agent takes it to send, with all the head wrote while it waited,
+  up to the protocol's chunk; one frame of a relay waits at a time. The first
+  token is not held back, and the bytes reach the hub unchanged and in order.
 - A requester who leaves mid-answer no longer leaves an unhandled exception
   in the rig agent's log. Ending a relay closed the head's connection from
   the thread that asked, while the relay's own thread was still reading it;

@@ -496,6 +496,8 @@ def test_a_cancel_mid_answer_shuts_the_heads_socket_and_only_the_relay_closes_it
 
     upstream = _Upstream()
     monkeypatch.setattr(relay.Target, "connect", lambda self, timeout: upstream)
+    # This head has no status page: the one connection is the relay's own.
+    monkeypatch.setattr(relay, "_page", lambda target: None)
     made.request(_body(), stream=True)
     deadline = time.monotonic() + 5.0
     while not made.box.of_type("relay_data") and time.monotonic() < deadline:

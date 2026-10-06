@@ -13,6 +13,10 @@ faster than the channel carries stops reading its upstream, which is the
 backpressure. While the channel is down the box is closed: a put is refused
 at once and what was waiting is dropped, since it was said to a hub that is
 no longer listening (the hub asks again after a reconnect).
+
+A frame is its text, or what makes its text when the agent takes it to send
+(:data:`Frame`): a relay's frame of an answer is filled then, with all its
+head wrote while the frame waited (:mod:`mcgyvr.rig.relay`).
 """
 
 from __future__ import annotations
@@ -25,12 +29,15 @@ from collections.abc import Callable
 #: How many frames wait at most before a put waits too.
 CAPACITY = 256
 
+#: A frame that waits: its text, or what makes it once, when it is sent.
+type Frame = str | Callable[[], str]
+
 
 class Outbox:
     """A bounded, closable queue of frames to send."""
 
     def __init__(self, capacity: int = CAPACITY) -> None:
-        self._frames: deque[str] = deque()
+        self._frames: deque[Frame] = deque()
         self._capacity = capacity
         self._open = False
         self._changed = threading.Condition()
@@ -57,7 +64,7 @@ class Outbox:
         with self._changed:
             return self._open
 
-    def put(self, frame: str, timeout: float | None = None) -> bool:
+    def put(self, frame: Frame, timeout: float | None = None) -> bool:
         """Queue ``frame``; ``False`` when the box is closed, or stayed full
         for ``timeout`` seconds."""
         deadline = None if timeout is None else time.monotonic() + timeout
@@ -76,7 +83,7 @@ class Outbox:
             wake()
         return True
 
-    def take(self) -> str | None:
+    def take(self) -> Frame | None:
         """The next frame to send, or ``None``."""
         with self._changed:
             if not self._frames:

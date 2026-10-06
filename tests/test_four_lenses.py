@@ -124,6 +124,14 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # is not the blob the step serves, and the placement describes another file.
     "CONTAINER_MODELS": True,
     "HOST_MODELS": True,
+    # Must agree: llama.cpp's status page is one path of one server, read by
+    # the runner beside a dispatch (how many slots are at work) and by the rig
+    # agent's relay before it hangs up on a head (what the slot at work made).
+    # The rig agent states the few things it needs rather than importing the
+    # runner, which would bring the whole dispatch path into the agent. If the
+    # two stop agreeing, one of them reads a page the server does not have and
+    # falls back in silence: a unit read as unread, or a relay with no counts.
+    "SLOTS_PATH": True,
     # Must differ: one name for both would have the two backends tear down and
     # reuse each other's container, which is the collision `release()` exists to
     # make impossible.

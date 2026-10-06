@@ -3,9 +3,12 @@
 A session reads the machine (:mod:`mcgyvr.rig.hardware`) before it connects,
 so the hub never sees a channel open without a hello. It opens the channel,
 says ``hello`` first and waits for the hub's ``ack``, which names the rig and
-sets the heartbeat interval. Then it sends a heartbeat each interval, each
-with a fresh reading, and hands every frame the hub sends to the dispatcher
-(:mod:`mcgyvr.rig.commands`), sending back what it answers.
+sets the heartbeat interval. Then it sends a heartbeat each interval and
+hands every frame the hub sends to the dispatcher (:mod:`mcgyvr.rig.commands`),
+sending back what it answers. A heartbeat's reading is read on a thread of its
+own, begun :data:`READ_AHEAD_S` before the beat is due, so a read (a second or
+two) never holds what the agent sends; a beat goes on time with the latest
+whole reading, and a read not done by then serves the next beat.
 
 A session ends one of three ways, and each is judged once, by
 :func:`_judge`:
@@ -35,7 +38,10 @@ reason, the rig id) is shown printable and short (:func:`shown`).
 A rig that lends (:mod:`mcgyvr.rig.session`) says so in its hello (the
 ``offer``), and its sessions and relays speak on their own through the
 outbox (:mod:`mcgyvr.rig.outbox`), which the agent empties between reads at
-the same rate, delaying rather than dropping. A put wakes the agent from a
+the same rate, delaying rather than dropping. The rate is of frames, not of
+what they carry: a relay's frame of an answer is made when it is taken to be
+sent, with all its head wrote by then (:mod:`mcgyvr.rig.relay`). A put wakes
+the agent from a
 read that waits (:meth:`Channel.wake`), so a frame goes out at once, not when
 the read's :data:`RECEIVE_SLICE_S` ends. The agent tells them when the
 channel is up (``on_online``), when it is lost (``on_offline``: the outbox
@@ -47,7 +53,7 @@ and do its work elsewhere (the relief rungs' refresher,
 :class:`mcgyvr.rig.rungs.Refresher`). An error the hub sends is told to them too
 (``on_hub_error``), and a session that ended and freed its memory asks for a
 heartbeat at once (:meth:`Agent.beat_soon`), so the hub's reading of the rig
-is fresh.
+is fresh: it carries a reading begun after the ask.
 """
 
 from __future__ import annotations
@@ -87,6 +93,10 @@ HURRY_S = 2.0
 #: The soonest a heartbeat asked for early goes after the one before it (or
 #: the hello), in seconds.
 EARLY_BEAT_S = 1.0
+#: How long before a heartbeat is due the agent begins reading the machine for
+#: it, in seconds (no longer than the interval): a read takes a second or two,
+#: so it is normally whole when the beat goes.
+READ_AHEAD_S = 5.0
 
 #: Error codes after which asking again is refused again.
 _REFUSALS = {
@@ -247,6 +257,64 @@ def _judge(failure: Exception, last_error: protocol.Error | None) -> Exception:
     return _LostError(shown(str(failure)))
 
 
+def _aside(job: Callable[[], None]) -> None:
+    threading.Thread(target=job, name="rig-machine-read", daemon=True).start()
+
+
+class _Readings:
+    """The machine read for heartbeats off the agent's thread, one read at a
+    time, numbered as they begin. A read's outcome (a whole report, or the
+    error that ended it) is kept with its number in one step, over none
+    newer, so a heartbeat carries one read's reading whole, never a mix of
+    two. Only the agent's thread begins reads, and only while none runs."""
+
+    def __init__(
+        self,
+        read: Callable[[], hardware.Report],
+        aside: Callable[[Callable[[], None]], None],
+    ) -> None:
+        self._read = read
+        self._aside = aside
+        self._lock = threading.Lock()
+        self.kept: tuple[int, hardware.Report | hardware.HardwareError] = (
+            0,
+            hardware.HardwareError("the machine was not read yet"),
+        )
+        self.begun = 0
+        self.ended = 0
+        self.running = False
+
+    def hand(self, report: hardware.Report) -> None:
+        """Keep ``report``, read on the agent's thread, over every read begun
+        before it."""
+        with self._lock:
+            self.kept = (self.begun, report)
+
+    def begin(self, wake: Callable[[], None]) -> None:
+        """Begin the next read aside; ``wake`` is told when it ends."""
+        self.running = True
+        self.begun += 1
+        number = self.begun
+
+        def job() -> None:
+            outcome: hardware.Report | hardware.HardwareError
+            try:
+                try:
+                    outcome = self._read()
+                except hardware.HardwareError as exc:
+                    outcome = exc
+                with self._lock:
+                    if number > self.kept[0]:
+                        self.kept = (number, outcome)
+            finally:
+                with self._lock:
+                    self.running = False
+                    self.ended += 1
+                wake()
+
+        self._aside(job)
+
+
 class Agent:
     """The agent's loop. :meth:`run` until stopped or refused."""
 
@@ -272,9 +340,12 @@ class Agent:
         hurry: Callable[[], bool] | None = None,
         on_hub_error: Callable[[protocol.Error], None] | None = None,
         on_beat: Callable[[], None] | None = None,
+        aside: Callable[[Callable[[], None]], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
+        # a heartbeat's read runs on a daemon thread of its own (``aside``)
+        self._readings = _Readings(read_hardware, aside or _aside)
         self._version = agent_version
         self._clock = clock
         self._wall = wall
@@ -383,7 +454,9 @@ class Agent:
             frame = self._outbox.take()
             if frame is None:
                 return
-            channel.send_text(frame)
+            # A frame made now carries all there is to say by now (a relay's
+            # answer: every event its head wrote while the frame waited).
+            channel.send_text(frame if isinstance(frame, str) else frame())
             self._sent.append(self._clock())
 
     def _session(self, held_from: list[float]) -> None:
@@ -439,10 +512,10 @@ class Agent:
             if answer is not None:
                 self._send(channel, answer, answer=True)
 
-    def _early_after(self, at: float) -> Callable[[], bool]:
-        """Whether a heartbeat asked for early may go now: asked, and at or
-        after ``at`` on the clock."""
-        return lambda: self._soon.is_set() and self._clock() >= at
+    def _news(self, ended: int, asks: bool) -> Callable[[], bool]:
+        """Whether a heartbeat may have to go: a read ended since ``ended``
+        reads ended, or (when ``asks``) an early heartbeat was asked for."""
+        return lambda: self._readings.ended != ended or (asks and self._soon.is_set())
 
     def _converse(
         self,
@@ -489,18 +562,39 @@ class Agent:
         )
         for note in report.notes:
             self._say(f"note: {note}")
+        readings = self._readings
+        readings.hand(report)
+        ahead = min(READ_AHEAD_S, interval)
         unacked: list[str] = []
         next_beat = self._clock() + interval
         last_beat = self._clock()
+        read_for: float | None = None  # the beat whose read was begun (or ran)
+        early: int | None = None  # the read an early heartbeat waits for
         while True:
-            self._pump(
-                channel,
-                session,
-                next_beat,
-                done=self._early_after(last_beat + EARLY_BEAT_S),
-            )
-            early = self._soon.is_set() and self._clock() < next_beat
-            self._soon.clear()
+            ended = readings.ended  # first: an end after it wakes the pump
+            if early is None and self._soon.is_set():
+                self._soon.clear()
+                early = readings.begun + 1  # one begun after the ask
+            now = self._clock()
+            if read_for != next_beat and now >= next_beat - ahead:
+                read_for = next_beat  # a read still running serves this beat
+                if not readings.running:
+                    readings.begin(channel.wake)
+            if early is not None and readings.begun < early and not readings.running:
+                readings.begin(channel.wake)
+            number, outcome = readings.kept
+            ready = early is not None and number >= early
+            early_at = last_beat + EARLY_BEAT_S
+            if now < next_beat and not (ready and now >= early_at):
+                until = next_beat
+                if read_for != next_beat:
+                    until = min(until, next_beat - ahead)
+                if ready:
+                    until = min(until, early_at)
+                self._pump(
+                    channel, session, until, done=self._news(ended, early is None)
+                )
+                continue
             if any(beat in session.acked for beat in unacked):
                 unacked.clear()
             session.acked.clear()  # read; an id is acked once, so none is kept
@@ -509,14 +603,16 @@ class Agent:
                     f"the hub acked none of the last {MISSED_ACKS} heartbeats"
                 )
             beat_id = protocol.new_id()
-            try:
-                frame = hardware.heartbeat_frame(self._read(), beat_id)
-            except hardware.HardwareError as exc:
-                self._say(f"note: this heartbeat carries no reading: {exc}")
+            if isinstance(outcome, hardware.HardwareError):
+                self._say(f"note: this heartbeat carries no reading: {outcome}")
                 frame = protocol.heartbeat(beat_id, ram_free_mb=None, cards=())
+            else:
+                frame = hardware.heartbeat_frame(outcome, beat_id)
             self._send(channel, frame, answer=False)
             unacked.append(beat_id)
             last_beat = self._clock()
             self._on_beat()
-            if not early:
+            if ready:
+                early = None
+            if now >= next_beat:
                 next_beat += interval
