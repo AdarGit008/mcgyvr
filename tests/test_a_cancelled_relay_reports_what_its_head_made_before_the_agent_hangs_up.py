@@ -12,12 +12,13 @@ which that is. So they are reported only when it cannot be another's: this
 relay is the only one in its head, none began meanwhile, the head is still
 working on it, and exactly one slot is busy. In every other case (no page, a
 page that is not llama.cpp's, several slots busy, another relay in the head,
-an answer the head has already given, a ride to a unit its host uses too, a
-page that is slow) the relay ends as it always did, ``cancelled`` and no
-counts, and the hub falls back to what it did before. It is never an error.
-An answer not streamed is streamed from the head to the agent all the same
-(and assembled there), so its slot is at work until that stream ends and a
-leave meanwhile is read for as a stream's is.
+an answer the head has already given, a page that is slow) the relay ends as
+it always did, ``cancelled`` and no counts, and the hub falls back to what it
+did before. It is never an error. An answer not streamed is streamed from the
+head to the agent all the same (and assembled there), so its slot is at work
+until that stream ends and a leave meanwhile is read for as a stream's is. A
+ride's cancel reads its unit the same way
+(``tests/test_a_cancelled_ride_reports_what_the_hosts_unit_made_as_a_heads_relay_does.py``).
 """
 
 from __future__ import annotations
@@ -379,65 +380,6 @@ def test_an_answer_not_streamed_is_streamed_from_the_head_and_read_for_meanwhile
     assert rig.head.seen("hung up")
     assert rig.head.events == ["GET /slots", "hung up"]
     assert not rig.box.of_type("relay_response")
-
-
-def test_a_ride_is_cancelled_as_before_and_its_unit_is_not_read() -> None:
-    """A unit its host uses too: a slot at work there may be the host's."""
-    from mcgyvr.rig import commands, relay
-
-    head = Head()
-    head.server = _serve(head)
-
-    @dataclass
-    class Shared:
-        rider_cap: int = 1
-
-        def url(self, endpoint: str) -> str:
-            return f"http://127.0.0.1:{head.port}/v1/chat/completions"
-
-    class Units:
-        def advertised(self, unit_id: str) -> Shared | None:
-            return Shared()
-
-        def ride(self, unit_id: str) -> Any:
-            from contextlib import nullcontext
-
-            return nullcontext()
-
-    box = fakes.Box()
-    relays = relay.Relays(heads=Heads(head.port), send=box.put, units=Units())
-    dispatcher = commands.Dispatcher()
-    relay.register(dispatcher, relays)
-    built = Rig(head, box, relays, dispatcher)
-    try:
-        body = b"{}"
-        built.send(
-            "unit_relay_request",
-            "r1",
-            unit_id="u1",
-            request_id="q1",
-            endpoint="chat_completions",
-            body_bytes=len(body),
-            stream=True,
-            timeout_s=20,
-            max_response_bytes=1 << 20,
-            window=64,
-        )
-        built.send(
-            "relay_data",
-            "d1",
-            request_id="q1",
-            seq=0,
-            data_b64=base64.b64encode(body).decode(),
-        )
-        built.answering()
-        built.cancel()
-        assert built.ended() == CANCELLED
-        assert head.seen("hung up")
-        assert "GET /slots" not in head.events
-    finally:
-        relays.cancel_all()
-        head.server.shutdown()
 
 
 def test_a_relay_that_ends_some_other_way_reports_nothing(rig: Rig) -> None:

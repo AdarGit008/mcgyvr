@@ -21,8 +21,8 @@ the same way, by the same code: a ride not streamed is streamed from its unit
 and assembled whole, so a rider who leaves stops the host's unit at once too,
 and a unit that answers with no stream is passed through as it answers. The
 head's slot is at work until the stream ends, so a leave mid-answer reads its
-counts as a streamed request's leave does; a ride's leave reads no counts, as
-a ride's never has.
+counts as a streamed request's leave does, and a ride's leave reads its
+unit's the same way.
 """
 
 from __future__ import annotations
@@ -603,12 +603,12 @@ def test_a_rider_who_leaves_a_ride_not_streamed_stops_the_units_slot_at_once(
     rig.ask(ride=True)
     assert rig.head.seen_event("decoded")
     rig.cancel()
-    assert rig.ended() == CANCELLED  # a ride's unit is its host's: no counts
+    assert rig.ended() == MADE  # read from the unit's slot, as a head's is
     assert rig.head.seen_event("hung up")
     decoded = rig.head.events.count("decoded")
     assert decoded < 20, decoded  # a token or two past the leave, not the answer
     assert "answered" not in rig.head.events
-    assert "GET /slots" not in rig.head.events
+    assert rig.head.events.index("GET /slots") < rig.head.events.index("hung up")
     assert not rig.box.of_type("relay_response")
     assert not rig.box.of_type("relay_data")
 

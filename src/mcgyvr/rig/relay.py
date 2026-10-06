@@ -69,18 +69,21 @@ stream is passed through as it answers (status, type and body), an error
 event mid-stream becomes the status and body the server gives a request not
 streamed, and a stream that ends with neither its answer nor an error is
 the server's failure (``upstream_failed``). A body that is no JSON object
-goes to the head or the unit as it came. A relay the hub cancels says in
-that ``relay_end`` what its head made by then (``tokens_in``,
-``tokens_out``), which the hub charges the requester who left: the head's own
-status page (:data:`SLOTS_PATH`) is read just before the hang-up, on a thread
-of its own, never the one that hears the hub. The page does not say which
-slot serves which request, so the counts go only when the slot at work cannot
-be another's (:meth:`Relays._made`); in any doubt, the relay ends with no
-counts, as it always did, and the hub keeps to what it did before. The counts
-are the head relay's alone: a ride's unit is its host's and may not be
-llama.cpp, so its page is never read and a ride's cancel says none. Hanging up
-shuts the head's socket down under the relay's read and no more; the relay's
-own thread, woken by it, closes the connection.
+goes to the head or the unit as it came. A relay or a ride the hub cancels
+says in that ``relay_end`` what its head or unit made by then (``tokens_in``,
+``tokens_out``), which the hub charges the requester who left (and, for a
+ride, pays the host): the server's own status page (llama.cpp's
+:data:`SLOTS_PATH`, at the root of the address the relay posts to) is read
+just before the hang-up, on a thread of its own, never the one that hears the
+hub. The page does not say which slot serves which request, so the counts go
+only when the slot at work cannot be another's (:meth:`Relays._made`); in any
+doubt, the relay ends with no counts, as it always did, and the hub keeps to
+what it did before. A ride's unit is its host's and may not be llama.cpp: a
+unit with no such page, or one that answers it differently, reports nothing,
+as does one its host is using too (the host's request at work is a second
+slot at work). Hanging up shuts the head's socket down under the relay's
+read and no more; the relay's own thread, woken by it, closes the
+connection.
 ``http.client`` closed from another thread while a read of it ends fails in
 whichever loses (an ``AttributeError`` on the file it no longer has), so the
 connection is closed by the one thread that reads it. What a
@@ -119,8 +122,8 @@ MAX_ACTIVE = sessionwire.MAX_SLOTS
 REMEMBERED_IDS = 4096
 #: The longest a frame of the answer waits for the outbox, in seconds.
 SEND_WAIT_S = 30.0
-#: llama.cpp's status page, on the head's own API: each slot, whether it is
-#: at work, and its counts.
+#: llama.cpp's status page, at the root of the head's or the unit's own API:
+#: each slot, whether it is at work, and its counts.
 SLOTS_PATH = "/slots"
 #: The longest a cancelled relay's hang-up waits for that page, in seconds:
 #: under the moment the hub waits for the ``relay_end``.
@@ -219,7 +222,7 @@ class _Relay:
     connection: http.client.HTTPConnection | None = None
     deadline: float = 0.0
     working: bool = False  # the head has the request and has not answered it
-    made: tuple[int, int] | None = None  # the head's counts, read at a cancel
+    made: tuple[int, int] | None = None  # the server's counts, read at a cancel
     pending: bytearray = field(default_factory=bytearray)  # read, in no frame yet
     queued: bool = False  # a frame of the answer waits to be sent
     seq: int = 0  # the next frame of the answer
@@ -393,25 +396,22 @@ class Relays:
                 relay.changed.notify_all()
 
     def cancel(self, envelope: protocol.Envelope) -> None:
-        """``relay_cancel``: end the relay, hanging up on the head. A head's
-        relay first reads what the head made (:meth:`_leave`), on a thread of
-        its own: this one hears the hub and sends every frame, and waits for
-        no page."""
+        """``relay_cancel``: end the relay or the ride, hanging up on its head
+        or unit, which first reads what that made (:meth:`_leave`), on a
+        thread of its own: this one hears the hub and sends every frame, and
+        waits for no page."""
         asked = sessionwire.read_relay_cancel(envelope)
         with self._lock:
             relay = self._active.get(asked.request_id)
         if relay is None:
             return
-        if isinstance(relay.asked, sessionwire.RelayRequest):
-            threading.Thread(
-                target=self._leave, args=(relay,), name="mcgyvr-relay", daemon=True
-            ).start()
-        else:
-            self._stop(relay, "cancelled", SessionCode.CANCELLED)
+        threading.Thread(
+            target=self._leave, args=(relay,), name="mcgyvr-relay", daemon=True
+        ).start()
 
     def _leave(self, relay: _Relay) -> None:
-        """End ``relay`` as cancelled, with what its head made by now when
-        that can be told for certain."""
+        """End ``relay`` as cancelled, with what its head or unit made by now
+        when that can be told for certain."""
         try:
             made = self._made(relay)
             with relay.changed:
@@ -422,7 +422,7 @@ class Relays:
 
     def _alone(self, relay: _Relay) -> int | None:
         """How many relays ever began, when ``relay`` is the only one in its
-        head and the head is working on it; else ``None``."""
+        head or unit and that is working on it; else ``None``."""
         with self._lock:
             others = any(
                 other is not relay and other.target == relay.target
@@ -434,19 +434,20 @@ class Relays:
         return begun if working and not others else None
 
     def _made(self, relay: _Relay) -> tuple[int, int] | None:
-        """What ``relay``'s head made of it so far, by the head's own count,
-        or ``None`` when that is not certain.
+        """What ``relay``'s head or unit made of it so far, by the server's
+        own count, or ``None`` when that is not certain.
 
         The page lists the slots, not whose request each serves. The one slot
-        at work is this relay's only if nothing else is in the head: this
+        at work is this relay's only if nothing else is in the server: this
         relay is alone in it, before the page is read and after, no relay
-        began meanwhile, and the head is still working on it (its request is
-        in, and its stream has not ended, or an answer passed through whole
-        not begun: a slot whose answer is given is free, and counts
-        nothing). The head's API
-        is on this machine's loopback alone and the agent is the only way
-        in, so then the slot is this relay's. A ride's unit is its host's
-        too, and is never read."""
+        began meanwhile, and the server is still working on it (its request
+        is in, and its stream has not ended, or an answer passed through
+        whole not begun: a slot whose answer is given is free, and counts
+        nothing). The head's API is on this machine's loopback alone and the
+        agent is the only way in, so then the slot is this relay's. A ride's
+        unit is its host's too, reached outside the agent: the host's own
+        request at work there is a second slot at work, and the page says
+        nothing for certain (:func:`slot_made`)."""
         begun = self._alone(relay)
         if begun is None:
             return None
