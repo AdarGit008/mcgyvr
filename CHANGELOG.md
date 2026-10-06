@@ -359,6 +359,27 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A requester who leaves a request not streamed stops the model server at
+  once, as one who leaves a stream does. The head (llama.cpp) notices a
+  hang-up only when it writes, and an answer not streamed is written once, at
+  its end, so a slot went on decoding the rest of such an answer for nobody
+  while the hub charged the requester for what was made at the leave. The rig
+  agent now asks the head for a stream whatever the requester asked (`stream`
+  and `stream_options.include_usage` set on the request's JSON object, the
+  rest as it came) and, for a request not streamed, assembles the whole answer
+  itself as the head would have written it: the same content, reasoning, tool
+  calls, finish reason, usage, token probabilities and shape (compact JSON,
+  keys in order), the id, model, time and fingerprint as the head's last event
+  says them and the `timings` of that event passed through. The hub still
+  gets one `relay_response` and the answer in frames once it is whole, as
+  before. A head that refuses the request (any status but 200, or no stream)
+  is passed through as it answers; an error event mid-stream becomes the
+  status its code says and the error as the body, as the head answers a
+  request not streamed; a stream that ends with neither answer nor error is
+  the head's failure (`upstream_failed`); a body that is no JSON object goes
+  to the head as it came, and a ride's body to its unit as it came (its own
+  contract). The head's slot is at work until the stream ends, so a leave
+  meanwhile is read for its counts (the `/slots` page) as a stream's leave is.
 - A pool head's answers name the model the hub asked for. The head's
   llama-server was started with `-m /models/<file>` and no `--alias`, so it
   named every answer after that path, where the hub lists and matches the
