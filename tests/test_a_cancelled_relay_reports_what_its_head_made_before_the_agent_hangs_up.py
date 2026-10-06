@@ -15,6 +15,9 @@ page that is not llama.cpp's, several slots busy, another relay in the head,
 an answer the head has already given, a ride to a unit its host uses too, a
 page that is slow) the relay ends as it always did, ``cancelled`` and no
 counts, and the hub falls back to what it did before. It is never an error.
+An answer not streamed is streamed from the head to the agent all the same
+(and assembled there), so its slot is at work until that stream ends and a
+leave meanwhile is read for as a stream's is.
 """
 
 from __future__ import annotations
@@ -337,17 +340,20 @@ def test_with_another_relay_in_the_head_no_slot_is_this_relays_for_certain() -> 
         built.head.server.shutdown()
 
 
-def test_an_answer_not_streamed_that_the_head_has_given_is_not_read_for(
+def test_an_answer_not_streamed_is_streamed_from_the_head_and_read_for_meanwhile(
     rig: Rig,
 ) -> None:
-    """Its slot is done: whatever slot is at work now is somebody else's."""
-    rig.head.answers_first = True  # the answer is on its way, in pieces
+    """The head streams it to the agent, which assembles it: nothing has
+    reached the hub, the slot is at work until the stream ends, and a leave
+    reads it as a stream's leave does."""
+    rig.head.answers_first = True  # the head is streaming it, in pieces
     rig.ask(stream=False)
-    rig.answering()
+    time.sleep(0.1)
     rig.cancel()
-    assert rig.ended() == CANCELLED
+    assert rig.ended() == MADE
     assert rig.head.seen("hung up")
-    assert "GET /slots" not in rig.head.events
+    assert rig.head.events == ["GET /slots", "hung up"]
+    assert not rig.box.of_type("relay_response")
 
 
 def test_a_ride_is_cancelled_as_before_and_its_unit_is_not_read() -> None:
@@ -529,6 +535,27 @@ def test_the_prompt_still_being_read_is_counted_so_far_and_nothing_generated() -
     )
 
 
+def test_a_page_read_as_a_token_is_added_is_off_by_one_and_still_counts(
+    rig: Rig,
+) -> None:
+    """About one read in fifty lands while the head adds a token: the answer
+    is counted (``n_decoded``) before the context grows, so the context is
+    one short of the prompt and the answer. The counts as read still hold,
+    and they are reported; a context off by more is still no count."""
+    from mcgyvr.rig.relay import slot_made
+
+    assert slot_made(live_page(context=35)) == (23, 13)  # 36 - 1
+    assert slot_made(live_page(context=37)) == (23, 13)  # one over, the same
+    assert slot_made(live_page(context=524, decoded=501)) == (23, 501)  # 525 - 1
+    assert slot_made(live_page(context=34)) is None
+    rig.head.page = live_page(context=35)
+    rig.ask()
+    rig.answering()
+    rig.cancel()
+    assert rig.ended() == CANCELLED | {"tokens_in": 23, "tokens_out": 13}
+    assert rig.head.seen("hung up")
+
+
 UNSOUND = {
     "a new task's first instant: the last one's context, none of this one": live_page(
         context=107, processed=0, cached=0, decoded=0
@@ -536,6 +563,7 @@ UNSOUND = {
     "a context that is neither the prompt nor the prompt and the answer": live_page(
         context=50
     ),
+    "a context two short of the prompt and the answer": live_page(context=34),
     "a context short of the prompt": live_page(context=20),
     "no count of the prompt processed": live_page(processed=None),
     "no count of the prompt cached": live_page(cached=None),
