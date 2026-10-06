@@ -323,7 +323,7 @@ say "### CONFIG profile=$RUN_PROFILE"
 if [ "$H_OFFLOAD" != true ] && [ "$P_FLOOR" -gt 0 ]; then
     say "$(row REFUSED at_floor "$P_FLOOR" 0 "$P_PREDICTED" NA "$S_FREE" cpu-expert-offload-disabled-on-host)"
     end_stamp
-    refuse "$HOSTS_JSON[$RUN_HOST].cpu_expert_offload is false and this placement needs --n-cpu-moe $P_FLOOR; the host is declared unable to run CPU expert offload. Nothing was launched; the REFUSED row says why. Serve a placement that fits the card whole (a smaller checkpoint or a deeper quant), or set cpu_expert_offload to true for this host only once it runs CPU expert offload without locking up"
+    refuse "${HOSTS_JSON}[$RUN_HOST].cpu_expert_offload is false and this placement needs --n-cpu-moe $P_FLOOR; the host is declared unable to run CPU expert offload. Nothing was launched; the REFUSED row says why. Serve a placement that fits the card whole (a smaller checkpoint or a deeper quant), or set cpu_expert_offload to true for this host only once it runs CPU expert offload without locking up"
 fi
 
 at_floor_ok=0

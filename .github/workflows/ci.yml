@@ -37,6 +37,11 @@ jobs:
         with:
           version: "0.11.28"
           python-version: "3.12"
+      # The gate scripts' shellcheck test skips with no shellcheck on PATH.
+      # The runner image ships it today; naming it here keeps the test from
+      # turning into a silent skip if the image ever drops it.
+      - name: install shellcheck
+        run: sudo apt-get install -y shellcheck
       # One `make check` — a single `make setup`, then lint, typecheck,
       # docs-check and test in one pass. The four leaf targets each depend on
       # `setup`, so running them separately rebuilds the editable package four
