@@ -245,7 +245,6 @@ flowchart LR
 | `records/` | measurements, evidence, corpora and fleet locks that tests and tools read; `records/evidence/ghostcall-2026-08-02/` records where the semantic check's engine came from; the engine the check runs ships in the package, under `src/mcgyvr/gate/_engine/ghostcall/` |
 | `archive/` | the archived files that tests, tools and data still read or cite |
 | `fleet-setup/` | a stamped two-machine setup that tests use as fixtures |
-| `okf/` | rules for agents developing mcgyvr on the owner's machines |
 | `.github/repo-baseline.md` | the checklist this repository is aligned against |
 | [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), [`LICENSE`](LICENSE) | changes, how to report a vulnerability, MIT license |
 

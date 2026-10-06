@@ -39,15 +39,15 @@ from tools.runs import workload
 # token.
 #
 # UTIL is a per-server share of the whole card, the CUDA context is on top of
-# it, and vLLM refuses at startup when free memory is below util x total
-# (-> okf/config/vllm.md, Co-residency). Because the pool is util-sized, the
+# it, and vLLM refuses at startup when free memory is below util x total.
+# Because the pool is util-sized, the
 # solo halves are measured here at the co-resident util rather than read off a
 # solo run at another util.
 #
 # IDENTICAL WORK, EVERY TIME. The request counter is reset before each batch is
 # built and the same (prompt, want) list is handed to both servers, so a delta
-# between any two rows is contention and never a different prompt draw
-# (-> okf/must-read/reading-results.md, the prompt draw desync).
+# between any two rows is contention and never a different prompt draw (the
+# lengths come from a per-process counter, so a changed level list shifts them).
 
 # THE DOOR'S TWO REFUSALS, before argv is read and before docker is touched.
 # A bare run of this file would print byte-compatible rows with no stamps — no
@@ -248,11 +248,9 @@ if int(MAXLEN) < workload.MAXLEN_NEED:
     sys.exit(0)
 
 # ONE AT A TIME, EACH FULLY UP BEFORE THE NEXT STARTS: vLLM profiles live free
-# memory during init, so two servers starting together race
-# (-> okf/config/vllm.md, Co-residency).
+# memory during init, so two servers starting together race.
 #
-# ORDER IS THE CALLER'S (argv order). Which order is right is an open ruling
-# -> okf/config/vllm.md, Co-residency.
+# ORDER IS THE CALLER'S (argv order). Which order is right is not settled.
 servers: list[Server] = []
 alive: list[Server] = []
 for i, spec in enumerate(SPECS):
@@ -274,8 +272,7 @@ for i, spec in enumerate(SPECS):
     servers.append(s)
 
     # RETRY: a launch near the memory edge fails intermittently, so a refusal
-    # is believed only after LAUNCH_TRIES attempts
-    # (-> okf/config/vllm.md, Co-residency).
+    # is believed only after LAUNCH_TRIES attempts.
     ok, attempts = False, 0
     probe = f"curl -sf -m 3 http://{H}:{s['port']}/health >/dev/null && echo Y"
     for attempts in range(1, LAUNCH_TRIES + 1):

@@ -1,7 +1,7 @@
 """What every test shares opens nothing outside the package and the tests.
 
 Promise: ``tests/conftest.py`` and whatever it pulls in open nothing under
-``tools/``, ``records/``, ``okf/``, ``fleet-setup/`` or ``archive/``, neither
+``tools/``, ``records/``, ``fleet-setup/`` or ``archive/``, neither
 when the tests are collected nor around a test that runs, nor when a test asks
 for any fixture the conftest offers. Those folders are not part of what a user
 installs, so a shared fixture that needed them would fail for anyone who has
@@ -61,7 +61,7 @@ REPO = Path(__file__).resolve().parent.parent
 CONFTEST = REPO / "tests" / "conftest.py"
 
 #: The folders a user of the package does not have.
-OUTSIDE = ("tools", "records", "okf", "fleet-setup", "archive")
+OUTSIDE = ("tools", "records", "fleet-setup", "archive")
 
 #: The longest one inner run may take before the test fails.
 INNER_TIMEOUT_S = 600

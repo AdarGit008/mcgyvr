@@ -314,9 +314,8 @@ def read(path: Path) -> Sweep:
 
 
 #: What a row must name about the machine that produced it. Each of these can
-#: move between runs with no record saying so (-> okf/must-read/touching-rigs.md),
-#: and a figure that cannot name them is a figure about an afternoon, not about
-#: a rig.
+#: move between runs with no record saying so, and a figure that cannot name
+#: them is a figure about an afternoon, not about a rig.
 RIG_FIELDS = (
     "cpu_max_mhz",
     "ram_mt_s",

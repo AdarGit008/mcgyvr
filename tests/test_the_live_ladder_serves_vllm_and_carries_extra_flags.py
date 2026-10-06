@@ -14,7 +14,7 @@ here:
 * a model may carry ``serve_args``, appended verbatim to the argv, and both
   renderings carry them the same way;
 * a source may pin its ``image``, because srv1's rows are only valid against a
-  stated build (``okf/must-read/touching-rigs.md``) and the engine's default
+  stated build and the engine's default
   tag floats;
 * the units on one host are summed against its free VRAM, because each unit
   fitting alone is exactly how a 12 GB card ends up asked for 13. That sum is

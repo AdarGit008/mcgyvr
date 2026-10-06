@@ -158,8 +158,8 @@ class Mismatch:
 class Vram:
     """One card's memory. ``free`` is the number that decides a fit today.
 
-    ``reserved`` is the remainder the driver holds and never hands to a process
-    (``okf/must-read/touching-rigs.md``). It is carried rather than folded into
+    ``reserved`` is the remainder the driver holds and never hands to a process.
+    It is carried rather than folded into
     ``used`` because the two are answerable by different people -- used is a
     workload and reserved is the card -- and because carrying it is what lets
     the four numbers close: ``total == used + free + reserved``, always.
@@ -737,7 +737,7 @@ def _parse_gpu_row(line: str) -> Gpu | None:
         # by the driver's reserve, which is memory no process is ever given:
         # deriving free would over-state it by that much, and a placement
         # sized against the over-statement clears the fit and then fails to
-        # allocate (``okf/must-read/touching-rigs.md``).
+        # allocate.
         #
         # The remainder is derived rather than read from nvidia-smi's own
         # ``memory.reserved``, because a derived remainder makes the numbers

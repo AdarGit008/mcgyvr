@@ -3,7 +3,7 @@
 # Qwen3.6-35B-A3B UD-IQ3_XXS on srv1 at one --n-cpu-moe, all eight slots driven.
 #
 # The footprint-versus-stream test, run with its hard-lock risk
-# (okf/must-read/touching-rigs.md, "A rig that hard-locks under load"). Three
+# under CPU expert offload. Three
 # arms differ in --n-cpu-moe only: A1 = 30 (the depth of fleet.yaml's
 # srv1_35b_b), A2 = 36, A3 = 40 (every expert block in host RAM). Everything
 # else is fixed by this file: --parallel 8, -c 32768 (4096 a slot), -b 512

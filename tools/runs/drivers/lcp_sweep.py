@@ -109,8 +109,8 @@ def rig(c: str) -> str:
 
 def post(out: list[Cell | None], idx: int) -> None:
     prompt, want = workload.mkprompt()
-    # CHAT, not `/completion`, so the model's chat template applies
-    # (-> okf/must-read/reading-results.md). The split is by prefix, not by
+    # CHAT, not `/completion`, so the model's chat template applies. The split
+    # is by prefix, not by
     # changing mkprompt -- SYSTEM stays the shared cacheable head and the
     # workload digest is unmoved. `cache_prompt` is passed through by
     # llama-server's OAI handler, so both engines still cache the scaffold.

@@ -62,7 +62,7 @@ What one cell prints, all tab-separated `host label kind k=v...`:
             model's first token is reasoning); ttft_src=usage when no delta
             streamed and the usage chunk's arrival is the clock. Streaming
             TTFT is the only prefill figure in this file; `agg` is not one
-            (okf/must-read/reading-results.md)
+            (it divides prompt and generated tokens by one wall clock)
   n=K       K concurrent streamed requests from tools/runs/workload.py:
             agg = generated / wall; dec = 1000 / tpot_p50, the per-stream
             decode rate a user sees; ttft_p50; and a rig-side sidecar over

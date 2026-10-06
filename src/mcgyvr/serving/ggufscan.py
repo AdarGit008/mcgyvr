@@ -18,8 +18,8 @@ disk; only the tensor table says how much of that weight is ``ffn_*_exps`` --
 the only part ``--n-cpu-moe`` can move to host RAM. A gate built on the
 former refuses a model whose experts would have fitted.
 
-Sums the table. Never guesses bits-per-weight from size over parameters
-(``okf/must-read/touching-models.md``). ``MXFP4`` is ggml type 39
+Sums the table. Never guesses bits-per-weight from size over parameters.
+``MXFP4`` is ggml type 39
 and a reader missing it falls back to f32 and calls an 11.28 GiB file 71 GiB.
 """
 
