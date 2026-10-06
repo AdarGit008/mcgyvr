@@ -15,13 +15,28 @@ to ask in. The invariants:
 * **The cap is sent and checked afterwards.** ``max_output_tokens`` is
   optional on every :class:`Request`: ``None`` is the uncapped dispatch for a
   raw-text reply, and only a set cap is translated into the protocol's own
-  parameter (``max_tokens``) — the key is omitted when uncapped. Nothing
-  streams, so a client cannot cut a response off mid-generation; what it can
-  do is refuse to issue an uncapped whole-file request and then compare the
+  parameter (``max_tokens``) — the key is omitted when uncapped. A caller
+  cannot cut a response off at a length of its choosing; what it can do is
+  refuse to issue an uncapped whole-file request and then compare the
   backend's own reported token count against the ceiling it was given. A
   backend that overran says so through :attr:`Completion.overran_cap` rather
   than passing for a short answer; an uncapped reply has no ceiling to check,
   so ``overran_cap`` is ``None``.
+* **Every unit is asked for a stream, and the whole is assembled here.** A
+  unit notices that whoever asked has gone only when it writes to them, and
+  an answer not streamed is written once, at its end: a dispatch left
+  mid-answer had the slot decode the rest for nobody. So the body asks for a
+  stream and its counts (:func:`mcgyvr.whole.asking`), the transport reads it
+  as it comes and assembles the answer the unit would have written a request
+  not streamed (:class:`mcgyvr.whole.Whole`), and a caller sees one
+  :class:`Completion`, as before. ``timeout_s`` bounds the whole dispatch,
+  not each token. Whoever asked and has gone hangs up: a timeout, a
+  :class:`Hangup` held by the caller (the facade's client closed its
+  connection) or :func:`hang_up_all` (the process is ending) shuts the
+  unit's connection down under the read, and the unit's next write fails.
+  A dispatch hung up on is :class:`HungUpError`, a transport failure. A unit
+  that answers anything but a 200 stream is read as it answers: an error
+  status with its body, a whole JSON answer as it comes.
 * **No stop sequences are sent, by decision.** A reply is bounded by the cap
   and a named truncation and nothing else: a stop sequence is consumed by the
   server and stripped from the answer, so it turns a reply that ran long into a
@@ -104,18 +119,22 @@ both sent verbatim, and a reply that calls a tool comes back as
 
 from __future__ import annotations
 
+import contextlib
 import http.client
 import json
+import socket
 import sys
+import threading
 import time
-import urllib.error
+import urllib.parse
 import urllib.request
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, ClassVar
 
+from mcgyvr import whole
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.fleet.harness import (
@@ -174,6 +193,84 @@ class RefusedConnectionError(TransportError):
     refusal is what a card with nothing started gives, and is the wake signal
     :mod:`mcgyvr.wake` acts on; a timeout is a card that is up and busy.
     """
+
+
+class HungUpError(TransportError):
+    """The dispatch was hung up on: whoever asked for it had gone.
+
+    A :class:`Hangup` the dispatch ran under was hung up, or the process is
+    ending (:func:`hang_up_all`). The unit was told by its connection closing,
+    not by this; nothing usable came back, which is what a transport failure
+    is, and no retry is owed to a caller who is no longer there.
+    """
+
+
+class Hangup:
+    """What whoever asks holds to hang up on the dispatches made for them.
+
+    The thread that dispatches enters it (``with hangup:``), and every
+    dispatch made on that thread meanwhile runs under it; any thread calls
+    :meth:`hang_up` once the asker has gone. The connections of the dispatches
+    in flight under it are shut down at once, so each unit's next write fails
+    and its slot is free, and each dispatch ends as :class:`HungUpError`; a
+    dispatch asked under it afterwards reaches no unit. The shutdown is of
+    the socket alone, from whichever thread hangs up; the dispatching thread,
+    woken by it, is the one that closes the connection.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._open: set[socket.socket] = set()
+        self.hung_up = False
+
+    def __enter__(self) -> Hangup:
+        _under().append(self)
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        _under().remove(self)
+
+    def hang_up(self) -> None:
+        """End the dispatches in flight under this, and refuse any after."""
+        with self._lock:
+            self.hung_up = True
+            open_now = list(self._open)
+        for sock in open_now:
+            with contextlib.suppress(OSError):
+                sock.shutdown(socket.SHUT_RDWR)
+
+    def _hold(self, sock: socket.socket) -> bool:
+        """Register a dispatch's socket; ``False`` once hung up."""
+        with self._lock:
+            if self.hung_up:
+                return False
+            self._open.add(sock)
+            return True
+
+    def _drop(self, sock: socket.socket) -> None:
+        with self._lock:
+            self._open.discard(sock)
+
+
+#: The hangups the current thread dispatches under, innermost last.
+_dispatching = threading.local()
+
+#: Every dispatch of this process runs under this one too, so the process
+#: can hang up on all of them at once when it is ending (Ctrl-C).
+_every = Hangup()
+
+
+def _under() -> list[Hangup]:
+    stack: list[Hangup] | None = getattr(_dispatching, "stack", None)
+    if stack is None:
+        stack = _dispatching.stack = []
+    return stack
+
+
+def hang_up_all() -> None:
+    """Hang up on every dispatch of this process, and refuse any after: for
+    a process that is ending, so no unit goes on decoding for it."""
+    _every.hang_up()
 
 
 class BackendError(RunnerError):
@@ -779,11 +876,7 @@ class OpenAIRunner(Runner):
         messages.extend(request.turns)
         if request.prompt or not request.turns:
             messages.append({"role": "user", "content": request.prompt})
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-        }
+        payload: dict[str, Any] = {"model": model, "messages": messages}
         if self.endpoint.sampling != SERVER_SAMPLED:
             # A unit whose server fixes its own sampling refuses the parameter
             # (`units.<unit>.sampling: server`); every other unit is sent the
@@ -813,7 +906,10 @@ class OpenAIRunner(Runner):
             # request is the body it always was.
             payload["tools"] = list(request.tools)
             payload["tool_choice"] = "auto"
-        return payload
+        # The stream and its counts, so a hang-up stops the unit within a
+        # token; the transport assembles the whole answer (the module's
+        # docstring says why).
+        return whole.asking(payload)
 
     def _parse(self, document: dict[str, Any]) -> _Parsed:
         choices = document.get("choices")
@@ -1196,6 +1292,12 @@ def _get_text(url: str, timeout: float) -> str | None:
 # --- transport --------------------------------------------------------------
 
 
+#: How much of an answer is read at a time, in bytes: a read returns what has
+#: come, up to this, so a stream is read a token's event at a time as it is
+#: written and the deadline is checked between reads.
+_READ_BYTES = 64 * 1024
+
+
 def _post_json(
     url: str,
     payload: dict[str, Any],
@@ -1204,51 +1306,105 @@ def _post_json(
 ) -> dict[str, Any]:
     """POST a JSON document and return the JSON answer.
 
+    A payload asking for a stream (``stream: true``, as the runner's every
+    payload does) is read as it comes and assembled into the whole answer
+    (:class:`mcgyvr.whole.Whole`), so a hang-up reaches the unit at its next
+    write; one that asks for none (a typed decision's one token) is read
+    whole. ``timeout`` bounds the dispatch end to end, connect included; the
+    :class:`Hangup` of the thread and the process's hang up on it meanwhile.
+
     Every failure is named rather than folded into one: unreachable is not the
     same as a 401, and neither is the same as an answer this runner cannot
     read. No message interpolates a credential — the key is in ``headers``,
-    which is never quoted.
+    which is never quoted, and the URL is quoted with its userinfo redacted.
     """
     body = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    streamed = payload.get("stream") is True
+    sent = {
+        **headers,
+        "Accept": whole.EVENT_STREAM if streamed else "application/json",
+    }
+    deadline = time.monotonic() + timeout
+    under = [*_under(), _every]
+
+    def gone() -> bool:
+        return any(hangup.hung_up for hangup in under)
+
+    if gone():
+        raise HungUpError(f"{safe_url(url)} was not asked: the asker has gone")
+    connection, path = _open(url, timeout)
+    sock: socket.socket | None = None
+    response: http.client.HTTPResponse | None = None
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        # The body is read inside this handler, so a failure of that read is
-        # not caught by the handlers below it: it is caught here, and the
-        # dispatch still ends as the error status the server sent. A failed
-        # read says nothing about how much arrived: `http.client` keeps only
-        # the part it could frame (a chunk cut off partway is dropped), and a
-        # stall or a reset keeps nothing. So no failed read is called empty.
-        answered = f"{safe_url(url)} answered HTTP {exc.code}"
-        try:
-            raw_detail = exc.read()
-        except http.client.IncompleteRead as short:
-            kept = short.partial.decode("utf-8", "replace").strip()
+        connection.request("POST", path, body=body, headers=sent)
+        sock = connection.sock
+        if sock is None or not all(hangup._hold(sock) for hangup in under):
+            raise HungUpError(f"{safe_url(url)} was hung up on: the asker has gone")
+        response = connection.getresponse()
+        status = response.status
+        media = whole.media(response.getheader("Content-Type", "") or "")
+        if status == 200 and streamed and media == whole.EVENT_STREAM:
+            answered = _assembled(response, sock, deadline, timeout)
+            if answered is None:
+                if gone():
+                    raise HungUpError(
+                        f"{safe_url(url)} was hung up on: the asker has gone"
+                    )
+                raise TransportError(
+                    f"{safe_url(url)} sent a stream that ended before its answer"
+                )
+            status, _, raw_bytes = answered
+            if status != 200:
+                text = raw_bytes.decode("utf-8", "replace").strip()
+                raise BackendError(
+                    f"{safe_url(url)} answered HTTP {status}: "
+                    f"{text[:_ERROR_BODY_CHARS] or '(empty body)'}",
+                    status=status,
+                    code=_error_code(text),
+                )
+            raw = raw_bytes.decode("utf-8", "replace")
+        elif status >= 300:
+            # An error status, or a redirect, which is not followed: the
+            # address of a unit is where it answers.
+            # The body is read inside this branch, so a failure of that read is
+            # not caught by the handlers below it: it is caught here, and the
+            # dispatch still ends as the error status the server sent. A
+            # failed read says nothing about how much arrived: what was framed
+            # is kept (a chunk cut off partway is dropped), and a stall or a
+            # reset keeps nothing. So no failed read is called empty.
+            answered_with = f"{safe_url(url)} answered HTTP {status}"
+            try:
+                raw_detail = _body(response, sock, deadline, timeout)
+            except http.client.IncompleteRead as short:
+                kept = short.partial.decode("utf-8", "replace").strip()
+                raise BackendError(
+                    f"{answered_with}, and its body ended before it was complete "
+                    f"(kept: {kept[:_ERROR_BODY_CHARS] or 'nothing readable'})",
+                    status=status,
+                ) from short
+            except (OSError, http.client.HTTPException) as lost:
+                raise BackendError(
+                    f"{answered_with}, and its body could not be read "
+                    f"({type(lost).__name__}: {lost})",
+                    status=status,
+                ) from lost
+            text = raw_detail.decode("utf-8", "replace").strip()
+            detail = text[:_ERROR_BODY_CHARS]
             raise BackendError(
-                f"{answered}, and its body ended before it was complete "
-                f"(kept: {kept[:_ERROR_BODY_CHARS] or 'nothing readable'})",
-                status=exc.code,
-            ) from exc
-        except (OSError, http.client.HTTPException) as lost:
-            raise BackendError(
-                f"{answered}, and its body could not be read "
-                f"({type(lost).__name__}: {lost})",
-                status=exc.code,
-            ) from exc
-        text = raw_detail.decode("utf-8", "replace").strip()
-        detail = text[:_ERROR_BODY_CHARS]
-        raise BackendError(
-            f"{answered}: {detail or '(empty body)'}",
-            status=exc.code,
-            code=_error_code(text),
-        ) from exc
+                f"{answered_with}: {detail or '(empty body)'}",
+                status=status,
+                code=_error_code(text),
+            )
+        else:
+            raw = _body(response, sock, deadline, timeout).decode("utf-8", "replace")
     except OSError as exc:
-        # URLError and the socket timeout are both OSError; to a caller they
-        # mean the same thing — nothing usable answered within the timeout —
-        # except to a waker, which wakes a card on a refusal and never on a
-        # timeout. urllib wraps the refusal as the URLError's reason.
+        if gone():
+            raise HungUpError(
+                f"{safe_url(url)} was hung up on: the asker has gone"
+            ) from exc
+        # A refusal and a timeout are both OSError; to a caller they mean the
+        # same thing — nothing usable answered within the timeout — except to
+        # a waker, which wakes a card on a refusal and never on a timeout.
         reason = getattr(exc, "reason", exc)
         kind = (
             RefusedConnectionError
@@ -1259,6 +1415,10 @@ def _post_json(
             f"could not reach {safe_url(url)} within {timeout:g}s: {exc}"
         ) from exc
     except http.client.HTTPException as exc:
+        if gone():
+            raise HungUpError(
+                f"{safe_url(url)} was hung up on: the asker has gone"
+            ) from exc
         # Not an OSError: a server that died mid-body (IncompleteRead) or
         # answered with a status line nobody can read. Nothing usable came
         # back, which is what a transport failure is.
@@ -1266,6 +1426,19 @@ def _post_json(
             f"{safe_url(url)} sent a reply that could not be read: "
             f"{type(exc).__name__}: {exc}"
         ) from exc
+    except ValueError as exc:
+        # The stream's one event longer than any of a chat completion's.
+        raise ProtocolError(
+            f"{safe_url(url)} answered with something that is not a chat "
+            f"completion's stream: {exc}"
+        ) from exc
+    finally:
+        if sock is not None:
+            for hangup in under:
+                hangup._drop(sock)
+        if response is not None:
+            response.close()
+        connection.close()
 
     try:
         document = json.loads(raw)
@@ -1279,6 +1452,79 @@ def _post_json(
             f"{safe_url(url)} answered with JSON {type(document).__name__}"
         )
     return document
+
+
+def _open(url: str, timeout: float) -> tuple[http.client.HTTPConnection, str]:
+    """A connection to ``url``'s host, not yet connected, and the path to
+    post to; :class:`TransportError` for anything but an http(s) URL."""
+    parts = urllib.parse.urlsplit(url)
+    scheme = parts.scheme.lower()
+    if scheme not in ("http", "https") or not parts.hostname:
+        raise TransportError(f"{safe_url(url)} is not an http(s) address")
+    tls = scheme == "https"
+    port = parts.port or (443 if tls else 80)
+    path = parts.path or "/"
+    if parts.query:
+        path = f"{path}?{parts.query}"
+    if tls:
+        return http.client.HTTPSConnection(parts.hostname, port, timeout=timeout), path
+    return http.client.HTTPConnection(parts.hostname, port, timeout=timeout), path
+
+
+def _reads(
+    response: http.client.HTTPResponse,
+    sock: socket.socket,
+    deadline: float,
+    timeout: float,
+) -> Iterator[bytes]:
+    """The answer's bytes as they come, each read bounded by what is left of
+    the deadline: a timeout is one on the dispatch, not on a token. A body
+    read to its announced end closes the response, and the socket with it."""
+    while not response.isclosed():
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError(f"no whole answer within {timeout:g}s")
+        sock.settimeout(left)
+        chunk = response.read1(_READ_BYTES)
+        if not chunk:
+            return
+        yield chunk
+
+
+def _body(
+    response: http.client.HTTPResponse,
+    sock: socket.socket,
+    deadline: float,
+    timeout: float,
+) -> bytes:
+    """The whole body, or :class:`http.client.IncompleteRead` with what came
+    when it ended before its announced length or mid-chunk."""
+    kept = bytearray()
+    try:
+        for chunk in _reads(response, sock, deadline, timeout):
+            kept += chunk
+    except http.client.IncompleteRead as short:
+        raise http.client.IncompleteRead(bytes(kept) + short.partial) from short
+    if response.length:  # announced, and not all of it came
+        raise http.client.IncompleteRead(bytes(kept), response.length)
+    return bytes(kept)
+
+
+def _assembled(
+    response: http.client.HTTPResponse,
+    sock: socket.socket,
+    deadline: float,
+    timeout: float,
+) -> tuple[int, str, bytes] | None:
+    """The unit's stream read to its end and assembled as the answer a
+    request not streamed gets: its status, type and body; ``None`` when the
+    stream ended with neither (the unit failed mid-answer, or was hung up
+    on): a stream cut mid-chunk is such an end, not a reply unreadable."""
+    assembled = whole.Whole()
+    with contextlib.suppress(http.client.IncompleteRead):
+        for chunk in _reads(response, sock, deadline, timeout):
+            assembled.feed(chunk)
+    return assembled.answer()
 
 
 # --- small deterministic helpers -------------------------------------------

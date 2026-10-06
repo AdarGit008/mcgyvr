@@ -2195,6 +2195,11 @@
       "says": "How much of a refused key a refusal of a YAML file spells out: a real key in full, and only the start of a value that aliases build far larger than the file.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "whole.py:MAX_EVENT_BYTES": {
+      "kind": "choice",
+      "says": "The longest one event of a unit's stream may be, in bytes, when the whole answer is assembled from it; a token's event is under a kilobyte and the last, with the counts and timings, a few, and a stream with a longer one is not a chat completion's.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
     "worker/bundle.py:MAX_BUNDLE_BYTES": {
       "kind": "estimate",
       "says": "How many bytes of instructions a worker's prompt may carry before more of them stops helping the models it is sent to.",
