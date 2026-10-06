@@ -21,8 +21,6 @@ Two launch flags are set here and are not the caller's to choose:
 
 **mmap stays on.** ``--no-mmap`` is never passed and is refused if a config asks
 for it: :func:`mmap_gate` weighs host RAM for an mmap'd model.
-
-The flags themselves are described in ``okf/config/llama.cpp.md``.
 """
 
 from __future__ import annotations
@@ -375,7 +373,6 @@ def _card_mib(host: str) -> dict[str, int | None]:
 
     ``total = reserved + used + free``, and ``spendable_mib`` is ``free``, not
     ``total - reserved``: those two agree only on an idle card.
-    See ``okf/must-read/touching-rigs.md``.
 
     **This reads the number and asks nothing about whose it is.** Who else
     wants the card is the orchestrator's decision, not a backend's.

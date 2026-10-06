@@ -31,7 +31,7 @@ id, so request *k* always gets the same length — reproducible across levels
 and across reruns without collapsing to a constant. The counter ``UID`` is
 per-process state: a driver that must hand two servers the same draws rebinds
 it (``vllm_cores.batch``), and every driver's level list changes what a later
-request draws (``okf/must-read/reading-results.md``, the prompt draw desync).
+request draws.
 
 Output length is the sampled cap; ``ignore_eos`` is not sent, so the model may
 stop earlier on its own, exactly as in production.

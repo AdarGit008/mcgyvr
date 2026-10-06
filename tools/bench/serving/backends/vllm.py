@@ -1176,8 +1176,7 @@ def reserved_mib(host: str) -> int | None:
 
     It belongs to no process, so it appears in neither ``memory.used`` nor
     ``memory.free``; the identity is ``total = reserved + used + free`` and
-    :func:`free_mib` returns only ``total - used``. See
-    ``okf/must-read/touching-rigs.md``.
+    :func:`free_mib` returns only ``total - used``.
 
     Read on its own rather than on :func:`free_mib`'s line: the reserve does not
     move while a run is in flight, so a second reading of it cannot describe a
@@ -1194,8 +1193,8 @@ def reserved_mib(host: str) -> int | None:
 
 
 #: `--cpu-offload-gb` is not subtracted from the weights:
-#: :func:`declaration_fits` weighs a declaration at its full weight. See
-#: ``okf/config/vllm.md``.
+#: :func:`declaration_fits` weighs a declaration at its full weight: only one
+#: of vLLM's two model runners reads the flag, so it cannot buy admission.
 _CPU_OFFLOAD_IS_NOT_A_DISCOUNT = True
 
 

@@ -6,8 +6,8 @@ lower at ncmoe 0 than at 13 and 26, which agree. The engine's own ``CUDA0
 compute buffer size`` accounts for the difference: it roughly doubles as soon as
 one expert is on the host, and is flat after. llama.cpp's op offload copies a
 host-stored expert tensor into the device compute buffer for a large batch; with
-``--no-op-offload`` the step is gone, and that flag is banned
-(``okf/config/llama.cpp.md``).
+``--no-op-offload`` the step is gone, and that flag is banned for what it costs
+prefill.
 
 The invariance tests in ``tests/test_serving_vramfit.py`` (KAT and nemotron)
 hold because every one of their placements keeps experts on the host. A probe

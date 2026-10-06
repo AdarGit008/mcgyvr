@@ -183,7 +183,7 @@ units:
   # --spec-type draft-mtp with --n-cpu-moe at the measured MTP floor and width 1
   # (mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md). -c 4096 holds
   # the lock harness's long prompt; -t sits at srv2's thread knee (rule:
-  # okf/must-read/touching-rigs.md); the stock server-cuda-b10644 image is the
+  # never above the physical cores); the stock server-cuda-b10644 image is the
   # one tools/runs/hosts.json declares for srv2; no seccomp (that is the
   # Lidenburg fork's expert cache).
   srv2_ornith_mtp:

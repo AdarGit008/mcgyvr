@@ -8,11 +8,10 @@
 #
 # WHAT IT DOES. Launch at the predicted floor and measure the card after one
 # real completion; then, when the floor is above zero, launch one block below
-# it and expect a refusal. The refusal is the measurement
-# (okf/must-read/touching-rigs.md): a load one below the floor says the floor
-# was loose, a refusal AT the floor says it was greedy, and both are rows, not
-# errors. Every REFUSED is retried RETRY times before it is believed; an OK
-# needs no retry.
+# it and expect a refusal. The refusal is the measurement: a load one below
+# the floor says the floor was loose, a refusal AT the floor says it was
+# greedy, and both are rows, not errors. Every REFUSED is retried RETRY times
+# before it is believed; an OK needs no retry.
 #
 # WHAT REFUSES (exit 2, one line naming the rule, before any container):
 #   - a RUN_* fact is missing: this step was started outside the door
@@ -324,7 +323,7 @@ say "### CONFIG profile=$RUN_PROFILE"
 if [ "$H_OFFLOAD" != true ] && [ "$P_FLOOR" -gt 0 ]; then
     say "$(row REFUSED at_floor "$P_FLOOR" 0 "$P_PREDICTED" NA "$S_FREE" cpu-expert-offload-disabled-on-host)"
     end_stamp
-    refuse "hosts.json[$RUN_HOST].cpu_expert_offload is false and this placement needs --n-cpu-moe $P_FLOOR; the host is declared unable to run CPU expert offload (okf/must-read/touching-rigs.md). Nothing was launched; the REFUSED row says why"
+    refuse "$HOSTS_JSON[$RUN_HOST].cpu_expert_offload is false and this placement needs --n-cpu-moe $P_FLOOR; the host is declared unable to run CPU expert offload. Nothing was launched; the REFUSED row says why. Serve a placement that fits the card whole (a smaller checkpoint or a deeper quant), or set cpu_expert_offload to true for this host only once it runs CPU expert offload without locking up"
 fi
 
 at_floor_ok=0

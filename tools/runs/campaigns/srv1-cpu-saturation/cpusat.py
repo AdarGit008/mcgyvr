@@ -1,7 +1,7 @@
 """srv1-cpu-saturation: the sampler the rig runs, the aggregate pass, the artifact.
 
-The footprint-versus-stream test, run with its hard-lock risk
-(``okf/must-read/touching-rigs.md``, "A rig that hard-locks under load").
+The footprint-versus-stream test, run with its hard-lock risk under CPU expert
+offload.
 ``_arm.sh`` asks this file for five commands, by
 path (``_py cpusat.py COMMAND ...``):
 

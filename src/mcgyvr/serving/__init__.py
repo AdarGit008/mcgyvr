@@ -129,8 +129,7 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 #
 # There are two of these, because :func:`fit` asks host RAM two questions in a
 # row: they compare different figures and they fail differently
-# (``records/measurements/ram-headroom-2026-09-09/``,
-# ``okf/must-read/touching-rigs.md`` § Host RAM).
+# (``records/measurements/ram-headroom-2026-09-09/``).
 
 # The **mode** gate, weighed against the *blob*: what has to be clear before
 # llama.cpp is left to map the weights rather than told ``--load-mode none``.
@@ -2634,8 +2633,8 @@ def _offload_note(spec: ModelSpec, placed: _Placement) -> str:
 
 
 def _threads(scan: Scan) -> int:
-    """Physical cores, never above the thread count
-    (``okf/must-read/touching-rigs.md`` § Host memory bandwidth).
+    """Physical cores, never above the thread count: decode is bound by memory
+    bandwidth, and a core's second hardware thread adds no memory ports.
     """
     if scan.cpu is None:
         return 1

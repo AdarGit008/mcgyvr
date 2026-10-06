@@ -8,8 +8,8 @@ carries because they move minute to minute: what the card has free, and what
 system memory is available.
 
 WHY `free` AND NOT `total - reserved`. A card has four buckets — total =
-reserved + used + free — and the two agree only on an idle card
-(okf/must-read/touching-rigs.md). Deriving a placement from the larger number
+reserved + used + free — and the two agree only on an idle card. Deriving a
+placement from the larger number
 puts experts on a card with no room for them, and the cell OOMs at load having
 passed every gate.
 """

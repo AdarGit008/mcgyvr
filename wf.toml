@@ -1,4 +1,4 @@
-# wf.toml — how `wf` verifies this repo (okf-dev-workflow).
+# wf.toml — how `wf` verifies this repo.
 # [gate] steps are command lines (split with shlex, no shell):
 # declared = always runs, "" = skipped, undeclared = default (skipped if the tool is absent).
 # `test` is also what `wf red` / `wf green` run, with the test paths appended.

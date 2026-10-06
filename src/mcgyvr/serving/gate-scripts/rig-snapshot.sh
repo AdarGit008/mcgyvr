@@ -175,8 +175,8 @@ host_name() {
 
 # Whose the card is, before anything of ours runs: `pid,process_name,used_memory`
 # per process, one per `;`, or `none`. A card held by somebody else is the
-# difference between the two VRAM numbers (touching-rigs: "read used, and find
-# out whose it is"), and gate 2 refuses a card that is not idle.
+# difference between the two VRAM numbers, so `used` is read together with
+# whose it is, and gate 2 refuses a card that is not idle.
 gpu_procs() {
     local out
     out=$(nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null) ||

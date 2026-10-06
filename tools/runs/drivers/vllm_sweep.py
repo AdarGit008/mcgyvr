@@ -21,8 +21,8 @@ from tools.runs import workload
 #     0.90:2048:8:auto:1,2,4,8:--cpu-offload-gb+6+--cpu-offload-params+experts
 #
 # It exists because a model larger than the card is a real workload on these
-# rigs. Only one of vLLM's two model runners honours a CPU offload
-# (-> okf/config/vllm.md, `--cpu-offload-gb`), so any cell whose `extra` asks
+# rigs. Only one of vLLM's two model runners honours a CPU offload, so any
+# cell whose `extra` asks
 # for offload also gets VLLM_USE_V2_MODEL_RUNNER=0, here, rather than in every
 # caller.
 #
@@ -117,8 +117,8 @@ def rig(c: str) -> str:
 
 def post(out: list[Cell | None], idx: int) -> None:
     prompt, want = workload.mkprompt()
-    # CHAT, not raw completion, so the model's chat template applies
-    # (-> okf/must-read/reading-results.md). The split is by prefix, not by
+    # CHAT, not raw completion, so the model's chat template applies. The split
+    # is by prefix, not by
     # changing mkprompt -- SYSTEM stays the shared cacheable head and the
     # workload digest is unmoved.
     b = json.dumps(
@@ -231,8 +231,8 @@ for cell in CELLS:
         )
         sh(f"docker rm -f {NAME}")
         continue
-    # **Asserted, not assumed.** Card memory used cannot see an offload
-    # (-> okf/must-read/reading-results.md); the engine's own line is the only
+    # **Asserted, not assumed.** Card memory used cannot see an offload (the
+    # pool backfills what the weights freed); the engine's own line is the only
     # signal, and a cell that asked for offload and did not get it is refused.
     offl = ""
     if "--cpu-offload" in extra:
@@ -248,8 +248,8 @@ for cell in CELLS:
             )
             sh(f"docker rm -f {NAME}")
             continue
-    # WIDTH READBACK. `--max-num-seqs` is a cap the KV pool need not honour
-    # (-> okf/config/vllm.md, `--gpu-memory-utilization`): requests past the
+    # WIDTH READBACK. `--max-num-seqs` is a cap the KV pool need not honour,
+    # because the pool is sized from what the weights leave: requests past the
     # pool queue, and a queue reads like saturation. vLLM has no /props, but it
     # states the pool it allocated, so read that instead of trusting the flag.
     kvlog = sh(
