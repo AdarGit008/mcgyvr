@@ -417,6 +417,144 @@ def test_a_relay_that_ends_some_other_way_reports_nothing(rig: Rig) -> None:
     assert "GET /slots" not in rig.head.events
 
 
+# -- the page as the live heads show it (llama.cpp b10644) --------------------
+#
+# Recorded on a rig from a head's loopback API during a streamed answer, the
+# prompt and answer text removed. On this build ``n_prompt_tokens`` is the
+# slot's whole context (``prompt.tokens.size()``): the prompt's tokens
+# (``n_prompt_tokens_processed`` + ``n_prompt_tokens_cache``) plus every token
+# generated so far, so it grows with the answer; the tokens generated are in
+# ``next_token[0].n_decoded``. At the first instant of a new task the slot
+# still shows the last task's context with nothing processed or cached yet.
+
+
+def live(
+    *,
+    context: Any = 36,
+    processed: Any = 20,
+    cached: Any = 3,
+    decoded: Any = 13,
+    slot_id: int = 3,
+) -> dict[str, Any]:
+    return {
+        "id": slot_id,
+        "n_ctx": 12288,
+        "speculative": False,
+        "is_processing": True,
+        "id_task": 230,
+        "n_prompt_tokens": context,
+        "n_prompt_tokens_processed": processed,
+        "n_prompt_tokens_cache": cached,
+        "params": {
+            "seed": 4294967295,
+            "temperature": 0.0,
+            "top_k": 40,
+            "top_p": 0.949999988079071,
+            "min_p": 0.05000000074505806,
+            "max_tokens": 300,
+            "n_predict": 300,
+            "n_keep": 0,
+            "n_discard": 0,
+            "ignore_eos": False,
+            "stream": True,
+            "n_probs": 0,
+            "min_keep": 0,
+            "reasoning_format": "deepseek",
+            "reasoning_in_content": False,
+            "generation_prompt": "<|im_start|>assistant\n",
+            "speculative.types": "none",
+            "timings_per_token": False,
+            "post_sampling_probs": False,
+            "backend_sampling": False,
+            "lora": [],
+        },
+        "next_token": [
+            {
+                "has_next_token": True,
+                "has_new_line": True,
+                "n_remain": 300 - decoded if isinstance(decoded, int) else 0,
+                "n_decoded": decoded,
+            }
+        ],
+    }
+
+
+LIVE_IDLE = [
+    {"id": i, "n_ctx": 12288, "speculative": False, "is_processing": False}
+    for i in range(3)
+]
+
+
+def live_page(**slot: Any) -> bytes:
+    return json.dumps([*LIVE_IDLE, live(**slot)]).encode()
+
+
+def test_the_live_heads_page_counts_the_prompt_apart_from_what_grew_on_it(
+    rig: Rig,
+) -> None:
+    """36 in context = 20 processed + 3 cached + 13 generated: the prompt
+    is 23, the answer 13. Not 36 and 13."""
+    rig.head.page = live_page()
+    rig.ask()
+    rig.answering()
+    rig.cancel()
+    assert rig.ended() == CANCELLED | {"tokens_in": 23, "tokens_out": 13}
+    assert rig.head.seen("hung up")
+
+
+def test_slot_made_reads_both_shapes_of_the_page() -> None:
+    from mcgyvr.rig.relay import slot_made
+
+    # the live shape: the context is the prompt plus what was generated
+    assert slot_made(live_page()) == (23, 13)
+    # the recorded shape at the end of a 120-token answer: 23 + 105
+    assert slot_made(live_page(context=128, decoded=105)) == (23, 105)
+    # a longer answer than the first poll saw
+    assert slot_made(live_page(context=310, decoded=287)) == (23, 287)
+    # the shape built for first: the prompt's count stands still
+    assert slot_made(json.dumps([busy(), IDLE]).encode()) == (40, 7)
+    # the next token as one object, not a list of one
+    one = busy()
+    one["next_token"] = one["next_token"][0]
+    assert slot_made(json.dumps([one]).encode()) == (40, 7)
+
+
+def test_the_prompt_still_being_read_is_counted_so_far_and_nothing_generated() -> None:
+    from mcgyvr.rig.relay import slot_made
+
+    # 3 cached, 8 of the prompt processed so far, none generated
+    assert slot_made(live_page(context=11, processed=8, cached=3, decoded=0)) == (
+        11,
+        0,
+    )
+
+
+UNSOUND = {
+    "a new task's first instant: the last one's context, none of this one": live_page(
+        context=107, processed=0, cached=0, decoded=0
+    ),
+    "a context that is neither the prompt nor the prompt and the answer": live_page(
+        context=50
+    ),
+    "a context short of the prompt": live_page(context=20),
+    "no count of the prompt processed": live_page(processed=None),
+    "no count of the prompt cached": live_page(cached=None),
+    "a prompt count that is no number": live_page(processed="20"),
+    "no count of the context": live_page(context=None),
+    "no count of the answer": live_page(decoded=None),
+    "a page whose counts the fields do not say": json.dumps(
+        [{"id": 0, "n_ctx": 4096, "is_processing": True}]
+    ).encode(),
+}
+
+
+@pytest.mark.parametrize("why", UNSOUND)
+def test_a_page_whose_counts_do_not_add_up_reports_nothing(why: str) -> None:
+    from mcgyvr.rig.relay import slot_made
+
+    assert slot_made(UNSOUND[why]) is None
+
+
 def test_a_relay_end_says_both_counts_or_neither() -> None:
     from mcgyvr.rig import sessionwire
 

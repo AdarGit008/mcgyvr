@@ -640,7 +640,20 @@ def slot_made(page: bytes | None) -> tuple[int, int] | None:
     prompt's tokens and the tokens generated so far. ``None`` for anything
     else: no page, a page that is not a list of slots each saying whether it
     is at work, none or several at work, a count that is missing, no whole
-    number, out of bounds, or a prompt not counted yet."""
+    number, out of bounds, a prompt not counted yet, or counts that do not
+    add up.
+
+    The prompt's tokens are the slot's ``n_prompt_tokens_processed`` plus
+    ``n_prompt_tokens_cache`` (reused from the last task), the tokens
+    generated its ``next_token`` ``n_decoded`` (an object, or on the heads'
+    build a list of one). ``n_prompt_tokens`` is the check: on older servers
+    it is the prompt and stands still; on the heads' build (llama.cpp b10644,
+    ``prompt.tokens.size()``) it is the slot's whole context and grows by
+    one with each token generated, so it is the prompt plus the answer.
+    Anything else is a slot between tasks (the last task's context with
+    nothing of this one processed yet) or a shape this does not know, and
+    nothing is reported for it. While the prompt is still being read, the
+    tokens read so far are the prompt and nothing is generated yet."""
     if page is None:
         return None
     try:
@@ -665,9 +678,14 @@ def slot_made(page: bytes | None) -> tuple[int, int] | None:
         following = following[0]
     if not isinstance(following, dict):
         return None
-    tokens_in = _count(slot.get("n_prompt_tokens"))
+    processed = _count(slot.get("n_prompt_tokens_processed"))
+    cached = _count(slot.get("n_prompt_tokens_cache"))
+    context = _count(slot.get("n_prompt_tokens"))
     tokens_out = _count(following.get("n_decoded"))
-    if not tokens_in or tokens_out is None:
+    if processed is None or cached is None or context is None or tokens_out is None:
+        return None
+    tokens_in = _count(processed + cached)
+    if not tokens_in or context not in (tokens_in, tokens_in + tokens_out):
         return None
     return tokens_in, tokens_out
 

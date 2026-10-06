@@ -384,7 +384,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   answer already given, a ride to a unit its host uses too, a page that takes
   over a second) the relay ends as it always did and the hub does what it
   did before. The page is read on a thread of its own, never the one that
-  sends the agent's frames.
+  sends the agent's frames. The counts are read as the heads' own build
+  (llama.cpp b10644) keeps them: the prompt is the slot's tokens processed
+  plus those reused from its cache, the answer its `n_decoded`, and the
+  slot's `n_prompt_tokens`, which on that build is the whole context and
+  grows with the answer, must equal the prompt or the prompt and the answer
+  together; a page whose counts do not add up (a slot at the first instant
+  of a new task still shows the last one's) reports nothing.
 - A stream relayed through a rig agent is no longer capped at the agent's
   frame rate. A head writes each token as an event of its own and each event
   went out as a frame of its own, so the agent's 49 frames a second, shared
