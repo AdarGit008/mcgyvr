@@ -7,12 +7,15 @@ conversation here as ``POST /v1/messages``. The facade reads the request
 (:func:`mcgyvr.mcorch.loop.respond`), and writes the reply back in the API's
 own shapes — a ``message`` object, or the SSE event sequence with ``ping``
 keep-alives while the loop works (the harness streams; a stream that is silent
-for a minute is a stream the harness gives up on). The two side doors the API
-documents and a harness may knock on are answered too: ``GET /v1/models``
-lists the one model this server is, and ``POST /v1/messages/count_tokens``
-answers with the product's own token estimate — Claude Code's documentation
-does not state whether it calls either, so both are served rather than
-guessed at. Every other path is ``not_found_error``.
+for a minute is a stream the harness gives up on). A client that goes away
+mid-turn (its connection closed, found at the next ping interval) is hung up
+on: the rung's dispatch is ended (:class:`mcgyvr.runner.Hangup`), so the unit
+stops decoding an answer nobody will read, and nothing is written for it. The
+two side doors the API documents and a harness may knock on are answered too:
+``GET /v1/models`` lists the one model this server is, and ``POST
+/v1/messages/count_tokens`` answers with the product's own token estimate —
+Claude Code's documentation does not state whether it calls either, so both
+are served rather than guessed at. Every other path is ``not_found_error``.
 
 Security baseline: binds ``127.0.0.1`` unless ``--bind`` says otherwise (the
 rigs are on a tailnet), reads at most :data:`MAX_BODY_BYTES` of a body, and
@@ -25,6 +28,8 @@ a minute, no dependency added.
 from __future__ import annotations
 
 import json
+import select
+import socket
 import threading
 import time
 from collections.abc import Callable
@@ -34,6 +39,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlsplit
 
+from mcgyvr import runner
 from mcgyvr.mcorch import anthropic
 from mcgyvr.mcorch.anthropic import ApiError, MessagesRequest
 from mcgyvr.mcorch.loop import Turn
@@ -50,7 +56,8 @@ FACADE_PORT = 8787
 #: limit, so a harness built against the API never meets a smaller one here.
 MAX_BODY_BYTES = 32 * 1024 * 1024
 
-#: How often, in seconds, a streaming reply sends `ping` while the loop works.
+#: How often, in seconds, a streaming reply sends `ping` while the loop works;
+#: also how often, on either path, the client's leave is looked for.
 PING_INTERVAL_S = 5.0
 
 #: The one model this server is, as `GET /v1/models` lists it. The `model` a
@@ -200,52 +207,113 @@ class _Handler(BaseHTTPRequestHandler):
         return turn, message, elapsed
 
     def _message(self, request: MessagesRequest) -> None:
-        try:
-            _, message, _ = self._turn(request)
-        except Exception as exc:
-            self._error(
-                ApiError(HTTPStatus.INTERNAL_SERVER_ERROR, "api_error", str(exc))
-            )
+        outcome = self._watched(request, lambda: True)
+        if outcome is None:
             return
-        self._json(HTTPStatus.OK, message)
+        failure = outcome.get("error")
+        try:
+            if failure is not None:
+                self._error(
+                    ApiError(
+                        HTTPStatus.INTERNAL_SERVER_ERROR, "api_error", str(failure)
+                    )
+                )
+                return
+            self._json(HTTPStatus.OK, outcome["message"])
+        except OSError:
+            self.close_connection = True
 
     def _stream(self, request: MessagesRequest) -> None:
-        outcome: dict[str, Any] = {}
-
-        def work() -> None:
-            try:
-                _, outcome["message"], _ = self._turn(request)
-            except Exception as exc:
-                outcome["error"] = exc
-
-        worker = threading.Thread(target=work, daemon=True)
-        worker.start()
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "close")
-        self.end_headers()
-        while worker.is_alive():
-            worker.join(timeout=self.facade.ping_interval_s)
-            if worker.is_alive():
-                self.wfile.write(anthropic.PING)
-                self.wfile.flush()
-        failure = outcome.get("error")
-        if failure is not None:
-            self.wfile.write(
-                anthropic.sse(
-                    "error",
-                    {
-                        "type": "error",
-                        "error": {"type": "api_error", "message": str(failure)},
-                    },
-                )
-            )
-            self.wfile.flush()
+        try:
+            self.end_headers()
+        except OSError:
+            self.close_connection = True
             return
-        for name, data in anthropic.events_for(outcome["message"]):
-            self.wfile.write(anthropic.sse(name, data))
-        self.wfile.flush()
+        outcome = self._watched(request, self._ping)
+        if outcome is None:
+            return
+        failure = outcome.get("error")
+        try:
+            if failure is not None:
+                self.wfile.write(
+                    anthropic.sse(
+                        "error",
+                        {
+                            "type": "error",
+                            "error": {"type": "api_error", "message": str(failure)},
+                        },
+                    )
+                )
+                self.wfile.flush()
+                return
+            for name, data in anthropic.events_for(outcome["message"]):
+                self.wfile.write(anthropic.sse(name, data))
+            self.wfile.flush()
+        except OSError:
+            self.close_connection = True
+
+    # --- the client's leave ----------------------------------------------------
+
+    def _watched(
+        self, request: MessagesRequest, still_there: Callable[[], bool]
+    ) -> dict[str, Any] | None:
+        """Run the turn on a worker under a hangup, and look for the client's
+        leave every ping interval while it runs.
+
+        ``still_there`` is the path's own look, after the connection's: the
+        stream writes its ``ping`` and fails when the client is gone. A client
+        that has gone is hung up on and waited out: ``None``, and nothing is
+        to be written. Otherwise the turn's outcome, its ``message`` or its
+        ``error``.
+        """
+        hangup = runner.Hangup()
+        outcome: dict[str, Any] = {}
+
+        def work() -> None:
+            with hangup:
+                try:
+                    _, outcome["message"], _ = self._turn(request)
+                except Exception as exc:
+                    outcome["error"] = exc
+
+        worker = threading.Thread(target=work, daemon=True)
+        worker.start()
+        while True:
+            worker.join(timeout=self.facade.ping_interval_s)
+            if not worker.is_alive():
+                return outcome
+            if self._client_gone() or not still_there():
+                hangup.hang_up()
+                worker.join()
+                self.close_connection = True
+                return None
+
+    def _client_gone(self) -> bool:
+        """Whether the client has closed its connection: it reads as ended.
+
+        A connection with bytes waiting is a client that sent its next request
+        early, not one that left; the bytes are peeked at, never consumed.
+        """
+        try:
+            readable, _, _ = select.select([self.connection], [], [], 0)
+            if not readable:
+                return False
+            return bool(self.connection.recv(1, socket.MSG_PEEK) == b"")
+        except (OSError, ValueError):
+            return True
+
+    def _ping(self) -> bool:
+        """Send a stream's keep-alive; ``False`` when the client is not there."""
+        try:
+            self.wfile.write(anthropic.PING)
+            self.wfile.flush()
+        except OSError:
+            return False
+        return True
 
     # --- writing ---------------------------------------------------------------
 

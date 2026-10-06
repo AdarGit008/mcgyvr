@@ -92,8 +92,10 @@ RED_PORT = Path(__file__).resolve().parent / "red_port"
 #: launch (emit, serving.*), whether a card that is down is asleep and how it
 #: is woken (wake), how load is counted across processes and read for the
 #: ladder manager (pressure), how a served model id is read against the name a
-#: config declares (weights), and a machine published as a rig of a hub, whose
-#: commands will start and stop units through the serving door (rig.*).
+#: config declares (weights), how a unit's stream is assembled into the whole
+#: answer it would have written (whole), and a machine published as a rig of a
+#: hub, whose commands will start and stop units through the serving door
+#: (rig.*).
 BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.availability",
     "mcgyvr.capability",
@@ -173,6 +175,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.triage",
     "mcgyvr.wake",
     "mcgyvr.weights",
+    "mcgyvr.whole",
 )
 
 #: ``mcgyvr.pool``'s other half — a caller that sees a ladder of rungs and has

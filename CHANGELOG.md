@@ -368,6 +368,46 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A unit stops decoding when whoever asked has gone, on every path through
+  the product. A model server notices a hang-up only when it writes, and an
+  answer not streamed is written once, at its end, so a dispatch left
+  mid-answer (a timeout, Ctrl-C, a harness that closed its connection to the
+  mcorch facade) had the slot decode the rest for nobody. The runner now asks
+  every unit for a stream behind the scenes (`stream` and
+  `stream_options.include_usage` on the body) and assembles the whole answer
+  itself with a product-core module, `mcgyvr.whole`, lifted from the rig
+  agent's relay: the completion is what the unit's answer not streamed would
+  have given (the same text, finish reason, counts and the unit's own
+  `timings`), the standard fields assembled from any OpenAI-compatible stream
+  and what else the last event carries passed through. `timeout_s` now
+  bounds the whole dispatch, connect included, not each token, and a timeout
+  hangs up at once. A caller holds a `runner.Hangup` for the dispatches made
+  for it and hangs up when its asker has gone: the mcorch facade does so for a
+  client that closed its connection mid-turn (found at the ping interval, on
+  the streamed and the non-streamed path alike, and nothing is written for
+  it), and Ctrl-C hangs up on every dispatch of the process
+  (`runner.hang_up_all`) before it stops the command as it always did. A
+  dispatch hung up on is `HungUpError`, a transport failure. A unit that
+  answers anything but a 200 stream is read as it answers: an error status
+  with its body, a whole JSON answer as it comes, an error event mid-stream
+  as the status it says, a stream that ends without its answer as a transport
+  failure. The transport is `http.client` directly now, so the proxy
+  variables of the environment no longer apply to a dispatch, and a redirect
+  is not followed (it is read as an error status). A typed decision (the Jev
+  unit's one token and its `top_logprobs`) goes the same way as every
+  dispatch: asked as a stream, assembled whole with the token's `logprobs`
+  under its choice as the unit's answer not streamed carries them, under the
+  thread's `Hangup` and the deadline, so its probabilities read as before.
+- A rider who leaves a ride not streamed stops the host's unit at once. The
+  rig agent's relay now uses the product's `mcgyvr.whole` for the hub's pool
+  requests and for rides, and its own copy of the assembler is gone. Before,
+  a ride's body went to its unit as it came, so a rider who hung up on an
+  answer not streamed left the unit decoding the rest for nobody; a ride not
+  streamed is now asked of its unit as a stream and assembled whole by the
+  same piece, as a head's request is. A unit that answers anything but a 200
+  stream is passed through as it answers (status, type and body), whatever
+  engine it runs. A ride's cancel still reads no `/slots` page and reports no
+  counts.
 - A requester who leaves a request not streamed stops the model server at
   once, as one who leaves a stream does. The head (llama.cpp) notices a
   hang-up only when it writes, and an answer not streamed is written once, at

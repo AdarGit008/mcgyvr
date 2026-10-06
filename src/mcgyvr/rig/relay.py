@@ -43,38 +43,42 @@ address, from the host's setup and never from the hub, joined to the
 endpoint's one path as a run joins it, so this stays no general proxy. A unit
 no advert named ends ``unknown_unit``; a unit that has its riders, or whose
 host would be left short, ends ``busy`` (:meth:`Units.ride`, which also holds
-one of the unit's slots for as long as the ride runs). The body goes as the
-hub gave it, with the unit's model already in it, and the answer comes back as
-the unit gives it. The rides together are bounded by :data:`MAX_ACTIVE` as a
-head's relays are, and share the relays' request ids.
+one of the unit's slots for as long as the ride runs). The body is asked of
+the unit as a stream, as a head's is (below), with the unit's model already in
+it and the rest as it came. The rides together are bounded by
+:data:`MAX_ACTIVE` as a head's relays are, and share the relays' request ids.
 
 A cancel or a deadline hangs up on the head, which stops generating: so
 does a requester who leaves mid-answer (the hub cancels the relay, or its
 channel takes no more frames), a normal end that is one ``relay_end`` and
 nothing printed. The head notices a hang-up only when it writes, and an
 answer not streamed is written once, at its end: left alone, a slot would
-decode the rest of such an answer for nobody. So the head is asked for a
-stream whatever the requester asked (:func:`as_stream`: ``stream`` and its
-counts, ``stream_options.include_usage``, set on the request's JSON object),
-and for a request not streamed the agent assembles the whole answer itself
-(:class:`Whole`), as the head would have written it: the same content,
-finish reason, usage and shape, the ``timings`` of the head's last event
-passed through. The hub still gets one ``relay_response`` and the answer in
-frames once it is whole; a head that refuses the request (any status but
-200, or no stream) is passed through as it answers, an error event
-mid-stream becomes the status and body the head gives a request not
+decode the rest of such an answer for nobody. So the head, and a ride's
+unit, is asked for a stream whatever the requester asked
+(:func:`mcgyvr.whole.as_stream`: ``stream`` and its counts,
+``stream_options.include_usage``, set on the request's JSON object), and for
+a request not streamed the agent assembles the whole answer itself with
+:class:`mcgyvr.whole.Whole`, the product piece the runner also uses, as the
+server would have written it: the same content, finish reason, usage and
+shape, the standard fields assembled from any OpenAI-compatible stream and
+what else the last event carries (llama.cpp's ``timings``) passed through.
+A shared unit may not be llama.cpp, so this is the one path for a head and a
+ride alike. The hub still gets one ``relay_response`` and the answer in
+frames once it is whole; a head or unit that answers anything but a 200
+stream is passed through as it answers (status, type and body), an error
+event mid-stream becomes the status and body the server gives a request not
 streamed, and a stream that ends with neither its answer nor an error is
-the head's failure (``upstream_failed``). A body that is no JSON object
-goes to the head as it came, and a ride's body goes to its unit as it came
-(its answer comes back as the unit gives it, whatever the requester asked).
-A relay the hub cancels says in that ``relay_end`` what its
-head made by then (``tokens_in``, ``tokens_out``), which the hub charges the
-requester who left: the head's own status page (:data:`SLOTS_PATH`) is read
-just before the hang-up, on a thread of its own, never the one that hears
-the hub. The page does not say which slot serves which request, so the
-counts go only when the slot at work cannot be another's
-(:meth:`Relays._made`); in any doubt, and for a ride, the relay ends with no
-counts, as it always did, and the hub keeps to what it did before. Hanging up
+the server's failure (``upstream_failed``). A body that is no JSON object
+goes to the head or the unit as it came. A relay the hub cancels says in
+that ``relay_end`` what its head made by then (``tokens_in``,
+``tokens_out``), which the hub charges the requester who left: the head's own
+status page (:data:`SLOTS_PATH`) is read just before the hang-up, on a thread
+of its own, never the one that hears the hub. The page does not say which
+slot serves which request, so the counts go only when the slot at work cannot
+be another's (:meth:`Relays._made`); in any doubt, the relay ends with no
+counts, as it always did, and the hub keeps to what it did before. The counts
+are the head relay's alone: a ride's unit is its host's and may not be
+llama.cpp, so its page is never read and a ride's cancel says none. Hanging up
 shuts the head's socket down under the relay's read and no more; the relay's
 own thread, woken by it, closes the connection.
 ``http.client`` closed from another thread while a read of it ends fails in
@@ -98,8 +102,9 @@ from collections import deque
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Protocol
 
+from mcgyvr import whole
 from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
@@ -122,14 +127,6 @@ SLOTS_PATH = "/slots"
 REPORT_WAIT_S = 1.0
 #: The most of that page that is read, in bytes.
 MAX_PAGE_BYTES = 1 << 20
-#: The longest one event of the head's stream may be, in bytes, when the
-#: agent assembles the answer: a token's event is under a kilobyte and the
-#: last, with the counts and timings, a few; a stream with a longer one is
-#: not a chat completion's.
-MAX_EVENT_BYTES = 64 * 1024
-#: The type of a whole answer, as llama.cpp writes it.
-JSON_TYPE = "application/json; charset=utf-8"
-EVENT_STREAM = "text/event-stream"
 
 
 class Heads(Protocol):
@@ -573,23 +570,23 @@ class Relays:
             body = bytes(relay.body)
             connection = relay.target.connect(max(0.001, self._left(relay)))
             relay.connection = connection
-        # A head is asked for a stream whatever the requester asked, so a
-        # hang-up is noticed at the next token: an answer not streamed is
-        # assembled from it (``whole``), when the body is one to ask it of.
-        # A ride's body goes to its unit as it came.
-        whole = None
-        if not relay.asked.stream and isinstance(relay.asked, sessionwire.RelayRequest):
-            streamed = as_stream(body)
+        # A head or a ride's unit is asked for a stream whatever the requester
+        # asked, so a hang-up is noticed at the next token: an answer not
+        # streamed is assembled from it (``assembly``), when the body is one to
+        # ask it of.
+        assembly = None
+        if not relay.asked.stream:
+            streamed = whole.as_stream(body)
             if streamed is not None:
-                body, whole = streamed, Whole()
+                body, assembly = streamed, whole.Whole()
         connection.request(
             "POST",
             relay.target.path,
             body=body,
             headers={
                 "Content-Type": "application/json",
-                "Accept": EVENT_STREAM
-                if relay.asked.stream or whole is not None
+                "Accept": whole.EVENT_STREAM
+                if relay.asked.stream or assembly is not None
                 else "application/json",
             },
         )
@@ -598,7 +595,7 @@ class Relays:
                 return
             relay.working = True
         try:
-            self._answer(relay, connection, whole)
+            self._answer(relay, connection, assembly)
         finally:
             with relay.changed:
                 relay.working = False
@@ -607,11 +604,13 @@ class Relays:
         self,
         relay: _Relay,
         connection: http.client.HTTPConnection,
-        whole: Whole | None,
+        assembly: whole.Whole | None,
     ) -> None:
         """The head's answer to the request it has, back to the hub: as the
         head writes it, or, for a request not streamed that the head streams
-        to the agent, assembled whole first (``whole``)."""
+        to the agent, assembled whole first (``assembly``). A head or unit
+        that answers anything but a 200 stream is passed through as it
+        answers, whatever engine it runs."""
         response = connection.getresponse()
         status = response.status
         kind = response.getheader("Content-Type", "") or ""
@@ -622,8 +621,9 @@ class Relays:
         ):
             kind = "application/octet-stream"
         source: io.BufferedIOBase = response
-        if whole is not None and status == 200 and _media(kind) == EVENT_STREAM:
-            answer = self._assemble(relay, response, whole)
+        streamed = whole.media(kind) == whole.EVENT_STREAM
+        if assembly is not None and status == 200 and streamed:
+            answer = self._assemble(relay, response, assembly)
             if answer is None:
                 return
             status, kind, body = answer
@@ -685,7 +685,10 @@ class Relays:
         return sessionwire.relay_data(relay.asked.request_id, seq=seq, data=data)
 
     def _assemble(
-        self, relay: _Relay, response: http.client.HTTPResponse, whole: Whole
+        self,
+        relay: _Relay,
+        response: http.client.HTTPResponse,
+        assembly: whole.Whole,
     ) -> tuple[int, str, bytes] | None:
         """The head's stream read to its end and assembled as the answer the
         requester asked for: its status, type and body. ``None`` when the
@@ -700,11 +703,11 @@ class Relays:
             chunk = response.read1(sessionwire.RELAY_MAX_CHUNK_BYTES)
             if not chunk:
                 break
-            whole.feed(chunk)
-            if whole.size > limit:
+            assembly.feed(chunk)
+            if assembly.size > limit:
                 self._stop(relay, "too_large", SessionCode.TOO_LARGE)
                 return None
-        answer = whole.answer()
+        answer = assembly.answer()
         if answer is None:
             self._stop(relay, "error", SessionCode.UPSTREAM_FAILED)
             return None
@@ -712,231 +715,6 @@ class Relays:
             self._stop(relay, "too_large", SessionCode.TOO_LARGE)
             return None
         return answer
-
-
-def _media(content_type: str) -> str:
-    return content_type.split(";")[0].strip().lower()
-
-
-def _dump(value: Any) -> bytes:
-    """``value`` as llama.cpp writes its JSON: compact, keys in order."""
-    try:
-        text = json.dumps(
-            value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-        )
-        return text.encode()
-    except UnicodeEncodeError:  # a lone surrogate from the head: escaped
-        return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
-
-
-def as_stream(body: bytes) -> bytes | None:
-    """``body``, a chat completion request, asking for a stream and for its
-    counts (``stream_options.include_usage``) in the last event, the rest as
-    it came; ``None`` when it is no JSON object, to go as it came."""
-    try:
-        asked = json.loads(body)
-    except ValueError:
-        return None
-    if not isinstance(asked, dict):
-        return None
-    options = asked.get("stream_options")
-    asked["stream"] = True
-    asked["stream_options"] = {
-        **(options if isinstance(options, dict) else {}),
-        "include_usage": True,
-    }
-    try:
-        return json.dumps(asked, ensure_ascii=False, separators=(",", ":")).encode()
-    except UnicodeEncodeError:  # a lone surrogate: not a body to rewrite
-        return None
-
-
-@dataclass
-class _ToolCall:
-    id: str = ""
-    name: str = ""
-    arguments: str = ""
-
-
-@dataclass
-class _Choice:
-    """One choice of the answer, as its deltas build it."""
-
-    text: str = ""  # the message's content
-    reasoning: str = ""
-    tool_calls: dict[int, _ToolCall] = field(default_factory=dict)
-    logprobs: list[Any] = field(default_factory=list)
-    finish_reason: str | None = None
-
-    def whole(self, index: int) -> dict[str, Any]:
-        """The choice as ``to_json_oaicompat_chat`` writes it: the message
-        with its reasoning when there is any, its content (``null`` when
-        there is none and there are tool calls), its tool calls."""
-        message: dict[str, Any] = {"role": "assistant"}
-        if self.reasoning:
-            message["reasoning_content"] = self.reasoning
-        message["content"] = None if not self.text and self.tool_calls else self.text
-        if self.tool_calls:
-            message["tool_calls"] = [
-                {
-                    "type": "function",
-                    "function": {"name": call.name, "arguments": call.arguments},
-                    "id": call.id,
-                }
-                for _, call in sorted(self.tool_calls.items())
-            ]
-        choice: dict[str, Any] = {
-            "finish_reason": self.finish_reason,
-            "index": index,
-            "message": message,
-        }
-        if self.logprobs:
-            choice["logprobs"] = {"content": self.logprobs}
-        return choice
-
-
-class Whole:
-    """A chat completion streamed from the head, assembled as the head
-    writes one not streamed (llama.cpp's ``to_json_oaicompat_chat``): each
-    choice's deltas joined into its message, its finish reason, the counts
-    of the ``usage`` event and the ``timings`` of the last event that has
-    them, the id, model, time and fingerprint as the last event says them.
-    An error event is the status its code says and the error as the body,
-    as a request not streamed is answered. Hostile input safe: what is no
-    event, no JSON or not the shape is skipped; an event longer than any
-    (:data:`MAX_EVENT_BYTES`) is no chat completion's, a ``ValueError``.
-    ``size`` is how much text the answer holds so far, in bytes."""
-
-    def __init__(self) -> None:
-        self._held = b""  # the start of an event, until its end comes
-        self._choices: dict[int, _Choice] = {}
-        self._last: dict[str, Any] = {}
-        self._usage: dict[str, Any] | None = None
-        self._timings: dict[str, Any] | None = None
-        self._error: Any = None
-        self.size = 0
-
-    def feed(self, chunk: bytes) -> None:
-        self._held += chunk
-        while (cut := self._held.find(b"\n\n")) >= 0:
-            event, self._held = self._held[:cut], self._held[cut + 2 :]
-            self._event(event)
-        if len(self._held) > MAX_EVENT_BYTES:
-            raise ValueError("an event longer than any of a chat completion's")
-
-    def answer(self) -> tuple[int, str, bytes] | None:
-        """The whole answer: status, type and body; ``None`` while no choice
-        has its finish reason and no error came."""
-        if self._error is not None:
-            code = self._error.get("code") if isinstance(self._error, dict) else None
-            status = 500
-            if (
-                isinstance(code, int)
-                and not isinstance(code, bool)
-                and 400 <= code <= 599
-            ):
-                status = code
-            return status, JSON_TYPE, _dump({"error": self._error})
-        if not self._choices or any(
-            choice.finish_reason is None for choice in self._choices.values()
-        ):
-            return None
-        answer: dict[str, Any] = {
-            "choices": [
-                choice.whole(index) for index, choice in sorted(self._choices.items())
-            ],
-            "object": "chat.completion",
-            **self._last,
-        }
-        if self._usage is not None:
-            answer["usage"] = self._usage
-        if self._timings is not None:
-            answer["timings"] = self._timings
-        return 200, JSON_TYPE, _dump(answer)
-
-    def _event(self, event: bytes) -> None:
-        data: list[bytes] = []
-        error: list[bytes] = []
-        for line in event.split(b"\n"):
-            line = line.rstrip(b"\r")
-            if line.startswith(b"data:"):
-                data.append(line[5:].removeprefix(b" "))
-            elif line.startswith(b"error:"):
-                error.append(line[6:].removeprefix(b" "))
-        if error:
-            self._fail(b"\n".join(error))
-        if data:
-            self._data(b"\n".join(data))
-
-    def _fail(self, text: bytes) -> None:
-        try:
-            self._error = json.loads(text)
-        except ValueError:
-            self._error = {"message": text.decode("utf-8", errors="replace")}
-
-    def _data(self, data: bytes) -> None:
-        if data.strip() == b"[DONE]":
-            return
-        try:
-            event = json.loads(data)
-        except ValueError:
-            return
-        if not isinstance(event, dict):
-            return
-        for key in ("created", "id", "model", "system_fingerprint"):
-            if key in event:
-                self._last[key] = event[key]
-        if isinstance(event.get("usage"), dict):
-            self._usage = event["usage"]
-        if isinstance(event.get("timings"), dict):
-            self._timings = event["timings"]
-        choices = event.get("choices")
-        if isinstance(choices, list):
-            for choice in choices:
-                self._choice(choice)
-
-    def _choice(self, given: Any) -> None:
-        if not isinstance(given, dict):
-            return
-        index = given.get("index")
-        if isinstance(index, bool) or not isinstance(index, int) or index < 0:
-            return
-        choice = self._choices.setdefault(index, _Choice())
-        finish = given.get("finish_reason")
-        if isinstance(finish, str):
-            choice.finish_reason = finish
-        delta = given.get("delta")
-        if isinstance(delta, dict):
-            choice.text += self._text(delta.get("content"))
-            choice.reasoning += self._text(delta.get("reasoning_content"))
-            calls = delta.get("tool_calls")
-            if isinstance(calls, list):
-                for call in calls:
-                    self._tool_call(choice, call)
-        logprobs = given.get("logprobs")
-        if isinstance(logprobs, dict) and isinstance(logprobs.get("content"), list):
-            self.size += len(_dump(logprobs["content"]))
-            choice.logprobs.extend(logprobs["content"])
-
-    def _tool_call(self, choice: _Choice, given: Any) -> None:
-        if not isinstance(given, dict):
-            return
-        index = given.get("index")
-        if isinstance(index, bool) or not isinstance(index, int) or index < 0:
-            return
-        call = choice.tool_calls.setdefault(index, _ToolCall())
-        call.id += self._text(given.get("id"))
-        function = given.get("function")
-        if isinstance(function, dict):
-            call.name += self._text(function.get("name"))
-            call.arguments += self._text(function.get("arguments"))
-
-    def _text(self, value: Any) -> str:
-        """``value`` when it is text, counted; else nothing."""
-        if not isinstance(value, str):
-            return ""
-        self.size += len(value.encode("utf-8", errors="replace"))
-        return value
 
 
 def slot_made(page: bytes | None) -> tuple[int, int] | None:

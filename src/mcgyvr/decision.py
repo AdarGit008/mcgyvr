@@ -28,10 +28,15 @@ Two limits are named rather than hidden:
 
 The transport is :func:`~mcgyvr.runner._post_json` and
 :func:`~mcgyvr.runner._url_for`, the same wire path the runner uses, so a
-decision and a dispatch reach a unit identically. The only differences are in
-the request body: ``logprobs`` instead of a generation cap, and the template
-argument that turns a thinking model's thinking off for the one token asked
-(``chat_template_kwargs``).
+decision and a dispatch reach a unit identically: the unit is asked for a
+stream behind the scenes (:func:`mcgyvr.whole.asking`), so a hang-up reaches
+it at its next write, and the whole answer is assembled from it with the
+token's ``logprobs`` under its choice as the unit's answer not streamed
+carries them; a decision runs under the thread's
+:class:`~mcgyvr.runner.Hangup` and the dispatch deadline as any dispatch
+does. The only differences are in the request body: ``logprobs`` instead of
+a generation cap, and the template argument that turns a thinking model's
+thinking off for the one token asked (``chat_template_kwargs``).
 """
 
 from __future__ import annotations
@@ -42,6 +47,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr import whole
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.pool import Endpoint, PoolError, SourceMap
 from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for
@@ -328,7 +334,6 @@ def classify(
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 1,
-            "stream": False,
             "logprobs": True,
             "top_logprobs": min(_MAX_TOP_LOGPROBS, len(labels)),
             # A thinking model's template opens every reply with its thinking
@@ -348,7 +353,9 @@ def classify(
             # Greedy, as a decision must be; a unit whose server fixes its own
             # sampling refuses the field (`units.<unit>.sampling: server`).
             payload["temperature"] = 0.0
-        document = _post_json(url, payload, headers, timeout_s)
+        # The stream and its counts, as every dispatch asks: the transport
+        # assembles the whole answer, the token's logprobs under its choice.
+        document = _post_json(url, whole.asking(payload), headers, timeout_s)
         answers[name] = answer_for(question, _top_logprobs(document))
     return Decision(answers=answers)
 

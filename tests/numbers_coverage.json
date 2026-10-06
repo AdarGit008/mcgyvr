@@ -166,6 +166,7 @@
     "verify.py": "judging",
     "wake.py": "judging",
     "weights.py": "holds no number that sizes or judges",
+    "whole.py": "judging",
     "worker/__init__.py": "holds no number that sizes or judges",
     "worker/bundle.py": "judging",
     "worker/prompt.py": "judging",
