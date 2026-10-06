@@ -395,6 +395,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   variables of the environment no longer apply to a dispatch, and a redirect
   is not followed (it is read as an error status); a typed decision's
   one-token request is read whole, as before.
+- A rider who leaves a ride not streamed stops the host's unit at once. The
+  rig agent's relay now uses the product's `mcgyvr.whole` for the hub's pool
+  requests and for rides, and its own copy of the assembler is gone. Before,
+  a ride's body went to its unit as it came, so a rider who hung up on an
+  answer not streamed left the unit decoding the rest for nobody; a ride not
+  streamed is now asked of its unit as a stream and assembled whole by the
+  same piece, as a head's request is. A unit that answers anything but a 200
+  stream is passed through as it answers (status, type and body), whatever
+  engine it runs. A ride's cancel still reads no `/slots` page and reports no
+  counts.
 - A requester who leaves a request not streamed stops the model server at
   once, as one who leaves a stream does. The head (llama.cpp) notices a
   hang-up only when it writes, and an answer not streamed is written once, at

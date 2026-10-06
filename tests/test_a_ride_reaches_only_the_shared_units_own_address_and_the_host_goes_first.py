@@ -9,9 +9,11 @@ through the head relay's own code, its target the unit's address:
   the address is the host's own setup's, joined to the one path the relayed
   endpoint maps to as a run joins it (a unit address ending ``/v1`` is not
   doubled). An id no advert named is ``unknown_unit``, and reaches nothing.
-* **Unchanged both ways.** The body goes to the unit byte for byte (the hub
-  put the unit's model in it) and the answer comes back as the unit gives it,
-  so it names the unit's real model.
+* **The unit's model both ways.** The body is asked of the unit as a stream,
+  as a head's is (``stream`` and ``stream_options.include_usage``), the rest
+  as it came (the hub put the unit's model in it); a unit that answers with no
+  stream, as this one does, is passed through as it answers, so the answer
+  names the unit's real model.
 * **The host goes first.** A unit takes at most its ``rider_slots`` rides at
   once, and a ride is refused ``busy`` when the host's own requests and the
   rides leave no slot free, by the unit's own count at that moment (a ride the
@@ -286,16 +288,21 @@ def _body(model: str = MODEL) -> bytes:
     ).encode()
 
 
-# --- only the unit's own address, unchanged both ways ---------------------------------
+# --- only the unit's own address, the unit's model both ways --------------------------
 
 
-def test_a_ride_goes_unchanged_to_the_units_own_path_and_its_answer_names_the_unit(
+def test_a_ride_goes_as_a_stream_to_the_units_own_path_and_its_answer_names_the_unit(
     host: Host, capsys: pytest.CaptureFixture[str]
 ) -> None:
     host.ride(_body())
 
     assert host.ended() == {"request_id": "q1", "outcome": "complete"}
-    assert host.unit.seen == [("/v1/chat/completions", _body())]
+    ((path, seen),) = host.unit.seen
+    assert path == "/v1/chat/completions"
+    assert json.loads(seen) == json.loads(_body()) | {
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
     (response,) = host.box.of_type("relay_response")
     assert response["body"] == {
         "request_id": "q1",
