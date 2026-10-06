@@ -417,8 +417,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   plus those reused from its cache, the answer its `n_decoded`, and the
   slot's `n_prompt_tokens`, which on that build is the whole context and
   grows with the answer, must equal the prompt or the prompt and the answer
-  together; a page whose counts do not add up (a slot at the first instant
-  of a new task still shows the last one's) reports nothing.
+  together, or be one off the latter (a page read as a token is added, about
+  one read in fifty, counts the token before the context grows; the counts
+  as read still hold and are reported); a page whose counts are further off
+  (a slot at the first instant of a new task still shows the last one's)
+  reports nothing.
 - A stream relayed through a rig agent is no longer capped at the agent's
   frame rate. A head writes each token as an event of its own and each event
   went out as a frame of its own, so the agent's 49 frames a second, shared

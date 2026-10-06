@@ -953,11 +953,13 @@ def slot_made(page: bytes | None) -> tuple[int, int] | None:
     build a list of one). ``n_prompt_tokens`` is the check: on older servers
     it is the prompt and stands still; on the heads' build (llama.cpp b10644,
     ``prompt.tokens.size()``) it is the slot's whole context and grows by
-    one with each token generated, so it is the prompt plus the answer.
-    Anything else is a slot between tasks (the last task's context with
-    nothing of this one processed yet) or a shape this does not know, and
-    nothing is reported for it. While the prompt is still being read, the
-    tokens read so far are the prompt and nothing is generated yet."""
+    one with each token generated, so it is the prompt plus the answer, or
+    one off it: a page read as a token is added (about one read in fifty)
+    counts the token before the context grows, and the counts as read still
+    hold. Anything else is a slot between tasks (the last task's context
+    with nothing of this one processed yet) or a shape this does not know,
+    and nothing is reported for it. While the prompt is still being read,
+    the tokens read so far are the prompt and nothing is generated yet."""
     if page is None:
         return None
     try:
@@ -989,7 +991,9 @@ def slot_made(page: bytes | None) -> tuple[int, int] | None:
     if processed is None or cached is None or context is None or tokens_out is None:
         return None
     tokens_in = _count(processed + cached)
-    if not tokens_in or context not in (tokens_in, tokens_in + tokens_out):
+    if not tokens_in:
+        return None
+    if context != tokens_in and abs(context - (tokens_in + tokens_out)) > 1:
         return None
     return tokens_in, tokens_out
 
