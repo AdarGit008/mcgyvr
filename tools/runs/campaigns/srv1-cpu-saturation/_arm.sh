@@ -66,7 +66,7 @@ STARTED=
 SAMPLER_PID=
 # A hard lock takes an established ssh with it and nothing times that out by
 # default; these end a long call within three minutes of the rig going silent,
-# so the step files what it has instead of hanging (touching-rigs.md).
+# so the step files what it has instead of hanging.
 KEEPALIVE=(-o ServerAliveInterval=15 -o ServerAliveCountMax=12)
 date -u +%Y-%m-%dT%H:%M:%SZ >"$STATE/started_at"
 RIG_FILE=$(_py "$CS" remote-file "$RUN_ID" cpusat)

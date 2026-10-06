@@ -315,7 +315,8 @@ def main() -> int:
             + ". Nothing is measured on a card or a daemon something else is "
             "using, and the door does not clean a machine it found busy: stop "
             "what holds it (gpu_procs lists the card's compute processes as "
-            "pid,name,MiB; containers lists the ids `docker ps -q` prints), "
+            "pid,name,MiB; containers lists the ids `docker ps -q` prints; a "
+            "key shown as (unread) could not be read and counts as busy), "
             "then run again"
         )
 

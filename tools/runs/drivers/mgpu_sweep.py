@@ -48,8 +48,8 @@ What one cell prints, all tab-separated `host label kind k=v...`:
             onto the cards, and a split exists for checkpoints bigger than
             the host's free RAM
   REFUSED   launched and never answered /health, after up to three tries when
-            the engine's words are about memory (touching-rigs: a launch near
-            the edge fails intermittently)
+            the engine's words are about memory (a launch near the edge
+            fails intermittently)
   CONFIG    what the engine says it built: KV pool, the NCCL transport it
             chose, whether vLLM's custom all-reduce is on, the quant kernel,
             attention backend and graph mode, llama.cpp's per-device model,
@@ -62,7 +62,8 @@ What one cell prints, all tab-separated `host label kind k=v...`:
             model's first token is reasoning); ttft_src=usage when no delta
             streamed and the usage chunk's arrival is the clock. Streaming
             TTFT is the only prefill figure in this file; `agg` is not one
-            (it divides prompt and generated tokens by one wall clock)
+            (generated tokens over the level's whole wall clock, prefill
+            included)
   n=K       K concurrent streamed requests from tools/runs/workload.py:
             agg = generated / wall; dec = 1000 / tpot_p50, the per-stream
             decode rate a user sees; ttft_p50; and a rig-side sidecar over
