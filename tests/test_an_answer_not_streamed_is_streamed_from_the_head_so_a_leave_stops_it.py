@@ -16,10 +16,13 @@ receives one ``relay_response`` and the answer in frames once it is complete,
 as before; nothing reaches it early. A head that answers the stream with an
 error status is passed through as it answers; an error event mid-stream
 becomes the status and body the head gives a request not streamed; a body that
-is no JSON object goes to the head as it came. A ride's body goes to its unit
-as it came, as the ride's own contract says (byte for byte, and the answer as
-the unit gives it). The head's slot is at work until the stream ends, so a
-leave mid-answer reads its counts as a streamed request's leave does.
+is no JSON object goes to the head as it came. A ride is asked of its unit
+the same way, by the same code: a ride not streamed is streamed from its unit
+and assembled whole, so a rider who leaves stops the host's unit at once too,
+and a unit that answers with no stream is passed through as it answers. The
+head's slot is at work until the stream ends, so a leave mid-answer reads its
+counts as a streamed request's leave does; a ride's leave reads no counts, as
+a ride's never has.
 """
 
 from __future__ import annotations
@@ -205,6 +208,7 @@ class Head:
     answer: Answer = field(default_factory=Answer)
     status: int = 200  # of the answer to a request that parses
     refused: bytes | None = None  # a JSON error body, in place of an answer
+    whole_json: bool = False  # answers whole, even a stream asked for
     created: int = 1_770_000_000
     seen: list[tuple[str, bytes, dict[str, str]]] = field(default_factory=list)
     events: list[str] = field(default_factory=list)
@@ -265,7 +269,7 @@ def _serve(head: Head) -> ThreadingHTTPServer:
                 return
             answer = head.answer
             try:
-                if not asked.get("stream"):
+                if not asked.get("stream") or head.whole_json:
                     # Decoded to the end, written once: a hang-up goes unseen.
                     for _ in answer.pieces():
                         time.sleep(answer.pace_s)
@@ -571,12 +575,57 @@ def test_a_requester_who_leaves_a_request_not_streamed_stops_the_head_at_once(
     assert not rig.box.of_type("relay_data")
 
 
-def test_a_ride_not_streamed_goes_to_its_unit_as_it_came(rig: Rig) -> None:
+def test_a_ride_not_streamed_is_streamed_from_its_unit_and_assembled_whole(
+    rig: Rig,
+) -> None:
     rig.head.answer = Answer(usage=USAGE)
     rig.ask(ride=True)
     assert rig.ended() == COMPLETE
-    assert rig.posted()["body"] == REQUEST  # byte for byte: no stream asked
-    assert rig.posted()["headers"]["accept"] == "application/json"
+    posted = rig.posted()
+    assert posted["body"] == REQUEST | {
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    assert posted["headers"]["accept"] == "text/event-stream"
+    assert rig.response() == {
+        "request_id": "q1",
+        "status": 200,
+        "content_type": JSON_TYPE,
+    }
+    assert rig.data() == rig.head.answer.whole(rig.head.created)
+    assert "GET /slots" not in rig.head.events
+
+
+def test_a_rider_who_leaves_a_ride_not_streamed_stops_the_units_slot_at_once(
+    rig: Rig,
+) -> None:
+    rig.head.answer = Answer(content=["x"] * 200, usage=USAGE, pace_s=0.02)
+    rig.ask(ride=True)
+    assert rig.head.seen_event("decoded")
+    rig.cancel()
+    assert rig.ended() == CANCELLED  # a ride's unit is its host's: no counts
+    assert rig.head.seen_event("hung up")
+    decoded = rig.head.events.count("decoded")
+    assert decoded < 20, decoded  # a token or two past the leave, not the answer
+    assert "answered" not in rig.head.events
+    assert "GET /slots" not in rig.head.events
+    assert not rig.box.of_type("relay_response")
+    assert not rig.box.of_type("relay_data")
+
+
+def test_a_unit_that_answers_a_ride_with_no_stream_is_passed_through_as_it_answers(
+    rig: Rig,
+) -> None:
+    rig.head.answer = Answer(usage=USAGE)
+    rig.head.whole_json = True
+    rig.ask(ride=True)
+    assert rig.ended() == COMPLETE
+    assert rig.posted()["body"]["stream"] is True  # asked for one all the same
+    assert rig.response() == {
+        "request_id": "q1",
+        "status": 200,
+        "content_type": JSON_TYPE,
+    }
     assert rig.data() == rig.head.answer.whole(rig.head.created)
     assert "GET /slots" not in rig.head.events
 
@@ -677,82 +726,3 @@ def test_a_streamed_request_is_passed_through_as_before(rig: Rig) -> None:
         [*rig.head.answer.events(rig.head.created), b"data: [DONE]\n\n"]
     )
     assert rig.posted()["body"] == asked
-
-
-# -- the assembly alone -------------------------------------------------------
-
-
-def test_the_whole_answer_takes_each_choice_by_index_and_skips_what_is_no_event() -> (
-    None
-):
-    from mcgyvr.rig.relay import Whole
-
-    whole = Whole()
-    for piece in (
-        b": a comment\n\n",
-        b"data: not json\n\n",
-        b'data: {"choices": [{"index": 1, "delta": {"content": "two"}}]}\n\n',
-        b'data: {"choices": [{"index": 0, "delta": {"content": "one"}}]}\n\n',
-        b'data: {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"},'
-        b' {"index": 1, "delta": {}, "finish_reason": "length"}],'
-        b' "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},'
-        b' "created": 5, "id": "x", "model": "m", "system_fingerprint": "f"}\n\n',
-        b"data: [DONE]\n\n",
-    ):
-        whole.feed(piece)
-    answer = whole.answer()
-    assert answer is not None
-    status, kind, body = answer
-    assert (status, kind) == (200, JSON_TYPE)
-    assert json.loads(body) == {
-        "choices": [
-            {
-                "finish_reason": "stop",
-                "index": 0,
-                "message": {"role": "assistant", "content": "one"},
-            },
-            {
-                "finish_reason": "length",
-                "index": 1,
-                "message": {"role": "assistant", "content": "two"},
-            },
-        ],
-        "created": 5,
-        "id": "x",
-        "model": "m",
-        "object": "chat.completion",
-        "system_fingerprint": "f",
-        "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
-    }
-
-
-def test_an_event_split_across_reads_is_read_whole() -> None:
-    from mcgyvr.rig.relay import Whole
-
-    event = b'data: {"choices": [{"index": 0, "delta": {"content": "ab"}}]}\n\n'
-    whole = Whole()
-    for n in range(len(event)):
-        whole.feed(event[n : n + 1])
-    whole.feed(b'data: {"choices": [{"index": 0, "finish_reason": "stop"}]}\n\n')
-    answer = whole.answer()
-    assert answer is not None
-    assert json.loads(answer[2])["choices"][0]["message"]["content"] == "ab"
-
-
-def test_a_stream_with_no_finish_reason_and_no_error_is_no_answer() -> None:
-    from mcgyvr.rig.relay import Whole
-
-    whole = Whole()
-    whole.feed(b'data: {"choices": [{"index": 0, "delta": {"content": "ab"}}]}\n\n')
-    assert whole.answer() is None
-    whole.feed(b"data: [DONE]\n\n")
-    assert whole.answer() is None
-
-
-def test_an_event_too_long_to_be_one_is_a_head_that_speaks_no_stream() -> None:
-    from mcgyvr.rig import relay
-
-    whole = relay.Whole()
-    whole.feed(b"data: " + b"x" * (relay.MAX_EVENT_BYTES - 6))  # just the bound
-    with pytest.raises(ValueError):
-        whole.feed(b"y")

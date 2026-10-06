@@ -214,15 +214,22 @@ def test_no_system_prompt_sends_no_empty_system_field(
     assert [m["role"] for m in sent.payload["messages"]] == ["user"]
 
 
-def test_neither_protocol_streams(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A single document is what makes the stop reason and the counts readable."""
+def test_every_dispatch_asks_for_a_stream_and_its_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A unit notices a hang-up only when it writes, and a whole answer is
+    written once: so the stream is asked of every unit, with the counts in
+    its last event, and the whole is assembled on this side (the transport's
+    business, stubbed here) so the stop reason and the counts stay readable."""
     sent = stub_post(monkeypatch, openai_answer())
     runner_for(LOCAL_SECOND).generate("m", ASK)
-    assert sent.payload["stream"] is False
+    assert sent.payload["stream"] is True
+    assert sent.payload["stream_options"] == {"include_usage": True}
 
     sent = stub_post(monkeypatch, openai_answer())
     runner_for(LOCAL_OPENAI).generate("m", ASK)
-    assert sent.payload["stream"] is False
+    assert sent.payload["stream"] is True
+    assert sent.payload["stream_options"] == {"include_usage": True}
 
 
 # --- a hard output cap, enforced by both ---------------------------------

@@ -76,6 +76,7 @@ class Head:
     events: list[str] = field(default_factory=list)  # in the order they happen
     lock: threading.Lock = field(default_factory=threading.Lock)
     asked: threading.Semaphore = field(default_factory=lambda: threading.Semaphore(0))
+    streaming: threading.Event = field(default_factory=threading.Event)  # 1st piece
     server: ThreadingHTTPServer | None = None
 
     def note(self, event: str) -> None:
@@ -139,6 +140,7 @@ def _serve(head: Head) -> ThreadingHTTPServer:
                     chunk = b"data: x\n\n"
                     self.wfile.write(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
                     self.wfile.flush()
+                    head.streaming.set()
                     time.sleep(0.01)
                 self.wfile.write(b"0\r\n\r\n")
                 self.wfile.flush()
@@ -224,6 +226,26 @@ class Rig:
             assert time.monotonic() < deadline, "the answer never started"
             time.sleep(0.005)
 
+    def at_work(self, request_id: str = "q1", timeout: float = 5.0) -> None:
+        """Wait until the agent counts the head at work on ``request_id``.
+
+        The head has the request (:meth:`ask`) a moment before the agent's
+        relay thread, back from sending it, says so; a cancel in between is
+        read for nothing, rightly, and on a loaded machine that moment is
+        long. A stream's first frame (:meth:`answering`) comes after it; an
+        answer not streamed sends the hub nothing to wait for, so this waits
+        on the relay itself."""
+        deadline = time.monotonic() + timeout
+        while True:
+            with self.relays._lock:
+                relay = self.relays._active.get(request_id)
+            if relay is not None:
+                with relay.changed:
+                    if relay.working:
+                        return
+            assert time.monotonic() < deadline, "the head never went to work"
+            time.sleep(0.005)
+
 
 def _rig(head: Head, slots: int = 1) -> Rig:
     from mcgyvr.rig import commands, relay
@@ -264,6 +286,7 @@ def test_an_answer_not_streamed_cancelled_while_the_head_works_says_it_too(
 ) -> None:
     rig.head.answers_first = False
     rig.ask(stream=False)
+    rig.at_work()
     rig.cancel()
     assert rig.ended() == MADE
     assert rig.head.seen("hung up")
@@ -332,6 +355,7 @@ def test_with_another_relay_in_the_head_no_slot_is_this_relays_for_certain() -> 
         built.ask("q2")
         built.cancel("q1")
         assert built.ended("q1") == CANCELLED
+        built.at_work("q2")
         built.cancel("q2")  # alone in its head now: its slot is the one at work
         assert built.ended("q2") == MADE | {"request_id": "q2"}
     finally:
@@ -348,7 +372,8 @@ def test_an_answer_not_streamed_is_streamed_from_the_head_and_read_for_meanwhile
     reads it as a stream's leave does."""
     rig.head.answers_first = True  # the head is streaming it, in pieces
     rig.ask(stream=False)
-    time.sleep(0.1)
+    assert rig.head.streaming.wait(timeout=5.0)
+    rig.at_work()
     rig.cancel()
     assert rig.ended() == MADE
     assert rig.head.seen("hung up")

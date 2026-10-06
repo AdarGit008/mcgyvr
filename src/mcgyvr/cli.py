@@ -6,12 +6,15 @@ Only what is built is exposed.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ipaddress
 import json
 import os
+import signal
 import sys
 import textwrap
-from collections.abc import Callable, Iterable, Sequence
+import threading
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
@@ -4492,13 +4495,45 @@ class _Version(argparse.Action):
         parser.exit(0)
 
 
+@contextlib.contextmanager
+def hanging_up_on_interrupt() -> Iterator[None]:
+    """Ctrl-C hangs up on every dispatch of the process before it stops the
+    command. A dispatch runs on a thread of a batch and ``KeyboardInterrupt``
+    is the main thread's alone, which then waits for those threads to finish
+    what they were asked, each unit decoding for nobody meanwhile. So, while
+    a command runs, the interrupt first hangs up on them all
+    (:func:`mcgyvr.runner.hang_up_all`: each unit's next write fails, each
+    dispatch ends, none is made after), then is the ``KeyboardInterrupt`` it
+    always was, from the same place. Only Python's own handler is replaced,
+    and only on the main thread, where a signal is heard."""
+    from mcgyvr import runner
+
+    if (
+        threading.current_thread() is not threading.main_thread()
+        or signal.getsignal(signal.SIGINT) is not signal.default_int_handler
+    ):
+        yield
+        return
+
+    def interrupted(signum: int, frame: object) -> None:
+        runner.hang_up_all()
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGINT, interrupted)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser, run = _build()
     args = parser.parse_args(argv)
     if args.func is _run:
         _name_the_writer(run, args)
     try:
-        result: int = args.func(args)
+        with hanging_up_on_interrupt():
+            result: int = args.func(args)
     except FolderError as exc:
         # A folder variable that names no usable folder, or a guarded folder
         # that cannot be resolved: one line naming it, whichever command met
