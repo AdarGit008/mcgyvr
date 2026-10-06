@@ -313,8 +313,11 @@ def main() -> int:
             f"gate 2: {host} is not idle — "
             + ", ".join(f"{key}={value}" for key, value in busy.items())
             + ". Nothing is measured on a card or a daemon something else is "
-            "using, and the door does not clean a machine it found busy: kill "
-            "what you started; okf/must-read/touching-rigs.md"
+            "using, and the door does not clean a machine it found busy: stop "
+            "what holds it (gpu_procs lists the card's compute processes as "
+            "pid,name,MiB; containers lists the ids `docker ps -q` prints; a "
+            "key shown as (unread) could not be read and counts as busy), "
+            "then run again"
         )
 
     # Gate 2b, only where a campaign says it serves: the serving harness's

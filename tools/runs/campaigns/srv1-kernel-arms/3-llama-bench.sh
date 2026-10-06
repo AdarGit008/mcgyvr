@@ -181,7 +181,7 @@ arm_digest() {
 # THE VULKAN ARM ASKS FOR THE DEVICE THROUGH CDI (`--device
 # nvidia.com/gpu=all`): `--gpus all` may be routed to the legacy hook, which
 # does not mount the NVIDIA Vulkan ICD manifest, and ggml then benches the CPU
-# (-> okf/must-read/touching-engine.md). CUDA arms need no manifest and keep
+# under a Vulkan label. CUDA arms need no manifest and keep
 # `--gpus all`.
 docker_args() {
     local arm=$1

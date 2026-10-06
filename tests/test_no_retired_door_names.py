@@ -11,8 +11,8 @@ these in code or prose under ``src/``, ``tools/`` or ``tests/``, or in a file
 at the repo root, is a pointer at a door that is not there, and the old name
 lingering in a usage line is exactly how an operator comes to type it.
 
-History is exempt because it says what was: ``archive/``, ``records/`` and
-``okf/`` are read as records, ``tools/bench/rounds.json`` names what each
+History is exempt because it says what was: ``archive/`` and ``records/`` are
+read as records, ``tools/bench/rounds.json`` names what each
 round ran through, and a mention of the archived path itself
 (``archive/runs/run.sh``) points at history and is admitted. This file is
 exempt because it has to spell what it forbids, and so are the two tests that
@@ -36,7 +36,6 @@ ROOT_FILES = True
 #: Never scanned: history, and the files that spell the names on purpose.
 EXEMPT: tuple[str, ...] = (
     "archive",
-    "okf",
     "records",
     "tools/bench/rounds.json",
     "tests/test_no_retired_door_names.py",

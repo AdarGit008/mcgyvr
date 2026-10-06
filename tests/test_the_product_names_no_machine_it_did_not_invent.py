@@ -176,10 +176,10 @@ def test_the_pointer_rules_are_built_from_the_lab_folders_not_from_unread(
         assert [hit.kind for hit in found] == ["dev-pointer"], text
 
 
-def test_the_folders_no_pointer_may_lead_into_are_the_five_that_leave() -> None:
+def test_the_folders_no_pointer_may_lead_into_are_the_four_that_leave() -> None:
     """Dropping a folder here would drop every pointer into it from the
     count, with nothing cleaned."""
-    assert um.LAB_FOLDERS == ("archive", "fleet-setup", "okf", "records", "tools")
+    assert um.LAB_FOLDERS == ("archive", "fleet-setup", "records", "tools")
 
 
 def test_the_count_of_tracked_files_is_of_the_one_top_folder_named(

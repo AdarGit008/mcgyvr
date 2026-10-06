@@ -24,10 +24,10 @@
 # Section 1: not yet cleaned.
 .gitattributes	dev-pointer=2
 .github/workflows/release.yml	dev-pointer=1
-.gitignore	dev-pointer=14
-CHANGELOG.md	dev-pointer=10
+.gitignore	dev-pointer=8
+CHANGELOG.md	dev-pointer=9
 Makefile	dev-pointer=2
-README.md	dev-pointer=9
+README.md	dev-pointer=8
 eslint.config.mjs	dev-pointer=7
 examples/fleet.yaml	dev-pointer=2
 prettier.config.mjs	dev-pointer=1
@@ -37,7 +37,6 @@ src/mcgyvr/capacity.py	dev-pointer=1
 src/mcgyvr/catalog.py	dev-pointer=1
 src/mcgyvr/cli.py	dev-pointer=11	host=2
 src/mcgyvr/config.py	dev-pointer=1
-src/mcgyvr/emit.py	dev-pointer=2
 src/mcgyvr/fleet/admit.py	dev-pointer=4
 src/mcgyvr/fleet/alerts.py	dev-pointer=3	identity=1
 src/mcgyvr/fleet/files.py	dev-pointer=1
@@ -51,27 +50,22 @@ src/mcgyvr/gate/preflight.py	dev-pointer=2
 src/mcgyvr/prompts/javascript.md	dev-pointer=1
 src/mcgyvr/prompts/python.md	dev-pointer=2
 src/mcgyvr/runner.py	dev-pointer=3
-src/mcgyvr/scan.py	dev-pointer=2
-src/mcgyvr/serving/__init__.py	address=4	card-model=1	dev-pointer=13
+src/mcgyvr/serving/__init__.py	address=4	card-model=1	dev-pointer=11
 src/mcgyvr/serving/gate-scripts/01-round.py	dev-pointer=5
-src/mcgyvr/serving/gate-scripts/02-rig.py	dev-pointer=6
+src/mcgyvr/serving/gate-scripts/02-rig.py	dev-pointer=5
 src/mcgyvr/serving/gate-scripts/03-image.py	dev-pointer=3
 src/mcgyvr/serving/gate-scripts/04-workload.py	dev-pointer=3
 src/mcgyvr/serving/gate-scripts/05-envelope.py	dev-pointer=7
 src/mcgyvr/serving/gate-scripts/08-parse.py	dev-pointer=2
-src/mcgyvr/serving/gate-scripts/data-10-scan.py	dev-pointer=1
-src/mcgyvr/serving/gate-scripts/data-20-geometry.py	dev-pointer=1
-src/mcgyvr/serving/gate-scripts/data-30-placement.py	dev-pointer=1
-src/mcgyvr/serving/gate-scripts/default-step.sh	dev-pointer=2
 src/mcgyvr/serving/gate-scripts/read-01-profile.py	dev-pointer=1
 src/mcgyvr/serving/gate-scripts/read-02-rig.py	dev-pointer=4
 src/mcgyvr/serving/gate-scripts/rig-snapshot.sh	dev-pointer=1
 src/mcgyvr/serving/gate-scripts/rig-units.sh	dev-pointer=1
 src/mcgyvr/serving/gate-scripts/serve-up.py	dev-pointer=2
-src/mcgyvr/serving/ggufscan.py	dev-pointer=4
+src/mcgyvr/serving/ggufscan.py	dev-pointer=3
 src/mcgyvr/serving/run.py	dev-pointer=9	host=1
 src/mcgyvr/serving/servelib.py	dev-pointer=3
-src/mcgyvr/serving/vramfit.py	dev-pointer=8
+src/mcgyvr/serving/vramfit.py	dev-pointer=7
 src/mcgyvr/telemetry.py	dev-pointer=17
 src/mcgyvr/wake.py	dev-pointer=6
 src/mcgyvr/weights.py	dev-pointer=1
@@ -97,7 +91,7 @@ tests/test_a_blob_that_overflows_ram_is_emitted_unmapped.py	dev-pointer=2	home-p
 tests/test_a_byline_never_outlives_the_verdict_it_was_given_for.py	dev-pointer=2
 tests/test_a_card_can_be_woken_twice_in_one_day.py	dev-pointer=1
 tests/test_a_card_reserve_that_moves_between_boots_is_the_same_rig.py	dev-pointer=2	host=1
-tests/test_a_co_resident_unit_waits_for_a_healthy_neighbour.py	dev-pointer=1	host=3
+tests/test_a_co_resident_unit_waits_for_a_healthy_neighbour.py	host=3
 tests/test_a_config_digest_does_not_mint_the_retired_cfg_prefix.py	dev-pointer=2
 tests/test_a_config_resolves_the_geometry_it_names_or_refuses.py	dev-pointer=2
 tests/test_a_config_that_changed_without_re_emitting_is_refused.py	host=1
@@ -169,8 +163,8 @@ tests/test_host_ram_is_summed_across_co_residents.py	dev-pointer=2	host=1
 tests/test_measured_scan.py	card-model=6
 tests/test_measured_sizing.py	card-model=1	dev-pointer=3	host=19
 tests/test_no_landed_test_opens_with_a_red_spec_docstring.py	dev-pointer=1
-tests/test_no_retired_door_names.py	dev-pointer=25
-tests/test_no_stale_pending_citations.py	dev-pointer=6
+tests/test_no_retired_door_names.py	dev-pointer=24
+tests/test_no_stale_pending_citations.py	dev-pointer=5
 tests/test_one_door.py	dev-pointer=11
 tests/test_orchestrator_repo.py	home-path=1	host=2
 tests/test_pattern_b_one_owner.py	dev-pointer=4
@@ -188,13 +182,13 @@ tests/test_serving_gatelib.py	dev-pointer=1	host=7
 tests/test_serving_unit.py	host=7
 tests/test_serving_vramfit.py	dev-pointer=1
 tests/test_sleeping_a_card_takes_every_rung_it_serves.py	card-model=2	dev-pointer=1
-tests/test_the_constant_steps_once_an_expert_is_on_the_host.py	dev-pointer=2
+tests/test_the_constant_steps_once_an_expert_is_on_the_host.py	dev-pointer=1
 tests/test_the_door_serves_a_ladder_and_leaves_it_up.py	host=1
 tests/test_the_fleet_and_its_policy_are_two_files.py	dev-pointer=1	host=2
 tests/test_the_fleet_lock_is_written_only_from_passing_dev_runs.py	dev-pointer=8	host=4
 tests/test_the_index_says_who_applied_a_correction.py	dev-pointer=1
 tests/test_the_journal_is_one_place_and_a_copy_is_the_callers.py	dev-pointer=3
-tests/test_the_live_ladder_serves_vllm_and_carries_extra_flags.py	dev-pointer=1	host=2
+tests/test_the_live_ladder_serves_vllm_and_carries_extra_flags.py	host=2
 tests/test_the_local_role_units_are_served.py	host=6
 tests/test_the_lock_pins_each_combinations_headroom_card_peak_backend_and_prefill.py	card-model=2	dev-pointer=6	host=1
 tests/test_the_reading_parser_refuses_what_its_fields_do_not_take.py	identity=3
@@ -206,4 +200,4 @@ tests/test_whatever_a_card_tool_prints_ends_as_a_value_or_a_named_unread_field.p
 # Section 2: kept on purpose. A file here needs such strings as its inputs;
 # a person moves an entry here and says why in the change that moves it.
 tests/test_init_names_no_machine_the_user_did_not_name.py	address=6	host=8
-tests/test_what_every_test_shares_opens_nothing_outside_the_package_and_the_tests.py	dev-pointer=12
+tests/test_what_every_test_shares_opens_nothing_outside_the_package_and_the_tests.py	dev-pointer=11

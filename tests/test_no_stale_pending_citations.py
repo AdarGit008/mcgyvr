@@ -4,7 +4,7 @@
 ``mcgyvr-lab/archive/src/mcgyvr/``. A docstring or comment that cites
 ``mcgyvr.pending``, ``pending.stash``, ``pending.resume``, "the pending store", or
 ``record.Attempt`` is a pointer at a module that is not there. History is exempt
-(``archive/``, ``records/``, ``okf/``); the fix is to reword the prose to the live
+(``archive/``, ``records/``); the fix is to reword the prose to the live
 ``surrogateescape`` / ``deliver`` convention, never to resurrect the module.
 """
 

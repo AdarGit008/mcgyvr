@@ -27,7 +27,7 @@ The split this module rests on:
     host and then stays: deepseek-coder-v2-16b on srv2 reads 76.13 MiB at
     ``--n-cpu-moe 0`` and 151.51 MiB at 13 and at 26, and ``C`` moves by the
     same 74 MiB. ``--no-op-offload`` removes the step and is banned for what it
-    costs prefill (``okf/config/llama.cpp.md``). Nor is the offloaded side
+    costs prefill, which op offload runs on the card. Nor is the offloaded side
     proven flat for every checkpoint: Qwen3.6's ``C`` read 2 MiB higher at
     ncmoe 20 and 38 MiB higher at 40 than at 7, experts on the host at all
     three, and nobody has attributed that yet.

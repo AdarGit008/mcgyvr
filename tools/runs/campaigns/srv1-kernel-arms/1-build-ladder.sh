@@ -545,8 +545,9 @@ ARG ICD_DEPS
 # libglvnd0 libegl1 libx11-6 libxext6 are the X and EGL libraries the NVIDIA
 # Vulkan ICD needs; --no-install-recommends pulls none of them in behind
 # libvulkan1, and without them ggml registers the CPU backend alone, silently
-# (-> okf/must-read/touching-engine.md). The ldconfig check below makes the
-# build fail where the rig would have measured the wrong device.
+# (the ICD dlopens them, so nothing fails at build time). The ldconfig check
+# below makes the build fail where the rig would have measured the wrong
+# device.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libgomp1 libcurl4 curl ca-certificates libvulkan1 vulkan-tools \
       libglvnd0 libegl1 libx11-6 libxext6 \

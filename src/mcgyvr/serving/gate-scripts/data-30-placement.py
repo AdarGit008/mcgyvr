@@ -3,8 +3,8 @@
 
 DERIVED, THEN WALKED DOWN TO — never trusted as a measurement. One allowance
 remains in the arithmetic (compute buffer plus the allocation the engine never
-names), so this is a prediction (okf/must-read/touching-rigs.md § Spending the
-card).
+names), so this is a prediction: the step launches one block below it on
+purpose, and that refusal is the measurement.
 
 IT REFUSES RATHER THAN GUESSING. A checkpoint that declares a sliding window
 without the per-layer pattern does not say which layers slide, and the split is

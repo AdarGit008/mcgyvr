@@ -49,7 +49,7 @@
 # The START and END markers (uptime_since, pl1_uw, pl2_uw, ram_mt_s) and the
 # rig's /proc/vmstat pswpout and pgmajfault are read at both ends. The markers
 # are teed on the rig to ~/mcgyvr-relock/<RUN_ID>.unit and read back, because a
-# lock takes the ssh pipe with it (okf/must-read/touching-rigs.md).
+# lock takes the ssh pipe with it.
 #
 # Usage: a use's numbered wrapper declares the artifact and runs
 #   exec bash ../_unit.sh <artifact>.json <unit> "$@"

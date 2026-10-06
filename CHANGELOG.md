@@ -254,6 +254,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- Developer-only rule files, and the script that queried them, are no longer
+  in the repository. Comments and docstrings that cited them now give the
+  reason in place, or drop a citation the text already explained. Two
+  refusals that sent you to one of those files now say what to do: gate 2,
+  refusing a rig that is not idle, says that `gpu_procs` lists the card's
+  compute processes and `containers` the ids `docker ps -q` prints, and asks
+  you to stop what holds the rig and run again; the default step, refusing a
+  placement that needs CPU expert offload on a host whose
+  `cpu_expert_offload` is false, asks for a placement that fits the card
+  whole (a smaller checkpoint or a deeper quant), or for the key to be set
+  true once the host runs that offload without locking up.
 - A ride whose host went away is passed over at once (hitchhike). The hub
   answers such a ride `503 hitchhike_host_away`, with no `Retry-After`; the
   runner reads it on a relief rung as it reads `503 hitchhike_not_served_yet`
@@ -344,9 +355,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   and measurement write-ups, `docs/`, the corpus and header READMEs — moved
   to AdarGit008/mcgyvr-lab at the same paths; the data they describe stays
   here. Comments, docstrings, help text and refusal messages that no longer
-  matched the code were corrected or deleted, and `okf/` states only rules
-  that were re-checked against the code, the records or the pinned engine
-  sources.
+  matched the code were corrected or deleted.
 - `mcgyvr fleet use` no longer refuses a fleet the live lock's `next` does not
   list; the lock's `next` now says what a move costs, not whether it may be
   made.

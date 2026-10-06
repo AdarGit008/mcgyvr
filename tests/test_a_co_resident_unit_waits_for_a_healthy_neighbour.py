@@ -1,7 +1,7 @@
 """Two units on one card are sequenced, and `service_started` does not sequence.
 
 `_sequence_on_one_card` chains co-residents, because two units started together
-race for the card (`okf/config/vllm.md`). A chain on
+race for the card. A chain on
 `service_started` does not hold: it releases the waiter as soon as the daemon
 has *started* the process ahead of it — not when that process has taken its
 card — so the pair still contends, a unit crash-restarts during a cold start,

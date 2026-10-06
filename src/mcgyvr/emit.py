@@ -481,12 +481,13 @@ def _sequence_on_one_card(
 
     A compose file with no dependency between its services tells the daemon to
     start every one of them at once, which on a card that fits both only if
-    they load one after the other is a race (``okf/config/vllm.md``).
+    they load one after the other is a race: an engine sizes its share from the
+    card's free memory while it starts, and two starting together can each
+    count memory the other is about to take.
 
     The order this code writes is largest card figure first, then service
-    name. Which order is right is an open ruling (``okf/config/vllm.md``); the
-    sort is total so that two runs of ``emit`` over one config write the same
-    file.
+    name. Which order is right is not settled; the sort is total so that two
+    runs of ``emit`` over one config write the same file.
 
     A chain rather than a fan-in, so that three units on one card load one at a
     time as well as two.

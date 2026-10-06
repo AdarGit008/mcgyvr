@@ -40,8 +40,7 @@ CAMPAIGN = "lock-fleets"
 UNIT_SCHEMA = "lock-fleets-unit/1"
 MOVE_SCHEMA = "lock-fleets-move/1"
 #: Where a step tees its markers and stamps on the rig, under the rig user's
-#: home: a lock takes the ssh pipe with it (okf/must-read/touching-rigs.md,
-#: "srv1 hard-locks under CPU expert offload").
+#: home: a lock takes the ssh pipe with it.
 RIG_DIR = "mcgyvr-relock"
 #: The two engines a unit names in fleet.yaml.
 ENGINE_LLAMACPP = "llama.cpp"

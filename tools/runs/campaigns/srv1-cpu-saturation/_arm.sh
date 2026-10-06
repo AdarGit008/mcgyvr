@@ -3,7 +3,7 @@
 # Qwen3.6-35B-A3B UD-IQ3_XXS on srv1 at one --n-cpu-moe, all eight slots driven.
 #
 # The footprint-versus-stream test, run with its hard-lock risk
-# (okf/must-read/touching-rigs.md, "A rig that hard-locks under load"). Three
+# under CPU expert offload. Three
 # arms differ in --n-cpu-moe only: A1 = 30 (the depth of fleet.yaml's
 # srv1_35b_b), A2 = 36, A3 = 40 (every expert block in host RAM). Everything
 # else is fixed by this file: --parallel 8, -c 32768 (4096 a slot), -b 512
@@ -66,7 +66,7 @@ STARTED=
 SAMPLER_PID=
 # A hard lock takes an established ssh with it and nothing times that out by
 # default; these end a long call within three minutes of the rig going silent,
-# so the step files what it has instead of hanging (touching-rigs.md).
+# so the step files what it has instead of hanging.
 KEEPALIVE=(-o ServerAliveInterval=15 -o ServerAliveCountMax=12)
 date -u +%Y-%m-%dT%H:%M:%SZ >"$STATE/started_at"
 RIG_FILE=$(_py "$CS" remote-file "$RUN_ID" cpusat)

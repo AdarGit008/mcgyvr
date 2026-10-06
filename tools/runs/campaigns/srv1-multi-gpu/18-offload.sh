@@ -16,7 +16,7 @@
 #   next      Qwen3-Coder-Next UD-Q3_K_XL (33.8 GiB), layer split, 24 layers'
 #             experts out (~13.8 GiB mapped against ~14.3 GiB available). The
 #             owner approved it on 2026-09-27 knowing srv1 hard-locked under
-#             --n-cpu-moe on 09-01 (hosts.json, okf/must-read/touching-rigs.md):
+#             --n-cpu-moe on 09-01:
 #             one level, last in the step, never --no-mmap or --mlock
 #
 # Offload cells are not fit-predicted (mgpu_sweep.py): the engine decides.

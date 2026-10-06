@@ -6,7 +6,7 @@ name, no real card model, no real user's name and no name of a repository:
 every kind below is a shape. It does hold the names of card families and of
 the vendors that write them (:data:`CARD_FAMILIES`, :data:`CARD_VENDORS`),
 the user names that stand for any user or for the CI runner
-(:data:`PLACEHOLDER_USERS`), and the names of the five folders that leave the
+(:data:`PLACEHOLDER_USERS`), and the names of the four folders that leave the
 product (:data:`LAB_FOLDERS`).
 
 What is read
@@ -209,11 +209,11 @@ LIST_NAME = LIST_PATH.relative_to(REPO).as_posix()
 
 #: The folders that leave the product: never a place a pointer may lead,
 #: whether they are read or not.
-LAB_FOLDERS = ("archive", "fleet-setup", "okf", "records", "tools")
+LAB_FOLDERS = ("archive", "fleet-setup", "records", "tools")
 
 #: The folders not read, while they are in the product. A test says when one
 #: has left; it is then dropped from here, not from LAB_FOLDERS.
-UNREAD = ("archive", "fleet-setup", "okf", "records", "tools")
+UNREAD = ("archive", "fleet-setup", "records", "tools")
 
 KINDS = ("address", "card-model", "dev-pointer", "home-path", "host", "identity")
 

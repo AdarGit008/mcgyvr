@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The checkpoint's geometry, summed from its own tensor table on the rig.
 
-BITS-PER-WEIGHT IS A GUESS; THE TENSOR TABLE IS NOT
-(okf/must-read/touching-models.md).
+BITS-PER-WEIGHT IS A GUESS; THE TENSOR TABLE IS NOT. File size over parameter
+count is an average over every tensor; the header's table gives each tensor's
+own bytes.
 
 THE READER GOES TO THE RIG, THE BLOB NEVER COMES BACK. ggufscan reads headers
 only, is piped over as `python3 -`, and nothing lands on the rig's disk. The

@@ -196,11 +196,11 @@ module = ["mode", "mde", "power.mde", "frames", "emit", "product", "responsivene
 ignore_missing_imports = true
 
 # Third-party packages with no stubs, installed only where a rig under
-# `tools/` needs them (finetune, tokens, okf; torch and pynvml exist only in
+# `tools/` needs them (finetune, tokens; torch and pynvml exist only in
 # the vLLM image srv1-multi-gpu/mgpu_link.py is shipped into).
 [[tool.mypy.overrides]]
 module = [
-    "datasets", "tokenizers", "trl", "unsloth.*", "unsloth", "okf_rag.*",
+    "datasets", "tokenizers", "trl", "unsloth.*", "unsloth",
     "torch", "torch.*", "pynvml",
 ]
 ignore_missing_imports = true

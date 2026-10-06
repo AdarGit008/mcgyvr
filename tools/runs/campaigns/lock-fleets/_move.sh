@@ -19,7 +19,7 @@
 # to t2. The docker verbs are in the ssh argv as words, so the shim's spend
 # check and the lease still see them. Stamps are teed to
 # ~/mcgyvr-relock/<RUN_ID>.move and read back by a second ssh, because a lock
-# takes the ssh pipe with it (okf/must-read/touching-rigs.md). The artifact
+# takes the ssh pipe with it. The artifact
 # carries downtime_s = max(t2) - t0 and wake_s[u] = t2_u - t1; it judges none.
 #
 # REFUSED (exit 2, the artifact written with its `failure`) before the rig is
