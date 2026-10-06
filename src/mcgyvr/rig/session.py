@@ -1118,6 +1118,7 @@ class Sessions:
             gpus=tuple(gpus),
             models_dir=held.folder,
             model=relative,
+            name=asked.model,
             ctx=asked.ctx,
             slots=asked.slots,
             n_gpu_layers=asked.n_gpu_layers,
