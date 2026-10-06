@@ -20,8 +20,9 @@ then only what the owner allows is lent:
 * ``endpoints`` — the LAN addresses the tunnel is published on, or the
   machine's own when none are named; ``listen_port`` — the first of the
   tunnels' UDP ports: each session the rig is in at once takes the lowest
-  free one of it and the ports after it (:meth:`Sharing.tunnel_ports`), so a
-  rig in one session listens on ``listen_port`` itself;
+  free one of it and the ports after it (:meth:`Sharing.tunnel_ports`) that
+  no session held in the last two minutes, so a rig in its first session
+  listens on ``listen_port`` itself;
 * ``cache`` — whether a worker keeps the tensors its heads sent in a cache
   folder of its own, so a reload sends only what changed, up to
   ``cache_max_mb``. One session at a time holds the folder; a worker session
