@@ -368,6 +368,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A pool head's answers name the model the hub asked for. The head's
+  llama-server was started with `-m /models/<file>` and no `--alias`, so it
+  named every answer after that path, where the hub lists and matches the
+  model by the name the agent reported (the file's own name, with no folder).
+  `head_start` now launches the head with `--alias <that name>` beside `-m`,
+  as `mcgyvr emit` does for a host unit; the spec the agent builds carries
+  the name the hub asked for, next to the file it resolved to.
 - A rig agent's heartbeat no longer pauses everything the agent sends. Each
   heartbeat read the machine (the machine reader, about 1.7 s on a rig) on
   the one thread that sends to the hub, so every relayed stream stopped for

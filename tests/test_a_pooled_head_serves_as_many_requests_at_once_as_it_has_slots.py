@@ -79,6 +79,8 @@ def _expected(slots: int, ctx: int, dev: str = "CUDA0", ts: str = "1") -> list[s
         sharing.DEFAULT_HEAD_BINARY,
         "-m",
         f"/models/dense/{fakes.MODEL}",
+        "--alias",
+        fakes.MODEL,
         "-ngl",
         "999",
         "-sm",
@@ -162,6 +164,7 @@ def _spec(slots: int, ctx: int) -> Any:
         gpus=(0,),
         models_dir=Path("/srv/models"),
         model="dense/model-q5.gguf",
+        name="model-q5.gguf",
         ctx=ctx,
         slots=slots,
         n_gpu_layers=99,
@@ -185,6 +188,8 @@ def test_head_argv_gives_each_slot_its_own_context_and_never_a_shared_cache(
         "/app/llama-server",
         "-m",
         "/models/dense/model-q5.gguf",
+        "--alias",
+        "model-q5.gguf",
         "-ngl",
         "99",
         "-sm",
@@ -225,6 +230,22 @@ def test_a_head_started_with_slots_launches_that_many_and_warms_one_slots_contex
     assert _engine(pool) == _expected(slots, 8192)
     assert pool.warmed == [(18080, 8192)]
     assert pool.sessions.head_slots("s1") == slots
+
+
+def test_the_head_answers_under_the_name_the_hub_asked_for_not_its_file_path(
+    pool: Pool,
+) -> None:
+    """The hub asks for a model by the name the agent listed; llama-server
+    names its answers after the path it was handed unless told otherwise, so
+    the head is given ``--alias`` with that listed name, beside ``-m``."""
+    prepared(pool, role="head")
+    ack = _head_start(pool)
+    assert ack is not None and ack["type"] == "ack", ack
+    pool.wait_for("session_status", "ready")
+    engine = _engine(pool)
+    assert engine[engine.index("-m") + 1] == f"/models/dense/{fakes.MODEL}"
+    assert engine[engine.index("--alias") + 1] == fakes.MODEL
+    assert engine.count("--alias") == 1
 
 
 def test_the_same_head_start_with_other_slots_is_refused(pool: Pool) -> None:

@@ -496,6 +496,7 @@ class HeadSpec:
     gpus: tuple[int, ...]  # the vendor's own indexes, in bus order
     models_dir: Path
     model: str  # the file, relative to ``models_dir``
+    name: str  # the model's name as the hub lists and asked for it
     ctx: int  # the context of one slot
     n_gpu_layers: int
     devices: tuple[str, ...]  # the engine's device names, in the hub's order
@@ -667,7 +668,12 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     shares one cache among every slot when it picks the count itself, and a
     shared cache that fills fails every request it holds. ``-dev`` and
     ``-ts`` are in the hub's order, unchanged: the last device holds the
-    output layer."""
+    output layer.
+
+    ``--alias`` is ``spec.name``, the name the hub listed the model under and
+    asked for: without it llama-server names every answer after the path it
+    was handed (``/models/<file>``), and the hub matches answers against the
+    name it asked for, as :mod:`mcgyvr.emit` does for a host unit."""
     argv = [
         "run",
         "--detach",
@@ -693,6 +699,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         spec.binary,
         "-m",
         f"{MODELS_MOUNT}/{spec.model}",
+        "--alias",
+        spec.name,
         "-ngl",
         str(spec.n_gpu_layers),
         "-sm",
