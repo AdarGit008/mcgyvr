@@ -176,11 +176,11 @@ def test_a_detected_backend_is_a_keyless_decision_endpoint() -> None:
 # --- the decision state ----------------------------------------------------
 
 
-def test_the_decision_state_carries_measured_facts_and_the_profile() -> None:
+def test_the_decision_state_carries_measured_facts_and_the_priority() -> None:
     found = _machine()
     proposal = _proposal(found)
     state = decision_state(found, proposal, "throughput", api_units=(_api(),))
-    assert state["profile"] == "throughput"
+    assert state["priority"] == "throughput"
     assert state["measured"]["gpus"][0]["vram_gb"] == 14.0
     assert state["measured"]["cpu_count"] == 8
     assert state["measured"]["ram_gb"] == 64.0
@@ -242,7 +242,7 @@ def test_recommend_asks_one_choice_question_over_the_candidate_names(
 # --- the additive path through init ----------------------------------------
 
 
-def test_initialize_writes_the_composed_ladder_when_a_profile_is_given(
+def test_initialize_writes_the_composed_ladder_when_a_priority_is_given(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     found = _machine()
@@ -251,7 +251,7 @@ def test_initialize_writes_the_composed_ladder_when_a_profile_is_given(
         tmp_path / "setup",
         detection=found,
         api_units=(_api(),),
-        profile="quality",
+        priority="quality",
         decision_endpoint=LOCAL,
         decision_model="example-model-small",
     )
@@ -261,7 +261,7 @@ def test_initialize_writes_the_composed_ladder_when_a_profile_is_given(
     assert any("quality" in decision for decision in result.decisions)
 
 
-def test_a_profile_that_cannot_be_read_falls_back_and_says_so(
+def test_a_priority_whose_decision_cannot_be_read_falls_back_and_says_so(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     found = _machine()
@@ -274,7 +274,7 @@ def test_a_profile_that_cannot_be_read_falls_back_and_says_so(
         tmp_path / "setup",
         detection=found,
         api_units=(_api(),),
-        profile="quality",
+        priority="quality",
         decision_endpoint=LOCAL,
         decision_model="example-model-small",
     )
@@ -287,7 +287,7 @@ def test_a_profile_that_cannot_be_read_falls_back_and_says_so(
     assert any("could not be read" in limit for limit in result.limits)
 
 
-def test_a_profile_with_no_backend_falls_back_to_the_deterministic_ladder(
+def test_a_priority_with_no_backend_falls_back_to_the_deterministic_ladder(
     tmp_path: Any,
 ) -> None:
     bare = detection(shape("bare"))
@@ -295,7 +295,7 @@ def test_a_profile_with_no_backend_falls_back_to_the_deterministic_ladder(
         tmp_path / "setup",
         detection=bare,
         api_units=(_api(),),
-        profile="quality",
+        priority="quality",
     )
     assert result.created and result.written
     config = load_config(tmp_path / "setup")

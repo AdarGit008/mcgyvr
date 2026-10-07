@@ -5,8 +5,8 @@ lists, in the order they were found, with hosted ``--api`` units after them.
 This module adds the Jev-composed path: the same facts — a measured
 :class:`~mcgyvr.detect.Detection`, a :class:`~mcgyvr.propose.Proposal` and the
 hosted units asked for — are assembled into a small, deterministic family of
-candidate configs, and :func:`~mcgyvr.decision.classify` picks one by a usage
-profile.
+candidate configs, and :func:`~mcgyvr.decision.classify` picks one by a
+priority: ``throughput``, ``quality`` or ``cost``.
 
 The one property this module exists to hold: **a model's answer can never
 invent a number.** Every candidate is produced by
@@ -70,7 +70,7 @@ class Recommendation:
     selected: SetupCandidate
     candidates: tuple[SetupCandidate, ...]
     decision: Decision | None
-    profile: str
+    priority: str
 
 
 def endpoint_for_backend(backend: Backend) -> Endpoint:
@@ -149,18 +149,18 @@ def candidate_setups(
 def decision_state(
     detection: Detection,
     proposal: Proposal,
-    profile: str,
+    priority: str,
     *,
     api_units: Sequence[ApiUnit] = (),
 ) -> dict[str, Any]:
-    """The state a decision is asked about: measured facts and the profile.
+    """The state a decision is asked about: measured facts and the priority.
 
     Every number here is a measurement the machine made, or absent. The model
     is shown this state and the candidate names; it is never shown a number it
     could copy into a config, because the answer it may return is a name.
     """
     return {
-        "profile": profile,
+        "priority": priority,
         "measured": {
             "gpus": [
                 {"name": gpu.name, "vram_gb": gpu.vram_gb} for gpu in detection.gpus
@@ -182,14 +182,14 @@ def recommend(
     model: str,
     detection: Detection,
     proposal: Proposal,
-    profile: str,
+    priority: str,
     *,
     api_units: Sequence[ApiUnit] = (),
     timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> Recommendation:
-    """Compose a setup for ``profile`` by ranking the candidate configs.
+    """Compose a setup for ``priority`` by ranking the candidate configs.
 
     ``classify`` is called once, with a single :class:`Choice` whose options
     are the candidate names. The answer names one candidate; the returned
@@ -216,12 +216,12 @@ def recommend(
             selected=candidates[0],
             candidates=candidates,
             decision=None,
-            profile=profile,
+            priority=priority,
         )
-    state = decision_state(detection, proposal, profile, api_units=api_units)
+    state = decision_state(detection, proposal, priority, api_units=api_units)
     question = Choice(
         instructions=(
-            "Given this usage profile and the measured machine, pick the setup "
+            "Given this priority and the measured machine, pick the setup "
             "that best fits."
         ),
         options={candidate.name: candidate.description for candidate in candidates},
@@ -236,5 +236,5 @@ def recommend(
         selected=by_name[answer.choice],
         candidates=candidates,
         decision=decision,
-        profile=profile,
+        priority=priority,
     )
