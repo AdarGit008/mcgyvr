@@ -63,6 +63,15 @@ MIB_PER_GB = 1024.0
 # The machine a sweep asks about when the caller names none.
 DEFAULT_HOST = "localhost"
 
+# The names that are the machine mcgyvr runs on, decided by the name the user
+# gave rather than by resolving it (see :attr:`Backend.is_local`).
+LOCAL_HOSTS = (DEFAULT_HOST, "127.0.0.1", "::1", "[::1]")
+
+
+def is_local_host(host: str) -> bool:
+    """Whether ``host`` names the machine mcgyvr is running on."""
+    return host in LOCAL_HOSTS
+
 
 @dataclass(frozen=True)
 class ProbeTarget:
@@ -225,7 +234,7 @@ class Backend:
         treated as local by everything else here, and one named by its
         network address is not, whatever it resolves to.
         """
-        return self.host in (DEFAULT_HOST, "127.0.0.1", "::1", "[::1]")
+        return is_local_host(self.host)
 
     def has_model(self, model_id: str) -> bool:
         """Whether this backend already holds a model, by exact id only.
@@ -248,6 +257,9 @@ class Detection:
     docker: bool = False
     provenance: Mapping[str, str] = field(default_factory=dict)
     notes: tuple[str, ...] = ()
+    # Every endpoint the sweep asked, answered or not, in probe order. Empty
+    # for a detection that was not swept (one built by hand).
+    swept: tuple[ProbeTarget, ...] = ()
 
     @property
     def has_gpu(self) -> bool:
@@ -547,4 +559,5 @@ def detect(
         docker=docker,
         provenance=provenance,
         notes=tuple(notes),
+        swept=tuple(targets),
     )
