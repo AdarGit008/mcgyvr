@@ -63,7 +63,7 @@ src/mcgyvr/serving/gate-scripts/rig-snapshot.sh	dev-pointer=1
 src/mcgyvr/serving/gate-scripts/rig-units.sh	dev-pointer=1
 src/mcgyvr/serving/gate-scripts/serve-up.py	dev-pointer=2
 src/mcgyvr/serving/ggufscan.py	dev-pointer=3
-src/mcgyvr/serving/run.py	dev-pointer=9	host=1
+src/mcgyvr/serving/run.py	dev-pointer=9
 src/mcgyvr/serving/servelib.py	dev-pointer=3
 src/mcgyvr/serving/vramfit.py	dev-pointer=7
 src/mcgyvr/telemetry.py	dev-pointer=17

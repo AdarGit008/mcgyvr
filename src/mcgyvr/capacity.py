@@ -168,7 +168,7 @@ them as a single decision.
 The count lives here, per instance, rather than in the module that chooses
 rungs, for the reason a process-global counter always eventually gives: keyed by
 source name across every capacity in the process, two configs that merely share
-the name ``srv1`` pool their counts, and a batch under one of them reads a
+the name ``rig-a`` pool their counts, and a batch under one of them reads a
 machine as busy because of unrelated work under the other. This capacity's
 reservations are what this capacity counts.
 
