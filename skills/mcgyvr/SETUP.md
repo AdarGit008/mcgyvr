@@ -63,8 +63,9 @@ clear step up (`--clear-step`, a file 1.5x the size) while a climb
 through every rung stays within `--climb-budget` (2x) the top rung's
 time; the top rung at 32k sleeps until needed and swaps when it fits
 only alone (`--priority throughput` plans none that sleeps). `--jev
-[MODEL]` adds a resident Jev unit (default Qwen3.5-4B, 4k per slot),
-sized first. The models come from `--model-store DIR` when a
+[MODEL]` adds a resident Jev unit (by default the model the Jev
+section below recommends, 4k per slot), sized first. The models come
+from `--model-store DIR` when a
 checkpoint there fits, otherwise from the model knowledge (the cache,
 then the shipped catalog, each file with its header row). When the
 config binds a `jev.unit`, that unit names the pick among at most 8
