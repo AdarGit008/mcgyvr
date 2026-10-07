@@ -62,6 +62,14 @@ launch spec and loads the model from disk. Either way a wake is a load from
 disk, so ``dwell_s`` should be longer than the wake time ``mcgyvr serve wake``
 prints.
 
+**What a swap is.** On a card whose units are each their own vLLM or
+llama.cpp container in one launch spec, a unit sleeps and wakes alone: vLLM at
+level 2, llama.cpp by stopping and starting its container. A unit that starts
+asleep (``units.<u>.role: sleeps-until-needed``), such as a strong RAM+CPU
+rung above the fast ones, shares that spec under a compose profile; waking it
+stops the units whose room it needs (``room_for``) and its sleep starts them
+again.
+
 * It never sleeps the card Jev itself runs on, and always leaves an awake rung
   below the unit it sleeps — the ladder keeps a floor.
 * It never wakes or sleeps a unit that is cooling down, and a wake or sleep

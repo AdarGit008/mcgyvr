@@ -256,9 +256,16 @@ case $cmd in
       f="$STUBS/snapshot.txt"
     fi
     # While the daemon lists serving units (serving-names), the rig reads
-    # busy: the card is held and containers are up, as a serving rig is.
+    # busy: the card is held and containers are up, as a serving rig is --
+    # by the ids `ps` gives them, one per serving unit.
     if [ -s "$STUBS/serving-names" ]; then
-      sed -e 's/^containers=.*/containers=c0ffee000011;c0ffee000012/' \
+      ids= ; n=10
+      while read -r name; do
+        [ -n "$name" ] || continue
+        n=$((n + 1))
+        ids="${ids:+$ids;}c0ffee0000$n"
+      done < "$STUBS/serving-names"
+      sed -e "s/^containers=.*/containers=$ids/" \
           -e 's/^gpu_procs=.*/gpu_procs=4242,llama-server,5584MiB/' "$f"
     else
       cat "$f"
