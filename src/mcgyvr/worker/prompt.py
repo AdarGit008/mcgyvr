@@ -112,6 +112,21 @@ class WorkerPrompt:
         """Whether the assembled prompt is inside the contract's ceiling."""
         return self.fit_issue is None
 
+    @property
+    def measured(self) -> str:
+        """The text the prompt's size is measured on: both halves, as sent.
+
+        One spelling, read by :func:`build_prompt` against the contract's
+        ceiling and by :mod:`mcgyvr.drive` against the rung's window, so the
+        two checks weigh the same prompt.
+        """
+        return _measured(self.system, self.user)
+
+
+def _measured(system: str, user: str) -> str:
+    """Both halves of a prompt, joined as they are weighed."""
+    return system + "\n" + user
+
 
 # CommonMark's minimum, and what every bundle instructs.
 _MIN_FENCE = 3
@@ -213,7 +228,7 @@ def build_prompt(
     bundle = bundle_for(contract.type.use_case.name, contract.target, adapters)
     system = bundle.text if bundle is not None else ""
     user = render_user_message(contract.worker_view(), retry)
-    tokens = estimate(system + "\n" + user)
+    tokens = estimate(_measured(system, user))
     issue = check_prompt_fits(
         tokens,
         contract.max_input_tokens,
