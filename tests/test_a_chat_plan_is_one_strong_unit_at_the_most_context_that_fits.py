@@ -1,4 +1,4 @@
-"""A chat (or agent) plan is one strong unit per rig, at the most context that fits.
+"""A chat (or agent) plan is one strong unit, at the most context that fits.
 
 Owner, 2026-10-07: "chat and agent: one strong unit with extended context";
 Round 3: "chat + agent = the MAXIMUM context that fits". Plan section 3: the
@@ -9,13 +9,16 @@ when f16 misses the context the use case needs.
 
 Promises, over invented rigs and the shipped knowledge:
 
-* Each rig gets one unit, ``always-on``, with one slot per user.
+* One machine of one card gets one unit, ``always-on``, with one slot per
+  user. (Several cards or machines: one unit spans them all, pinned by
+  ``tests/test_a_chat_plan_spans_every_card_with_the_biggest_model_that_fits.py``.)
 * Its context per slot is the most the serving sizer admits at that many
   slots: one step more does not fit, unless the model's own context is
   reached first. Its KV cache is f16, unless f16 does not fit the least
   context a strong unit is given; then the unit says why.
-* The unit is the strongest model that fits at the least context a strong
-  unit is given: the largest, when no board scores them.
+* The unit is the strongest model serving the use case that fits at the
+  least context a strong unit is given: the largest, when no board scores
+  them and none needs RAM for its experts.
 * A model too large for any one card is split across the rig's cards when
   that fits.
 * An MoE spills its experts to RAM: with no RAM to hold them it is not
@@ -153,7 +156,8 @@ def test_with_no_board_the_strongest_is_the_largest_that_fits(
     fitting = [
         model
         for model in planner.library().models
-        if any(
+        if planner.serves(model, "chat")
+        and any(
             serving.fit(
                 scan,
                 planner.spec_of(model, kv=kv),
@@ -173,7 +177,11 @@ def test_a_model_too_large_for_one_card_is_split_across_the_rigs_cards(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     library = planner.library()
-    dense = [m for m in library.models if not m.geometry.get("placeable_blocks")]
+    dense = [
+        m
+        for m in library.models
+        if not m.geometry.get("placeable_blocks") and planner.serves(m, "chat")
+    ]
     largest = max(dense, key=lambda model: model.size_bytes)
     half = (largest.size_bytes >> 20) * 4 // 5
     monkeypatch.setattr(
@@ -194,7 +202,11 @@ def test_an_moe_with_no_ram_for_its_experts_is_not_planned_and_says_why(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     library = planner.library()
-    moe = [m for m in library.models if m.geometry.get("placeable_blocks")]
+    moe = [
+        m
+        for m in library.models
+        if m.geometry.get("placeable_blocks") and planner.serves(m, "chat")
+    ]
     assert moe, "the shipped knowledge holds an MoE"
     scan = _scan((8192,), ram_gb=0.0)
     monkeypatch.setattr(

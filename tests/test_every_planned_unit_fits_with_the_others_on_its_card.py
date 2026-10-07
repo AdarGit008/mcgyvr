@@ -10,9 +10,10 @@ case, from the shipped knowledge, offline:
 
 * The plan is printed, or refused because nothing fits; a refusal names why,
   and a shape with a card the product reads and room on it is planned.
-* Every unit is on cards the scan read, and on each card the units' card
-  figures (the serving sizer's own) sum to no more than what the scan read
-  free there.
+* Every unit is on cards the scan read, and on each card the awake units'
+  card figures (the serving sizer's own) sum to no more than what the scan
+  read free there. A unit split across cards shares none of them; a unit
+  that sleeps until needed fits its card alone.
 * The units of a rig hold together the way ``mcgyvr emit`` checks them
   (:func:`mcgyvr.serving.hold_together`): the card per card, host memory per
   host.
@@ -82,6 +83,7 @@ def test_every_planned_unit_fits_with_the_others_on_its_card(
         ).fits
         for gpu in measured.gpus
         for model in planner.library().models
+        if planner.serves(model, use_case)
     )
     if code != 0:
         assert out.err.strip(), "a refusal says why"
@@ -91,10 +93,25 @@ def test_every_planned_unit_fits_with_the_others_on_its_card(
     laid = plan["rigs"][machine.host]
     free = {card["index"]: card["free_mib"] for card in laid["measured"]["cards"]}
     on_card: dict[int, float] = defaultdict(float)
+    split: set[int] = set()
     for unit in laid["units"]:
         assert set(unit["cards"]) <= set(free), unit["cards"]
-        for card in unit["cards"]:
-            on_card[card] += unit["fit"]["vram_gib"]
+        if len(unit["cards"]) > 1:
+            # Split by layer: sharding sized each card's share against it, and
+            # no other unit shares a card with it.
+            assert not split & set(unit["cards"]) and not set(on_card) & set(
+                unit["cards"]
+            )
+            split |= set(unit["cards"])
+            continue
+        if unit["role"] == "sleeps-until-needed":
+            # Awake only while the rungs it swaps with sleep: it fits the card
+            # beside the resident units alone.
+            assert unit["fit"]["vram_gib"] * 1024 <= free[unit["cards"][0]]
+            continue
+        (card,) = unit["cards"]
+        assert card not in split
+        on_card[card] += unit["fit"]["vram_gib"]
     for card, gib in on_card.items():
         assert gib * 1024 <= free[card], (card, gib, free[card])
     units = planner.units_of(plan, {machine.host: measured})

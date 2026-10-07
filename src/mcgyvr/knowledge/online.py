@@ -476,7 +476,7 @@ def _again(
             f"that reads{': ' + why if why else ''}"
         )
     return (
-        replace(again[0], model_id=one.model_id, scores=one.scores),
+        replace(again[0], model_id=one.model_id, scores=one.scores, serves=one.serves),
         lookup.header(again[0]),
     )
 

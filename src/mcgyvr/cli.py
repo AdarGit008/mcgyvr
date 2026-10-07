@@ -2669,6 +2669,19 @@ def _positive_tokens(value: str) -> int:
     return count
 
 
+def _above_one(value: str) -> float:
+    """A ratio above 1: how many times another figure."""
+    try:
+        ratio = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"a ratio is a number, not {value!r}"
+        ) from None
+    if not ratio > 1.0:
+        raise argparse.ArgumentTypeError(f"a ratio here is above 1, not {ratio}")
+    return ratio
+
+
 def _port_number(value: str) -> int:
     """A TCP port a server can listen on: 1 to 65535."""
     try:
@@ -2713,6 +2726,10 @@ def _recommend(args: argparse.Namespace) -> int:
             priority=args.priority,
             ctx_per_slot=args.ctx_per_slot,
             first_port=args.first_port,
+            jev=args.jev,
+            climb_budget=args.climb_budget,
+            clear_step=args.clear_step,
+            jev_ctx=args.jev_ctx,
         )
     except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3997,6 +4014,45 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "the port each rig's first unit answers on, the next unit one above "
             f"it (default: {planner_module.FIRST_PORT})"
+        ),
+    )
+    rec.add_argument(
+        "--jev",
+        nargs="?",
+        const=planner_module.JEV_DEFAULT,
+        default=None,
+        metavar="MODEL",
+        help=(
+            "also plan a resident Jev unit (opt-in), sized first at "
+            f"{planner_module.JEV_CTX} tokens per slot; MODEL is a model id the "
+            f"knowledge holds (default: {planner_module.JEV_DEFAULT})"
+        ),
+    )
+    rec.add_argument(
+        "--jev-ctx",
+        type=_positive_tokens,
+        default=planner_module.JEV_CTX,
+        metavar="TOKENS",
+        help=(f"the Jev unit's context per slot (default: {planner_module.JEV_CTX})"),
+    )
+    rec.add_argument(
+        "--climb-budget",
+        type=_above_one,
+        default=planner_module.CLIMB_BUDGET,
+        metavar="X",
+        help=(
+            "coding: a task that climbs every rung finishes within X times the "
+            f"top rung's own time (default: {planner_module.CLIMB_BUDGET})"
+        ),
+    )
+    rec.add_argument(
+        "--clear-step",
+        type=_above_one,
+        default=planner_module.CLEAR_STEP,
+        metavar="X",
+        help=(
+            "coding: a bigger rung's file is at least X times the one below it "
+            f"(default: {planner_module.CLEAR_STEP})"
         ),
     )
     rec.set_defaults(func=_recommend)

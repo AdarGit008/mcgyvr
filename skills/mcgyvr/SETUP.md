@@ -51,21 +51,28 @@ cores, timed memory bandwidth, free disk), records it (by default under
 the core count no longer matches the last record.
 `mcgyvr recommend --use-case USE_CASE --users N --host RIG` re-reads
 each rig over ssh and prints one JSON plan (version 2): the units each
-rig would run, each with its card(s), model file, context per slot,
-slots, KV cache, expert offload and port, sized by the same serving
-sizer `mcgyvr emit` uses, and the bytes to download. `chat` and `agent`
-get one strong unit per rig, a slot per user, at the most context that
-fits; `coding` gets its top rung at 32k per slot, its spare card memory
-made into slots. The models come from `--model-store DIR` when a
+rig would run, each with its role (`always-on` or
+`sleeps-until-needed`), card(s), model file, context per slot, slots,
+KV cache, expert offload and port, sized by the same serving sizer
+`mcgyvr emit` uses, and the bytes to download. `chat` and `agent` get
+one unit spanning every card of every `--host`, split by layer (over
+RPC across machines given as private IPv4 addresses), the biggest
+model that fits, a slot per user at 8k or more. `coding` gets a ladder
+per rig: the fastest coding model at 8k filled with slots, then each
+clear step up (`--clear-step`, a file 1.5x the size) while a climb
+through every rung stays within `--climb-budget` (2x) the top rung's
+time; the top rung at 32k sleeps until needed and swaps when it fits
+only alone (`--priority throughput` plans none that sleeps). `--jev
+[MODEL]` adds a resident Jev unit (by default the model the Jev
+section below recommends, 4k per slot), sized first. The models come
+from `--model-store DIR` when a
 checkpoint there fits, otherwise from the model knowledge (the cache,
 then the shipped catalog, each file with its header row). When the
-config (`--config`, or the one found as for any command) binds a
-`jev.unit`, that unit names each rig's pick among at most 8 that fit;
-otherwise, or when it does not answer, the first by the use case's
-boards (then the larger file) is picked, and the plan's `decision`
-says why. `--ctx-per-slot` sets every unit's context instead. It
-writes, wakes and sleeps nothing. `--use-case` takes the same four
-names as `mcgyvr init`; `media-gen` prints the rigs and no unit yet.
+config binds a `jev.unit`, that unit names the pick among at most 8
+that fit; otherwise the plan's `decision` says how it was picked.
+`--ctx-per-slot` sets every unit's context instead. It writes, wakes
+and sleeps nothing. `--use-case` takes the same four names as
+`mcgyvr init`; `media-gen` prints the rigs and no unit yet.
 The old `--profile` (`chatting`, `media_gen`, `other`) is deprecated:
 it still works, with a warning, until the release after next.
 

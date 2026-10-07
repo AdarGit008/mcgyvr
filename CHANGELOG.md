@@ -11,6 +11,26 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `mcgyvr recommend` plans a coding LADDER per rig (owner, Round 7): the
+  fastest coding model at 8k per slot, filled with slots; a bigger rung only
+  when it is a clear step up (`--clear-step`, default a 1.5x file, and a better
+  board score where a board scores both), and only while a task climbing every
+  rung stays within `--climb-budget` (default 2.0) times the top rung's time,
+  estimated from the bytes each reads per token; the top rung at 32k, awake
+  when it fits beside the rest, else `sleeps-until-needed` with `swaps_with`
+  naming the awake rungs on its card (the plan then turns the manager on).
+  `--priority throughput` plans no rung that sleeps.
+- `recommend --jev [MODEL]`: an opt-in resident Jev unit (default
+  `Qwen/Qwen3.5-4B`, `--jev-ctx` 4096 per slot, a slot per user), sized first
+  on the card with the most room; the unit is marked `"jev": true` and its
+  role is `always-on`.
+- The model catalog gains `Qwen/Qwen3.5-4B` (the Jev default, from
+  `unsloth/Qwen3.5-4B-GGUF`), `Qwen/Qwen3-8B`, `Qwen/Qwen3-14B` and
+  `Qwen/Qwen3-30B-A3B` at Q4_K_M, each with its header row, read from the Hub
+  on 2026-10-07; every record says what it `serves`.
+- `serving.split_units`: one model split by layer across cards of several
+  machines (llama.cpp RPC workers), sized as `launch.shards` is.
+
 - Model geometry (`mcgyvr.knowledge.geometry`, `data/model-geometry.json`):
   each model file's header row, the one thing the serving sizer reads, kept
   per file at a revision with one source and one date for the whole row. The
@@ -83,6 +103,14 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- `recommend` chat and agent plan ONE unit for the fleet (owner, Round 7),
+  spanning every card of every `--host` split by layer, the biggest model
+  that fits, at 8k or more per user; across machines when they are given as
+  private IPv4 addresses (an RPC worker binds an address it is given, never a
+  name it would resolve), else across the first machine's cards, and the unit
+  says why. A model wholly on its card(s) ranks before one that needs RAM for
+  its experts. Plan units say `process` (`serve` or `rpc`), `jev`, `shards`
+  and `swaps_with`; `role` is `always-on` or `sleeps-until-needed`.
 - `mcgyvr recommend` prints plan version 2: a plan of units per rig, each
   sized by the serving sizer `mcgyvr emit` uses (`serving.unit_for`, a split
   across the rig's cards through `serving.split_unit`, an MoE's experts in

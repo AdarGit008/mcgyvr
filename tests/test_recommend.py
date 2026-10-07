@@ -280,7 +280,7 @@ KV_HEAVY_LIBRARY = planner.Library(
         invented_model(
             "invented-org/kv-heavy",
             dense_header(
-                "kv-heavy-Q4_K_M.gguf", 4_000_000_000, context=32768, kv_elems=8192
+                "kv-heavy-Q4_K_M.gguf", 6_000_000_000, context=32768, kv_elems=8192
             ),
         ),
         invented_model(
@@ -298,6 +298,19 @@ def _units(plan: Mapping[str, Any]) -> list[dict[str, Any]]:
 def _only(plan: Mapping[str, Any]) -> dict[str, Any]:
     (unit,) = _units(plan)
     return unit
+
+
+def _top(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """The last rung of the plan's ladder: a coding plan's top rung."""
+    by_name = {unit["name"]: unit for unit in _units(plan)}
+    return by_name[plan["ladder"][-1]]
+
+
+def by_path(path: str, size_bytes: int = SIZE_BYTES) -> dict[str, Any]:
+    """The invented MoE at ``CHECKPOINT``, a dense model anywhere else."""
+    if path == CHECKPOINT:
+        return fake_header(path, size_bytes)
+    return dense_header(path, size_bytes)
 
 
 def _numbers(document: Any) -> frozenset[int | float]:
@@ -613,7 +626,7 @@ def test_recommend_prefers_the_local_store_over_the_knowledge(
     code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
     assert code == 0
     assert plan["models_from"] == "local-store"
-    unit = _only(plan)
+    unit = _top(plan)
     assert unit["args"]["--model"] == CHECKPOINT
     assert unit["download"] == {
         "bytes": 0,
@@ -648,10 +661,16 @@ def test_recommend_falls_back_to_the_knowledge_when_no_store_is_given(
     assert code == 0
     assert plan["models_from"] == "knowledge"
     assert plan["decision"]["by"] == "deterministic"
-    unit = _only(plan)
-    assert unit["model"]["id"] in {m.model_id for m in FAKE_LIBRARY.models}
-    assert unit["download"]["present"] is False
-    assert unit["download"]["bytes"] == plan["downloads"]["total_bytes"] > 0
+    units = _units(plan)
+    assert {u["model"]["id"] for u in units} <= {
+        m.model_id for m in FAKE_LIBRARY.models
+    }
+    assert all(u["download"]["present"] is False for u in units)
+    assert (
+        sum(u["download"]["bytes"] for u in units)
+        == plan["downloads"]["total_bytes"]
+        > 0
+    )
 
 
 def test_recommend_falls_back_to_the_knowledge_when_nothing_local_fits(
@@ -697,7 +716,7 @@ def test_the_text_use_cases_place_and_media_gen_plans_nothing_yet(
             capsys, use_case, "single", STORE_DIR, config=jev_config
         )
         assert code == 0
-        assert _only(plan)["args"]["--model"] == CHECKPOINT
+        assert _top(plan)["args"]["--model"] == CHECKPOINT
         assert decisions.calls
         assert plan["decision"]["by"] == "jev"
 
@@ -757,7 +776,7 @@ def test_recommend_reads_the_header_on_the_rig_over_the_read_only_ssh_seam(
         command for _host, command in recorder.commands if _is_header_read(command)
     ]
     assert header_reads, recorder.commands
-    assert _only(plan)["args"]["--model"] == CHECKPOINT
+    assert _top(plan)["args"]["--model"] == CHECKPOINT
     assert SIZE_BYTES in _numbers(plan)
 
 
@@ -791,6 +810,7 @@ def test_recommend_deterministic_fallback_picks_the_largest_checkpoint_that_fits
     """With no board to rank them, the largest fitting checkpoint is the pick."""
     recorder = ssh()
     recorder.ggufs = [OTHER, CHECKPOINT]
+    recorder.header_builder = by_path
     recorder.header_sizes[CHECKPOINT] = SIZE_BYTES
     recorder.header_sizes[OTHER] = 3_000_000_000
     classify()
@@ -799,7 +819,7 @@ def test_recommend_deterministic_fallback_picks_the_largest_checkpoint_that_fits
     code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
     assert code == 0
     assert plan["decision"]["by"] == "deterministic"
-    unit = _only(plan)
+    unit = _top(plan)
     assert unit["args"]["--model"] == CHECKPOINT
     assert SIZE_BYTES in _numbers(plan)
 
@@ -821,10 +841,14 @@ def test_recommend_deterministic_knowledge_fallback_picks_the_largest_that_fits(
     code, plan = run_and_parse(capsys, "coding", "single")
     assert code == 0
     assert plan["decision"]["by"] == "deterministic"
-    unit = _only(plan)
+    unit = _top(plan)
     assert unit["model"]["id"] == "invented-org/invented-moe"
     assert unit["fit"]["ram_gib"] > 0
     assert unit["n_cpu_moe"] > 0
+    assert unit["role"] == "sleeps-until-needed"
+    fast = _units(plan)[0]
+    assert fast["model"]["id"] == "invented-org/invented-dense"
+    assert unit["swaps_with"] == [fast["name"]]
 
 
 def test_recommend_with_a_reachable_jev_unit_says_jev_and_names_the_unit(
@@ -988,7 +1012,7 @@ def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
     code, plan = run_and_parse(capsys, "coding", "single", MISSING_STORE_DIR, STORE_DIR)
     assert code == 0
     assert plan["models_from"] == "local-store"
-    assert _only(plan)["args"]["--model"] == CHECKPOINT
+    assert _top(plan)["args"]["--model"] == CHECKPOINT
     assert plan["unreachable"] == []
 
 
@@ -999,10 +1023,10 @@ def test_a_model_that_fits_by_size_and_not_with_its_cache_is_dropped_with_why(
     library: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """``kv-heavy`` is 4 GB, under the invented card's free VRAM; the cache its
+    """``kv-heavy`` is 6 GB, under the invented card's free VRAM; the cache its
     header prices at 32k per slot pushes it over, so the serving sizer refuses
-    it, the plan names it under ``dropped`` with the sizer's reason, and the
-    pick is the smaller model whose weights and cache fit."""
+    it as a top rung, awake or asleep, the plan names it under ``dropped``
+    with the sizer's reason, and the ladder is the smaller model alone."""
     ssh()
     classify()
     probe(live=False)
@@ -1010,10 +1034,10 @@ def test_a_model_that_fits_by_size_and_not_with_its_cache_is_dropped_with_why(
 
     code, plan = run_and_parse(capsys, "coding", "single")
     assert code == 0
-    assert _only(plan)["model"]["id"] == "invented-org/small"
-    (dropped,) = plan["dropped"]
-    assert dropped["model"] == "invented-org/kv-heavy Q4_K_M"
-    assert "does not fit" in dropped["why"]
+    assert _top(plan)["model"]["id"] == "invented-org/small"
+    heavy = [d for d in plan["dropped"] if d["model"] == "invented-org/kv-heavy Q4_K_M"]
+    assert heavy
+    assert all("does not fit" in d["why"] for d in heavy)
 
 
 def test_recommend_rejects_an_moe_whose_expert_spill_exceeds_host_ram(

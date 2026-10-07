@@ -228,11 +228,14 @@ class _Decided:
 
 
 def _question(use_case: str, choices: planner.Choices) -> Choice:
-    role = "strong unit" if use_case in planner.STRONG_USE_CASES else "top rung"
+    if use_case in planner.STRONG_USE_CASES:
+        what = "the one strong unit of the fleet"
+    else:
+        what = f"the top rung of the ladder on {choices.key}"
     return Choice(
         instructions=(
-            f"For the {use_case} use case, pick the model of the {role} on "
-            f"{choices.rig}. Every option already fits the measured machine."
+            f"For the {use_case} use case, pick the model of {what}. Every "
+            f"option already fits the measured machines."
         ),
         options={one.option: one.description for one in choices.shortlist},
     )
@@ -368,6 +371,17 @@ def _knowledge(
     }
 
 
+def _jev_model(library: planner.Library, wanted: str) -> planner.Model:
+    """The model ``--jev`` names, from the knowledge: its Q4_K_M first."""
+    named = [model for model in library.models if model.model_id == wanted]
+    if not named:
+        raise RecommendError(
+            f"--jev {wanted}: the model knowledge holds no {wanted} it can size "
+            f"(known: {', '.join(sorted({m.model_id for m in library.models}))})"
+        )
+    return sorted(named, key=lambda m: (m.quant != "Q4_K_M", m.quant))[0]
+
+
 def plan(
     *,
     use_case: str | None,
@@ -379,6 +393,10 @@ def plan(
     priority: str | None = None,
     ctx_per_slot: int | None = None,
     first_port: int = planner.FIRST_PORT,
+    jev: str | None = None,
+    climb_budget: float = planner.CLIMB_BUDGET,
+    clear_step: float = planner.CLEAR_STEP,
+    jev_ctx: int = planner.JEV_CTX,
 ) -> dict[str, Any]:
     """Compose the one JSON plan ``mcgyvr recommend`` prints (version 2).
 
@@ -390,9 +408,13 @@ def plan(
     ``offline`` or ``HF_HUB_OFFLINE`` says not to; the plan's ``knowledge``
     says which, and names what could not be read. ``config`` is read for its
     ``jev.unit`` alone: the unit asked to name the picks. ``priority`` is said
-    in the plan and to that unit. ``ctx_per_slot``, when given, is every
-    unit's context per slot instead of the use case's. ``first_port`` is the
-    port each rig's first unit answers on.
+    in the plan and to that unit, and ``throughput`` plans no rung that
+    sleeps. ``ctx_per_slot``, when given, is every unit's context per slot
+    instead of the use case's (the Jev unit's excepted). ``first_port`` is
+    the port each rig's first unit answers on. ``jev`` names the model of a
+    resident Jev unit to plan, opt-in, at ``jev_ctx`` per slot.
+    ``climb_budget`` and ``clear_step`` are the coding ladder's two limits
+    (:data:`mcgyvr.planner.CLIMB_BUDGET`, :data:`mcgyvr.planner.CLEAR_STEP`).
     """
     unreachable: list[dict[str, str]] = []
     scans: dict[str, Scan] = {}
@@ -408,7 +430,7 @@ def plan(
     read_at = datetime.now(UTC).isoformat(timespec="seconds")
 
     def done(
-        laid: Mapping[str, Sequence[planner.Sized]],
+        laid: Sequence[planner.Sized],
         decided: Mapping[str, str],
         knowledge: Mapping[str, Any] | None,
         models_from: str | None,
@@ -431,31 +453,54 @@ def plan(
 
     if use_case not in planner.PLANNED_USE_CASES:
         said = f"{use_case} is not planned yet" if use_case else "no use case was named"
-        return done({}, {"by": "none", "why": said}, None, None, [])
+        return done((), {"by": "none", "why": said}, None, None, [])
 
-    assembled: dict[str, planner.Choices] = {}
     knowledge: dict[str, Any] | None = None
-    models_from = LOCAL_STORE
-    if model_stores:
-        local = _local_models(scans, model_stores)
-        assembled = planner.assemble(
-            use_case, users, scans, local, ctx_per_slot=ctx_per_slot
+    library: planner.Library | None = None
+
+    def known() -> planner.Library:
+        nonlocal knowledge, library
+        if library is None:
+            refreshed = _refresh_knowledge(use_case, offline)
+            library = load_models()
+            knowledge = _knowledge(refreshed, library)
+        return library
+
+    jev_unit: planner.Sized | None = None
+    if jev is not None:
+        sized = planner.size_jev(
+            scans, _jev_model(known(), jev), users=users, ctx=jev_ctx
         )
-    if not any(one.ranked for one in assembled.values()):
-        refreshed = _refresh_knowledge(use_case, offline)
-        library = load_models()
-        knowledge = _knowledge(refreshed, library)
-        assembled = planner.assemble(
+        if isinstance(sized, str):
+            raise RecommendError(f"--jev {jev}: {sized}")
+        jev_unit = sized
+
+    def assemble(models: Mapping[str, Sequence[planner.Model]]) -> dict[str, Any]:
+        return planner.assemble(
             use_case,
             users,
             scans,
-            {rig: library.models for rig in scans},
+            models,
             ctx_per_slot=ctx_per_slot,
+            jev=jev_unit,
+            priority=priority,
+            clear=clear_step,
         )
+
+    assembled: dict[str, planner.Choices] = {}
+    models: Mapping[str, Sequence[planner.Model]] = {}
+    models_from = LOCAL_STORE
+    if model_stores:
+        models = _local_models(scans, model_stores)
+        assembled = assemble(models)
+    if not any(one.ranked for one in assembled.values()):
+        library_now = known()
+        models = {rig: library_now.models for rig in scans}
+        assembled = assemble(models)
         models_from = KNOWLEDGE
     dropped = [
-        {"rig": rig, "model": label, "why": why}
-        for rig, choices in assembled.items()
+        {"rig": key, "model": label, "why": why}
+        for key, choices in assembled.items()
         for label, why in choices.dropped
     ]
     if not any(one.ranked for one in assembled.values()):
@@ -468,9 +513,25 @@ def plan(
         )
     state = _state(use_case, users, priority, scans, read_at, assembled)
     decided = _decide(use_case, assembled, state, config)
-    laid = planner.lay_out(
-        {rig: (one,) for rig, one in decided.picks.items()}, first_port=first_port
-    )
+    picked: list[planner.Sized] = [jev_unit] if jev_unit is not None else []
+    for key, pick in decided.picks.items():
+        choices = assembled[key]
+        if use_case in planner.LADDER_USE_CASES:
+            picked.extend(
+                planner.ladder(
+                    choices,
+                    pick,
+                    scans,
+                    models.get(key, ()),
+                    jev=jev_unit,
+                    ctx_per_slot=ctx_per_slot,
+                    budget=climb_budget,
+                    clear=clear_step,
+                )
+            )
+        else:
+            picked.append(pick)
+    laid = planner.lay_out(picked, first_port=first_port)
     return done(
         laid,
         {"by": decided.by, "why": decided.why},

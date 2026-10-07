@@ -153,6 +153,11 @@ BOARDS: tuple[Board, ...] = (
     ),
 )
 
+#: What a model may be catalogued as serving: the four use cases, and the Jev
+#: role (the small model that answers typed decisions). A record that says
+#: nothing serves any text use case.
+SERVES: tuple[str, ...] = ("chat", "agent", "coding", "media-gen", "jev")
+
 #: What no public board ranks, and how it is ranked instead.
 UNRANKED: Mapping[str, str] = {
     "tts": (
@@ -207,7 +212,7 @@ _INT_FIELDS: tuple[str, ...] = (
 #: The ones of those that are never zero: a context and a cache width.
 _POSITIVE = frozenset({"context_length", "kv_bytes_per_token"})
 _RECORD_KEYS = frozenset(
-    {"model_id", "quant", "engines", "weights", "scores", *_INT_FIELDS}
+    {"model_id", "quant", "engines", "weights", "scores", "serves", *_INT_FIELDS}
 )
 _NUMBER_KEYS = frozenset({"value", "kind", "source", "read_at"})
 _SCORE_KEYS = _NUMBER_KEYS | {"board", "metric"}
@@ -234,6 +239,9 @@ class ModelRecord:
     kv_bytes_per_token: Number
     recurrent_bytes_per_slot: Number
     scores: tuple[Score, ...]
+    #: What the model is catalogued as serving (:data:`SERVES`); empty when
+    #: the record says nothing.
+    serves: tuple[str, ...] = ()
 
     @property
     def key(self) -> tuple[str, str]:
@@ -379,6 +387,14 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
     scores = raw.get("scores", [])
     if not isinstance(scores, list):
         raise KnowledgeError(f"{here} scores is not a list")
+    serves = raw.get("serves", [])
+    if not isinstance(serves, list) or not all(isinstance(s, str) for s in serves):
+        raise KnowledgeError(f"{here} serves is not a list of names")
+    unknown_uses = [s for s in serves if s not in SERVES]
+    if unknown_uses:
+        raise KnowledgeError(
+            f"{here} serves {unknown_uses}, which is not one of {list(SERVES)}"
+        )
     return ModelRecord(
         model_id=model_id,
         quant=quant,
@@ -388,6 +404,7 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
             _score(s, f"{here} scores[{i}]", shipped=shipped)
             for i, s in enumerate(scores)
         ),
+        serves=tuple(serves),
         **numbers,
     )
 
@@ -444,6 +461,8 @@ def dump_record(one: ModelRecord) -> dict[str, Any]:
         {"board": s.board, "metric": s.metric, **_dump_number(s.value)}
         for s in one.scores
     ]
+    if one.serves:
+        out["serves"] = list(one.serves)
     return out
 
 
