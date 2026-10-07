@@ -1011,17 +1011,26 @@ def judged(journal: Path, run_id: str) -> list[dict[str, Any]]:
     return raised
 
 
+def door_read_argv(host: str, run_id: str, probe: Sequence[str] = ()) -> list[str]:
+    """The door's ``read`` of ``host``, in the mode the product's callers name
+    (:func:`mcgyvr.serving.run.callers_mode`)."""
+    from mcgyvr.serving.gatelib import DOOR_MODULE
+    from mcgyvr.serving.run import callers_mode
+
+    argv = [sys.executable, "-m", DOOR_MODULE, "read", "--mode", callers_mode()]
+    argv += ["--host", host]
+    argv += ["--run-id", run_id]
+    if probe:
+        argv += ["--probe", *probe]
+    return argv
+
+
 def spawn_read(host: str, run_id: str, probe: Sequence[str] = ()) -> int:
     """``python -m mcgyvr.serving.run read`` for ``host``, to completion.
 
     The door's own output goes to stderr: a command's stdout is its caller's.
     """
-    from mcgyvr.serving.gatelib import DOOR_MODULE
-
-    argv = [sys.executable, "-m", DOOR_MODULE, "read", "--host", host]
-    argv += ["--run-id", run_id]
-    if probe:
-        argv += ["--probe", *probe]
+    argv = door_read_argv(host, run_id, probe)
     done = subprocess.run(
         argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, check=False
     )

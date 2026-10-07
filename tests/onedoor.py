@@ -272,6 +272,10 @@ case $cmd in
     printf '%s\\n' "$cmd" > "$STUBS/linktime-cmd.txt"
     cat > "$STUBS/linktime-source.txt"
     cat "$STUBS/linktime.json" ;;
+  # The shipped rig scanner, which ends the line with no argument after it
+  # (`mcgyvr scan --rig`, and a user-mode door run reading the rig again):
+  # answered from rigscan.json.
+  *"| base64 -d | python3 -") cat "$STUBS/rigscan.json" ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
   # The rig's lease (`~/.mcgyvr/lease` ON the rig): the remote command is
   # run as written, by a real bash, under a HOME of the stub's own — so
@@ -806,6 +810,8 @@ def _command(root: Path, scenario: Scenario | None) -> list[str]:
         return [*argv, "--help"]
     if scenario.host:
         argv += ["--host", scenario.host]
+    # The fixture is a lab checkout, and a lab tool names its mode.
+    argv += ["--mode", "lab"]
     argv += ["--campaign", scenario.campaign, "--model", scenario.model]
     argv += ["--date", scenario.date]
     argv += ["--parallel", str(scenario.parallel)]
@@ -1048,7 +1054,7 @@ def serve_door(
     extra: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """One `serve up|down|sleep|wake` invocation from the fixture, to completion."""
-    argv = [sys.executable, str(root / DOOR_REL), "serve", mode]
+    argv = [sys.executable, str(root / DOOR_REL), "serve", mode, "--mode", "lab"]
     argv += ["--host", host, "--compose", str(compose), "--date", date]
     if suffix:
         argv += ["--suffix", suffix]

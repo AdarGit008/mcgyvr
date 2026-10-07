@@ -12,6 +12,10 @@ this gate closes; a daemon on the wrong docker mounts a different set of
 device files (the Vulkan ICD manifest, 2026-09-03) and benches a different
 machine under the same name.
 
+IN USER MODE (``--mode user``) there is no hosts.json and no declared docker
+version: the daemon must answer and be the machine gate 2 read, and the
+version it runs is said, not compared.
+
 `command -v docker` is not this check. A CLI with no daemon behind it passes
 that and fails inside the step, after the run is stamped, as a REFUSED row
 against the arm rather than as a refusal to start.
@@ -23,7 +27,14 @@ import json
 import shutil
 import subprocess
 
-from mcgyvr.serving.gatelib import door_required, need, refuse, root
+from mcgyvr.serving.gatelib import (
+    USER_MODE,
+    door_required,
+    need,
+    refuse,
+    root,
+    run_mode,
+)
 
 
 def _docker(*args: str) -> str:
@@ -56,18 +67,7 @@ def main() -> int:
             "gate 3: gate 2's reading carries no hostname=, so the daemon "
             "cannot be matched to the machine that was read"
         )
-    hosts_file = root() / "tools" / "runs" / "hosts.json"
-    if not hosts_file.is_file():
-        refuse(f"gate 3: {hosts_file} is missing; no docker version is declared")
-    declared = (
-        json.loads(hosts_file.read_text(encoding="utf-8")).get(host, {}).get("rig", {})
-    ).get("docker")
-    if not declared:
-        refuse(
-            f"gate 3: tools/runs/hosts.json[{host}].rig.docker is not declared; "
-            "the daemon's version is a fact of the rig and is compared like the "
-            "hardware"
-        )
+    declared = None if run_mode() == USER_MODE else _declared(host)
     if shutil.which("docker") is None:
         refuse(
             "gate 3: 'docker' is not on PATH; no tag becomes a digest and no "
@@ -83,6 +83,9 @@ def main() -> int:
             "closes, so nothing is measured"
         )
     version = _docker("version", "--format", "{{.Server.Version}}")
+    if declared is None:
+        print(f"gate 3: docker on {hostname} answers, {version} (user mode)")
+        return 0
     if version != declared:
         refuse(
             f"gate 3: the daemon `docker` reaches runs {version}, and "
@@ -92,6 +95,23 @@ def main() -> int:
         )
     print(f"gate 3: docker on {hostname} answers, {version} as declared")
     return 0
+
+
+def _declared(host: str) -> str:
+    """The docker version the lab's hosts.json declares for ``host``, or refused."""
+    hosts_file = root() / "tools" / "runs" / "hosts.json"
+    if not hosts_file.is_file():
+        refuse(f"gate 3: {hosts_file} is missing; no docker version is declared")
+    declared = (
+        json.loads(hosts_file.read_text(encoding="utf-8")).get(host, {}).get("rig", {})
+    ).get("docker")
+    if not declared:
+        refuse(
+            f"gate 3: tools/runs/hosts.json[{host}].rig.docker is not declared; "
+            "the daemon's version is a fact of the rig and is compared like the "
+            "hardware"
+        )
+    return str(declared)
 
 
 if __name__ == "__main__":

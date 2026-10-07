@@ -25,6 +25,11 @@ read cannot say which profile it ran under. Dev runs everything, `serve up` and 
 included (the owner ruled N11 on 2026-09-10), and a live `serve up` is
 admitted only for units the fleet lock names for this rig; a live
 `serve down` is always admitted.
+
+IN USER MODE (a door run from an install, ``--mode user``) no round is
+opened or pinned: the round is the lab's. The profile and the live fleet's
+lock are settled exactly as above, and RUN_ROUND and RUN_PRODUCT_SHA256 are
+exported as ``none``.
 """
 
 from __future__ import annotations
@@ -36,7 +41,15 @@ import sys
 
 from mcgyvr import config as configlib
 from mcgyvr.fleet.roots import LiveFleetError, live_file, lock_root
-from mcgyvr.serving.gatelib import DEV, door_required, export, refuse, root
+from mcgyvr.serving.gatelib import (
+    DEV,
+    USER_MODE,
+    door_required,
+    export,
+    refuse,
+    root,
+    run_mode,
+)
 
 
 def default_profile() -> str:
@@ -163,6 +176,17 @@ def main() -> int:
     serve = os.environ.get("RUN_SERVE")
     if serve:
         refuse_unless_the_fleet_lock_names(serve, which)
+
+    if run_mode() == USER_MODE:
+        # A door run from an install has no round to pin: the round is the
+        # lab's, and a user's run measures nothing a round compares. The
+        # profile and the live fleet's lock above hold all the same.
+        export("RUN_ROUND", "none")
+        export("RUN_PRODUCT_SHA256", "none")
+        export("RUN_PROFILE", which)
+        export("RUN_CONFIG", source)
+        print(f"gate 1: user mode, no round pinned; profile={which} config={source}")
+        return 0
 
     # tools/ has no __init__.py, so product.py is reached by path. Loaded here and
     # not at module scope: a gate that failed to import would refuse with a

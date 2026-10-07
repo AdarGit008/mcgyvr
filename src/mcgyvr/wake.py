@@ -133,13 +133,20 @@ def door_argv(
 
     ``units`` names the containers a ``sleep`` or ``wake`` acts on alone
     (``--unit``), the rest of the card left as it is; empty is the whole card.
+
+    ``--mode`` is :func:`mcgyvr.serving.run.callers_mode`: ``lab`` inside the
+    lab checkout, ``user`` anywhere else.
     """
+    from mcgyvr.serving.run import callers_mode
+
     return (
         sys.executable,
         "-m",
         DOOR_MODULE,
         "serve",
         direction,
+        "--mode",
+        callers_mode(),
         "--host",
         host,
         "--compose",

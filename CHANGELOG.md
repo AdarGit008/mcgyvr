@@ -30,6 +30,26 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `recommend --offline` (or `HF_HUB_OFFLINE=1`) asks nothing. Requests time
   out after 20 seconds, and a network that does not answer stops every
   lookup at once.
+- The serving door has a user mode (`python -m mcgyvr.serving.run ...
+  --mode user|lab`), approved by the owner 2026-10-07. A run from an install
+  is no longer refused for want of the lab's files: the round, the lab's
+  `hosts.json` and its declared docker version are not asked for, and the rig
+  is held to your rig file `$MCGYVR_HOME/rigs/<rig>.json` instead. Each run
+  scans the rig again, says what moved, and refuses only when the fleet no
+  longer fits (a card its compose file reserves is gone or holds less than
+  the file records). The lease, the daemon check (docker answers and is the
+  machine read), the envelope, the step, the stray-container check and the
+  live fleet's lock all stay. A user's serve run is filed under
+  `~/.local/state/mcgyvr/door/<date>/<run_id>/`: the command, the rig read
+  before and after, the compose text, the units up and the step's exit. A
+  container or a card holder mcgyvr did not start is reported and left as
+  it is. With no `--mode`, a run root that is a lab checkout (it holds the
+  round's folder) is refused and asked which mode; any other runs as the
+  user's. A campaign run is a lab run only. Lab mode is unchanged.
+- `mcgyvr scan --rig RIG` scans RIG over your own ssh (read-only, BatchMode)
+  and saves it as the door's rig file: hostname, cards and their memory, RAM,
+  free disk and docker version. A second scan says what moved. The shipped
+  rig scanner now reads the rig's docker version (`Scan.docker`).
 
 ### Changed
 
@@ -40,6 +60,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   changed (DeepSeek-Coder-V2-Lite: 9558623232 -> 10364416768 bytes, so it
   fits on fewer cards). `mcgyvr recommend` reads the catalog through the
   knowledge layer, so a cached record is priced before the shipped one.
+- mcgyvr's own door calls (`mcgyvr serve`, the ladder manager's sleep and
+  wake, `fleet probe`'s read and link timings, and the door commands live
+  admission prints) name the mode by the door's own test: `--mode lab` where
+  the run root is a lab checkout, so the lab's ladder needs no rig file, and
+  `--mode user` anywhere else. A lab tool that opens the door names
+  `--mode lab`.
 - `install.sh` warns about an `mcgyvr` older than 0.3.0, the latest release
   tag (it was 0.1.0); v0.1.0 has no `mcgyvr delegate`, which the skill names.
 - mcgyvr 0.3.0 is on PyPI, so `uv tool install mcgyvr` (or `pipx install

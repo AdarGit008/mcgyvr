@@ -113,6 +113,33 @@ def root() -> Path:
     return Path(need("RUN_ROOT"))
 
 
+#: The door's two modes (:data:`mcgyvr.serving.run.MODES`), and the variable
+#: the door names its run's mode in. ``user`` is a door run from an install:
+#: the rig is held to the user's rig file (:mod:`mcgyvr.serving.rigfile`), and
+#: the run is filed under the data folder's :data:`DOOR_LOG`. ``lab`` is the
+#: lab's run, held to the lab's round and declarations.
+USER_MODE = "user"
+LAB_MODE = "lab"
+MODE_VAR = "RUN_MODE"
+#: The folder of the user mode's door log, under the data folder.
+DOOR_LOG = "door"
+
+
+def run_mode() -> str:
+    """The mode the door ran this run in, ``user`` or ``lab``.
+
+    A gate started with no mode named is a lab gate, as every gate was before
+    the door had a user mode: a missing value never reads as the user's door.
+    """
+    mode = os.environ.get(MODE_VAR) or LAB_MODE
+    if mode not in (USER_MODE, LAB_MODE):
+        refuse(
+            f"{MODE_VAR}={mode!r} is not a mode of the door; it runs as "
+            f"{USER_MODE} or {LAB_MODE}, and the door names which"
+        )
+    return mode
+
+
 def is_door(argv: list[str]) -> bool:
     """Whether one command line is the door's."""
     for index, arg in enumerate(argv):

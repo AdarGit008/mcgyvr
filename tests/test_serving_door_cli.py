@@ -75,9 +75,17 @@ def stubs(where: Path) -> Path:
     return where
 
 
+#: The verbs of the door's other runs; a campaign run names none.
+VERBS = ("serve", "read", "link")
+
+
 def door(
     argv: list[str], env: dict[str, str], cwd: Path = REPO
 ) -> subprocess.CompletedProcess[str]:
+    """The door over ``argv``, in lab mode: every run root here is a checkout."""
+    if "--mode" not in argv:
+        verb = argv[:1] if argv[:1] and argv[0] in VERBS else []
+        argv = [*verb, "--mode", "lab", *argv[len(verb) :]]
     return subprocess.run(
         [sys.executable, "-m", "mcgyvr.serving.run", *argv],
         cwd=cwd,
@@ -113,6 +121,9 @@ def step(tmp_path: Path) -> Path:
 
 def base_argv(step: Path, campaign: str = "alpha-cli-test") -> list[str]:
     return [
+        # A campaign run is a lab run, and these run from a checkout.
+        "--mode",
+        "lab",
         "--host",
         "srv1",
         "--campaign",
