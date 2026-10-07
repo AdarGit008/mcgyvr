@@ -158,6 +158,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 - `mcgyvr init --priority throughput|quality|cost` replaces the free-text
   `--profile` for a composed ladder. The config's `profile: live|dev` is a
   different setting and is unchanged.
+- The run-wide `max_window_fraction` is a hard ceiling (owner ruling). A
+  contract is held to the stricter of its own `limits.max_window_fraction`
+  and the run's: it may hold itself to less of a window than the run allows,
+  never to more. Before, a contract's own share won wherever it stated one,
+  so a contract declaring 0.9 was sent under a run that allowed 0.25. The
+  refusal names the limit that was hit, and both when the two are equal.
 
 ### Deprecated
 
@@ -194,8 +200,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   the run's share before it is sent, by the same check and with the same
   outcome as an oversize contract: `error` on the rung it was sent to,
   `ContractTooLargeForRungError`, nothing dispatched, no journal row, no
-  sleeping card woken, no climb. A contract's own
-  `limits.max_window_fraction` still wins where it states one. The refusal
+  sleeping card woken, no climb. It is a ceiling over a contract's own
+  `limits.max_window_fraction` (see Changed). The refusal
   now says which limit was hit: the run's `max_window_fraction` (config) or
   the contract's own `limits.max_window_fraction`.
 - Three tests no longer fail on a busy machine (they failed under several

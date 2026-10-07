@@ -339,9 +339,10 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "-- its prompt and its own declared reply together, over the whole "
         "window. Distinct from whether the two *fit*, which the fit check "
         "already asks: a contract that fits with nothing to spare leaves the "
-        "rung nothing to absorb a long estimate with. Unset enforces no "
-        "share, which is not the same as 1.0: a run that declared none is "
-        "recorded as having declared none.",
+        "rung nothing to absorb a long estimate with. A ceiling: a contract's "
+        "own `limits.max_window_fraction` may be stricter, never wider. Unset "
+        "enforces no share, which is not the same as 1.0: a run that declared "
+        "none is recorded as having declared none.",
         min_value=0.0,
         max_value=1.0,
         bind_hint=(
@@ -1035,9 +1036,10 @@ SCHEMA: tuple[Field, ...] = (
         "The largest share of a unit's context window one contract may claim "
         "-- its prompt and its declared reply together -- checked before the "
         "contract is sent, so a contract claiming more fails unsent on the "
-        "unit it was sent to. It is the share for every contract that "
-        "declares none; a contract's own `limits.max_window_fraction` wins "
-        "where it states one. Unset enforces no run-wide share.",
+        "unit it was sent to. It is a ceiling no contract can raise: a "
+        "contract's own `limits.max_window_fraction` may hold it to less, "
+        "never to more, and the stricter of the two applies. Unset enforces "
+        "no run-wide share.",
         min_value=0.0,
         max_value=1.0,
         bind_hint="a share between 0 and 1",
