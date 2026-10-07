@@ -12,6 +12,12 @@ and each unit's sleep and in-flight page. Nothing lands on the rig's disk.
 is refused with nothing filed. Unlike gate 2 this takes no lease, tears down no
 displaced run and refuses no busy rig: a read is how a serving rig is looked at.
 
+**In user mode** (a door run from an install, ``--mode user``) there is no
+hosts.json: the rig is held to the user's own rig file instead
+(:mod:`mcgyvr.serving.rigfile`), asked for before anything reaches the rig,
+by gate 2's own user-mode check. A read names no compose file, so every card
+of the rig file is held.
+
 **Filed** under the journal of the fleet read, the live one or with ``--fleet``
 one of the run's setup, by :func:`mcgyvr.fleet.read.record`.
 With ``--probe``, each idle unit named has the lock's own harness
@@ -29,7 +35,16 @@ import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
-from mcgyvr.serving.gatelib import door_required, need, refuse, root, ssh
+from mcgyvr.serving import rigfile
+from mcgyvr.serving.gatelib import (
+    USER_MODE,
+    door_required,
+    need,
+    refuse,
+    root,
+    run_mode,
+    ssh,
+)
 
 HERE = Path(__file__).resolve().parent
 #: A reading of the rig, and a probe's harness run on it. A load's harness run has
@@ -86,14 +101,19 @@ def main() -> int:
     except read.ReadError as exc:
         refuse(f"read: {exc}. Nothing was read and nothing is filed")
 
-    hosts_file = root() / "tools" / "runs" / "hosts.json"
-    if not hosts_file.is_file():
-        refuse(
-            f"read: {hosts_file} is missing; there is no declaration to compare with"
-        )
-    declared = json.loads(hosts_file.read_text(encoding="utf-8")).get(host, {})
-    if not isinstance(declared.get("rig"), dict):
-        refuse(f"read: tools/runs/hosts.json declares no rig for {host}")
+    user = run_mode() == USER_MODE
+    if user:
+        saved = rigfile.required(host, "read")
+    else:
+        hosts_file = root() / "tools" / "runs" / "hosts.json"
+        if not hosts_file.is_file():
+            refuse(
+                f"read: {hosts_file} is missing; there is no declaration to "
+                "compare with"
+            )
+        declared = json.loads(hosts_file.read_text(encoding="utf-8")).get(host, {})
+        if not isinstance(declared.get("rig"), dict):
+            refuse(f"read: tools/runs/hosts.json declares no rig for {host}")
 
     reader = (
         "set -- "
@@ -114,12 +134,16 @@ def main() -> int:
     except read.ReadError as exc:
         refuse(f"read: {exc}")
 
-    gate2 = SourceFileLoader("_gate02", str(HERE / "02-rig.py")).load_module()
-    bad = [
-        f"{key}: declared {value!r}, reads {snapshot.get(key)!r}"
-        for key, value in declared["rig"].items()
-        if not gate2._matches(key, value, snapshot.get(key))
-    ]
+    if user:
+        rigfile.door_check(host, saved, None, "read")
+        bad: list[str] = []
+    else:
+        gate2 = SourceFileLoader("_gate02", str(HERE / "02-rig.py")).load_module()
+        bad = [
+            f"{key}: declared {value!r}, reads {snapshot.get(key)!r}"
+            for key, value in declared["rig"].items()
+            if not gate2._matches(key, value, snapshot.get(key))
+        ]
     if bad:
         refuse(
             f"read: THIS MACHINE IS NOT THE DECLARED {host} — "

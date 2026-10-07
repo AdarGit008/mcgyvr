@@ -157,6 +157,7 @@
     "serving/ggufscan.py": "judging",
     "serving/interconnect.py": "judging",
     "serving/linktime.py": "judging",
+    "serving/rigfile.py": "holds no number that sizes or judges",
     "serving/rigscan.py": "changing now; covered after that change lands",
     "serving/run.py": "changing now; covered after that change lands",
     "serving/safetensorscan.py": "judging",

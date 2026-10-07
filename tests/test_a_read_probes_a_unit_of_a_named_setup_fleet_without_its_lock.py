@@ -217,7 +217,8 @@ def test_the_door_reads_a_named_fleet_from_the_config_it_ran_under(
     )
     env = onedoor.door_env(root)
     env["MCGYVR_CONFIG"] = str(folder)
-    argv = [sys.executable, str(root / onedoor.DOOR_REL), "read", "--host", "srv2"]
+    argv = [sys.executable, str(root / onedoor.DOOR_REL), "read", "--mode", "lab"]
+    argv += ["--host", "srv2"]
     argv += ["--run-id", RUN_ID, "--fleet", FLEET_NAME, "--probe", "srv2_3b"]
 
     result = subprocess.run(

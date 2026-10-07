@@ -85,7 +85,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #
 # Imported rather than restated: two spellings of one door is a door that can
 # be half-renamed. `gatelib` is the definition and this is the reader.
-from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE
+from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE, USER_MODE
 
 #: What one dispatch answers with. Named so that :meth:`Waker.dispatching`
 #: hands back exactly what the call it wrapped would have, which is what lets it
@@ -133,6 +133,9 @@ def door_argv(
 
     ``units`` names the containers a ``sleep`` or ``wake`` acts on alone
     (``--unit``), the rest of the card left as it is; empty is the whole card.
+
+    ``--mode user``: the product is the user's door; the lab's tools name
+    ``--mode lab`` themselves.
     """
     return (
         sys.executable,
@@ -140,6 +143,8 @@ def door_argv(
         DOOR_MODULE,
         "serve",
         direction,
+        "--mode",
+        USER_MODE,
         "--host",
         host,
         "--compose",

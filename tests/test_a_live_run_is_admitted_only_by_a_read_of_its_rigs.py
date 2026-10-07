@@ -455,8 +455,8 @@ def test_a_plan_to_clean_or_restore_refuses_and_names_the_door_commands_it_does_
     assert code == Exit.REFUSED, err
     assert "restore" in err and UNIT_SECOND in err, err
     assert "clean" in err and "mcgyvr-srv2-stray" in err, err
-    assert "python -m mcgyvr.serving.run serve up --host srv1" in err, err
-    assert "python -m mcgyvr.serving.run serve down --host srv2" in err, err
+    assert "python -m mcgyvr.serving.run serve up --mode user --host srv1" in err, err
+    assert "python -m mcgyvr.serving.run serve down --mode user --host srv2" in err, err
     assert dispatched(events) == []
 
 

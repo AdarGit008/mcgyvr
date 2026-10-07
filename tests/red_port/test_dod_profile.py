@@ -182,6 +182,8 @@ def test_a_config_variable_that_is_not_a_path_is_refused_not_traced_back(
     monkeypatch.setenv(CONFIG_VAR, "~nosuchuser-mcgyvr/dev.yaml")
     status = run.main(
         [
+            "--mode",
+            "lab",
             "--host",
             "srv1",
             "--campaign",

@@ -250,6 +250,11 @@ class Scan:
     disk: Disk | None = None
     notes: _Notes = ()
     facts: _Facts = ()
+    #: The version the machine's own docker daemon reports, read by the
+    #: shipped rig scanner (:mod:`mcgyvr.serving.rigscan`) on the far end of
+    #: a remote scan. ``None`` when it was not read: a scan of this machine
+    #: does not ask docker, and a rig's daemon may not answer its user.
+    docker: str | None = None
 
     @property
     def gpus_determined(self) -> bool:
@@ -382,6 +387,7 @@ class Scan:
                 if self.disk is None
                 else {"path": str(self.disk.path), "free_gb": self.disk.free_gb}
             ),
+            "docker": self.docker,
             "notes": list(self.notes),
             "facts": [{"field": f.field, "how": f.how} for f in self.facts],
         }
@@ -448,6 +454,7 @@ class Scan:
                 Fact(field=str(fact["field"]), how=str(fact["how"]))
                 for fact in raw.get("facts") or ()
             ),
+            docker=str(raw["docker"]) if raw.get("docker") else None,
         )
 
 

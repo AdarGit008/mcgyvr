@@ -193,7 +193,8 @@ def reading(
 
 
 def read_door(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    argv = [sys.executable, str(root / onedoor.DOOR_REL), "read", "--host", "srv2"]
+    argv = [sys.executable, str(root / onedoor.DOOR_REL), "read", "--mode", "lab"]
+    argv += ["--host", "srv2"]
     argv += ["--run-id", RUN_ID, *args]
     return subprocess.run(
         argv,

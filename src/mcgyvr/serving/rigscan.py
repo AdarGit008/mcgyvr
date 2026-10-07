@@ -5,8 +5,9 @@ This is the one copy of the far-end scan. It must stay importable (the door
 reads it by file to base64-encode it) and stdlib-only (the rig has no venv, no
 mcgyvr, no PYTHONPATH). It measures the machine it runs on — cards via
 nvidia-smi, RAM via /proc/meminfo, CPU via os.cpu_count, bandwidth by a timed
-copy, and free disk where weights would land — and prints the same JSON shape
-:meth:`mcgyvr.scan.Scan.from_json` parses.
+copy, free disk where weights would land, and the version of the rig's own
+docker daemon — and prints the same JSON shape :meth:`mcgyvr.scan.Scan.from_json`
+parses.
 
 Run as a module or as ``python3 -``: under ``__main__`` it prints one JSON
 document to stdout and nothing else.
@@ -33,6 +34,9 @@ TIGHT_RAM_GB = 2.0
 
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
 MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
+
+#: What the rig's own docker CLI is asked: the daemon's version, one line.
+DOCKER_VERSION_FORMAT = "{{.Server.Version}}"
 
 GPU_NOT_DETERMINED = "GPU: not determined"
 GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
@@ -334,6 +338,22 @@ def _scan_disk(
     return disk, ({"field": "disk.free_gb", "how": f"free space on {path}"},)
 
 
+def _scan_docker() -> tuple[str | None, tuple[str, ...]]:
+    """The version the rig's docker daemon reports, or None with a note.
+
+    Read with the rig's own CLI, as the user the scan runs as: a daemon that
+    user cannot reach is not read, and says so.
+    """
+    output = _run("docker", "version", "--format", DOCKER_VERSION_FORMAT)
+    version = (output or "").strip()
+    if not version:
+        return None, (
+            "Docker: not read — no docker CLI here, or its daemon did not answer "
+            "this user.",
+        )
+    return version, ()
+
+
 def scan() -> dict[str, Any]:
     """Measure this machine and return the scan payload ``Scan.from_json`` reads."""
     machine, machine_facts, machine_notes = _scan_machine()
@@ -342,6 +362,7 @@ def scan() -> dict[str, Any]:
     cpu, cpu_facts, cpu_notes = _scan_cpu()
     bandwidth, bandwidth_facts, bandwidth_notes = _scan_bandwidth()
     disk, disk_facts = _scan_disk()
+    docker, docker_notes = _scan_docker()
     return {
         "machine": machine,
         "gpus": gpus,
@@ -349,12 +370,14 @@ def scan() -> dict[str, Any]:
         "cpu": cpu,
         "bandwidth": bandwidth,
         "disk": disk,
+        "docker": docker,
         "notes": [
             *machine_notes,
             *gpu_notes,
             *memory_notes,
             *cpu_notes,
             *bandwidth_notes,
+            *docker_notes,
         ],
         "facts": [
             *machine_facts,
