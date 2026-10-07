@@ -58,7 +58,7 @@ FETCHED = "fetched"
 RESUMED = "resumed"
 INCOMPLETE = "incomplete"
 MISMATCH = "mismatch"
-REFUSED = "refused"
+NOT_FETCHED = "refused"
 GOOD = frozenset({PRESENT, FETCHED, RESUMED})
 
 
@@ -117,7 +117,7 @@ def fetch_one(
         if held == size and hasher.hexdigest() == sha256:
             row["state"] = PRESENT
             return row
-        row["state"] = REFUSED
+        row["state"] = NOT_FETCHED
         row.setdefault(
             "why",
             f"{dest} is there and is not this file (its sha256 or size differs); "
@@ -132,7 +132,7 @@ def fetch_one(
         have = 0
     free = shutil.disk_usage(root).free
     if free < size - have:
-        row["state"] = REFUSED
+        row["state"] = NOT_FETCHED
         row["why"] = (
             f"the disk holding {root} has {free} bytes free and this file needs "
             f"{size - have} more; nothing was fetched"
@@ -146,7 +146,7 @@ def fetch_one(
         try:
             response = _ask(str(want["url"]), have, token)
         except urllib.error.HTTPError as exc:
-            row["state"] = INCOMPLETE if have else REFUSED
+            row["state"] = INCOMPLETE if have else NOT_FETCHED
             row["why"] = f"the Hub answered HTTP {exc.code} for {want['url']}"
             if exc.code in (401, 403):
                 row["why"] += (
@@ -155,7 +155,7 @@ def fetch_one(
                 )
             return row
         except (OSError, http.client.HTTPException, ValueError) as exc:
-            row["state"] = INCOMPLETE if have else REFUSED
+            row["state"] = INCOMPLETE if have else NOT_FETCHED
             row["why"] = f"{want['url']} did not answer: {getattr(exc, 'reason', exc)}"
             return row
         with response:
