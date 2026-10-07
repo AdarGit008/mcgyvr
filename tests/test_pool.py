@@ -198,11 +198,11 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # Nothing travels upward: no endpoint, and no credential, leaves it.
 #
 # `recommend.py` is the same argument for the read-only placement planner:
-# it assembles a keyless decision endpoint and hands it to
-# `mcgyvr.decision.classify`, which is what dispatches the decision. It never
-# dispatches through the endpoint itself, and it lives below the seam — its
-# candidates are sized from the rig and the checkpoint header before any model
-# is consulted.
+# it reads the bound Jev unit's endpoint (`SourceMap.role`) only to probe it,
+# and asks it through `mcgyvr.decision.classify_for`, which is what dispatches
+# the decision. It never dispatches through the endpoint itself, and it lives
+# below the seam — its candidates are sized from the rig and the checkpoint
+# header before any model is consulted.
 BELOW_THE_SEAM = {
     "pool.py",
     "runner.py",

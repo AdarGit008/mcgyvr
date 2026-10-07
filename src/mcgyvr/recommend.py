@@ -8,13 +8,20 @@ whole product.
 
 The one property this module holds, the same property :mod:`mcgyvr.compose`
 holds for setup: **a model's answer can never invent a number.** Candidate
-placements are assembled before :func:`mcgyvr.decision.classify` is consulted,
-from the numbers the rig and the checkpoint header just measured or from
-shipped constants, and the decision is asked only to name one candidate. What
-the decision returns that can reach the plan is a choice among what was already
-assembled, never a figure. When no decision backend is reachable, the choice is
-made deterministically — the largest checkpoint among the candidates that
-already fit the measured machine — and the plan says so.
+placements are assembled per rig before any decision is consulted, from the
+numbers the rig and the checkpoint header just measured or from shipped
+constants, and the decision is asked only to name one candidate. Each
+candidate's name is its own (the rig, the engine, the weights and the head),
+so any one of them can be named, and the placement says which host it is for.
+What the decision returns that can reach the plan is a choice among what was
+already assembled, never a figure.
+
+Jev is opt-in. The decision is asked through
+:func:`mcgyvr.decision.classify_for` of the unit the config's ``jev.unit``
+binds, and of no other. With no config, no ``jev.unit``, or a Jev unit that
+does not answer, the choice is made deterministically — the largest checkpoint
+among the candidates that already fit the measured machine — and the plan
+says so, and why.
 
 Models to place come from exactly one of two places, and the plan says which:
 
@@ -51,12 +58,12 @@ from typing import Any
 
 from mcgyvr import availability, decision
 from mcgyvr import scan as scan_module
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S, Config
+from mcgyvr.decision import JEV_ROLE, Choice, ChoiceAnswer
 from mcgyvr.knowledge import online as knowledge_online
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import KnowledgeError
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.pool import SourceUnavailableError, source_map
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
     BYTES_PER_GB,
@@ -67,7 +74,6 @@ from mcgyvr.scan import (
     Unreachable,
 )
 from mcgyvr.serving import (
-    DEFAULT_PORT,
     DEFAULT_SPEC_DRAFT_N_MAX,
     DEFAULT_UBATCH,
     gatelib,
@@ -115,11 +121,14 @@ class RecommendError(Exception):
 class Candidate:
     """One placement, assembled from measured inputs before any decision.
 
-    ``checkpoint`` is set for a local-store pick; ``model_id``/``quant`` are
-    set for a catalog pick. Exactly one of the two shapes is present.
+    ``host`` is the rig it was sized for and would run on. ``checkpoint`` is
+    set for a local-store pick; ``model_id``/``quant`` are set for a catalog
+    pick. Exactly one of the two shapes is present. ``name`` is unique among
+    the candidates of one plan: it is what the decision names.
     """
 
     name: str
+    host: str
     description: str
     engine: str
     checkpoint: str | None
@@ -394,30 +403,28 @@ def _has_mtp(header: Mapping[str, Any]) -> bool:
 
 
 def _local_candidates(
-    scan: Scan, header: Mapping[str, Any], users: int
+    host: str, scan: Scan, header: Mapping[str, Any], users: int
 ) -> tuple[Candidate, ...]:
-    """The placements a fitting local checkpoint can be served under.
+    """The placements a fitting local checkpoint on ``host`` can be served under.
 
     A local store holds ``.gguf`` files, so llama.cpp is the engine that serves
     them; vLLM loads a repository id from a HuggingFace cache, not a file. The
-    header decides whether the grafted MTP head is one of the candidates.
+    header decides whether the grafted MTP head is one of the candidates. A
+    path names one file on one rig, so the rig, the path and the head name
+    the candidate.
     """
     checkpoint = str(header.get("file") or "")
     size_bytes = int(header.get("size_bytes") or 0)
     wake = not scan.gpus
-    variants: list[tuple[str, bool]] = [(checkpoint, False)]
-    if _has_mtp(header):
-        variants.append((checkpoint, True))
+    variants = [False, True] if _has_mtp(header) else [False]
     candidates: list[Candidate] = []
-    for _name, mtp in variants:
-        flag = "--spec-type draft-mtp" if mtp else "no speculative head"
+    for mtp in variants:
+        head = " with its grafted MTP head" if mtp else ""
         candidates.append(
             Candidate(
-                name=f"llama.cpp:{flag}",
-                description=(
-                    f"llama.cpp serving {checkpoint}"
-                    f"{' with its grafted MTP head' if mtp else ''}"
-                ),
+                name=f"{host}: llama.cpp {checkpoint}{' + MTP' if mtp else ''}",
+                host=host,
+                description=f"on {host}, llama.cpp serving {checkpoint}{head}",
                 engine="llama.cpp",
                 checkpoint=checkpoint,
                 model_id=None,
@@ -481,9 +488,9 @@ def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
 
 
 def _catalog_candidates(
-    scan: Scan, catalog: Mapping[str, Any], users: int
+    host: str, scan: Scan, catalog: Mapping[str, Any], users: int
 ) -> tuple[Candidate, ...]:
-    """The downloadable placements the shipped catalog offers.
+    """The downloadable placements the shipped catalog offers on ``host``.
 
     Only entries whose shipped size plus their shipped KV/state budget fit the
     measured free VRAM are assembled; a catalog pick has no local header and
@@ -510,8 +517,9 @@ def _catalog_candidates(
                 flags = {}
             candidates.append(
                 Candidate(
-                    name=f"{engine}:{model_id}",
-                    description=f"{engine} serving {model_id} ({quant})",
+                    name=f"{host}: {engine} {model_id} {quant}",
+                    host=host,
+                    description=f"on {host}, {engine} serving {model_id} ({quant})",
                     engine=str(engine),
                     checkpoint=None,
                     model_id=model_id,
@@ -522,24 +530,6 @@ def _catalog_candidates(
                 )
             )
     return tuple(candidates)
-
-
-def _decision_endpoint() -> Endpoint:
-    """The decision source for the coding placement.
-
-    ``mcgyvr recommend`` is read-only and has no config, so it cannot resolve a
-    ladder rung the way :mod:`mcgyvr.compose` does. The least it can name
-    without inventing a machine is the keyless local backend at llama.cpp's
-    shipped default port. When that backend is not reachable, the plan does
-    not consult it: the pick is deterministic, and the plan says so.
-    """
-    return Endpoint(
-        source="recommend",
-        base_url=f"http://127.0.0.1:{DEFAULT_PORT}",
-        protocol=Protocol.OPENAI,
-        max_parallel=1,
-        credential_env=None,
-    )
 
 
 def _deterministic_pick(candidates: tuple[Candidate, ...]) -> Candidate:
@@ -553,52 +543,105 @@ def _deterministic_pick(candidates: tuple[Candidate, ...]) -> Candidate:
     return max(candidates, key=lambda candidate: candidate.size_bytes)
 
 
+@dataclass(frozen=True)
+class _Decided:
+    """The candidate picked, and where the pick came from.
+
+    ``by`` is ``"model"`` when the Jev unit named it and ``"deterministic"``
+    when the fixed rule did. ``unit`` is the ``jev.unit`` the config binds,
+    or None when it binds none. ``why`` says why the rule picked, and is None
+    when Jev did.
+    """
+
+    candidate: Candidate
+    by: str
+    unit: str | None
+    why: str | None
+
+
 def _decide(
-    candidates: tuple[Candidate, ...], state: Mapping[str, Any]
-) -> tuple[Candidate, str]:
+    candidates: tuple[Candidate, ...],
+    state: Mapping[str, Any],
+    config: Config | None,
+) -> _Decided:
     """Name one candidate, and say where the choice came from.
 
-    When no decision backend is reachable the pick is deterministic
-    (:func:`_deterministic_pick`) and the answer is ``"deterministic"``. When
-    a backend answers, :func:`mcgyvr.decision.classify` names one candidate and
-    the answer is ``"model"``. A backend that answers without a readable
-    placement also falls back deterministically, because the actual choice
-    still came from the fixed rule.
+    Only the unit ``jev.unit`` binds is asked, through
+    :func:`mcgyvr.decision.classify_for`, and only once it answers the
+    reachability probe, so a dead Jev unit costs a probe and not a request
+    timeout. With no config, no ``jev.unit``, a Jev unit that cannot run or
+    does not answer, or an answer that names no candidate, the pick is
+    :func:`_deterministic_pick`, and ``why`` says which of those it was.
     """
-    endpoint = _decision_endpoint()
-    verdict = availability.probe_endpoint(endpoint)
+
+    def rule(unit: str | None, why: str) -> _Decided:
+        return _Decided(_deterministic_pick(candidates), "deterministic", unit, why)
+
+    if config is None:
+        return rule(None, "no config was found, so no jev.unit is bound")
+    unit = config.get("jev.unit")
+    if unit is None:
+        return rule(None, "the config binds no jev.unit")
+    unit = str(unit)
+    pool = source_map(config)
+    try:
+        binding = pool.role(JEV_ROLE)
+    except SourceUnavailableError as exc:
+        return rule(unit, f"the jev unit {unit!r} cannot run: {exc}")
+    if binding is None:  # pragma: no cover - jev.unit is bound above
+        return rule(None, "the config binds no jev.unit")
+    verdict = availability.probe_endpoint(binding.endpoint)
     if not verdict.live:
-        return _deterministic_pick(candidates), "deterministic"
+        return rule(unit, f"the jev unit {unit!r} did not answer: {verdict.reason}")
 
     by_name = {candidate.name: candidate for candidate in candidates}
     question = {
         "placement": Choice(
             instructions=(
-                "Given this use case and the measured machine, pick the "
+                "Given this use case and the measured machines, pick the "
                 "placement that best fits."
             ),
             options={candidate.name: candidate.description for candidate in candidates},
         )
     }
     try:
-        answered = decision.classify(
-            endpoint,
-            "recommend-decision",
+        answered = decision.classify_for(
+            pool,
             dict(state),
             question,
+            role=JEV_ROLE,
             timeout_s=DEFAULT_REQUEST_TIMEOUT_S,
         )
-    except (RunnerError, decision.DecisionError):
-        return _deterministic_pick(candidates), "deterministic"
+    except (RunnerError, decision.DecisionError) as exc:
+        return rule(unit, f"the jev unit {unit!r} gave no readable answer: {exc}")
     answer = answered.answers.get("placement")
     if isinstance(answer, ChoiceAnswer) and answer.choice in by_name:
-        return by_name[answer.choice], "model"
-    return _deterministic_pick(candidates), "deterministic"
+        return _Decided(by_name[answer.choice], "model", unit, None)
+    return rule(unit, f"the jev unit {unit!r} named no candidate")
+
+
+def _unique(candidates: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
+    """``candidates``, refused when two share a name the decision would name.
+
+    A name carries the rig, the engine, the weights (and the quant, for a
+    catalog pick) and the head, so two candidates under one name are the
+    same model listed twice: a catalog to fix, not a choice to make.
+    """
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate.name in seen:
+            raise RecommendError(
+                f"two candidates share the name {candidate.name!r}; each "
+                "placement must be one the decision can name"
+            )
+        seen.add(candidate.name)
+    return candidates
 
 
 def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
     """The plan's placement object, nothing the decision returned but a name."""
     return {
+        "host": candidate.host,
         "engine": candidate.engine,
         "checkpoint": candidate.checkpoint,
         "model_id": candidate.model_id,
@@ -617,6 +660,7 @@ def plan(
     hosts: Sequence[str],
     model_stores: Sequence[str] = (),
     offline: bool = False,
+    config: Config | None = None,
 ) -> dict[str, Any]:
     """Compose the one JSON plan ``mcgyvr recommend`` prints.
 
@@ -627,7 +671,9 @@ def plan(
     picks are priced, the model knowledge is refreshed online
     (:func:`mcgyvr.knowledge.online.refresh`) unless ``offline`` or
     ``HF_HUB_OFFLINE`` says not to; the plan's ``knowledge`` says which, and
-    names what could not be read.
+    names what could not be read. ``config`` is read for its ``jev.unit``
+    alone: the unit asked to name the placement. None is a machine with
+    no config, and the pick is deterministic.
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
@@ -670,7 +716,9 @@ def plan(
             for checkpoint in _discover(host, str(directory)):
                 header = _read_header(host, checkpoint)
                 if _fits(found, header, users):
-                    local_candidates.extend(_local_candidates(found, header, users))
+                    local_candidates.extend(
+                        _local_candidates(host, found, header, users)
+                    )
 
     knowledge: dict[str, Any] | None = None
     if model_stores and local_candidates:
@@ -682,7 +730,7 @@ def plan(
         candidates = tuple(
             candidate
             for host, found in scans.items()
-            for candidate in _catalog_candidates(found, catalog, users)
+            for candidate in _catalog_candidates(host, found, catalog, users)
         )
         source = "hf-catalog"
 
@@ -691,6 +739,7 @@ def plan(
             "nothing to recommend: no fitting local checkpoint and no catalog "
             "model for any scanned rig"
         )
+    candidates = _unique(candidates)
 
     state: dict[str, Any] = {
         "use_case": use_case,
@@ -703,11 +752,12 @@ def plan(
                 "engine": candidate.engine,
                 "checkpoint": candidate.checkpoint,
                 "model_id": candidate.model_id,
+                "host": candidate.host,
             }
             for candidate in candidates
         ],
     }
-    selected, decision_source = _decide(candidates, state)
+    decided = _decide(candidates, state, config)
     plan: dict[str, Any] = {
         "use_case": use_case,
         "users": users,
@@ -717,11 +767,10 @@ def plan(
         "no_scanner": no_scanner,
         "scan_failed": scan_failed,
         "rigs": rigs,
-        "placement": _placement_document(selected, source),
-        "decision": decision_source,
-        "decision_endpoint": (
-            _decision_endpoint().base_url if decision_source == "model" else None
-        ),
+        "placement": _placement_document(decided.candidate, source),
+        "decision": decided.by,
+        "decision_unit": decided.unit,
+        "decision_why": decided.why,
         "knowledge": knowledge,
     }
     return plan
