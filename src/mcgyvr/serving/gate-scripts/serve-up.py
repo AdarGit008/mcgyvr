@@ -22,11 +22,18 @@ serving nothing.
 A unit that never answered is exit 1: a result, not a refusal. So is one that
 answered while asleep. Gates 7 and 8 still run — 7 expects the declared names
 and names anything else.
+
+`serve up --unit C` (RUN_SERVE_ONLY) starts only the named containers, by
+their compose services, with `--no-deps`: a neighbour the file orders ahead
+of it is not started with it, and the file's other units are left as they
+are, up or not (:func:`mcgyvr.serving.servelib.up`). This is how a unit that
+cannot sleep is woken in a swap: its container is started.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -54,8 +61,11 @@ def main() -> int:
         )
         return 2
 
-    print(f"serve-up: docker compose up on {host}: {', '.join(expected)}")
-    started = servelib.compose(compose_file, "up", "-d", "--remove-orphans")
+    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
+    units = tuple(s for s in units if not only or s.container in only)
+    names = [s.container for s in units]
+    print(f"serve-up: docker compose up on {host}: {', '.join(names)}")
+    started = servelib.up(compose_file, units if only else ())
     if started.returncode != 0:
         print(
             f"serve-up: docker compose up failed on {host}: "
@@ -91,6 +101,7 @@ def main() -> int:
         "mode": "up",
         "compose_file": str(compose_file),
         "compose": compose_file.read_text(encoding="utf-8"),
+        "only": sorted(only),
         "compose_up_exit": started.returncode,
         "units": rows,
         "card_after": servelib.card(host),

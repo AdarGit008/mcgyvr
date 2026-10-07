@@ -147,12 +147,15 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
     starts nothing unapproved, and it is the way out of a rig left in a state
     nobody locked. A live ``serve up`` is the one direction that starts
     processes, so it is matched against the fleet lock here — offline, before
-    any rig is read.
+    any rig is read. A ``serve up --unit`` starts only the units it names, so
+    only those are matched; a ``serve fetch`` starts nothing.
     """
     if serve != "up" or which == DEV:
         return
     host = os.environ.get("RUN_HOST", "")
-    wanted = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
+    wanted = set(os.environ.get("RUN_SERVE_ONLY", "").split()) or set(
+        os.environ.get("RUN_SERVE_EXPECTED", "").split()
+    )
     locked = units_the_fleet_lock_names(host, which)
     missing = sorted(wanted - locked)
     if missing:

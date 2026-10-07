@@ -306,14 +306,19 @@ def main() -> int:
 
     busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
     busy = {key: value for key, value in busy.items() if value != "none"}
-    if os.environ.get("RUN_SERVE") in ("down", "sleep", "wake"):
+    serve = os.environ.get("RUN_SERVE", "")
+    alone = serve == "up" and bool(os.environ.get("RUN_SERVE_ONLY", "").split())
+    if serve in ("down", "sleep", "wake", "fetch") or alone:
         # Taking a live ladder down is a run that opens on a busy rig by
         # design: the units it is here to stop hold the card and the daemon.
         # So is putting it to sleep or waking it, whose units stay up
-        # throughout. Nothing is admitted on that account beyond the run
-        # itself — gate 7 expects an EMPTY daemon after `down`, exactly the
-        # declared containers after `sleep` and `wake`, and names whatever
-        # else is up, ours or not.
+        # throughout, starting one unit of a file beside its running
+        # neighbours (`serve up --unit`), and a fetch, which starts nothing.
+        # Nothing is admitted on that account beyond the run itself — gate 7
+        # expects an EMPTY daemon after a whole `down`, exactly the declared
+        # containers after `sleep` and `wake`, the named units up or gone
+        # after a `--unit` run, nothing new after a fetch, and names whatever
+        # else the run left, ours or not.
         if busy:
             print(
                 f"gate 2: {host} is serving ("
