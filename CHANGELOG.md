@@ -25,6 +25,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `mcgyvr recommend` steps before it; a test holds it to the `init` parser.
 - `data/README.md` no longer describes media rows: every row of
   `capability-table.json` is a text-generation model.
+- `mcgyvr init`'s refusal with nothing to bind states the real cause. It
+  said "With 12 GB of VRAM, no unit can be proposed" -- one card's size, on
+  a machine of two such cards with no server up -- though init binds only a
+  model a running server lists and card memory plays no part. It now says no
+  model server answered on the endpoints tried (each named), so there is
+  nothing to bind, and lists every card with its size as the cards of the
+  machine running mcgyvr, saying a rig swept with `--host` is not read from
+  there. `Detection.swept` records the endpoints a sweep asked.
+- `mcgyvr init --profile` writes the use case and deployment it states. The
+  composed candidates were built without them, so `--use-case chat --profile
+  X` wrote `use_case: coding` and `deployment: hybrid` while the printed
+  decisions said `chat` and `local-only`.
 
 ## [0.3.0] - 2026-10-07
 

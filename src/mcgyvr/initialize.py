@@ -61,6 +61,7 @@ from mcgyvr.detect import (
     PORT_CONVENTIONS,
     Detection,
     detect,
+    is_local_host,
     targets_for,
 )
 from mcgyvr.propose import API, AvailableSource, Proposal, binding_name, propose
@@ -243,6 +244,32 @@ def _listing(names: Sequence[str]) -> str:
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
+def _these_cards(detection: Detection) -> str:
+    """Every card the card tool read, as the cards of the machine it ran on.
+
+    The card tool reads only the machine mcgyvr runs on, whichever hosts the
+    sweep asked, so the cards are labelled as that machine's and a rig the
+    sweep reached over the network is said not to have been read. Card memory
+    is not why nothing was bound, so no size is offered as a reason.
+    """
+    remote = [
+        host
+        for host in dict.fromkeys(target.host for target in detection.swept)
+        if not is_local_host(host)
+    ]
+    if remote:
+        unread = f"the cards of {_listing(remote)} are not read from here"
+    else:
+        unread = "a rig named with `--host` is not read from here"
+    if not detection.gpus:
+        return (
+            f"This machine, the one running mcgyvr ({unread}), has no GPU "
+            f"this build can see."
+        )
+    cards = "; ".join(f"{gpu.name}, {gpu.size}" for gpu in detection.gpus)
+    return f"This machine's GPUs (the machine running mcgyvr; {unread}): {cards}."
+
+
 def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal) -> str:
     """Say what was tried, what is missing, and what to do about it.
 
@@ -256,10 +283,13 @@ def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal)
     model is offered whenever a server answered. A unit bound by hand, which
     states the card room it needs, is offered for a card whose memory size was
     not determined, and for a machine with no GPU this build can see while a
-    local backend answers. The text for no backend and no card is kept as it
-    is quoted elsewhere.
+    local backend answers. The cards are reported as this machine's by
+    :func:`_these_cards`. The README quickstart quotes the text for no backend
+    and no card, so a change here is a change to that quote.
     """
     local = [b for b in detection.backends if b.is_local]
+    binds = "init binds only a model a running server lists."
+    nothing = f"there is nothing to bind: {binds}"
     if detection.backends:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
         if proposal.rejected:
@@ -271,20 +301,16 @@ def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal)
             situation = (
                 f"Reachable model servers: {found} — but none of them lists a model."
             )
+        situation += f" So {nothing}"
+    elif detection.swept:
+        tried = ", ".join(target.base_url for target in detection.swept)
+        situation = (
+            f"No model server answered on any endpoint tried ({tried}), so {nothing}"
+        )
     else:
-        situation = "No local backend answered on any default endpoint."
+        situation = f"No model server answered, so {nothing}"
 
     unsized = [gpu.name for gpu in detection.gpus if gpu.vram_gb is None]
-    if detection.largest_vram_gb is not None:
-        vram = f"{detection.largest_vram_gb:g} GB of VRAM"
-    elif len(unsized) == 1:
-        vram = f"a GPU whose memory size was not determined ({unsized[0]})"
-    elif unsized:
-        vram = f"GPUs whose memory sizes were not determined ({_listing(unsized)})"
-    else:
-        vram = "no GPU this build can see"
-
-    binds = "init binds only a model a running server lists."
     if len(unsized) == 1:
         cause = f"the memory size of {unsized[0]} was not determined, and {binds}"
     elif unsized:
@@ -320,8 +346,9 @@ def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal)
     )
     return (
         f"Refusing to write a config that cannot load.\n\n"
-        f"{situation} With {vram}, no unit can be proposed, and a config "
-        f"with no unit or no ladder dispatches nowhere.\n\n"
+        f"{situation} A config with no unit or no "
+        f"ladder dispatches nowhere.\n\n"
+        f"{_these_cards(detection)}\n\n"
         f"The loader would reject it with: {why}\n\n"
         f"Fix one of these:\n"
         f"{by_hand}{start}{load}"
@@ -1041,6 +1068,8 @@ def initialize(
                     proposal,
                     profile,
                     api_units=asked,
+                    use_case=use_case,
+                    deployment=deployment,
                 )
             except (DecisionError, RunnerError) as exc:
                 compose_limits = (_compose_failed_note(profile, exc),)

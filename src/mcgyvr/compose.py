@@ -93,6 +93,8 @@ def candidate_setups(
     proposal: Proposal,
     *,
     api_units: Sequence[ApiUnit] = (),
+    use_case: str = "coding",
+    deployment: str | None = None,
 ) -> tuple[SetupCandidate, ...]:
     """The candidate configs, assembled deterministically from the same facts
     :func:`mcgyvr.initialize.build` uses.
@@ -106,18 +108,23 @@ def candidate_setups(
 
     A composition whose ladder would be empty is dropped rather than emitted:
     an empty ladder is the one config init refuses to write.
+
+    ``use_case`` and ``deployment`` are passed to every build, so whichever
+    candidate is selected states the use case and deployment init was asked
+    for, as the deterministic ladder does.
     """
     # Deferred: initialize imports this module, so importing it here keeps the
     # two from forming a cycle at import time.
     from mcgyvr.initialize import build
 
+    asked: dict[str, Any] = {"use_case": use_case, "deployment": deployment}
     candidates: list[SetupCandidate] = []
     if proposal.rungs:
         candidates.append(
             SetupCandidate(
                 name="own",
                 description=OWN_DESCRIPTION,
-                data=build(detection, proposal, api_units=()),
+                data=build(detection, proposal, api_units=(), **asked),
             )
         )
     if api_units:
@@ -126,14 +133,14 @@ def candidate_setups(
                 SetupCandidate(
                     name="escalate",
                     description=ESCALATE_DESCRIPTION,
-                    data=build(detection, proposal, api_units=api_units),
+                    data=build(detection, proposal, api_units=api_units, **asked),
                 )
             )
         candidates.append(
             SetupCandidate(
                 name="hosted",
                 description=HOSTED_DESCRIPTION,
-                data=build(detection, Proposal(), api_units=api_units),
+                data=build(detection, Proposal(), api_units=api_units, **asked),
             )
         )
     return tuple(candidates)
@@ -179,6 +186,8 @@ def recommend(
     *,
     api_units: Sequence[ApiUnit] = (),
     timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    use_case: str = "coding",
+    deployment: str | None = None,
 ) -> Recommendation:
     """Compose a setup for ``profile`` by ranking the candidate configs.
 
@@ -190,7 +199,13 @@ def recommend(
     With a single candidate no model is consulted: there is nothing to rank,
     and asking would be spending a request to be told the only option.
     """
-    candidates = candidate_setups(detection, proposal, api_units=api_units)
+    candidates = candidate_setups(
+        detection,
+        proposal,
+        api_units=api_units,
+        use_case=use_case,
+        deployment=deployment,
+    )
     if not candidates:
         raise ValueError(
             "nothing to compose: no listed rung and no hosted unit, so there "

@@ -147,7 +147,7 @@ def test_a_machine_with_no_backend_refuses_rather_than_writing(tmp_path: Path) -
     assert not path.exists(), "nothing may be left behind on a refusal"
     message = str(exc.value)
     assert "Refusing to write a config that cannot load" in message
-    assert "No local backend answered" in message
+    assert "No model server answered" in message
     assert "no GPU this build can see" in message
 
 

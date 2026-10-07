@@ -115,7 +115,9 @@ writes nothing, and lists the fixes:
 $ mcgyvr init
 error: Refusing to write a config that cannot load.
 
-No local backend answered on any default endpoint. With no GPU this build can see, no unit can be proposed, and a config with no unit or no ladder dispatches nowhere.
+No model server answered on any endpoint tried (http://localhost:8080, http://localhost:8000, http://localhost:1234, http://localhost:3000), so there is nothing to bind: init binds only a model a running server lists. A config with no unit or no ladder dispatches nowhere.
+
+This machine, the one running mcgyvr (a rig named with `--host` is not read from here), has no GPU this build can see.
 ```
 
 One of those fixes is `--api`, which binds a hosted unit and needs no GPU and
