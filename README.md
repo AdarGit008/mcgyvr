@@ -228,7 +228,7 @@ has its options.
 | `contract` | validate a task contract and show what it resolves to |
 | `detect` | show what can run the work, and how each fact was detected |
 | `scan` | measure this machine, record it, and report what changed since |
-| `recommend` | print one JSON plan: which checkpoint and engine serve a use case |
+| `recommend` | print one JSON plan: the units each rig runs for a use case |
 | `serve` | put a card to sleep, or wake it, through the serving door |
 | `manage` | let Jev sleep and wake the ladder's units by the queue on it (runs until interrupted) |
 | `emit` | write a compose file per launch spec for the ladder's serving units |
@@ -261,7 +261,7 @@ has its options.
 | Data leaving the machine | A model task sends the contract, including the target's current content, to the unit it runs on: a server you bound, or an API model's `address`. A tool task that its tool finishes calls no unit. |
 | API keys | A setup names the environment variable (`api_key_env`), never the key. Task commands run with every credential-shaped variable removed (`src/mcgyvr/sandbox/base.py`). |
 | Network probes | `mcgyvr init` probes default local endpoints, plus machines you name with `--host`. `mcgyvr pool --probe` asks each unit whether it answers; it is off by default, because it spends. |
-| Model lookups | `mcgyvr recommend`, when it prices downloadable models, asks huggingface.co for each known model's files, sizes and header (an HTTP `Range` read of the file's first MiBs, never its weights) and reads the leaderboards of the use case. Only model ids and file names are sent. What it reads is cached with its source and date under `$MCGYVR_HOME/knowledge/`. A network that does not answer is named in the plan, and the cache and the shipped catalog answer. `--offline` (or `HF_HUB_OFFLINE=1`) asks nothing. |
+| Model lookups | `mcgyvr recommend`, when it prices downloadable models, asks huggingface.co for each known model's files, sizes and header (an HTTP `Range` read of the file's first MiBs, never its weights) and reads the leaderboards of the use case. Only model ids and file names are sent. What it reads is cached with its source and date under `$MCGYVR_HOME/knowledge/`, and each file's header row under `$MCGYVR_HOME/knowledge/geometry/`, so it is sized offline next time. A network that does not answer is named in the plan, and the cache and the shipped catalog answer. `--offline` (or `HF_HUB_OFFLINE=1`) asks nothing. |
 | Your GPU machines | `serving.enable_sleep_wake` is `false` by default. Set to `true`, it lets `mcgyvr run` stop and start containers on a machine others may share. `mcgyvr serve sleep` and `mcgyvr serve wake` act only when you type them. |
 | Task commands | They run in a throwaway container (`sandbox.mode: docker`, the default), or with `tempdir` on the host in a throwaway git workspace. |
 | Cost | Bounded, not estimated: `max_escalations` (default 1), `max_attempts`, `task_timeout_s` (default 900 seconds) and each model contract's `limits.max_output_tokens`. |

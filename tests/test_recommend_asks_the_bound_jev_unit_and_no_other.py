@@ -5,7 +5,7 @@ name `recommend-decision`: a port and a name nobody configured. A unit that
 happens to serve there, a ladder rung say, was asked to choose the placement,
 and a Jev unit the owner did bind was never asked.
 
-Jev is always opt-in. So the placement is asked through
+Jev is always opt-in. So each rig's pick is asked through
 `mcgyvr.decision.classify_for` of the unit the config's `jev.unit` binds, at
 that unit's address and under its model, and only then. With no `jev.unit`,
 or no config at all, nothing is asked and nothing is probed: the pick is the
@@ -113,8 +113,8 @@ def test_a_bound_jev_unit_is_asked_at_its_own_address_and_model(
     assert code == 0, plan
     assert wire == [(f"{JUDGE}/v1/chat/completions", "example-judge:1b")]
     assert RUNG not in probed
-    assert plan["decision"] == "model"
-    assert plan["decision_unit"] == "judge"
+    assert plan["decision"]["by"] == "jev"
+    assert "'judge'" in plan["decision"]["why"]
 
 
 def test_with_no_jev_unit_nothing_is_asked_or_probed(
@@ -131,9 +131,8 @@ def test_with_no_jev_unit_nothing_is_asked_or_probed(
     assert code == 0, plan
     assert wire == []
     assert list(probed) == []
-    assert plan["decision"] == "deterministic"
-    assert plan["decision_unit"] is None
-    assert "jev.unit" in plan["decision_why"]
+    assert plan["decision"]["by"] == "deterministic"
+    assert "jev.unit" in plan["decision"]["why"]
 
 
 def test_with_no_config_at_all_nothing_is_asked_or_probed(
@@ -151,8 +150,8 @@ def test_with_no_config_at_all_nothing_is_asked_or_probed(
     assert code == 0, plan
     assert wire == []
     assert list(probed) == []
-    assert plan["decision"] == "deterministic"
-    assert plan["decision_unit"] is None
+    assert plan["decision"]["by"] == "deterministic"
+    assert "no config" in plan["decision"]["why"]
 
 
 def test_a_named_config_that_is_not_there_is_an_error(
@@ -197,6 +196,6 @@ def test_a_bound_jev_unit_that_does_not_answer_leaves_the_pick_to_the_rule(
     assert code == 0, plan
     assert wire == []
     assert list(probed) == [JUDGE]
-    assert plan["decision"] == "deterministic"
-    assert plan["decision_unit"] == "judge"
-    assert "connection refused (stub)" in plan["decision_why"]
+    assert plan["decision"]["by"] == "deterministic"
+    assert "'judge'" in plan["decision"]["why"]
+    assert "connection refused (stub)" in plan["decision"]["why"]

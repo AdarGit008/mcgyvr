@@ -26,7 +26,8 @@ Promises:
   why.
 * A known model whose repository has moved to a new revision is read again,
   header and all, and filed in the cache at that revision; one whose revision
-  has not moved keeps its numbers and its header is not read again.
+  has not moved, and whose header row is filed, keeps its numbers and its
+  header is not read again.
 
 The repository, its files and its header are invented; the header is real
 GGUF whose weights are absent, because nothing here reads a weight.
@@ -43,6 +44,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr.knowledge import geometry as kg
 from mcgyvr.knowledge import online
 from mcgyvr.knowledge import record as kr
 from mcgyvr.knowledge import store as ks
@@ -293,6 +295,9 @@ def test_a_known_model_is_read_again_only_when_its_revision_moved(
     monkeypatch.setenv("MCGYVR_HOME", str(tmp_path / "home"))
     monkeypatch.delenv(online.OFFLINE_ENV, raising=False)
     known = _known_at("0" * 40 if moved else SHA)
+    if not moved:
+        # Its header was read before: the row is in the cache.
+        kg.write(REPO, SHA, FILE, {"file": FILE, "size_bytes": SIZE}, today=DAY)
     server = hub(invented_header())
     done = online.refresh([known], use_case=None, offline=False, get=server, today=DAY)
     assert done.failed == ()

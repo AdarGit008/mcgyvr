@@ -110,7 +110,7 @@ def test_an_offline_recommend_asks_no_url_and_says_so(
     assert cli.main([*argv, "--offline"]) == 0
     plan = json.loads(capsys.readouterr().out)
     assert plan["knowledge"]["mode"] == online.OFFLINE
-    assert plan["source"] == "hf-catalog"
+    assert plan["models_from"] == "knowledge"
 
 
 @pytest.mark.usefixtures("home", "online_allowed")
@@ -157,5 +157,5 @@ def test_a_network_that_does_not_answer_is_named_and_the_plan_still_made(
     (failed,) = plan["knowledge"]["failed"]
     assert failed["what"] == "network"
     assert "timed out" in failed["why"]
-    assert plan["source"] == "hf-catalog"
-    assert plan["placement"] is not None
+    assert plan["models_from"] == "knowledge"
+    assert [u for rig in plan["rigs"].values() for u in rig["units"]]

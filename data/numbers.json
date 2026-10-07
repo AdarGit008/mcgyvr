@@ -519,6 +519,11 @@
       "says": "The rows one page of the Hub's dataset viewer answers at most, which is how far apart the pages of an LMArena board are asked for.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "knowledge/geometry.py:SCHEMA_VERSION": {
+      "kind": "choice",
+      "says": "The version of a model file's geometry document, the shipped rows' and each cache file's, that this code reads and writes; a document of another version is refused by name, and a cache file of another version is not read.",
+      "reason": "a code or version other programs or files read"
+    },
     "knowledge/online.py:DOCUMENT_MAX_BYTES": {
       "kind": "choice",
       "says": "The most bytes read of any answer of the Hub or a board other than a header slice; the largest board, SWE-bench's, was 4 MiB on 2026-10-07, and a longer answer is refused rather than read.",
@@ -718,6 +723,36 @@
       "kind": "choice",
       "says": "How many candidates a resolution keeps, best first, when its caller names no limit, as a decomposition does.",
       "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
+    },
+    "planner.py:CONTEXT_STEP": {
+      "kind": "choice",
+      "says": "The step, in tokens, the most context per slot that fits a strong unit is searched in.",
+      "set_by": "flag --ctx-per-slot"
+    },
+    "planner.py:FIRST_PORT": {
+      "kind": "choice",
+      "says": "The port each rig's first planned unit answers on, the next unit one above it: one above llama.cpp's own default, which a server the user already runs often holds.",
+      "set_by": "flag --first-port"
+    },
+    "planner.py:SCHEMA_VERSION": {
+      "kind": "choice",
+      "says": "The version of the plan `mcgyvr recommend` prints; version 1 was one placement with no host.",
+      "reason": "a code or version other programs or files read"
+    },
+    "planner.py:SHORTLIST": {
+      "kind": "choice",
+      "says": "The most options one question to the Jev unit holds (plan section 4.5): the best-ranked candidates of one rig; a choice of more options than a server's top_logprobs cannot see every label.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "planner.py:STRONG_MIN_CTX": {
+      "kind": "choice",
+      "says": "The least context per slot a chat or agent strong unit is planned at, when the model's own context allows it: the coding fast rungs' window (owner, Round 4: fast rungs 8k). Above it the unit gets the most that fits.",
+      "set_by": "flag --ctx-per-slot"
+    },
+    "planner.py:TOP_RUNG_CTX": {
+      "kind": "choice",
+      "says": "The context per slot a coding plan's top rung is sized at (owner, Round 4: top rung 32k): the ceiling decompose may raise a contract's prompt to, so it serves anything decompose emits; a model whose own context is shorter is sized at its own.",
+      "set_by": "flag --ctx-per-slot"
     },
     "propose.py:DEFAULT_HEADROOM_GB": {
       "kind": "estimate",

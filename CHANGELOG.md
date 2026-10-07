@@ -11,6 +11,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- Model geometry (`mcgyvr.knowledge.geometry`, `data/model-geometry.json`):
+  each model file's header row, the one thing the serving sizer reads, kept
+  per file at a revision with one source and one date for the whole row. The
+  shipped catalog's three files ship with theirs (read over HTTP `Range` on
+  2026-10-07); an online `recommend` files the row of any other file it reads
+  under `$MCGYVR_HOME/knowledge/geometry/`, so an MoE is sized offline next
+  time. A cache file that does not read is skipped and named.
+- `mcgyvr recommend --priority throughput|quality|cost` (said in the plan and
+  to the Jev unit), `--ctx-per-slot TOKENS` (every unit's context per slot,
+  instead of the use case's) and `--first-port PORT` (default 8081).
 - Model knowledge, offline half (`mcgyvr.knowledge`): a record per model and
   quantisation in which every number says its kind (fact, estimate or
   reading), its source and the day it was read, and the closed lists of
@@ -33,6 +43,25 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- `mcgyvr recommend` prints plan version 2: a plan of units per rig, each
+  sized by the serving sizer `mcgyvr emit` uses (`serving.unit_for`, a split
+  across the rig's cards through `serving.split_unit`, an MoE's experts in
+  RAM at the lowest offload the card admits), not by recommend's own fit,
+  which is gone. Each unit says its role, card(s), model file (repository,
+  revision, sha256), port, context per slot, slots, KV cache, expert offload,
+  speculative head, the sizer's own sentence, its download, and where its
+  numbers came from; the plan adds the fleet name, the ladder, `fanout`,
+  the total download per rig, the models that did not fit (`dropped`, with
+  the sizer's reason) and the hosts not read (`unreachable`, with why).
+  `chat` and `agent` are planned now: one strong unit per rig, a slot per
+  user, at the most context per slot that fits (at least 8192, capped at the
+  model's own). `coding` plans its top rung at 32768 per slot (or the model's
+  own context, when shorter), its spare card memory made into slots. The KV
+  cache is f16, and q8_0 only when f16 does not fit the context the use case
+  needs, which the unit says. `decision_unit`/`decision_why` become
+  `decision: {by, why}`; the bound Jev unit is asked one question per rig, of
+  at most 8 candidates. `knowledge` names the cache files skipped and the
+  known models that cannot be sized. Nothing consumed version 1.
 - `data/model-catalog.json` is version 2: every number carries its source and
   the day it was read, and each entry names the file a pick downloads (with
   its revision and sha256). Each number was re-read from the Hugging Face Hub

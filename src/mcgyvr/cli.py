@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
 from mcgyvr import __version__
+from mcgyvr import planner as planner_module
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
@@ -2593,8 +2594,34 @@ def _recommend_use_case(args: argparse.Namespace) -> str | None:
     return mapped
 
 
+def _positive_tokens(value: str) -> int:
+    """A context per slot: a whole number of tokens, at least one."""
+    try:
+        count = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"a context per slot is a whole number of tokens, not {value!r}"
+        ) from None
+    if count < 1:
+        raise argparse.ArgumentTypeError(
+            f"a context per slot is at least 1 token, not {count}"
+        )
+    return count
+
+
+def _port_number(value: str) -> int:
+    """A TCP port a server can listen on: 1 to 65535."""
+    try:
+        port = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"a port is a number, not {value!r}") from None
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError(f"a port is 1 to 65535, not {port}")
+    return port
+
+
 def _recommend(args: argparse.Namespace) -> int:
-    """Print one JSON plan: which checkpoint and engine serve ``args.use_case``.
+    """Print one JSON plan (version 2): the units each rig runs for ``args.use_case``.
 
     Read-only: the rigs are re-read over the sanctioned detection ssh path and
     nothing is written, woken or slept. The plan is the only thing on stdout.
@@ -2623,6 +2650,9 @@ def _recommend(args: argparse.Namespace) -> int:
             model_stores=args.model_store,
             offline=args.offline,
             config=config,
+            priority=args.priority,
+            ctx_per_slot=args.ctx_per_slot,
+            first_port=args.first_port,
         )
     except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3809,7 +3839,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
 
     rec = sub.add_parser(
         "recommend",
-        help="print one JSON plan: which checkpoint and engine serve a use case",
+        help="print one JSON plan: the units each rig runs for a use case",
     )
     rec_use_case = rec.add_mutually_exclusive_group(required=True)
     rec_use_case.add_argument(
@@ -3865,8 +3895,38 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         type=_named_path,
         metavar="PATH",
         help=(
-            "config whose `jev.unit` names the placement; without one the pick "
+            "config whose `jev.unit` names each rig's pick; without one the pick "
             f"is deterministic (default: {CONFIG_DEFAULT_HELP})"
+        ),
+    )
+    rec.add_argument(
+        "--priority",
+        choices=PRIORITIES,
+        default=None,
+        help=(
+            "what the plan optimises for, said in the plan and to the Jev unit: "
+            + ", ".join(PRIORITIES)
+        ),
+    )
+    rec.add_argument(
+        "--ctx-per-slot",
+        type=_positive_tokens,
+        default=None,
+        metavar="TOKENS",
+        help=(
+            "every unit's context per slot, instead of the use case's own "
+            "(chat and agent: the most that fits; coding: "
+            f"{planner_module.TOP_RUNG_CTX} on the top rung)"
+        ),
+    )
+    rec.add_argument(
+        "--first-port",
+        type=_port_number,
+        default=planner_module.FIRST_PORT,
+        metavar="PORT",
+        help=(
+            "the port each rig's first unit answers on, the next unit one above "
+            f"it (default: {planner_module.FIRST_PORT})"
         ),
     )
     rec.set_defaults(func=_recommend)

@@ -11,6 +11,10 @@ back to the shipped catalog."
   are read in: the user's cache under ``$MCGYVR_HOME/knowledge/`` first, then
   the catalog shipped in the package (``data/model-catalog.json``).
 
+* :mod:`mcgyvr.knowledge.geometry` is each file's header row, the one thing
+  the serving sizer reads, kept per file at a revision with one source and
+  one date for the whole row: the cache's, then the shipped ones.
+
 * :mod:`mcgyvr.knowledge.online` is the online half: the Hub's model API, each
   GGUF file's header read over HTTP ``Range`` (never a weight), and the
   refresh a command runs, which files what it read in the cache with

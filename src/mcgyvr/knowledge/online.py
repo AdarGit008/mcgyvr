@@ -18,6 +18,9 @@ the shipped catalog."
   moved, a moved one is read again, the boards of the use case score it
   (:mod:`mcgyvr.knowledge.boards`), and the record is filed in the cache with
   :func:`mcgyvr.knowledge.store.write`. The offline read then finds it first.
+  The header row read for it, or read now because no row of its file is
+  known yet, is filed with :func:`mcgyvr.knowledge.geometry.write`, so the
+  serving sizer can size it offline.
 
 The network is optional and never trusted to answer. ``--offline`` or
 ``HF_HUB_OFFLINE`` asks it nothing (:func:`offline_asked`). Every request has
@@ -431,22 +434,29 @@ class Refreshed:
     mode: str
     written: tuple[Path, ...] = ()
     failed: tuple[tuple[str, str], ...] = ()
+    #: The geometry rows filed (:mod:`mcgyvr.knowledge.geometry`), one per
+    #: file whose header was read.
+    geometry: tuple[Path, ...] = ()
 
     def as_json(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "written": [str(path) for path in self.written],
+            "geometry": [str(path) for path in self.geometry],
             "failed": [{"what": what, "why": why} for what, why in self.failed],
         }
 
 
-def _again(get: Get | None, one: ModelRecord, today: date) -> ModelRecord:
+def _again(
+    get: Get | None, one: ModelRecord, today: date
+) -> tuple[ModelRecord, dict[str, Any] | None]:
     """``one`` as the Hub has it now: unchanged when its revision has not
-    moved, read again when it has."""
+    moved, read again when it has, with the header row read for it (None when
+    none was read)."""
     assert one.weights is not None
     repo = repo_info(get, one.weights.repo)
     if repo.sha == one.weights.revision:
-        return one
+        return one, None
     lookup = HubLookup(
         get=get,
         today=today,
@@ -465,7 +475,26 @@ def _again(get: Get | None, one: ModelRecord, today: date) -> ModelRecord:
             f"{one.weights.repo} moved to {repo.sha} and holds no {one.quant} file "
             f"that reads{': ' + why if why else ''}"
         )
-    return replace(again[0], model_id=one.model_id, scores=one.scores)
+    return (
+        replace(again[0], model_id=one.model_id, scores=one.scores),
+        lookup.header(again[0]),
+    )
+
+
+def _header_of(get: Get | None, one: ModelRecord) -> dict[str, Any]:
+    """The header row of ``one``'s file at its revision, read over Range."""
+    assert one.weights is not None
+    weights = one.weights
+    repo = repo_info(get, weights.repo)
+    if repo.sha != weights.revision:
+        raise OnlineError(
+            f"{weights.repo} is at {repo.sha}, not {weights.revision}; its header "
+            f"at that revision is not read"
+        )
+    file = next((f for f in repo.files if f.name == weights.file), None)
+    if file is None:
+        raise OnlineError(f"{weights.repo} holds no {weights.file}")
+    return read_header(get, weights.repo, weights.revision, file)
 
 
 def refresh(
@@ -486,13 +515,15 @@ def refresh(
     :attr:`Refreshed.failed`; a network that does not answer stops the refresh
     there, named the same way.
     """
-    from mcgyvr.knowledge import boards
+    from mcgyvr.knowledge import boards, geometry
 
     if offline_asked(offline):
         return Refreshed(mode=OFFLINE)
     day = today or date.today()
     written: list[Path] = []
+    rows: list[Path] = []
     failed: list[tuple[str, str]] = []
+    known_rows = geometry.load()
     try:
         read: dict[str, tuple[boards.Row, ...]] = {}
         for board in boards.boards_for(use_case):
@@ -508,7 +539,7 @@ def refresh(
                 failed.append((what, "names no weights file to look up"))
                 continue
             try:
-                now = _again(get, one, day)
+                now, header = _again(get, one, day)
             except NoNetworkError:
                 raise
             except OnlineError as exc:
@@ -518,6 +549,26 @@ def refresh(
                 written.append(store.write(boards.scored(now, read, today=day)))
             except (KnowledgeError, OSError) as exc:
                 failed.append((what, f"not filed in the cache: {exc}"))
+            if header is None and known_rows.of(now.weights) is None:
+                try:
+                    header = _header_of(get, now)
+                except NoNetworkError:
+                    raise
+                except OnlineError as exc:
+                    failed.append((what, f"its header was not read: {exc}"))
+            if header is not None and now.weights is not None:
+                try:
+                    rows.append(
+                        geometry.write(
+                            now.weights.repo,
+                            now.weights.revision,
+                            now.weights.file,
+                            header,
+                            today=day,
+                        )
+                    )
+                except (KnowledgeError, OSError) as exc:
+                    failed.append((what, f"its header not filed in the cache: {exc}"))
     except NoNetworkError as exc:
         failed.append(
             (
@@ -526,4 +577,6 @@ def refresh(
                 f"catalog answer",
             )
         )
-    return Refreshed(mode=ONLINE, written=tuple(written), failed=tuple(failed))
+    return Refreshed(
+        mode=ONLINE, written=tuple(written), failed=tuple(failed), geometry=tuple(rows)
+    )

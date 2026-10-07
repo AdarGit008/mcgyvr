@@ -9,7 +9,7 @@ the config's `profile: live|dev`, which is a different setting.
 `--use-case` is the option now. `--profile` is still read for one release: it
 maps onto the use case it meant and says, on stderr, that it is deprecated and
 what to type instead. `other` names no use case, so it warns and plans nothing
-(the plan carries no placement). stdout stays the plan alone, so a caller
+(the plan carries no unit). stdout stays the plan alone, so a caller
 parsing it is not broken by the warning.
 
 The plan itself is not under test here; the seam is `recommend.plan`, and only
@@ -43,7 +43,7 @@ def handed(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 
     def fake_plan(**kwargs: Any) -> dict[str, Any]:
         calls.append(kwargs)
-        return {"use_case": kwargs["use_case"], "placement": None}
+        return {"use_case": kwargs["use_case"], "rigs": {}}
 
     monkeypatch.setattr(recommend_module, "plan", fake_plan)
     return calls
@@ -103,7 +103,7 @@ def test_the_old_profile_other_warns_and_plans_nothing(
     out, err = capsys.readouterr()
     assert code == 0
     assert [call["use_case"] for call in handed] == [None]
-    assert json.loads(out)["placement"] is None
+    assert json.loads(out)["rigs"] == {}
     assert "deprecated" in err
     assert "nothing is planned" in err
     for name in USE_CASES:
@@ -148,10 +148,10 @@ def test_the_plan_names_its_use_case_and_no_profile(
         raise Unreachable(host)
 
     monkeypatch.setattr(recommend_module, "_scan_host", unreachable)
-    code = _run("--use-case", "chat")
+    code = _run("--use-case", "media-gen")
     plan = json.loads(capsys.readouterr().out)
     assert code == 0
-    assert plan["use_case"] == "chat"
+    assert plan["use_case"] == "media-gen"
     assert "profile" not in plan
-    assert plan["unreachable"] == [HOST]
-    assert plan["placement"] is None
+    assert [entry["host"] for entry in plan["unreachable"]] == [HOST]
+    assert plan["rigs"] == {}
