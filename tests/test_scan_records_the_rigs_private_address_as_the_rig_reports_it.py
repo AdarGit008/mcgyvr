@@ -36,14 +36,14 @@ from mcgyvr.serving import rigfile, rigscan
 from tests import usermode
 
 #: The invented rig's addresses: a documentation address (RFC 5737) on its
-#: LAN card, an invented private one on its container bridge, loopback.
+#: LAN card, another on its container bridge, and loopback.
 LAN = "192.0.2.20"
-BRIDGE = "10.88.0.1"
+BRIDGE = "198.51.100.30"
 IP_ADDR = (
     "1: lo    inet 127.0.0.1/8 scope host lo\\       valid_lft forever\n"
     f"2: eth0    inet {LAN}/24 brd 192.0.2.255 scope global eth0\\       "
     "valid_lft forever\n"
-    f"3: docker0    inet {BRIDGE}/16 brd 10.88.255.255 scope global docker0\\  "
+    f"3: docker0    inet {BRIDGE}/24 brd 198.51.100.255 scope global docker0\\  "
     "     valid_lft forever\n"
 )
 

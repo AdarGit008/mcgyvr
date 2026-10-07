@@ -142,7 +142,7 @@ def from_json(text: str) -> Rig:
 def _listenable(stated: object) -> ipaddress.IPv4Address | None:
     """``stated`` as an IPv4 address a worker may listen on, else None.
 
-    An IPv4 address spelled as IPv6 (``::ffff:a.b.c.d``, as a dual-stack sshd
+    An IPv4 address spelled as IPv6 (behind the ``::ffff:`` prefix, as a dual-stack sshd
     reports one) is that IPv4 address. Nothing here resolves a name: a name
     is not an address.
     """
