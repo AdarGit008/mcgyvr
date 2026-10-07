@@ -127,6 +127,8 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.fleet.tolerance",
     "mcgyvr.initialize",
     "mcgyvr.knowledge",
+    "mcgyvr.knowledge.boards",
+    "mcgyvr.knowledge.online",
     "mcgyvr.knowledge.record",
     "mcgyvr.knowledge.store",
     "mcgyvr.pool",

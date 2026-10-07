@@ -1,0 +1,177 @@
+{
+ "leaderboards": [
+  {
+   "name": "Verified",
+   "results": [
+    {
+     "name": "Claude 4.5 Opus (high)",
+     "resolved": 76.8,
+     "date": "2026-02-17",
+     "os_model": false,
+     "tags": [
+      "Model: claude-4-5-opus",
+      "Org: Anthropic",
+      "System: Attempts - 1",
+      "Mini: 2.0.0"
+     ],
+     "model_release_date": 20251124
+    },
+    {
+     "name": "OpenHands + Qwen3-Coder-480B-A35B-Instruct",
+     "resolved": 69.6,
+     "date": "2025-08-05",
+     "os_model": true,
+     "tags": [
+      "Model: https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct",
+      "Org: Qwen",
+      "Org: OpenHands",
+      "System: Attempts - 1"
+     ],
+     "model_release_date": null
+    },
+    {
+     "name": "EntroPO + R2E + Qwen3-Coder-30B-A3B-Instruct",
+     "resolved": 60.4,
+     "date": "2025-09-01",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen3-Coder-30B-A3B-Instruct",
+      "Org: 42-b3yond-6ug",
+      "System: Attempts - 2+"
+     ],
+     "model_release_date": null
+    },
+    {
+     "name": "GPT 5 mini (2025-08-07) (medium)",
+     "resolved": 59.8,
+     "date": "2025-08-07",
+     "os_model": false,
+     "tags": [
+      "Model: gpt-5-mini-2025-08-07",
+      "Org: OpenAI",
+      "System: Attempts - 1",
+      "Mini: 1.7.0"
+     ],
+     "model_release_date": 20250807
+    },
+    {
+     "name": "GPT 5 mini",
+     "resolved": 56.2,
+     "date": "2026-02-17",
+     "os_model": false,
+     "tags": [
+      "Model: gpt-5-mini-2025-08-07",
+      "Org: OpenAI",
+      "System: Attempts - 1",
+      "Mini: 2.0.0"
+     ],
+     "model_release_date": 20250807
+    },
+    {
+     "name": "Qwen3-Coder 480B/A35B Instruct",
+     "resolved": 55.4,
+     "date": "2025-08-02",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen3-Coder-480B-A35B-Instruct",
+      "Org: Qwen",
+      "System: Attempts - 1",
+      "Mini: 1.0.0"
+     ],
+     "model_release_date": 20250722
+    },
+    {
+     "name": "EntroPO + R2E + Qwen3-Coder-30B-A3B-Instruct",
+     "resolved": 52.2,
+     "date": "2025-09-01",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen3-Coder-30B-A3B-Instruct",
+      "Org: 42-b3yond-6ug",
+      "System: Attempts - 1"
+     ],
+     "model_release_date": null
+    },
+    {
+     "name": "OpenHands + Qwen3-Coder-30B-A3B-Instruct",
+     "resolved": 51.6,
+     "date": "2025-08-05",
+     "os_model": true,
+     "tags": [
+      "Model: https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "Org: Qwen",
+      "Org: OpenHands",
+      "System: Attempts - 1"
+     ],
+     "model_release_date": null
+    },
+    {
+     "name": "Skywork-SWE-32B + TTS(Bo8)",
+     "resolved": 47.0,
+     "date": "2025-06-16",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen2.5-Coder-32B-Instruct",
+      "Org: Skywork AI",
+      "System: Attempts - 2+"
+     ],
+     "model_release_date": null
+    },
+    {
+     "name": "Skywork-SWE-32B",
+     "resolved": 38.0,
+     "date": "2025-06-16",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen2.5-Coder-32B-Instruct",
+      "Org: Skywork AI",
+      "System: Attempts - 1"
+     ],
+     "model_release_date": null
+    },
+    {
+     "name": "Qwen2.5-Coder 32B Instruct",
+     "resolved": 9.0,
+     "date": "2025-08-03",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen2.5-Coder-32B-Instruct",
+      "Org: Qwen",
+      "System: Attempts - 1",
+      "Mini: 1.0.0"
+     ],
+     "model_release_date": 20241112
+    }
+   ]
+  },
+  {
+   "name": "Lite",
+   "results": [
+    {
+     "name": "EntroPO + R2E + Qwen3-Coder-30B-A3B-Instruct",
+     "resolved": 49.67,
+     "date": "2025-09-01",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen3-Coder-30B-A3B-Instruct",
+      "Org: 42-b3yond-6ug",
+      "System: Attempts - 2+"
+     ],
+     "model_release_date": null
+    },
+    {
+     "name": "EntroPO + R2E + Qwen3-Coder-30B-A3B-Instruct",
+     "resolved": 45.0,
+     "date": "2025-09-01",
+     "os_model": true,
+     "tags": [
+      "Model: Qwen3-Coder-30B-A3B-Instruct",
+      "Org: 42-b3yond-6ug",
+      "System: Attempts - 1"
+     ],
+     "model_release_date": null
+    }
+   ]
+  }
+ ]
+}

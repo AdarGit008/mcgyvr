@@ -1,0 +1,131 @@
+{
+ "features": [
+  {
+   "feature_idx": 0,
+   "name": "model_name",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 1,
+   "name": "organization",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 2,
+   "name": "license",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 3,
+   "name": "rating",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 4,
+   "name": "rating_lower",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 5,
+   "name": "rating_upper",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 6,
+   "name": "variance",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 7,
+   "name": "vote_count",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 8,
+   "name": "rank",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 9,
+   "name": "category",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 10,
+   "name": "leaderboard_publish_date",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  }
+ ],
+ "rows": [
+  {
+   "row_idx": 0,
+   "row": {
+    "model_name": "gemini-4-argon-high",
+    "organization": "google",
+    "license": "Proprietary",
+    "rating": 1533.4609832971757,
+    "rating_lower": 1524.6678224950515,
+    "rating_upper": 1542.2541440993,
+    "variance": 20.127685991449013,
+    "vote_count": 4932.0,
+    "rank": 1.0,
+    "category": "overall",
+    "leaderboard_publish_date": "2026-10-02"
+   },
+   "truncated_cells": []
+  },
+  {
+   "row_idx": 1,
+   "row": {
+    "model_name": "claude-opus-5.5-high",
+    "organization": "anthropic",
+    "license": "Proprietary",
+    "rating": 1511.6842591617774,
+    "rating_lower": 1502.6296005598463,
+    "rating_upper": 1520.7389177637085,
+    "variance": 21.342632115657917,
+    "vote_count": 4552.0,
+    "rank": 2.0,
+    "category": "overall",
+    "leaderboard_publish_date": "2026-10-02"
+   },
+   "truncated_cells": []
+  }
+ ],
+ "num_rows_total": 10923,
+ "num_rows_per_page": 100,
+ "partial": false
+}

@@ -11,8 +11,14 @@ back to the shipped catalog."
   are read in: the user's cache under ``$MCGYVR_HOME/knowledge/`` first, then
   the catalog shipped in the package (``data/model-catalog.json``).
 
-Nothing here opens a socket. The online half (the Hub, a header read over
-HTTP ``Range``, the boards) answers records of this same type and files them
-with :func:`mcgyvr.knowledge.store.write`; the offline read never knows which
-run wrote the cache.
+* :mod:`mcgyvr.knowledge.online` is the online half: the Hub's model API, each
+  GGUF file's header read over HTTP ``Range`` (never a weight), and the
+  refresh a command runs, which files what it read in the cache with
+  :func:`mcgyvr.knowledge.store.write`. ``--offline`` or ``HF_HUB_OFFLINE``
+  asks it nothing.
+* :mod:`mcgyvr.knowledge.boards` reads the public leaderboards into scores
+  and orders records by them for a use case.
+
+Only ``online`` and ``boards`` open a socket. The offline read never knows
+which run wrote the cache.
 """

@@ -66,6 +66,8 @@
     "gate/typecheck.py": "judging",
     "initialize.py": "judging",
     "knowledge/__init__.py": "holds no number that sizes or judges",
+    "knowledge/boards.py": "judging",
+    "knowledge/online.py": "judging",
     "knowledge/record.py": "judging",
     "knowledge/store.py": "judging",
     "ladder_manager.py": "judging",

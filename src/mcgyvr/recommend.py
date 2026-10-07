@@ -26,7 +26,9 @@ Models to place come from exactly one of two places, and the plan says which:
   from that store.
 * no store, or nothing local fits — the plan recommends from the model
   knowledge read offline (:func:`load_catalog`: the user's cache, then the
-  shipped catalog ``data/model-catalog.json``), and marks those picks
+  shipped catalog ``data/model-catalog.json``), after refreshing that cache
+  online unless ``--offline`` or ``HF_HUB_OFFLINE`` says not to
+  (:func:`mcgyvr.knowledge.online.refresh`), and marks those picks
   downloadable (``model_id``, ``quant``, ``size_bytes``). A
   catalog pick has no header, so it fits only when its shipped ``size_bytes``
   plus the KV and recurrent state its shipped geometry prices for ``--users``
@@ -51,6 +53,7 @@ from mcgyvr import availability, decision
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.knowledge import online as knowledge_online
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import KnowledgeError
 from mcgyvr.pool import Endpoint, Protocol
@@ -174,6 +177,21 @@ def load_catalog() -> dict[str, Any]:
             for one in known.records
         ]
     }
+
+
+def _refresh_knowledge(use_case: str | None, offline: bool) -> dict[str, Any]:
+    """Refresh the models the knowledge holds, online unless asked not to.
+
+    Never raises for the network: what could not be read is named in the
+    answer, and the cache and the shipped catalog still answer
+    :func:`load_catalog`.
+    """
+    try:
+        known = knowledge_store.offline().records
+    except KnowledgeError as exc:
+        raise CatalogError(str(exc)) from exc
+    done = knowledge_online.refresh(known, use_case=use_case, offline=offline)
+    return done.as_json()
 
 
 def _read_header(host: str, path: str) -> Mapping[str, Any]:
@@ -598,13 +616,18 @@ def plan(
     users: int,
     hosts: Sequence[str],
     model_stores: Sequence[str] = (),
+    offline: bool = False,
 ) -> dict[str, Any]:
     """Compose the one JSON plan ``mcgyvr recommend`` prints.
 
     ``use_case`` is one of the catalog's use cases, or ``None`` for the old
     ``--profile other``, which names none and is scaffolded. ``hosts`` are
     re-read over ssh at this moment; ``model_stores``, when any is given, are
-    the directories on those rigs to discover ``*.gguf`` in.
+    the directories on those rigs to discover ``*.gguf`` in. Before catalog
+    picks are priced, the model knowledge is refreshed online
+    (:func:`mcgyvr.knowledge.online.refresh`) unless ``offline`` or
+    ``HF_HUB_OFFLINE`` says not to; the plan's ``knowledge`` says which, and
+    names what could not be read.
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
@@ -638,6 +661,7 @@ def plan(
             "rigs": rigs,
             "placement": None,
             "decision": None,
+            "knowledge": None,
         }
 
     local_candidates: list[Candidate] = []
@@ -648,10 +672,12 @@ def plan(
                 if _fits(found, header, users):
                     local_candidates.extend(_local_candidates(found, header, users))
 
+    knowledge: dict[str, Any] | None = None
     if model_stores and local_candidates:
         candidates = tuple(local_candidates)
         source = "local-store"
     else:
+        knowledge = _refresh_knowledge(use_case, offline)
         catalog = load_catalog()
         candidates = tuple(
             candidate
@@ -696,5 +722,6 @@ def plan(
         "decision_endpoint": (
             _decision_endpoint().base_url if decision_source == "model" else None
         ),
+        "knowledge": knowledge,
     }
     return plan
