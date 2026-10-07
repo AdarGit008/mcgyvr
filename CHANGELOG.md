@@ -95,6 +95,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- Three tests no longer fail on a busy machine (they failed under several
+  parallel `make check` runs, at load ~60 on 8 cores). The tensor-cache
+  session tests gave the agent's cache check 5 s, but the check hashes in
+  processes at the lowest priority, which by design run only on CPU nothing
+  else wants: one took 4-13 s to name a 4 KiB file. They now name each file
+  in the check's own thread with the same `file_name`, so a wait bounds the
+  agent alone; `hash_files` keeps its own test, with no deadline. The
+  machine reader's write trace ran `strace -f`, which stops every process
+  at each of its system calls: 75-91 s at that load, past the run's 60 s.
+  It now runs with `--seccomp-bpf` where strace has it, stopping only at the
+  traced calls (9-12 s, the same calls seen). No product code changed: no
+  worker can mount a torn cache file while the check runs late.
 - `mcgyvr recommend` asks the bound Jev unit, and no other. It asked
   whatever answered on `127.0.0.1:8080` under the model name
   `recommend-decision`, which no config names. Now it reads the config
