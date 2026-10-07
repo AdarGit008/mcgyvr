@@ -37,6 +37,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   composed candidates were built without them, so `--use-case chat --profile
   X` wrote `use_case: coding` and `deployment: hybrid` while the printed
   decisions said `chat` and `local-only`.
+- The 0.3.0 notes left out four things that shipped in it (each on main before
+  the v0.3.0 tag):
+  - `mcgyvr recommend` prints one JSON plan: the checkpoint and engine for a
+    usage profile on the rigs named with `--host`.
+  - `mcgyvr manage` lets Jev sleep and wake the ladder's units by their queue.
+  - `mcgyvr init --use-case` (coding, chat, agent, media-gen) and
+    `--deployment` (hybrid, local-only) say what the install serves and how.
+  - `mcgyvr init --profile` composes the ladder for a usage profile; Jev only
+    names one of the candidates, so every number stays measured.
 
 ## [0.3.0] - 2026-10-07
 
@@ -644,6 +653,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   confirmed, not after the whole walk.
 
 ## [0.2.0] - 2026-09-16
+
+Written but never tagged or released; its contents first shipped in 0.3.0.
 
 The first release with the fleet, the serving door and delegation in it — none
 of the three existed at v0.1.0.
