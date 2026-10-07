@@ -52,7 +52,11 @@ the core count no longer matches the last record.
 `mcgyvr recommend --use-case coding --users N --host RIG` re-reads each
 rig over ssh and prints one JSON plan: which checkpoint and engine serve
 that use case, from `--model-store DIR` when a checkpoint there fits,
-otherwise from the shipped model catalog. It writes, wakes and sleeps
+otherwise from the shipped model catalog, and the host it goes on.
+When the config (`--config`, or the one found as for any command)
+binds a `jev.unit`, that unit names the pick among the candidates that
+fit; otherwise, or when it does not answer, the largest that fits is
+picked and the plan says why. It writes, wakes and sleeps
 nothing. `--use-case` takes the same four names as `mcgyvr init`; only
 `coding` is placed so far, the other three print the rigs and no
 placement. The old `--profile` (`chatting`, `media_gen`, `other`) is
