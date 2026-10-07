@@ -69,6 +69,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- `mcgyvr recommend` asks the bound Jev unit, and no other. It asked
+  whatever answered on `127.0.0.1:8080` under the model name
+  `recommend-decision`, which no config names. Now it reads the config
+  (`--config`, or the one found as for any command) and asks the unit its
+  `jev.unit` binds, through `classify_for`. With no config, no `jev.unit`, or
+  a Jev unit that does not answer, nothing is asked and the largest fitting
+  candidate is picked; the plan's `decision_unit` and `decision_why` say
+  which unit and why (they replace `decision_endpoint`).
+- `mcgyvr recommend` can choose any candidate on any host. Candidates were
+  named only by engine and head (or engine and model), so a checkpoint on two
+  rigs, or two checkpoints in one store, shared a name and only the last
+  could be chosen. Each name now carries the rig, engine, weights (and quant)
+  and head, and the placement carries the `host` it goes on.
 - README: the `mcgyvr --help` usage now lists `recommend`, `manage` and
   `mcorch`; a command map gives every command's own help line, and a test
   holds both to the parser.

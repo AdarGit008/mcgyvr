@@ -2600,6 +2600,21 @@ def _recommend(args: argparse.Namespace) -> int:
     nothing is written, woken or slept. The plan is the only thing on stdout.
     """
     use_case = _recommend_use_case(args)
+    # The config is read for its `jev.unit` alone. A default location with
+    # nothing in it is a machine not set up yet, the one `recommend` plans
+    # for, and its pick is deterministic; a path somebody typed that holds
+    # nothing is refused, as `delegate` refuses it.
+    chosen = Path(args.config) if args.config else None
+    config: Config | None = None
+    try:
+        config = load_config(chosen)
+    except ConfigMissingError as exc:
+        if (chosen if chosen is not None else named_config_path()) is not None:
+            print(f"error: {exc}", file=sys.stderr)
+            return Exit.ERROR
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
     try:
         made = recommend_module.plan(
             use_case=use_case,
@@ -2607,6 +2622,7 @@ def _recommend(args: argparse.Namespace) -> int:
             hosts=args.host,
             model_stores=args.model_store,
             offline=args.offline,
+            config=config,
         )
     except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3841,6 +3857,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "ask huggingface.co and the leaderboards nothing: use the model "
             "knowledge cache and the shipped catalog only (so does "
             "HF_HUB_OFFLINE=1)"
+        ),
+    )
+    rec.add_argument(
+        "--config",
+        default=None,
+        type=_named_path,
+        metavar="PATH",
+        help=(
+            "config whose `jev.unit` names the placement; without one the pick "
+            f"is deterministic (default: {CONFIG_DEFAULT_HELP})"
         ),
     )
     rec.set_defaults(func=_recommend)

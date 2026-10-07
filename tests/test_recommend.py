@@ -5,9 +5,10 @@ PROMISE
 ``mcgyvr recommend`` is a read-only planner. It re-reads the rigs it is pointed
 at over ssh — measuring free VRAM, available RAM, disk and bandwidth at that
 moment rather than trusting any stored spec — and, for the ``coding`` use case,
-assembles candidate placements from those measured inputs and lets
-:func:`mcgyvr.decision.classify` name one. When no decision backend is
-reachable, the pick is deterministic (the largest checkpoint among the
+assembles candidate placements from those measured inputs and, when the config
+binds a ``jev.unit``, lets that unit name one through
+:func:`mcgyvr.decision.classify_for`. With no Jev unit bound, or one that does
+not answer, the pick is deterministic (the largest checkpoint among the
 candidates that already fit the measured machine) and the plan says so. Every
 number in the emitted plan is a measurement the rig or the checkpoint header
 made, or a shipped constant; none is invented. The other three use cases
@@ -45,11 +46,12 @@ command can be exercised without owning hardware:
 * ``mcgyvr.scan._ssh`` — the ssh scan/detection transport (the same seam
   ``tests/test_remote_scan.py`` stubs); the header read and the ``*.gguf``
   discovery both answer through it;
-* ``mcgyvr.decision.classify`` — the placement decision (resolved as a module
-  attribute, so the command must reach it that way, as ``tests/test_compose.py``
-  does for ``mcgyvr.compose.classify``);
+* ``mcgyvr.decision.classify`` — the placement decision, reached through
+  ``classify_for`` on the bound Jev unit (resolved as a module attribute, as
+  ``tests/test_compose.py`` does for ``mcgyvr.compose.classify``); the tests
+  that want it asked bind one with :data:`JEV_CONFIG`;
 * ``mcgyvr.availability.probe_endpoint`` — the reachability probe that decides
-  whether the decision backend is there before any model is consulted;
+  whether the Jev unit is there before it is consulted;
 * ``mcgyvr.recommend.load_catalog`` — the shipped HuggingFace catalog loader.
 
 ``mcgyvr.serving.ggufscan.scan`` is patched in exactly one test to fail if the
@@ -63,6 +65,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -445,6 +448,28 @@ def probe(monkeypatch: pytest.MonkeyPatch) -> Any:
     return install
 
 
+#: An invented setup that binds a Jev unit, the only unit ``recommend`` asks.
+JEV_CONFIG = """\
+units:
+  judge:
+    address: http://localhost:18009
+    model: example-judge:1b
+    rig: local
+ladder:
+- judge
+jev:
+  unit: judge
+"""
+
+
+@pytest.fixture
+def jev_config(tmp_path: Path) -> str:
+    """The path of a setup whose ``jev.unit`` is bound."""
+    path = tmp_path / "mcgyvr.yaml"
+    path.write_text(JEV_CONFIG, encoding="utf-8")
+    return str(path)
+
+
 @pytest.fixture
 def catalog(monkeypatch: pytest.MonkeyPatch) -> Any:
     def install() -> dict[str, Any]:
@@ -460,6 +485,7 @@ def run_and_parse(
     users: str,
     *model_stores: str,
     hosts: tuple[str, ...] = (HOST,),
+    config: str | None = None,
 ) -> tuple[int, Any]:
     """Drive the command, then parse the plan it printed to stdout."""
     argv: list[str] = [
@@ -469,6 +495,8 @@ def run_and_parse(
         "--users",
         users,
     ]
+    if config is not None:
+        argv += ["--config", config]
     for host in hosts:
         argv += ["--host", host]
     for store in model_stores:
@@ -614,19 +642,25 @@ def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
 
 
 def test_coding_places_and_the_other_use_cases_are_scaffolded(
-    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+    ssh: Any,
+    classify: Any,
+    probe: Any,
+    jev_config: str,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """``coding`` is honoured with a real placement; the rest are stubs.
 
-    A real placement names a checkpoint and an engine and consults the decision
-    seam. A scaffold names neither an engine nor a checkpoint and consults
-    nothing.
+    A real placement names a checkpoint and an engine and, with a Jev unit
+    bound, consults the decision seam. A scaffold names neither an engine nor
+    a checkpoint and consults nothing.
     """
     ssh()
     decisions = classify()
     probe()
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(
+        capsys, "coding", "single", STORE_DIR, config=jev_config
+    )
     assert code == 0
     rendered = _text(plan)
     assert CHECKPOINT in rendered
@@ -636,7 +670,9 @@ def test_coding_places_and_the_other_use_cases_are_scaffolded(
 
     for use_case in ("chat", "agent", "media-gen"):
         decisions.calls.clear()
-        code, plan = run_and_parse(capsys, use_case, "single", STORE_DIR)
+        code, plan = run_and_parse(
+            capsys, use_case, "single", STORE_DIR, config=jev_config
+        )
         assert code == 0
         rendered = _text(plan)
         assert not any(engine in rendered for engine in ENGINES)
@@ -765,21 +801,28 @@ def test_recommend_deterministic_catalog_fallback_picks_the_largest_that_fits(
     assert plan["placement"]["size_bytes"] == 4_000_000_000
 
 
-def test_recommend_with_a_reachable_backend_records_model_and_endpoint(
+def test_recommend_with_a_reachable_jev_unit_records_model_and_the_unit(
     ssh: Any,
     classify: Any,
     probe: Any,
+    jev_config: str,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A reachable backend answers the decision: the plan says ``model`` + endpoint."""
+    """A bound Jev unit answers the decision: the plan says ``model`` + the unit.
+
+    Which unit is asked, and that no other is, is pinned by
+    ``tests/test_recommend_asks_the_bound_jev_unit_and_no_other.py``.
+    """
     ssh()
     decisions = classify()
     probe(live=True)
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(
+        capsys, "coding", "single", STORE_DIR, config=jev_config
+    )
     assert code == 0
     assert plan["decision"] == "model"
-    assert plan["decision_endpoint"] == "http://127.0.0.1:8080"
+    assert plan["decision_unit"] == "judge"
     assert decisions.calls
 
 
