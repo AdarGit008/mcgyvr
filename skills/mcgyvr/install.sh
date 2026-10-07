@@ -39,10 +39,9 @@ SETUP_DOC="skills/mcgyvr/SETUP.md"
 # How to obtain the CLI the skill drives, as the one line on stdout that says
 # it. The skill is instructions for driving `mcgyvr`; installing the
 # instructions onto a machine that has no `mcgyvr` is the ordinary first case,
-# and this is the command that closes it. mcgyvr is not on PyPI, so this is
-# the git URL README.md installs from — it becomes `uv tool install mcgyvr`
-# once the package is published, and this line is the only place to change.
-CLI_INSTALL="uv tool install git+https://github.com/AdarGit008/mcgyvr"
+# and this is the command that closes it: the published package on PyPI,
+# which README.md installs first. This line is the only place to change it.
+CLI_INSTALL="uv tool install mcgyvr"
 
 # The oldest `mcgyvr` this checkout can claim the skill is driving: the
 # latest release tag, `v0.3.0`. The tag before it, `v0.1.0`, has no

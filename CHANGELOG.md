@@ -13,13 +13,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 - `install.sh` warns about an `mcgyvr` older than 0.3.0, the latest release
   tag (it was 0.1.0); v0.1.0 has no `mcgyvr delegate`, which the skill names.
+- mcgyvr 0.3.0 is on PyPI, so `uv tool install mcgyvr` (or `pipx install
+  mcgyvr`) is the install: the README drops its "until the PyPI package is
+  published" fallback to the GitHub release wheel and tag, and `install.sh`'s
+  `cli:` line names the package instead of the git URL. A test holds the
+  README's install line and its `cli:` line to `install.sh`.
 
 ### Fixed
 
 - README: the `mcgyvr --help` usage now lists `recommend`, `manage` and
   `mcorch`; a command map gives every command's own help line, and a test
-  holds both to the parser. The install section says how to install v0.3.0
-  from its GitHub release until the PyPI package is published.
+  holds both to the parser.
 - SETUP.md names every `mcgyvr init` option (`--use-case`, `--deployment`,
   `--profile`, `--jev`, `--mcorch`, `--window`) and the `mcgyvr scan` and
   `mcgyvr recommend` steps before it; a test holds it to the `init` parser.
