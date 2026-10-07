@@ -50,6 +50,26 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   and saves it as the door's rig file: hostname, cards and their memory, RAM,
   free disk and docker version. A second scan says what moved. The shipped
   rig scanner now reads the rig's docker version (`Scan.docker`).
+- The serving door fetches weights: `python -m mcgyvr.serving.run serve
+  fetch --host RIG --weights FILE` downloads the files a fetch list names
+  (`{"files": [{repo, revision, file, sha256, bytes}]}`, each pinned to a
+  commit and its sha256 as the model knowledge records it;
+  `mcgyvr.serving.fetchlist.from_records` writes it) on the rig itself, into
+  its weights folder (`$MCGYVR_WEIGHTS`, else `~/.cache/mcgyvr/weights`). It
+  says the total first and has no size cap. A download resumes from its
+  `.part`; a file is renamed into place only when its sha256 matches, and one
+  that does not match is deleted. A file already there that matches is
+  skipped; a different file of that name is left as it is. A gated model's
+  token is read from the variable `--hf-token-env` names (default
+  `HF_TOKEN`), goes to the Hub inside the ssh connection only (not to the
+  address a download is redirected to), and is never written down. The Hub
+  is `HF_ENDPOINT` when set (https, or http on loopback). The run takes the
+  same gates as every serve run and is filed the same way.
+- `serve up --unit C` and `serve down --unit C` start or stop one container
+  of a compose file alone (`up` with `--no-deps`, `down` as `rm --stop`),
+  leaving the file's other units as they are; gate 7 judges the named units
+  only. They were refused before; this is the start and stop a llama.cpp
+  swap partner needs.
 
 ### Changed
 

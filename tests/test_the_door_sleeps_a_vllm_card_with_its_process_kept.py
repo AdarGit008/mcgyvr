@@ -23,8 +23,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from tests import onedoor
 from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_file
 
@@ -162,17 +160,3 @@ def test_a_unit_the_compose_file_does_not_name_is_refused_before_any_gate(
     assert "not-a-container" in result.stderr
     assert "names no container" in result.stderr
     assert onedoor.ssh_log(root) == []
-
-
-@pytest.mark.parametrize("mode", ["up", "down"])
-def test_a_whole_card_act_takes_no_unit(tmp_path: Path, mode: str) -> None:
-    root = onedoor.fixture_repo(tmp_path)
-    compose = compose_file(root)
-
-    result = onedoor.serve_door(
-        root, mode, compose, suffix="room-1", extra=["--unit", UNITS[0]]
-    )
-
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert onedoor.ssh_log(root) == []
-    assert "a whole card" in result.stderr, result.stderr

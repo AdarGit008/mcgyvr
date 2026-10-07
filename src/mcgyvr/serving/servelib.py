@@ -128,6 +128,38 @@ def compose(
     )
 
 
+def up(
+    compose_file: Path, units: tuple[Service, ...] = ()
+) -> subprocess.CompletedProcess[str]:
+    """Start the file's units, or only ``units`` of it, through the door's shim.
+
+    The whole file comes up with ``--remove-orphans``, so the project holds
+    exactly what the file names. Named units come up alone: by their compose
+    services, with ``--no-deps``, so a neighbour the file orders ahead of one
+    (``depends_on``) is not started with it, and with no ``--remove-orphans``,
+    so nothing else of the project is touched. A swap starts a unit that
+    cannot sleep this way.
+    """
+    if not units:
+        return compose(compose_file, "up", "-d", "--remove-orphans")
+    return compose(compose_file, "up", "-d", "--no-deps", *(u.name for u in units))
+
+
+def down(
+    compose_file: Path, units: tuple[Service, ...] = ()
+) -> subprocess.CompletedProcess[str]:
+    """Stop the file's units, or only ``units`` of it, through the door's shim.
+
+    The whole file goes down with ``--remove-orphans``. Named units are
+    stopped and removed alone (``rm --stop --force`` of their services), and
+    the file's other units keep running. A swap puts away a unit that cannot
+    sleep this way.
+    """
+    if not units:
+        return compose(compose_file, "down", "--remove-orphans")
+    return compose(compose_file, "rm", "--stop", "--force", *(u.name for u in units))
+
+
 def containers_up() -> list[str]:
     """The names the rig's daemon lists now, through the shim."""
     done = subprocess.run(

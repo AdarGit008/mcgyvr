@@ -39,7 +39,14 @@ IN USER MODE (a door run from an install, ``--mode user``) the rig may run
 things mcgyvr did not start, which gate 2 reported and admitted: a container
 up before the run is not this run's leftover in any direction, and none is
 touched. The compose file's own units are judged whatever was up before: a
-`serve up` expects every one up, a `serve down` none. And the run's log gets
+`serve up` expects every one up, a `serve down` none.
+
+A `serve up --unit` OR `serve down --unit` RUN (RUN_SERVE_ONLY) acts on the
+named units alone, in either mode: those are judged whatever was up before
+(an `up` expects each up, a `down` each gone), the file's other units are
+left as they are and judged neither way, and anything else the run left is
+named as on any run. A `serve fetch` starts nothing, so anything up after it
+that was not up before is named. And the run's log gets
 its end, ``<RUN_ID>.end.json`` beside the header: the rig as read after the
 step, the containers up, the units serving, what was left or missing, and how
 the step exited.
@@ -180,14 +187,27 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
     # not a licence, and anything up at all is named.
     serve = os.environ.get("RUN_SERVE", "")
     expected = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
+    # `serve up|down --unit` acts on the named units alone: they are judged,
+    # up after an `up` and gone after a `down`, whatever was up before, and
+    # the file's other units are left as they are, up or not, and judged
+    # neither way. Anything else the run left is named as for any run.
+    alone = serve in ("up", "down") and bool(
+        os.environ.get("RUN_SERVE_ONLY", "").split()
+    )
+    judged = set(os.environ.get("RUN_SERVE_ONLY", "").split()) if alone else expected
+    untouched = expected - judged
+    seen["only"] = sorted(judged) if alone else []
     # `sleep` and `wake` open on a serving rig as `down` does, and end with
     # the declared containers running as `up` does: the units keep their
     # process through both.
     opened_busy = serve in ("down", "sleep", "wake")
     keeps = serve in ("up", "sleep", "wake")
     # A user's rig may hold containers mcgyvr did not start: what was up
-    # before the run is no leftover of it, in any direction.
-    before = set() if opened_busy and not user else _ids(pre.get("containers"))
+    # before the run is no leftover of it, in any direction. Nor, on a
+    # `--unit` run, is a container up before it.
+    before = (
+        set() if opened_busy and not (user or alone) else _ids(pre.get("containers"))
+    )
     # What this live run displaced at gate 2 (R1). A container of that run
     # that came back during the step — its step retrying a launch — is torn
     # down again here, by the name its lease gave it, and is not this run's
@@ -196,7 +216,7 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
     # they share its `mcgyvr-` prefix, and are left running.
     displaced = displaced_by_run()
     if displaced is not None and displaced.run_id != "none":
-        keep = frozenset(expected) if keeps else frozenset()
+        keep = frozenset(expected) if keeps else frozenset(untouched)
         _rig.teardown_displaced(need("RUN_HOST"), displaced, "gate 7", keep)
     up = _containers_up()
     if up is None:
@@ -206,13 +226,14 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
         left = {
             ident: name
             for ident, name in up.items()
-            if ident not in before or (user and name in expected)
+            if name not in untouched
+            and (ident not in before or ((user or alone) and name in judged))
         }
         seen["containers_up"] = sorted(up.values())
         if keeps:
-            serving = {ident: name for ident, name in left.items() if name in expected}
-            left = {ident: name for ident, name in left.items() if name not in expected}
-            missing = sorted(expected - set(serving.values()))
+            serving = {ident: name for ident, name in left.items() if name in judged}
+            left = {ident: name for ident, name in left.items() if name not in judged}
+            missing = sorted(judged - set(serving.values()))
             seen["serving"] = sorted(serving.values())
             seen["missing"] = missing
             if serving:
@@ -227,6 +248,17 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
                 )
                 status = 1
         seen["left"] = sorted(left.values())
+        # A unit a `serve down --unit` named and did not take down.
+        stuck = sorted(name for name in left.values() if name in judged)
+        if stuck:
+            print(
+                f"gate 7: serve {serve} ended with named units still up: "
+                f"{' '.join(stuck)} — they were not stopped, and the run is not "
+                "green",
+                file=sys.stderr,
+            )
+            status = 1
+        left = {ident: name for ident, name in left.items() if name not in judged}
         if left:
             yours = [n for n in left.values() if n.startswith(f"{run_id}-")]
             others = [n for n in left.values() if not n.startswith(f"{run_id}-")]

@@ -163,6 +163,7 @@ DOOR_STEPS = frozenset(
         Path(__file__).resolve().parent / "serve-down.py",
         Path(__file__).resolve().parent / "serve-sleep.py",
         Path(__file__).resolve().parent / "serve-wake.py",
+        Path(__file__).resolve().parent / "serve-fetch.py",
     }
 )
 

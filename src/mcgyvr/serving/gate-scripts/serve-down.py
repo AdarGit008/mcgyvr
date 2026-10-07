@@ -6,11 +6,17 @@ The inverse of serve-up, filed in the same envelope under its own name. After
 `docker compose down` the rig's daemon is listed again, and any declared name
 still up is exit 1 — a result gate 7 then repeats as a finding, because in
 this mode gate 7 expects an empty daemon.
+
+`serve down --unit C` (RUN_SERVE_ONLY) stops and removes only the named
+containers, by their compose services, and leaves the file's other units
+running (:func:`mcgyvr.serving.servelib.down`); a named one still up after
+it is exit 1. This is how a unit that cannot sleep is put away in a swap.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -24,9 +30,25 @@ def main() -> int:
     compose_file = Path(need("RUN_COMPOSE"))
     out = Path(need("RUN_OUT_DIR")) / "serve-down.json"
     expected = need("RUN_SERVE_EXPECTED").split()
+    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
+    try:
+        units = servelib.services(compose_file)
+    except servelib.ComposeError as exc:
+        print(f"serve-down: REFUSED — {exc}", file=sys.stderr)
+        return 2
+    if sorted(expected) != sorted(s.container for s in units):
+        print(
+            "serve-down: REFUSED — the compose file no longer names the "
+            "containers the door read from it",
+            file=sys.stderr,
+        )
+        return 2
+    if only:
+        units = tuple(s for s in units if s.container in only)
+        expected = [s.container for s in units]
 
     print(f"serve-down: docker compose down on {host}: {', '.join(expected)}")
-    stopped = servelib.compose(compose_file, "down", "--remove-orphans")
+    stopped = servelib.down(compose_file, units if only else ())
     if stopped.returncode != 0:
         print(
             f"serve-down: docker compose down failed on {host}: "
@@ -45,6 +67,7 @@ def main() -> int:
         "mode": "down",
         "compose_file": str(compose_file),
         "compose_down_exit": stopped.returncode,
+        "only": sorted(only),
         "expected": expected,
         "remaining": remaining,
         "daemon_read": up is not None,
