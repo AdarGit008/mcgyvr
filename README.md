@@ -43,16 +43,24 @@ uv tool install mcgyvr
 mcgyvr --help
 ```
 
+Until the PyPI package is published, that first line finds nothing. Install
+the latest release, v0.3.0, from GitHub instead, either its wheel or its tag:
+
+```sh
+uv tool install https://github.com/AdarGit008/mcgyvr/releases/download/v0.3.0/mcgyvr-0.3.0-py3-none-any.whl
+uv tool install git+https://github.com/AdarGit008/mcgyvr@v0.3.0
+```
+
 ```text
 usage: mcgyvr [-h] [--version]
-              {capabilities,caps,config,pool,catalog,contract,detect,scan,serve,emit,sandbox,init,attach,index,resolve,read,fleet,rig,run,delegate}
+              {capabilities,caps,config,pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,init,attach,index,resolve,read,fleet,rig,mcorch,run,delegate}
               ...
 
 Offload scoped coding work to a configurable worker ladder.
 ```
 
-That installs the latest release. To run `main` as it stands instead — work
-merged since that release and not yet tagged — install from the repository:
+To run `main` as it stands instead — work merged since that release and not
+yet tagged — install from the repository:
 
 ```sh
 uv tool install git+https://github.com/AdarGit008/mcgyvr
@@ -210,6 +218,36 @@ flowchart LR
   R --> J["journal and result file<br/>under ~/.local/state/mcgyvr/journal"]
   J -->|last stdout line: result path| A
 ```
+
+## Commands
+
+Each line is the command's own `--help` summary; `mcgyvr <command> --help`
+has its options.
+
+| Command | What it does |
+| --- | --- |
+| `capabilities` (`caps`) | show the shipped estimates by card class |
+| `config` | validate the configuration file and show what it resolves to |
+| `pool` | show the ladder as it resolves against the declared sources |
+| `catalog` | show the task types mcgyvr can be asked for, and what each guarantees |
+| `contract` | validate a task contract and show what it resolves to |
+| `detect` | show what can run the work, and how each fact was detected |
+| `scan` | measure this machine, record it, and report what changed since |
+| `recommend` | print one JSON plan: which checkpoint and engine serve a profile |
+| `serve` | put a card to sleep, or wake it, through the serving door |
+| `manage` | let Jev sleep and wake the ladder's units by the queue on it (runs until interrupted) |
+| `emit` | write a compose file per launch spec for the ladder's serving units |
+| `sandbox` | show the sandbox mode and the stack detected for a repository |
+| `init` | detect what is reachable and write a config bound to it |
+| `attach` | attach a repository (local path or clone URL) and show its state |
+| `index` | build the deterministic index of a repository and show what it cost |
+| `resolve` | resolve a natural-language target to a ranked shortlist of paths |
+| `read` | resolve a target, then read the regions it justifies within a budget |
+| `fleet` | lock a fleet, and read what the lock approves |
+| `rig` | publish this machine as a rig of a hub |
+| `mcorch` | serve the orchestrator rung as the agent a harness talks to |
+| `run` | execute a contract — on the deterministic floor or up the ladder |
+| `delegate` | turn a prompt plus a repository into validated contracts |
 
 ## Harnesses
 

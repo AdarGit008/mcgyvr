@@ -44,17 +44,17 @@ SETUP_DOC="skills/mcgyvr/SETUP.md"
 # once the package is published, and this line is the only place to change.
 CLI_INSTALL="uv tool install git+https://github.com/AdarGit008/mcgyvr"
 
-# The oldest `mcgyvr` this checkout can claim the skill is driving. `v0.1.0`
-# is the only release tag this repository has, so it is the only floor there
-# is evidence for: an older one has never existed. It rises to the next
-# release tag when there is one.
+# The oldest `mcgyvr` this checkout can claim the skill is driving: the
+# latest release tag, `v0.3.0`. The tag before it, `v0.1.0`, has no
+# `mcgyvr delegate`, which the skill names. It rises to the next release tag
+# when there is one.
 #
 # It is also the floor that is safe to compare with `sort -V`, which is a
 # version sort and not PEP 440: it orders `0.1.1` BEFORE `0.1.1.dev376`, where
 # PEP 440 puts the dev build first (a `.devN` is a pre-release of `0.1.1`, not
 # a successor to it). A `.devN` build only ever names a version ABOVE the last
 # release tag, so comparing against a released tag never reaches that case.
-MIN_VERSION="0.1.0"
+MIN_VERSION="0.3.0"
 
 # Relative to $HOME, which is read from the environment so a test (or a user
 # with a non-standard home) can point the install somewhere else.

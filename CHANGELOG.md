@@ -9,6 +9,23 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
+### Changed
+
+- `install.sh` warns about an `mcgyvr` older than 0.3.0, the latest release
+  tag (it was 0.1.0); v0.1.0 has no `mcgyvr delegate`, which the skill names.
+
+### Fixed
+
+- README: the `mcgyvr --help` usage now lists `recommend`, `manage` and
+  `mcorch`; a command map gives every command's own help line, and a test
+  holds both to the parser. The install section says how to install v0.3.0
+  from its GitHub release until the PyPI package is published.
+- SETUP.md names every `mcgyvr init` option (`--use-case`, `--deployment`,
+  `--profile`, `--jev`, `--mcorch`, `--window`) and the `mcgyvr scan` and
+  `mcgyvr recommend` steps before it; a test holds it to the `init` parser.
+- `data/README.md` no longer describes media rows: every row of
+  `capability-table.json` is a text-generation model.
+
 ## [0.3.0] - 2026-10-07
 
 ### Added
