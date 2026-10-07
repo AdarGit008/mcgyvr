@@ -658,9 +658,7 @@ def test_coding_places_and_the_other_use_cases_are_scaffolded(
     decisions = classify()
     probe()
 
-    code, plan = run_and_parse(
-        capsys, "coding", "single", STORE_DIR, config=jev_config
-    )
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR, config=jev_config)
     assert code == 0
     rendered = _text(plan)
     assert CHECKPOINT in rendered
@@ -817,9 +815,7 @@ def test_recommend_with_a_reachable_jev_unit_records_model_and_the_unit(
     decisions = classify()
     probe(live=True)
 
-    code, plan = run_and_parse(
-        capsys, "coding", "single", STORE_DIR, config=jev_config
-    )
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR, config=jev_config)
     assert code == 0
     assert plan["decision"] == "model"
     assert plan["decision_unit"] == "judge"

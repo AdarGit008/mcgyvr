@@ -73,7 +73,9 @@ def probed(monkeypatch: pytest.MonkeyPatch) -> Any:
     """Every address the reachability probe is asked about; live unless told."""
 
     class Probed(list[str]):
-        down: set[str] = set()
+        def __init__(self) -> None:
+            super().__init__()
+            self.down: set[str] = set()
 
     calls = Probed()
 
