@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """The one access point to the rigs.
 
-    python -m mcgyvr.serving.run --host srv1 --campaign <name> --model <blob>
+    python -m mcgyvr.serving.run --host <rig> --campaign <name> --model <blob>
                                  --ctx-per-slot N [--step <path>] [--suffix S]
                                  [-- STEP ARGS...]
 
-Nothing else opens an ssh to srv1/srv2 or starts a container on one. A caller
+Nothing else opens an ssh to a rig or starts a container on one. A caller
 that wants rig time writes its own script and names it as ``--step``, or takes
 the shipped ``gate-scripts/default-step.sh``; the door runs the gates around
 it. The step is the one part of a campaign run a caller supplies; ``serve``
@@ -26,8 +26,9 @@ applies is an ancestor's command line plus RUN_HOST, both of which an operator
 can forge with ``bash -c ... x/mcgyvr/serving/run.py``, so the seal is against
 every code path in this repository and not against an operator impersonating
 the door. And a step is operator code run under the door: one that calls
-``/usr/bin/ssh srv2`` by absolute path or ``env -i ssh srv2`` on a cleared
-PATH reaches a second host, and that is the same limit — the seal is against
+``/usr/bin/ssh <other-rig>`` by absolute path or ``env -i ssh <other-rig>``
+on a cleared PATH reaches a second host, and that is the same limit — the
+seal is against
 every code path in this repo (the tripwire in ``tests/test_one_door.py`` bans
 an absolute-path ssh and an ``env -i`` in repo code), not against the step's
 author.
@@ -1097,7 +1098,7 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         description="the one access point to the rigs",
     )
     parser.add_argument(
-        "--host", required=True, help="srv1 | srv2, as declared in hosts.json"
+        "--host", required=True, help="the rig, by its name in hosts.json"
     )
     parser.add_argument("--campaign", required=True, help="names the evidence envelope")
     parser.add_argument(
@@ -1407,7 +1408,7 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
         "mode", choices=sorted(SERVE_STEPS), help="up | down | sleep | wake"
     )
     parser.add_argument(
-        "--host", required=True, help="srv1 | srv2, as declared in hosts.json"
+        "--host", required=True, help="the rig, by its name in hosts.json"
     )
     parser.add_argument(
         "--compose",
@@ -1603,7 +1604,7 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--host", required=True, help="srv1 | srv2, as declared in hosts.json"
+        "--host", required=True, help="the rig, by its name in hosts.json"
     )
     parser.add_argument(
         "--probe",

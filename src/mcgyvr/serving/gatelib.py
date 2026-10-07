@@ -177,7 +177,7 @@ def door_required(what: str) -> None:
     entry, or ``RUN_ID`` for a step or a driver, which gate 5 exported. The
     environment alone was never enough: every ``RUN_*`` can be typed into a
     shell, and a caller that guarded itself on those alone reached a real
-    ``ssh srv1`` by hand, with no shim on PATH to stop it.
+    ``ssh <rig>`` by hand, with no shim on PATH to stop it.
     """
     _require_door(what)
     if not (os.environ.get("RUN_EXPORT_FD") or os.environ.get("RUN_ID")):
@@ -971,8 +971,8 @@ def _ssh_options(argv: list[str]) -> tuple[list[tuple[str, str, bool]], int]:
     """The options before the host as ssh's getopt reads them, and the host's index.
 
     Each option is ``(flag, value, attached)``. Short flags bundle the way
-    getopt bundles them: `-vJ srv1` is `-v` then `-J srv1`, and `-vJsrv1` is
-    `-v` then `-J` with `srv1` attached — a value-taking flag ends its token.
+    getopt bundles them: `-vJ <rig>` is `-v` then `-J <rig>`, and `-vJ<rig>` is
+    `-v` then `-J` with `<rig>` attached — a value-taking flag ends its token.
     `--` ends option parsing.
     """
     options: list[tuple[str, str, bool]] = []
@@ -1046,8 +1046,8 @@ SSH_REDIRECT_KEYS = frozenset(
 def ssh_redirects(argv: list[str]) -> list[str]:
     """The options before the host that would carry the connection elsewhere.
 
-    ``ssh_target`` admits the positional host; ``-J srv2``, ``-W srv2:22``,
-    ``-o Hostname=srv2`` and ``-o ProxyCommand=…`` all keep that host on the
+    ``ssh_target`` admits the positional host; ``-J <other>``, ``-W <other>:22``,
+    ``-o Hostname=<other>`` and ``-o ProxyCommand=…`` all keep that host on the
     line and connect somewhere else. An adversarial pass found them; the shim
     refuses them by name. Options after the host are the remote command's.
     """
@@ -1118,7 +1118,7 @@ def docker_names_a_daemon(argv: list[str]) -> list[str]:
     """The GLOBAL docker options in ``argv`` that name a daemon or context.
 
     Only the tokens before the subcommand are docker's own; everything after
-    ``run … IMAGE`` belongs to the container. The first door run on srv2 was
+    ``run … IMAGE`` belongs to the container. The first door run on a rig was
     refused because llama-server's ``--host 0.0.0.0`` was read as docker's.
     """
     named: list[str] = []

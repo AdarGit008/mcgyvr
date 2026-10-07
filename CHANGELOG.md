@@ -37,6 +37,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   composed candidates were built without them, so `--use-case chat --profile
   X` wrote `use_case: coding` and `deployment: hybrid` while the printed
   decisions said `chat` and `local-only`.
+- The serving door's `--host` help (`python -m mcgyvr.serving.run`, and its
+  `serve` and `read`) no longer names the developer's own two machines as
+  if they were the choices; it says "the rig, by its name in hosts.json".
+  The door's module text and a few `serving/gatelib.py` and `capacity.py`
+  examples use placeholders too. A test builds every command's help and
+  fails on those machine names, or on any machine the shared scan sees.
 - The 0.3.0 notes left out four things that shipped in it (each on main before
   the v0.3.0 tag):
   - `mcgyvr recommend` prints one JSON plan: the checkpoint and engine for a
