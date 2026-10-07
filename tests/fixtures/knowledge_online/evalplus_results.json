@@ -1,0 +1,50 @@
+{
+ "Qwen2.5-Coder-32B-Instruct": {
+  "link": "https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct",
+  "open-data": "NONE",
+  "pass@1": {
+   "humaneval": 92.1,
+   "humaneval+": 87.2,
+   "mbpp": 90.5,
+   "mbpp+": 77.0
+  },
+  "prompted": true,
+  "size": 32
+ },
+ "DeepSeek-Coder-6.7B-instruct": {
+  "link": "https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct",
+  "open-data": "NONE",
+  "pass@1": {
+   "humaneval": 74.4,
+   "humaneval+": 71.3,
+   "mbpp": 74.9,
+   "mbpp+": 65.6
+  },
+  "prompted": true,
+  "size": 6.7
+ },
+ "CodeQwen1.5-7B-Chat": {
+  "link": "https://huggingface.co/Qwen/CodeQwen1.5-7B-Chat",
+  "open-data": "NONE",
+  "pass@1": {
+   "humaneval": 83.5,
+   "humaneval+": 78.7,
+   "mbpp": 79.4,
+   "mbpp+": 69.0
+  },
+  "prompted": true,
+  "size": 7
+ },
+ "OpenCoder-8B-Instruct": {
+  "link": "https://huggingface.co/infly/OpenCoder-8B-Instruct",
+  "open-data": "NONE",
+  "pass@1": {
+   "humaneval": 81.7,
+   "humaneval+": 77.4,
+   "mbpp": 82.0,
+   "mbpp+": 71.4
+  },
+  "prompted": true,
+  "size": 8.0
+ }
+}

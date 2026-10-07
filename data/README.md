@@ -232,7 +232,11 @@ bring it under the check is to name it. The kinds and reasons are listed in
 models `mcgyvr recommend` prices when no local model store fits. It is read
 after the user's cache, `$MCGYVR_HOME/knowledge/` (default
 `~/.mcgyvr/knowledge`): a model the cache holds is taken from the cache, every
-other model from this file (`mcgyvr.knowledge.store.offline`).
+other model from this file (`mcgyvr.knowledge.store.offline`). Online,
+`mcgyvr recommend` re-reads each of these models from the Hugging Face Hub
+and the use case's leaderboards and files what it read in that cache
+(`mcgyvr.knowledge.online.refresh`); `--offline` or `HF_HUB_OFFLINE=1` skips
+that.
 
 Each entry is one model at one quantisation. `weights` names the file a pick
 downloads: its repository, revision, file name and sha256. Every number is an

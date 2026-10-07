@@ -15,8 +15,21 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   quantisation in which every number says its kind (fact, estimate or
   reading), its source and the day it was read, and the closed lists of
   sources and boards those are said from. It is read from the user's cache,
-  `$MCGYVR_HOME/knowledge/`, first, then from the shipped catalog. Nothing
-  writes the cache yet, and nothing here opens a socket.
+  `$MCGYVR_HOME/knowledge/`, first, then from the shipped catalog.
+- Model knowledge, online half (`mcgyvr.knowledge.online`,
+  `mcgyvr.knowledge.boards`). The Hub lookup reads a repository's files,
+  sizes and sha256 from the Hugging Face Hub API and each GGUF file's header
+  over HTTP `Range` (never a weight), and answers a record per single-file
+  quantisation, with the header row that says its experts per block (MoE)
+  and its MTP head. The boards of each use case are read into scores: LMArena
+  text (chat), BFCL (agent), SWE-bench Verified bash-only rows and EvalPlus
+  below them (coding), LMArena text-to-image and Open ASR (media-gen); TTS
+  has none. `mcgyvr recommend` refreshes the known models online before it
+  prices catalog picks and files what it read in the cache; its plan's
+  `knowledge` says whether it was online and names what could not be read.
+  `recommend --offline` (or `HF_HUB_OFFLINE=1`) asks nothing. Requests time
+  out after 20 seconds, and a network that does not answer stops every
+  lookup at once.
 
 ### Changed
 

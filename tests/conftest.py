@@ -206,6 +206,24 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _model_knowledge_is_offline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test looks a model up online unless it says so.
+
+    ``mcgyvr recommend`` refreshes its model knowledge from huggingface.co and
+    the leaderboards unless ``--offline`` or ``HF_HUB_OFFLINE`` says not to
+    (:func:`mcgyvr.knowledge.online.offline_asked`). The suite says it for
+    every test, the way :func:`_offline_probes` stubs the status reads, so a
+    test of something else never waits on, or asks, the internet. A test of
+    the online half clears the variable and injects a transport of its own
+    (``tests/knowledge_online.py``); :func:`_no_test_resolves_a_machine` still
+    refuses a real one.
+    """
+    from mcgyvr.knowledge import online
+
+    monkeypatch.setenv(online.OFFLINE_ENV, "1")
+
+
+@pytest.fixture(autouse=True)
 def _no_test_opens_the_doors_read(monkeypatch: pytest.MonkeyPatch) -> None:
     """A test may not open ``python -m mcgyvr.serving.run read`` against a rig.
 

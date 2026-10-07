@@ -1,0 +1,49 @@
+{
+ "id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+ "sha": "13fb94bfda8c8cf22497dc57b78f391a9acb426a",
+ "private": false,
+ "gated": false,
+ "lastModified": "2024-11-12T07:59:32.000Z",
+ "cardData": {
+  "base_model": [
+   "Qwen/Qwen2.5-Coder-7B-Instruct"
+  ]
+ },
+ "siblings": [
+  {
+   "rfilename": "README.md",
+   "blobId": "747d6b46289e3d0837f841216e74bf8a2bfa0376",
+   "size": 5670
+  },
+  {
+   "rfilename": "qwen2.5-coder-7b-instruct-q4_k_m-00001-of-00002.gguf",
+   "blobId": "bf3742de97247003a0220aee4b47155e86576784",
+   "size": 3993201376,
+   "lfs": {
+    "sha256": "89f120544682078148c5a86117de9af3a65c339111262f2d3ff01d80d48b14be",
+    "size": 3993201376,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-7b-instruct-q4_k_m-00002-of-00002.gguf",
+   "blobId": "0aa9036e0fb39cbe0bc6f69770e04ed73bfc5c5e",
+   "size": 689872288,
+   "lfs": {
+    "sha256": "0183b3c850cfa96c31082c3af0123115300d3f62798c4448fa8f57bd0eac05e0",
+    "size": 689872288,
+    "pointerSize": 134
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+   "blobId": "2543d9eb4f39c19ea6b07e3854b561e96921c654",
+   "size": 4683073536,
+   "lfs": {
+    "sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+    "size": 4683073536,
+    "pointerSize": 135
+   }
+  }
+ ]
+}

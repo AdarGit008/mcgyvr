@@ -509,6 +509,41 @@
       "says": "The width comments in a written setup file are wrapped to.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "knowledge/boards.py:MAX_PAGES": {
+      "kind": "choice",
+      "says": "The most pages of an LMArena board read from the Hub's dataset viewer; the text board's overall rows filled five pages of a hundred on 2026-10-07, and a board that runs on past this is read no further.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "knowledge/boards.py:PAGE_ROWS": {
+      "kind": "fact",
+      "says": "The rows one page of the Hub's dataset viewer answers at most, which is how far apart the pages of an LMArena board are asked for.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "knowledge/online.py:DOCUMENT_MAX_BYTES": {
+      "kind": "choice",
+      "says": "The most bytes read of any answer of the Hub or a board other than a header slice; the largest board, SWE-bench's, was 4 MiB on 2026-10-07, and a longer answer is refused rather than read.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "knowledge/online.py:F16_BYTES": {
+      "kind": "fact",
+      "says": "The bytes one cached element takes at an f16 cache, the width a record's kv_bytes_per_token is stated at.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "knowledge/online.py:HEADER_FIRST_BYTES": {
+      "kind": "choice",
+      "says": "The first slice of a GGUF file asked for over HTTP Range to read its header; a slice that ends inside the header is followed by the next, twice as long as what is held.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "knowledge/online.py:HEADER_MAX_BYTES": {
+      "kind": "choice",
+      "says": "The most of a GGUF file ever read for its header; a header that does not parse within it is named as not read, and no weight is ever downloaded to size a model.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "knowledge/online.py:TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, the Hub or a board takes to answer one model-knowledge request; past it the network is taken as not answering, every other lookup is skipped, and the cache and the shipped catalog answer.",
+      "moves_to": "knowledge_lookup_timeout_s"
+    },
     "knowledge/record.py:SCHEMA_VERSION": {
       "kind": "choice",
       "says": "The version of the model knowledge's format, the shipped model catalog's and each cache file's, that this code reads and writes; a catalog of another version is refused by name, and a cache file of another version is not read.",

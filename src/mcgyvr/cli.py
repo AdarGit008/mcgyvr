@@ -2606,6 +2606,7 @@ def _recommend(args: argparse.Namespace) -> int:
             users=args.users,
             hosts=args.host,
             model_stores=args.model_store,
+            offline=args.offline,
         )
     except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3831,6 +3832,15 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "a directory on the rig holding *.gguf checkpoints (repeatable); "
             "when any fits, recommend only from it"
+        ),
+    )
+    rec.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "ask huggingface.co and the leaderboards nothing: use the model "
+            "knowledge cache and the shipped catalog only (so does "
+            "HF_HUB_OFFLINE=1)"
         ),
     )
     rec.set_defaults(func=_recommend)

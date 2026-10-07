@@ -1,0 +1,42 @@
+{
+ "_purpose": "Responses recorded with a plain GET on 2026-10-07 from the URLs the online model knowledge reads, cut down to the rows the tests name. Each entry says which file holds the answer to which URL and what of it was kept; nothing in a kept row was changed. No machine of anyone's is named here.",
+ "read_at": "2026-10-07",
+ "responses": {
+  "https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/master/data/leaderboards.json": {
+   "file": "swe_bench_leaderboards.json",
+   "kept": "Verified and Lite only; the rows of three open coding models (bash-only and agent rows) and two closed bash-only rows; fields name, resolved, date, os_model, tags, model_release_date"
+  },
+  "https://evalplus.github.io/results.json": {
+   "file": "evalplus_results.json",
+   "kept": "four entries, whole"
+  },
+  "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai/leaderboard-dataset&config=text&split=latest&offset=0&length=100": {
+   "file": "lmarena_text_page0.json",
+   "kept": "the first page, cut to rows of ['claude-opus-5.5-high', 'gemini-4-argon-high']; features and totals as served"
+  },
+  "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai/leaderboard-dataset&config=text&split=latest&offset=100&length=100": {
+   "file": "lmarena_text_page1.json",
+   "kept": "overall rows of four open models gathered from pages 100-399, then the first two rows of the next category (where the overall board ends)"
+  },
+  "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai/leaderboard-dataset&config=text_to_image&split=latest&offset=0&length=100": {
+   "file": "lmarena_t2i_page0.json",
+   "kept": "the first page, cut to rows of ['flux-2-dev', 'gpt-image-2.5-sunburst', 'qwen-image-2512']; features and totals as served"
+  },
+  "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai/leaderboard-dataset&config=text_to_image&split=latest&offset=100&length=100": {
+   "file": "lmarena_t2i_page1.json",
+   "kept": "one row of the next category"
+  },
+  "https://gorilla.cs.berkeley.edu/data_overall.csv": {
+   "file": "bfcl_data_overall.csv",
+   "kept": "the header and the rows of Qwen3-32B, Qwen3-8B (FC and Prompt) and one closed model, whole"
+  },
+  "https://huggingface.co/datasets/hf-audio/open-asr-leaderboard-results/resolve/main/english_short_latest.csv": {
+   "file": "open_asr_english_short_latest.csv",
+   "kept": "the header and three rows, whole"
+  },
+  "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF?blobs=true": {
+   "file": "hub_api_qwen2.5-coder-7b-instruct-gguf.json",
+   "kept": "id, sha, private, gated, lastModified, cardData.base_model, and the siblings README.md and the Q4_K_M files (whole and split)"
+  }
+ }
+}

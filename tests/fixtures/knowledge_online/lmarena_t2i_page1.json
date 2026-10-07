@@ -1,0 +1,114 @@
+{
+ "features": [
+  {
+   "feature_idx": 0,
+   "name": "model_name",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 1,
+   "name": "organization",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 2,
+   "name": "license",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 3,
+   "name": "rating",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 4,
+   "name": "rating_lower",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 5,
+   "name": "rating_upper",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 6,
+   "name": "variance",
+   "type": {
+    "dtype": "float64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 7,
+   "name": "vote_count",
+   "type": {
+    "dtype": "int64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 8,
+   "name": "rank",
+   "type": {
+    "dtype": "int64",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 9,
+   "name": "category",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 10,
+   "name": "leaderboard_publish_date",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  }
+ ],
+ "rows": [
+  {
+   "row_idx": 82,
+   "row": {
+    "model_name": "gpt-image-2.5-sunburst",
+    "organization": "openai",
+    "license": "Proprietary",
+    "rating": 1410.3607186338957,
+    "rating_lower": 1393.2074408979463,
+    "rating_upper": 1427.513996369845,
+    "variance": 76.59458315719982,
+    "vote_count": 1573,
+    "rank": 1,
+    "category": "3d_modeling",
+    "leaderboard_publish_date": "2026-10-06"
+   },
+   "truncated_cells": []
+  }
+ ],
+ "num_rows_total": 680,
+ "num_rows_per_page": 100,
+ "partial": false
+}
