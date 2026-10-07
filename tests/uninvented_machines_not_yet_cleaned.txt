@@ -25,7 +25,7 @@
 .gitattributes	dev-pointer=2
 .github/workflows/release.yml	dev-pointer=1
 .gitignore	dev-pointer=8
-CHANGELOG.md	dev-pointer=9
+CHANGELOG.md	dev-pointer=5
 Makefile	dev-pointer=2
 README.md	dev-pointer=8
 eslint.config.mjs	dev-pointer=7
