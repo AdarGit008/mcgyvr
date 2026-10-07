@@ -43,14 +43,6 @@ uv tool install mcgyvr
 mcgyvr --help
 ```
 
-Until the PyPI package is published, that first line finds nothing. Install
-the latest release, v0.3.0, from GitHub instead, either its wheel or its tag:
-
-```sh
-uv tool install https://github.com/AdarGit008/mcgyvr/releases/download/v0.3.0/mcgyvr-0.3.0-py3-none-any.whl
-uv tool install git+https://github.com/AdarGit008/mcgyvr@v0.3.0
-```
-
 ```text
 usage: mcgyvr [-h] [--version]
               {capabilities,caps,config,pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,init,attach,index,resolve,read,fleet,rig,mcorch,run,delegate}
@@ -59,8 +51,9 @@ usage: mcgyvr [-h] [--version]
 Offload scoped coding work to a configurable worker ladder.
 ```
 
-To run `main` as it stands instead — work merged since that release and not
-yet tagged — install from the repository:
+That installs the latest release from PyPI; `pipx install mcgyvr` does the
+same. To run `main` as it stands instead — work merged since that release
+and not yet tagged — install from the repository:
 
 ```sh
 uv tool install git+https://github.com/AdarGit008/mcgyvr
@@ -81,7 +74,7 @@ installed: ~/.claude/skills/mcgyvr/references/examples.md
 installed: ~/.pi/agent/skills/mcgyvr/SKILL.md
 installed: ~/.pi/agent/skills/mcgyvr/references/examples.md
 setup: skills/mcgyvr/SETUP.md
-cli: uv tool install git+https://github.com/AdarGit008/mcgyvr
+cli: uv tool install mcgyvr
 Invoke it with /mcgyvr; it does not load itself.
 ```
 
