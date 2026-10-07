@@ -161,6 +161,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   number it is: the rung's `output_tokens` or the contract's
   `limits.max_output_tokens`. A rung that declares no window is not measured
   against one.
+- The run-wide `max_window_fraction` in the config is now enforced; nothing
+  read it before. A contract that declares no share of its own is held to
+  the run's share before it is sent, by the same check and with the same
+  outcome as an oversize contract: `error` on the rung it was sent to,
+  `ContractTooLargeForRungError`, nothing dispatched, no journal row, no
+  sleeping card woken, no climb. A contract's own
+  `limits.max_window_fraction` still wins where it states one. The refusal
+  now says which limit was hit: the run's `max_window_fraction` (config) or
+  the contract's own `limits.max_window_fraction`.
 - Three tests no longer fail on a busy machine (they failed under several
   parallel `make check` runs, at load ~60 on 8 cores). The tensor-cache
   session tests gave the agent's cache check 5 s, but the check hashes in

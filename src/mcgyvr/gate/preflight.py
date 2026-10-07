@@ -262,18 +262,31 @@ def check_contract_fits(
     # standing default applies where it did not. Never the other way round: a
     # contract that declared a share declared it about itself, and a config
     # that overrode it would make the contract's own text untrue.
-    share = contract.limits.max_window_fraction
+    share, declared_by = contract.limits.max_window_fraction, CONTRACT_SHARE
     if share is None:
-        share = default_fraction
+        share, declared_by = default_fraction, RUN_SHARE
     return check_window_fraction(
         _charged(estimated, TokenCount.ESTIMATE) + reserve,
         context_window,
         share,
+        declared_by=declared_by,
     )
 
 
+#: Who declared the share a contract is held to, as a refusal names it. The
+#: fix lives in a different file for each — the contract's ``limits`` or the
+#: run's config — so a refusal that did not say which would send the operator
+#: to a key that may not be set.
+CONTRACT_SHARE = "the contract's own `limits.max_window_fraction`"
+RUN_SHARE = "the run's `max_window_fraction` (config)"
+
+
 def check_window_fraction(
-    contract_tokens: int, context_window: int, fraction: float | None
+    contract_tokens: int,
+    context_window: int,
+    fraction: float | None,
+    *,
+    declared_by: str = RUN_SHARE,
 ) -> PreflightIssue | None:
     """Refuse a contract that claims more of a rung's window than the run allows.
 
@@ -298,7 +311,9 @@ def check_window_fraction(
     the reply arrives.
 
     Both fractions are named in the refusal, because which one is wrong
-    decides the fix: a contract to re-decompose, or a share to re-declare.
+    decides the fix: a contract to re-decompose, or a share to re-declare. So
+    is ``declared_by`` — :data:`CONTRACT_SHARE` or :data:`RUN_SHARE` — because
+    a share to re-declare is re-declared where it was declared.
     """
     if fraction is None:
         return None
@@ -318,9 +333,9 @@ def check_window_fraction(
     return PreflightIssue(
         "window-share",
         f"contract claims {claimed:.2f} of the rung's window "
-        f"({contract_tokens} tokens of {context_window}), but this run allows "
-        f"{fraction:.2f}. Either decompose into smaller contracts or raise "
-        f"the share this run allows",
+        f"({contract_tokens} tokens of {context_window}), but {declared_by} "
+        f"allows {fraction:.2f}. Either decompose into smaller contracts or "
+        f"raise {declared_by}",
     )
 
 
