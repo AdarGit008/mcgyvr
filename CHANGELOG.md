@@ -31,6 +31,21 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 - `serving.split_units`: one model split by layer across cards of several
   machines (llama.cpp RPC workers), sized as `launch.shards` is.
 
+- A sample stamps a fleet (`mcgyvr.fleet.sample`, `mcgyvr.fleet.stamp`;
+  owner, 2026-10-07: confirm = run the sample, sample green = fleet
+  stamped). A staged fleet's sample is judged from the door's own reads of it
+  (`read --fleet F --probe U --load WxN`): every awake unit probed (warm
+  decode and prefill read, no restart, its card inside its `room_mib`), and
+  the use case's task passed (coding: the gate on any rung; chat: each unit
+  answers at its planned window and slots; agent: grounded and safety; an
+  opted-in Jev: one typed choice). Those reads, with your rig file, become
+  the dev-run evidence `fleet lock` reads. A green sample is locked under
+  `~/.local/state/mcgyvr/stamps/<fleet>/<run>/` (setup, `evidence.json`
+  and the lock; no lab checkout needed), promoted to
+  `$MCGYVR_HOME/fleets/<fleet>@<date>/` and named live. A red sample, or a
+  lock or promote refusal, stamps nothing and lists why. Not yet sampled: a
+  fleet with a unit that sleeps until needed ("the swap isn't built yet"),
+  and media-gen. `mcgyvr setup` will run the sample; nothing calls it yet.
 - Model geometry (`mcgyvr.knowledge.geometry`, `data/model-geometry.json`):
   each model file's header row, the one thing the serving sizer reads, kept
   per file at a revision with one source and one date for the whole row. The
