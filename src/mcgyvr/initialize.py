@@ -1041,6 +1041,8 @@ def initialize(
                     proposal,
                     profile,
                     api_units=asked,
+                    use_case=use_case,
+                    deployment=deployment,
                 )
             except (DecisionError, RunnerError) as exc:
                 compose_limits = (_compose_failed_note(profile, exc),)
