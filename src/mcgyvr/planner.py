@@ -56,6 +56,8 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import serving
+from mcgyvr.config import ROLE_ALWAYS_ON as ROLE_ALWAYS_ON
+from mcgyvr.config import ROLE_SLEEPER as ROLE_SLEEPER
 from mcgyvr.knowledge import boards
 from mcgyvr.knowledge import geometry as kg
 from mcgyvr.knowledge import store as ks
@@ -73,10 +75,9 @@ STRONG_USE_CASES = ("chat", "agent")
 LADDER_USE_CASES = ("coding",)
 PLANNED_USE_CASES = (*STRONG_USE_CASES, *LADDER_USE_CASES)
 
-#: What a unit is to its fleet: the two values ``units.<unit>.role`` takes.
-#: The Jev unit is resident, so always-on, and is marked ``jev`` beside it.
-ROLE_ALWAYS_ON = "always-on"
-ROLE_SLEEPER = "sleeps-until-needed"
+# What a unit is to its fleet: the two values ``units.<unit>.role`` takes
+# are mcgyvr.config's (imported above). The Jev unit is resident, so
+# always-on, and is marked ``jev`` beside it.
 
 #: The Jev unit's default model (owner, Round 3) and its context per slot
 #: (owner, Round 4; ``--jev-ctx`` says another).

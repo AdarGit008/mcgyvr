@@ -46,6 +46,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   lock or promote refusal, stamps nothing and lists why. Not yet sampled: a
   fleet with a unit that sleeps until needed ("the swap isn't built yet"),
   and media-gen. `mcgyvr setup` will run the sample; nothing calls it yet.
+- The ladder manager's swap works for llama.cpp. A unit can say
+  `units.<u>.role: sleeps-until-needed` (default `always-on`, which changes
+  nothing): `emit` writes it into its card's one launch spec beside the
+  always-on units, under the compose profile `asleep`, so a whole
+  `serve up` leaves it down and the awake set still fits the card. When the
+  dearest awake rung is full the manager stops the units whose room it needs
+  (`serve down --unit`), starts it (`serve up --unit`), and starts them again
+  when it sleeps. A card of co-resident llama.cpp units now switches one unit
+  at a time, as a vLLM card does. A task that climbs to a sleeping swap
+  partner does not start it; the manager does, after making room. The door
+  reads the profile: a whole `serve up` waits for and judges the awake units
+  only, and a whole `serve down` also removes a swap partner left running.
+  llama.cpp units only; vLLM keeps its level-2 sleep.
 - Model geometry (`mcgyvr.knowledge.geometry`, `data/model-geometry.json`):
   each model file's header row, the one thing the serving sizer reads, kept
   per file at a revision with one source and one date for the whole row. The
