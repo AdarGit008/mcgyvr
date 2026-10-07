@@ -19,10 +19,14 @@ gives. What this module decides is only what the sizer is asked:
 * **chat and agent** (owner, Round 7): ONE unit spanning every card of every
   machine, split by layer (the pipeline split; across machines over RPC), the
   biggest model that fits there, a slot per user, at the most context per
-  slot that fits, never below :data:`STRONG_MIN_CTX`. Where the machines
-  cannot be spanned (the product binds an RPC worker only to an address it
-  was given, never to a name it would have to resolve), the unit spans one
-  machine's cards, else takes the roomiest card, and says why.
+  slot that fits, never below :data:`STRONG_MIN_CTX`. A worker on another
+  machine listens on the private IPv4 address that machine's rig file
+  records (owner, Round 9: ``mcgyvr scan --rig`` records it), or on the
+  ``--host`` itself when that is an IPv4 address; the product never resolves
+  a name into one. A machine with neither is left out of the span and the
+  unit says so, naming the command that records it. Where the machines
+  cannot be spanned, the unit spans one machine's cards, else takes the
+  roomiest card, and says why.
 * **coding** (owner, Round 7): a ladder per rig. It starts with the fastest
   model that serves coding, filled with slots; a bigger rung is added only
   when it is a clear step up (:data:`CLEAR_STEP`) and only while a task that
@@ -48,6 +52,7 @@ The plan document is version 2 (plan section 7); :func:`document` writes it.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -61,6 +66,7 @@ from mcgyvr.knowledge import geometry as kg
 from mcgyvr.knowledge import store as ks
 from mcgyvr.knowledge.record import ModelRecord, Score
 from mcgyvr.scan import Scan
+from mcgyvr.serving import rigfile
 
 #: The version of the plan document. Version 1 was one placement and no host.
 SCHEMA_VERSION = 2
@@ -459,8 +465,13 @@ def _on_card(
     return place
 
 
-def _across(scans: Mapping[str, Scan], shards: Sequence[Card]) -> Placer:
-    """A placer split by layer across ``shards``, the first on the head machine."""
+def _across(
+    scans: Mapping[str, Scan],
+    shards: Sequence[Card],
+    addresses: Mapping[str, str] | None = None,
+) -> Placer:
+    """A placer split by layer across ``shards``, the first on the head machine,
+    each worker listening on the address ``addresses`` records for its machine."""
 
     def place(
         spec: serving.ModelSpec, width: int | None, ctx: int
@@ -473,6 +484,7 @@ def _across(scans: Mapping[str, Scan], shards: Sequence[Card]) -> Placer:
             port=FIRST_PORT,
             ctx_per_slot=ctx,
             engine=ENGINE,
+            binds=addresses,
         )
 
     return place
@@ -635,6 +647,7 @@ def size_strong(
     users: int,
     ctx: int | None = None,
     claims: Mapping[Card, float] | None = None,
+    addresses: Mapping[str, str] | None = None,
 ) -> Sized | str:
     """A chat or agent strong unit: one slot per user, at the most context per
     slot that fits (capped at the model's own, never below
@@ -642,9 +655,12 @@ def size_strong(
 
     It spans every card of every machine not claimed (owner, Round 7), split
     by layer, the serving process on the machine the model is on (else the
-    first). Where that does not fit, or the machines cannot be spanned, it
-    spans the head machine's cards, else takes the roomiest card left; the
-    unit says why it spans less. Or why it does not fit at all.
+    first). A worker machine is spanned at the private IPv4 address
+    ``addresses`` records for it (its rig file's), or at its name when that
+    is an IPv4 address; one with neither is left out, and the unit says so
+    (:func:`unaddressed`). Where that does not fit, or the machines cannot be
+    spanned, it spans the head machine's cards, else takes the roomiest card
+    left; the unit says why it spans less. Or why it does not fit at all.
     """
     taken = dict(claims or {})
     cap = model.context_length
@@ -659,17 +675,23 @@ def size_strong(
         return f"{model.label}: its machine was not read"
     head = present if present in rigs else rigs[0]
     order = [head, *(rig for rig in rigs if rig != head)]
+    known = addresses or {}
+    spanned = [head, *(rig for rig in order[1:] if rig in known or _ipv4(rig))]
     free = [
         card
-        for rig in order
+        for rig in spanned
         for card in all_cards({rig: scans[rig]})
         if card not in taken
     ]
+    left_out = [rig for rig in order if rig not in spanned]
     tries: list[tuple[str, Placer]] = []
     if len(free) >= 2:
         machines = len({rig for rig, _ in free})
         tries.append(
-            (f"across {len(free)} cards of {machines} machine(s)", _across(scans, free))
+            (
+                f"across {len(free)} cards of {machines} machine(s)",
+                _across(scans, free, known),
+            )
         )
     head_free = [card for card in free if card[0] == head]
     if len(head_free) >= 2 and len(head_free) < len(free):
@@ -683,7 +705,7 @@ def size_strong(
         tries.append(
             (f"on {single[0]} card {single[1]}", _on_card(scans, single, taken))
         )
-    notes: list[str] = []
+    notes: list[str] = [unaddressed(rig) for rig in left_out]
     whys: list[str] = []
     for where, placer in tries:
         fit = _size(placer, model, width=users, ctx=least, cap=None if ctx else cap)
@@ -693,6 +715,25 @@ def size_strong(
             continue
         return _sized(model, fit, notes=tuple(notes))
     return "; ".join(dict.fromkeys(whys))
+
+
+def _ipv4(name: str) -> bool:
+    """Whether ``name`` is an IPv4 address as written. Nothing is resolved."""
+    try:
+        ipaddress.IPv4Address(name)
+    except ValueError:
+        return False
+    return True
+
+
+def unaddressed(rig: str) -> str:
+    """Why ``rig`` is left out of a span, and what records its address."""
+    return (
+        f"not across {rig}: no private IPv4 is recorded for {rig}, and a worker "
+        "on another machine listens only on an address, never on a name the "
+        f"product would have to resolve; `{rigfile.MAKE.format(rig=rig)}` "
+        "records it in the rig's rig file"
+    )
 
 
 def _present_rig(model: Model) -> str | None:
@@ -871,10 +912,13 @@ def assemble(
     jev: Sized | None = None,
     priority: str | None = None,
     clear: float = CLEAR_STEP,
+    addresses: Mapping[str, str] | None = None,
 ) -> dict[str, Choices]:
     """Every model sized for ``use_case``, ranked: one :class:`Choices` for
     the fleet's strong unit (chat, agent), or one per rig for its ladder's top
-    rung (coding), around the Jev unit when one is planned."""
+    rung (coding), around the Jev unit when one is planned. ``addresses`` is
+    the private IPv4 address each rig's rig file records, by rig: where a
+    strong unit's workers on other machines listen."""
     if use_case not in PLANNED_USE_CASES:
         raise PlanError(f"{use_case!r} is not a use case this planner places")
     jev_claims: dict[Card, float] = {}
@@ -890,7 +934,12 @@ def assemble(
         dropped: list[tuple[str, str]] = []
         for model in seen.values():
             sized = size_strong(
-                scans, model, users=users, ctx=ctx_per_slot, claims=jev_claims
+                scans,
+                model,
+                users=users,
+                ctx=ctx_per_slot,
+                claims=jev_claims,
+                addresses=addresses,
             )
             if isinstance(sized, str):
                 dropped.append((model.label, sized))
@@ -1191,7 +1240,11 @@ def unit_documents(
         "notes": list(one.notes),
     }
     if len(one.cards) > 1:
-        head["shards"] = [{"rig": rig, "card": card} for rig, card in one.cards]
+        binds = {w.host: w.args["-H"] for w in one.workers if "-H" in w.args}
+        head["shards"] = [
+            {"rig": rig, "card": card, **({"bind": binds[rig]} if rig in binds else {})}
+            for rig, card in one.cards
+        ]
     if one.role == ROLE_SLEEPER:
         head["swaps_with"] = sorted(
             {name for card in one.swaps_with for name in by_card.get(card, ())}
@@ -1347,6 +1400,7 @@ def units_of(
                     port=port,
                     ctx_per_slot=ctx,
                     engine=ENGINE,
+                    binds={s["rig"]: s["bind"] for s in doc["shards"] if "bind" in s},
                 )
             else:
                 rig = next(
