@@ -59,7 +59,11 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
 from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID, SAFETY_PASS, OutputChecks
-from mcgyvr.gate.preflight import reply_cap
+from mcgyvr.gate.preflight import (
+    ServingWindow,
+    check_contract_against_rung,
+    reply_cap,
+)
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.route import Try, Verdict, draws_for, family_of
@@ -105,10 +109,26 @@ class OutputCapTooLargeError(DriveError):
     """The reply cap for this rung does not fit the window that rung serves.
 
     Distinct from :class:`PromptTooLargeError` because the repair is: one is a
-    contract to re-decompose, the other is a number on the ladder to re-declare.
-    A rung asking for more reply room than its machine serves would be
-    truncated at a boundary nobody chose — the failure a per-rung cap exists to
-    end — so it is refused at the seam that would have sent it.
+    contract to re-decompose, the other is a number to re-declare — the rung's
+    ``output_tokens`` where it set one, the contract's
+    ``limits.max_output_tokens`` where it did not, and the message names which.
+    A reply cap larger than the machine serves would be truncated at a boundary
+    nobody chose — the failure a per-rung cap exists to end — so it is refused
+    at the seam that would have sent it.
+    """
+
+
+class ContractTooLargeForRungError(DriveError):
+    """The contract does not fit the window of the rung it was sent to.
+
+    Its declared ceiling is larger than the window, its assembled prompt and
+    reply do not fit inside it, or it claims more of the window than its own
+    ``limits.max_window_fraction`` allows
+    (:func:`~mcgyvr.gate.preflight.check_contract_against_rung`). Owner ruling:
+    a task too big for the rung it was sent to fails, before it is sent and
+    without being moved up the ladder on its own. Not a
+    :class:`~mcgyvr.runner.RunnerError`, so the cooldown does not learn the
+    source as failing: the source did nothing wrong.
     """
 
 
@@ -275,6 +295,48 @@ def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
     )
 
 
+def refuse_unsendable(
+    rung: str, endpoint: ServingWindow, prompt: WorkerPrompt, contract: Contract
+) -> None:
+    """Raise, before anything is sent, if this prompt cannot go to this rung.
+
+    Two questions, in this order. Does the assembled prompt fit the ceiling its
+    own contract set (:class:`PromptTooLargeError`)? And does the contract fit
+    the window the rung serves —
+    :func:`~mcgyvr.gate.preflight.check_contract_against_rung`, which asks
+    whether its declared ceiling, its reply cap, and its prompt beside that cap
+    fit, and whether it claims more of the window than it allowed itself?
+
+    A rung too small for the contract raises :class:`ContractTooLargeForRungError`
+    (or :class:`OutputCapTooLargeError` when the reply cap alone fills the
+    window), naming the contract, the rung and the preflight issue, which
+    carries the tokens and the window. Owner ruling: the task fails on the rung
+    it was sent to; it is not moved to a bigger one. Without this the request
+    went out and a llama.cpp unit answered ``400``, which reached the operator
+    as an HTTP status naming neither number.
+
+    A rung that declared no window enforces only the first question — the check
+    has no number to measure against, and inventing one is the defect it ends.
+    """
+    if not prompt.fits:
+        raise PromptTooLargeError(
+            f"contract {contract.id!r}: the assembled prompt does not fit its "
+            f"own ceiling and was not sent — {prompt.fit_issue}"
+        )
+    issue = check_contract_against_rung(contract, prompt.measured, rung=endpoint)
+    if issue is None:
+        return
+    refusal = (
+        OutputCapTooLargeError
+        if issue.reason == "output-cap"
+        else ContractTooLargeForRungError
+    )
+    raise refusal(
+        f"contract {contract.id!r} does not fit rung {rung!r} "
+        f"({endpoint.context_window}-token window) and was not sent — {issue}"
+    )
+
+
 def dispatch_prompt(
     source_map: SourceMap,
     rung: str,
@@ -317,22 +379,13 @@ def dispatch_prompt(
     caller that knows which draw this is: draw 0 of an attempt is greedy and
     the draws after it sample. ``None`` keeps :class:`~mcgyvr.runner.Request`'s
     own default of ``0.0``.
+
+    Both refusals are :func:`refuse_unsendable`'s, which also measures the
+    whole contract against the rung's window.
     """
-    if not prompt.fits:
-        raise PromptTooLargeError(
-            f"contract {contract.id!r}: the assembled prompt does not fit its "
-            f"own ceiling and was not sent — {prompt.fit_issue}"
-        )
     endpoint = source_map.bind(rung)
+    refuse_unsendable(rung, endpoint, prompt, contract)
     cap = reply_cap(contract, endpoint)
-    window = endpoint.context_window
-    if window is not None and cap is not None and cap >= window:
-        raise OutputCapTooLargeError(
-            f"rung {rung!r}: a reply cap of {cap} tokens does not fit the "
-            f"{window}-token window {endpoint.source!r} serves, leaving nothing "
-            f"for the prompt. Lower `units.{rung}.output_tokens`, or "
-            f"point the rung at a machine that serves more"
-        )
     # ``timeout_s`` is the unit's ``request_timeout_s``, passed by the caller
     # that holds the config. ``None`` keeps ``Request``'s own default.
     fields: dict[str, Any] = {
@@ -758,6 +811,13 @@ def worker_attempt(
             adapters=adapters,
             retry=notes.get(this.rung.name),
         )
+        # A prompt that cannot go to this rung is refused here, before the
+        # draws, and not only inside `dispatch_prompt`: there it would be
+        # inside the journal's `observe` (a row for a request never sent) and
+        # behind the waker (a sleeping card woken to be refused). Raised before
+        # the first dispatch, it is `rows == 0`, and `escalate` ends the run as
+        # an error on this rung without trying a bigger one (owner ruling).
+        refuse_unsendable(this.rung.name, pool.bind(this.rung.name), prompt, contract)
         # Read once, before any draw goes out, because they are the attempt's
         # and not a draw's: the endpoint that will serve every draw and the
         # prompt exactly as the runner sends it. Both can raise, and a raise
