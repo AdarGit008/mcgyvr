@@ -9,8 +9,24 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
+### Added
+
+- Model knowledge, offline half (`mcgyvr.knowledge`): a record per model and
+  quantisation in which every number says its kind (fact, estimate or
+  reading), its source and the day it was read, and the closed lists of
+  sources and boards those are said from. It is read from the user's cache,
+  `$MCGYVR_HOME/knowledge/`, first, then from the shipped catalog. Nothing
+  writes the cache yet, and nothing here opens a socket.
+
 ### Changed
 
+- `data/model-catalog.json` is version 2: every number carries its source and
+  the day it was read, and each entry names the file a pick downloads (with
+  its revision and sha256). Each number was re-read from the Hugging Face Hub
+  on 2026-10-07; the old sizes matched no file there. The three Q4_K_M sizes
+  changed (DeepSeek-Coder-V2-Lite: 9558623232 -> 10364416768 bytes, so it
+  fits on fewer cards). `mcgyvr recommend` reads the catalog through the
+  knowledge layer, so a cached record is priced before the shipped one.
 - `install.sh` warns about an `mcgyvr` older than 0.3.0, the latest release
   tag (it was 0.1.0); v0.1.0 has no `mcgyvr delegate`, which the skill names.
 

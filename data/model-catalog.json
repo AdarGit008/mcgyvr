@@ -1,33 +1,122 @@
 {
-  "schema_version": 1,
-  "_purpose": "The HuggingFace catalog `mcgyvr recommend` falls back to when no local model store fits. Each entry is a downloadable checkpoint: a repository id, the quantisation the pick asks for, the size of that quantisation in bytes as shipped in this catalog (not re-read here; a local store's header is the measured path), and the engines that can serve it. A catalog pick has no header read on the rig, so its fit is priced from shipped geometry too: `context_length` is the declared context the pick is served at, and `kv_bytes_per_token` is the per-token KV cache width over every caching layer at the shipped f16 cache dtype, derived from the checkpoint's GGUF header dims (layers x kv-heads x (key_length + value_length) x 2 bytes) and shipped here rather than invented at runtime from the model name. `recurrent_bytes_per_slot` is the per-slot recurrent/SSM state the pick keeps resident; it is 0 for every shipped entry, which are attention-only. This file is data: adding a model is an edit here, not a code change.",
+  "schema_version": 2,
+  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits, and that mcgyvr's model knowledge falls back to offline, after the user's cache ($MCGYVR_HOME/knowledge). Each entry is one model at one quantisation: `weights` names the file a pick downloads (repository, revision, file, sha256), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
   "models": [
     {
       "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
       "quant": "Q4_K_M",
-      "size_bytes": 4683575296,
-      "context_length": 32768,
-      "kv_bytes_per_token": 57344,
-      "recurrent_bytes_per_slot": 0,
-      "engines": ["llama.cpp", "vllm"]
+      "engines": [
+        "llama.cpp",
+        "vllm"
+      ],
+      "weights": {
+        "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+        "revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a",
+        "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+        "sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c"
+      },
+      "size_bytes": {
+        "value": 4683073536,
+        "kind": "fact",
+        "source": "hub-api:Qwen/Qwen2.5-Coder-7B-Instruct-GGUF@13fb94bfda8c8cf22497dc57b78f391a9acb426a/qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+        "read_at": "2026-10-07"
+      },
+      "context_length": {
+        "value": 32768,
+        "kind": "fact",
+        "source": "hub-config:Qwen/Qwen2.5-Coder-7B-Instruct@c03e6d358207e414f1eca0bb1891e29f1db0e242/config.json#max_position_embeddings",
+        "read_at": "2026-10-07"
+      },
+      "kv_bytes_per_token": {
+        "value": 57344,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen2.5-Coder-7B-Instruct-GGUF@13fb94bfda8c8cf22497dc57b78f391a9acb426a/qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+        "read_at": "2026-10-07"
+      },
+      "recurrent_bytes_per_slot": {
+        "value": 0,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen2.5-Coder-7B-Instruct-GGUF@13fb94bfda8c8cf22497dc57b78f391a9acb426a/qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+        "read_at": "2026-10-07"
+      },
+      "scores": []
     },
     {
       "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct",
       "quant": "Q4_K_M",
-      "size_bytes": 8998459392,
-      "context_length": 32768,
-      "kv_bytes_per_token": 196608,
-      "recurrent_bytes_per_slot": 0,
-      "engines": ["llama.cpp", "vllm"]
+      "engines": [
+        "llama.cpp",
+        "vllm"
+      ],
+      "weights": {
+        "repo": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
+        "revision": "d0a692ef765eefbf2fabb130b3cb2e8917e3d225",
+        "file": "qwen2.5-coder-14b-instruct-q4_k_m.gguf",
+        "sha256": "c1e659736d89ac1065fb495330fb824d94001974a4bfa78e7270e43476a8d940"
+      },
+      "size_bytes": {
+        "value": 8988110272,
+        "kind": "fact",
+        "source": "hub-api:Qwen/Qwen2.5-Coder-14B-Instruct-GGUF@d0a692ef765eefbf2fabb130b3cb2e8917e3d225/qwen2.5-coder-14b-instruct-q4_k_m.gguf",
+        "read_at": "2026-10-07"
+      },
+      "context_length": {
+        "value": 32768,
+        "kind": "fact",
+        "source": "hub-config:Qwen/Qwen2.5-Coder-14B-Instruct@aedcc2d42b622764e023cf882b6652e646b95671/config.json#max_position_embeddings",
+        "read_at": "2026-10-07"
+      },
+      "kv_bytes_per_token": {
+        "value": 196608,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen2.5-Coder-14B-Instruct-GGUF@d0a692ef765eefbf2fabb130b3cb2e8917e3d225/qwen2.5-coder-14b-instruct-q4_k_m.gguf",
+        "read_at": "2026-10-07"
+      },
+      "recurrent_bytes_per_slot": {
+        "value": 0,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen2.5-Coder-14B-Instruct-GGUF@d0a692ef765eefbf2fabb130b3cb2e8917e3d225/qwen2.5-coder-14b-instruct-q4_k_m.gguf",
+        "read_at": "2026-10-07"
+      },
+      "scores": []
     },
     {
       "model_id": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
       "quant": "Q4_K_M",
-      "size_bytes": 9558623232,
-      "context_length": 163840,
-      "kv_bytes_per_token": 276480,
-      "recurrent_bytes_per_slot": 0,
-      "engines": ["llama.cpp"]
+      "engines": [
+        "llama.cpp"
+      ],
+      "weights": {
+        "repo": "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF",
+        "revision": "8f248fa2072348f77a8bc37754e470de1f61866e",
+        "file": "DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
+        "sha256": "603bd3f8a0281d16571da7c08bd661ee17ff0d1be6fcbd1b42242da257ef0bb8"
+      },
+      "size_bytes": {
+        "value": 10364416768,
+        "kind": "fact",
+        "source": "hub-api:bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF@8f248fa2072348f77a8bc37754e470de1f61866e/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
+        "read_at": "2026-10-07"
+      },
+      "context_length": {
+        "value": 163840,
+        "kind": "fact",
+        "source": "hub-config:deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct@e434a23f91ba5b4923cf6c9d9a238eb4a08e3a11/config.json#max_position_embeddings",
+        "read_at": "2026-10-07"
+      },
+      "kv_bytes_per_token": {
+        "value": 276480,
+        "kind": "fact",
+        "source": "gguf-header-range:bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF@8f248fa2072348f77a8bc37754e470de1f61866e/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
+        "read_at": "2026-10-07"
+      },
+      "recurrent_bytes_per_slot": {
+        "value": 0,
+        "kind": "fact",
+        "source": "gguf-header-range:bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF@8f248fa2072348f77a8bc37754e470de1f61866e/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
+        "read_at": "2026-10-07"
+      },
+      "scores": []
     }
   ]
 }

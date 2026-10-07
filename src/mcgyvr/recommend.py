@@ -24,9 +24,10 @@ Models to place come from exactly one of two places, and the plan says which:
   :mod:`mcgyvr.serving.ggufscan` to the rig as ``python3 -`` (the blob never
   comes back). When a discovered checkpoint fits, the plan recommends **only**
   from that store.
-* no store, or nothing local fits — the plan recommends from the shipped
-  HuggingFace catalog ``data/model-catalog.json`` (:func:`load_catalog`), and
-  marks those picks downloadable (``model_id``, ``quant``, ``size_bytes``). A
+* no store, or nothing local fits — the plan recommends from the model
+  knowledge read offline (:func:`load_catalog`: the user's cache, then the
+  shipped catalog ``data/model-catalog.json``), and marks those picks
+  downloadable (``model_id``, ``quant``, ``size_bytes``). A
   catalog pick has no header, so it fits only when its shipped ``size_bytes``
   plus the KV and recurrent state its shipped geometry prices for ``--users``
   slots fit the measured free VRAM.
@@ -41,14 +42,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from importlib import resources
-from pathlib import Path
 from typing import Any
 
 from mcgyvr import availability, decision
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.knowledge import store as knowledge_store
+from mcgyvr.knowledge.record import KnowledgeError
 from mcgyvr.pool import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
@@ -66,11 +67,6 @@ from mcgyvr.serving import (
     gatelib,
     vramfit,
 )
-
-#: The filename of the shipped HuggingFace catalog, and the schema version
-#: ``load_catalog`` reads. ``data/model-catalog.json`` is *data*: adding a
-#: model is an edit to that file, not to this module.
-MODEL_CATALOG_FILENAME = "model-catalog.json"
 
 #: The profile values the command accepts, and the one that is placed.
 PROFILES = ("coding", "chatting", "media_gen", "other")
@@ -137,85 +133,36 @@ def discover_command(directory: str) -> str:
     return f"find '{directory}'{_DISCOVER_SUFFIX}"
 
 
-def catalog_path() -> Path:
-    """Locate the shipped model catalog, from a checkout or a wheel."""
-    packaged = resources.files("mcgyvr") / "data" / MODEL_CATALOG_FILENAME
-    if Path(str(packaged)).is_file():
-        return Path(str(packaged))
-    # Running from a source checkout: data/ sits at the repo root.
-    checkout = Path(__file__).resolve().parents[2] / "data" / MODEL_CATALOG_FILENAME
-    if checkout.is_file():
-        return checkout
-    raise CatalogError(f"model catalog not found (looked for {MODEL_CATALOG_FILENAME})")
-
-
 def load_catalog() -> dict[str, Any]:
-    """The shipped HuggingFace catalog, parsed and validated.
+    """The catalog the plan prices catalog picks from: the model knowledge as
+    it reads offline, the user's cache first and then the shipped catalog
+    (:func:`mcgyvr.knowledge.store.offline`).
 
-    A dict with ``schema_version`` and ``models``; each model entry carries
-    ``model_id``, ``quant``, ``size_bytes``, ``context_length``,
-    ``kv_bytes_per_token``, ``recurrent_bytes_per_slot`` and ``engines``. The
-    command reads it as data, so a test can substitute a fake catalog through
-    this seam.
+    A dict whose ``models`` are flat entries carrying ``model_id``, ``quant``,
+    ``size_bytes``, ``context_length``, ``kv_bytes_per_token``,
+    ``recurrent_bytes_per_slot`` and ``engines``: each number's value, with
+    its source and date left in the knowledge it was read from. The command
+    reads it as data, so a test can substitute a fake catalog through this
+    seam.
     """
-    path = catalog_path()
     try:
-        raw: Any = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise CatalogError(f"cannot read {path}: {exc}") from exc
-
-    if not isinstance(raw, dict):
-        raise CatalogError(f"{path}: the catalog is not an object")
-    if raw.get("schema_version") != 1:
-        raise CatalogError(
-            f"{path} has schema_version {raw.get('schema_version')!r}; this "
-            f"code reads version 1 only"
-        )
-    models = raw.get("models")
-    if not isinstance(models, list) or not models:
-        raise CatalogError(f"{path} declares no models")
-    for entry in models:
-        if not isinstance(entry, dict):
-            raise CatalogError(f"{path}: a model entry is not an object")
-        for key in (
-            "model_id",
-            "quant",
-            "size_bytes",
-            "context_length",
-            "kv_bytes_per_token",
-        ):
-            if key not in entry:
-                raise CatalogError(f"{path}: a model entry has no {key!r}")
-        for key in ("size_bytes", "context_length", "kv_bytes_per_token"):
-            value = entry.get(key)
-            if not isinstance(value, int) or isinstance(value, bool):
-                raise CatalogError(f"{path}: a model entry's {key} is not an int")
-        if entry["context_length"] <= 0:
-            raise CatalogError(
-                f"{path}: model {entry.get('model_id')!r} declares a non-positive "
-                "context_length"
-            )
-        if entry["kv_bytes_per_token"] <= 0:
-            raise CatalogError(
-                f"{path}: model {entry.get('model_id')!r} declares a non-positive "
-                "kv_bytes_per_token"
-            )
-        recurrent = entry.get("recurrent_bytes_per_slot", 0)
-        if (
-            not isinstance(recurrent, int)
-            or isinstance(recurrent, bool)
-            or recurrent < 0
-        ):
-            raise CatalogError(
-                f"{path}: model {entry.get('model_id')!r} declares a negative or "
-                "non-integer recurrent_bytes_per_slot"
-            )
-        engines = entry.get("engines")
-        if not isinstance(engines, list) or not engines:
-            raise CatalogError(
-                f"{path}: model {entry.get('model_id')!r} declares no engines"
-            )
-    return raw
+        known = knowledge_store.offline()
+    except KnowledgeError as exc:
+        raise CatalogError(str(exc)) from exc
+    return {
+        "models": [
+            {
+                "model_id": one.model_id,
+                "quant": one.quant,
+                "size_bytes": one.size_bytes.value,
+                "context_length": one.context_length.value,
+                "kv_bytes_per_token": one.kv_bytes_per_token.value,
+                "recurrent_bytes_per_slot": one.recurrent_bytes_per_slot.value,
+                "engines": list(one.engines),
+            }
+            for one in known.records
+        ]
+    }
 
 
 def _read_header(host: str, path: str) -> Mapping[str, Any]:
