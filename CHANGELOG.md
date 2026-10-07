@@ -9,6 +9,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
 ### Added
 
 - `units.<unit>.sampling`: who sets a request's sampling parameters. `request`
