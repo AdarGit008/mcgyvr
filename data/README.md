@@ -6,7 +6,8 @@ serve, below), `task-catalog.json` (the vocabulary of what mcgyvr can be
 asked to do, after it), `numbers.json` (estimates mcgyvr sizes and judges
 a machine with, and what many other such numbers in its code are, at the end
 of this file) and `model-catalog.json` (the downloadable HuggingFace
-checkpoints `mcgyvr recommend` falls back to when no local store fits).
+checkpoints `mcgyvr recommend` falls back to when no local store fits, below
+the numbers section).
 
 ## Capability data
 
@@ -223,3 +224,29 @@ numbers named at the top of a file, in a class, or as a parameter's default; a
 number written inside a function where it is used is not seen, and the way to
 bring it under the check is to name it. The kinds and reasons are listed in
 `mcgyvr.derived`.
+
+
+# The model catalog
+
+`model-catalog.json` is the model knowledge mcgyvr ships: the downloadable
+models `mcgyvr recommend` prices when no local model store fits. It is read
+after the user's cache, `$MCGYVR_HOME/knowledge/` (default
+`~/.mcgyvr/knowledge`): a model the cache holds is taken from the cache, every
+other model from this file (`mcgyvr.knowledge.store.offline`).
+
+Each entry is one model at one quantisation. `weights` names the file a pick
+downloads: its repository, revision, file name and sha256. Every number is an
+object that says four things:
+
+- `value`, the number;
+- `kind`: `fact`, `estimate` or `reading`. This file holds no reading: a
+  reading is a number taken on a machine, and the cache is the only place one
+  may be kept;
+- `source`: where it came from, `<source>:<where>`, the sources named in
+  `mcgyvr.knowledge.record.SOURCES` (the Hub API, a file of the model's
+  repository, a file header read over HTTP `Range`, a board, the model card,
+  a reading), then the repository at its revision or the board on its date;
+- `read_at`: the day it was read, `YYYY-MM-DD`.
+
+A number that leaves any of these out, or a key an entry does not have, is
+refused by name when the file is read.

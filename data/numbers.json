@@ -509,6 +509,11 @@
       "says": "The width comments in a written setup file are wrapped to.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "knowledge/record.py:SCHEMA_VERSION": {
+      "kind": "choice",
+      "says": "The version of the model knowledge's format, the shipped model catalog's and each cache file's, that this code reads and writes; a catalog of another version is refused by name, and a cache file of another version is not read.",
+      "reason": "a code or version other programs or files read"
+    },
     "ladder_manager.py:_Streak.count": {
       "kind": "fact",
       "says": "A run of identical answers from the ladder manager's model starts at none.",
