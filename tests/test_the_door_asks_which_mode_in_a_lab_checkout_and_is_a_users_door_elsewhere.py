@@ -19,7 +19,8 @@ from pathlib import Path
 import pytest
 
 from mcgyvr import wake
-from mcgyvr.fleet import linkread, read
+from mcgyvr.fleet import admission, linkread, read
+from mcgyvr.fleet.admit import Plan
 from mcgyvr.serving import run
 from tests import onedoor, usermode
 
@@ -120,16 +121,38 @@ def test_a_mode_the_door_does_not_have_is_refused(tmp_path: Path) -> None:
     assert onedoor.ssh_log(stubs) == []
 
 
-def test_the_product_calls_the_door_as_the_users(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(("where", "mode"), [("lab", "lab"), ("install", "user")])
+def test_the_product_calls_the_door_in_the_mode_its_run_root_says(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, where: str, mode: str
 ) -> None:
+    """Owner, 2026-10-07 (Round 6): mcgyvr's own door calls are lab calls
+    inside the lab checkout, by the door's own test, and the user's anywhere
+    else; none hard-codes a mode, so the lab's ladder needs no rig file."""
+    root = (
+        usermode.lab_root(tmp_path)
+        if where == "lab"
+        else usermode.install_root(tmp_path)
+    )
+    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(root))
+    assert run.callers_mode() == mode
+
     serve = wake.door_argv(
         direction="up", host=usermode.RIG, compose=tmp_path / "c.yml", suffix="s1"
     )
-    assert serve[serve.index("--mode") + 1] == "user"
+    assert serve[serve.index("--mode") + 1] == mode
 
     reading = read.door_read_argv(usermode.RIG, "run-20261007T000000-0a1b2c3d")
-    assert reading[reading.index("--mode") + 1] == "user"
+    assert reading[reading.index("--mode") + 1] == mode
+
+    [clean, restore] = admission.door_commands(
+        {"units": {"fast": {"unit_id": "unt-1"}}},
+        "fleet-a",
+        Plan(
+            clean=[(usermode.RIG, "stray")], restore=[(usermode.RIG, "unt-1", "awake")]
+        ),
+    )
+    assert clean.count(f"--mode {mode} ") == 2, clean
+    assert f"--mode {mode} " in restore, restore
 
     started: list[list[str]] = []
 
@@ -144,7 +167,16 @@ def test_the_product_calls_the_door_as_the_users(
     with pytest.raises(StoppedError):
         linkread.DoorLinks().start(usermode.RIG, ["--peer", "0", "1"])
     [link] = started
-    assert link[link.index("--mode") + 1] == "user"
+    assert link[link.index("--mode") + 1] == mode
+
+
+def test_a_run_root_the_door_would_refuse_is_left_for_the_door_to_refuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A caller names a mode and opens the door; the door then refuses the
+    root with its own rule, so the caller does not refuse it first."""
+    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path / "absent"))
+    assert run.callers_mode() == "user"
 
 
 def test_the_door_offers_both_modes_and_no_other() -> None:

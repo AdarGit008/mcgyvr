@@ -122,9 +122,10 @@ class DoorLinks:
     """The real door: ``python -m mcgyvr.serving.run link --host H ...``."""
 
     def start(self, host: str, args: Sequence[str]) -> Pending:
-        from mcgyvr.serving.gatelib import DOOR_MODULE, USER_MODE
+        from mcgyvr.serving.gatelib import DOOR_MODULE
+        from mcgyvr.serving.run import callers_mode
 
-        argv = [sys.executable, "-m", DOOR_MODULE, "link", "--mode", USER_MODE]
+        argv = [sys.executable, "-m", DOOR_MODULE, "link", "--mode", callers_mode()]
         argv += ["--host", host, *args]
         proc = subprocess.Popen(
             argv,

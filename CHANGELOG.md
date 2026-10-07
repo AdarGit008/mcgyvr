@@ -62,7 +62,9 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   knowledge layer, so a cached record is priced before the shipped one.
 - mcgyvr's own door calls (`mcgyvr serve`, the ladder manager's sleep and
   wake, `fleet probe`'s read and link timings, and the door commands live
-  admission prints) pass `--mode user`. A lab tool that opens the door names
+  admission prints) name the mode by the door's own test: `--mode lab` where
+  the run root is a lab checkout, so the lab's ladder needs no rig file, and
+  `--mode user` anywhere else. A lab tool that opens the door names
   `--mode lab`.
 - `install.sh` warns about an `mcgyvr` older than 0.3.0, the latest release
   tag (it was 0.1.0); v0.1.0 has no `mcgyvr delegate`, which the skill names.

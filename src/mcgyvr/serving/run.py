@@ -990,6 +990,25 @@ def settle_mode(given: str | None, root: Path) -> str:
     return given
 
 
+def callers_mode() -> str:
+    """The mode mcgyvr's own door calls name: ``lab`` where the run root is a
+    lab checkout, ``user`` anywhere else.
+
+    Owner, 2026-10-07 (Round 6): the product's callers (the waker and the
+    ladder manager, the fleet's read and link, the door commands live
+    admission prints) never hard-code a mode. The test is the door's own
+    (:func:`settle_mode`), so inside the lab checkout they run as the lab's
+    tools do and need no rig file, and from an install they run as the user's.
+    A run root the door would refuse is left for the door to refuse with its
+    own rule, and reads as ``user`` here.
+    """
+    try:
+        root = run_root()
+    except RefusedError:
+        return USER_MODE
+    return LAB_MODE if (root / LAB_MARK).is_dir() else USER_MODE
+
+
 def _add_mode(parser: argparse.ArgumentParser) -> None:
     """``--mode``, the same on every run."""
     parser.add_argument(
