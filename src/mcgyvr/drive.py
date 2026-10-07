@@ -122,8 +122,9 @@ class ContractTooLargeForRungError(DriveError):
     """The contract does not fit the window of the rung it was sent to.
 
     Its declared ceiling is larger than the window, its assembled prompt and
-    reply do not fit inside it, or it claims more of the window than its own
-    ``limits.max_window_fraction`` allows
+    reply do not fit inside it, or it claims more of the window than its share
+    allows — its own ``limits.max_window_fraction``, or the run's
+    ``max_window_fraction`` where it declared none
     (:func:`~mcgyvr.gate.preflight.check_contract_against_rung`). Owner ruling:
     a task too big for the rung it was sent to fails, before it is sent and
     without being moved up the ladder on its own. Not a
@@ -296,7 +297,12 @@ def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
 
 
 def refuse_unsendable(
-    rung: str, endpoint: ServingWindow, prompt: WorkerPrompt, contract: Contract
+    rung: str,
+    endpoint: ServingWindow,
+    prompt: WorkerPrompt,
+    contract: Contract,
+    *,
+    window_fraction: float | None = None,
 ) -> None:
     """Raise, before anything is sent, if this prompt cannot go to this rung.
 
@@ -305,7 +311,14 @@ def refuse_unsendable(
     the window the rung serves —
     :func:`~mcgyvr.gate.preflight.check_contract_against_rung`, which asks
     whether its declared ceiling, its reply cap, and its prompt beside that cap
-    fit, and whether it claims more of the window than it allowed itself?
+    fit, and whether it claims more of the window than its share allows?
+
+    ``window_fraction`` is the run's ``max_window_fraction``, read off the
+    config by the caller that holds it. It is the share a contract that
+    declared none is held to; a contract that declared its own
+    ``limits.max_window_fraction`` is held to that instead (the rule is
+    :func:`~mcgyvr.gate.preflight.check_contract_fits`'s). ``None`` enforces
+    no run-wide share.
 
     A rung too small for the contract raises :class:`ContractTooLargeForRungError`
     (or :class:`OutputCapTooLargeError` when the reply cap alone fills the
@@ -323,7 +336,9 @@ def refuse_unsendable(
             f"contract {contract.id!r}: the assembled prompt does not fit its "
             f"own ceiling and was not sent — {prompt.fit_issue}"
         )
-    issue = check_contract_against_rung(contract, prompt.measured, rung=endpoint)
+    issue = check_contract_against_rung(
+        contract, prompt.measured, rung=endpoint, default_fraction=window_fraction
+    )
     if issue is None:
         return
     refusal = (
@@ -347,6 +362,7 @@ def dispatch_prompt(
     response_schema: dict[str, Any] | None = None,
     timeout_s: float | None = None,
     temperature: float | None = None,
+    window_fraction: float | None = None,
 ) -> Completion:
     """Send an assembled prompt to a rung, under the contract's own ceilings.
 
@@ -381,10 +397,11 @@ def dispatch_prompt(
     own default of ``0.0``.
 
     Both refusals are :func:`refuse_unsendable`'s, which also measures the
-    whole contract against the rung's window.
+    whole contract against the rung's window — and against ``window_fraction``,
+    the run's ``max_window_fraction``, where the contract declared no share.
     """
     endpoint = source_map.bind(rung)
-    refuse_unsendable(rung, endpoint, prompt, contract)
+    refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
     cap = reply_cap(contract, endpoint)
     # ``timeout_s`` is the unit's ``request_timeout_s``, passed by the caller
     # that holds the config. ``None`` keeps ``Request``'s own default.
@@ -699,6 +716,12 @@ def worker_attempt(
     # because it is the rung's — `draws_for` — and not the driver's.
     temperature = float(config.get("breadth.temperature", 0.0))
     tidying = bool(config.get("cleanup.enabled", True))
+    # The run's share of a rung's window, for every contract that declared
+    # none. Read once, here, because this is the layer holding the config, and
+    # handed to both refusals below — before the draws and at the binding — so
+    # the two cannot disagree on what the run allows.
+    declared_share = config.get("max_window_fraction")
+    window_share = float(declared_share) if declared_share is not None else None
     # `None` for a config that did not ask for sleep and wake. Built here rather than
     # threaded through `dispatch` as a parameter because this is the layer that
     # holds the config, and a card is derived from a config: `runner.dispatch`
@@ -817,7 +840,13 @@ def worker_attempt(
         # behind the waker (a sleeping card woken to be refused). Raised before
         # the first dispatch, it is `rows == 0`, and `escalate` ends the run as
         # an error on this rung without trying a bigger one (owner ruling).
-        refuse_unsendable(this.rung.name, pool.bind(this.rung.name), prompt, contract)
+        refuse_unsendable(
+            this.rung.name,
+            pool.bind(this.rung.name),
+            prompt,
+            contract,
+            window_fraction=window_share,
+        )
         # Read once, before any draw goes out, because they are the attempt's
         # and not a draw's: the endpoint that will serve every draw and the
         # prompt exactly as the runner sends it. Both can raise, and a raise
@@ -852,6 +881,7 @@ def worker_attempt(
                         else None
                     ),
                     temperature=sampled,
+                    window_fraction=window_share,
                 )
 
             def asked() -> Completion:

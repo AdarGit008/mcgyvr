@@ -448,10 +448,10 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "`context.max_input_tokens` already bounds — a contract that fits "
         "with nothing to spare leaves nothing to hold anything beside it and "
         "nothing to absorb an estimate that ran long. Declared here because "
-        "it is a statement about this unit of work, and enforced wherever the "
-        "work is executed. Unset means no share is enforced, which is not the "
-        "same as 1.0: a contract that declared none is recorded as having "
-        "declared none.",
+        "it is a statement about this unit of work, and checked before the "
+        "work is sent. It wins over the run's `max_window_fraction`, which "
+        "applies only where this is unset. Unset is not 1.0: a contract that "
+        "declared none is recorded as having declared none.",
         default=None,
         min_value=0.0,
         max_value=1.0,

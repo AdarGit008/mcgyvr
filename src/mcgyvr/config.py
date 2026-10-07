@@ -1032,7 +1032,12 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_window_fraction",
         "float",
-        "The largest share of a unit's context window one contract may claim.",
+        "The largest share of a unit's context window one contract may claim "
+        "-- its prompt and its declared reply together -- checked before the "
+        "contract is sent, so a contract claiming more fails unsent on the "
+        "unit it was sent to. It is the share for every contract that "
+        "declares none; a contract's own `limits.max_window_fraction` wins "
+        "where it states one. Unset enforces no run-wide share.",
         min_value=0.0,
         max_value=1.0,
         bind_hint="a share between 0 and 1",
