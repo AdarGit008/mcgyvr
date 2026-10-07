@@ -176,7 +176,7 @@ def test_a_floor_run_that_could_not_run_says_so_on_its_row(
     monkeypatch.setattr(
         drive,
         "run_tool_step",
-        lambda step, sandbox: ToolOutcome(
+        lambda step, sandbox, **_: ToolOutcome(
             step=step, environment_issue="ruff is not on PATH"
         ),
     )
