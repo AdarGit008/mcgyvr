@@ -34,8 +34,10 @@ from tests.test_recommend import (
     CHECKPOINT,
     FAKE_LIBRARY,
     OTHER,
+    SIZE_BYTES,
     STORE_DIR,
     RecordedSsh,
+    by_path,
     run_and_parse,
 )
 
@@ -140,9 +142,13 @@ def _every_pick(
 def test_every_local_checkpoint_on_every_rig_is_its_own_choice(
     setup: tuple[str, RecordedSsh, Picks], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Two rigs x two checkpoints: each rig asked once, of its own two."""
+    """Two rigs x two checkpoints: each rig asked once, of its own two top
+    rungs (the small one alone, or the MoE above it)."""
     config, ssh, picks = setup
     ssh.ggufs = [CHECKPOINT, OTHER]
+    ssh.header_builder = by_path
+    ssh.header_sizes[CHECKPOINT] = SIZE_BYTES
+    ssh.header_sizes[OTHER] = 3_000_000_000
 
     options, placed = _every_pick(capsys, picks, config, STORE_DIR)
 
