@@ -50,6 +50,8 @@ class FakeDocker:
     calls: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
     scripts: list[tuple[str, str, tuple[str, ...]]] = field(default_factory=list)
     leases: int = 0
+    #: Each lease renewed, by its container's name, in the order renewed.
+    renewed: list[str] = field(default_factory=list)
     tunnel_ready: bool = True
     listening: bool = True
     exits_on_start: set[str] = field(default_factory=set)
@@ -193,7 +195,13 @@ class FakeDocker:
     def renew_lease(self, name: str) -> bool:
         with self.lock:
             self.leases += 1
+            self.renewed.append(name)
             return name in self.containers
+
+    def renewals(self, name: str) -> int:
+        """How many times the lease of ``name`` has been renewed so far."""
+        with self.lock:
+            return self.renewed.count(name)
 
     def logs(self, name: str, tail: int) -> str:
         if name.endswith("-tunnel"):
@@ -391,6 +399,28 @@ class Pool:
 
     def settle(self) -> None:
         assert self.sessions.settle(timeout=5.0)
+
+    def renewals(self, session_id: str) -> int:
+        """How many times ``session_id``'s tunnel lease has been renewed."""
+        from mcgyvr.sandbox import pooled
+
+        return self.docker.renewals(pooled.container_name(session_id, "tunnel"))
+
+    def lease_renewed(self, session_id: str, since: int) -> None:
+        """Wait until ``session_id``'s tunnel lease is renewed past ``since``
+        renewals (:meth:`renewals`).
+
+        This waits for the renewal itself, not for a fixed moment in which
+        one is due: on a busy machine the session's thread may not run at all
+        in that moment, and such a wait would measure how idle the machine
+        is, not whether the session keeps its lease."""
+        deadline = time.monotonic() + 5.0
+        while self.renewals(session_id) <= since:
+            assert time.monotonic() < deadline, (
+                f"{session_id}'s lease was not renewed past {since}: "
+                f"{self.sessions.state_of(session_id)}"
+            )
+            time.sleep(0.005)
 
     def wait_for(self, kind: str, state: str | None = None, count: int = 1) -> None:
         deadline = time.monotonic() + 5.0

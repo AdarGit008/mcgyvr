@@ -198,6 +198,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `limits.max_window_fraction` still wins where it states one. The refusal
   now says which limit was hit: the run's `max_window_fraction` (config) or
   the contract's own `limits.max_window_fraction`.
+- Five more tests no longer fail on a busy machine: they bounded how long
+  something took, not what it did. The slow-page tests of a cancelled relay
+  and of a cancelled ride wanted the hub's handler back in 0.1 s and the end
+  in 2 s; the head's page is now held until the test lets it go, so the end
+  arriving while it is held shows the page was not waited for, and, with the
+  page held and no giving up, the handler back with no `relay_end` sent yet
+  shows it never waits. The acceptance-ceiling test wanted the whole
+  `mcgyvr run` done in 5 s (it took 5.4-6.5 s under load); it now checks that
+  the sandbox was given the `--config` ceiling (1 s) for the acceptance
+  command and that the command was killed by it. Two lease tests slept a
+  fixed time and counted any renewal; they now wait for that session's own
+  tunnel lease to be renewed. No product code changed.
 - Three tests no longer fail on a busy machine (they failed under several
   parallel `make check` runs, at load ~60 on 8 cores). The tensor-cache
   session tests gave the agent's cache check 5 s, but the check hashes in
