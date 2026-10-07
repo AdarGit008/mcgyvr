@@ -144,6 +144,23 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- A contract too big for the rung it was sent to is refused before it is
+  sent, and the run fails on that rung (owner ruling: it is not moved to a
+  bigger rung). It went out anyway: a llama.cpp unit answered `400` and the
+  run ended as `error` naming an HTTP status. Each attempt now checks the
+  contract against the window the rung declares (`units.*.window`) with
+  `check_contract_against_rung`, which existed and nothing called: its
+  declared ceiling, its reply cap, its prompt beside that cap, and the share
+  of the window it allowed itself (`limits.max_window_fraction`). It ends as
+  `error` on that rung, `ContractTooLargeForRungError` naming the contract,
+  the rung, the tokens and the window. Nothing is dispatched, no journal row
+  is written and no sleeping card is woken for it; a prompt over its own
+  contract's ceiling (`PromptTooLargeError`) is now refused at the same
+  point, and no longer leaves a journal row for a request it never sent. A
+  reply cap that fills the window (`OutputCapTooLargeError`) now names whose
+  number it is: the rung's `output_tokens` or the contract's
+  `limits.max_output_tokens`. A rung that declares no window is not measured
+  against one.
 - Three tests no longer fail on a busy machine (they failed under several
   parallel `make check` runs, at load ~60 on 8 cores). The tensor-cache
   session tests gave the agent's cache check 5 s, but the check hashes in
