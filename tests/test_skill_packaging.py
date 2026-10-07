@@ -324,16 +324,29 @@ def test_no_mcgyvr_on_path_warns_and_still_installs(tmp_path: Path) -> None:
     assert _install_constant("CLI_INSTALL") in result.stderr, result.stderr
 
 
-def test_an_older_mcgyvr_warns_and_still_installs(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "reported",
+    [
+        "0.0.9",
+        # The previous release tag: the floor is now v0.3.0, the latest.
+        "0.1.0",
+        # A dev build made between v0.1.0 and v0.3.0 (the shape hatch-vcs
+        # gives one): above the old floor, below the current one.
+        "0.1.1.dev376+ga624cdc2",
+    ],
+)
+def test_an_older_mcgyvr_warns_and_still_installs(
+    tmp_path: Path, reported: str
+) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    path = _reporting(tmp_path / "bin", "0.0.9")
+    path = _reporting(tmp_path / "bin", reported)
 
     result = _run_install_with_path(home, path)
 
     assert result.returncode == 0, result.stderr
     assert (home / CLAUDE_SKILL).exists(), "a warning must not stop the install"
-    assert "0.0.9" in result.stderr, result.stderr
+    assert f"mcgyvr {reported} is older than" in result.stderr, result.stderr
     assert _install_constant("MIN_VERSION") in result.stderr, result.stderr
 
 
@@ -371,13 +384,13 @@ def test_an_mcgyvr_that_cannot_state_its_version_warns_and_still_installs(
 @pytest.mark.parametrize(
     "reported",
     [
-        "0.1.0",
+        "0.3.0",
         # The shape a real dev build has: a PEP 440 pre-release plus local
         # build metadata. Naive string comparison reads this as older than
-        # `0.1.0` on the `+g...` tail; stripping the local part and comparing
+        # `0.3.0` on the `+g...` tail; stripping the local part and comparing
         # with `sort -V` reads it as newer, which it is.
-        "0.1.1.dev376+ga624cdc2",
-        "0.2.0",
+        "0.3.1.dev376+ga624cdc2",
+        "0.4.0",
     ],
 )
 def test_a_new_enough_mcgyvr_is_not_warned_about(tmp_path: Path, reported: str) -> None:
