@@ -32,19 +32,6 @@ def test_the_reader_holds_no_here_string_and_no_here_document() -> None:
     assert not lines, lines
 
 
-def _tracing_works(where: Path) -> bool:
-    strace = shutil.which("strace")
-    if not strace:
-        return False
-    done = subprocess.run(
-        [strace, "-f", "-o", str(where / "probe.trace"), "true"],
-        capture_output=True,
-        check=False,
-        timeout=30,
-    )
-    return done.returncode == 0
-
-
 _OPEN_WRITES = re.compile(r"O_WRONLY|O_RDWR|O_CREAT|O_TRUNC|O_APPEND")
 _CHANGES = (
     "creat",
@@ -67,6 +54,34 @@ _CHANGES = (
 _CHANGE_CALL = re.compile(r"^(?:" + "|".join(_CHANGES) + r")\(")
 
 
+_TRACED = "trace=open,openat,openat2," + ",".join(_CHANGES)
+
+
+def _tracer(where: Path) -> tuple[str, ...] | None:
+    """strace, as this system can run it; ``None`` where it cannot trace.
+
+    Plain ``strace -f`` stops every traced process at each of its system
+    calls, the filtered ones or not, and lets it go on only once strace
+    itself is given the CPU: the reader's ~170 processes took 75-91 s that way on a
+    machine at load 60, past the run's 60 s, and 9-12 s with
+    ``--seccomp-bpf``, which stops them only at the calls traced here (the
+    same 578 opens either way). Where that option is not known, strace is run
+    without it, as before."""
+    strace = shutil.which("strace")
+    if not strace:
+        return None
+    for fast in (("--seccomp-bpf",), ()):
+        done = subprocess.run(
+            [strace, *fast, "-f", "-e", _TRACED, "-o", str(where / "probe"), "true"],
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+        if done.returncode == 0:
+            return (strace, *fast)
+    return None
+
+
 def _writes(line: str) -> bool:
     if _CHANGE_CALL.search(line):
         return True
@@ -74,11 +89,11 @@ def _writes(line: str) -> bool:
 
 
 def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> None:
-    if not _tracing_works(tmp_path):
+    tracer = _tracer(tmp_path)
+    if tracer is None:
         pytest.skip("strace cannot trace here")
-    strace = shutil.which("strace")
     bash = shutil.which("bash")
-    assert strace and bash
+    assert bash
     rows = "".join(
         f"{i}, 7919, 0, 7919, Example Card {'W' * 3900}\n" for i in range(20)
     )
@@ -102,10 +117,10 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
         staged,
         tmp_path / "machine",
         command=(
-            strace,
+            *tracer,
             "-ff",
             "-e",
-            "trace=open,openat,openat2," + ",".join(_CHANGES),
+            _TRACED,
             "-o",
             str(trace),
             bash,
