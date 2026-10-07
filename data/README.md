@@ -1,13 +1,14 @@
 # Shipped data
 
-Four files ship as data rather than as code:
+Five files ship as data rather than as code:
 `capability-table.json` (estimates, by card class, of what a model costs to
 serve, below), `task-catalog.json` (the vocabulary of what mcgyvr can be
 asked to do, after it), `numbers.json` (estimates mcgyvr sizes and judges
 a machine with, and what many other such numbers in its code are, at the end
-of this file) and `model-catalog.json` (the downloadable HuggingFace
+of this file), `model-catalog.json` (the downloadable HuggingFace
 checkpoints `mcgyvr recommend` falls back to when no local store fits, below
-the numbers section).
+the numbers section) and `model-geometry.json` (the header row of each of
+those checkpoints' files, at the end).
 
 ## Capability data
 
@@ -254,3 +255,24 @@ object that says four things:
 
 A number that leaves any of these out, or a key an entry does not have, is
 refused by name when the file is read.
+
+
+# The model geometry
+
+`model-geometry.json` holds the header row of each file `model-catalog.json`
+names: the row `python -m mcgyvr.serving.ggufscan` gives for it (the tensor
+table summed per block, the cache geometry per layer, the recurrent state, the
+experts per block of an MoE and a grafted MTP head), read from the file's
+header over HTTP `Range`, never a weight. `mcgyvr recommend` sizes every unit
+it plans with the serving sizer `mcgyvr emit` uses (`mcgyvr.serving.fit`),
+and that sizer reads this row; a model with no row cannot be sized, and the
+plan names it under `knowledge.unsized`.
+
+Each entry is one file at one revision: `weights` names it (repository,
+revision, file) and `geometry` holds the row as its `value`, with ONE `kind`
+(a fact), one `source` (`gguf-header-range:<repo>@<revision>/<file>`) and one
+`read_at` for every number in it: a row is one reading of one file. The user's
+cache, `$MCGYVR_HOME/knowledge/geometry/` (one file per file at a revision,
+written by an online `mcgyvr recommend` that read the header), is read first
+(`mcgyvr.knowledge.geometry.load`). A model added to `model-catalog.json` gets
+its row here.

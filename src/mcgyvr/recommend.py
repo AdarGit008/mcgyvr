@@ -1,52 +1,48 @@
-"""Read-only placement planner behind ``mcgyvr recommend``.
+"""Read-only planner behind ``mcgyvr recommend``: a plan of units per rig.
 
 ``mcgyvr recommend`` re-reads the rigs it is pointed at and answers one
-question: for a use case, which checkpoint and engine should serve that use
-case, sized from the measurements it just took. It writes nothing, wakes
-nothing and sleeps nothing — the plan it prints is a plan, and a plan is the
-whole product.
+question: for a use case, which units should each rig run, sized from the
+measurements it just took. It writes nothing, wakes nothing and sleeps
+nothing — the plan it prints is a plan, version 2 (:mod:`mcgyvr.planner`).
 
 The one property this module holds, the same property :mod:`mcgyvr.compose`
-holds for setup: **a model's answer can never invent a number.** Candidate
-placements are assembled per rig before any decision is consulted, from the
-numbers the rig and the checkpoint header just measured or from shipped
-constants, and the decision is asked only to name one candidate. Each
-candidate's name is its own (the rig, the engine, the weights and the head),
-so any one of them can be named, and the placement says which host it is for.
-What the decision returns that can reach the plan is a choice among what was
-already assembled, never a figure.
+holds for setup: **a model's answer can never invent a number.** Every unit is
+sized per rig by the product's serving sizer (:func:`mcgyvr.serving.unit_for`,
+:func:`mcgyvr.serving.split_unit`) before any decision is consulted, from the
+numbers the rig and the file's header just measured, and the decision is
+asked only to name one of the shortlisted candidates on each rig. What the
+decision returns that can reach the plan is a choice among what was already
+assembled, never a figure.
 
 Jev is opt-in. The decision is asked through
 :func:`mcgyvr.decision.classify_for` of the unit the config's ``jev.unit``
-binds, and of no other. With no config, no ``jev.unit``, or a Jev unit that
-does not answer, the choice is made deterministically — the largest checkpoint
-among the candidates that already fit the measured machine — and the plan
-says so, and why.
+binds, and of no other: one question per rig, each of at most
+:data:`mcgyvr.planner.SHORTLIST` options. With no config, no ``jev.unit``, or
+a Jev unit that does not answer, each rig's first-ranked candidate is the
+pick (:func:`mcgyvr.planner.rule`), and the plan's ``decision`` says so, and
+why.
 
-Models to place come from exactly one of two places, and the plan says which:
+Models to place come from exactly one of two places, and the plan says which
+(``models_from``):
 
 * ``--model-store <dir>`` — checkpoint files are discovered (``*.gguf`` in that
   directory, over the same read-only ssh seam :func:`mcgyvr.scan._ssh` uses)
   and each header is read ON the rig, over the same seam, by shipping
   :mod:`mcgyvr.serving.ggufscan` to the rig as ``python3 -`` (the blob never
-  comes back). When a discovered checkpoint fits, the plan recommends **only**
+  comes back). When a discovered checkpoint fits, the plan places **only**
   from that store.
-* no store, or nothing local fits — the plan recommends from the model
-  knowledge read offline (:func:`load_catalog`: the user's cache, then the
-  shipped catalog ``data/model-catalog.json``), after refreshing that cache
-  online unless ``--offline`` or ``HF_HUB_OFFLINE`` says not to
-  (:func:`mcgyvr.knowledge.online.refresh`), and marks those picks
-  downloadable (``model_id``, ``quant``, ``size_bytes``). A
-  catalog pick has no header, so it fits only when its shipped ``size_bytes``
-  plus the KV and recurrent state its shipped geometry prices for ``--users``
-  slots fit the measured free VRAM.
+* no store, or nothing local fits — the plan places from the model knowledge
+  read offline (:func:`load_models`: the user's cache, then the shipped
+  catalog, each file with its header row), after refreshing that cache online
+  unless ``--offline`` or ``HF_HUB_OFFLINE`` says not to
+  (:func:`mcgyvr.knowledge.online.refresh`); those units are downloads, and
+  the plan says the bytes, the sha256 and where each goes.
 
 The use case is one of the catalog's four (``chat``, ``agent``, ``coding``,
-``media-gen``), the same names ``mcgyvr init --use-case`` takes. Only
-``coding`` makes a placement. The other three are accepted as scaffolds: the
-rigs are still read, but no checkpoint is chosen and no decision is consulted.
-The old ``--profile`` spellings map through :data:`OLD_PROFILES`; ``other``
-maps to no use case and is scaffolded the same way.
+``media-gen``), the same names ``mcgyvr init --use-case`` takes. ``chat``,
+``agent`` and ``coding`` are planned; ``media-gen`` is accepted and its rigs
+are read, but no unit is planned yet. The old ``--profile`` spellings map
+through :data:`OLD_PROFILES`; ``other`` maps to no use case and plans nothing.
 """
 
 from __future__ import annotations
@@ -54,9 +50,10 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
-from mcgyvr import availability, decision
+from mcgyvr import availability, decision, planner
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S, Config
 from mcgyvr.decision import JEV_ROLE, Choice, ChoiceAnswer
@@ -66,22 +63,13 @@ from mcgyvr.knowledge.record import KnowledgeError
 from mcgyvr.pool import SourceUnavailableError, source_map
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
-    BYTES_PER_GB,
     Reach,
     Scan,
     ScanFailed,
     ScannerMissing,
     Unreachable,
 )
-from mcgyvr.serving import (
-    DEFAULT_SPEC_DRAFT_N_MAX,
-    DEFAULT_UBATCH,
-    gatelib,
-    vramfit,
-)
-
-#: The use case that is placed. The others the catalog names are scaffolds.
-PLACEMENT_USE_CASE = "coding"
+from mcgyvr.serving import gatelib
 
 #: The deprecated ``--profile`` spellings, read for one release, and the use
 #: case each one means. ``other`` names no use case, so nothing is planned.
@@ -97,46 +85,17 @@ OLD_PROFILES: dict[str, str | None] = {
 #: :func:`discover_command`, which the read-only ssh sanction requires.
 _DISCOVER_SUFFIX = " -maxdepth 1 -name '*.gguf' -print"
 
-#: Flags every llama.cpp placement carries. ``-ngl 99`` and ``-fa on`` are the
-#: same shipped conventions :func:`mcgyvr.serving.unit_for` writes; ``-ub`` and
-#: ``-b`` are :data:`mcgyvr.serving.DEFAULT_UBATCH`, the shipped micro-batch the
-#: cache law is priced at. None of these is a number this module invents.
-_LLAMACPP_FLAGS = {
-    "-ngl": "99",
-    "-fa": "on",
-    "-ub": str(DEFAULT_UBATCH),
-    "-b": str(DEFAULT_UBATCH),
-}
+#: What ``models_from`` says: the rig's own store, or the model knowledge.
+LOCAL_STORE = "local-store"
+KNOWLEDGE = "knowledge"
 
 
 class CatalogError(Exception):
-    """The model catalog is missing, malformed, or internally inconsistent."""
+    """The model knowledge is missing, malformed, or internally inconsistent."""
 
 
 class RecommendError(Exception):
     """``mcgyvr recommend`` was asked something it cannot honestly answer."""
-
-
-@dataclass(frozen=True)
-class Candidate:
-    """One placement, assembled from measured inputs before any decision.
-
-    ``host`` is the rig it was sized for and would run on. ``checkpoint`` is
-    set for a local-store pick; ``model_id``/``quant`` are set for a catalog
-    pick. Exactly one of the two shapes is present. ``name`` is unique among
-    the candidates of one plan: it is what the decision names.
-    """
-
-    name: str
-    host: str
-    description: str
-    engine: str
-    checkpoint: str | None
-    model_id: str | None
-    quant: str | None
-    size_bytes: int
-    flags: Mapping[str, str]
-    wake: bool
 
 
 def discover_command(directory: str) -> str:
@@ -156,36 +115,15 @@ def discover_command(directory: str) -> str:
     return f"find '{directory}'{_DISCOVER_SUFFIX}"
 
 
-def load_catalog() -> dict[str, Any]:
-    """The catalog the plan prices catalog picks from: the model knowledge as
-    it reads offline, the user's cache first and then the shipped catalog
-    (:func:`mcgyvr.knowledge.store.offline`).
-
-    A dict whose ``models`` are flat entries carrying ``model_id``, ``quant``,
-    ``size_bytes``, ``context_length``, ``kv_bytes_per_token``,
-    ``recurrent_bytes_per_slot`` and ``engines``: each number's value, with
-    its source and date left in the knowledge it was read from. The command
-    reads it as data, so a test can substitute a fake catalog through this
-    seam.
-    """
+def load_models() -> planner.Library:
+    """The models the plan may place from the model knowledge, read offline:
+    the user's cache first and then the shipped catalog, each file with its
+    header row (:func:`mcgyvr.planner.library`). The command reads it as data,
+    so a test can substitute a library through this seam."""
     try:
-        known = knowledge_store.offline()
+        return planner.library()
     except KnowledgeError as exc:
         raise CatalogError(str(exc)) from exc
-    return {
-        "models": [
-            {
-                "model_id": one.model_id,
-                "quant": one.quant,
-                "size_bytes": one.size_bytes.value,
-                "context_length": one.context_length.value,
-                "kv_bytes_per_token": one.kv_bytes_per_token.value,
-                "recurrent_bytes_per_slot": one.recurrent_bytes_per_slot.value,
-                "engines": list(one.engines),
-            }
-            for one in known.records
-        ]
-    }
 
 
 def _refresh_knowledge(use_case: str | None, offline: bool) -> dict[str, Any]:
@@ -263,393 +201,170 @@ def _scan_host(host: str) -> Scan:
     return scan_module.scan_over(Reach.ssh(host))
 
 
-def _free_vram_bytes(scan: Scan) -> int:
-    """Free VRAM on the roomiest card, or zero when no card is visible."""
-    if not scan.gpus:
-        return 0
-    return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
-
-
-def _host_ram_bytes(scan: Scan) -> int | None:
-    """Measured host RAM available, or None when the scan could not read it.
-
-    ``Memory.available_gb`` is the kernel's own estimate of what a new workload
-    could get without swapping, which is the figure an MoE's resident expert
-    spill is held against. A scan that could not read memory returns None, and
-    :func:`_fits` reads that as "does not fit" rather than guessing a ceiling.
-    """
-    if scan.memory is None:
-        return None
-    return int(scan.memory.available_gb * BYTES_PER_GB)
-
-
-def _slot_bytes(header: Mapping[str, Any], users: int) -> int | None:
-    """KV and recurrent-state bytes for ``users`` slots, from the measured header.
-
-    ``n_ctx_train`` is the measured context the checkpoint declares and is used
-    as the total context across slots; ``users`` is the slot count the placement
-    serves. Returns None when the header lacks the geometry the cache law
-    needs, which :func:`_fits` reads as "does not fit" rather than guessing.
-    """
-    n_ctx_train = header.get("n_ctx_train")
-    if not isinstance(n_ctx_train, int) or n_ctx_train <= 0:
-        return None
-    geometry = dict(header)
-    try:
-        kv = vramfit.kv_bytes(
-            geometry,
-            n_ctx_train,
-            n_seq_max=users,
-            n_ubatch=DEFAULT_UBATCH,
-        )
-        rs = vramfit.rs_bytes(geometry, n_seq_max=users)
-    except (KeyError, TypeError, ValueError):
-        return None
-    return kv["total"] + rs["total"]
-
-
-def _fits(scan: Scan, header: Mapping[str, Any], users: int) -> bool:
-    """Whether ``header``'s checkpoint can load for ``users`` slots on ``scan``.
-
-    An MoE spills its experts to host RAM, so the part that must fit on the
-    card is the non-expert weights; a dense checkpoint must fit whole. To that
-    weight term the cache law adds the KV cache and the recurrent state the
-    header implies for ``users`` concurrent slots, so a wider placement is
-    priced as a wider process, not as the same weights. For an MoE the spilled
-    experts are then held against the measured host RAM available: a rig whose
-    RAM cannot hold what the checkpoint keeps resident is not offered the
-    model. Every figure comes from the header or the scan (measured); no
-    stored spec and no estimate stand in for any of them.
-    """
-    free = _free_vram_bytes(scan)
-    if free <= 0:
-        return False
-    needed = (
-        int(header.get("bytes_nonexpert") or 0)
-        if header.get("placeable_blocks")
-        else int(header.get("size_bytes") or 0)
-    )
-    slots = _slot_bytes(header, users)
-    if slots is None:
-        return False
-    if needed + slots > free:
-        return False
-    if header.get("placeable_blocks"):
-        expert_bytes = int(header.get("bytes_experts") or 0)
-        ram = _host_ram_bytes(scan)
-        if ram is None or expert_bytes > ram:
-            return False
-    return True
-
-
-def _measured(scan: Scan) -> dict[str, Any]:
-    """The measured facts of one scan, for the plan and for the decision state."""
-    gpus = [
-        {
-            "index": gpu.index,
-            "name": gpu.name,
-            "vram_total_mib": gpu.vram.total_mib,
-            "vram_free_mib": gpu.vram.free_mib,
-        }
-        for gpu in scan.gpus
-    ]
-    return {
-        "gpus": gpus,
-        "memory": (
-            None
-            if scan.memory is None
-            else {
-                "total_gb": scan.memory.total_gb,
-                "available_gb": scan.memory.available_gb,
-            }
-        ),
-        "bandwidth": (
-            None
-            if scan.bandwidth is None
-            else {
-                "measured_gbps": scan.bandwidth.measured_gbps,
-                "how": scan.bandwidth.how,
-            }
-        ),
-        "disk": (
-            None
-            if scan.disk is None
-            else {"path": str(scan.disk.path), "free_gb": scan.disk.free_gb}
-        ),
-    }
-
-
-def _llamacpp_flags(*, checkpoint: str | None, mtp: bool, users: int) -> dict[str, str]:
-    """The llama.cpp flags, all shipped constants or the measured checkpoint.
-
-    ``mtp`` is only ever true when the checkpoint's own header carried a
-    ``nextn_blocks`` entry, so ``--spec-type draft-mtp`` is never assumed from
-    a name. ``users`` above one states ``--parallel``, the width the fit was
-    priced at.
-    """
-    flags = dict(_LLAMACPP_FLAGS)
-    if checkpoint is not None:
-        flags["--model"] = checkpoint
-    if mtp:
-        flags["--spec-type"] = "draft-mtp"
-        flags["--spec-draft-n-max"] = str(DEFAULT_SPEC_DRAFT_N_MAX)
-    if users > 1:
-        flags["--parallel"] = str(users)
-    return flags
-
-
-def _has_mtp(header: Mapping[str, Any]) -> bool:
-    return bool(header.get("nextn_blocks"))
-
-
-def _local_candidates(
-    host: str, scan: Scan, header: Mapping[str, Any], users: int
-) -> tuple[Candidate, ...]:
-    """The placements a fitting local checkpoint on ``host`` can be served under.
-
-    A local store holds ``.gguf`` files, so llama.cpp is the engine that serves
-    them; vLLM loads a repository id from a HuggingFace cache, not a file. The
-    header decides whether the grafted MTP head is one of the candidates. A
-    path names one file on one rig, so the rig, the path and the head name
-    the candidate.
-    """
-    checkpoint = str(header.get("file") or "")
-    size_bytes = int(header.get("size_bytes") or 0)
-    wake = not scan.gpus
-    variants = [False, True] if _has_mtp(header) else [False]
-    candidates: list[Candidate] = []
-    for mtp in variants:
-        head = " with its grafted MTP head" if mtp else ""
-        candidates.append(
-            Candidate(
-                name=f"{host}: llama.cpp {checkpoint}{' + MTP' if mtp else ''}",
-                host=host,
-                description=f"on {host}, llama.cpp serving {checkpoint}{head}",
-                engine="llama.cpp",
-                checkpoint=checkpoint,
-                model_id=None,
-                quant=None,
-                size_bytes=size_bytes,
-                flags=_llamacpp_flags(checkpoint=checkpoint, mtp=mtp, users=users),
-                wake=wake,
-            )
-        )
-    return tuple(candidates)
-
-
-def _catalog_slot_bytes(entry: Mapping[str, Any], users: int) -> int | None:
-    """KV + recurrent-state bytes for ``users`` slots, from the shipped entry.
-
-    Mirrors :func:`_slot_bytes` as far as a catalog entry (no measured header)
-    allows: the cache is the shipped ``context_length`` priced across ``users``
-    slots at the shipped ``kv_bytes_per_token`` width, and recurrent state is
-    the shipped ``recurrent_bytes_per_slot`` per slot. Returns None when the
-    entry lacks any figure, which :func:`_catalog_fits` reads as "does not fit".
-    """
-    ctx = entry.get("context_length")
-    kv_per_token = entry.get("kv_bytes_per_token")
-    recurrent = entry.get("recurrent_bytes_per_slot", 0)
-    if (
-        not isinstance(ctx, int)
-        or isinstance(ctx, bool)
-        or ctx <= 0
-        or not isinstance(kv_per_token, int)
-        or isinstance(kv_per_token, bool)
-        or kv_per_token <= 0
-        or not isinstance(recurrent, int)
-        or isinstance(recurrent, bool)
-        or recurrent < 0
-    ):
-        return None
-    try:
-        cells = vramfit.context_per_sequence(ctx, users)
-    except ValueError:
-        return None
-    return cells * users * kv_per_token + recurrent * users
-
-
-def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
-    """Whether a catalog entry fits the measured machine.
-
-    A catalog pick has no header, so no MoE split is known; the conservative
-    bound is the whole shipped size plus the KV and recurrent state the entry's
-    shipped geometry prices for ``users`` slots, all against the roomiest
-    card's free VRAM. It fails closed: an entry whose geometry is missing or
-    does not fit is left out rather than placed from an assumed split.
-    """
-    free = _free_vram_bytes(scan)
-    if free <= 0:
-        return False
-    size_bytes = int(entry.get("size_bytes") or 0)
-    slots = _catalog_slot_bytes(entry, users)
-    if slots is None:
-        return False
-    return size_bytes + slots <= free
-
-
-def _catalog_candidates(
-    host: str, scan: Scan, catalog: Mapping[str, Any], users: int
-) -> tuple[Candidate, ...]:
-    """The downloadable placements the shipped catalog offers on ``host``.
-
-    Only entries whose shipped size plus their shipped KV/state budget fit the
-    measured free VRAM are assembled; a catalog pick has no local header and
-    download is out of scope, so the flags carry only shipped constants and
-    nothing is invented to stand in for a context the command was never given.
-    """
-    wake = not scan.gpus
-    candidates: list[Candidate] = []
-    for entry in catalog.get("models", ()):
-        if not isinstance(entry, dict):
-            continue
-        model_id = str(entry.get("model_id") or "")
-        quant = str(entry.get("quant") or "")
-        size_bytes = int(entry.get("size_bytes") or 0)
-        if not _catalog_fits(scan, entry, users):
-            continue
-        for engine in entry.get("engines") or ():
-            if engine == "llama.cpp":
-                flags = _llamacpp_flags(checkpoint=None, mtp=False, users=users)
-            else:
-                # vLLM's ceiling figures need a declared context and cache
-                # dtype this command does not have; an empty flag set is the
-                # honest answer, not a plausible one.
-                flags = {}
-            candidates.append(
-                Candidate(
-                    name=f"{host}: {engine} {model_id} {quant}",
-                    host=host,
-                    description=f"on {host}, {engine} serving {model_id} ({quant})",
-                    engine=str(engine),
-                    checkpoint=None,
-                    model_id=model_id,
-                    quant=quant,
-                    size_bytes=size_bytes,
-                    flags=flags,
-                    wake=wake,
-                )
-            )
-    return tuple(candidates)
-
-
-def _deterministic_pick(candidates: tuple[Candidate, ...]) -> Candidate:
-    """The deterministic fallback: the largest checkpoint among the candidates.
-
-    Every candidate here already fit the measured machine when it was
-    assembled — local store by :func:`_fits`, catalog by :func:`_catalog_fits`
-    — so "largest" is "largest that fits", and no model and no invented
-    number stand in for the measurements. Ties keep the assembly order.
-    """
-    return max(candidates, key=lambda candidate: candidate.size_bytes)
+def _local_models(
+    scans: Mapping[str, Scan], model_stores: Sequence[str]
+) -> dict[str, list[planner.Model]]:
+    """Every checkpoint discovered in the stores on each rig, header read there."""
+    found: dict[str, list[planner.Model]] = {}
+    for host in scans:
+        for directory in dict.fromkeys(model_stores):
+            for checkpoint in _discover(host, str(directory)):
+                header = _read_header(host, checkpoint)
+                try:
+                    model = planner.model_from_header(host, checkpoint, header)
+                except planner.PlanError as exc:
+                    raise RecommendError(str(exc)) from exc
+                found.setdefault(host, []).append(model)
+    return found
 
 
 @dataclass(frozen=True)
 class _Decided:
-    """The candidate picked, and where the pick came from.
+    """Each rig's pick, and who picked: ``{by, why}`` as the plan says it."""
 
-    ``by`` is ``"model"`` when the Jev unit named it and ``"deterministic"``
-    when the fixed rule did. ``unit`` is the ``jev.unit`` the config binds,
-    or None when it binds none. ``why`` says why the rule picked, and is None
-    when Jev did.
-    """
-
-    candidate: Candidate
+    picks: Mapping[str, planner.Sized]
     by: str
-    unit: str | None
-    why: str | None
+    why: str
+
+
+def _question(use_case: str, choices: planner.Choices) -> Choice:
+    role = "strong unit" if use_case in planner.STRONG_USE_CASES else "top rung"
+    return Choice(
+        instructions=(
+            f"For the {use_case} use case, pick the model of the {role} on "
+            f"{choices.rig}. Every option already fits the measured machine."
+        ),
+        options={one.option: one.description for one in choices.shortlist},
+    )
 
 
 def _decide(
-    candidates: tuple[Candidate, ...],
+    use_case: str,
+    assembled: Mapping[str, planner.Choices],
     state: Mapping[str, Any],
     config: Config | None,
 ) -> _Decided:
-    """Name one candidate, and say where the choice came from.
+    """Name each rig's pick, and say who named it.
 
     Only the unit ``jev.unit`` binds is asked, through
-    :func:`mcgyvr.decision.classify_for`, and only once it answers the
+    :func:`mcgyvr.decision.classify_for`, one question per rig of at most
+    :data:`mcgyvr.planner.SHORTLIST` options, and only once it answers the
     reachability probe, so a dead Jev unit costs a probe and not a request
     timeout. With no config, no ``jev.unit``, a Jev unit that cannot run or
-    does not answer, or an answer that names no candidate, the pick is
-    :func:`_deterministic_pick`, and ``why`` says which of those it was.
+    does not answer, the first-ranked candidate of each rig is the pick, and
+    ``why`` says which of those it was. A rig whose question the unit answers
+    with no candidate is picked by the rule, and ``why`` names it.
     """
+    placed = {rig: one for rig, one in assembled.items() if one.ranked}
+    first = {rig: one.ranked[0] for rig, one in placed.items()}
+    ranked_by = planner.rule(use_case)
 
-    def rule(unit: str | None, why: str) -> _Decided:
-        return _Decided(_deterministic_pick(candidates), "deterministic", unit, why)
+    def by_rule(why: str) -> _Decided:
+        return _Decided(first, "deterministic", f"{why}; {ranked_by}")
 
     if config is None:
-        return rule(None, "no config was found, so no jev.unit is bound")
+        return by_rule("no config was found, so no jev.unit is bound")
     unit = config.get("jev.unit")
     if unit is None:
-        return rule(None, "the config binds no jev.unit")
+        return by_rule("the config binds no jev.unit")
     unit = str(unit)
     pool = source_map(config)
     try:
         binding = pool.role(JEV_ROLE)
     except SourceUnavailableError as exc:
-        return rule(unit, f"the jev unit {unit!r} cannot run: {exc}")
+        return by_rule(f"the jev unit {unit!r} cannot run: {exc}")
     if binding is None:  # pragma: no cover - jev.unit is bound above
-        return rule(None, "the config binds no jev.unit")
+        return by_rule("the config binds no jev.unit")
     verdict = availability.probe_endpoint(binding.endpoint)
     if not verdict.live:
-        return rule(unit, f"the jev unit {unit!r} did not answer: {verdict.reason}")
-
-    by_name = {candidate.name: candidate for candidate in candidates}
-    question = {
-        "placement": Choice(
-            instructions=(
-                "Given this use case and the measured machines, pick the "
-                "placement that best fits."
-            ),
-            options={candidate.name: candidate.description for candidate in candidates},
-        )
+        return by_rule(f"the jev unit {unit!r} did not answer: {verdict.reason}")
+    questions = {
+        f"unit@{rig}": _question(use_case, choices) for rig, choices in placed.items()
     }
     try:
         answered = decision.classify_for(
             pool,
             dict(state),
-            question,
+            questions,
             role=JEV_ROLE,
             timeout_s=DEFAULT_REQUEST_TIMEOUT_S,
         )
     except (RunnerError, decision.DecisionError) as exc:
-        return rule(unit, f"the jev unit {unit!r} gave no readable answer: {exc}")
-    answer = answered.answers.get("placement")
-    if isinstance(answer, ChoiceAnswer) and answer.choice in by_name:
-        return _Decided(by_name[answer.choice], "model", unit, None)
-    return rule(unit, f"the jev unit {unit!r} named no candidate")
+        return by_rule(f"the jev unit {unit!r} gave no readable answer: {exc}")
+    picks: dict[str, planner.Sized] = {}
+    unnamed: list[str] = []
+    for rig, choices in placed.items():
+        answer = answered.answers.get(f"unit@{rig}")
+        by_option = {one.option: one for one in choices.shortlist}
+        if isinstance(answer, ChoiceAnswer) and answer.choice in by_option:
+            picks[rig] = by_option[answer.choice]
+        else:
+            picks[rig] = first[rig]
+            unnamed.append(rig)
+    if len(unnamed) == len(placed):
+        return by_rule(f"the jev unit {unit!r} named no candidate")
+    why = (
+        f"the jev unit {unit!r} named each pick among at most "
+        f"{planner.SHORTLIST} shortlisted candidates per rig"
+    )
+    if unnamed:
+        why += (
+            f"; on {', '.join(unnamed)} it named none, so the first-ranked "
+            f"was taken ({ranked_by})"
+        )
+    return _Decided(picks, "jev", why)
 
 
-def _unique(candidates: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
-    """``candidates``, refused when two share a name the decision would name.
-
-    A name carries the rig, the engine, the weights (and the quant, for a
-    catalog pick) and the head, so two candidates under one name are the
-    same model listed twice: a catalog to fix, not a choice to make.
-    """
-    seen: set[str] = set()
-    for candidate in candidates:
-        if candidate.name in seen:
-            raise RecommendError(
-                f"two candidates share the name {candidate.name!r}; each "
-                "placement must be one the decision can name"
-            )
-        seen.add(candidate.name)
-    return candidates
-
-
-def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
-    """The plan's placement object, nothing the decision returned but a name."""
+def _state(
+    use_case: str,
+    users: int,
+    priority: str | None,
+    scans: Mapping[str, Scan],
+    read_at: str,
+    assembled: Mapping[str, planner.Choices],
+) -> dict[str, Any]:
+    """What the Jev unit is shown: the measured rigs and the shortlists."""
     return {
-        "host": candidate.host,
-        "engine": candidate.engine,
-        "checkpoint": candidate.checkpoint,
-        "model_id": candidate.model_id,
-        "quant": candidate.quant,
-        "size_bytes": candidate.size_bytes,
-        "flags": dict(candidate.flags),
-        "wake": candidate.wake,
-        "source": source,
+        "use_case": use_case,
+        "users": users,
+        "priority": priority,
+        "measured": {
+            rig: planner.measured(scan, read_at) for rig, scan in scans.items()
+        },
+        "candidates": {
+            rig: [
+                {
+                    "name": one.option,
+                    "model": one.model.model_id,
+                    "size_bytes": one.model.size_bytes,
+                    "ctx_per_slot": one.ctx_per_slot,
+                    "slots": one.unit.width.value,
+                    "scores": {
+                        score.board: score.value.value for score in one.model.scores
+                    },
+                }
+                for one in choices.shortlist
+            ]
+            for rig, choices in assembled.items()
+        },
+    }
+
+
+def _knowledge(
+    refreshed: Mapping[str, Any], library: planner.Library
+) -> dict[str, Any]:
+    """The plan's ``knowledge``: whether it was read online, what was filed,
+    what could not be read, which cache files were skipped and which known
+    models cannot be sized, each with why."""
+    return {
+        **refreshed,
+        "oldest_read_at": (
+            None
+            if library.oldest_read_at is None
+            else library.oldest_read_at.isoformat()
+        ),
+        "skipped": [{"file": str(path), "why": why} for path, why in library.skipped],
+        "unsized": [{"model": label, "why": why} for label, why in library.unsized],
     }
 
 
@@ -661,116 +376,105 @@ def plan(
     model_stores: Sequence[str] = (),
     offline: bool = False,
     config: Config | None = None,
+    priority: str | None = None,
+    ctx_per_slot: int | None = None,
+    first_port: int = planner.FIRST_PORT,
 ) -> dict[str, Any]:
-    """Compose the one JSON plan ``mcgyvr recommend`` prints.
+    """Compose the one JSON plan ``mcgyvr recommend`` prints (version 2).
 
     ``use_case`` is one of the catalog's use cases, or ``None`` for the old
-    ``--profile other``, which names none and is scaffolded. ``hosts`` are
-    re-read over ssh at this moment; ``model_stores``, when any is given, are
-    the directories on those rigs to discover ``*.gguf`` in. Before catalog
-    picks are priced, the model knowledge is refreshed online
-    (:func:`mcgyvr.knowledge.online.refresh`) unless ``offline`` or
-    ``HF_HUB_OFFLINE`` says not to; the plan's ``knowledge`` says which, and
-    names what could not be read. ``config`` is read for its ``jev.unit``
-    alone: the unit asked to name the placement. None is a machine with
-    no config, and the pick is deterministic.
+    ``--profile other``, which names none. ``hosts`` are re-read over ssh at
+    this moment; ``model_stores``, when any is given, are the directories on
+    those rigs to discover ``*.gguf`` in. Before the knowledge is read, it is
+    refreshed online (:func:`mcgyvr.knowledge.online.refresh`) unless
+    ``offline`` or ``HF_HUB_OFFLINE`` says not to; the plan's ``knowledge``
+    says which, and names what could not be read. ``config`` is read for its
+    ``jev.unit`` alone: the unit asked to name the picks. ``priority`` is said
+    in the plan and to that unit. ``ctx_per_slot``, when given, is every
+    unit's context per slot instead of the use case's. ``first_port`` is the
+    port each rig's first unit answers on.
     """
-    rigs: list[dict[str, Any]] = []
-    unreachable: list[str] = []
-    no_scanner: list[str] = []
-    scan_failed: list[str] = []
+    unreachable: list[dict[str, str]] = []
     scans: dict[str, Scan] = {}
-    for host in dict.fromkeys(hosts):
+    for host in dict.fromkeys(str(h) for h in hosts):
         try:
-            found = _scan_host(str(host))
+            scans[host] = _scan_host(host)
         except ScannerMissing:
-            no_scanner.append(str(host))
-            continue
-        except ScanFailed:
-            scan_failed.append(str(host))
-            continue
-        except Unreachable:
-            unreachable.append(str(host))
-            continue
-        scans[str(host)] = found
-        rigs.append({"host": str(host), "measured": _measured(found)})
+            unreachable.append({"host": host, "why": "no python3 to run the scan"})
+        except ScanFailed as exc:
+            unreachable.append({"host": host, "why": f"the scan failed: {exc}"})
+        except Unreachable as exc:
+            unreachable.append({"host": host, "why": f"ssh did not answer: {exc}"})
+    read_at = datetime.now(UTC).isoformat(timespec="seconds")
 
-    if use_case != PLACEMENT_USE_CASE:
-        return {
-            "use_case": use_case,
-            "users": users,
-            "source": "scaffold",
-            "hosts": [str(host) for host in dict.fromkeys(hosts)],
-            "unreachable": unreachable,
-            "no_scanner": no_scanner,
-            "scan_failed": scan_failed,
-            "rigs": rigs,
-            "placement": None,
-            "decision": None,
-            "knowledge": None,
-        }
+    def done(
+        laid: Mapping[str, Sequence[planner.Sized]],
+        decided: Mapping[str, str],
+        knowledge: Mapping[str, Any] | None,
+        models_from: str | None,
+        dropped: Sequence[Mapping[str, str]],
+    ) -> dict[str, Any]:
+        return planner.document(
+            use_case=use_case,
+            users=users,
+            priority=priority,
+            hosts=list(dict.fromkeys(str(h) for h in hosts)),
+            scans=scans,
+            read_at=read_at,
+            laid=laid,
+            decision=decided,
+            knowledge=knowledge,
+            models_from=models_from,
+            dropped=dropped,
+            unreachable=unreachable,
+        )
 
-    local_candidates: list[Candidate] = []
-    for host, found in scans.items():
-        for directory in dict.fromkeys(model_stores):
-            for checkpoint in _discover(host, str(directory)):
-                header = _read_header(host, checkpoint)
-                if _fits(found, header, users):
-                    local_candidates.extend(
-                        _local_candidates(host, found, header, users)
-                    )
+    if use_case not in planner.PLANNED_USE_CASES:
+        said = f"{use_case} is not planned yet" if use_case else "no use case was named"
+        return done({}, {"by": "none", "why": said}, None, None, [])
 
+    assembled: dict[str, planner.Choices] = {}
     knowledge: dict[str, Any] | None = None
-    if model_stores and local_candidates:
-        candidates = tuple(local_candidates)
-        source = "local-store"
-    else:
-        knowledge = _refresh_knowledge(use_case, offline)
-        catalog = load_catalog()
-        candidates = tuple(
-            candidate
-            for host, found in scans.items()
-            for candidate in _catalog_candidates(host, found, catalog, users)
+    models_from = LOCAL_STORE
+    if model_stores:
+        local = _local_models(scans, model_stores)
+        assembled = planner.assemble(
+            use_case, users, scans, local, ctx_per_slot=ctx_per_slot
         )
-        source = "hf-catalog"
-
-    if not candidates:
+    if not any(one.ranked for one in assembled.values()):
+        refreshed = _refresh_knowledge(use_case, offline)
+        library = load_models()
+        knowledge = _knowledge(refreshed, library)
+        assembled = planner.assemble(
+            use_case,
+            users,
+            scans,
+            {rig: library.models for rig in scans},
+            ctx_per_slot=ctx_per_slot,
+        )
+        models_from = KNOWLEDGE
+    dropped = [
+        {"rig": rig, "model": label, "why": why}
+        for rig, choices in assembled.items()
+        for label, why in choices.dropped
+    ]
+    if not any(one.ranked for one in assembled.values()):
+        reasons = "; ".join(f"{d['rig']}: {d['why']}" for d in dropped)
+        down = "; ".join(f"{d['host']}: {d['why']}" for d in unreachable)
         raise RecommendError(
-            "nothing to recommend: no fitting local checkpoint and no catalog "
-            "model for any scanned rig"
+            "nothing to recommend: no model fits any rig that was read"
+            + (f" ({reasons})" if reasons else "")
+            + (f"; not read: {down}" if down else "")
         )
-    candidates = _unique(candidates)
-
-    state: dict[str, Any] = {
-        "use_case": use_case,
-        "users": users,
-        "hosts": [str(host) for host in dict.fromkeys(hosts)],
-        "measured": rigs,
-        "candidates": [
-            {
-                "name": candidate.name,
-                "engine": candidate.engine,
-                "checkpoint": candidate.checkpoint,
-                "model_id": candidate.model_id,
-                "host": candidate.host,
-            }
-            for candidate in candidates
-        ],
-    }
-    decided = _decide(candidates, state, config)
-    plan: dict[str, Any] = {
-        "use_case": use_case,
-        "users": users,
-        "source": source,
-        "hosts": [str(host) for host in dict.fromkeys(hosts)],
-        "unreachable": unreachable,
-        "no_scanner": no_scanner,
-        "scan_failed": scan_failed,
-        "rigs": rigs,
-        "placement": _placement_document(decided.candidate, source),
-        "decision": decided.by,
-        "decision_unit": decided.unit,
-        "decision_why": decided.why,
-        "knowledge": knowledge,
-    }
-    return plan
+    state = _state(use_case, users, priority, scans, read_at, assembled)
+    decided = _decide(use_case, assembled, state, config)
+    laid = planner.lay_out(
+        {rig: (one,) for rig, one in decided.picks.items()}, first_port=first_port
+    )
+    return done(
+        laid,
+        {"by": decided.by, "why": decided.why},
+        knowledge,
+        models_from,
+        dropped,
+    )

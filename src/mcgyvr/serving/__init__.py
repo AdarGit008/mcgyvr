@@ -1287,7 +1287,7 @@ def units_for(
 
 
 def _sharded_units(
-    config: Config,
+    config: Config | None,
     scans: Mapping[str, Scan],
     spec: ModelSpec,
     *,
@@ -1335,6 +1335,11 @@ def _sharded_units(
                 f"{spec.name}: served by vLLM, which loads a repository id from "
                 f"the rig's HuggingFace cache, and nothing says where that cache "
                 f"is — set units.<unit>.hf_cache to its absolute path on the rig"
+            )
+        if config is None:
+            raise UnitError(
+                f"{spec.name}: a vLLM unit split across cards is sized from the "
+                f"tensor table its config names, and there is no config"
             )
         table = _tensor_table(config, spec.name, launch.get("tensor_table_json"))
         weights = Path(spec.hf_cache)
@@ -1420,6 +1425,43 @@ def _sharded_units(
             )
         )
     return tuple(units)
+
+
+def split_unit(
+    scan: Scan,
+    spec: ModelSpec,
+    *,
+    cards: tuple[int, ...],
+    width: int,
+    port: int,
+    ctx_per_slot: int,
+    engine: str = DEFAULT_ENGINE,
+) -> Unit:
+    """The one process that serves ``spec`` split across ``cards`` of one machine.
+
+    The same sizing a unit whose ``launch.shards`` names those cards gets
+    (:func:`_sharded_units`, :func:`mcgyvr.serving.sharding.choose`): every
+    block on a card, none in host memory, at ``width`` slots of
+    ``ctx_per_slot`` each. A planner that has no config yet asks it here.
+    Refused, by the split's own reason, when no split over those cards fits.
+    """
+    host = scan.machine.host
+    if len(cards) < 2:
+        raise UnitError(f"{spec.name}: a split over {len(cards)} card is not a split")
+    launch = {SHARDS_KEY: [{"rig": host, "gpu": card} for card in cards]}
+    key = UnitKey(host=host, model=spec.name, engine=engine, port=port)
+    (head, *rest) = _sharded_units(
+        None,
+        {host: scan},
+        spec,
+        key=key,
+        launch=launch,
+        width=width,
+        ctx_per_slot=ctx_per_slot,
+    )
+    if rest:  # pragma: no cover - one machine's cards are one process
+        raise UnitError(f"{spec.name}: a split over one machine is one process")
+    return replace(head, width=Width(value=width, how="written"))
 
 
 def _how(width: int | None) -> str:

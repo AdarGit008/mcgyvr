@@ -89,6 +89,7 @@ packages = ["src/mcgyvr"]
 "data/task-catalog.json" = "mcgyvr/data/task-catalog.json"
 "data/numbers.json" = "mcgyvr/data/numbers.json"
 "data/model-catalog.json" = "mcgyvr/data/model-catalog.json"
+"data/model-geometry.json" = "mcgyvr/data/model-geometry.json"
 
 [tool.ruff]
 line-length = 88
