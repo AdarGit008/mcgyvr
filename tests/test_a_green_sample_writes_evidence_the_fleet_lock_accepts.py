@@ -13,8 +13,8 @@ lock`` -> ``fleet promote`` -> ``fleet use``.
   each unit's card and restarts, the probe's warm decode and prefill, and the
   load's card peak. The card's size is the rig file the user's scan saved.
 * **The stamp needs no lab file.** Its dev lock is written under
-  ``<data folder>/stamps/<fleet>/<run_id>/`` (setup, evidence.json,
-  records/fleet), promote reads from there, and the run root is not touched.
+  ``<data folder>/stamps/<fleet>/<run_id>/`` (setup, evidence.json and the
+  lock), promote reads from there, and the run root is not touched.
 
 No rig is reached: the rig is invented and its reads are canned.
 """
@@ -28,6 +28,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr.fleet.promote import LOCK_DIR
 from tests import sample_fleet as fx
 
 
@@ -111,7 +112,7 @@ def test_the_fleet_lock_accepts_the_evidence_as_it_is(
         policy=load_policy((setup / "policy.yaml").read_text(encoding="utf-8")),
         tolerances={"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]},
     )
-    assert (root / "records" / "fleet" / f"{fx.FLEET}.json").is_file()
+    assert (root / LOCK_DIR / f"{fx.FLEET}.json").is_file()
 
 
 def test_a_green_sample_is_locked_promoted_and_named_live(
@@ -141,7 +142,7 @@ def test_a_green_sample_is_locked_promoted_and_named_live(
         ][0]["passed"]
         is True
     )
-    assert (folder / "records" / "fleet" / f"{fx.FLEET}.json").is_file()
+    assert (folder / LOCK_DIR / f"{fx.FLEET}.json").is_file()
     assert os.listdir(no_lab) == [], "a stamp writes nothing under the run root"
     said = "\n".join(done.lines())
     assert f"stamped: {done.name}" in said, said

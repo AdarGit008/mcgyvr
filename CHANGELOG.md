@@ -40,8 +40,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   answers at its planned window and slots; agent: grounded and safety; an
   opted-in Jev: one typed choice). Those reads, with your rig file, become
   the dev-run evidence `fleet lock` reads. A green sample is locked under
-  `~/.local/state/mcgyvr/stamps/<fleet>/<run>/` (setup, `evidence.json`,
-  `records/fleet/`, no lab checkout needed), promoted to
+  `~/.local/state/mcgyvr/stamps/<fleet>/<run>/` (setup, `evidence.json`
+  and the lock; no lab checkout needed), promoted to
   `$MCGYVR_HOME/fleets/<fleet>@<date>/` and named live. A red sample, or a
   lock or promote refusal, stamps nothing and lists why. Not yet sampled: a
   fleet with a unit that sleeps until needed ("the swap isn't built yet"),

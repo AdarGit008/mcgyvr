@@ -11,7 +11,8 @@ when it is green:
 1. writes the stamp folder ``<data folder>/stamps/<fleet>/<run_id>/``
    (:func:`folder`; owner call, Round 8): ``setup/`` (the staged
    ``fleet.yaml`` and ``policy.yaml``), ``evidence.json``, and the dev lock
-   ``records/fleet/`` written by :func:`mcgyvr.fleet.lock.write` -- a dev root
+   lock (:data:`mcgyvr.fleet.promote.LOCK_DIR`) written by
+   :func:`mcgyvr.fleet.lock.write` -- a dev root
    of its own, so a stamp from an install needs no lab checkout;
 2. promotes the fleet from there (:func:`mcgyvr.fleet.promote.promote`) to
    ``<config folder>/fleets/<fleet>@<lock date>/``;

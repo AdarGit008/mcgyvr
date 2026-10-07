@@ -42,24 +42,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeGuard
 
+from mcgyvr.config import CHAT
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
 
 #: The use cases and the task outcome each is judged by (plan section 8.2).
-CODING = "coding"
-CHAT = "chat"
+#: ``chat`` is the config's own constant.
+CODING_USE_CASE = "coding"
 AGENT = "agent"
 MEDIA_GEN = "media-gen"
 #: The use case a policy that names none runs, as the config's default.
-DEFAULT_USE_CASE = CODING
+DEFAULT_USE_CASE = CODING_USE_CASE
 #: The checks an :class:`Outcome` reports.
-GATE = "gate"
-COMPLETION = "completion"
-GROUNDED = "grounded"
-SAFETY = "safety"
-CHOICE = "choice"
-CHECKS = (GATE, COMPLETION, GROUNDED, SAFETY, CHOICE)
+TASK_GATE = "gate"
+TASK_COMPLETION = "completion"
+TASK_GROUNDED = "grounded"
+TASK_SAFETY = "safety"
+TASK_CHOICE = "choice"
+CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
 #: Why a fleet with a sleeper is not stamped yet (owner, Round 8).
 SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
 #: Why a media-gen fleet is not stamped yet.
@@ -67,7 +68,7 @@ MEDIA_NOT_BUILT = "the media sample isn't built yet (P11)"
 #: The figures every awake unit's probe must read.
 PROBE_FIELDS = ("warm_decode_tok_s", "prefill_tok_s")
 #: The snapshot reading the combination's overhead is taken from.
-RESERVE = "gpu_reserve_mib"
+RESERVE_FIELD = "gpu_reserve_mib"
 
 
 class SampleError(Exception):
@@ -291,35 +292,35 @@ def _completion(
     name: str, unit: Mapping[str, Any], ran: Sequence[Outcome]
 ) -> list[str]:
     if not ran:
-        return [f"{COMPLETION}: {name}: did not run"]
+        return [f"{TASK_COMPLETION}: {name}: did not run"]
     one = ran[-1]
     if not one.passed:
-        return [f"{COMPLETION}: {name}: {one.why or 'did not answer'}"]
+        return [f"{TASK_COMPLETION}: {name}: {one.why or 'did not answer'}"]
     out: list[str] = []
     for key, planned_key in (("window", "window"), ("slots", "width")):
         planned = unit.get(planned_key)
         served = one.served.get(key)
         if served is None:
-            out.append(f"{COMPLETION}: {name}: its {key} was not read back")
+            out.append(f"{TASK_COMPLETION}: {name}: its {key} was not read back")
         elif planned is None or int(served) != int(planned):
             out.append(
-                f"{COMPLETION}: {name}: served {key} {served}, planned {planned}"
+                f"{TASK_COMPLETION}: {name}: served {key} {served}, planned {planned}"
             )
     return out
 
 
 def _choice(jev: str, ran: Sequence[Outcome]) -> list[str]:
     if not ran:
-        return [f"{CHOICE}: the Jev unit {jev}: its typed choice did not run"]
+        return [f"{TASK_CHOICE}: the Jev unit {jev}: its typed choice did not run"]
     one = ran[-1]
     if not one.passed:
-        return [f"{CHOICE}: the Jev unit {jev}: {one.why or 'gave no choice'}"]
+        return [f"{TASK_CHOICE}: the Jev unit {jev}: {one.why or 'gave no choice'}"]
     out: list[str] = []
     if not one.label:
-        out.append(f"{CHOICE}: the Jev unit {jev}: named no label")
+        out.append(f"{TASK_CHOICE}: the Jev unit {jev}: named no label")
     p = one.probability
     if not _number(p) or not 0.0 <= float(p or 0.0) <= 1.0:
-        out.append(f"{CHOICE}: the Jev unit {jev}: gave no probability ({p!r})")
+        out.append(f"{TASK_CHOICE}: the Jev unit {jev}: gave no probability ({p!r})")
     return out
 
 
@@ -331,21 +332,23 @@ def _task_reasons(
     outcomes: Sequence[Outcome],
 ) -> list[str]:
     units = fleet.get("units") or {}
-    if use_case == CODING:
-        return _failed(GATE, _ran(outcomes, GATE), "the coding task")
+    if use_case == CODING_USE_CASE:
+        return _failed(TASK_GATE, _ran(outcomes, TASK_GATE), "the coding task")
     if use_case == CHAT:
         return [
             reason
             for name in awake
             if name != jev
             for reason in _completion(
-                name, units[name], _ran(outcomes, COMPLETION, name)
+                name, units[name], _ran(outcomes, TASK_COMPLETION, name)
             )
         ]
     if use_case == AGENT:
         return [
-            *_failed(GROUNDED, _ran(outcomes, GROUNDED), "the grounded contract"),
-            *_failed(SAFETY, _ran(outcomes, SAFETY), "the safety check"),
+            *_failed(
+                TASK_GROUNDED, _ran(outcomes, TASK_GROUNDED), "the grounded contract"
+            ),
+            *_failed(TASK_SAFETY, _ran(outcomes, TASK_SAFETY), "the safety check"),
         ]
     if use_case == MEDIA_GEN:
         return [f"{MEDIA_GEN}: {MEDIA_NOT_BUILT}"]
@@ -420,12 +423,12 @@ def judge(sample: Sample) -> Verdict:
         snapshot = rows[-1].get("snapshot") or {}
         last_at.append(str(rows[-1].get("at") or ""))
         reserves = [
-            int(str((row.get("snapshot") or {}).get(RESERVE)))
+            int(str((row.get("snapshot") or {}).get(RESERVE_FIELD)))
             for row in rows
-            if str((row.get("snapshot") or {}).get(RESERVE, "")).isdigit()
+            if str((row.get("snapshot") or {}).get(RESERVE_FIELD, "")).isdigit()
         ]
         if not reserves:
-            why.append(f"read: {rig}: the snapshot did not read {RESERVE}")
+            why.append(f"read: {rig}: the snapshot did not read {RESERVE_FIELD}")
 
         comb: dict[str, Any] = {
             "rig": rig,
@@ -464,7 +467,7 @@ def judge(sample: Sample) -> Verdict:
 
     why.extend(_task_reasons(use_case, fleet, awake, jev, sample.outcomes))
     if jev is not None:
-        why.extend(_choice(str(jev), _ran(sample.outcomes, CHOICE, str(jev))))
+        why.extend(_choice(str(jev), _ran(sample.outcomes, TASK_CHOICE, str(jev))))
 
     green = not why
     evidence: dict[str, Any] | None = None

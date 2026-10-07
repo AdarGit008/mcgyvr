@@ -47,7 +47,7 @@ SNAPSHOT: dict[str, str] = {
     "gpu_vram_mib": "12288",
     "gpu_cc": "8.6",
     "gpu_slot": "0000:01:00.0",
-    "os_machine_id": "0123456789abcdef",
+    "os_machine_id": "machine-of-rig-a",
     "kernel": "6.0.0-example",
     "driver": "500.00",
     "docker": "27.0.0",
