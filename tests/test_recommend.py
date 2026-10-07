@@ -4,15 +4,16 @@ PROMISE
 -------
 ``mcgyvr recommend`` is a read-only planner. It re-reads the rigs it is pointed
 at over ssh — measuring free VRAM, available RAM, disk and bandwidth at that
-moment rather than trusting any stored spec — and, for the ``coding`` profile,
+moment rather than trusting any stored spec — and, for the ``coding`` use case,
 assembles candidate placements from those measured inputs and lets
 :func:`mcgyvr.decision.classify` name one. When no decision backend is
 reachable, the pick is deterministic (the largest checkpoint among the
 candidates that already fit the measured machine) and the plan says so. Every
 number in the emitted plan is a measurement the rig or the checkpoint header
-made, or a shipped constant; none is invented. The other three profiles
-(``chatting``, ``media_gen``, ``other``) are accepted as scaffolds that make
-no placement.
+made, or a shipped constant; none is invented. The other three use cases
+(``chat``, ``agent``, ``media-gen``) are accepted as scaffolds that make no
+placement. The deprecated ``--profile`` spellings are pinned by
+``tests/test_recommend_takes_the_four_use_cases_and_warns_on_the_old_spellings.py``.
 
 WHAT THIS TEST PINS
 -------------------
@@ -34,7 +35,7 @@ Models to place come from exactly one of two places:
   A catalog pick has no header, so only an entry whose shipped size fits the
   measured free VRAM is assembled.
 
-``--profile coding`` makes a real placement (an engine and a checkpoint are
+``--use-case coding`` makes a real placement (an engine and a checkpoint are
 chosen and the decision seam is consulted); the other three values are accepted
 but scaffolded (no engine, no decision).
 
@@ -88,7 +89,7 @@ MISSING_STORE_DIR = "/models/missing"
 SIZE_BYTES = 9_876_543_210
 
 ENGINES = ("llama.cpp", "vllm")
-PROFILES = ("coding", "chatting", "media_gen", "other")
+USE_CASES = ("coding", "chat", "agent", "media-gen")
 
 #: An invented HuggingFace catalog, the same shape ``load_catalog`` returns
 #: from ``data/model-catalog.json``. The test injects it through the seam.
@@ -455,7 +456,7 @@ def catalog(monkeypatch: pytest.MonkeyPatch) -> Any:
 
 def run_and_parse(
     capsys: pytest.CaptureFixture[str],
-    profile: str,
+    use_case: str,
     users: str,
     *model_stores: str,
     hosts: tuple[str, ...] = (HOST,),
@@ -463,8 +464,8 @@ def run_and_parse(
     """Drive the command, then parse the plan it printed to stdout."""
     argv: list[str] = [
         "recommend",
-        "--profile",
-        profile,
+        "--use-case",
+        use_case,
         "--users",
         users,
     ]
@@ -476,21 +477,21 @@ def run_and_parse(
     return code, json.loads(capsys.readouterr().out)
 
 
-def test_recommend_accepts_every_profile(
+def test_recommend_accepts_every_use_case(
     ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The command exists, and all four profile values are accepted.
+    """The command exists, and all four use cases are accepted.
 
-    Each profile may be scaffolded or fully placed; the point here is that the
+    Each use case may be scaffolded or fully placed; the point here is that the
     CLI accepts all four values and echoes the one it was given.
     """
     ssh()
     classify()
     probe()
-    for profile in PROFILES:
-        code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
+    for use_case in USE_CASES:
+        code, plan = run_and_parse(capsys, use_case, "single", STORE_DIR)
         assert code == 0
-        assert plan["profile"] == profile
+        assert plan["use_case"] == use_case
         assert plan["users"] == 1
 
 
@@ -612,7 +613,7 @@ def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
     assert plan["source"] == "hf-catalog"
 
 
-def test_coding_places_and_the_other_profiles_are_scaffolded(
+def test_coding_places_and_the_other_use_cases_are_scaffolded(
     ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """``coding`` is honoured with a real placement; the rest are stubs.
@@ -633,9 +634,9 @@ def test_coding_places_and_the_other_profiles_are_scaffolded(
     assert decisions.calls
     assert plan["decision"] == "model"
 
-    for profile in ("chatting", "media_gen", "other"):
+    for use_case in ("chat", "agent", "media-gen"):
         decisions.calls.clear()
-        code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
+        code, plan = run_and_parse(capsys, use_case, "single", STORE_DIR)
         assert code == 0
         rendered = _text(plan)
         assert not any(engine in rendered for engine in ENGINES)

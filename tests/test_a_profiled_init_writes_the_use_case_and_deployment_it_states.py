@@ -1,9 +1,10 @@
-"""A profiled init writes the use case and deployment it says it chose.
+"""A composed init writes the use case and deployment it says it chose.
 
-``mcgyvr init --profile X`` writes the candidate the Jev decision selected,
-not the deterministic ladder. The decisions it prints name the use case and
-deployment from the command line; the file it writes must say the same, or
-the printed decision and the setup on disk disagree.
+``mcgyvr init --priority X`` (formerly ``--profile X``) writes the candidate
+the Jev decision selected, not the deterministic ladder. The decisions it
+prints name the use case and deployment from the command line; the file it
+writes must say the same, or the printed decision and the setup on disk
+disagree.
 
 The transport is stubbed as ``tests/test_compose.py`` stubs it: no test here
 reaches a server, and a single candidate consults no model at all.
@@ -99,7 +100,7 @@ def test_the_file_states_the_use_case_and_deployment_the_decisions_name(
         tmp_path / "setup",
         detection=found,
         api_units=api,
-        profile="quality",
+        priority="quality",
         decision_endpoint=LOCAL,
         decision_model="example-model-small",
         use_case=use_case,

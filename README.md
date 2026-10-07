@@ -228,7 +228,7 @@ has its options.
 | `contract` | validate a task contract and show what it resolves to |
 | `detect` | show what can run the work, and how each fact was detected |
 | `scan` | measure this machine, record it, and report what changed since |
-| `recommend` | print one JSON plan: which checkpoint and engine serve a profile |
+| `recommend` | print one JSON plan: which checkpoint and engine serve a use case |
 | `serve` | put a card to sleep, or wake it, through the serving door |
 | `manage` | let Jev sleep and wake the ladder's units by the queue on it (runs until interrupted) |
 | `emit` | write a compose file per launch spec for the ladder's serving units |

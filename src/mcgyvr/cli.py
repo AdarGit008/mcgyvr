@@ -65,7 +65,13 @@ from mcgyvr.fleet.roots import (
     LIVE_FILE_SHOWN,
     FolderError,
 )
-from mcgyvr.initialize import ApiSpecError, InitError, initialize, parse_api_unit
+from mcgyvr.initialize import (
+    PRIORITIES,
+    ApiSpecError,
+    InitError,
+    initialize,
+    parse_api_unit,
+)
 from mcgyvr.scan import Mismatch, Scan
 from mcgyvr.serving import (
     ModelSpec,
@@ -594,6 +600,50 @@ def _mib(size_bytes: int) -> str:
     return f"{size_bytes / 1024 / 1024:.1f} MiB"
 
 
+#: Said by every deprecated ``--profile`` warning: the word also names the
+#: config's ``profile: live|dev``, which is a different setting and stays.
+_NOT_THE_CONFIG_PROFILE = (
+    "(this is not the config's `profile: live|dev`, a different setting that stays)"
+)
+
+
+def _init_priority(args: argparse.Namespace) -> str | None:
+    """The priority ``init`` composes for, reading the old ``--profile``.
+
+    ``--profile`` is deprecated: a word naming a priority maps onto it, any
+    other text is ignored, and ``--priority`` wins when both are given. Each
+    case says so on stderr, and that the config's ``profile`` is another thing.
+    """
+    priority: str | None = args.priority
+    if args.profile is None:
+        return priority
+    head = (
+        "warning: `mcgyvr init --profile` is deprecated and will be removed "
+        "in the release after next"
+    )
+    word = str(args.profile).strip().lower()
+    names = "|".join(PRIORITIES)
+    if priority is not None:
+        print(
+            f"{head}; --profile {args.profile!r} is ignored because "
+            f"`--priority {priority}` was given {_NOT_THE_CONFIG_PROFILE}",
+            file=sys.stderr,
+        )
+        return priority
+    if word in PRIORITIES:
+        print(
+            f"{head}; use `--priority {word}` {_NOT_THE_CONFIG_PROFILE}",
+            file=sys.stderr,
+        )
+        return word
+    print(
+        f"{head}; --profile {args.profile!r} names no priority ({names}), so it "
+        f"is ignored and the default ladder is written {_NOT_THE_CONFIG_PROFILE}",
+        file=sys.stderr,
+    )
+    return None
+
+
 def _init(args: argparse.Namespace) -> int:
     # Not the config resolution order: with a fleet named live, that ends in a
     # promoted folder, and a promoted folder is never written in place.
@@ -606,13 +656,14 @@ def _init(args: argparse.Namespace) -> int:
     except ApiSpecError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    priority = _init_priority(args)
     try:
         result = initialize(
             path,
             force=args.force,
             hosts=tuple(args.host or ()),
             api_units=api_units,
-            profile=args.profile,
+            priority=priority,
             use_case=args.use_case,
             deployment=args.deployment,
             jev=args.jev,
@@ -2511,15 +2562,47 @@ def _users_count(value: str) -> int:
     return count
 
 
+def _recommend_use_case(args: argparse.Namespace) -> str | None:
+    """The use case ``recommend`` plans for, reading the old ``--profile``.
+
+    ``--profile`` is deprecated: it maps onto the use case it meant and says so
+    on stderr, so stdout stays the plan alone. ``other`` names no use case.
+    """
+    if args.profile is None:
+        use_case: str = args.use_case
+        return use_case
+    mapped = recommend_module.OLD_PROFILES[args.profile]
+    head = (
+        "warning: `mcgyvr recommend --profile` is deprecated and will be "
+        "removed in the release after next"
+    )
+    if mapped is None:
+        from mcgyvr.catalog import catalog
+
+        names = ", ".join(u.name for u in catalog().use_cases)
+        print(
+            f"{head}; `--profile other` names no use case ({names}), so "
+            f"nothing is planned {_NOT_THE_CONFIG_PROFILE}",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"{head}; use `--use-case {mapped}` {_NOT_THE_CONFIG_PROFILE}",
+            file=sys.stderr,
+        )
+    return mapped
+
+
 def _recommend(args: argparse.Namespace) -> int:
-    """Print one JSON plan: which checkpoint and engine serve ``args.profile``.
+    """Print one JSON plan: which checkpoint and engine serve ``args.use_case``.
 
     Read-only: the rigs are re-read over the sanctioned detection ssh path and
     nothing is written, woken or slept. The plan is the only thing on stdout.
     """
+    use_case = _recommend_use_case(args)
     try:
         made = recommend_module.plan(
-            profile=args.profile,
+            use_case=use_case,
             users=args.users,
             hosts=args.host,
             model_stores=args.model_store,
@@ -3709,13 +3792,22 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
 
     rec = sub.add_parser(
         "recommend",
-        help="print one JSON plan: which checkpoint and engine serve a profile",
+        help="print one JSON plan: which checkpoint and engine serve a use case",
     )
-    rec.add_argument(
+    rec_use_case = rec.add_mutually_exclusive_group(required=True)
+    rec_use_case.add_argument(
+        "--use-case",
+        choices=use_case_names,
+        metavar="USE_CASE",
+        help="the use case to plan for: chat, agent, coding or media-gen",
+    )
+    rec_use_case.add_argument(
         "--profile",
-        required=True,
-        choices=recommend_module.PROFILES,
-        help="the usage profile to place for",
+        choices=tuple(recommend_module.OLD_PROFILES),
+        help=(
+            "deprecated, removed in the release after next: use --use-case "
+            "(chatting is chat, media_gen is media-gen; other plans nothing)"
+        ),
     )
     rec.add_argument(
         "--users",
@@ -3899,14 +3991,25 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help="overwrite an existing config, discarding hand edits",
     )
     ini.add_argument(
+        "--priority",
+        default=None,
+        choices=PRIORITIES,
+        metavar="PRIORITY",
+        help=(
+            "compose the ladder for this priority (throughput, quality or "
+            "cost) instead of writing the default ladder. The decision runs on "
+            "the first detected backend; every number in the file stays "
+            "measured or the schema's, never the model's"
+        ),
+    )
+    ini.add_argument(
         "--profile",
         default=None,
-        metavar="PROFILE",
+        metavar="TEXT",
         help=(
-            "compose the ladder for this usage profile (e.g. 'throughput', "
-            "'quality', or 'cost') instead of writing the default ladder. The "
-            "decision runs on the first detected backend; every number in the "
-            "file stays measured or the schema's, never the model's"
+            "deprecated, removed in the release after next: use --priority. "
+            "A word naming a priority maps onto it; other text is ignored. Not "
+            "the config's `profile: live|dev`"
         ),
     )
     ini.add_argument(

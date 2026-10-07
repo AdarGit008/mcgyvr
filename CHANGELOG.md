@@ -34,6 +34,25 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   published" fallback to the GitHub release wheel and tag, and `install.sh`'s
   `cli:` line names the package instead of the git URL. A test holds the
   README's install line and its `cli:` line to `install.sh`.
+- One name per use case everywhere: `chat`, `agent`, `coding`, `media-gen`.
+  `mcgyvr recommend` takes `--use-case` (the four names `init --use-case`
+  takes), and its JSON plan carries `use_case` where it carried `profile`.
+  Only `coding` is placed; `chat`, `agent` and `media-gen` print the rigs
+  and no placement, as `chatting` and `media_gen` did.
+- `mcgyvr init --priority throughput|quality|cost` replaces the free-text
+  `--profile` for a composed ladder. The config's `profile: live|dev` is a
+  different setting and is unchanged.
+
+### Deprecated
+
+- `mcgyvr recommend --profile`, removed in the release after next. It still
+  works, with a warning on stderr: `chatting` is `--use-case chat`,
+  `media_gen` is `--use-case media-gen`, and `other` names no use case, so
+  nothing is planned.
+- `mcgyvr init --profile`, removed in the release after next. A word naming a
+  priority (`throughput`, `quality`, `cost`) maps onto `--priority`; other
+  text is ignored. Either way it warns on stderr, and `--priority` wins when
+  both are given.
 
 ### Fixed
 

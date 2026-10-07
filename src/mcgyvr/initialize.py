@@ -98,6 +98,11 @@ LISTED_ORDER_NOTICE = (
     "climbed cheapest first, and that order is yours to set in policy.yaml."
 )
 
+#: What a composed ladder optimises for: ``mcgyvr init --priority``. The old
+#: free-text ``--profile`` is read for one release; a word naming one of these
+#: maps onto it, and any other text is ignored. Not the config's ``profile``.
+PRIORITIES = ("throughput", "quality", "cost")
+
 # A YAML scalar is safe bare only if it cannot be read as anything else. A
 # model id like `qwen2.5-coder:7b` carries a colon and a URL carries both a
 # colon and slashes, so most values here need quoting.
@@ -920,7 +925,7 @@ def _decision_from(
     """The decision endpoint and model the first detected backend provides.
 
     The Jev decision runs on the first backend that answered, over its first
-    listed model, so a composed init needs no further wiring than ``--profile``:
+    listed model, so a composed init needs no further wiring than ``--priority``:
     the same wire path a dispatch to that backend uses answers the decision.
     """
     backend = found.backends[0] if found.backends else None
@@ -935,12 +940,12 @@ def _decision_from(
 
 
 def _composition_note(
-    profile: str, recommendation: Recommendation, data: Mapping[str, Any]
+    priority: str, recommendation: Recommendation, data: Mapping[str, Any]
 ) -> str:
     """What the Jev layer chose, named so the written file explains itself."""
     ladder = ", ".join(str(name) for name in data.get("ladder", ()))
     return (
-        f"Usage profile {profile!r}: the Jev layer selected the "
+        f"Priority {priority!r}: the Jev layer selected the "
         f"{recommendation.selected.name!r} setup from "
         f"{len(recommendation.candidates)} candidate(s) assembled from the "
         f"measured machine and the declared schema. The ladder is: {ladder}. "
@@ -949,20 +954,20 @@ def _composition_note(
     )
 
 
-def _compose_unavailable_note(profile: str) -> str:
-    """A profile was asked for but nothing can run the decision on it."""
+def _compose_unavailable_note(priority: str) -> str:
+    """A priority was asked for but nothing can run the decision on it."""
     return (
-        f"A usage profile {profile!r} was asked for, but no backend answered "
+        f"A priority {priority!r} was asked for, but no backend answered "
         f"to run the Jev decision on, so init wrote the deterministic ladder "
         f"instead. Re-run with a backend up — or `mcgyvr init --host <name>` "
         f"for a rig — to have the ladder composed."
     )
 
 
-def _compose_failed_note(profile: str, why: Exception) -> str:
+def _compose_failed_note(priority: str, why: Exception) -> str:
     """The decision was asked for but its answer could not be read."""
     return (
-        f"A usage profile {profile!r} was asked for, but the Jev decision "
+        f"A priority {priority!r} was asked for, but the Jev decision "
         f"could not be read ({why}), so init wrote the deterministic ladder "
         f"instead. Every number in the file is still measured or the schema's."
     )
@@ -975,7 +980,7 @@ def initialize(
     detection: Detection | None = None,
     hosts: Sequence[str] = (),
     api_units: Sequence[ApiUnit] = (),
-    profile: str | None = None,
+    priority: str | None = None,
     decision_endpoint: Endpoint | None = None,
     decision_model: str | None = None,
     use_case: str = "coding",
@@ -1003,14 +1008,16 @@ def initialize(
     ladder is refused by the self-parse below, exactly as it always was, and
     nothing here special-cases around that check.
 
-    ``profile`` turns on the Jev-composed path: the candidate configs
-    assembled from the measured machine and the schema are ranked by
-    :func:`mcgyvr.compose.recommend` and the chosen one is written instead of
-    the default ladder. The model only names a candidate, so it can never
-    invent a number. ``decision_endpoint`` and ``decision_model`` name where
-    the decision runs; when they are omitted they are taken from the first
-    detected backend, and when no backend can run it the deterministic ladder
-    is written with a note saying so. Without ``profile`` nothing changes.
+    ``priority`` (one of :data:`PRIORITIES`) turns on the Jev-composed path:
+    the candidate configs assembled from the measured machine and the schema
+    are ranked by :func:`mcgyvr.compose.recommend` and the chosen one is
+    written instead of the default ladder. The model only names a candidate, so
+    it can never invent a number. ``decision_endpoint`` and ``decision_model``
+    name where the decision runs; when they are omitted they are taken from the
+    first detected backend, and when no backend can run it the deterministic
+    ladder is written with a note saying so. Without ``priority`` nothing
+    changes. It is not the config's ``profile: live|dev``, which init writes as
+    always.
 
     ``use_case`` is which of the four use cases the install serves, and
     ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
@@ -1053,7 +1060,7 @@ def initialize(
     composition: tuple[str, ...] = ()
     compose_limits: tuple[str, ...] = ()
 
-    if profile is not None and (proposal.rungs or asked):
+    if priority is not None and (proposal.rungs or asked):
         endpoint, model = decision_endpoint, decision_model
         if endpoint is None or model is None:
             derived_endpoint, derived_model = _decision_from(found, proposal)
@@ -1066,18 +1073,18 @@ def initialize(
                     model,
                     found,
                     proposal,
-                    profile,
+                    priority,
                     api_units=asked,
                     use_case=use_case,
                     deployment=deployment,
                 )
             except (DecisionError, RunnerError) as exc:
-                compose_limits = (_compose_failed_note(profile, exc),)
+                compose_limits = (_compose_failed_note(priority, exc),)
             else:
                 data = dict(recommendation.selected.data)
-                composition = (_composition_note(profile, recommendation, data),)
+                composition = (_composition_note(priority, recommendation, data),)
         else:
-            compose_limits = (_compose_unavailable_note(profile),)
+            compose_limits = (_compose_unavailable_note(priority),)
 
     # After the composition, so a composed candidate carries the opt-ins too.
     data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)

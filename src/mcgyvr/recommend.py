@@ -1,8 +1,8 @@
 """Read-only placement planner behind ``mcgyvr recommend``.
 
 ``mcgyvr recommend`` re-reads the rigs it is pointed at and answers one
-question: for a usage profile, which checkpoint and engine should serve that
-profile, sized from the measurements it just took. It writes nothing, wakes
+question: for a use case, which checkpoint and engine should serve that use
+case, sized from the measurements it just took. It writes nothing, wakes
 nothing and sleeps nothing — the plan it prints is a plan, and a plan is the
 whole product.
 
@@ -32,9 +32,12 @@ Models to place come from exactly one of two places, and the plan says which:
   plus the KV and recurrent state its shipped geometry prices for ``--users``
   slots fit the measured free VRAM.
 
-Only ``coding`` makes a placement. ``chatting``, ``media_gen`` and ``other``
-are accepted as scaffolds: the rigs are still read, but no checkpoint is
-chosen and no decision is consulted.
+The use case is one of the catalog's four (``chat``, ``agent``, ``coding``,
+``media-gen``), the same names ``mcgyvr init --use-case`` takes. Only
+``coding`` makes a placement. The other three are accepted as scaffolds: the
+rigs are still read, but no checkpoint is chosen and no decision is consulted.
+The old ``--profile`` spellings map through :data:`OLD_PROFILES`; ``other``
+maps to no use case and is scaffolded the same way.
 """
 
 from __future__ import annotations
@@ -68,9 +71,17 @@ from mcgyvr.serving import (
     vramfit,
 )
 
-#: The profile values the command accepts, and the one that is placed.
-PROFILES = ("coding", "chatting", "media_gen", "other")
-PLACEMENT_PROFILE = "coding"
+#: The use case that is placed. The others the catalog names are scaffolds.
+PLACEMENT_USE_CASE = "coding"
+
+#: The deprecated ``--profile`` spellings, read for one release, and the use
+#: case each one means. ``other`` names no use case, so nothing is planned.
+OLD_PROFILES: dict[str, str | None] = {
+    "coding": "coding",
+    "chatting": "chat",
+    "media_gen": "media-gen",
+    "other": None,
+}
 
 #: The read-only remote line that discovers ``*.gguf`` one level under a
 #: directory on the rig. The directory is always single-quoted by
@@ -545,7 +556,7 @@ def _decide(
     question = {
         "placement": Choice(
             instructions=(
-                "Given this usage profile and the measured machine, pick the "
+                "Given this use case and the measured machine, pick the "
                 "placement that best fits."
             ),
             options={candidate.name: candidate.description for candidate in candidates},
@@ -583,15 +594,17 @@ def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
 
 def plan(
     *,
-    profile: str,
+    use_case: str | None,
     users: int,
     hosts: Sequence[str],
     model_stores: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Compose the one JSON plan ``mcgyvr recommend`` prints.
 
-    ``hosts`` are re-read over ssh at this moment; ``model_stores``, when any
-    is given, are the directories on those rigs to discover ``*.gguf`` in.
+    ``use_case`` is one of the catalog's use cases, or ``None`` for the old
+    ``--profile other``, which names none and is scaffolded. ``hosts`` are
+    re-read over ssh at this moment; ``model_stores``, when any is given, are
+    the directories on those rigs to discover ``*.gguf`` in.
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
@@ -613,9 +626,9 @@ def plan(
         scans[str(host)] = found
         rigs.append({"host": str(host), "measured": _measured(found)})
 
-    if profile != PLACEMENT_PROFILE:
+    if use_case != PLACEMENT_USE_CASE:
         return {
-            "profile": profile,
+            "use_case": use_case,
             "users": users,
             "source": "scaffold",
             "hosts": [str(host) for host in dict.fromkeys(hosts)],
@@ -654,7 +667,7 @@ def plan(
         )
 
     state: dict[str, Any] = {
-        "profile": profile,
+        "use_case": use_case,
         "users": users,
         "hosts": [str(host) for host in dict.fromkeys(hosts)],
         "measured": rigs,
@@ -670,7 +683,7 @@ def plan(
     }
     selected, decision_source = _decide(candidates, state)
     plan: dict[str, Any] = {
-        "profile": profile,
+        "use_case": use_case,
         "users": users,
         "source": source,
         "hosts": [str(host) for host in dict.fromkeys(hosts)],
