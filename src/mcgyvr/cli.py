@@ -2495,6 +2495,8 @@ def _scan(args: argparse.Namespace) -> int:
     that lost a DIMM or a card still delivers its measurement down the wire
     and the mismatch goes to stderr, where the operator reads it.
     """
+    if args.rig is not None:
+        return _scan_rig(args.rig, as_json=args.json)
     measured = scan_module.scan()
     root = scan_module.default_root()
     prior = scan_module.load_prior(scan_module.os_machine_id(measured), root)
@@ -2545,6 +2547,64 @@ def _scan(args: argparse.Namespace) -> int:
     if drift:
         _report_mismatches(drift, sys.stdout)
         return Exit.MISMATCH
+    return Exit.OK
+
+
+def _scan_rig(rig: str, *, as_json: bool) -> int:
+    """Scan ``rig`` over ssh and save it as the door's rig file; say what moved.
+
+    The scan is the read-only one ``mcgyvr recommend`` takes (the shipped
+    scanner, over the user's own ssh config and keys with ``BatchMode``), and
+    the file is what a user-mode door run holds the rig to
+    (:mod:`mcgyvr.serving.rigfile`). A rig that does not answer writes
+    nothing.
+    """
+    from mcgyvr.serving import rigfile
+
+    try:
+        target = rigfile.path(rig)
+        try:
+            before = rigfile.read(rig)
+        except rigfile.RigFileError as exc:
+            print(f"note: the rig file there is replaced: {exc}", file=sys.stderr)
+            before = None
+    except rigfile.RigFileError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.USAGE
+    try:
+        measured = scan_module.scan_over(scan_module.Reach.ssh(rig))
+    except scan_module.Unreachable:
+        print(
+            f"error: {rig} did not answer ssh (BatchMode: your own ssh config and "
+            "keys, no password prompt); no rig file is written",
+            file=sys.stderr,
+        )
+        return Exit.ERROR
+    except (scan_module.ScannerMissing, scan_module.ScanFailed):
+        print(
+            f"error: {rig} answered ssh but the scan did not run there (it needs "
+            "python3); no rig file is written",
+            file=sys.stderr,
+        )
+        return Exit.ERROR
+    now = rigfile.from_scan(rig, measured)
+    rigfile.write(now)
+    out = sys.stderr if as_json else sys.stdout
+    if as_json:
+        sys.stdout.write(now.to_json())
+    print(f"{rig}: {now.hostname}, docker {now.docker or 'not read'}", file=out)
+    for card in now.cards:
+        print(f"  card {card.index}  {card.said()}", file=out)
+    if now.ram_total_gb is not None:
+        print(f"  RAM     {now.ram_total_gb:.1f} GB", file=out)
+    if now.disk_path is not None:
+        print(f"  Disk    {now.disk_free_gb} GB free at {now.disk_path}", file=out)
+    for note in now.notes:
+        print(f"  - {note}", file=out)
+    if before is not None:
+        for change in rigfile.moved(before, now):
+            print(f"moved since {before.read_at}: {change.said()}", file=out)
+    print(f"\nSaved as {target}", file=out)
     return Exit.OK
 
 
@@ -3833,6 +3893,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "write the scan to stdout and nothing else — the wire format the "
             "remote transport parses"
+        ),
+    )
+    sca.add_argument(
+        "--rig",
+        metavar="RIG",
+        default=None,
+        help=(
+            "scan RIG instead, over your own ssh (read-only), and save it as the "
+            "serving door's rig file $MCGYVR_HOME/rigs/RIG.json, which a door run "
+            "from an install holds the rig to; says what moved since the last"
         ),
     )
     sca.set_defaults(func=_scan)

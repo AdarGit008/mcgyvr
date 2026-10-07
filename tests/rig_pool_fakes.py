@@ -412,6 +412,33 @@ class Stub:
     def on_error(self, error: Any) -> None: ...
 
 
+def hash_in_this_thread(
+    paths: Sequence[Path], stop: threading.Event
+) -> dict[Path, str]:
+    """:func:`mcgyvr.rig.tensorcache.hash_files`, in the calling thread.
+
+    The agent hashes in processes of their own at the lowest priority, which
+    by design run only on CPU no other process wants: on a busy machine one
+    took 4-13 s to name a 4 KiB file, most of it its interpreter's niced
+    exit. A session test that waits a fixed time for the cache check would
+    measure how idle the machine is. Here each file is named by the same
+    :func:`~mcgyvr.rig.tensorcache.file_name`, at the test's own priority, so
+    the check takes microseconds and the session's 5 s waits bound only the
+    agent's own threads. ``hash_files`` itself is tested on its own, with no
+    deadline."""
+    from mcgyvr.rig import tensorcache
+
+    found: dict[Path, str] = {}
+    for path in paths:
+        if stop.is_set():
+            return {}
+        try:
+            found[path] = tensorcache.file_name(path)
+        except OSError:
+            continue  # a file that could not be read is left out
+    return found
+
+
 def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
     from mcgyvr.rig import commands
     from mcgyvr.rig import session as rs

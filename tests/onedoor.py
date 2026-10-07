@@ -272,6 +272,16 @@ case $cmd in
     printf '%s\\n' "$cmd" > "$STUBS/linktime-cmd.txt"
     cat > "$STUBS/linktime-source.txt"
     cat "$STUBS/linktime.json" ;;
+  # The shipped rig scanner, which ends the line with no argument after it
+  # (`mcgyvr scan --rig`, and a user-mode door run reading the rig again):
+  # answered from rigscan.json.
+  *"| base64 -d | python3 -") cat "$STUBS/rigscan.json" ;;
+  # The weights fetcher a `serve fetch` ships, with its job, on stdin: run
+  # as written, by this machine's python3, under a HOME of the stub's own,
+  # so its weights folder is `rig-home/.cache/mcgyvr/weights`.
+  *"mcgyvr-fetch"*)
+    mkdir -p "$STUBS/rig-home"
+    HOME=$STUBS/rig-home MCGYVR_WEIGHTS= python3 - ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
   # The rig's lease (`~/.mcgyvr/lease` ON the rig): the remote command is
   # run as written, by a real bash, under a HOME of the stub's own — so
@@ -397,16 +407,52 @@ case "${1:-}" in
     # `down` removes what Docker's does: the containers the file names, and
     # with --remove-orphans every other container of the project too (here,
     # every `mcgyvr-` name) — unless a test pinned the names in place
-    # (compose-down-sticks).
+    # (compose-down-sticks). `up` and `rm` that name services act on those
+    # services' containers alone: `up` moves the queued ones to the list,
+    # `rm` takes them off it.
+    file= ; prev= ; services= ; seen=
+    for arg in "$@"; do
+      [ "$prev" = -f ] && file=$arg
+      case $arg in
+        up | rm) seen=1 ;;
+        -*) ;;
+        *) [ -n "$seen" ] && services="$services $arg" ;;
+      esac
+      prev=$arg
+    done
+    named=
+    if [ -n "$services" ]; then
+      named=$(python3 -c 'import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1]))
+for s in sys.argv[2:]: print(doc["services"][s]["container_name"])' "$file" $services)
+    fi
     case " $* " in
       *" up "*)
-        [ -f "$STUBS/serving-pending" ] &&
-          mv "$STUBS/serving-pending" "$STUBS/serving-names" ;;
+        if [ -z "$named" ]; then
+          [ -f "$STUBS/serving-pending" ] &&
+            mv "$STUBS/serving-pending" "$STUBS/serving-names"
+        else
+          for name in $named; do
+            if [ -f "$STUBS/serving-pending" ] &&
+               grep -qx -- "$name" "$STUBS/serving-pending"; then
+              printf '%s\\n' "$name" >> "$STUBS/serving-names"
+              grep -vx -- "$name" "$STUBS/serving-pending" > "$STUBS/pending.new" ||
+                true
+              mv "$STUBS/pending.new" "$STUBS/serving-pending"
+            fi
+          done
+        fi ;;
+      *" rm "*)
+        [ -e "$STUBS/compose-down-sticks" ] && exit 0
+        [ -f "$STUBS/serving-names" ] || exit 0
+        for name in $named; do
+          grep -vx -- "$name" "$STUBS/serving-names" > "$STUBS/names.new" ||
+            true
+          mv "$STUBS/names.new" "$STUBS/serving-names"
+        done ;;
       *" down "*)
         [ -e "$STUBS/compose-down-sticks" ] && exit 0
         [ -f "$STUBS/serving-names" ] || exit 0
-        file= ; prev=
-        for arg in "$@"; do [ "$prev" = -f ] && file=$arg; prev=$arg; done
         : > "$STUBS/serving-names.new"
         while read -r name; do
           [ -n "$name" ] || continue
@@ -806,6 +852,8 @@ def _command(root: Path, scenario: Scenario | None) -> list[str]:
         return [*argv, "--help"]
     if scenario.host:
         argv += ["--host", scenario.host]
+    # The fixture is a lab checkout, and a lab tool names its mode.
+    argv += ["--mode", "lab"]
     argv += ["--campaign", scenario.campaign, "--model", scenario.model]
     argv += ["--date", scenario.date]
     argv += ["--parallel", str(scenario.parallel)]
@@ -1048,7 +1096,7 @@ def serve_door(
     extra: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """One `serve up|down|sleep|wake` invocation from the fixture, to completion."""
-    argv = [sys.executable, str(root / DOOR_REL), "serve", mode]
+    argv = [sys.executable, str(root / DOOR_REL), "serve", mode, "--mode", "lab"]
     argv += ["--host", host, "--compose", str(compose), "--date", date]
     if suffix:
         argv += ["--suffix", suffix]

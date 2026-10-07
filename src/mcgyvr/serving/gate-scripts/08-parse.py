@@ -148,10 +148,6 @@ def _unbound(
 
 def main() -> int:
     door_required("gate 8")
-    sys.path.insert(0, str(root()))
-    from tools.runs import rows
-    from tools.runs.rows import read as read_rows
-
     declared = json.loads(need("RUN_DECLARED"))
     state = json.loads(need("RUN_APPEND_STATE"))
     superseded = json.loads(need("RUN_SUPERSEDED"))
@@ -241,7 +237,13 @@ def main() -> int:
                 continue
             if path.suffix != ".tsv":
                 continue
-            sweep = read_rows(path)
+            # The campaign's own parser, from the run root, and only where a
+            # TSV is read: a serve step files JSON alone, and a user's run
+            # root holds no tools/runs/.
+            sys.path.insert(0, str(root()))
+            from tools.runs import rows
+
+            sweep = rows.read(path)
             unbound = _unbound(rows, sweep, raw, size_before, run_id, round_id, digest)
         except Exception as error:
             print(f"gate 8: {name} does not parse: {error!r}", file=sys.stderr)

@@ -99,6 +99,24 @@ killed or hung up leaves it running with no bound. It may
 export only the ``RUN_`` names its list declares, none of them a name the
 door sets (:data:`DOOR_NAMES`), in at most :data:`MAX_EXPORT_BYTES`.
 
+TWO MODES, SAID AND NOT GUESSED. Every run takes ``--mode user|lab``
+(:func:`settle_mode`). ``lab`` is the lab's run, held to its round
+(:data:`LAB_MARK`), its rigs' declarations (:data:`HOSTS_FILE`) and the docker
+version they declare; a lab run whose lab files are missing is refused
+and never run as a user's. ``user`` is a door run from an install: the round,
+``hosts.json`` and the declared docker version are not asked for, and the rig
+is held to the user's own rig file instead (``$MCGYVR_HOME/rigs/<rig>.json``,
+:mod:`mcgyvr.serving.rigfile`, written by ``mcgyvr scan --rig``): each run
+reads the rig again, says what moved, and refuses only when the fleet no
+longer fits. Every other gate is the same gate in both modes: the lease, the
+daemon that answers and is the machine that was read, the envelope, the step,
+the stray-container check and the live fleet's lock. A user's serve run is
+filed under the data folder's ``door/<date>/<run_id>/`` (command, rig reading
+before and after, compose text, units up, step exit), and a container or a
+card holder mcgyvr did not start is reported and left as it is. With no
+``--mode``, a run root holding :data:`LAB_MARK` is refused and asked which
+mode, and any other runs as the user's. A campaign run is a lab run.
+
 THE CONTRACT WITH A GATE SCRIPT. The door's own gates are executables under
 ``gate-scripts/``; a caller's gates are the executables its list names.
 A gate reads the run from the environment (:data:`EXPORTED`), writes anything
@@ -120,6 +138,7 @@ import os
 import re
 import secrets
 import select
+import shlex
 import signal
 import subprocess
 import sys
@@ -132,6 +151,7 @@ from typing import Any, NoReturn
 
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.serving import gatelib
+from mcgyvr.serving.gatelib import DOOR_MODULE, LAB_MODE, MODE_VAR, USER_MODE
 
 #: The package directory. ``gate-scripts`` carries a hyphen so it can never be
 #: imported: these are executables the door SPAWNS, and a caller that could
@@ -154,23 +174,30 @@ DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
 #: `rig-units.sh` is the second half of the one reader the read run ships to a
 #: rig, behind `rig-snapshot.sh` (gate-scripts/read-02-rig.py).
 #: `linktime.py` is the one timer the link run ships to a rig
-#: (gate-scripts/link-01-time.py).
+#: (gate-scripts/link-01-time.py), and `fetcher.py` the one downloader a
+#: `serve fetch` ships (gate-scripts/serve-fetch.py).
 READERS = (
     DEFAULT_STEP,
     GATE_SCRIPTS / "rig-snapshot.sh",
     GATE_SCRIPTS / "rig-units.sh",
     HERE / "linktime.py",
+    HERE / "fetcher.py",
 )
 #: The door's own serve steps, one per direction. Shipped beside the gates
 #: because, like the default step, they belong to no campaign: a live ladder
 #: is not an experiment, and the envelope it files under is the host's.
 #: ``sleep`` and ``wake`` are vLLM's level-2 sleep and its wake: the containers
 #: stay up through both, and only the card's memory is given back and taken.
+#: ``up`` and ``down`` with ``--unit`` start or stop those containers of the
+#: compose file alone (the swap's start and stop for a unit that cannot
+#: sleep). ``fetch`` downloads weights on the rig, held to their sha256
+#: (:mod:`mcgyvr.serving.fetchlist`), and starts nothing.
 SERVE_STEPS = {
     "up": GATE_SCRIPTS / "serve-up.py",
     "down": GATE_SCRIPTS / "serve-down.py",
     "sleep": GATE_SCRIPTS / "serve-sleep.py",
     "wake": GATE_SCRIPTS / "serve-wake.py",
+    "fetch": GATE_SCRIPTS / "serve-fetch.py",
 }
 #: The door's vocabulary, and the daemon's: neither may be inherited.
 MINTED_PREFIXES = ("RUN_", "DOCKER_")
@@ -191,6 +218,12 @@ ROOT = HERE.parents[2]
 #: from an installed wheel :data:`ROOT` is ``site-packages/``, and a run's
 #: evidence written there is evidence nobody finds. See :func:`run_root`.
 ROOT_ENV = "MCGYVR_RUN_ROOT"
+#: The door's two modes, in the order its help names them.
+MODES = (USER_MODE, LAB_MODE)
+#: What makes a run root a lab checkout: the round's folder. And the lab's
+#: declaration of its rigs, beside it. Both relative to the run root.
+LAB_MARK = Path("tools", "bench")
+HOSTS_FILE = Path("tools", "runs", "hosts.json")
 
 
 class RefusedError(Exception):
@@ -224,6 +257,9 @@ class Entry:
     #: A caller's gate's time bound in seconds. The door's own entries have
     #: none (0).
     timeout_s: float = 0.0
+    #: What the entry holds in user mode, where it differs from ``why``: a
+    #: refusal says the rule the run was held to, in the mode it ran in.
+    user_why: str = ""
 
 
 #: THE RUN. Order is enforced, membership is enforced, and neither is
@@ -242,6 +278,9 @@ SEQUENCE: tuple[Entry, ...] = (
             "RUN_PROFILE",
             "RUN_CONFIG",
         ),
+        user_why="gate 1, user mode: the run knows which profile it is under, and "
+        "a live `serve up` starts only units of the stamped fleet; a user's run "
+        "pins no round",
     ),
     Entry(
         "02-rig.py",
@@ -253,6 +292,10 @@ SEQUENCE: tuple[Entry, ...] = (
         "these two rigs twice in six days with every artifact internally "
         "consistent",
         exports=("RUN_LEASE", "RUN_DISPLACED", "RUN_PRE_RIG"),
+        user_why="gate 2, user mode: the rig is leased to this run and read "
+        "again, and held to your rig file ($MCGYVR_HOME/rigs/<rig>.json, written "
+        "by `mcgyvr scan --rig`): what moved is said, and the run is refused only "
+        "when the fleet no longer fits",
     ),
     Entry(
         "03-image.py",
@@ -260,6 +303,8 @@ SEQUENCE: tuple[Entry, ...] = (
         "same one gate 7 asks about leftovers. A CLI with no daemon behind it "
         "passes `command -v` and fails inside the step, after the run is "
         "stamped, as a REFUSED row against the arm",
+        user_why="gate 3, user mode: the daemon `docker` reaches answers now and "
+        "is the machine gate 2 read",
     ),
     Entry(
         "04-workload.py",
@@ -281,6 +326,8 @@ SEQUENCE: tuple[Entry, ...] = (
             "RUN_APPEND_STATE",
             "RUN_SUPERSEDED",
         ),
+        user_why="gate 5, user mode: the run's folder in the door's log is made, "
+        "the step's declared artifacts are write-once, and RUN_ID is minted",
     ),
     # --- data scripts: the facts a placement needs, taken in the only order
     # --- in which each is meaningful. All three are mandatory for the same
@@ -355,7 +402,10 @@ LEASE_RELEASE = Entry(
 #: the three data scripts (a checkpoint's geometry and placement) are about
 #: one model under measurement and have no meaning for a compose file
 #: `mcgyvr emit` already sized; they are not skipped, they are not in this
-#: run. Order and membership are enforced exactly as for SEQUENCE.
+#: run. Order and membership are enforced exactly as for SEQUENCE. `serve
+#: fetch --weights FILE` runs the same sequence: it leases the rig it
+#: downloads onto, and gate 7 names any container that is up after it and was
+#: not before.
 SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
     entry
     for entry in SEQUENCE
@@ -439,8 +489,13 @@ EXPORTED = (
     "RUN_SERVE",
     "RUN_COMPOSE",
     "RUN_SERVE_EXPECTED",
-    # `serve sleep|wake --unit`: the containers the step acts on, empty for all.
+    # `serve up|down|sleep|wake --unit`: the containers the step acts on,
+    # empty for all.
     "RUN_SERVE_ONLY",
+    # `serve fetch`: the fetch list the door read and held to a hash, and the
+    # NAME of the variable a Hugging Face token is read from (never its value).
+    "RUN_FETCH",
+    "RUN_FETCH_TOKEN_ENV",
     # The read run's own four: the id its rows are filed under, the units it
     # runs the lock's harness for on the rig, the load it runs on them, and
     # the setup fleet it reads in place of the live one (`--fleet`).
@@ -450,6 +505,12 @@ EXPORTED = (
     "RUN_READ_FLEET",
     # The link run's one: the timer's mode and its arguments, as one line.
     "RUN_LINK",
+    # Every run's mode (``user`` or ``lab``), the command line it was opened
+    # with, and, once a serve run's step has ended, how it ended: what a
+    # user-mode run files in its log.
+    MODE_VAR,
+    "RUN_COMMAND",
+    "RUN_STEP_EXIT",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
@@ -910,6 +971,87 @@ def run_root() -> Path:
     return path.resolve()
 
 
+def settle_mode(given: str | None, root: Path) -> str:
+    """The run's mode: ``given``, or ``user`` where the run root is no lab checkout.
+
+    A run root holding :data:`LAB_MARK` with no mode named is refused before
+    any gate: there the door cannot tell a lab tool that forgot the flag from
+    a user, and a lab run read as a user's is held to none of the lab's
+    declarations. ``lab`` where the run root holds no :data:`LAB_MARK` is
+    refused too: a lab run with its lab files missing is never run as a
+    user's.
+    """
+    lab_checkout = (root / LAB_MARK).is_dir()
+    if given is None:
+        if lab_checkout:
+            _refuse(
+                2,
+                f"the run root {root} is a lab checkout (it holds {LAB_MARK}/) and "
+                "this run names no mode. Say which: --mode lab for the lab's run, "
+                f"held to its round and {HOSTS_FILE}, or --mode user for a "
+                "user's run, held to the rig file `mcgyvr scan --rig` writes. The "
+                "door does not guess: a lab tool that forgot the flag would "
+                "otherwise run held to none of the lab's declarations",
+            )
+        return USER_MODE
+    if given == LAB_MODE and not lab_checkout:
+        _refuse(
+            2,
+            f"--mode lab, and the run root {root} is not a lab checkout: it holds "
+            f"no {LAB_MARK}/. A lab run is held to the lab's round and "
+            "declarations, and with them missing it is refused, never run as a "
+            f"user's. Name the lab checkout with {ROOT_ENV}, or run --mode user",
+        )
+    return given
+
+
+def callers_mode() -> str:
+    """The mode mcgyvr's own door calls name: ``lab`` where the run root is a
+    lab checkout, ``user`` anywhere else.
+
+    Owner, 2026-10-07 (Round 6): the product's callers (the waker and the
+    ladder manager, the fleet's read and link, the door commands live
+    admission prints) never hard-code a mode. The test is the door's own
+    (:func:`settle_mode`), so inside the lab checkout they run as the lab's
+    tools do and need no rig file, and from an install they run as the user's.
+    A run root the door would refuse is left for the door to refuse with its
+    own rule, and reads as ``user`` here.
+    """
+    try:
+        root = run_root()
+    except RefusedError:
+        return USER_MODE
+    return LAB_MODE if (root / LAB_MARK).is_dir() else USER_MODE
+
+
+def _add_mode(parser: argparse.ArgumentParser) -> None:
+    """``--mode``, the same on every run."""
+    parser.add_argument(
+        "--mode",
+        choices=MODES,
+        default=None,
+        help=(
+            "user: a run from an install, the rig held to your rig file "
+            "($MCGYVR_HOME/rigs/RIG.json, written by `mcgyvr scan --rig RIG`); "
+            f"lab: the lab's run, held to its round and {HOSTS_FILE}. With no "
+            f"--mode, a run root holding {LAB_MARK}/ is refused and asked which, "
+            "and any other runs as user"
+        ),
+    )
+
+
+def _command(verb: str, argv: list[str]) -> str:
+    """The command line a run was opened with, as its log files it."""
+    return shlex.join(["python", "-m", DOOR_MODULE, *([verb] if verb else []), *argv])
+
+
+#: What ``--host`` says on every run.
+HOST_HELP = (
+    f"the rig, as your ssh names it: its name in {HOSTS_FILE} (lab) or in "
+    "$MCGYVR_HOME/rigs/ (user)"
+)
+
+
 def check_manifest() -> None:
     """Every entry exists and is executable, BEFORE anything runs.
 
@@ -1097,9 +1239,8 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         prog="python -m mcgyvr.serving.run",
         description="the one access point to the rigs",
     )
-    parser.add_argument(
-        "--host", required=True, help="the rig, by its name in hosts.json"
-    )
+    parser.add_argument("--host", required=True, help=HOST_HELP)
+    _add_mode(parser)
     parser.add_argument("--campaign", required=True, help="names the evidence envelope")
     parser.add_argument(
         "--step",
@@ -1402,18 +1543,51 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
     """The serve run's arguments. As with :func:`_parse`, nothing skips a gate."""
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run serve",
-        description="start a live ladder on a rig and leave it running, or stop it",
+        description=(
+            "start a live ladder on a rig and leave it running, or stop it; put "
+            "its units to sleep or wake them; or fetch weights onto it"
+        ),
     )
     parser.add_argument(
-        "mode", choices=sorted(SERVE_STEPS), help="up | down | sleep | wake"
+        "direction",
+        choices=sorted(SERVE_STEPS),
+        help="up | down | sleep | wake | fetch",
     )
-    parser.add_argument(
-        "--host", required=True, help="the rig, by its name in hosts.json"
-    )
+    parser.add_argument("--host", required=True, help=HOST_HELP)
+    _add_mode(parser)
     parser.add_argument(
         "--compose",
-        required=True,
-        help="the compose file `mcgyvr emit` wrote for this host",
+        default=None,
+        help=(
+            "up, down, sleep and wake: the compose file `mcgyvr emit` wrote for "
+            "this host"
+        ),
+    )
+    parser.add_argument(
+        "--weights",
+        default=None,
+        metavar="FILE",
+        help=(
+            'fetch only: the fetch list (JSON: {"files": [{repo, revision, file, '
+            "sha256, bytes}]}), each file pinned to a commit and its sha256 as "
+            "the model knowledge records it. The files land in the rig's weights "
+            "folder ($MCGYVR_WEIGHTS there, else ~/.cache/mcgyvr/weights) under "
+            "their base names; a download resumes from its .part, and one whose "
+            "sha256 does not match is deleted. No size cap: the total is said "
+            "before a byte moves. The Hub is $HF_ENDPOINT when set (https, or "
+            "http on this machine's loopback), else huggingface.co"
+        ),
+    )
+    parser.add_argument(
+        "--hf-token-env",
+        default=None,
+        metavar="VAR",
+        help=(
+            "fetch only: the variable a Hugging Face token is read from, for a "
+            "gated or private repository (default: HF_TOKEN, used when set). "
+            "Named and empty is refused. The token goes to the fetch on the rig "
+            "inside the ssh connection, never on a command line or into a file"
+        ),
     )
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
@@ -1423,9 +1597,11 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
         default=[],
         metavar="CONTAINER",
         help=(
-            "sleep and wake only: act on this container of the compose file and "
-            "leave the card's other units as they are (repeatable); a card's "
-            "co-resident units each sleep at level 2 on their own"
+            "up, down, sleep and wake: act on this container of the compose file "
+            "and leave the file's other units as they are (repeatable). `up` "
+            "starts it without its compose neighbours, `down` stops and removes "
+            "it, and a card's co-resident vLLM units each sleep at level 2 on "
+            "their own"
         ),
     )
     parser.add_argument(
@@ -1472,8 +1648,34 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _serve_refusal(opts: argparse.Namespace) -> str | None:
+    """Why the flags of a serve run do not go together, or None when they do."""
+    if opts.direction == "fetch":
+        given = [
+            flag
+            for flag, value in (("--compose", opts.compose), ("--unit", opts.unit))
+            if value
+        ]
+        if given:
+            return (
+                f"serve fetch takes no {' or '.join(given)}: a fetch downloads "
+                "weights and starts nothing; name what it downloads with --weights"
+            )
+        if opts.weights is None:
+            return "serve fetch names what it downloads with --weights FILE"
+        return None
+    if opts.compose is None:
+        return f"serve {opts.direction} needs --compose, the file `mcgyvr emit` wrote"
+    if opts.weights is not None or opts.hf_token_env is not None:
+        return (
+            f"serve {opts.direction} takes no --weights or --hf-token-env; only "
+            "serve fetch downloads"
+        )
+    return None
+
+
 def _serve(argv: list[str]) -> int:
-    """`serve up|down`: the second fixed sequence, to completion."""
+    """`serve up|down|sleep|wake|fetch`: the second fixed sequence, to completion."""
     opts = _serve_parse(argv)
     inherited = _ambient()
     if inherited is not None:
@@ -1485,47 +1687,72 @@ def _serve(argv: list[str]) -> int:
         return 2
     try:
         root = run_root()
+        mode = settle_mode(opts.mode, root)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
-    compose_file = Path(opts.compose)
-    compose_file = (
-        compose_file if compose_file.is_absolute() else Path.cwd() / compose_file
-    )
-    if not compose_file.is_file():
-        print(
-            f"run.py: REFUSED — --compose {opts.compose} is not a file; "
-            "`mcgyvr emit` writes one per host",
-            file=sys.stderr,
-        )
+    mismatched = _serve_refusal(opts)
+    if mismatched is not None:
+        print(f"run.py: REFUSED — {mismatched}", file=sys.stderr)
         return 2
-    # Read here, before any gate, so the names gate 7 will expect are the
-    # door's reading of the file and not the step's: a step that could
-    # declare its own expected set could declare away a stranger.
-    from mcgyvr.serving import servelib
+    compose_file: Path | None = None
+    units: tuple[Any, ...] = ()
+    fetch: dict[str, str] = {}
+    if opts.direction == "fetch":
+        # Read here, before any gate, for the reason the compose file is: the
+        # files the step downloads are the door's reading of the list, held to
+        # a hash, and nothing reaches the rig for a list it cannot hold.
+        from mcgyvr.serving import fetchlist
 
-    try:
-        units = servelib.services(compose_file)
-    except servelib.ComposeError as escape:
-        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
-        return 2
-    # `--unit` is read against the same reading, for the same reason: the
-    # step acts only on containers the door named from the file.
-    if opts.unit and opts.mode not in ("sleep", "wake"):
-        print(
-            f"run.py: REFUSED — serve {opts.mode} acts on a whole card and takes "
-            "no --unit; only serve sleep and serve wake act on one unit",
-            file=sys.stderr,
+        listed = Path(opts.weights)
+        listed = listed if listed.is_absolute() else Path.cwd() / listed
+        try:
+            wants = fetchlist.read(listed)
+        except fetchlist.FetchListError as escape:
+            print(
+                f"run.py: REFUSED — --weights {opts.weights}: {escape}", file=sys.stderr
+            )
+            return 2
+        try:
+            fetchlist.endpoint(os.environ)
+            token_env = fetchlist.token_variable(opts.hf_token_env, os.environ)
+        except fetchlist.FetchListError as escape:
+            print(f"run.py: REFUSED — {escape}", file=sys.stderr)
+            return 2
+        fetch = {"RUN_FETCH": fetchlist.dump(wants), "RUN_FETCH_TOKEN_ENV": token_env}
+    else:
+        assert opts.compose is not None
+        compose_file = Path(opts.compose)
+        compose_file = (
+            compose_file if compose_file.is_absolute() else Path.cwd() / compose_file
         )
-        return 2
-    unknown = sorted(set(opts.unit) - {unit.container for unit in units})
-    if unknown:
-        print(
-            f"run.py: REFUSED — the compose file names no container "
-            f"{', '.join(unknown)}; --unit names a container the file declares",
-            file=sys.stderr,
-        )
-        return 2
+        if not compose_file.is_file():
+            print(
+                f"run.py: REFUSED — --compose {opts.compose} is not a file; "
+                "`mcgyvr emit` writes one per host",
+                file=sys.stderr,
+            )
+            return 2
+        # Read here, before any gate, so the names gate 7 will expect are the
+        # door's reading of the file and not the step's: a step that could
+        # declare its own expected set could declare away a stranger.
+        from mcgyvr.serving import servelib
+
+        try:
+            units = servelib.services(compose_file)
+        except servelib.ComposeError as escape:
+            print(f"run.py: REFUSED — {escape}", file=sys.stderr)
+            return 2
+        # `--unit` is read against the same reading, for the same reason: the
+        # step acts only on containers the door named from the file.
+        unknown = sorted(set(opts.unit) - {unit.container for unit in units})
+        if unknown:
+            print(
+                f"run.py: REFUSED — the compose file names no container "
+                f"{', '.join(unknown)}; --unit names a container the file declares",
+                file=sys.stderr,
+            )
+            return 2
     try:
         gates = load_gate_list(opts.gates) if opts.gates is not None else None
     except RefusedError as refusal:
@@ -1543,13 +1770,16 @@ def _serve(argv: list[str]) -> int:
         RUN_ROOT=str(root),
         RUN_BIN=str(BIN),
         RUN_CAMPAIGN=f"live-{opts.host}",
-        RUN_STEP_FILE=str(SERVE_STEPS[opts.mode].resolve()),
+        RUN_STEP_FILE=str(SERVE_STEPS[opts.direction].resolve()),
         RUN_HOST=opts.host,
         RUN_SUFFIX=opts.suffix,
-        RUN_SERVE=opts.mode,
-        RUN_COMPOSE=str(compose_file.resolve()),
+        RUN_SERVE=opts.direction,
+        RUN_COMPOSE=str(compose_file.resolve()) if compose_file is not None else "",
         RUN_SERVE_EXPECTED=" ".join(unit.container for unit in units),
         RUN_SERVE_ONLY=" ".join(sorted(set(opts.unit))),
+        RUN_MODE=mode,
+        RUN_COMMAND=_command("serve", argv),
+        **fetch,
     )
     if opts.date:
         env["RUN_DATE"] = opts.date
@@ -1580,6 +1810,7 @@ def _serve(argv: list[str]) -> int:
                 file=sys.stderr,
             )
 
+        env["RUN_STEP_EXIT"] = "interrupted" if interrupted else str(step_status)
         after = _always(env, gates.always if gates else ())
         if interrupted:
             return 130
@@ -1603,9 +1834,8 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
             "and --load run the lock's harness on it"
         ),
     )
-    parser.add_argument(
-        "--host", required=True, help="the rig, by its name in hosts.json"
-    )
+    parser.add_argument("--host", required=True, help=HOST_HELP)
+    _add_mode(parser)
     parser.add_argument(
         "--probe",
         nargs="+",
@@ -1720,6 +1950,7 @@ def _read(argv: list[str]) -> int:
         return 2
     try:
         root = run_root()
+        mode = settle_mode(opts.mode, root)
         # A read has no teardown and no lease, so no `always` phase to run in.
         gates = (
             load_gate_list(opts.gates, tuple(READ_PHASES))
@@ -1744,6 +1975,8 @@ def _read(argv: list[str]) -> int:
         RUN_READ_PROBE=" ".join(opts.probe),
         RUN_READ_LOAD=opts.load,
         RUN_READ_FLEET=opts.fleet,
+        RUN_MODE=mode,
+        RUN_COMMAND=_command("read", argv),
     )
     try:
         check_manifest()
@@ -1778,6 +2011,7 @@ def _link_parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--host", required=True, help="the rig the timer runs on, as ssh names it"
     )
+    _add_mode(parser)
     modes = parser.add_mutually_exclusive_group(required=True)
     for flag, names in LINK_MODES.items():
         modes.add_argument(flag, nargs=2, metavar=names)
@@ -1824,6 +2058,7 @@ def _link(argv: list[str]) -> int:
     try:
         timer = _link_args(opts)
         root = run_root()
+        mode = settle_mode(opts.mode, root)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -1834,6 +2069,8 @@ def _link(argv: list[str]) -> int:
         RUN_BIN=str(BIN),
         RUN_HOST=opts.host,
         RUN_LINK=" ".join(timer),
+        RUN_MODE=mode,
+        RUN_COMMAND=_command("link", argv),
     )
     try:
         check_manifest()
@@ -1879,9 +2116,19 @@ def main(argv: list[str] | None = None) -> int:
     # envelope is named, because both are said relative to it.
     try:
         root = run_root()
+        mode = settle_mode(opts.mode, root)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
+    if mode != LAB_MODE:
+        print(
+            "run.py: REFUSED — a campaign run measures against the lab's round, "
+            f"its campaigns and {HOSTS_FILE}, so it is a lab run: run it "
+            "with --mode lab from a lab checkout. A user's door is `serve`, "
+            "`read` and `link`",
+            file=sys.stderr,
+        )
+        return 2
 
     if opts.step:
         step = Path(opts.step)
@@ -1933,6 +2180,8 @@ def main(argv: list[str] | None = None) -> int:
         # clock once: gate 5 files under it, and a gate reading the clock
         # again past midnight UTC would mint the next day's envelope.
         RUN_DATE=run_date,
+        RUN_MODE=mode,
+        RUN_COMMAND=_command("", given),
     )
 
     interrupted = False
@@ -2136,8 +2385,13 @@ def _stop_caller(entry: Entry, status: int) -> int:
 
 
 def _stop(entry: Entry, status: int, env: dict[str, str]) -> int:
-    """A gate before the step refused: say which rule, and stop."""
-    print(f"run.py: REFUSED at {entry.script} — {entry.why}", file=sys.stderr)
+    """A gate before the step refused: say which rule, in the run's mode, and stop."""
+    why = (
+        entry.user_why
+        if env.get(MODE_VAR) == USER_MODE and entry.user_why
+        else entry.why
+    )
+    print(f"run.py: REFUSED at {entry.script} — {why}", file=sys.stderr)
     return status or entry.status
 
 

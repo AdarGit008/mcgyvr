@@ -26,6 +26,15 @@ holder is a pid on this machine that is gone is stale: named, not silently
 ignored, and taken. The door releases the lease on every way out, and the
 shims refuse a displaced run's next touch of the rig, so dev yields by the
 machine and not by convention.
+
+IN USER MODE (a door run from an install, ``--mode user``) there is no
+hosts.json. The rig is held to the user's own rig file instead
+(:mod:`mcgyvr.serving.rigfile`), asked for before anything reaches the rig:
+the rig is scanned again with the scanner that wrote the file, what moved is
+said, and the run is refused only when the fleet no longer fits -- a card the
+compose file reserves is gone or holds less than the file records. A machine
+that is not idle is not refused either: a container or a card holder up
+before the run is reported and left as it is, since mcgyvr did not start it.
 """
 
 from __future__ import annotations
@@ -37,8 +46,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from mcgyvr.serving import rigfile, servelib
 from mcgyvr.serving.gatelib import (
     DEV,
+    USER_MODE,
     Lease,
     door_required,
     export,
@@ -48,6 +59,7 @@ from mcgyvr.serving.gatelib import (
     new_lease,
     refuse,
     root,
+    run_mode,
     ssh,
 )
 
@@ -246,6 +258,8 @@ def _matches(key: str, declared: str, reading: str | None) -> bool:
 def main() -> int:
     door_required("gate 2")
     host = need("RUN_HOST")
+    if run_mode() == USER_MODE:
+        return main_user(host)
     hosts_file = root() / "tools" / "runs" / "hosts.json"
     if not hosts_file.is_file():
         refuse(
@@ -292,14 +306,19 @@ def main() -> int:
 
     busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
     busy = {key: value for key, value in busy.items() if value != "none"}
-    if os.environ.get("RUN_SERVE") in ("down", "sleep", "wake"):
+    serve = os.environ.get("RUN_SERVE", "")
+    alone = serve == "up" and bool(os.environ.get("RUN_SERVE_ONLY", "").split())
+    if serve in ("down", "sleep", "wake", "fetch") or alone:
         # Taking a live ladder down is a run that opens on a busy rig by
         # design: the units it is here to stop hold the card and the daemon.
         # So is putting it to sleep or waking it, whose units stay up
-        # throughout. Nothing is admitted on that account beyond the run
-        # itself — gate 7 expects an EMPTY daemon after `down`, exactly the
-        # declared containers after `sleep` and `wake`, and names whatever
-        # else is up, ours or not.
+        # throughout, starting one unit of a file beside its running
+        # neighbours (`serve up --unit`), and a fetch, which starts nothing.
+        # Nothing is admitted on that account beyond the run itself — gate 7
+        # expects an EMPTY daemon after a whole `down`, exactly the declared
+        # containers after `sleep` and `wake`, the named units up or gone
+        # after a `--unit` run, nothing new after a fetch, and names whatever
+        # else the run left, ours or not.
         if busy:
             print(
                 f"gate 2: {host} is serving ("
@@ -342,6 +361,42 @@ def main() -> int:
     # reading survives as one exported line and gate 7 can diff against it.
     export("RUN_PRE_RIG", " ".join(f"{k}={v}" for k, v in sorted(live.items())))
     print(f"gate 2: {host} matches its declaration on {len(declared)} keys")
+    return 0
+
+
+def main_user(host: str) -> int:
+    """Gate 2 in user mode: the lease, the reading, and the user's rig file.
+
+    The rig file is asked for first, so a run with none reaches no rig. The
+    lease and the reading gate 7 diffs against are taken as in the lab; the
+    rig is then scanned again and held to its file (:func:`rigfile.door_check`).
+    """
+    saved = rigfile.required(host, "gate 2")
+    mine, displaced = take_lease(host)
+    export("RUN_LEASE", mine.line())
+    export("RUN_DISPLACED", displaced.raw if displaced is not None else "")
+    if displaced is not None:
+        teardown_displaced(host, displaced, "gate 2")
+
+    live = snapshot(host)
+    compose = os.environ.get("RUN_COMPOSE")
+    try:
+        used = rigfile.cards_used(Path(compose)) if compose else None
+    except servelib.ComposeError as exc:
+        refuse(f"gate 2: the compose file cannot be read for its cards: {exc}")
+    rigfile.door_check(host, saved, used, "gate 2")
+
+    busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
+    busy = {key: value for key, value in busy.items() if value != "none"}
+    if busy:
+        print(
+            f"gate 2: {host} was not idle before this run ("
+            + ", ".join(f"{key}={value}" for key, value in busy.items())
+            + "); what mcgyvr did not start is reported and left as it is, and "
+            "gate 7 names whatever this run leaves beyond it"
+        )
+    export("RUN_PRE_RIG", " ".join(f"{k}={v}" for k, v in sorted(live.items())))
+    print(f"gate 2: {host} held to its rig file {rigfile.path(host)}")
     return 0
 
 

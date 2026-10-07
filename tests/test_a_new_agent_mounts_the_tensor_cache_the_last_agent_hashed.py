@@ -31,13 +31,22 @@ from pathlib import Path
 
 import pytest
 
-from tests.rig_pool_fakes import Pool, make_pool
+from tests.rig_pool_fakes import Pool, hash_in_this_thread, make_pool
 from tests.test_no_worker_session_mounts_a_torn_tensor_cache_file import (
     _cached,
     _put,
     _stop,
     _worker,
 )
+
+
+@pytest.fixture(autouse=True)
+def _named_in_this_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each check names its files in this thread, so a wait bounds the agent
+    alone (:func:`tests.rig_pool_fakes.hash_in_this_thread`)."""
+    from mcgyvr.rig import tensorcache
+
+    monkeypatch.setattr(tensorcache, "hash_files", hash_in_this_thread)
 
 
 def _hashed_by_an_agent_that_ended(tmp_path: Path, *contents: bytes) -> list[Path]:

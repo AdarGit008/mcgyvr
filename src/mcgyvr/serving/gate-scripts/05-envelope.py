@@ -44,6 +44,14 @@ Written once, before the step, so a step that dies before its own START still
 left a record of what was about to measure; a header already there under this
 RUN_ID is refused, because two door invocations never share a run id.
 
+IN USER MODE (a door run from an install, ``--mode user``) the envelope is
+the run's own folder in the door's log under the data folder,
+``<data folder>/door/<date>/<RUN_ID>/`` (``~/.local/state/mcgyvr`` unless
+``$MCGYVR_DATA`` or ``$XDG_STATE_HOME`` moves it), and the header also files
+the run's mode, the command it was opened with, the rig as gate 2 read it
+before the step, and the compose file's text. Gate 7 adds the rest at the
+end (``<RUN_ID>.end.json``).
+
 Every check happens before anything is written; then the lease on the rig is
 stamped, and the envelope, the claim, the header and the moves aside are made.
 """
@@ -55,11 +63,15 @@ import json
 import os
 import re
 import sys
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
 import mcgyvr
+from mcgyvr.fleet.roots import FolderError, data_home
 from mcgyvr.serving.gatelib import (
+    DOOR_LOG,
+    USER_MODE,
     artifact_escape,
     claim,
     claim_path,
@@ -73,6 +85,7 @@ from mcgyvr.serving.gatelib import (
     refuse,
     release,
     root,
+    run_mode,
 )
 
 DIRECTIVES = ("RUN_ARTIFACTS", "RUN_REWRITES", "RUN_APPENDS")
@@ -150,6 +163,7 @@ DOOR_STEPS = frozenset(
         Path(__file__).resolve().parent / "serve-down.py",
         Path(__file__).resolve().parent / "serve-sleep.py",
         Path(__file__).resolve().parent / "serve-wake.py",
+        Path(__file__).resolve().parent / "serve-fetch.py",
     }
 )
 
@@ -184,7 +198,34 @@ def header_record(
     }
 
 
-def write_header(path: Path, record: dict[str, str]) -> None:
+def user_header(record: dict[str, str]) -> dict[str, object]:
+    """A user-mode run's header: ``record``, and what its log files beside it.
+
+    The command the door was opened with, the rig as gate 2 read it before
+    the step, and the compose file's text when the run serves one.
+    """
+    pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
+    compose = os.environ.get("RUN_COMPOSE")
+    text = Path(compose).read_text(encoding="utf-8") if compose else None
+    return {
+        **record,
+        "mode": USER_MODE,
+        "command": os.environ.get("RUN_COMMAND", ""),
+        "rig_before": pre,
+        "compose_file": compose,
+        "compose": text,
+    }
+
+
+def user_envelope(run_date: str, run_id: str) -> Path:
+    """Where a user-mode run is filed: its own folder of the door's log."""
+    try:
+        return data_home() / DOOR_LOG / run_date / run_id
+    except (FolderError, RuntimeError) as exc:
+        refuse(f"gate 5: the data folder cannot be named: {exc}. Nothing is minted")
+
+
+def write_header(path: Path, record: Mapping[str, object]) -> None:
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
 
@@ -268,7 +309,12 @@ def main() -> int:
             f"gate 5: RUN_ID {run_id!r} is not [A-Za-z0-9_.-]+; it names "
             "containers (<RUN_ID>-<role>) and must be legal as a docker name prefix"
         )
-    out_dir = root() / "records" / "evidence" / f"{run_date}-{campaign}"
+    user = run_mode() == USER_MODE
+    out_dir = (
+        user_envelope(run_date, run_id)
+        if user
+        else root() / "records" / "evidence" / f"{run_date}-{campaign}"
+    )
     escape = envelope_escape(out_dir)
     if escape is not None:
         refuse(f"gate 5: {escape}. Nothing is minted into a directory that is a link")
@@ -379,7 +425,7 @@ def main() -> int:
     # since, and a root that went away meanwhile is not re-made here — a
     # `parents=True` below would recreate it silently, which is the root made
     # by nobody that the door refuses to make.
-    if not root().is_dir():
+    if not user and not root().is_dir():
         refuse(
             f"gate 5: the run root {root()} is no longer a directory; the door "
             "files under a root that exists and never makes one. Nothing is "
@@ -397,6 +443,7 @@ def main() -> int:
             "never share a run id: a same-day re-run takes --suffix"
         )
     record = header_record(run_id, step_name, campaign, run_date)
+    header_doc: Mapping[str, object] = user_header(record) if user else record
 
     # A live run that displaced another run of this step, from another
     # machine, on the same day, would mint the run id that run's lease
@@ -422,7 +469,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     claim(out_dir, run_id)
     try:
-        write_header(header, record)
+        write_header(header, header_doc)
         for name, aside in aside_of.items():
             (out_dir / name).rename(out_dir / aside)
             print(

@@ -59,7 +59,11 @@ def _put(folder: Path, content: bytes, *, torn: bool = False) -> Path:
 
 
 @pytest.fixture
-def pool(tmp_path: Path) -> Iterator[Pool]:
+def pool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pool]:
+    from mcgyvr.rig import tensorcache
+
+    # the check names each file in this thread, so a wait bounds the agent
+    monkeypatch.setattr(tensorcache, "hash_files", fakes.hash_in_this_thread)
     made = make_pool(tmp_path)
     yield made
     made.sessions.close()

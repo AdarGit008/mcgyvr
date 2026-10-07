@@ -2279,6 +2279,21 @@
       "kind": "fact",
       "says": "The fewest backticks that open a code fence in Markdown.",
       "reason": "the specification of a format, protocol or tool"
+    },
+    "serving/fetcher.py:CHUNK_BYTES": {
+      "kind": "choice",
+      "says": "How much of a weights download the fetcher on a rig reads, writes and hashes at a time.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "serving/fetcher.py:TIMEOUT_S": {
+      "kind": "estimate",
+      "says": "How long, in seconds, one read of a weights download on a rig waits for bytes; a download that stalls longer is cut, and its .part is kept for the next fetch to resume.",
+      "moves_to": "weights_fetch_read_timeout_s"
+    },
+    "serving/fetchlist.py:MAX_LIST_BYTES": {
+      "kind": "choice",
+      "says": "The most bytes of a fetch list the door reads; a list of the files of every rung of a ladder is a few KiB, and a larger file is refused before it is parsed.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     }
   }
 }

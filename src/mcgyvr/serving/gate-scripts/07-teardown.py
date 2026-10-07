@@ -34,6 +34,22 @@ appended, every declared artifact is held to gatelib.artifact_escape: a
 symlink, a hard link or a path resolving elsewhere is named — with where it
 points — and left unstamped, and the run is not green. The envelope itself
 must be a directory and not a link.
+
+IN USER MODE (a door run from an install, ``--mode user``) the rig may run
+things mcgyvr did not start, which gate 2 reported and admitted: a container
+up before the run is not this run's leftover in any direction, and none is
+touched. The compose file's own units are judged whatever was up before: a
+`serve up` expects every one up, a `serve down` none.
+
+A `serve up --unit` OR `serve down --unit` RUN (RUN_SERVE_ONLY) acts on the
+named units alone, in either mode: those are judged whatever was up before
+(an `up` expects each up, a `down` each gone), the file's other units are
+left as they are and judged neither way, and anything else the run left is
+named as on any run. A `serve fetch` starts nothing, so anything up after it
+that was not up before is named. And the run's log gets
+its end, ``<RUN_ID>.end.json`` beside the header: the rig as read after the
+step, the containers up, the units serving, what was left or missing, and how
+the step exited.
 """
 
 from __future__ import annotations
@@ -42,14 +58,17 @@ import json
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from mcgyvr.serving.gatelib import (
+    USER_MODE,
     artifact_escape,
     displaced_by_run,
     door_required,
     envelope_escape,
     need,
+    run_mode,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -120,6 +139,41 @@ def _containers_up() -> dict[str, str] | None:
 
 def main() -> int:
     door_required("gate 7")
+    if run_mode() != USER_MODE:
+        return judge({}, user=False)
+    seen: dict[str, object] = {
+        "run_id": need("RUN_ID"),
+        "step_exit": os.environ.get("RUN_STEP_EXIT") or "unknown",
+    }
+    status = 1
+    try:
+        status = judge(seen, user=True)
+    finally:
+        seen["teardown_exit"] = status
+        file_end(seen)
+    return status
+
+
+def file_end(seen: dict[str, object]) -> None:
+    """Write a user-mode run's end, once, beside its header in the envelope."""
+    out_dir = Path(need("RUN_OUT_DIR"))
+    path = out_dir / f"{need('RUN_ID')}.end.json"
+    escape = envelope_escape(out_dir) or artifact_escape(path, out_dir)
+    if escape is not None:
+        print(f"gate 7: the run's end is not filed: {escape}", file=sys.stderr)
+        return
+    seen["ended_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        with path.open("x", encoding="utf-8") as handle:
+            handle.write(json.dumps(seen, indent=2, sort_keys=True) + "\n")
+    except FileExistsError:
+        print(
+            f"gate 7: {path.name} is already filed; not written again", file=sys.stderr
+        )
+
+
+def judge(seen: dict[str, object], *, user: bool) -> int:
+    """Gate 7's judgement, with what it read kept in ``seen`` for a user's log."""
     status = 0
     run_id = need("RUN_ID")
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
@@ -133,12 +187,27 @@ def main() -> int:
     # not a licence, and anything up at all is named.
     serve = os.environ.get("RUN_SERVE", "")
     expected = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
+    # `serve up|down --unit` acts on the named units alone: they are judged,
+    # up after an `up` and gone after a `down`, whatever was up before, and
+    # the file's other units are left as they are, up or not, and judged
+    # neither way. Anything else the run left is named as for any run.
+    alone = serve in ("up", "down") and bool(
+        os.environ.get("RUN_SERVE_ONLY", "").split()
+    )
+    judged = set(os.environ.get("RUN_SERVE_ONLY", "").split()) if alone else expected
+    untouched = expected - judged
+    seen["only"] = sorted(judged) if alone else []
     # `sleep` and `wake` open on a serving rig as `down` does, and end with
     # the declared containers running as `up` does: the units keep their
     # process through both.
     opened_busy = serve in ("down", "sleep", "wake")
     keeps = serve in ("up", "sleep", "wake")
-    before = set() if opened_busy else _ids(pre.get("containers"))
+    # A user's rig may hold containers mcgyvr did not start: what was up
+    # before the run is no leftover of it, in any direction. Nor, on a
+    # `--unit` run, is a container up before it.
+    before = (
+        set() if opened_busy and not (user or alone) else _ids(pre.get("containers"))
+    )
     # What this live run displaced at gate 2 (R1). A container of that run
     # that came back during the step — its step retrying a launch — is torn
     # down again here, by the name its lease gave it, and is not this run's
@@ -147,17 +216,26 @@ def main() -> int:
     # they share its `mcgyvr-` prefix, and are left running.
     displaced = displaced_by_run()
     if displaced is not None and displaced.run_id != "none":
-        keep = frozenset(expected) if keeps else frozenset()
+        keep = frozenset(expected) if keeps else frozenset(untouched)
         _rig.teardown_displaced(need("RUN_HOST"), displaced, "gate 7", keep)
     up = _containers_up()
     if up is None:
         status = 1
     else:
-        left = {ident: name for ident, name in up.items() if ident not in before}
+        # A unit of the compose file is judged whatever was up before.
+        left = {
+            ident: name
+            for ident, name in up.items()
+            if name not in untouched
+            and (ident not in before or ((user or alone) and name in judged))
+        }
+        seen["containers_up"] = sorted(up.values())
         if keeps:
-            serving = {ident: name for ident, name in left.items() if name in expected}
-            left = {ident: name for ident, name in left.items() if name not in expected}
-            missing = sorted(expected - set(serving.values()))
+            serving = {ident: name for ident, name in left.items() if name in judged}
+            left = {ident: name for ident, name in left.items() if name not in judged}
+            missing = sorted(judged - set(serving.values()))
+            seen["serving"] = sorted(serving.values())
+            seen["missing"] = missing
             if serving:
                 names = " ".join(sorted(serving.values()))
                 print(f"gate 7: serving, as declared: {names}")
@@ -169,6 +247,18 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 status = 1
+        seen["left"] = sorted(left.values())
+        # A unit a `serve down --unit` named and did not take down.
+        stuck = sorted(name for name in left.values() if name in judged)
+        if stuck:
+            print(
+                f"gate 7: serve {serve} ended with named units still up: "
+                f"{' '.join(stuck)} — they were not stopped, and the run is not "
+                "green",
+                file=sys.stderr,
+            )
+            status = 1
+        left = {ident: name for ident, name in left.items() if name not in judged}
         if left:
             yours = [n for n in left.values() if n.startswith(f"{run_id}-")]
             others = [n for n in left.values() if not n.startswith(f"{run_id}-")]
@@ -200,6 +290,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    seen["rig_after"] = post
 
     # The reader's own account of the daemon, taken in the same breath as the
     # rest of the rig: a container it lists that `docker ps` did not is named
@@ -215,6 +306,7 @@ def main() -> int:
         status = 1
 
     moved = [key for key in COMPARED if pre.get(key) != post.get(key)]
+    seen["moved"] = moved
     if moved:
         stamp = f"### RIGMOVED run_id={run_id} " + " ".join(
             f"{key}={post.get(key, 'unread')} {key}_start={pre.get(key, 'unread')}"

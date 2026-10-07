@@ -123,8 +123,10 @@ class DoorLinks:
 
     def start(self, host: str, args: Sequence[str]) -> Pending:
         from mcgyvr.serving.gatelib import DOOR_MODULE
+        from mcgyvr.serving.run import callers_mode
 
-        argv = [sys.executable, "-m", DOOR_MODULE, "link", "--host", host, *args]
+        argv = [sys.executable, "-m", DOOR_MODULE, "link", "--mode", callers_mode()]
+        argv += ["--host", host, *args]
         proc = subprocess.Popen(
             argv,
             stdin=subprocess.DEVNULL,

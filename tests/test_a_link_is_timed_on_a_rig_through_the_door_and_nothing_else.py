@@ -43,6 +43,8 @@ def link_door(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         sys.executable,
         str(root / onedoor.DOOR_REL),
         "link",
+        "--mode",
+        "lab",
         "--host",
         "box-a.example",
     ]

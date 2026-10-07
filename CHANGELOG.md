@@ -40,6 +40,46 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `recommend --offline` (or `HF_HUB_OFFLINE=1`) asks nothing. Requests time
   out after 20 seconds, and a network that does not answer stops every
   lookup at once.
+- The serving door has a user mode (`python -m mcgyvr.serving.run ...
+  --mode user|lab`), approved by the owner 2026-10-07. A run from an install
+  is no longer refused for want of the lab's files: the round, the lab's
+  `hosts.json` and its declared docker version are not asked for, and the rig
+  is held to your rig file `$MCGYVR_HOME/rigs/<rig>.json` instead. Each run
+  scans the rig again, says what moved, and refuses only when the fleet no
+  longer fits (a card its compose file reserves is gone or holds less than
+  the file records). The lease, the daemon check (docker answers and is the
+  machine read), the envelope, the step, the stray-container check and the
+  live fleet's lock all stay. A user's serve run is filed under
+  `~/.local/state/mcgyvr/door/<date>/<run_id>/`: the command, the rig read
+  before and after, the compose text, the units up and the step's exit. A
+  container or a card holder mcgyvr did not start is reported and left as
+  it is. With no `--mode`, a run root that is a lab checkout (it holds the
+  round's folder) is refused and asked which mode; any other runs as the
+  user's. A campaign run is a lab run only. Lab mode is unchanged.
+- `mcgyvr scan --rig RIG` scans RIG over your own ssh (read-only, BatchMode)
+  and saves it as the door's rig file: hostname, cards and their memory, RAM,
+  free disk and docker version. A second scan says what moved. The shipped
+  rig scanner now reads the rig's docker version (`Scan.docker`).
+- The serving door fetches weights: `python -m mcgyvr.serving.run serve
+  fetch --host RIG --weights FILE` downloads the files a fetch list names
+  (`{"files": [{repo, revision, file, sha256, bytes}]}`, each pinned to a
+  commit and its sha256 as the model knowledge records it;
+  `mcgyvr.serving.fetchlist.from_records` writes it) on the rig itself, into
+  its weights folder (`$MCGYVR_WEIGHTS`, else `~/.cache/mcgyvr/weights`). It
+  says the total first and has no size cap. A download resumes from its
+  `.part`; a file is renamed into place only when its sha256 matches, and one
+  that does not match is deleted. A file already there that matches is
+  skipped; a different file of that name is left as it is. A gated model's
+  token is read from the variable `--hf-token-env` names (default
+  `HF_TOKEN`), goes to the Hub inside the ssh connection only (not to the
+  address a download is redirected to), and is never written down. The Hub
+  is `HF_ENDPOINT` when set (https, or http on loopback). The run takes the
+  same gates as every serve run and is filed the same way.
+- `serve up --unit C` and `serve down --unit C` start or stop one container
+  of a compose file alone (`up` with `--no-deps`, `down` as `rm --stop`),
+  leaving the file's other units as they are; gate 7 judges the named units
+  only. They were refused before; this is the start and stop a llama.cpp
+  swap partner needs.
 
 ### Changed
 
@@ -69,6 +109,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   changed (DeepSeek-Coder-V2-Lite: 9558623232 -> 10364416768 bytes, so it
   fits on fewer cards). `mcgyvr recommend` reads the catalog through the
   knowledge layer, so a cached record is priced before the shipped one.
+- mcgyvr's own door calls (`mcgyvr serve`, the ladder manager's sleep and
+  wake, `fleet probe`'s read and link timings, and the door commands live
+  admission prints) name the mode by the door's own test: `--mode lab` where
+  the run root is a lab checkout, so the lab's ladder needs no rig file, and
+  `--mode user` anywhere else. A lab tool that opens the door names
+  `--mode lab`.
 - `install.sh` warns about an `mcgyvr` older than 0.3.0, the latest release
   tag (it was 0.1.0); v0.1.0 has no `mcgyvr delegate`, which the skill names.
 - mcgyvr 0.3.0 is on PyPI, so `uv tool install mcgyvr` (or `pipx install
@@ -98,6 +144,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- Three tests no longer fail on a busy machine (they failed under several
+  parallel `make check` runs, at load ~60 on 8 cores). The tensor-cache
+  session tests gave the agent's cache check 5 s, but the check hashes in
+  processes at the lowest priority, which by design run only on CPU nothing
+  else wants: one took 4-13 s to name a 4 KiB file. They now name each file
+  in the check's own thread with the same `file_name`, so a wait bounds the
+  agent alone; `hash_files` keeps its own test, with no deadline. The
+  machine reader's write trace ran `strace -f`, which stops every process
+  at each of its system calls: 75-91 s at that load, past the run's 60 s.
+  It now runs with `--seccomp-bpf` where strace has it, stopping only at the
+  traced calls (9-12 s, the same calls seen). No product code changed: no
+  worker can mount a torn cache file while the check runs late.
 - `mcgyvr recommend` asks the bound Jev unit, and no other. It asked
   whatever answered on `127.0.0.1:8080` under the model name
   `recommend-decision`, which no config names. Now it reads the config
