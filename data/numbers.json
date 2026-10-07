@@ -724,15 +724,35 @@
       "says": "How many candidates a resolution keeps, best first, when its caller names no limit, as a decomposition does.",
       "reason": "a weight, threshold or cut of the product's own ranking of files and symbols"
     },
+    "planner.py:CLEAR_STEP": {
+      "kind": "choice",
+      "says": "How many times the file of the rung below it a bigger coding rung's file must be to be a clear quality step up and not a near-copy (owner, Round 7: add a bigger rung only when it is a CLEAR quality step up); where a board of the use case scores both, the bigger must also score better.",
+      "set_by": "flag --clear-step"
+    },
+    "planner.py:CLIMB_BUDGET": {
+      "kind": "choice",
+      "says": "How many times the top rung's own time a task that climbs every rung of a coding ladder may take (owner, Round 7: within ~2x the time the top rung alone would take); a middle rung that pushes the climb past it is left out. A rung's time is estimated from the bytes it reads per token; the sample run checks real timings.",
+      "set_by": "flag --climb-budget"
+    },
     "planner.py:CONTEXT_STEP": {
       "kind": "choice",
       "says": "The step, in tokens, the most context per slot that fits a strong unit is searched in.",
+      "set_by": "flag --ctx-per-slot"
+    },
+    "planner.py:FAST_RUNG_CTX": {
+      "kind": "choice",
+      "says": "The context per slot a coding ladder's fast rungs are sized at (owner, Round 4: fast rungs 8k): a contract's default prompt ceiling with its preflight reserve and a reply budget fits it; a model whose own context is shorter is sized at its own.",
       "set_by": "flag --ctx-per-slot"
     },
     "planner.py:FIRST_PORT": {
       "kind": "choice",
       "says": "The port each rig's first planned unit answers on, the next unit one above it: one above llama.cpp's own default, which a server the user already runs often holds.",
       "set_by": "flag --first-port"
+    },
+    "planner.py:JEV_CTX": {
+      "kind": "choice",
+      "says": "The context per slot an opted-in Jev unit is sized at (owner, Round 4: Jev 4k): one typed decision's prompt; a model whose own context is shorter is sized at its own.",
+      "set_by": "flag --jev-ctx"
     },
     "planner.py:SCHEMA_VERSION": {
       "kind": "choice",
@@ -746,7 +766,7 @@
     },
     "planner.py:STRONG_MIN_CTX": {
       "kind": "choice",
-      "says": "The least context per slot a chat or agent strong unit is planned at, when the model's own context allows it: the coding fast rungs' window (owner, Round 4: fast rungs 8k). Above it the unit gets the most that fits.",
+      "says": "The least context per slot a chat or agent strong unit is planned at, when the model's own context allows it (owner, Round 7: least context 8k per user, more whenever it fits). Above it the unit gets the most that fits.",
       "set_by": "flag --ctx-per-slot"
     },
     "planner.py:TOP_RUNG_CTX": {

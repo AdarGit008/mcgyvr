@@ -240,7 +240,12 @@ and the use case's leaderboards and files what it read in that cache
 that.
 
 Each entry is one model at one quantisation. `weights` names the file a pick
-downloads: its repository, revision, file name and sha256. Every number is an
+downloads: its repository, revision, file name and sha256. `serves` says what
+it is catalogued for (`chat`, `agent`, `coding`, `media-gen`, or `jev`, the
+small model that answers typed decisions; `mcgyvr.knowledge.record.SERVES`):
+a plan places a model only for what it serves. The coding models are what
+"good enough to be useful" for a ladder's fast rung is read from, and
+`Qwen/Qwen3.5-4B` is the default of `recommend --jev`. Every number is an
 object that says four things:
 
 - `value`, the number;

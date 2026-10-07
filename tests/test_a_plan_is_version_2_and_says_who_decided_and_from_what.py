@@ -173,7 +173,7 @@ def test_every_unit_says_what_it_is_and_where_its_numbers_came_from(
 
     total = 0
     for unit in _units(plan):
-        assert unit["role"] == "always-on"
+        assert unit["role"] in ("always-on", "sleeps-until-needed")
         assert unit["engine"] == "llama.cpp"
         assert unit["cards"]
         model = unit["model"]
@@ -197,15 +197,20 @@ def test_every_unit_says_what_it_is_and_where_its_numbers_came_from(
     assert sum(plan["downloads"]["by_rig"].values()) == total
 
 
-def test_a_coding_top_rung_is_sized_at_32k_and_fills_its_card_with_slots(
+def test_a_coding_top_rung_is_sized_at_32k_and_its_fast_rungs_at_8k(
     rigs: RecordedSsh, capsys: pytest.CaptureFixture[str]
 ) -> None:
     plan = _plan(capsys, "--offline")
 
-    for laid in plan["rigs"].values():
-        (top,) = laid["units"]
+    names = plan["ladder"]
+    by_name = {unit["name"]: unit for unit in _units(plan)}
+    for rig in plan["rigs"]:
+        rungs = [by_name[n] for n in names if n.startswith(f"{rig}-")]
+        assert rungs
+        top, below = rungs[-1], rungs[:-1]
         assert top["ctx_per_slot"] == min(32768, top["model"]["context_length"])
-        assert top["slots"] >= 1
+        for rung in below:
+            assert rung["ctx_per_slot"] == min(8192, rung["model"]["context_length"])
     if any(unit["slots"] > plan["users"] for unit in _units(plan)):
         assert plan["fanout"] == "idle"
 
