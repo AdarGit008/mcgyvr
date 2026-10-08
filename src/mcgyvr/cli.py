@@ -1259,6 +1259,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.drive import Recording, gate_adapters
     from mcgyvr.result import RunResult, result_path, run_stamp, write
     from mcgyvr.session import with_mcorch_transcript
+    from mcgyvr.telemetry import run_tags
 
     session: Session = args.session
 
@@ -1404,6 +1405,9 @@ def _run(args: argparse.Namespace) -> int:
             session_file=session.session_file,
             mirrors=mirrors,
         )
+        # Every row carries the caller's tags, so tags that cannot be read
+        # are refused here, once, rather than as a failed row per attempt.
+        run_tags()
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

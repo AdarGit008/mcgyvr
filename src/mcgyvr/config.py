@@ -1151,7 +1151,11 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "journal",
         "block",
-        "Where mcgyvr keeps its own record of what it dispatched.",
+        "Where mcgyvr keeps its own record of what it dispatched. To say what "
+        "a run belongs to — an experiment, a build — set `MCGYVR_RUN_TAGS` to "
+        'a JSON object of text, number or true/false values, e.g. `{"round": '
+        '"r7"}`, at most 4096 bytes: every row the run writes carries it under '
+        "`run_tags`. Set to anything else, the run is refused before it starts.",
         block=JOURNAL_FIELDS,
     ),
     Field(

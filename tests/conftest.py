@@ -47,10 +47,11 @@ def _own_home_and_session(
     (project / "pytest.jsonl").write_text('{"type": "session"}\n', encoding="utf-8")
     monkeypatch.setenv("HOME", str(home))
     # A developer's shell may export where mcgyvr's config, its config and
-    # data folders and the door's run root are; a test that inherited one
-    # would load that developer's config or settings, or file a fixture's
-    # files or run under their folders. XDG_STATE_HOME places the data folder
-    # when MCGYVR_DATA does not.
+    # data folders and the door's run root are, and the tags a run's rows
+    # carry; a test that inherited one would load that developer's config or
+    # settings, file a fixture's files or run under their folders, or tag its
+    # rows as theirs. XDG_STATE_HOME places the data folder when MCGYVR_DATA
+    # does not.
     for name in (
         "PI_SESSION_FILE",
         "CLAUDE_CONFIG_DIR",
@@ -58,6 +59,7 @@ def _own_home_and_session(
         "MCGYVR_RUN_ROOT",
         "MCGYVR_HOME",
         "MCGYVR_DATA",
+        "MCGYVR_RUN_TAGS",
         "XDG_STATE_HOME",
     ):
         monkeypatch.delenv(name, raising=False)
