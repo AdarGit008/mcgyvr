@@ -16,8 +16,8 @@ What these tests hold:
   other string the row quotes and did not build;
 * a set variable is the whole answer: the checkout's round is not also read
   (``{}`` says "no tags" and is obeyed);
-* unset or empty, nothing is tagged — and an install with no ``tools/`` beside
-  it carries no round either;
+* unset or empty, nothing is tagged — and an install with no development
+  checkout around it carries no round either;
 * anything but a small JSON object of text, number or true/false values is
   refused, and refused before the run starts, the way the product refuses an
   unusable ``$MCGYVR_HOME``;
@@ -275,7 +275,7 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 def test_outside_the_checkout_only_the_environment_tags_a_row(
     tmp_path: Path, tagged: bool
 ) -> None:
-    """The package alone, with no ``tools/`` beside it: what a wheel sees.
+    """The package alone, with no development checkout around it: a wheel.
 
     A copy of ``src/mcgyvr`` on ``PYTHONPATH`` ahead of the editable install;
     ``cwd`` is the copy too, so nothing resolves the checkout. With no variable

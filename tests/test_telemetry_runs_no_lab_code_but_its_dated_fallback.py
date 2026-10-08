@@ -3,10 +3,10 @@
 A row is told what run it belongs to by ``$MCGYVR_RUN_TAGS``
 (``tests/test_a_row_carries_the_run_tags_its_environment_names.py``). Before
 that, :mod:`mcgyvr.telemetry` found the development checkout around the package
-and executed its ``tools/bench/product.py`` to stamp each row with a round. That
+and executed the bench's product module in it to stamp each row with a round. That
 path stays for one step, so the lab can set the variable first (borders plan 2a,
 2026-10-08), and it is the only place in the module allowed to load a file by
-path or to name ``tools/`` or the bench.
+path or to name the development trees or the bench.
 
 Two tests, read from the module's syntax rather than its prose:
 
@@ -146,7 +146,7 @@ def test_the_guard_sees_the_fallback() -> None:
     raises=AssertionError,
     reason=(
         "2026-10-08: owed — borders plan 2a. The checkout fallback "
-        "(_bench_product, which executes tools/bench/product.py) stays one "
+        "(_bench_product, which executes the bench's product module) stays one "
         "step so the lab can set $MCGYVR_RUN_TAGS first. Delete it, and this "
         "marker and the guard above come off."
     ),
