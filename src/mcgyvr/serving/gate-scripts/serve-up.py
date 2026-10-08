@@ -28,6 +28,10 @@ their compose services, with `--no-deps`: a neighbour the file orders ahead
 of it is not started with it, and the file's other units are left as they
 are, up or not (:func:`mcgyvr.serving.servelib.up`). This is how a unit that
 cannot sleep is woken in a swap: its container is started.
+
+A service under a compose profile starts asleep (a swap partner,
+`role: sleeps-until-needed`): a whole `up` leaves it down, so it is not waited
+for, and only naming it starts it.
 """
 
 from __future__ import annotations
@@ -62,7 +66,12 @@ def main() -> int:
         return 2
 
     only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
-    units = tuple(s for s in units if not only or s.container in only)
+    # Named units alone; else the file's awake set, which is what a whole
+    # `compose up` starts.
+    if only:
+        units = tuple(s for s in units if s.container in only)
+    else:
+        units = tuple(s for s in units if not s.asleep)
     names = [s.container for s in units]
     print(f"serve-up: docker compose up on {host}: {', '.join(names)}")
     started = servelib.up(compose_file, units if only else ())
