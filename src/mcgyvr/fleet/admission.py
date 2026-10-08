@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcgyvr.fleet.admit import LiveRefusedError, Plan, admit_live
+from mcgyvr.fleet.promote import on_a_users_machine
 
 #: A read of one rig through the door: ``(rig, run id, units to probe) -> exit``.
 Reader = Callable[[str, str, Sequence[str]], int]
@@ -49,13 +50,16 @@ class Admission:
 def unapproved(
     units: Mapping[str, Mapping[str, Any]], fleet: Mapping[str, Any], name: str
 ) -> list[str]:
-    """The units of ``units`` on a rig that live fleet ``name`` does not approve.
+    """The units of ``units`` at a machine live fleet ``name`` does not approve.
 
     ``units`` are the config a live command loaded, which need not be the live
     folder's: the working directory's comes first. A unit on a rig is approved
     only where the live fleet's layout places a unit of that name, on that rig
     and at that address, so a rig the layout does not name is never dispatched
-    to unread. A unit on no rig is hosted and is not read by admission.
+    to unread. A unit on no rig is hosted, and admission reads no rig for it;
+    but one whose address is a machine of the user's
+    (:func:`mcgyvr.fleet.promote.on_a_users_machine`) is approved only where
+    the live fleet's own folder holds a unit of that name at that address.
     """
     layout = fleet["fleets"][name].get("layout") or {}
     held = fleet.get("units") or {}
@@ -68,9 +72,12 @@ def unapproved(
     out: list[str] = []
     for unit, body in sorted(units.items()):
         rig = body.get("rig")
-        if not rig:
-            continue
         live = held.get(unit) or {}
+        if not rig:
+            why = on_a_users_machine(str(body.get("address") or ""))
+            if why is not None and live.get("address") != body.get("address"):
+                out.append(f"{unit} ({why})")
+            continue
         if (unit, str(rig)) in placed and live.get("address") == body.get("address"):
             continue
         out.append(f"{unit} (on {rig})")
@@ -110,8 +117,9 @@ def admit(
     if outside:
         raise LiveRefusedError(
             f"{', '.join(outside)}: the config loaded dispatches to a machine "
-            f"the live fleet {named} does not lay out, and that machine is not "
-            "approved for live work yet (a machine is approved by a read of it)"
+            f"of yours that the live fleet {named} does not hold, and that "
+            "machine is not approved for live work yet (a machine is approved "
+            "by a read of it)"
         )
     # The live setup's own policy, beside its fleet.yaml: an mcorch
     # orchestrator holds the live fleet to its units.

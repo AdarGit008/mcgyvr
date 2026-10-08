@@ -34,7 +34,9 @@ import copy
 import ipaddress
 import json
 import os
+import re
 import shutil
+import socket
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -68,6 +70,12 @@ LOCK_DIR = Path("records") / "fleet"
 #: and who its lock says approved it.
 OWN_FLEET = "own"
 OWN_APPROVER = "mcgyvr init"
+#: An IPv4 address in a spelling ``inet_aton`` reads and ``ipaddress`` does not:
+#: one to four parts, each decimal, octal (a leading 0) or hexadecimal (0x).
+_OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")
+#: The NAT64 well-known prefix (RFC 6052) as its first 12 bytes; the last 4 of
+#: an address under it are an IPv4 address.
+_NAT64 = bytes.fromhex("0064ff9b 00000000 00000000")
 #: Names only a local network answers: ``localhost`` and its subdomains (RFC
 #: 6761), multicast DNS (RFC 6762), the home network (RFC 8375) and names kept
 #: for private use. A name with no dot at all is one too.
@@ -284,16 +292,19 @@ def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
         raise
 
 
-def _on_a_users_machine(address: str) -> str | None:
+def on_a_users_machine(address: str) -> str | None:
     """Why ``address`` is a machine of the user's rather than a hosted service,
     or ``None`` when it does not say so.
 
     Read from the address as written, and nothing is looked up: an IP address
-    that is not public (loopback, private, link-local, shared, reserved), or a
-    name only a local network answers (:data:`LOCAL_SUFFIXES`, ``localhost``,
-    or a name with no dot). A public name that a local resolver points at a
-    machine of the user's is not caught here: resolving would ask the network
-    from an offline install, and the answer may differ at the run.
+    that is not public (loopback, private, link-local, shared, reserved), in
+    any spelling a resolver reads as one (``inet_aton``'s octal, hexadecimal
+    and short forms; an IPv4 address mapped into IPv6 or behind the NAT64
+    prefix, judged as that IPv4 address), or a name only a local network
+    answers (:data:`LOCAL_SUFFIXES`, ``localhost``, or a name with no dot). A
+    public name that a local resolver points at a machine of the user's is not
+    caught here: resolving would ask the network from an offline install, and
+    the answer may differ at the run.
     """
     try:
         host = urlsplit(address).hostname
@@ -302,14 +313,23 @@ def _on_a_users_machine(address: str) -> str | None:
     if not host:
         return "names no host"
     host = host.rstrip(".").lower()
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
-        if host == "localhost" or host.endswith(LOCAL_SUFFIXES) or "." not in host:
-            return f"{host} is a name only a local network answers"
-        return None
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
+        if not _OLD_IPV4.match(host):
+            if host == "localhost" or host.endswith(LOCAL_SUFFIXES) or "." not in host:
+                return f"{host} is a name only a local network answers"
+            return None
+        try:
+            ip = ipaddress.IPv4Address(socket.inet_aton(host))
+        except OSError:
+            return f"{host} is a number no resolver reads as a public address"
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip.packed.startswith(_NAT64):
+            ip = ipaddress.IPv4Address(ip.packed[len(_NAT64) :])
     if not ip.is_global:
         return f"{host} is not a public address"
     return None
@@ -334,7 +354,7 @@ def approve_own(setup: Path) -> Path:
     The user's own fleet, approved by the product itself and by no dev
     evidence: a stranger has none. Only a setup whose every unit is hosted is
     approved: on no ``rig``, at an address that is not a machine of the user's
-    (:func:`_on_a_users_machine`). Its fleet :data:`OWN_FLEET` lays out no rig,
+    (:func:`on_a_users_machine`). Its fleet :data:`OWN_FLEET` lays out no rig,
     so live admission reads none, and a machine of the user's is approved only
     by a read of it, which ``init`` does not take. Its lock pins that empty
     layout and says who approved it; the date in the folder's name is the day
@@ -359,7 +379,7 @@ def approve_own(setup: Path) -> Path:
     local = sorted(
         f"{unit} ({why})"
         for unit, body in units.items()
-        if (why := _on_a_users_machine(str(body.get("address") or ""))) is not None
+        if (why := on_a_users_machine(str(body.get("address") or ""))) is not None
     )
     if local:
         raise PromoteRefusedError(

@@ -21,9 +21,9 @@ What must be observably true, from that install:
 * a telemetry row written from the install carries ``$MCGYVR_RUN_TAGS`` under
   ``run_tags`` when the variable is set, and neither tags nor a round when it
   is not: the install has no checkout to read a round from. None of the
-  commands above writes a row (only ``run`` does, and it is the xfail below),
-  so this calls :func:`mcgyvr.telemetry.observe` from the installed
-  interpreter;
+  commands above writes a row (only ``run`` does, and the run below is judged
+  by its attempt, not its row), so this calls
+  :func:`mcgyvr.telemetry.observe` from the installed interpreter;
 * the hub client's data travels with it: the seccomp profile a pooled
   session's containers run under is read from the installed ``mcgyvr.rig``.
 
