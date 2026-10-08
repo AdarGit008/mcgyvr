@@ -18,6 +18,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `round`/`product_sha256` stamp telemetry read by executing the bench's
   product module from a development checkout; unset, that stamp
   stays for one step so the lab can switch first, and is then deleted.
+- The door has a `step` verb, an advanced command (owner, 2026-10-08, design
+  2b): `python -m mcgyvr.serving.run step --host RIG --campaign NAME --step
+  PATH [-- ARGS]` runs one script of your own on a rig under the door's fixed
+  gates: the profile, the rig's lease and reading, its docker daemon, the
+  envelope, then your step, then teardown and parse whatever it did, and the
+  lease released. It is filed in the door's log, or under `--out-root DIR` as
+  `DIR/<date>-<campaign>/`. A caller's gate list (`--gates`) runs inside that
+  order as on `serve`. `link` takes `--gates` too, `before` gates only.
+  `MCGYVR_DOOR_GATES=<folder>` gives a `serve`, `read`, `link` or `step` run
+  with no `--gates` the list `<folder>/<verb>.json`, so the doors mcgyvr opens
+  itself (waking a ladder, the fleet's read and probe) carry those gates too.
+  A caller's gate can add a refusal and never take a door gate's away. The
+  lab's campaign run and `--mode` are unchanged.
 - `mcgyvr scan --rig RIG` records the rig's private IPv4 address in its rig
   file (`private_ipv4`, with `private_ipv4_how`), as the rig reports it (owner,
   Round 9): the address its ssh session arrived at (`SSH_CONNECTION`) when an
