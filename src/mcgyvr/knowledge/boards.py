@@ -288,9 +288,9 @@ def rank(use_case: str | None, records: Sequence[ModelRecord]) -> list[ModelReco
                 return (
                     tier,
                     sign * float(score.value.value),
-                    int(one.size_bytes.value),
+                    one.total_bytes,
                     one.model_id,
                 )
-        return (len(order), 0.0, int(one.size_bytes.value), one.model_id)
+        return (len(order), 0.0, one.total_bytes, one.model_id)
 
     return sorted(records, key=place)

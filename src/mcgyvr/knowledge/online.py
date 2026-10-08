@@ -535,6 +535,14 @@ def refresh(
                 failed.append((f"board {board.id}", str(exc)))
         for one in dict.fromkeys(known):
             what = f"{one.model_id} {one.quant}"
+            if one.is_media:
+                # A media record's files are pinned at their revisions and
+                # its sizes are theirs; only its boards are read again.
+                try:
+                    written.append(store.write(boards.scored(one, read, today=day)))
+                except (KnowledgeError, OSError) as exc:
+                    failed.append((what, f"not filed in the cache: {exc}"))
+                continue
             if one.weights is None:
                 failed.append((what, "names no weights file to look up"))
                 continue

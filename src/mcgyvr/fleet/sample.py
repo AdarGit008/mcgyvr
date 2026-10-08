@@ -14,11 +14,15 @@ back and says, plan section 8.2:
 
 * **every awake unit** was probed by the lock's own harness: warm decode and
   prefill read, restarts read and none, its card read, and nothing alerted
-  against its ``room_mib``;
+  against its ``room_mib``. A media unit answers no token-speed probe, so it
+  is held to its restarts and its card alone (owner, Round 10), and a
+  CPU-only one (``launch.cpu_only``) has no card to read;
 * **the use case's task** passed: ``coding`` the deterministic gate on any
   rung; ``chat`` one completion per unit, served at the planned window per
   slot (``window``) and slots (``width``); ``agent`` the grounded and the
-  safety checks; ``media-gen`` is not sampled yet (P11);
+  safety checks; ``media-gen`` the image contract's ``media_valid`` and the
+  spoken line's ``asr_wer`` (Whisper's transcription within the ASR-WER
+  gate's threshold);
 * **an opted-in Jev** (``policy.yaml`` ``jev.unit``) gave one typed choice: a
   label and a probability;
 * **no unit sleeps**: until P10 builds the llama.cpp swap, a fleet with an
@@ -46,6 +50,7 @@ from mcgyvr.config import CHAT
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
+from mcgyvr.serving import MEDIA_ENGINES
 
 #: The use cases and the task outcome each is judged by (plan section 8.2).
 #: ``chat`` is the config's own constant.
@@ -60,11 +65,19 @@ TASK_COMPLETION = "completion"
 TASK_GROUNDED = "grounded"
 TASK_SAFETY = "safety"
 TASK_CHOICE = "choice"
-CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
+TASK_MEDIA_VALID = "media_valid"
+TASK_ASR_WER = "asr_wer"
+CHECKS = (
+    TASK_GATE,
+    TASK_COMPLETION,
+    TASK_GROUNDED,
+    TASK_SAFETY,
+    TASK_CHOICE,
+    TASK_MEDIA_VALID,
+    TASK_ASR_WER,
+)
 #: Why a fleet with a sleeper is not stamped yet (owner, Round 8).
 SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
-#: Why a media-gen fleet is not stamped yet.
-MEDIA_NOT_BUILT = "the media sample isn't built yet (P11)"
 #: The figures every awake unit's probe must read.
 PROBE_FIELDS = ("warm_decode_tok_s", "prefill_tok_s")
 #: The snapshot reading the combination's overhead is taken from.
@@ -246,7 +259,10 @@ def _probe_reasons(
     rows: Sequence[Mapping[str, Any]],
 ) -> list[str]:
     out: list[str] = []
-    missing = [f for f in PROBE_FIELDS if f not in read.figures]
+    media = unit.get("engine") in MEDIA_ENGINES
+    launch = unit.get("launch")
+    cpu_only = isinstance(launch, Mapping) and bool(launch.get("cpu_only"))
+    missing = [] if media else [f for f in PROBE_FIELDS if f not in read.figures]
     if missing:
         out.append(
             f"probe: {name}: {', '.join(missing)} not read: {_why_unprobed(rows, name)}"
@@ -257,7 +273,7 @@ def _probe_reasons(
         out.append(
             f"probe: {name}: it restarted {max(read.restarts)} time(s) in the sample"
         )
-    if not read.card and not read.peaks:
+    if not read.card and not read.peaks and not cpu_only:
         out.append(f"probe: {name}: its card was not read")
     for alerted in sorted(set(read.alerts)):
         out.append(
@@ -351,7 +367,12 @@ def _task_reasons(
             *_failed(TASK_SAFETY, _ran(outcomes, TASK_SAFETY), "the safety check"),
         ]
     if use_case == MEDIA_GEN:
-        return [f"{MEDIA_GEN}: {MEDIA_NOT_BUILT}"]
+        return [
+            *_failed(
+                TASK_MEDIA_VALID, _ran(outcomes, TASK_MEDIA_VALID), "the image contract"
+            ),
+            *_failed(TASK_ASR_WER, _ran(outcomes, TASK_ASR_WER), "the spoken line"),
+        ]
     return [f"use case: {use_case!r} has no sample"]
 
 

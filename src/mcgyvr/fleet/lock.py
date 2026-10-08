@@ -41,6 +41,7 @@ from mcgyvr.fleet.spans import (
     spans,
 )
 from mcgyvr.fleet.tolerance import tolerance_class
+from mcgyvr.serving import MEDIA_ENGINES
 
 
 class LockRefusedError(Exception):
@@ -347,7 +348,9 @@ def _combination_record(
             if steady is not None:
                 entry["card_steady_mib"] = steady
 
-        if state == "awake":
+        # A media unit answers no token-speed probe (owner, Round 10): it is
+        # held to its restarts and its card, above.
+        if state == "awake" and engine not in MEDIA_ENGINES:
             warm = (comb.get("warm_decode_tok_s") or {}).get(unit_name)
             if warm is None and measured_here:
                 raise LockRefusedError(

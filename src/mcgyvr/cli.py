@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
 from mcgyvr import __version__
+from mcgyvr import mediaplan as mediaplan_module
 from mcgyvr import planner as planner_module
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
@@ -2677,6 +2678,19 @@ def _positive_tokens(value: str) -> int:
     return count
 
 
+def _gib(value: str) -> float:
+    """A memory figure in GiB, zero or more."""
+    try:
+        gib = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"a memory figure is a number of GiB, not {value!r}"
+        ) from None
+    if not gib >= 0.0:
+        raise argparse.ArgumentTypeError(f"a memory figure is not negative: {gib}")
+    return gib
+
+
 def _above_one(value: str) -> float:
     """A ratio above 1: how many times another figure."""
     try:
@@ -2738,6 +2752,7 @@ def _recommend(args: argparse.Namespace) -> int:
             climb_budget=args.climb_budget,
             clear_step=args.clear_step,
             jev_ctx=args.jev_ctx,
+            media_margin=args.media_margin,
         )
     except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -4061,6 +4076,17 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "coding: a bigger rung's file is at least X times the one below it "
             f"(default: {planner_module.CLEAR_STEP})"
+        ),
+    )
+    rec.add_argument(
+        "--media-margin",
+        type=_gib,
+        default=mediaplan_module.MARGIN_GIB,
+        metavar="GIB",
+        help=(
+            "media-gen: what a media unit holds beyond its files, on the image "
+            "unit's card and in the voice's RAM "
+            f"(default: {mediaplan_module.MARGIN_GIB})"
         ),
     )
     rec.set_defaults(func=_recommend)

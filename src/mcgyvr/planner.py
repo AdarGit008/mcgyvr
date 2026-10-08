@@ -204,6 +204,7 @@ def _scores_source(scores: Sequence[Score]) -> str | None:
 def model_from_record(record: ModelRecord, row: kg.Geometry) -> Model:
     """A knowledge record and the header row of its file, as a model to place."""
     assert record.weights is not None
+    assert record.size_bytes is not None and record.context_length is not None
     weights = record.weights
     sources = {
         "size": record.size_bytes.source,
@@ -261,6 +262,8 @@ def library() -> Library:
     days = [day for day in (known.oldest_read_at,) if day is not None]
     for record in known.records:
         label = f"{record.model_id} {record.quant}"
+        if record.is_media:
+            continue  # placed by mcgyvr.mediaplan, not by this sizer
         if ENGINE not in record.engines or record.weights is None:
             unsized.append((label, f"no {ENGINE} file is known for it"))
             continue
@@ -1302,8 +1305,17 @@ def document(
     models_from: str | None,
     dropped: Sequence[Mapping[str, str]],
     unreachable: Sequence[Mapping[str, str]],
+    media: Sequence[tuple[str, Mapping[str, Any]]] = (),
+    local: Sequence[Mapping[str, Any]] = (),
+    checks: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """The plan, version 2 (plan section 7)."""
+    """The plan, version 2 (plan section 7).
+
+    ``media`` are media units, each with its rig (:mod:`mcgyvr.mediaplan`),
+    on the ladder after any text rung in the order given;
+    ``local`` what runs on the machine mcgyvr runs on and no rig serves (the
+    speech check); ``checks`` the checks a media sample runs instead of the
+    token-speed probes."""
     rigs: dict[str, Any] = {
         rig: {"measured": measured(scan, read_at), "units": []}
         for rig, scan in scans.items()
@@ -1320,6 +1332,8 @@ def document(
     for one in laid:
         for rig, doc in unit_documents(one, by_card):
             rigs[rig]["units"].append(doc)
+    for rig, doc in media:
+        rigs[rig]["units"].append(dict(doc))
     by_rig = {
         rig: sum(u["download"]["bytes"] for u in laid_rig["units"])
         for rig, laid_rig in rigs.items()
@@ -1336,7 +1350,7 @@ def document(
         "models_from": models_from,
         "knowledge": None if knowledge is None else dict(knowledge),
         "decision": dict(decision),
-        "ladder": [_name(one) for one in rungs],
+        "ladder": [_name(one) for one in rungs] + [doc["name"] for _, doc in media],
         "fanout": fanout,
         "manager": {
             "enable": sleeper,
@@ -1344,9 +1358,11 @@ def document(
             "leads": [],
         },
         "rigs": rigs,
+        "local": [dict(one) for one in local],
         "sample": {
             "use_case": use_case,
-            "probes": ["warm_decode", "prefill"],
+            "probes": [] if checks else ["warm_decode", "prefill"],
+            **({"checks": list(checks)} if checks else {}),
             "swap_round_trip": sleeper,
         },
         "downloads": {"total_bytes": sum(by_rig.values()), "by_rig": by_rig},

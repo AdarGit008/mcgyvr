@@ -17,6 +17,14 @@ A reading is a number taken on a machine. The machines anyone could have
 read a shipped number on are the project's own, so the shipped catalog holds
 no reading (``shipped=True`` refuses one); the user's own cache may.
 
+A media model (owner, Round 10) is a record whose engines are all media
+engines (:data:`MEDIA_PARTS`): an image model, a voice, or the speech
+recogniser the ASR-WER gate runs. Context and KV cache are a text model's, so a
+media record carries none of them. It may name several ``files`` (each pinned
+by its repository, revision and sha256, or by its git oid when the Hub keeps
+no sha256 for it) and a stated ``working_set``: which of those files the unit
+holds on its card and which in RAM. Its size is then the sum of its files.
+
 The same document format holds the shipped catalog and every cache file:
 ``{"schema_version": 2, "models": [record, ...]}``. A key a record does not
 have is refused rather than ignored, so a number cannot slip in under a new
@@ -167,6 +175,20 @@ UNRANKED: Mapping[str, str] = {
 }
 
 
+#: The engines a media record may name, and the part of ``media-gen`` each
+#: serves (owner, Round 10): ComfyUI or diffusers paint the image, the TTS
+#: engine speaks, and ``whisper`` is the speech recogniser the ASR-WER gate
+#: runs on the machine mcgyvr runs on (nothing is served on a rig for it).
+MEDIA_PARTS: Mapping[str, str] = {
+    "comfyui": "image",
+    "diffusers": "image",
+    "tts": "tts",
+    "whisper": "asr",
+}
+#: Where a media unit holds a file of its working set.
+HELD_ON: tuple[str, ...] = ("card", "ram")
+
+
 class KnowledgeError(Exception):
     """A knowledge document or record is unreadable, or a number in it does not
     say what it is, where it came from or when it was read."""
@@ -202,6 +224,30 @@ class Weights:
     sha256: str
 
 
+@dataclass(frozen=True)
+class File:
+    """One file of a media model: its repository, revision and path there,
+    its size, and the hash it is held to. ``sha256`` is the Hub's LFS hash;
+    a file the Hub keeps outside LFS (a small ``config.json``) has none, and
+    is held to its ``git_oid`` instead. Exactly one of the two is set."""
+
+    repo: str
+    revision: str
+    file: str
+    bytes: Number
+    sha256: str | None = None
+    git_oid: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkingSet:
+    """Which files of a media model its unit holds on its card, and which in
+    RAM: every file of the record, each named once."""
+
+    card: tuple[str, ...]
+    ram: tuple[str, ...]
+
+
 #: The numbers every record carries, in the order a record is written.
 _INT_FIELDS: tuple[str, ...] = (
     "size_bytes",
@@ -209,14 +255,31 @@ _INT_FIELDS: tuple[str, ...] = (
     "kv_bytes_per_token",
     "recurrent_bytes_per_slot",
 )
+#: The numbers only a text model has: a media record carries none of them.
+TEXT_ONLY: tuple[str, ...] = (
+    "context_length",
+    "kv_bytes_per_token",
+    "recurrent_bytes_per_slot",
+)
 #: The ones of those that are never zero: a context and a cache width.
 _POSITIVE = frozenset({"context_length", "kv_bytes_per_token"})
+_MEDIA_KEYS = frozenset({"files", "working_set", "downloads"})
 _RECORD_KEYS = frozenset(
-    {"model_id", "quant", "engines", "weights", "scores", "serves", *_INT_FIELDS}
+    {
+        "model_id",
+        "quant",
+        "engines",
+        "weights",
+        "scores",
+        "serves",
+        *_INT_FIELDS,
+        *_MEDIA_KEYS,
+    }
 )
 _NUMBER_KEYS = frozenset({"value", "kind", "source", "read_at"})
 _SCORE_KEYS = _NUMBER_KEYS | {"board", "metric"}
 _WEIGHTS_KEYS = ("repo", "revision", "file", "sha256")
+_FILE_KEYS = frozenset({"repo", "revision", "file", "bytes", "sha256", "git_oid"})
 _DOCUMENT_KEYS = frozenset({"schema_version", "models", "_purpose"})
 
 
@@ -228,33 +291,72 @@ class ModelRecord:
     two are the record's :attr:`key`. ``weights`` names the file a pick
     downloads, when one is known. ``engines`` are the engines that can serve
     it.
+
+    A text record carries every number of :data:`_INT_FIELDS`. A media record
+    (:attr:`is_media`) carries none of :data:`TEXT_ONLY`, and either its
+    ``size_bytes`` or its ``files`` with their ``working_set``.
     """
 
     model_id: str
     quant: str
     engines: tuple[str, ...]
     weights: Weights | None
-    size_bytes: Number
-    context_length: Number
-    kv_bytes_per_token: Number
-    recurrent_bytes_per_slot: Number
+    size_bytes: Number | None
+    context_length: Number | None
+    kv_bytes_per_token: Number | None
+    recurrent_bytes_per_slot: Number | None
     scores: tuple[Score, ...]
     #: What the model is catalogued as serving (:data:`SERVES`); empty when
     #: the record says nothing.
     serves: tuple[str, ...] = ()
+    #: A media model's files, and where its unit holds each.
+    files: tuple[File, ...] = ()
+    working_set: WorkingSet | None = None
+    #: The Hub's download count for the model's repository: what ranks a
+    #: voice, which no public board ranks (:data:`UNRANKED`).
+    downloads: Number | None = None
 
     @property
     def key(self) -> tuple[str, str]:
         return (self.model_id, self.quant)
 
+    @property
+    def is_media(self) -> bool:
+        """Whether every engine of the record is a media engine."""
+        return is_media_engines(self.engines)
+
+    @property
+    def part(self) -> str | None:
+        """The part of ``media-gen`` a media record serves, else ``None``."""
+        return MEDIA_PARTS[self.engines[0]] if self.is_media else None
+
+    @property
+    def total_bytes(self) -> int:
+        """What the model weighs: its ``size_bytes``, else its files' sum."""
+        if self.size_bytes is not None:
+            return int(self.size_bytes.value)
+        return sum(int(one.bytes.value) for one in self.files)
+
     def numbers(self) -> Iterator[tuple[str, Number]]:
         """Every number of the record, with its name."""
         for name in _INT_FIELDS:
             number = getattr(self, name)
-            assert isinstance(number, Number)
-            yield name, number
+            if number is not None:
+                yield name, number
+        for one in self.files:
+            yield f"files[{one.file}].bytes", one.bytes
+        if self.downloads is not None:
+            yield "downloads", self.downloads
         for score in self.scores:
             yield f"scores[{score.board}]", score.value
+
+
+def is_media_engines(engines: Sequence[str]) -> bool:
+    """Whether ``engines`` are all media engines (:data:`MEDIA_PARTS`) and
+    name one part of ``media-gen``."""
+    return bool(engines) and len({MEDIA_PARTS.get(e) for e in engines}) == 1 and (
+        engines[0] in MEDIA_PARTS
+    )
 
 
 def _text(raw: Any, where: str) -> str:
@@ -363,6 +465,88 @@ def _weights(raw: Any, where: str) -> Weights | None:
     return Weights(*(_text(raw[key], f"{where} {key}") for key in _WEIGHTS_KEYS))
 
 
+_GIT_OID = frozenset("0123456789abcdef")
+
+
+def _hash(raw: Any, where: str, length: int) -> str:
+    text = _text(raw, where)
+    if len(text) != length or not set(text) <= _GIT_OID:
+        raise KnowledgeError(f"{where} {text!r} is not {length} lower-case hex digits")
+    return text
+
+
+def _file(raw: Any, where: str, *, shipped: bool) -> File:
+    if not isinstance(raw, dict):
+        raise KnowledgeError(f"{where} is not an object")
+    unknown = sorted(set(raw) - _FILE_KEYS)
+    if unknown:
+        raise KnowledgeError(f"{where} has keys a file does not have: {unknown}")
+    hashes = [key for key in ("sha256", "git_oid") if key in raw]
+    if len(hashes) != 1:
+        raise KnowledgeError(
+            f"{where} names {len(hashes)} of sha256 and git_oid: a file is held to "
+            f"exactly one (its sha256, or its git oid when the Hub keeps no sha256)"
+        )
+    size = _number(raw.get("bytes"), f"{where} bytes", shipped=shipped, integer=True)
+    if size.value <= 0:
+        raise KnowledgeError(f"{where} bytes {size.value} is out of range")
+    return File(
+        repo=_text(raw.get("repo"), f"{where} repo"),
+        revision=_hash(raw.get("revision"), f"{where} revision", 40),
+        file=_text(raw.get("file"), f"{where} file"),
+        bytes=size,
+        sha256=_hash(raw["sha256"], f"{where} sha256", 64) if "sha256" in raw else None,
+        git_oid=_hash(raw["git_oid"], f"{where} git_oid", 40)
+        if "git_oid" in raw
+        else None,
+    )
+
+
+def _working_set(raw: Any, where: str, files: Sequence[File]) -> WorkingSet:
+    if not isinstance(raw, dict) or set(raw) != set(HELD_ON):
+        raise KnowledgeError(f"{where} is not an object of exactly {list(HELD_ON)}")
+    held: dict[str, tuple[str, ...]] = {}
+    for place in HELD_ON:
+        names = raw[place]
+        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            raise KnowledgeError(f"{where} {place} is not a list of file names")
+        held[place] = tuple(names)
+    named = [*held["card"], *held["ram"]]
+    known = [one.file for one in files]
+    if sorted(named) != sorted(known):
+        raise KnowledgeError(
+            f"{where} names {sorted(named)}; it names every file of the record "
+            f"once ({sorted(known)})"
+        )
+    return WorkingSet(card=held["card"], ram=held["ram"])
+
+
+def _media(raw: dict[str, Any], here: str) -> None:
+    """Refuse what a media record cannot hold, and require what it must."""
+    text_only = [name for name in TEXT_ONLY if name in raw]
+    if text_only:
+        raise KnowledgeError(
+            f"{here} is a media model and carries {text_only}: context and KV "
+            f"cache are a text model's"
+        )
+    if raw.get("weights") is not None:
+        raise KnowledgeError(f"{here} is a media model: its files are `files`")
+    if "files" in raw:
+        if "size_bytes" in raw:
+            raise KnowledgeError(
+                f"{here} names its files and a size_bytes: its size is its files' sum"
+            )
+        if "working_set" not in raw:
+            raise KnowledgeError(
+                f"{here} names its files and no working_set: where its unit "
+                f"holds each file is stated"
+            )
+    elif "size_bytes" not in raw:
+        raise KnowledgeError(f"{here} has no size_bytes and no files")
+    elif "working_set" in raw:
+        raise KnowledgeError(f"{here} has a working_set and no files")
+
+
 def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
     """One record, validated: every number says its kind, source and date."""
     if not isinstance(raw, dict):
@@ -376,10 +560,29 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
     engines = raw.get("engines")
     if not isinstance(engines, list) or not engines:
         raise KnowledgeError(f"{here} declares no engines")
-    numbers: dict[str, Number] = {}
+    named = tuple(_text(e, f"{here} engine") for e in engines)
+    media = any(e in MEDIA_PARTS for e in named)
+    if media and not is_media_engines(named):
+        raise KnowledgeError(
+            f"{here} engines {list(named)} mix a media engine with another engine "
+            f"or with another part of media-gen"
+        )
+    if media:
+        _media(raw, here)
+    else:
+        given = sorted(_MEDIA_KEYS & set(raw))
+        if given:
+            raise KnowledgeError(
+                f"{here} is a text model and carries {given}, which describe a "
+                f"media model"
+            )
+    numbers: dict[str, Number | None] = {}
     for name in _INT_FIELDS:
         if name not in raw:
-            raise KnowledgeError(f"{here} has no {name}")
+            if not media:
+                raise KnowledgeError(f"{here} has no {name}")
+            numbers[name] = None
+            continue
         number = _number(raw[name], f"{here} {name}", shipped=shipped, integer=True)
         if number.value < 0 or (name in _POSITIVE and number.value == 0):
             raise KnowledgeError(f"{here} {name} {number.value} is out of range")
@@ -395,16 +598,36 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
         raise KnowledgeError(
             f"{here} serves {unknown_uses}, which is not one of {list(SERVES)}"
         )
+    files_raw = raw.get("files", [])
+    if not isinstance(files_raw, list) or ("files" in raw and not files_raw):
+        raise KnowledgeError(f"{here} files is not a non-empty list")
+    files = tuple(
+        _file(f, f"{here} files[{i}]", shipped=shipped) for i, f in enumerate(files_raw)
+    )
+    if len({one.file for one in files}) != len(files):
+        raise KnowledgeError(f"{here} names one file twice")
+    downloads = (
+        _number(raw["downloads"], f"{here} downloads", shipped=shipped, integer=True)
+        if "downloads" in raw
+        else None
+    )
     return ModelRecord(
         model_id=model_id,
         quant=quant,
-        engines=tuple(_text(e, f"{here} engine") for e in engines),
+        engines=named,
         weights=_weights(raw.get("weights"), f"{here} weights"),
         scores=tuple(
             _score(s, f"{here} scores[{i}]", shipped=shipped)
             for i, s in enumerate(scores)
         ),
         serves=tuple(serves),
+        files=files,
+        working_set=(
+            _working_set(raw["working_set"], f"{here} working_set", files)
+            if "working_set" in raw
+            else None
+        ),
+        downloads=downloads,
         **numbers,
     )
 
@@ -456,7 +679,27 @@ def dump_record(one: ModelRecord) -> dict[str, Any]:
     if one.weights is not None:
         out["weights"] = {key: getattr(one.weights, key) for key in _WEIGHTS_KEYS}
     for name in _INT_FIELDS:
-        out[name] = _dump_number(getattr(one, name))
+        number = getattr(one, name)
+        if number is not None:
+            out[name] = _dump_number(number)
+    if one.files:
+        out["files"] = [
+            {
+                "repo": f.repo,
+                "revision": f.revision,
+                "file": f.file,
+                **({"sha256": f.sha256} if f.sha256 else {"git_oid": f.git_oid}),
+                "bytes": _dump_number(f.bytes),
+            }
+            for f in one.files
+        ]
+    if one.working_set is not None:
+        out["working_set"] = {
+            "card": list(one.working_set.card),
+            "ram": list(one.working_set.ram),
+        }
+    if one.downloads is not None:
+        out["downloads"] = _dump_number(one.downloads)
     out["scores"] = [
         {"board": s.board, "metric": s.metric, **_dump_number(s.value)}
         for s in one.scores

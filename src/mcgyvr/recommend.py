@@ -40,9 +40,11 @@ Models to place come from exactly one of two places, and the plan says which
 
 The use case is one of the catalog's four (``chat``, ``agent``, ``coding``,
 ``media-gen``), the same names ``mcgyvr init --use-case`` takes. ``chat``,
-``agent`` and ``coding`` are planned; ``media-gen`` is accepted and its rigs
-are read, but no unit is planned yet. The old ``--profile`` spellings map
-through :data:`OLD_PROFILES`; ``other`` maps to no use case and plans nothing.
+``agent`` and ``coding`` are planned by :mod:`mcgyvr.planner`; ``media-gen``
+by :mod:`mcgyvr.mediaplan` from the model knowledge (an image unit on a card,
+a voice on the CPU, and the speech check the ASR-WER gate runs here), its
+picks deterministic. The old ``--profile`` spellings map through
+:data:`OLD_PROFILES`; ``other`` maps to no use case and plans nothing.
 """
 
 from __future__ import annotations
@@ -53,7 +55,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from mcgyvr import availability, decision, planner
+from mcgyvr import availability, decision, mediaplan, planner
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S, Config
 from mcgyvr.decision import JEV_ROLE, Choice, ChoiceAnswer
@@ -402,6 +404,54 @@ def _jev_model(library: planner.Library, wanted: str) -> planner.Model:
     return sorted(named, key=lambda m: (m.quant != "Q4_K_M", m.quant))[0]
 
 
+def _plan_media(
+    scans: Mapping[str, Scan],
+    jev_unit: planner.Sized | None,
+    *,
+    first_port: int,
+    margin: float,
+    unreachable: Sequence[Mapping[str, str]],
+    done: Any,
+) -> dict[str, Any]:
+    """The media-gen plan (:mod:`mcgyvr.mediaplan`), around an opted-in Jev
+    unit, which judges the sample and names no pick."""
+    claims: dict[planner.Card, float] = {}
+    if jev_unit is not None:
+        planner._claim(claims, jev_unit)
+    media = mediaplan.plan(scans, mediaplan.library(), claims=claims, margin=margin)
+    dropped = [
+        {"rig": rig, "model": label, "why": why} for rig, label, why in media.dropped
+    ]
+    if not any(one.model.part == mediaplan.IMAGE for one in media.placed):
+        reasons = "; ".join(f"{d['rig']}: {d['why']}" for d in dropped)
+        down = "; ".join(f"{d['host']}: {d['why']}" for d in unreachable)
+        raise RecommendError(
+            "nothing to recommend: no image model fits any card that was read"
+            + (f" ({reasons})" if reasons else "")
+            + (f"; not read: {down}" if down else "")
+        )
+    laid = planner.lay_out([jev_unit] if jev_unit is not None else [], first_port=first_port)
+    taken = {one.rig: [one.unit.port] for one in laid}
+    media = mediaplan.lay_out(media, taken, first_port)
+    judge = (
+        "; the opted-in Jev unit judges the sample"
+        if jev_unit is not None
+        else "; no Jev unit is planned (opt in with --jev)"
+    )
+    return dict(
+        done(
+            laid,
+            mediaplan.RULE + judge,
+            dropped,
+            media=[(one.rig, mediaplan.unit_document(one)) for one in media.placed],
+            local=(
+                [mediaplan.check_document(media.check)] if media.check is not None else []
+            ),
+            checks=mediaplan.SAMPLE_CHECKS,
+        )
+    )
+
+
 def plan(
     *,
     use_case: str | None,
@@ -417,6 +467,7 @@ def plan(
     climb_budget: float = planner.CLIMB_BUDGET,
     clear_step: float = planner.CLEAR_STEP,
     jev_ctx: int = planner.JEV_CTX,
+    media_margin: float = mediaplan.MARGIN_GIB,
 ) -> dict[str, Any]:
     """Compose the one JSON plan ``mcgyvr recommend`` prints (version 2).
 
@@ -435,6 +486,8 @@ def plan(
     resident Jev unit to plan, opt-in, at ``jev_ctx`` per slot.
     ``climb_budget`` and ``clear_step`` are the coding ladder's two limits
     (:data:`mcgyvr.planner.CLIMB_BUDGET`, :data:`mcgyvr.planner.CLEAR_STEP`).
+    ``media_margin`` is what a media unit holds beyond its files, in GiB
+    (:data:`mcgyvr.mediaplan.MARGIN_GIB`).
     """
     unreachable: list[dict[str, str]] = []
     scans: dict[str, Scan] = {}
@@ -456,6 +509,7 @@ def plan(
         knowledge: Mapping[str, Any] | None,
         models_from: str | None,
         dropped: Sequence[Mapping[str, str]],
+        **media: Any,
     ) -> dict[str, Any]:
         return planner.document(
             use_case=use_case,
@@ -470,9 +524,10 @@ def plan(
             models_from=models_from,
             dropped=dropped,
             unreachable=unreachable,
+            **media,
         )
 
-    if use_case not in planner.PLANNED_USE_CASES:
+    if use_case not in (*planner.PLANNED_USE_CASES, mediaplan.USE_CASE):
         said = f"{use_case} is not planned yet" if use_case else "no use case was named"
         return done((), {"by": "none", "why": said}, None, None, [])
 
@@ -495,6 +550,24 @@ def plan(
         if isinstance(sized, str):
             raise RecommendError(f"--jev {jev}: {sized}")
         jev_unit = sized
+
+    if use_case == mediaplan.USE_CASE:
+        known()
+        return _plan_media(
+            scans,
+            jev_unit,
+            first_port=first_port,
+            margin=media_margin,
+            unreachable=unreachable,
+            done=lambda laid, why, dropped, **media: done(
+                laid,
+                {"by": "deterministic", "why": why},
+                knowledge,
+                KNOWLEDGE,
+                dropped,
+                **media,
+            ),
+        )
 
     def assemble(models: Mapping[str, Sequence[planner.Model]]) -> dict[str, Any]:
         return planner.assemble(

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits, and that mcgyvr's model knowledge falls back to offline, after the user's cache ($MCGYVR_HOME/knowledge). Each entry is one model at one quantisation: `weights` names the file a pick downloads (repository, revision, file, sha256), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block. `scores` are board figures, each with its board. `serves` says what the model is catalogued for: the use cases `chat`, `agent`, `coding`, `media-gen`, and `jev`, the small model that answers typed decisions; a plan for a use case places only the models that serve it. This file is data: adding a model is an edit here, not a code change.",
+  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits, and that mcgyvr's model knowledge falls back to offline, after the user's cache ($MCGYVR_HOME/knowledge). Each entry is one model at one quantisation: `weights` names the file a pick downloads (repository, revision, file, sha256), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block. `scores` are board figures, each with its board. `serves` says what the model is catalogued for: the use cases `chat`, `agent`, `coding`, `media-gen`, and `jev`, the small model that answers typed decisions; a plan for a use case places only the models that serve it. This file is data: adding a model is an edit here, not a code change. A media model (an image model, a voice, or the speech recogniser the ASR-WER gate runs; its `engines` are media engines) carries no `context_length`, `kv_bytes_per_token` or `recurrent_bytes_per_slot`: those are a text model's. It names its `files` instead, each pinned by repository, revision and its sha256 (or its `git_oid` where the Hub keeps no sha256 for it, as for a small config.json) with its `bytes`, and a `working_set` saying which files its unit holds on its card and which in RAM; its size is the sum of its files. `downloads` is the Hub's download count for the repository, which ranks a voice, since no public board ranks one.",
   "models": [
     {
       "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
@@ -292,6 +292,153 @@
       "serves": [
         "chat",
         "agent"
+      ]
+    },
+    {
+      "model_id": "black-forest-labs/FLUX.1-schnell",
+      "quant": "Q4_K_S",
+      "engines": [
+        "comfyui"
+      ],
+      "files": [
+        {
+          "repo": "city96/FLUX.1-schnell-gguf",
+          "revision": "f495746ed9c5efcf4661f53ef05401dceadc17d2",
+          "file": "flux1-schnell-Q4_K_S.gguf",
+          "sha256": "4fd16477b3a5296d0cf722c4b92a9fd7f30d09ac7495826e4465d8de9c9fd973",
+          "bytes": {
+            "value": 6783943712,
+            "kind": "fact",
+            "source": "hub-api:city96/FLUX.1-schnell-gguf@f495746ed9c5efcf4661f53ef05401dceadc17d2/flux1-schnell-Q4_K_S.gguf",
+            "read_at": "2026-10-08"
+          }
+        },
+        {
+          "repo": "Comfy-Org/Lumina_Image_2.0_Repackaged",
+          "revision": "5b072540ef86570fecb8249c505f23d5bdeb88cd",
+          "file": "split_files/vae/ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38",
+          "bytes": {
+            "value": 335304388,
+            "kind": "fact",
+            "source": "hub-api:Comfy-Org/Lumina_Image_2.0_Repackaged@5b072540ef86570fecb8249c505f23d5bdeb88cd/split_files/vae/ae.safetensors",
+            "read_at": "2026-10-08"
+          }
+        },
+        {
+          "repo": "comfyanonymous/flux_text_encoders",
+          "revision": "6af2a98e3f615bdfa612fbd85da93d1ed5f69ef5",
+          "file": "clip_l.safetensors",
+          "sha256": "660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd",
+          "bytes": {
+            "value": 246144152,
+            "kind": "fact",
+            "source": "hub-api:comfyanonymous/flux_text_encoders@6af2a98e3f615bdfa612fbd85da93d1ed5f69ef5/clip_l.safetensors",
+            "read_at": "2026-10-08"
+          }
+        },
+        {
+          "repo": "comfyanonymous/flux_text_encoders",
+          "revision": "6af2a98e3f615bdfa612fbd85da93d1ed5f69ef5",
+          "file": "t5xxl_fp8_e4m3fn.safetensors",
+          "sha256": "7d330da4816157540d6bb7838bf63a0f02f573fc48ca4d8de34bb0cbfd514f09",
+          "bytes": {
+            "value": 4893934904,
+            "kind": "fact",
+            "source": "hub-api:comfyanonymous/flux_text_encoders@6af2a98e3f615bdfa612fbd85da93d1ed5f69ef5/t5xxl_fp8_e4m3fn.safetensors",
+            "read_at": "2026-10-08"
+          }
+        }
+      ],
+      "working_set": {
+        "card": [
+          "flux1-schnell-Q4_K_S.gguf",
+          "split_files/vae/ae.safetensors"
+        ],
+        "ram": [
+          "clip_l.safetensors",
+          "t5xxl_fp8_e4m3fn.safetensors"
+        ]
+      },
+      "scores": [],
+      "serves": [
+        "media-gen"
+      ]
+    },
+    {
+      "model_id": "hexgrad/Kokoro-82M",
+      "quant": "F32",
+      "engines": [
+        "tts"
+      ],
+      "files": [
+        {
+          "repo": "hexgrad/Kokoro-82M",
+          "revision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+          "file": "kokoro-v1_0.pth",
+          "sha256": "496dba118d1a58f5f3db2efc88dbdc216e0483fc89fe6e47ee1f2c53f18ad1e4",
+          "bytes": {
+            "value": 327212226,
+            "kind": "fact",
+            "source": "hub-api:hexgrad/Kokoro-82M@f3ff3571791e39611d31c381e3a41a3af07b4987/kokoro-v1_0.pth",
+            "read_at": "2026-10-08"
+          }
+        },
+        {
+          "repo": "hexgrad/Kokoro-82M",
+          "revision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+          "file": "config.json",
+          "git_oid": "14a726edd3718279eac426630879ff743955b16a",
+          "bytes": {
+            "value": 2351,
+            "kind": "fact",
+            "source": "hub-api:hexgrad/Kokoro-82M@f3ff3571791e39611d31c381e3a41a3af07b4987/config.json",
+            "read_at": "2026-10-08"
+          }
+        }
+      ],
+      "working_set": {
+        "card": [],
+        "ram": [
+          "kokoro-v1_0.pth",
+          "config.json"
+        ]
+      },
+      "downloads": {
+        "value": 11146865,
+        "kind": "fact",
+        "source": "hub-api:hexgrad/Kokoro-82M@f3ff3571791e39611d31c381e3a41a3af07b4987#downloads",
+        "read_at": "2026-10-08"
+      },
+      "scores": [],
+      "serves": [
+        "media-gen"
+      ]
+    },
+    {
+      "model_id": "openai/whisper-large-v3-turbo",
+      "quant": "F16",
+      "engines": [
+        "whisper"
+      ],
+      "size_bytes": {
+        "value": 1617824864,
+        "kind": "fact",
+        "source": "hub-api:openai/whisper-large-v3-turbo@41f01f3fe87f28c78e2fbf8b568835947dd65ed9/model.safetensors",
+        "read_at": "2026-10-08"
+      },
+      "scores": [
+        {
+          "board": "open-asr",
+          "metric": "avg_wer",
+          "value": 6.3575,
+          "kind": "fact",
+          "source": "board:open-asr@2026-10-08",
+          "read_at": "2026-10-08"
+        }
+      ],
+      "serves": [
+        "media-gen"
       ]
     }
   ]

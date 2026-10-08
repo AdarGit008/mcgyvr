@@ -85,6 +85,15 @@ ENGINE_IMAGES = {
     "vllm": "vllm/vllm-openai:v0.26.0",
 }
 
+#: The media engines' default images (owner, Round 10), named by version tag
+#: as the text engines' are. Kokoro-FastAPI's CPU image serves a ``cpu_only``
+#: TTS unit: it carries Kokoro's weights, and its own start script starts the
+#: server, reading the port from :data:`MEDIA_IMAGE_PORT_ENV` and taking no
+#: argument. ComfyUI has no default: an operator names the image.
+MEDIA_IMAGES = {"tts": "ghcr.io/remsky/kokoro-fastapi-cpu:v0.9.0"}
+#: The variable each default media image reads the port it answers on from.
+MEDIA_IMAGE_PORT_ENV = {"tts": "PORT"}
+
 # Where the weights directory appears inside the container. A convention, not a
 # choice the spec makes — see the module docstring on why the argv does not use
 # it.
@@ -693,6 +702,14 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     }
 
 
+def default_media_image(unit: Unit) -> str | None:
+    """The default image ``unit`` runs in when it names none, else ``None``:
+    Kokoro-FastAPI's CPU image for a ``cpu_only`` TTS unit (:data:`MEDIA_IMAGES`)."""
+    if unit.image is None and unit.engine == "tts" and unit.cpu_only:
+        return MEDIA_IMAGES[unit.engine]
+    return None
+
+
 def _media_service(unit: Unit) -> dict[str, object]:
     """A media unit as a compose service.
 
@@ -702,7 +719,27 @@ def _media_service(unit: Unit) -> dict[str, object]:
     no environment of mcgyvr's. The image contract is ENTRYPOINT-as-server:
     compose ``command`` supplies only the argv. A cpu_only unit (a Piper-class
     TTS rung) claims no card, so its service carries no GPU reservation.
+
+    A unit that names no image and has a default (:func:`default_media_image`)
+    runs in that image as its makers start it: no command, the port in the
+    variable it reads, and no weights mount, since it carries its model.
+    Arguments it would never read are refused, not dropped.
     """
+    default = default_media_image(unit)
+    if default is not None:
+        if unit.extra:
+            raise EmitError(
+                f"{unit.key.slug}: the default {unit.engine} image {default} takes "
+                f"no arguments, so {' '.join(unit.extra)!r} would never be read; "
+                "name the image they are for as the unit's `image`"
+            )
+        return {
+            "image": default,
+            "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
+            "environment": {MEDIA_IMAGE_PORT_ENV[unit.engine]: str(unit.port)},
+            "network_mode": "host",
+            "restart": "unless-stopped",
+        }
     service: dict[str, object] = {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
