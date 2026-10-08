@@ -139,24 +139,6 @@ def test_an_empty_object_tags_nothing_and_stamps_no_round(
     assert "round" not in row
 
 
-@pytest.mark.parametrize("unset", [True, False], ids=["unset", "empty"])
-def test_unset_or_empty_tags_nothing_even_inside_the_checkout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unset: bool
-) -> None:
-    """Run from this repository, the package has the bench's files beside it;
-    the row still carries only what the product measured."""
-    if unset:
-        monkeypatch.delenv(telemetry.RUN_TAGS_ENV, raising=False)
-    else:
-        monkeypatch.setenv(telemetry.RUN_TAGS_ENV, "")
-
-    row = _record(tmp_path / "journal" / "agent-a.jsonl")
-
-    assert telemetry.RUN_TAGS_KEY not in row
-    assert "round" not in row
-    assert "product_sha256" not in row
-
-
 @pytest.mark.parametrize(
     ("value", "says"),
     [
@@ -325,6 +307,89 @@ def test_outside_the_checkout_only_the_environment_tags_a_row(
         assert row[telemetry.RUN_TAGS_KEY] == TAGS
     else:
         assert telemetry.RUN_TAGS_KEY not in row
+
+
+#: The development tree's folder for its own tools, named once: the planted
+#: tree below copies its shape without the test spelling a path into it.
+_LAB = "tools"
+
+#: The bench's product module as a lab tree would hold it, planted: executing
+#: it at all leaves the sentinel, and what it would answer is a round nobody
+#: opened, so a row that carried it could only have run it.
+_PLANTED = """
+from pathlib import Path
+
+Path(SENTINEL).write_text("executed", encoding="utf-8")
+
+
+def open_round():
+    return {"id": "r-evil"}
+
+
+def digest(repo=None):
+    return "ee" * 32
+
+
+def load_rounds():
+    return [{"id": "r-evil", "product_sha256": "ee" * 32}]
+"""
+
+
+@pytest.mark.parametrize("unset", [True, False], ids=["unset", "empty"])
+def test_unset_or_empty_tags_nothing_even_inside_a_lab_shaped_tree(
+    tmp_path: Path, unset: bool
+) -> None:
+    """The package inside a tree shaped like the lab's, with the bench's product
+    module beside it: nothing of the tree is run, and the row carries only what
+    the product measured.
+
+    ``X/src/mcgyvr`` on ``PYTHONPATH`` ahead of the editable install, ``cwd``
+    ``X``, and ``X/<tools>/bench/product.py`` planted to leave a sentinel if it
+    is ever executed. The fixture is checked, not assumed: the package that ran
+    is the copy in ``X``, and the planted module does leave the sentinel when
+    it is run.
+    """
+    tree = tmp_path / "lab"
+    site = tree / "src"
+    shutil.copytree(
+        REPO / "src" / "mcgyvr",
+        site / "mcgyvr",
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    sentinel = tmp_path / "the-bench-module-ran"
+    planted = tree / _LAB / "bench" / "product.py"
+    planted.parent.mkdir(parents=True)
+    planted.write_text(
+        _PLANTED.replace("SENTINEL", repr(str(sentinel))), encoding="utf-8"
+    )
+    # Fixture sanity: the plant does leave its mark when it is run.
+    ran = subprocess.run(
+        [sys.executable, str(planted)], capture_output=True, text=True, timeout=60
+    )
+    assert ran.returncode == 0, ran.stderr
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    sink = tmp_path / "journal" / "a.jsonl"
+    env = {**os.environ, "PYTHONPATH": str(site)}
+    env.pop(telemetry.RUN_TAGS_ENV, None)
+    if not unset:
+        env[telemetry.RUN_TAGS_ENV] = ""
+    proc = subprocess.run(
+        [sys.executable, "-c", _OUTSIDE.replace("SINK", repr(str(sink)))],
+        env=env,
+        cwd=tree,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert Path(out["file"]).is_relative_to(site), out["file"]
+    assert not sentinel.exists(), "telemetry executed the tree's bench module"
+    row = out["row"]
+    for key in (telemetry.RUN_TAGS_KEY, "round", "product_sha256", "revision_error"):
+        assert key not in row, row
 
 
 def test_the_setup_document_names_the_variable_and_the_key() -> None:

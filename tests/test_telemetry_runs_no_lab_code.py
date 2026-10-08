@@ -6,8 +6,9 @@ that, :mod:`mcgyvr.telemetry` found the development checkout around the package
 and executed the bench's product module in it to stamp each row with a round.
 That fallback was deleted once the lab set the variable itself (borders plan
 2a, 2026-10-08), and this holds the module to having no way back to it: no
-loader, no builtin that runs text as code, and no string naming the lab's trees
-or the bench's module. Read from the module's syntax rather than its prose.
+loader, no builtin that runs text as code, no walk up from a ``__file__`` to
+the tree around the package, and no string naming the lab's trees or the
+bench's module. Read from the module's syntax rather than its prose.
 """
 
 from __future__ import annotations
@@ -37,6 +38,9 @@ _LOADERS = frozenset(
 #: attribute named ``compile`` is ``re.compile`` as often as not.
 _BUILTIN_LOADERS = frozenset({"exec", "eval", "compile", "__import__"})
 
+#: What walks up from a module's own file to the tree around it.
+_UPWARD = frozenset({"parent", "parents"})
+
 #: A string that names the lab's trees or the bench's module. ``bench`` is
 #: bounded by letters only, so ``bench_product`` is caught and ``workbench`` not.
 _LAB_WORDS = re.compile(r"\btools\b|(?<![A-Za-z])bench(?![A-Za-z])|\bproduct\.py\b")
@@ -60,6 +64,15 @@ def _docstrings(tree: ast.Module) -> set[int]:
     return found
 
 
+def _names_file(node: ast.AST) -> bool:
+    """Whether ``node`` reads a ``__file__``: bare, or off a module."""
+    return any(
+        (isinstance(n, ast.Name) and n.id == "__file__")
+        or (isinstance(n, ast.Attribute) and n.attr == "__file__")
+        for n in ast.walk(node)
+    )
+
+
 def _reaches(node: ast.AST, prose: set[int]) -> str | None:
     """What ``node`` names that reaches the checkout, or ``None``."""
     if isinstance(node, ast.Import | ast.ImportFrom):
@@ -74,6 +87,14 @@ def _reaches(node: ast.AST, prose: set[int]) -> str | None:
         return node.id
     if isinstance(node, ast.Attribute) and node.attr in _LOADERS:
         return node.attr
+    # A file's own path walked up is the tree around the package: data read
+    # from there needs no loader and no lab word to be the checkout's.
+    if (
+        isinstance(node, ast.Attribute)
+        and node.attr in _UPWARD
+        and _names_file(node.value)
+    ):
+        return f"{node.attr} of __file__"
     if (
         isinstance(node, ast.Constant)
         and isinstance(node.value, str)
@@ -117,6 +138,9 @@ def test_the_scan_sees_a_loader_by_path() -> None:
             "    spec = importlib.util.spec_from_file_location(SLOT, source)\n"
             "    spec.loader.exec_module(importlib.util.module_from_spec(spec))\n"
             f'    return source / "{lab}"\n'
+            "ROOT = Path(mcgyvr.__file__).resolve().parents[2]\n"
+            "HERE = Path(__file__).parent\n"
+            "BLOBS = sink.parent\n"
         )
     }
     assert seen == {
@@ -127,6 +151,8 @@ def test_the_scan_sees_a_loader_by_path() -> None:
         "exec_module",
         "'bench_product'",
         "'tools'",
+        "parents of __file__",
+        "parent of __file__",
     }, seen
 
 
