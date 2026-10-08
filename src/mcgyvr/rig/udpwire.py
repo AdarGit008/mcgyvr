@@ -1,9 +1,10 @@
 """The hub's UDP formats as a rig speaks them: binding requests, probes, relay binds.
 
-The hub's protocol schema states these formats (its ``x-udp`` block, and the
-layouts in the hub's protocol module); the tests hold every constant here to
-the pinned copy. All are big-endian, and a request is never smaller than its
-answer, so nothing here is an amplifier::
+The hub's protocol schema states these formats (its ``x-udp`` block: the
+constants, and a test vector of each layout); the tests hold every constant
+here, and the bytes this file writes and reads, to the pinned copy. All are
+big-endian, and a request is never smaller than its answer, so nothing here
+is an amplifier::
 
     binding request  "MCGS" 01 01 0000 token[16] txid[12] zeros  (64-512 bytes)
     binding answer   "MCGS" 01 02 family(04|06) 00 txid[12] port[2] address
@@ -12,6 +13,7 @@ answer, so nothing here is an amplifier::
                      same length — 3 bulk)
     relay bind       "MCGR" 01 01 length[2] ticket zeros  (96-512 bytes)
     relay answer     "MCGR" 01 02 port[2]  |  "MCGR" 01 03 reason[1]
+                     (reason 1 bad ticket, 2 expired, 3 full, 4 rate limited)
 
 Everything read here comes off the network, so every reader takes bytes of
 any length and returns ``None`` for anything that is not exactly its format:
@@ -56,6 +58,11 @@ TXID_BYTES = 12
 PING = 1
 PONG = 2
 BULK = 3
+#: Why a relay refuses a bind (:class:`RelayRefused`'s ``reason``).
+BAD_TICKET = 1
+EXPIRED = 2
+FULL = 3
+RATE_LIMITED = 4
 #: A relay ticket, as the hub's schema shapes it.
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
 #: The largest datagram any reader here is handed: a full UDP payload, so a

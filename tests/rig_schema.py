@@ -1,28 +1,40 @@
-"""The hub's protocol schema as the rig agent's tests hold it, and a check of it.
+"""The hub's published schemas as the rig agent's tests hold them, and a check of them.
 
-The hub publishes its agent protocol as one JSON Schema (draft 2020-12),
-written from its own message models. The agent does not copy that schema into
-its code: it states the few limits it needs (:mod:`mcgyvr.rig.protocol`), and
-these tests hold those limits and every frame the agent writes to a pinned
-copy of the hub's file.
+The hub publishes the contracts the agent speaks as JSON Schemas (draft
+2020-12), written from its own models: its agent protocol, and the REST API a
+rider's agent uses beside it. The agent does not copy them into its code: it
+states the few limits it needs (:mod:`mcgyvr.rig.protocol`,
+:mod:`mcgyvr.rig.udpwire`, :mod:`mcgyvr.rig.rungs`), and these tests hold
+those limits, and every message the agent writes, to a pinned copy of each
+hub file (:data:`PINS`):
 
-The pinned copy is ``tests/fixtures/hub_protocol_v1.schema.json``: the hub's
-file with its ``$id`` left out (an address that names no machine of ours, and
-that no ``$ref`` in the file uses), written back the way the hub writes it.
-Two digests pin it. :data:`HUB_SCHEMA_SHA256` is the hub's file as the hub
-publishes it; :data:`PINNED_SHA256` is the copy here. An edit to the copy that
-did not come from the hub fails on the second. Pointing ``MCGYVR_HUB_SCHEMA``
-at a hub checkout's ``schemas/protocol.schema.json`` checks the first, and
-that the copy is that file pinned, so a hub that moved its schema fails here
-instead of on the wire.
+* :data:`PROTOCOL`, the hub's ``schemas/protocol.schema.json``, pinned as
+  ``tests/fixtures/hub_protocol_v1.schema.json``;
+* :data:`RIDER`, the hub's ``schemas/rider.schema.json``, pinned as
+  ``tests/fixtures/hub_rider_v1.schema.json``.
 
-To move to a new hub schema::
+A pinned copy is the hub's file with its ``$id`` left out (an address that
+names no machine of ours, and that no ``$ref`` in the file uses), written back
+the way the hub writes it. Two digests pin each. ``hub_sha256`` is the hub's
+file as the hub publishes it; ``pinned_sha256`` is the copy here. An edit to a
+copy that did not come from the hub fails on the second.
 
-    uv run --no-sync python -m tests.rig_schema /path/to/protocol.schema.json
+The first is checked against a hub when one is named (:func:`hub_file`):
+``MCGYVR_HUB_REPO``, a hub checkout, names every file at once (its
+``schemas/`` folder; the real-hub test,
+``tests/test_a_real_hub_runs_a_unit_per_card_of_a_real_agent.py``, reads the
+same variable and runs that checkout's hub), and each file's own variable
+(``MCGYVR_HUB_SCHEMA``, ``MCGYVR_HUB_RIDER_SCHEMA``) names that file alone,
+before it. A hub that moved a schema then fails here instead of on the wire.
 
-rewrites the copy and prints both digests to paste below.
+To move to a new hub's schemas::
 
-:func:`validate` is a validator for the keywords this schema uses, and only
+    uv run --no-sync python -m tests.rig_schema /path/to/hub-checkout
+
+rewrites every copy and the digests below (:func:`main`); naming one file of a
+hub's ``schemas/`` folder instead moves that file alone.
+
+:func:`validate` is a validator for the keywords these schemas use, and only
 those: a keyword it does not know fails the check rather than being skipped,
 so a hub schema that starts saying something new cannot pass unread.
 """
@@ -31,21 +43,52 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-FIXTURE = Path(__file__).parent / "fixtures" / "hub_protocol_v1.schema.json"
+FIXTURES = Path(__file__).parent / "fixtures"
+#: The variable naming a hub checkout, whose ``schemas/`` folder holds every
+#: file pinned here.
+HUB_REPO_ENV = "MCGYVR_HUB_REPO"
 
-#: The hub's ``schemas/protocol.schema.json``, byte for byte, that the copy
-#: was pinned from.
-HUB_SCHEMA_SHA256 = "111b96ea467e0651790eb242888f31bc9ec9befed0c8280946adbf7974f42e9f"
-#: :data:`FIXTURE`, byte for byte.
-PINNED_SHA256 = "d02ed58fec7f4dcac939f9c01b4296c74996cfaa0a06169aefcb01951610e349"
 
-#: The variable naming a hub checkout's schema file, for the drift check.
-HUB_SCHEMA_ENV = "MCGYVR_HUB_SCHEMA"
+@dataclass(frozen=True, kw_only=True)
+class Pinned:
+    """One of the hub's schema files and the copy pinned from it."""
+
+    #: The file's name in the hub's ``schemas/`` folder.
+    hub_name: str
+    #: The pinned copy.
+    fixture: Path
+    #: The hub's file, byte for byte, that the copy was pinned from.
+    hub_sha256: str
+    #: :attr:`fixture`, byte for byte.
+    pinned_sha256: str
+    #: The variable naming the hub's file alone, for the drift check.
+    env: str
+
+
+PROTOCOL = Pinned(
+    hub_name="protocol.schema.json",
+    fixture=FIXTURES / "hub_protocol_v1.schema.json",
+    hub_sha256="63a0f82315347d3f7f5dbc80258e2fad1b5858bacbb5e7a5dec60f8a8af1a8e2",
+    pinned_sha256="5dfff848657fb3de1c1c976751b64dae1a0de04295ac0c77685195f8f6dd8583",
+    env="MCGYVR_HUB_SCHEMA",
+)
+RIDER = Pinned(
+    hub_name="rider.schema.json",
+    fixture=FIXTURES / "hub_rider_v1.schema.json",
+    hub_sha256="7206d9a30a9cf32db35f0be439a1dff45c0a3d90029087a88578a426476815c1",
+    pinned_sha256="2f8bec79cd2eab84a492a6181a51690ba9fda757c38557b905bd9cdddbf015ae",
+    env="MCGYVR_HUB_RIDER_SCHEMA",
+)
+#: Every hub schema pinned here.
+PINS = (PROTOCOL, RIDER)
 
 #: Keywords that say nothing about whether an instance is valid.
 _ANNOTATIONS = frozenset(
@@ -68,16 +111,29 @@ def pin(hub_file: bytes) -> bytes:
     return (json.dumps(schema, indent=2, sort_keys=True) + "\n").encode()
 
 
-def load() -> dict[str, Any]:
-    """The pinned schema, after checking it is the copy the digest names."""
-    data = FIXTURE.read_bytes()
-    if sha256(data) != PINNED_SHA256:
+def load(pinned: Pinned = PROTOCOL) -> dict[str, Any]:
+    """A pinned schema, after checking it is the copy its digest names."""
+    data = pinned.fixture.read_bytes()
+    if sha256(data) != pinned.pinned_sha256:
         raise SchemaError(
-            f"{FIXTURE.name} is not the pinned copy (sha256 {sha256(data)}); "
+            f"{pinned.fixture.name} is not the pinned copy (sha256 {sha256(data)}); "
             "re-pin it from the hub with `python -m tests.rig_schema`"
         )
     schema: dict[str, Any] = json.loads(data)
     return schema
+
+
+def hub_file(pinned: Pinned, environ: Mapping[str, str] = os.environ) -> Path | None:
+    """The hub's file ``pinned`` was pinned from, as the environment names
+    it: the file's own variable, else the named hub checkout's ``schemas/``
+    folder; ``None`` when neither is set."""
+    named = environ.get(pinned.env)
+    if named:
+        return Path(named)
+    repo = environ.get(HUB_REPO_ENV)
+    if repo:
+        return Path(repo) / "schemas" / pinned.hub_name
+    return None
 
 
 def validate(instance: Any, schema: dict[str, Any], ref: str) -> None:
@@ -161,8 +217,13 @@ def _check(instance: Any, node: dict[str, Any], root: dict[str, Any], at: str) -
                     if name in instance:
                         _check(instance[name], sub, root, f"{at}.{name}")
         elif key == "additionalProperties":
-            if value is not True:
-                fail("additionalProperties other than true is not read here")
+            if value is False:
+                if isinstance(instance, dict):
+                    unknown = sorted(set(instance) - set(node.get("properties", {})))
+                    if unknown:
+                        fail(f"{unknown} are not among its properties")
+            elif value is not True:
+                fail("additionalProperties other than true or false is not read here")
         elif key == "items":
             if isinstance(instance, list):
                 for i, item in enumerate(instance):
@@ -196,15 +257,48 @@ def _check(instance: Any, node: dict[str, Any], root: dict[str, Any], at: str) -
             fail(f"keyword {key!r} is not read by this validator")
 
 
+def _sources(argv: list[str]) -> list[tuple[Pinned, Path]]:
+    """Each pin and the hub file the arguments name for it: a hub checkout
+    (or its ``schemas/`` folder) names every one, a file the pin of its name."""
+    found: list[tuple[Pinned, Path]] = []
+    for arg in argv:
+        path = Path(arg)
+        if path.is_dir():
+            folder = path / "schemas" if (path / "schemas").is_dir() else path
+            found.extend((pinned, folder / pinned.hub_name) for pinned in PINS)
+            continue
+        by_name = [pinned for pinned in PINS if pinned.hub_name == path.name]
+        if not by_name:
+            names = ", ".join(pinned.hub_name for pinned in PINS)
+            raise SystemExit(f"{arg}: not a hub schema pinned here ({names})")
+        found.append((by_name[0], path))
+    return found
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) != 1:
-        print("usage: python -m tests.rig_schema HUB_SCHEMA_FILE", file=sys.stderr)
+    """Re-pin from the hub files ``argv`` names: write each copy, and the two
+    digests of each into this file in place of the old ones."""
+    if not argv:
+        print(
+            "usage: python -m tests.rig_schema HUB_CHECKOUT | HUB_SCHEMA_FILE ...",
+            file=sys.stderr,
+        )
         return 2
-    hub_file = Path(argv[0]).read_bytes()
-    pinned = pin(hub_file)
-    FIXTURE.write_bytes(pinned)
-    print(f'HUB_SCHEMA_SHA256 = "{sha256(hub_file)}"')
-    print(f'PINNED_SHA256 = "{sha256(pinned)}"')
+    here = Path(__file__)
+    source = here.read_text(encoding="utf-8")
+    for pinned, path in _sources(argv):
+        hub_bytes = path.read_bytes()
+        copy = pin(hub_bytes)
+        pinned.fixture.write_bytes(copy)
+        for old, new in (
+            (pinned.hub_sha256, sha256(hub_bytes)),
+            (pinned.pinned_sha256, sha256(copy)),
+        ):
+            if source.count(f'"{old}"') != 1:
+                raise SystemExit(f"{here.name}: digest {old} is not written once")
+            source = source.replace(f'"{old}"', f'"{new}"')
+        print(f"{pinned.fixture.name}: hub {sha256(hub_bytes)} pinned {sha256(copy)}")
+    here.write_text(source, encoding="utf-8")
     return 0
 
 

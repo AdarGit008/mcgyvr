@@ -6,7 +6,10 @@ each reader takes a datagram of any length and says ``None`` to anything
 that is not exactly its format (a short or long packet, another magic, a
 version or kind the format does not have, an address of the wrong length, a
 port of zero), and nothing is answered that is larger than what asked. Every
-bound and magic here is the one the hub's pinned schema states. A binding
+bound, magic, kind and refusal here is the one the hub's pinned schema
+states, and each of the schema's test vectors is the rig's own bytes: a
+packet the rig sends is written to its exact hex from its fields, and one it
+reads is read from its hex to exactly its fields (a probe both). A binding
 request is answered by the responder asked, for a transaction the rig sent;
 an answer from anywhere else, or replayed, is not taken.
 """
@@ -16,6 +19,7 @@ from __future__ import annotations
 import socket
 import threading
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 
@@ -26,11 +30,27 @@ SECRET = bytes(range(16, 32))
 TXID = bytes(range(12))
 
 
+def _named(u: Any) -> tuple[dict[str, int], dict[str, int]]:
+    """The probe kinds and relay refusals, by the names the schema gives them."""
+    kinds = {"ping": u.PING, "pong": u.PONG, "bulk": u.BULK}
+    refusals = {
+        "bad_ticket": u.BAD_TICKET,
+        "expired": u.EXPIRED,
+        "full": u.FULL,
+        "rate_limited": u.RATE_LIMITED,
+    }
+    return kinds, refusals
+
+
 def test_the_constants_are_the_schemas() -> None:
     from mcgyvr.rig import udpwire as u
 
-    said = rig_schema.load()["x-udp"]
+    said = dict(rig_schema.load()["x-udp"])
+    assert said.pop("vectors")
+    kinds, refusals = _named(u)
     assert said == {
+        "probe_kinds": kinds,
+        "relay_refusals": refusals,
         "version": u.VERSION,
         "stun_magic": u.STUN_MAGIC.decode(),
         "probe_magic": u.PROBE_MAGIC.decode(),
@@ -42,6 +62,67 @@ def test_the_constants_are_the_schemas() -> None:
         "relay_bind_min_bytes": u.RELAY_BIND_MIN_BYTES,
         "relay_bind_max_bytes": u.RELAY_BIND_MAX_BYTES,
         "relay_max_packet_bytes": u.RELAY_MAX_PACKET_BYTES,
+    }
+
+
+def test_every_published_vector_is_the_rigs_own_bytes() -> None:
+    """Each format in the direction the rig speaks it: it writes binding
+    requests and relay binds, reads binding and relay answers, and does both
+    with probes. A format the rig does not know fails here, unread."""
+    import ipaddress
+
+    from mcgyvr.rig import udpwire as u
+
+    kinds, refusals = _named(u)
+    formats: set[str] = set()
+    for vector in rig_schema.load()["x-udp"]["vectors"]:
+        name, f = vector["name"], vector["fields"]
+        packet = bytes.fromhex(vector["hex"])
+        formats.add(vector["format"])
+        if vector["format"] == "binding_request":
+            written = u.binding_request(
+                bytes.fromhex(f["token"]), bytes.fromhex(f["txid"]), size=f["size"]
+            )
+            assert written == packet, name
+        elif vector["format"] == "binding_answer":
+            txid = bytes.fromhex(f["txid"])
+            assert u.read_binding_answer(packet) == u.BindingAnswer(
+                txid=txid, host=f["host"], port=f["port"]
+            ), name
+            address = ipaddress.ip_address(f["host"])
+            assert _answer(address.version, txid, f["port"], address.packed) == (
+                packet
+            ), f"{name}: this file's stand-in for the hub's responder"
+        elif vector["format"] == "probe":
+            probe = u.Probe(
+                kind=kinds[f["kind"]],
+                secret=bytes.fromhex(f["secret"]),
+                seq=f["seq"],
+                stamp=f["stamp"],
+                size=f["size"],
+            )
+            written = u.probe_packet(
+                probe.kind, probe.secret, probe.seq, probe.stamp, size=probe.size
+            )
+            assert written == packet, name
+            assert u.read_probe(packet) == probe, name
+        elif vector["format"] == "relay_bind":
+            assert u.relay_bind(f["ticket"], size=f["size"]) == packet, name
+        elif vector["format"] == "relay_answer":
+            expected = (
+                f["port"]
+                if "port" in f
+                else u.RelayRefused(reason=refusals[f["refused"]])
+            )
+            assert u.read_relay_answer(packet) == expected, name
+        else:
+            pytest.fail(f"{name}: format {vector['format']!r} is not one the rig has")
+    assert formats == {
+        "binding_request",
+        "binding_answer",
+        "probe",
+        "relay_bind",
+        "relay_answer",
     }
 
 

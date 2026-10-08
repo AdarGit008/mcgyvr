@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "LadderIn": {
+      "additionalProperties": false,
+      "description": "Your own ladder's shape: model rungs only, cheapest first; never an\naddress or a key.",
+      "properties": {
+        "ceiling": {
+          "description": "The highest rung work may climb to.",
+          "minimum": 0,
+          "title": "Ceiling",
+          "type": "integer"
+        },
+        "floor": {
+          "description": "The rung work starts on.",
+          "minimum": 0,
+          "title": "Floor",
+          "type": "integer"
+        },
+        "rungs": {
+          "items": {
+            "$ref": "#/$defs/LadderRungIn"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Rungs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rungs",
+        "floor",
+        "ceiling"
+      ],
+      "title": "LadderIn",
+      "type": "object"
+    },
+    "LadderRungIn": {
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "enum": [
+            "local",
+            "api"
+          ],
+          "title": "Family",
+          "type": "string"
+        },
+        "model": {
+          "description": "The model the rung serves.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+=@/:-]{0,127}$",
+          "title": "Model",
+          "type": "string"
+        },
+        "params_b": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 100000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Billions of parameters; null when unknown. Kept, not used yet.",
+          "title": "Params B"
+        },
+        "size_bytes": {
+          "anyOf": [
+            {
+              "maximum": 1125899906842624,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Its model file's size; null when unknown (an API model).",
+          "title": "Size Bytes"
+        }
+      },
+      "required": [
+        "model",
+        "family",
+        "size_bytes",
+        "params_b"
+      ],
+      "title": "LadderRungIn",
+      "type": "object"
+    },
+    "PriceOut": {
+      "description": "A price in credits per ``per_tokens`` tokens, input and output apart,\nas exact decimal strings.",
+      "properties": {
+        "currency": {
+          "const": "credits",
+          "default": "credits",
+          "title": "Currency",
+          "type": "string"
+        },
+        "input": {
+          "title": "Input",
+          "type": "string"
+        },
+        "output": {
+          "title": "Output",
+          "type": "string"
+        },
+        "per_tokens": {
+          "default": 1000,
+          "title": "Per Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input",
+        "output"
+      ],
+      "title": "PriceOut",
+      "type": "object"
+    },
+    "RungOut": {
+      "description": "A host's unit, as a remote rung of your own ladder: queue relief,\nnever a step up in capability.",
+      "properties": {
+        "address": {
+          "description": "The hub's OpenAI-compatible base, /v1.",
+          "title": "Address",
+          "type": "string"
+        },
+        "host": {
+          "description": "The host's handle: they can read your prompts.",
+          "title": "Host",
+          "type": "string"
+        },
+        "id": {
+          "description": "The host's offer; your rung's key.",
+          "title": "Id",
+          "type": "string"
+        },
+        "model": {
+          "description": "What to send as the request's model.",
+          "title": "Model",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/RungPosition",
+          "description": "Its model file's size against the ones on your own rigs online: above_ceiling, below_floor or within (also when unknown)."
+        },
+        "price": {
+          "$ref": "#/$defs/PriceOut"
+        },
+        "relief": {
+          "const": true,
+          "default": true,
+          "title": "Relief",
+          "type": "boolean"
+        },
+        "served_model": {
+          "description": "What the host's unit runs: a ridden answer's model is exactly this (any other: the rung refused the request).",
+          "title": "Served Model",
+          "type": "string"
+        },
+        "width": {
+          "description": "Your requests on it at once, at most.",
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "host",
+        "address",
+        "model",
+        "served_model",
+        "width",
+        "position",
+        "price"
+      ],
+      "title": "RungOut",
+      "type": "object"
+    },
+    "RungPosition": {
+      "description": "Where a host's unit sits against a rider's own ladder (see\n``hitchhike``): never a step up in capability, only queue relief.",
+      "enum": [
+        "above_ceiling",
+        "below_floor",
+        "within"
+      ],
+      "title": "RungPosition",
+      "type": "string"
+    },
+    "RungsOut": {
+      "properties": {
+        "privacy": {
+          "description": "Riding sends your prompts to other people's machines: the host of each rung runs the model on hardware they control and can read your prompts and the answers. Ride only with prompts you would show them.",
+          "title": "Privacy",
+          "type": "string"
+        },
+        "refresh_s": {
+          "description": "How often the hub matches again.",
+          "title": "Refresh S",
+          "type": "number"
+        },
+        "ride": {
+          "description": "Your setting; off, no rungs.",
+          "title": "Ride",
+          "type": "boolean"
+        },
+        "rungs": {
+          "description": "Best first.",
+          "items": {
+            "$ref": "#/$defs/RungOut"
+          },
+          "title": "Rungs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ride",
+        "privacy",
+        "refresh_s",
+        "rungs"
+      ],
+      "title": "RungsOut",
+      "type": "object"
+    },
+    "RungsSyncIn": {
+      "additionalProperties": false,
+      "properties": {
+        "ladder": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LadderIn"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Your ladder's shape, which places the rungs; null: withdraw it (the hub then guesses from your rigs' model files)."
+        }
+      },
+      "required": [
+        "ladder"
+      ],
+      "title": "RungsSyncIn",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The hub's REST API as a rider's agent uses it, beside the agent channel.\n\n``GET /api/v1/me/rungs`` answers the rider's rungs (``RungsOut``);\n``POST /api/v1/me/rungs`` takes the rider's own ladder's shape\n(``RungsSyncIn``) and answers as the ``GET`` does. ``x-paths`` names each\nmethod's request and response model, taken from the endpoints themselves\n(``api.hitchhike``); ``$defs`` holds the models.\n\nA request to ``/v1`` (the OpenAI-compatible API) that the hub refuses is\nanswered with OpenAI's error shape, ``{\"error\": {\"message\", \"type\", \"code\",\n\"param\"}}``; each ``code`` comes with one HTTP status, the pairs in\n``x-openai-errors``. A client matches on the pair. A stream cut off after\nits first bytes ends with an error event instead, whose code may also be\nthe relay's own.\n\nCompatibility: answers are open (a client ignores fields it does not\nknow), so a new answer field or a new error code stays under ``/api/v1``.\nRequests are closed (``additionalProperties`` false: the hub answers ``422``\nto a field it does not know), so a new request field is not additive: an\nolder hub refuses it. A client sends one only to a hub that says it takes it\n(a feature it publishes), or it comes with ``/api/v2``, as any breaking\nchange does.\n\nWritten by ``render_json_schema`` and checked in at\nschemas/rider.schema.json.",
+  "title": "mcgyvr hub rider API",
+  "x-openai-errors": {
+    "busy": 503,
+    "client_closed_request": 499,
+    "ctx_out_of_range": 400,
+    "hitchhike_host_away": 503,
+    "hitchhike_not_served_yet": 503,
+    "insufficient_credits": 402,
+    "insufficient_vram": 503,
+    "invalid_api_key": 401,
+    "invalid_request": 400,
+    "invalid_scope": 400,
+    "model_loading": 503,
+    "model_metadata": 503,
+    "model_not_found": 404,
+    "model_unplaced": 503,
+    "no_head": 503,
+    "no_path": 503,
+    "not_giving": 403,
+    "not_giving_hitchhike": 403,
+    "out_of_scope": 403,
+    "pool_busy": 503,
+    "rate_limit_exceeded": 429,
+    "session_failed": 502,
+    "signed_out": 403,
+    "timeout": 504,
+    "too_many_concurrent_requests": 429,
+    "too_slow": 503,
+    "upstream_error": 502
+  },
+  "x-paths": {
+    "/api/v1/me/rungs": {
+      "get": {
+        "response": {
+          "$ref": "#/$defs/RungsOut"
+        }
+      },
+      "post": {
+        "request": {
+          "$ref": "#/$defs/RungsSyncIn"
+        },
+        "response": {
+          "$ref": "#/$defs/RungsOut"
+        }
+      }
+    }
+  }
+}
