@@ -142,6 +142,7 @@ def run_agent(kept: Credentials) -> int:
         hitchhike,
         inventory,
         outbox,
+        pooled,
         probe,
         protocol,
         relay,
@@ -152,7 +153,6 @@ def run_agent(kept: Credentials) -> int:
         tunnel,
         websocket,
     )
-    from mcgyvr.sandbox import pooled
 
     try:
         sharing.load()

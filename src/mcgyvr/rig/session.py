@@ -7,7 +7,7 @@ each rig what to do with session commands, and this module is a rig's side
 of them (:func:`register` puts its handlers on the dispatcher):
 
 * ``session_prepare`` starts the session's tunnel container
-  (:mod:`mcgyvr.sandbox.pooled`), which makes the session's WireGuard key on
+  (:mod:`mcgyvr.rig.pooled`), which makes the session's WireGuard key on
   this rig; it is answered ``session_prepared`` with the public key, the
   listen port and the LAN endpoints (none when the rig has no LAN address:
   a session of one rig needs none), once the tunnel says it is ready. When
@@ -27,7 +27,7 @@ of them (:func:`register` puts its handlers on the dispatcher):
   :attr:`Timing.connect_s` (or the hub's ``connect_timeout_s``) is over: the
   peer may reach the relay later. A
   path a handshake confirms is sent a ping as large as the tunnel's interface
-  carries (:data:`mcgyvr.sandbox.pooled.PING_SCRIPT`): one that answers a
+  carries (:data:`mcgyvr.rig.pooled.PING_SCRIPT`): one that answers a
   small ping and loses those cannot carry a model, so a candidate found so
   is spent like one that never answered, and a relay found so ends the walk
   at once. It is
@@ -120,6 +120,7 @@ from mcgyvr.rig import (
     commands,
     hardware,
     inventory,
+    pooled,
     protocol,
     sessionwire,
     tensorcache,
@@ -128,7 +129,6 @@ from mcgyvr.rig import (
 )
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.rig.sessionwire import SessionCode
-from mcgyvr.sandbox import pooled
 
 #: Every state a session moves through, and where it may go from each.
 TRANSITIONS: dict[str, frozenset[str]] = {
@@ -166,7 +166,7 @@ MULTI_SESSION_FEATURE = "multi_session"
 #: lends: the latency probe (:mod:`mcgyvr.rig.probe`), the traversal of a
 #: session's tunnel through the rigs' NATs (``tunnel_up`` is answered
 #: ``tunnel_report``), a head of several slots (``head_start``'s ``slots``;
-#: :func:`mcgyvr.sandbox.pooled.head_argv`), the shared units, and a session
+#: :func:`mcgyvr.rig.pooled.head_argv`), the shared units, and a session
 #: per card.
 FEATURES = (
     "probe",
@@ -205,7 +205,7 @@ LOAD_STALL_BYTES = 1 << 20
 
 
 class Docker(Protocol):
-    """What a session needs of the daemon: :class:`mcgyvr.sandbox.pooled.Pool`."""
+    """What a session needs of the daemon: :class:`mcgyvr.rig.pooled.Pool`."""
 
     def ensure_tunnel_image(self) -> str: ...
 

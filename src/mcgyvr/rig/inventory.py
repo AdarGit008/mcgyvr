@@ -27,8 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.rig import protocol
-from mcgyvr.sandbox import pooled
+from mcgyvr.rig import pooled, protocol
 from mcgyvr.serving import ggufscan
 
 #: How deep under the models folder files are looked for.

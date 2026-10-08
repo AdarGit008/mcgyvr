@@ -175,6 +175,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `tests/fixtures/hub_rider_v1.schema.json`). The hub reworded their descriptions
   so they no longer name its internal modules. The structure is unchanged. No
   behaviour of the product changed.
+- The containers of a pooled session (`sandbox/pooled.py` and its seccomp
+  profile `pooled-seccomp.json`) moved into the hub client, as
+  `mcgyvr.rig.pooled` (`src/mcgyvr/rig/pooled.py`, `rig/pooled-seccomp.json`).
+  Only `rig/` used them. What they do is unchanged, and the profile still
+  ships in the wheel. Now only `mcgyvr.cli` imports the hub client, with no
+  exception: the core's list of imports not yet moved is empty, and its hub
+  words no longer count the file.
 - `data/model-catalog.json` is version 2: every number carries its source and
   the day it was read, and each entry names the file a pick downloads (with
   its revision and sha256). Each number was re-read from the Hugging Face Hub

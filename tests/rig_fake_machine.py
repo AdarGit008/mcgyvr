@@ -7,7 +7,7 @@ three seams replaced, and nothing else:
   one vendor and one size;
 * :func:`mcgyvr.rig.inventory.read` holds :class:`Machine`'s models, with
   the metadata a GGUF scan would read and no file under them;
-* :class:`mcgyvr.sandbox.pooled.Pool` is :class:`EngineDocker`, the session
+* :class:`mcgyvr.rig.pooled.Pool` is :class:`EngineDocker`, the session
   tests' :class:`tests.rig_pool_fakes.FakeDocker` and, on the loopback port a
   session's tunnel publishes for the head's API, an :class:`Engine` that
   answers the way llama-server's HTTP API does.
@@ -223,9 +223,8 @@ class EngineDocker(fakes.FakeDocker):
 
 def main(argv: Sequence[str]) -> int:
     from mcgyvr.cli import main as cli_main
-    from mcgyvr.rig import hardware, session
+    from mcgyvr.rig import hardware, pooled, session
     from mcgyvr.rig import inventory as inventory_module
-    from mcgyvr.sandbox import pooled
 
     machine = Machine.from_env()
     hardware.read = lambda **_: report(machine)

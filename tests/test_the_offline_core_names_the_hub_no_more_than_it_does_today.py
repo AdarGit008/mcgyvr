@@ -1,9 +1,9 @@
 """The offline core names the hub no more than it does today.
 
 The hub is reached through ``src/mcgyvr/rig/`` and the ``mcgyvr rig`` command,
-and should be known nowhere else. Today it is: relief rungs, riders,
-hitchhiking and the pooled sandbox are threaded through config, the escalation
-ladder, the pool and the runner. Those are to move out, a step at a time; this
+and should be known nowhere else. Today it is: relief rungs, riders and
+hitchhiking are threaded through config, the escalation ladder, the pool and
+the runner. Those are to move out, a step at a time; this
 file makes sure no step goes backwards.
 
 :data:`tests.hub_borders.WORDS_NOT_YET_MOVED` is every tracked file of the

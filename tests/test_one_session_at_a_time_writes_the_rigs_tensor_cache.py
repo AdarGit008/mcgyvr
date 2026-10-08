@@ -57,7 +57,7 @@ def _state(pool: Pool, session_id: str, state: str) -> None:
 
 def _worker(pool: Pool, session_id: str, card: int) -> list[str]:
     """A worker session on ``card``, ready; its worker's ``docker run``."""
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     assert (
         pool.ask(
@@ -94,7 +94,7 @@ def _worker(pool: Pool, session_id: str, card: int) -> list[str]:
 def _cached(argv: list[str], folder: Path) -> bool:
     """Whether this worker mounts ``folder`` and runs its server with ``-c``;
     a half of one without the other fails the test."""
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     mounted = f"{folder}:{pooled.CACHE_MOUNT}:rw" in argv
     told = f"LLAMA_CACHE={pooled.CACHE_MOUNT}" in argv

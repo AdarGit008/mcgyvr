@@ -91,17 +91,11 @@ HF_HUB_FILES = frozenset(
 #: The imports into the hub client, or into the command line, from the offline
 #: core that the tree still has, as ``(importer, imported)``: a module by its
 #: dotted name, a script that no import reaches by its path under
-#: ``src/mcgyvr/``. Entries may only be removed, never added.
-#:
-#: * ``sandbox.pooled`` is the sandbox a hub's pooled session runs in, imported
-#:   only from ``rig/``; it reads the WireGuard key's shape from
-#:   ``rig.sessionwire``. It moves into ``rig/`` (borders plan, step 2d), and
-#:   this entry goes with it.
-IMPORTS_NOT_YET_MOVED = frozenset(
-    {
-        ("mcgyvr.sandbox.pooled", "mcgyvr.rig.sessionwire"),
-    }
-)
+#: ``src/mcgyvr/``. Entries may only be removed, never added. It is empty: the
+#: last one, the pooled session's sandbox reading the WireGuard key's shape from
+#: ``rig.sessionwire``, left when that sandbox moved into ``rig/`` as
+#: ``rig/pooled.py`` (borders plan, step 2d).
+IMPORTS_NOT_YET_MOVED: frozenset[tuple[str, str]] = frozenset()
 
 #: The words that name the hub or what it brokers, each with the pattern that
 #: reads it (see the module docstring). ``crew`` and ``pool session`` are
@@ -132,7 +126,6 @@ WORDS_NOT_YET_MOVED: dict[str, dict[str, int]] = {
     "pool.py": {"hub": 4, "relief": 40, "rider": 2},
     "route.py": {"relief": 3},
     "runner.py": {"hub": 14, "hitchhik": 5, "relief": 20, "rider": 3, "pooled": 2},
-    "sandbox/pooled.py": {"hub": 11, "pool session": 1, "pooled": 5},
     "weights.py": {"relief": 1},
     "whole.py": {"hub": 1},
 }

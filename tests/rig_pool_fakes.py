@@ -1,6 +1,6 @@
 """Fakes for the rig agent's session tests: a daemon, a machine, and an outbox.
 
-:class:`FakeDocker` stands where :class:`mcgyvr.sandbox.pooled.Pool` stands:
+:class:`FakeDocker` stands where :class:`mcgyvr.rig.pooled.Pool` stands:
 it records every call, keeps the containers a session started (by name, with
 their labels), and answers the way a daemon would, with the knobs a test
 turns (a tunnel that never says it is ready, a worker that exits, a port that
@@ -95,12 +95,12 @@ class FakeDocker:
             self.containers[name] = Container(argv=argv, labels=labels, state=state)
 
     def run_script(self, name: str, script: str, *args: str) -> str:
-        from mcgyvr.sandbox import pooled
+        from mcgyvr.rig import pooled
 
         with self.lock:
             self.scripts.append((name, script, args))
         if self.fail_script is not None and script == getattr(pooled, self.fail_script):
-            from mcgyvr.sandbox.pooled import PoolError
+            from mcgyvr.rig.pooled import PoolError
 
             raise PoolError("docker exec failed (1): nft said no")
         if script == pooled.PING_SCRIPT:
@@ -140,7 +140,7 @@ class FakeDocker:
         ``host``: nothing answers where no handshake would."""
         import ipaddress
 
-        from mcgyvr.sandbox.pooled import PoolError
+        from mcgyvr.rig.pooled import PoolError
 
         with self.lock:
             aim = next(
@@ -222,7 +222,7 @@ class FakeDocker:
                 self.containers.pop(name, None)
 
     def owned(self) -> list[Any]:
-        from mcgyvr.sandbox.pooled import Owned
+        from mcgyvr.rig.pooled import Owned
 
         with self.lock:
             return [
@@ -402,7 +402,7 @@ class Pool:
 
     def renewals(self, session_id: str) -> int:
         """How many times ``session_id``'s tunnel lease has been renewed."""
-        from mcgyvr.sandbox import pooled
+        from mcgyvr.rig import pooled
 
         return self.docker.renewals(pooled.container_name(session_id, "tunnel"))
 
@@ -470,9 +470,8 @@ def hash_in_this_thread(
 
 
 def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
-    from mcgyvr.rig import commands
+    from mcgyvr.rig import commands, pooled
     from mcgyvr.rig import session as rs
-    from mcgyvr.sandbox import pooled
 
     docker = FakeDocker()
     box = Box()

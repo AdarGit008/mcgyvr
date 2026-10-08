@@ -63,7 +63,7 @@ def _accepts_name_an_address(rules: list[str]) -> None:
 
 
 def test_the_namespace_starts_closed_with_its_step_chains_empty() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     table = pooled.TUNNEL_ENTRY.split("<<'RULES'\n")[1].split("RULES\n")[0]
     assert " ".join(table.split()) == " ".join(
@@ -85,7 +85,7 @@ def test_the_namespace_starts_closed_with_its_step_chains_empty() -> None:
 def test_the_responders_alone_are_let_through_while_the_port_asks_them(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     calls, rules = _run(tmp_path, pooled.STUN_SCRIPT, "51820", STUN, "3478")
     assert calls == ["nft -f -"]
@@ -102,7 +102,7 @@ def test_the_responders_alone_are_let_through_while_the_port_asks_them(
 def test_coming_up_drops_the_responders_and_lets_each_peer_reach_only_its_aim(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     calls, rules = _run(
         tmp_path,
@@ -151,7 +151,7 @@ def test_coming_up_drops_the_responders_and_lets_each_peer_reach_only_its_aim(
 def test_a_confirmed_path_is_held_to_its_endpoint_and_a_moved_peer_alone_is_pointed(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     calls, rules = _run(
         tmp_path,
@@ -189,7 +189,7 @@ def test_a_confirmed_path_is_held_to_its_endpoint_and_a_moved_peer_alone_is_poin
 
 
 def test_what_the_tunnel_says_of_its_peers_is_read_and_nothing_else() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     said = (
         "now 1700000000\n"

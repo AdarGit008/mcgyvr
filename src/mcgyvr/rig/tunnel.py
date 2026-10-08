@@ -130,7 +130,7 @@ class TunnelPlan:
     peers: tuple[PeerPlan, ...]
 
     def script_args(self) -> list[str]:
-        """The arguments :data:`mcgyvr.sandbox.pooled.TUNNEL_SCRIPT` takes:
+        """The arguments :data:`mcgyvr.rig.pooled.TUNNEL_SCRIPT` takes:
         each peer at its first candidate, or at none yet."""
         args = [str(self.address), str(self.listen_port)]
         for peer in self.peers:

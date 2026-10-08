@@ -46,7 +46,7 @@ def test_the_table_lets_every_live_state_end_and_no_ended_state_start_again() ->
 
 
 def test_a_worker_session_runs_prepare_tunnel_start_query_stop(pool: Pool) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     answer = prepared(pool)
     assert answer["re"] == "p1"
@@ -120,7 +120,7 @@ def test_every_command_repeated_gets_the_same_answer_and_starts_nothing_more(
         assert ack is not None and ack["type"] == "ack"
     pool.wait_for("session_status", "ready")
     pool.settle()
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     tunnels = [s for s in pool.docker.scripts if s[1] == pooled.TUNNEL_SCRIPT]
     assert len(tunnels) == 1
@@ -180,7 +180,7 @@ def test_a_command_that_comes_too_early_or_for_the_other_role_starts_nothing(
 def test_a_head_session_loads_then_is_ready_on_its_cards_and_its_workers(
     pool: Pool,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     prepared(pool, role="head")
     tunnel_argv = pool.docker.containers[pooled.container_name("s1", "tunnel")].argv

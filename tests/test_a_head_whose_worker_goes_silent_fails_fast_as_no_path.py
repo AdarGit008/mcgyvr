@@ -56,7 +56,7 @@ def _head(pool: Pool) -> None:
 def test_a_worker_that_goes_silent_while_the_head_loads_fails_it_fast(
     pool: Pool,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     pool.health[:] = ["loading"]  # the head never finishes loading on its own
     pool.docker.peer_silent = True
@@ -103,7 +103,7 @@ def test_what_the_tunnel_prints_that_does_not_read_is_silence(pool: Pool) -> Non
 
 
 def test_the_transfer_reading_takes_only_well_formed_lines() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     said = (
         f"{fakes.PEER_KEY}\t1024\t2048\n"

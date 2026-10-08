@@ -129,7 +129,7 @@ def test_a_head_alone_on_one_rig_has_no_tunnel_to_stall(pool: Pool) -> None:
 
 
 def test_the_sent_reading_takes_only_well_formed_lines() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     said = (
         f"{fakes.PEER_KEY}\t1024\t2048\n"

@@ -134,7 +134,7 @@ def test_a_port_no_unprivileged_server_binds_is_refused(pool: Pool) -> None:
 def test_a_tunnel_on_addresses_it_must_not_use_is_refused(
     pool: Pool, change: dict[str, Any], code: str
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     prepared(pool)
     _refused(pool.ask("tunnel_up", "t1", **fakes.tunnel_up_body(**change)), code)
@@ -159,7 +159,7 @@ def test_a_tunnel_on_addresses_it_must_not_use_is_refused(
 def test_a_peer_allowed_too_much_or_reached_at_a_foreign_address_is_refused(
     pool: Pool, peer_change: dict[str, Any]
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     prepared(pool)
     body = fakes.tunnel_up_body()
