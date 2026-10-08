@@ -34,6 +34,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `--ubatch`: each is exported to the step only when given.
   A caller's gate can add a refusal and never take a door gate's away. The
   lab's campaign run and `--mode` are unchanged.
+- `mcgyvr init` approves your own fleet when every unit it bound is hosted,
+  so a fresh install runs a contract with nothing from a development
+  repository. It writes `$MCGYVR_HOME/fleets/own@<today>/` (the setup it
+  wrote, a fleet `own` that lays out no rig, and that fleet's lock, which
+  says `mcgyvr init` approved it) and names it live as `mcgyvr fleet use`
+  does; live admission then holds it to its lock like any live fleet and
+  reads no rig, as it has none. A unit on a rig is not approved (a machine is
+  approved only by a read of it, which `init` does not take), a fleet already
+  live is never replaced, and an `init` that wrote nothing approves nothing;
+  `init` says which. Live admission itself is unchanged.
 - `mcgyvr scan --rig RIG` records the rig's private IPv4 address in its rig
   file (`private_ipv4`, with `private_ipv4_how`), as the rig reports it (owner,
   Round 9): the address its ssh session arrived at (`SSH_CONNECTION`) when an

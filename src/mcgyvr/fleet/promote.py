@@ -22,6 +22,10 @@ place and renamed into it, and an existing folder is never touched.
 promoted folder whose layout still matches its own lock. It says whether the
 move from the fleet that was live is one that fleet's lock measured
 (:class:`Switch`), and starts nothing. Nothing here writes the dev root.
+
+:func:`approve_own` is the one other way a folder is written: ``mcgyvr init``
+approves the user's own fleet of hosted units, which lays out no rig and so
+needs no dev lock, and names it live through :func:`use` like any other.
 """
 
 from __future__ import annotations
@@ -58,6 +62,10 @@ from mcgyvr.fleet.spans import SpanError, check_spans
 
 #: Where a lock sits under the dev root and under a live fleet folder alike.
 LOCK_DIR = Path("records") / "fleet"
+#: The fleet ``mcgyvr init`` approves from the setup it wrote (:func:`approve_own`),
+#: and who its lock says approved it.
+OWN_FLEET = "own"
+OWN_APPROVER = "mcgyvr init"
 
 
 class PromoteRefusedError(Exception):
@@ -240,15 +248,26 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
         ) from exc
     _pinned(load_fleet(fleet_text), name, lock, "the live fleet.yaml")
 
+    files = {
+        Path(FLEET_FILENAME): fleet_text.encode("utf-8"),
+        Path(POLICY_FILENAME): policy_text.encode("utf-8"),
+    }
+    for relative in (LOCK_DIR / f"{name}.json", *records):
+        files[relative] = (dev_root / relative).read_bytes()
+    _build(folder, name, files)
+    return folder
+
+
+def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
+    """Write ``files`` (path in the folder -> bytes) as ``folder``: built beside
+    its place under the fleets directory and renamed into it, never over it."""
     fleets_dir().mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{name}.", dir=fleets_dir()))
     try:
-        (staging / FLEET_FILENAME).write_text(fleet_text, encoding="utf-8")
-        (staging / POLICY_FILENAME).write_text(policy_text, encoding="utf-8")
-        for relative in (LOCK_DIR / f"{name}.json", *records):
+        for relative, data in files.items():
             target = staging / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes((dev_root / relative).read_bytes())
+            target.write_bytes(data)
         if folder.exists() or folder.is_symlink():
             raise PromoteRefusedError(
                 f"{folder} appeared while it was being built; it is left as it is"
@@ -257,6 +276,74 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+
+def approve_own(setup: Path) -> Path:
+    """Write ``<config folder>/fleets/own@<today>/`` from the setup ``mcgyvr
+    init`` wrote at ``setup``; that folder.
+
+    The user's own fleet, approved by the product itself and by no dev
+    evidence: a stranger has none. Only a setup whose every unit is outside —
+    hosted, on no ``rig`` — is approved: its fleet :data:`OWN_FLEET` lays out
+    no rig, so live admission reads none, and a unit on a rig is approved only
+    by a read of it, which ``init`` does not take. Its lock pins that empty
+    layout and says who approved it; the date in the folder's name is the day
+    of the approval. Refused, with nothing written, when the setup cannot be
+    read, holds a unit on a rig, already lays out rigs or fleets, would not
+    load as a setup, or the folder exists. It names nothing live: :func:`use`
+    does that, as for any promoted folder.
+    """
+    fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
+    policy = _read_setup(setup / POLICY_FILENAME, load_policy)
+    on_rigs = sorted(
+        f"{unit} (on {body['rig']})"
+        for unit, body in (fleet.get("units") or {}).items()
+        if "rig" in body
+    )
+    if on_rigs:
+        raise PromoteRefusedError(
+            f"{', '.join(on_rigs)} sits on a rig, and a machine is approved for "
+            "live work only by a read of it"
+        )
+    if fleet.get("rigs") or fleet.get("fleets"):
+        raise PromoteRefusedError(
+            f"{setup / FLEET_FILENAME} lays out rigs or fleets of its own; a "
+            "fleet laid out on rigs is promoted from its lock"
+        )
+    approved = datetime.now(UTC)
+    own = {**fleet, "profile": "live", "fleets": {OWN_FLEET: {"layout": {}}}}
+    lock = {
+        "layout_sha256": layout_sha256({}),
+        "next": [],
+        "switches": [],
+        "approved_by": OWN_APPROVER,
+        "approved_at": approved.isoformat(timespec="seconds"),
+    }
+    fleet_text = yaml.safe_dump(own, sort_keys=False)
+    policy_text = yaml.safe_dump(policy, sort_keys=False)
+    try:
+        parse(fleet_text, policy_text)
+    except ConfigError as exc:
+        raise PromoteRefusedError(
+            f"{OWN_FLEET}: the live fleet folder would not load as a setup: {exc}"
+        ) from exc
+    _pinned(load_fleet(fleet_text), OWN_FLEET, lock, "the live fleet.yaml")
+    folder = fleets_dir() / tagged(OWN_FLEET, approved.date().isoformat())
+    if folder.exists() or folder.is_symlink():
+        raise PromoteRefusedError(
+            f"{folder} already exists: a fleet folder is never written over"
+        )
+    _build(
+        folder,
+        OWN_FLEET,
+        {
+            Path(FLEET_FILENAME): fleet_text.encode("utf-8"),
+            Path(POLICY_FILENAME): policy_text.encode("utf-8"),
+            LOCK_DIR / f"{OWN_FLEET}.json": (
+                json.dumps(lock, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8"),
+        },
+    )
     return folder
 
 

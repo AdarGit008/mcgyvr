@@ -685,9 +685,14 @@ def _init(args: argparse.Namespace) -> int:
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    if result.decisions:
+    # What init wrote is the user's own fleet; approving it is what lets a
+    # fresh `profile: live` setup run. A setup init did not write is not one
+    # it bound, so it approves nothing.
+    approved, unapproved = _own_fleet_live(result.path) if result.written else ((), ())
+    decisions = result.decisions + approved
+    if decisions:
         print("What was decided, and why:")
-        for decision in result.decisions:
+        for decision in decisions:
             print(f"  - {decision}")
         print()
 
@@ -704,11 +709,50 @@ def _init(args: argparse.Namespace) -> int:
             print("The proposal matches the file on disk exactly.")
         print()
 
-    if result.limits:
+    limits = result.limits + unapproved
+    if limits:
         print("What is NOT configured, and what that costs:")
-        for limit in result.limits:
+        for limit in limits:
             print(f"  - {limit}")
     return 0
+
+
+def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Approve the setup ``init`` wrote at ``setup`` as the user's own fleet and
+    name it live; ``(decisions, limits)`` saying what was done, or why not.
+
+    Through the path every live fleet takes: a folder under the config folder
+    (:func:`mcgyvr.fleet.promote.approve_own`), named by ``live.json``
+    (:func:`mcgyvr.fleet.promote.use`), and admitted as any live fleet is. A
+    fleet already live is never replaced (``mcgyvr fleet use`` switches), and a
+    unit on a rig is not approved: a machine is approved only by a read of it.
+    """
+    from mcgyvr.fleet.promote import PromoteRefusedError, approve_own, use
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+
+    refused = (
+        "A live run is refused until a fleet is live (`mcgyvr fleet use`); "
+        "`profile: dev` runs without live admission."
+    )
+    try:
+        current = live_fleet()
+    except LiveFleetError as exc:
+        return (), (f"No fleet was made live: {exc}. {refused}",)
+    if current is not None:
+        return (
+            f"{current} is live, and stays so: your own fleet was not approved "
+            "over it (`mcgyvr fleet use` switches).",
+        ), ()
+    try:
+        folder = approve_own(setup)
+        switch = use(folder.name)
+    except PromoteRefusedError as exc:
+        return (), (f"No fleet was made live: {exc}. {refused}",)
+    return (
+        f"Approved your own fleet for live runs: {folder}, named in "
+        f"{switch.pointer}. Every unit in it is hosted, so it lays out no rig "
+        "and live admission reads none.",
+    ), ()
 
 
 def _attach(args: argparse.Namespace) -> int:
