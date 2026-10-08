@@ -137,8 +137,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   change can go backwards. The offline core (`src/mcgyvr/` but `cli.py` and
   `rig/`, its scripts included) imports nothing of the hub client
   (`mcgyvr.rig`) or of `mcgyvr.cli`, by an import or by a module name handed
-  to `importlib`; the one such import today, from `sandbox/pooled.py`, is
-  listed and may only be removed. The core holds no more hub words (hub,
+  to `importlib`. The core holds no more hub words (hub,
   relief, rider, hitchhike, pooled, crew, pool session, in any of their
   spellings) than it does today, file by file; that list only shrinks, and a
   count that fell must be lowered with it. On a pull request CI compares both
