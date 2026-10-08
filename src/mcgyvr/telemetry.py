@@ -643,7 +643,7 @@ def run_tags() -> dict[str, TagValue] | None:
     """``$MCGYVR_RUN_TAGS`` as the row will carry it, or ``None`` when it is unset.
 
     Read on every call rather than once, so a process that sets the variable
-    between runs tags the next one; it is a few hundred bytes of JSON at most.
+    between runs tags the next one; it is a few kilobytes of JSON at most.
     Unset and empty are the same answer, as for ``$MCGYVR_HOME``: no tags, and
     the caller may look elsewhere. ``{}`` is an answer of its own — set, and
     naming nothing.
@@ -700,7 +700,7 @@ def run_tags() -> dict[str, TagValue] | None:
             tags[key] = tag
         else:
             raise RunTagsError(
-                f"{RUN_TAGS_ENV} sets {key!r} to {json.dumps(tag)}; a tag is "
+                f"{RUN_TAGS_ENV} sets {key!r} to {scrub(json.dumps(tag))}; a tag is "
                 f"text, a number or true/false"
             )
     return tags
