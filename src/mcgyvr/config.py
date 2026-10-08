@@ -708,6 +708,23 @@ UNIT_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+BUSY_ANSWER_FIELDS: tuple[Field, ...] = (
+    Field(
+        "status",
+        "int",
+        "The HTTP status of the answer.",
+        required=True,
+        min_value=100,
+        max_value=599,
+    ),
+    Field(
+        "code",
+        "str",
+        "The error code the answer's body carries (`error.code`).",
+        required=True,
+    ),
+)
+
 RELIEF_FIELDS: tuple[Field, ...] = (
     Field(
         "address",
@@ -757,6 +774,16 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         "str",
         "What the host's unit runs, for display. Never sent.",
         bind_hint="leave it to `mcgyvr rig rungs sync`, which writes the hub's word",
+    ),
+    Field(
+        "busy_answers",
+        "block_list",
+        "The answers, each an HTTP status and an error code, that say this "
+        "rung cannot take a request now: one of them is a full rung, passed "
+        "over at no cost, and any other answer is read as on any rung. Unset, "
+        "the answers this build knew before syncs wrote them, for one release.",
+        block=BUSY_ANSWER_FIELDS,
+        bind_hint="leave it to `mcgyvr rig rungs sync`, which writes them",
     ),
 )
 
@@ -1258,6 +1285,9 @@ class Unit:
     position: str | None = None
     hosted_by: str | None = None
     served_model: str | None = None
+    #: The answers, as ``(HTTP status, error code)``, that say this rung
+    #: cannot take a request now, or ``None`` where its entry names none.
+    busy_answers: tuple[tuple[int, str], ...] | None = None
 
     @property
     def requires_credential(self) -> bool:
@@ -2079,6 +2109,12 @@ def _build(
             position=block["position"],
             hosted_by=block["hosted_by"],
             served_model=block["served_model"],
+            # An empty list would fold to unset (the fallback); the schema
+            # refuses one, so only an absent field is unset today.
+            busy_answers=tuple(
+                (answer["status"], answer["code"]) for answer in block["busy_answers"]
+            )
+            or None,
         )
         for name, block in data["relief"].items()
     }

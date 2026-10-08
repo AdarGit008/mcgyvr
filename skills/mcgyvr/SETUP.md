@@ -285,3 +285,15 @@ Each entry takes these keys:
 | `relief.position` | one of `above_ceiling`, `below_floor`, `within` | **yes** | — | Where the host's model sits against the models on your own rigs, as the hub judges it. Shown, never a place on the ladder. |
 | `relief.hosted_by` | text | no | unset | The handle of the person whose unit this is. They can read your prompts and the answers. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
 | `relief.served_model` | text | no | unset | What the host's unit runs, for display. Never sent. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
+| `relief.busy_answers` | list of blocks | no | — | The answers, each an HTTP status and an error code, that say this rung cannot take a request now: one of them is a full rung, passed over at no cost, and any other answer is read as on any rung. Unset, the answers this build knew before syncs wrote them, for one release. To bind it: leave it to `mcgyvr rig rungs sync`, which writes them. |
+
+### `relief.busy_answers`
+
+The answers, each an HTTP status and an error code, that say this rung cannot take a request now: one of them is a full rung, passed over at no cost, and any other answer is read as on any rung. Unset, the answers this build knew before syncs wrote them, for one release.
+
+An ordered list; each entry takes these keys:
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `relief.busy_answers.status` | number (min 100, max 599) | **yes** | — | The HTTP status of the answer. |
+| `relief.busy_answers.code` | text | **yes** | — | The error code the answer's body carries (`error.code`). |

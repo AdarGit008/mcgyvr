@@ -210,6 +210,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   never to more. Before, a contract's own share won wherever it stated one,
   so a contract declaring 0.9 was sent under a run that allowed 0.25. The
   refusal names the limit that was hit, and both when the two are equal.
+- `mcgyvr rig rungs sync` writes each relief rung's busy answers into
+  `relief.yaml` (`busy_answers`, an HTTP status and an error code each:
+  `503 hitchhike_not_served_yet`, `503 hitchhike_host_away` and
+  `404 model_not_found`), and the runner reads them off the rung instead of
+  naming them itself: the hub's vocabulary is the hub client's. Nothing
+  changes for a rung: a sync writes the three answers the runner held, and an
+  older `relief.yaml` is read with them (borders plan, step 2d). An older
+  mcgyvr refuses a `relief.yaml` that names `busy_answers` (an unknown key):
+  after a downgrade, run `mcgyvr rig rungs sync` to rewrite it.
 
 ### Deprecated
 
@@ -217,6 +226,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   priority (`throughput`, `quality`, `cost`) maps onto `--priority`; other
   text is ignored. Either way it warns on stderr, and `--priority` wins when
   both are given.
+- A relief rung with no `busy_answers` (a `relief.yaml` synced before this
+  release) is read with the runner's own three answers for this release
+  only. After it, such a rung has no busy answers until `mcgyvr rig rungs
+  sync` rewrites the file; the rig agent re-syncs on its own where it holds
+  the personal key (`$MCGYVR_HUB_API_KEY`).
 
 ### Removed
 
