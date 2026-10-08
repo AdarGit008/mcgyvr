@@ -129,7 +129,7 @@ def test_every_card_of_every_coding_rig_works(
             assert climb <= planner.CLIMB_BUDGET * planner.token_bytes(steps[-1])
 
 
-THREE_CARDS = {"rig-f.invalid": (11800, 11800, 11800)}
+THREE_CARDS: dict[str, tuple[int, ...]] = {"rig-f.invalid": (11800, 11800, 11800)}
 
 
 def _invented() -> planner.Library:
