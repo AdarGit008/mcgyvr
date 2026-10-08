@@ -14,10 +14,10 @@ What these tests hold:
 * the tags are on the answering row and on the failing one;
 * a tag value that is text has a credentialed URL in it scrubbed, as every
   other string the row quotes and did not build;
-* a set variable is the whole answer: the checkout's round is not also read
+* the product adds no round or product revision of its own beside the tags
   (``{}`` says "no tags" and is obeyed);
-* unset or empty, nothing is tagged — and an install with no development
-  checkout around it carries no round either;
+* unset or empty, nothing is tagged and the row carries no round, inside a
+  development checkout or outside one: the product looks nothing up;
 * anything but a small JSON object of text, number or true/false values is
   refused, and refused before the run starts, the way the product refuses an
   unusable ``$MCGYVR_HOME``;
@@ -84,39 +84,21 @@ def _record(sink: Path, attempt: Callable[[], Any] = _completion) -> dict[str, A
     return row
 
 
-@pytest.fixture
-def no_revision(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Every read of the checkout's round, kept: a test asserts there were none.
-
-    Kept rather than raised, because ``_identity`` turns any ``Exception`` out
-    of the read into ``revision_error`` and a raise here would be swallowed.
-    """
-    reads: list[str] = []
-
-    def read() -> None:
-        reads.append("the checkout's round was read although tags were set")
-
-    monkeypatch.setattr(telemetry, "_product_revision", read)
-    return reads
-
-
 def test_the_row_carries_the_tags_under_run_tags(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, json.dumps(TAGS))
 
     row = _record(tmp_path / "journal" / "agent-a.jsonl")
 
     assert row[telemetry.RUN_TAGS_KEY] == TAGS
-    # A set variable is the whole answer: the checkout is not also asked.
+    # The tags are the whole answer: the product stamps nothing of its own.
     assert "round" not in row
     assert "product_sha256" not in row
-    assert "revision_error" not in row
-    assert no_revision == []
 
 
 def test_the_failing_row_carries_the_tags_too(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, json.dumps(TAGS))
     sink = tmp_path / "journal" / "agent-a.jsonl"
@@ -130,12 +112,10 @@ def test_the_failing_row_carries_the_tags_too(
     (row,) = fold(path=sink)
     assert row["ok"] is False
     assert row[telemetry.RUN_TAGS_KEY] == TAGS
-    assert "revision_error" not in row
-    assert no_revision == []
 
 
 def test_a_credential_in_a_tag_is_scrubbed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(
         telemetry.RUN_TAGS_ENV,
@@ -146,12 +126,10 @@ def test_a_credential_in_a_tag_is_scrubbed(
 
     assert "hunter2" not in json.dumps(row)
     assert row[telemetry.RUN_TAGS_KEY]["mirror"].startswith("https://")
-    assert "revision_error" not in row
-    assert no_revision == []
 
 
-def test_an_empty_object_tags_nothing_and_reads_no_round(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+def test_an_empty_object_tags_nothing_and_stamps_no_round(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, "{}")
 
@@ -159,19 +137,24 @@ def test_an_empty_object_tags_nothing_and_reads_no_round(
 
     assert telemetry.RUN_TAGS_KEY not in row
     assert "round" not in row
-    assert "revision_error" not in row
-    assert no_revision == []
 
 
-def test_unset_or_empty_tags_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("unset", [True, False], ids=["unset", "empty"])
+def test_unset_or_empty_tags_nothing_even_inside_the_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unset: bool
 ) -> None:
-    monkeypatch.setattr(telemetry, "_product_revision", lambda: None)
-    monkeypatch.delenv(telemetry.RUN_TAGS_ENV, raising=False)
-    assert telemetry.RUN_TAGS_KEY not in _record(tmp_path / "a" / "agent-a.jsonl")
+    """Run from this repository, the package has the bench's files beside it;
+    the row still carries only what the product measured."""
+    if unset:
+        monkeypatch.delenv(telemetry.RUN_TAGS_ENV, raising=False)
+    else:
+        monkeypatch.setenv(telemetry.RUN_TAGS_ENV, "")
 
-    monkeypatch.setenv(telemetry.RUN_TAGS_ENV, "")
-    assert telemetry.RUN_TAGS_KEY not in _record(tmp_path / "b" / "agent-a.jsonl")
+    row = _record(tmp_path / "journal" / "agent-a.jsonl")
+
+    assert telemetry.RUN_TAGS_KEY not in row
+    assert "round" not in row
+    assert "product_sha256" not in row
 
 
 @pytest.mark.parametrize(
