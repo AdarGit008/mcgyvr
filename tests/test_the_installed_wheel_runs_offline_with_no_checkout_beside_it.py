@@ -85,6 +85,9 @@ HOSTED_NAME = "api_claude-opus-5"
 #: A hosted unit bound by hand: ``init`` writes it without reaching it, and its
 #: address is a loopback port nothing listens on (the discard port), so a
 #: dispatch to it is refused at once and nothing leaves the machine.
+# after 2c: the run dispatches here, and the runner waits out its request
+# timeout on the refused port (about 4 s today); keep it short with a short
+# request timeout, or answer on an ephemeral listener instead of port 9.
 HOSTED_UNIT = f"model=claude-opus-5,address=http://127.0.0.1:9,api_key_env={KEY_ENV}"
 
 

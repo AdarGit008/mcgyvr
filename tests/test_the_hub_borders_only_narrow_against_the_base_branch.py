@@ -41,6 +41,7 @@ def test_the_copy_read_from_the_syntax_tree_is_the_module() -> None:
     assert read.hub_client == borders.HUB_CLIENT
     assert read.not_core_files == borders.NOT_CORE_FILES
     assert read.not_core_dirs == borders.NOT_CORE_DIRS
+    assert read.hf_hub_files == borders.HF_HUB_FILES
     assert read.hub_words == borders.HUB_WORDS
     assert read.imports == borders.IMPORTS_NOT_YET_MOVED
     assert read.words == borders.WORDS_NOT_YET_MOVED
@@ -88,6 +89,11 @@ def test_the_copy_read_from_the_syntax_tree_is_the_module() -> None:
             "NOT_CORE_DIRS: 'sandbox' left the core",
         ),
         (
+            '        "serving/run.py",\n',
+            '        "serving/run.py",\n        "runner.py",\n',
+            "HF_HUB_FILES: 'hub' is no longer read in 'runner.py'",
+        ),
+        (
             'HUB_CLIENT = "mcgyvr.rig"',
             'HUB_CLIENT = "mcgyvr.rig.verbs"',
             "HUB_CLIENT:",
@@ -110,6 +116,7 @@ def test_every_way_of_widening_is_refused(old: str, new: str, said: str) -> None
             '    "crew": r"(?<![a-z])(?:crew|Crew|CREW)",\n    "lend": r"lend",\n',
         ),
         ('NOT_CORE_DIRS = frozenset({"rig"})', "NOT_CORE_DIRS = frozenset()"),
+        ('        "serving/run.py",\n', ""),
     ],
 )
 def test_every_way_of_narrowing_passes(old: str, new: str) -> None:

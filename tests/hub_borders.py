@@ -21,7 +21,8 @@ cannot show is the list as it was, so on a pull request CI runs::
 
 and it fails when a list grew (an entry added, a count raised), when a word
 was dropped from :data:`HUB_WORDS` or its pattern changed, when the core
-lost a place (:data:`NOT_CORE_FILES`, :data:`NOT_CORE_DIRS` gained one), or
+lost a place (:data:`NOT_CORE_FILES`, :data:`NOT_CORE_DIRS` gained one), when
+``hub`` stopped being read in one more file (:data:`HF_HUB_FILES` gained one), or
 when :data:`HUB_CLIENT` moved. The base's copy is read, never run: each value
 here is a literal, and the comparison reads the literals out of the syntax
 tree. The growth rule is the one the list of uninvented machines is held to
@@ -34,9 +35,9 @@ Each word is read in its three spellings — ``relief``, ``Relief``,
 ``RELIEF`` — where no lower-case letter is before it, so ``github`` and
 ``screw`` hold none and ``ReliefUnavailableError``, ``_RELIEF_ONLY`` and
 ``on_hub_error`` hold one each. ``hub`` is not read after ``HF_``,
-``HUGGING_FACE_`` or ``GIT``. Every other ``Hub`` is read, and the Hugging
-Face Hub is called that in the core: the files that name it are listed and
-marked, and those entries stay.
+``HUGGING_FACE_`` or ``GIT``. Every other ``Hub`` is read, except in the files
+that name the Hugging Face Hub (:data:`HF_HUB_FILES`), where ``hub`` in any
+spelling is not read and every other word is.
 
 Not read, because they are not the hub's alone: ``ride`` (a path that rides
 along a change), ``lend``/``lent`` (a llama.cpp worker lends its card to a
@@ -67,6 +68,25 @@ HUB_CLIENT = "mcgyvr.rig"
 #: and the hub client. These may only lose an entry.
 NOT_CORE_FILES = frozenset({"cli.py"})
 NOT_CORE_DIRS = frozenset({"rig"})
+
+#: The files of the core where ``hub`` is the Hugging Face Hub (its API, the
+#: ``HUB`` address, ``HubFile``, the ``hub-api`` tag, the Hub downloads are
+#: fetched from), relative to ``src/mcgyvr/``. The word ``hub`` is not read in
+#: them, so their prose about that Hub is not held to a count; every other
+#: hub word is. This may only lose an entry.
+HF_HUB_FILES = frozenset(
+    {
+        "knowledge/__init__.py",
+        "knowledge/boards.py",
+        "knowledge/online.py",
+        "knowledge/record.py",
+        "knowledge/store.py",
+        "serving/fetcher.py",
+        "serving/fetchlist.py",
+        "serving/gate-scripts/serve-fetch.py",
+        "serving/run.py",
+    }
+)
 
 #: The imports into the hub client, or into the command line, from the offline
 #: core that the tree still has, as ``(importer, imported)``: a module by its
@@ -109,21 +129,10 @@ WORDS_NOT_YET_MOVED: dict[str, dict[str, int]] = {
     "escalate.py": {"hub": 5, "relief": 47, "rider": 8},
     "fleet/files.py": {"hub": 2, "hitchhik": 1, "relief": 26, "rider": 2},
     "initialize.py": {"relief": 4},
-    # The Hugging Face Hub (its API, `HUB`, `HubFile`, the `hub-api` tag): stays.
-    "knowledge/__init__.py": {"hub": 1},
-    "knowledge/boards.py": {"hub": 1},
-    "knowledge/online.py": {"hub": 33},
-    "knowledge/record.py": {"hub": 4},
-    "knowledge/store.py": {"hub": 2},
     "pool.py": {"hub": 4, "relief": 40, "rider": 2},
     "route.py": {"relief": 3},
     "runner.py": {"hub": 14, "hitchhik": 5, "relief": 20, "rider": 3, "pooled": 2},
     "sandbox/pooled.py": {"hub": 11, "pool session": 1, "pooled": 5},
-    # The Hugging Face Hub downloads are fetched from: stays.
-    "serving/fetcher.py": {"hub": 4},
-    "serving/fetchlist.py": {"hub": 15},
-    "serving/gate-scripts/serve-fetch.py": {"hub": 4},
-    "serving/run.py": {"hub": 1},
     "weights.py": {"relief": 1},
     "whole.py": {"hub": 1},
 }
@@ -153,11 +162,15 @@ def counted(text: str) -> dict[str, int]:
 
 
 def scan_words(repo: Path = REPO) -> dict[str, dict[str, int]]:
-    """Every file of the offline core that holds a hub word, with the counts."""
+    """Every file of the offline core that holds a hub word, with the counts;
+    ``hub`` left unread in :data:`HF_HUB_FILES`."""
     found: dict[str, dict[str, int]] = {}
     for rel in core_files(repo):
         text = (repo / "src" / "mcgyvr" / rel).read_text("utf-8", errors="replace")
-        if counts := counted(text):
+        counts = counted(text)
+        if rel in HF_HUB_FILES:
+            counts.pop("hub", None)
+        if counts:
             found[rel] = counts
     return found
 
@@ -178,6 +191,7 @@ class Borders:
     hub_client: str
     not_core_files: frozenset[str]
     not_core_dirs: frozenset[str]
+    hf_hub_files: frozenset[str]
     hub_words: dict[str, str]
     imports: frozenset[tuple[str, str]]
     words: dict[str, dict[str, int]]
@@ -216,6 +230,7 @@ def read_borders(text: str, *, source: str) -> Borders:
         "HUB_CLIENT",
         "NOT_CORE_FILES",
         "NOT_CORE_DIRS",
+        "HF_HUB_FILES",
         "HUB_WORDS",
         "IMPORTS_NOT_YET_MOVED",
         "WORDS_NOT_YET_MOVED",
@@ -247,6 +262,10 @@ def narrowed(old: Borders, new: Borders) -> list[str]:
             ("NOT_CORE_DIRS", old.not_core_dirs, new.not_core_dirs),
         )
         for rel in sorted(after - before)
+    ]
+    found += [
+        f"HF_HUB_FILES: 'hub' is no longer read in {rel!r}"
+        for rel in sorted(new.hf_hub_files - old.hf_hub_files)
     ]
     if new.hub_client != old.hub_client:
         found.append(f"HUB_CLIENT: {old.hub_client!r} -> {new.hub_client!r}")

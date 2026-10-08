@@ -27,12 +27,17 @@ the same word in a listed file keeps the count and passes.
 
 from __future__ import annotations
 
+import re
+
 from tests.hub_borders import (
+    HF_HUB_FILES,
+    HUB_WORDS,
     NOT_CORE_DIRS,
     NOT_CORE_FILES,
     SRC,
     WORDS_NOT_YET_MOVED,
     counted,
+    in_core,
     scan_words,
 )
 from tests.uninvented_machines import growth
@@ -63,6 +68,24 @@ def test_what_the_core_is_not_exists() -> None:
         assert (SRC / rel).is_file(), rel
     for rel in NOT_CORE_DIRS:
         assert (SRC / rel / "__init__.py").is_file(), rel
+
+
+def test_each_file_that_names_the_hugging_face_hub_still_does() -> None:
+    """``hub`` goes unread only where the Hugging Face Hub is named, so the
+    exemption cannot outlive the reason for it: a file that no longer names
+    that Hub leaves :data:`tests.hub_borders.HF_HUB_FILES`, and ``hub`` is
+    read there again."""
+    hub = HUB_WORDS["hub"]
+    for rel in sorted(HF_HUB_FILES):
+        assert in_core(rel), f"{rel} is not in the core"
+        text = (SRC / rel).read_text(encoding="utf-8")
+        assert re.search(hub, text), f"{rel} names no Hub; take it off HF_HUB_FILES"
+
+
+def test_hub_is_left_unread_in_those_files_and_only_there() -> None:
+    found = scan_words()
+    assert not [rel for rel in HF_HUB_FILES if "hub" in found.get(rel, {})]
+    assert "hub" in found["runner.py"]
 
 
 def test_the_words_are_read_in_every_spelling_where_the_hub_is_meant() -> None:
