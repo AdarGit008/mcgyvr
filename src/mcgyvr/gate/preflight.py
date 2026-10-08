@@ -258,13 +258,9 @@ def check_contract_fits(
         # large a share: one of those is fixed by re-decomposing and the other
         # might be fixed by re-declaring, and naming both invites the second.
         return does_not_fit
-    # The contract's own share wins where it stated one, and the caller's
-    # standing default applies where it did not. Never the other way round: a
-    # contract that declared a share declared it about itself, and a config
-    # that overrode it would make the contract's own text untrue.
-    share, declared_by = contract.limits.max_window_fraction, CONTRACT_SHARE
-    if share is None:
-        share, declared_by = default_fraction, RUN_SHARE
+    share, declared_by = held_share(
+        contract.limits.max_window_fraction, default_fraction
+    )
     return check_window_fraction(
         _charged(estimated, TokenCount.ESTIMATE) + reserve,
         context_window,
@@ -279,6 +275,29 @@ def check_contract_fits(
 #: to a key that may not be set.
 CONTRACT_SHARE = "the contract's own `limits.max_window_fraction`"
 RUN_SHARE = "the run's `max_window_fraction` (config)"
+#: Both, when they allow the same share: raising either alone frees nothing.
+BOTH_SHARES = f"{CONTRACT_SHARE} and {RUN_SHARE}"
+
+
+def held_share(
+    contract_share: float | None, run_share: float | None
+) -> tuple[float | None, str]:
+    """The share a contract is held to, and who declared it.
+
+    The stricter of the two (owner ruling, after #621): the run's share is a
+    hard ceiling that a contract cannot raise, and a contract may still hold
+    itself to less. Either may be unset, and an unset one bounds nothing, so
+    the other applies alone; both unset is ``None``, no share enforced. Two
+    equal shares are both named, because the refusal says what to raise and
+    raising one of them alone would not let the contract through.
+    """
+    if contract_share is None:
+        return run_share, RUN_SHARE
+    if run_share is None or contract_share < run_share:
+        return contract_share, CONTRACT_SHARE
+    if run_share < contract_share:
+        return run_share, RUN_SHARE
+    return contract_share, BOTH_SHARES
 
 
 def check_window_fraction(
@@ -312,8 +331,9 @@ def check_window_fraction(
 
     Both fractions are named in the refusal, because which one is wrong
     decides the fix: a contract to re-decompose, or a share to re-declare. So
-    is ``declared_by`` — :data:`CONTRACT_SHARE` or :data:`RUN_SHARE` — because
-    a share to re-declare is re-declared where it was declared.
+    is ``declared_by`` — :data:`CONTRACT_SHARE`, :data:`RUN_SHARE` or
+    :data:`BOTH_SHARES`, as :func:`held_share` chose — because a share to
+    re-declare is re-declared where it was declared.
     """
     if fraction is None:
         return None
@@ -330,11 +350,12 @@ def check_window_fraction(
     claimed = contract_tokens / context_window
     if claimed <= fraction:
         return None
+    allow = "allow" if declared_by == BOTH_SHARES else "allows"
     return PreflightIssue(
         "window-share",
         f"contract claims {claimed:.2f} of the rung's window "
         f"({contract_tokens} tokens of {context_window}), but {declared_by} "
-        f"allows {fraction:.2f}. Either decompose into smaller contracts or "
+        f"{allow} {fraction:.2f}. Either decompose into smaller contracts or "
         f"raise {declared_by}",
     )
 
