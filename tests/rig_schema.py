@@ -79,15 +79,15 @@ class Pinned:
 PROTOCOL = Pinned(
     hub_name="protocol.schema.json",
     fixture=FIXTURES / "hub_protocol_v1.schema.json",
-    hub_sha256="63a0f82315347d3f7f5dbc80258e2fad1b5858bacbb5e7a5dec60f8a8af1a8e2",
-    pinned_sha256="5dfff848657fb3de1c1c976751b64dae1a0de04295ac0c77685195f8f6dd8583",
+    hub_sha256="150dc990e6ef49aaa0b42a6e1dfa8f681a8dfa4f1bfce37567b3978fd252d6de",
+    pinned_sha256="99c2dc1388a8560f13c98555251bbe231b6451c1e55580f66b96f4ec2047de8a",
     env="MCGYVR_HUB_SCHEMA",
 )
 RIDER = Pinned(
     hub_name="rider.schema.json",
     fixture=FIXTURES / "hub_rider_v1.schema.json",
-    hub_sha256="7206d9a30a9cf32db35f0be439a1dff45c0a3d90029087a88578a426476815c1",
-    pinned_sha256="2f8bec79cd2eab84a492a6181a51690ba9fda757c38557b905bd9cdddbf015ae",
+    hub_sha256="a87cfed1a4f1ce2274d0af8eb21bc5b787521d7f231f5ad63efea361e73f0b33",
+    pinned_sha256="6d86dae4e9a1eb112b5f0995553d36f00b3e5d7a6b0f797a24032325ae0c6ad9",
     env="MCGYVR_HUB_RIDER_SCHEMA",
 )
 #: Every hub schema pinned here.
