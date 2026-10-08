@@ -23,18 +23,24 @@ One thing that should be true is not yet, and is a strict, dated xfail: a
 fresh ``init`` writes ``profile: live``, and a live run is refused until a
 fleet is locked from dev evidence that only the development repository
 produces. ``mcgyvr init`` approving the user's own fleet (borders plan, step
-2c) turns it green, and the marker comes off then.
+2c) turns it green, and the marker comes off then. Green means the run got as
+far as an attempt at the unit ``init`` bound, read from the run's result; that
+unit's address is a closed loopback port, so the attempt ends in a refused
+connection and nothing leaves the machine.
 
-A command that reaches a model needs a model, so ``run`` is driven only as far
-as the refusal; nothing here dispatches.
+The wheel is built and installed once per test session, also when the session
+runs on several workers: the first worker builds it under a lock in the
+session's shared temporary folder, the others wait and use it.
 """
 
 from __future__ import annotations
 
+import fcntl
+import json
 import os
 import subprocess
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -54,7 +60,7 @@ REPO = Path(__file__).resolve().parents[1]
 #: probes the local ports a backend would answer on, each with a short timeout.
 _COMMAND_TIMEOUT_S = 120
 
-#: A model contract, valid and never dispatched.
+#: A model contract, valid and never dispatched to anything that answers.
 CONTRACT = """\
 id: impl
 task_type: function_implementation
@@ -62,29 +68,32 @@ task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
 demonstration: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
-acceptance: ["python -c 'import sys; sys.exit(0)'"]
+acceptance: ["sh -c 'exit 0'"]
 limits:
   max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """
 
+#: The variable that holds the hosted unit's key; set only where a run should
+#: find the unit usable.
+KEY_ENV = "MCGYVR_TEST_HOSTED_KEY"
+
+#: The unit ``init`` binds, by name as ``init`` names it.
+HOSTED_NAME = "api_claude-opus-5"
+
 #: A hosted unit bound by hand: ``init`` writes it without reaching it, and its
-#: address routes nowhere by standard. The key variable is one nobody sets.
-HOSTED_UNIT = (
-    "model=claude-opus-5,address=https://api.example.invalid,"
-    "api_key_env=MCGYVR_TEST_KEY_NOBODY_SETS"
-)
+#: address is a loopback port nothing listens on (the discard port), so a
+#: dispatch to it is refused at once and nothing leaves the machine.
+HOSTED_UNIT = f"model=claude-opus-5,address=http://127.0.0.1:9,api_key_env={KEY_ENV}"
 
 
 @dataclass(frozen=True)
 class Installed:
-    """A wheel installed into an environment of its own, and a place to run it."""
+    """A wheel installed into an environment of its own."""
 
     venv: Path
     site: Path
-    work: Path
-    env: dict[str, str]
 
     @property
     def python(self) -> Path:
@@ -94,17 +103,33 @@ class Installed:
     def mcgyvr(self) -> Path:
         return self.venv / "bin" / "mcgyvr"
 
-    def run(self, *argv: str | Path) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [str(a) for a in argv],
-            cwd=self.work,
-            env=self.env,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=_COMMAND_TIMEOUT_S,
-            check=False,
-        )
+    def env(self, home: Path, **extra: str) -> dict[str, str]:
+        """Only what a stranger's shell would have: a home, a locale and a
+        ``PATH`` that starts at this environment and holds nothing of the
+        checkout. No ``MCGYVR_*`` variable, no session."""
+        path = [str(self.venv / "bin")]
+        path += [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+        return {
+            "PATH": os.pathsep.join(p for p in path if _outside_the_checkout(p)),
+            "HOME": str(home),
+            "LANG": "C.UTF-8",
+            **extra,
+        }
+
+
+def _run(
+    work: Path, env: dict[str, str], *argv: str | Path
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(a) for a in argv],
+        cwd=work,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=_COMMAND_TIMEOUT_S,
+        check=False,
+    )
 
 
 def _ran(done: subprocess.CompletedProcess[str]) -> str:
@@ -131,10 +156,8 @@ def _outside_the_checkout(path: str) -> bool:
     return resolved != REPO and REPO not in resolved.parents
 
 
-@pytest.fixture(scope="module")
-def installed(tmp_path_factory: pytest.TempPathFactory) -> Installed:
-    root = tmp_path_factory.mktemp("installed")
-    assert _outside_the_checkout(str(root)), root
+def _install(root: Path) -> Installed:
+    """Build the wheel from the product alone and install it under ``root``."""
     tree = _product_alone(root)
     dist = root / "dist"
     _uv_run("build", "--wheel", "--out-dir", dist, cwd=tree)
@@ -167,19 +190,27 @@ def installed(tmp_path_factory: pytest.TempPathFactory) -> Installed:
         cwd=root,
     )
     (site,) = (venv / "lib").glob("python3*/site-packages")
+    return Installed(venv=venv, site=site)
 
-    home = root / "home"
-    work = root / "work"
-    home.mkdir()
-    work.mkdir()
-    path = [str(venv / "bin")]
-    path += [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
-    env = {
-        "PATH": os.pathsep.join(p for p in path if _outside_the_checkout(p)),
-        "HOME": str(home),
-        "LANG": "C.UTF-8",
-    }
-    return Installed(venv=venv, site=site, work=work, env=env)
+
+@pytest.fixture(scope="session")
+def installed(tmp_path_factory: pytest.TempPathFactory) -> Installed:
+    """One install per session. Under xdist every worker's temporary folder
+    sits in one folder of the session's; the install goes there, built by the
+    first worker to take the lock."""
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        shared = tmp_path_factory.getbasetemp().parent / "installed-wheel"
+    else:
+        shared = tmp_path_factory.mktemp("installed-wheel")
+    assert _outside_the_checkout(str(shared)), shared
+    shared.mkdir(exist_ok=True)
+    ready = shared / "ready"
+    with (shared.parent / f"{shared.name}.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not ready.is_file():
+            done = _install(shared)
+            ready.write_text(str(done.site), encoding="utf-8")
+    return Installed(venv=shared / "venv", site=Path(ready.read_text(encoding="utf-8")))
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -212,23 +243,29 @@ def _installed_files(site: Path) -> set[Path]:
     return {p for p in site.rglob("*") if p.is_file() and "__pycache__" not in p.parts}
 
 
+def _a_place(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """A home, and a work folder holding the contract and a repository."""
+    home, work = tmp_path / "home", tmp_path / "work"
+    home.mkdir()
+    work.mkdir()
+    (work / "impl.yaml").write_text(CONTRACT, encoding="utf-8")
+    return home, work, _a_repository(work)
+
+
 def test_the_installed_wheel_answers_every_offline_command(
-    installed: Installed,
+    installed: Installed, tmp_path: Path
 ) -> None:
     before = _installed_files(installed.site)
-    work = installed.work / "offline"
-    work.mkdir()
-    installed = replace(installed, work=work)
-    (work / "impl.yaml").write_text(CONTRACT, encoding="utf-8")
-    repo = _a_repository(work)
+    home, work, repo = _a_place(tmp_path)
+    env = installed.env(home)
 
-    which = installed.run(
-        installed.python, "-I", "-c", "import mcgyvr; print(mcgyvr.__file__)"
+    which = _run(
+        work, env, installed.python, "-I", "-c", "import mcgyvr; print(mcgyvr.__file__)"
     )
     assert which.returncode == 0, _ran(which)
     assert installed.site in Path(which.stdout.strip()).resolve().parents, _ran(which)
 
-    walked = installed.run(installed.python, "-I", "-c", _IMPORT_ALL)
+    walked = _run(work, env, installed.python, "-I", "-c", _IMPORT_ALL)
     assert walked.returncode == 0 and _WALK_ENDED in walked.stdout, _ran(walked)
 
     # Each command, and a word its answer holds. In order: `init` writes the
@@ -246,7 +283,7 @@ def test_the_installed_wheel_answers_every_offline_command(
     ]
     failed = []
     for argv, word in expected:
-        done = installed.run(installed.mcgyvr, *argv)
+        done = _run(work, env, installed.mcgyvr, *argv)
         if done.returncode != 0 or word not in done.stdout:
             failed.append(_ran(done))
     assert not failed, "\n\n".join(failed)
@@ -268,17 +305,16 @@ def test_the_installed_wheel_answers_every_offline_command(
     ),
 )
 def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
-    installed: Installed,
+    installed: Installed, tmp_path: Path
 ) -> None:
-    work = installed.work / "fresh"
-    work.mkdir()
-    installed = replace(installed, work=work)
-    (work / "impl.yaml").write_text(CONTRACT, encoding="utf-8")
-    repo = _a_repository(work)
-    init = installed.run(installed.mcgyvr, "init", "--api", HOSTED_UNIT)
+    home, work, repo = _a_place(tmp_path)
+    env = installed.env(home, **{KEY_ENV: "unused"})
+    init = _run(work, env, installed.mcgyvr, "init", "--api", HOSTED_UNIT)
     assert init.returncode == 0, _ran(init)
 
-    done = installed.run(
+    done = _run(
+        work,
+        env,
         installed.mcgyvr,
         "run",
         "impl.yaml",
@@ -289,4 +325,15 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
         "--sandbox",
         "tempdir",
     )
-    assert "live admission" not in done.stderr, _ran(done)
+    results = [
+        line.removeprefix("result: ")
+        for line in done.stdout.splitlines()
+        if line.startswith("result: ")
+    ]
+    assert len(results) == 1, _ran(done)
+    result = json.loads(Path(results[0]).read_text(encoding="utf-8"))
+    rungs = [attempt.get("rung") for attempt in result.get("attempts") or []]
+    assert rungs and rungs[0] == HOSTED_NAME, (
+        f"the run made no attempt at {HOSTED_NAME}: {result.get('detail')}\n"
+        + _ran(done)
+    )
