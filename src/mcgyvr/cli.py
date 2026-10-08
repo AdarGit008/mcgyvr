@@ -685,9 +685,14 @@ def _init(args: argparse.Namespace) -> int:
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    if result.decisions:
+    # What init wrote is the user's own fleet; approving it is what lets a
+    # fresh `profile: live` setup run. A setup init did not write is not one
+    # it bound, so it approves nothing.
+    approved, unapproved = _own_fleet_live(result.path) if result.written else ((), ())
+    decisions = result.decisions + approved
+    if decisions:
         print("What was decided, and why:")
-        for decision in result.decisions:
+        for decision in decisions:
             print(f"  - {decision}")
         print()
 
@@ -704,11 +709,60 @@ def _init(args: argparse.Namespace) -> int:
             print("The proposal matches the file on disk exactly.")
         print()
 
-    if result.limits:
+    limits = result.limits + unapproved
+    if limits:
         print("What is NOT configured, and what that costs:")
-        for limit in result.limits:
+        for limit in limits:
             print(f"  - {limit}")
     return 0
+
+
+def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Approve the setup ``init`` wrote at ``setup`` as the user's own fleet and
+    name it live; ``(decisions, limits)`` saying what was done, or why not.
+
+    Through the path every live fleet takes: a folder under the config folder
+    (:func:`mcgyvr.fleet.promote.approve_own`), named by ``live.json``
+    (:func:`mcgyvr.fleet.promote.use`), and admitted as any live fleet is. With
+    init's own fleet already live, a new folder is approved and named in its
+    place, and the old one is kept. Any other live fleet is never replaced
+    (``mcgyvr fleet use`` switches), and a machine of the user's is not
+    approved: it is approved only by a read of it.
+    """
+    from mcgyvr.fleet.promote import PromoteRefusedError, approve_own, is_own, use
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+
+    refused = (
+        "A live run is refused until a fleet is live (`mcgyvr fleet use`); "
+        "`profile: dev` runs without live admission."
+    )
+    try:
+        current = live_fleet()
+    except LiveFleetError as exc:
+        return (), (f"No fleet was made live: {exc}. {refused}",)
+    if current is not None and not is_own(current):
+        return (
+            f"{current} is live, and stays so: your own fleet was not approved "
+            "over it (`mcgyvr fleet use` switches).",
+        ), ()
+    try:
+        folder = approve_own(setup)
+        switch = use(folder.name)
+    except PromoteRefusedError as exc:
+        if current is None:
+            return (), (f"No fleet was made live: {exc}. {refused}",)
+        return (), (
+            f"Your own fleet was not approved again: {exc}. {current}, approved "
+            "before, stays live, and a run that dispatches to an unapproved "
+            "machine is refused.",
+        )
+    return (
+        f"Approved your own fleet for live runs: {folder}, named in "
+        f"{switch.pointer}"
+        + (f" in place of {current}" if current is not None else "")
+        + ". Every unit in it is hosted, so it lays out no rig and live "
+        "admission reads none.",
+    ), ()
 
 
 def _attach(args: argparse.Namespace) -> int:
@@ -1771,7 +1825,7 @@ def _climb(
     # top, the conservative place: a refused run costs no pool, no capacity slot
     # and no sandbox. A dev run reads no rig.
     if config.get("profile") == "live":
-        refused = _admitted_live()
+        refused = _admitted_live(config)
         if refused is not None:
             report.outcome = "error"
             report.detail = refused
@@ -1933,19 +1987,21 @@ def _climb(
         return _error(report, str(exc))
 
 
-def _admitted_live() -> str | None:
+def _admitted_live(config: Config) -> str | None:
     """``None`` when live admission admits this command, else why not, printed.
 
     Each rig of the live fleet is read through the door and held to the lock
-    (:func:`mcgyvr.fleet.admission.admit`). A plan to clean or restore refuses,
-    and the door commands that would carry it out are printed and not run: that
-    a live command carries its plan out is not decided.
+    (:func:`mcgyvr.fleet.admission.admit`), and a unit on a rig in ``config``,
+    the config the command loaded, must be one the live fleet lays out there. A
+    plan to clean or restore refuses, and the door commands that would carry it
+    out are printed and not run: that a live command carries its plan out is not
+    decided.
     """
     from mcgyvr.fleet.admission import admit
     from mcgyvr.fleet.admit import LiveRefusedError
 
     try:
-        admission = admit()
+        admission = admit(units=config.get("units") or {})
     except LiveRefusedError as exc:
         detail = f"live admission: {exc}"
         print(f"refused: {detail}", file=sys.stderr)
@@ -2688,7 +2744,7 @@ def _serve(args: argparse.Namespace) -> int:
     if (
         args.direction == "wake"
         and config.get("profile") == "live"
-        and _admitted_live() is not None
+        and _admitted_live(config) is not None
     ):
         return Exit.REFUSED
 
@@ -2759,7 +2815,7 @@ def _manage(args: argparse.Namespace) -> int:
         print(f"nothing to manage: {why}")
         return Exit.OK
 
-    if config.get("profile") == "live" and _admitted_live() is not None:
+    if config.get("profile") == "live" and _admitted_live(config) is not None:
         return Exit.REFUSED
 
     # One manager per host: a second would throw switches on the same cards
@@ -3425,7 +3481,7 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return Exit.REFUSED
-    if config.get("profile") == "live" and _admitted_live() is not None:
+    if config.get("profile") == "live" and _admitted_live(config) is not None:
         return Exit.REFUSED
     try:
         bound = bind.bind(config, journal_dir=bind.journal_dir(config))

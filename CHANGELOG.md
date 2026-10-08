@@ -34,6 +34,22 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `--ubatch`: each is exported to the step only when given.
   A caller's gate can add a refusal and never take a door gate's away. The
   lab's campaign run and `--mode` are unchanged.
+- `mcgyvr init` approves your own fleet when every unit it bound is hosted,
+  so a fresh install runs a contract with nothing from a development
+  repository. It writes `$MCGYVR_HOME/fleets/own@<today>/` (the setup it
+  wrote, a fleet `own` that lays out no rig, and that fleet's lock, which
+  says `mcgyvr init` approved it) and names it live as `mcgyvr fleet use`
+  does; live admission holds it to its lock and reads no rig, as it has none.
+  A re-run of `init` approves a new folder (`own@<today>-2` on the same day,
+  a tag live names now accept) and names it live; the old one is kept. Not
+  approved, and `init` says why: a unit on a rig; a "hosted" unit at a
+  machine of yours (an address that is not public: loopback, private,
+  link-local, shared, in any spelling a resolver reads, octal, hexadecimal,
+  short, IPv4-mapped or NAT64 included; or `localhost`, a name with no dot,
+  `.local`, `.home.arpa`, `.internal`; read as written, nothing is looked
+  up); an mcorch setup, whose units a fleet with no rig cannot hold awake. A
+  fleet live that is not `init`'s own is never replaced, and an `init` that
+  wrote nothing approves nothing.
 - `mcgyvr scan --rig RIG` records the rig's private IPv4 address in its rig
   file (`private_ipv4`, with `private_ipv4_how`), as the rig reports it (owner,
   Round 9): the address its ssh session arrived at (`SSH_CONNECTION`) when an
@@ -147,9 +163,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   installed into a fresh environment and run from outside any checkout,
   answers `--help`, `--version`, `capabilities`, `catalog`, `contract`,
   `init --api`, `config`, `pool` and `index`, imports every module and writes
-  nothing inside the install. A run right after a fresh `init` still makes no
-  attempt, refused by live admission; that is a strict xfail until `init`
-  can approve the user's own fleet. No product code changed.
+  nothing inside the install. A run right after a fresh `init` reaches the
+  unit `init` bound. No product code changed.
 - The rig agent's tests pin the hub's published contract more widely
   (borders plan P5). They now pin a second hub schema, the rider's REST API
   (`tests/fixtures/hub_rider_v1.schema.json`). The ladder a `rig rungs sync`
@@ -181,6 +196,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   ships in the wheel. Now only `mcgyvr.cli` imports the hub client, with no
   exception: the core's list of imports not yet moved is empty, and its hub
   words no longer count the file.
+- Live admission refuses a live `run`, `serve wake`, `manage` or `mcorch
+  serve` whose loaded config (the working directory's comes before the live
+  folder's) holds a unit on a rig that the live fleet does not lay out there
+  (by unit, rig and address), or a unit on no rig at a machine of yours (as
+  `init` reads an address, a full stop of another script read as a dot):
+  that machine is not approved for live work yet. This holds for every live
+  fleet, promoted or `init`'s own.
 - `data/model-catalog.json` is version 2: every number carries its source and
   the day it was read, and each entry names the file a pick downloads (with
   its revision and sha256). Each number was re-read from the Hugging Face Hub

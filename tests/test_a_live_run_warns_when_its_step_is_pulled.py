@@ -199,7 +199,7 @@ def _completion(text: str) -> Any:
     )
 
 
-def _admitted(reader: Any = None) -> Any:
+def _admitted(reader: Any = None, *, units: Any = None) -> Any:
     """An admission with nothing to clean or restore: the stand-in for a read."""
     from mcgyvr.fleet.admission import Admission
     from mcgyvr.fleet.admit import Plan
