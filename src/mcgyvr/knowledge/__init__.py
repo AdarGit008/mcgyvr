@@ -17,9 +17,9 @@ back to the shipped catalog."
 
 * :mod:`mcgyvr.knowledge.online` is the online half: the Hub's model API, each
   GGUF file's header read over HTTP ``Range`` (never a weight), and the
-  refresh a command runs, which files what it read in the cache with
-  :func:`mcgyvr.knowledge.store.write`. ``--offline`` or ``HF_HUB_OFFLINE``
-  asks it nothing.
+  refresh, which files what it read in the cache with
+  :func:`mcgyvr.knowledge.store.write`; no command runs it yet. Asked offline,
+  or under ``HF_HUB_OFFLINE``, it asks nothing.
 * :mod:`mcgyvr.knowledge.boards` reads the public leaderboards into scores
   and orders records by them for a use case.
 

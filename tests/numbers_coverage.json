@@ -95,7 +95,6 @@
     "orchestrator/repo.py": "holds no number that sizes or judges",
     "orchestrator/resolve.py": "judging",
     "orchestrator/symbols.py": "holds no number that sizes or judges",
-    "planner.py": "judging",
     "pool.py": "judging",
     "pressure.py": "holds no number that sizes or judges",
     "propose.py": "judging",

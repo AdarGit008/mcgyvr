@@ -209,8 +209,8 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
 def _model_knowledge_is_offline(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test looks a model up online unless it says so.
 
-    ``mcgyvr recommend`` refreshes its model knowledge from huggingface.co and
-    the leaderboards unless ``--offline`` or ``HF_HUB_OFFLINE`` says not to
+    The model knowledge's refresh asks huggingface.co and the leaderboards
+    unless it is asked offline or ``HF_HUB_OFFLINE`` says not to
     (:func:`mcgyvr.knowledge.online.offline_asked`). The suite says it for
     every test, the way :func:`_offline_probes` stubs the status reads, so a
     test of something else never waits on, or asks, the internet. A test of

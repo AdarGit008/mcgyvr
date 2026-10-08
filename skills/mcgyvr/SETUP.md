@@ -49,38 +49,11 @@ Two commands measure and plan before `mcgyvr init` writes a config.
 cores, timed memory bandwidth, free disk), records it (by default under
 `~/.local/state/mcgyvr/scans`), and exits 4 when a card, total RAM or
 the core count no longer matches the last record.
-`mcgyvr recommend --use-case USE_CASE --users N --host RIG` re-reads
-each rig over ssh and prints one JSON plan (version 2): the units each
-rig would run, each with its role (`always-on` or
-`sleeps-until-needed`), card(s), model file, context per slot, slots,
-KV cache, expert offload and port, sized by the same serving sizer
-`mcgyvr emit` uses, and the bytes to download. `chat` and `agent` get
-one unit spanning every card of every `--host`, split by layer (over
-RPC across machines, each worker at the private IPv4 address
-`mcgyvr scan --rig RIG` records in the rig's rig file, or at a `--host`
-given as one; a machine with neither is left out and the plan says
-so), the biggest
-model that fits, a slot per user at 8k or more. `coding` gets a ladder
-per rig: the coding model that does the most work at 8k once its card
-is filled with slots (slots over bytes read per token), then each
-clear step up (`--clear-step`, a file 1.5x the size) while a climb
-through every rung stays within `--climb-budget` (2x) the top rung's
-time; the top rung at 32k sleeps until needed and swaps when it fits
-only alone (`--priority throughput` plans none that sleeps). A card
-no rung uses gets a copy of the rung that does the most work there,
-filled with slots, so every card works. `--jev
-[MODEL]` adds a resident Jev unit (by default the model the Jev
-section below recommends, 4k per slot), sized first. The models come
-from `--model-store DIR` when a
-checkpoint there fits, otherwise from the model knowledge (the cache,
-then the shipped catalog, each file with its header row). When the
-config binds a `jev.unit`, that unit names the pick among at most 8
-that fit; otherwise the plan's `decision` says how it was picked.
-`--ctx-per-slot` sets every unit's context instead. It writes, wakes
-and sleeps nothing. `--use-case` takes the same four names as
-`mcgyvr init`; `media-gen` prints the rigs and no unit yet.
-The old `--profile` (`chatting`, `media_gen`, `other`) is deprecated:
-it still works, with a warning, until the release after next.
+`mcgyvr recommend --profile coding --users N --host RIG` re-reads each
+rig over ssh and prints one JSON plan: which checkpoint and engine serve
+that profile, from `--model-store DIR` when a checkpoint there fits,
+otherwise from the shipped model catalog. It writes, wakes and sleeps
+nothing.
 
 A setup is two files in one directory, and `mcgyvr init` writes both (by
 default into the working directory):

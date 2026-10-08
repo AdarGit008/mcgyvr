@@ -22,8 +22,8 @@ the shipped catalog."
   known yet, is filed with :func:`mcgyvr.knowledge.geometry.write`, so the
   serving sizer can size it offline.
 
-The network is optional and never trusted to answer. ``--offline`` or
-``HF_HUB_OFFLINE`` asks it nothing (:func:`offline_asked`). Every request has
+The network is optional and never trusted to answer. A refresh asked offline,
+or ``HF_HUB_OFFLINE``, asks it nothing (:func:`offline_asked`). Every request has
 a timeout and a byte ceiling. A failure is named, never raised past the
 refresh: an HTTP refusal costs the one model or board it was for, and a
 network that does not answer stops every lookup at once, so a black hole
@@ -149,7 +149,7 @@ def _transport(get: Get | None) -> Get:
 
 
 def offline_asked(flag: bool) -> bool:
-    """Whether the network is off: ``--offline``, or ``HF_HUB_OFFLINE`` said yes."""
+    """Whether the network is off: asked offline, or ``HF_HUB_OFFLINE`` said yes."""
     return flag or os.environ.get(OFFLINE_ENV, "").strip().lower() in _SAID_YES
 
 
@@ -476,7 +476,7 @@ def _again(
             f"that reads{': ' + why if why else ''}"
         )
     return (
-        replace(again[0], model_id=one.model_id, scores=one.scores, serves=one.serves),
+        replace(again[0], model_id=one.model_id, scores=one.scores),
         lookup.header(again[0]),
     )
 
