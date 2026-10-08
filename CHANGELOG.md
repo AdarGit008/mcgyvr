@@ -128,6 +128,23 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   nothing inside the install. A run right after a fresh `init` still makes no
   attempt, refused by live admission; that is a strict xfail until `init`
   can approve the user's own fleet. No product code changed.
+- The rig agent's tests pin the hub's published contract more widely
+  (borders plan P5). They now pin a second hub schema, the rider's REST API
+  (`tests/fixtures/hub_rider_v1.schema.json`). The ladder a `rig rungs sync`
+  posts is checked as a request the hub takes, and the listing the tests
+  serve as an answer the hub may send. The hub's `/v1` refusals the runner
+  reads (`RELIEF_UNAVAILABLE`, `MODEL_UNPLACED`, `UNKNOWN_MODEL`) are checked
+  to be pairs the hub publishes, with the same status. The protocol copy is
+  re-pinned to pick up the hub's `x-features` and the new `x-udp` keys. The
+  agent's `FEATURES` must be a subset of `x-features`. `udpwire` writes and
+  reads each of the hub's UDP test vectors as exactly its bytes, and names
+  the relay's refusal reasons (`BAD_TICKET`, `EXPIRED`, `FULL`,
+  `RATE_LIMITED`). `tests/rig_schema.py` pins any number of hub files.
+  `python -m tests.rig_schema HUB_CHECKOUT` re-pins all of them and rewrites
+  their digests. Its validator now reads `additionalProperties: false`.
+  The drift check reads `MCGYVR_HUB_REPO` (a hub checkout) or each file's own
+  variable (`MCGYVR_HUB_SCHEMA`, `MCGYVR_HUB_RIDER_SCHEMA`). No behaviour of
+  the product changed.
 
 ### Changed
 
