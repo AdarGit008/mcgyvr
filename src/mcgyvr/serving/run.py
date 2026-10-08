@@ -492,6 +492,9 @@ EXPORTED = (
     # `serve up|down|sleep|wake --unit`: the containers the step acts on,
     # empty for all.
     "RUN_SERVE_ONLY",
+    # The containers of the file that start asleep (a compose profile): a
+    # whole `serve up` leaves them down and gate 7 does not expect them.
+    "RUN_SERVE_ASLEEP",
     # `serve fetch`: the fetch list the door read and held to a hash, and the
     # NAME of the variable a Hugging Face token is read from (never its value).
     "RUN_FETCH",
@@ -1777,6 +1780,7 @@ def _serve(argv: list[str]) -> int:
         RUN_COMPOSE=str(compose_file.resolve()) if compose_file is not None else "",
         RUN_SERVE_EXPECTED=" ".join(unit.container for unit in units),
         RUN_SERVE_ONLY=" ".join(sorted(set(opts.unit))),
+        RUN_SERVE_ASLEEP=" ".join(sorted(u.container for u in units if u.asleep)),
         RUN_MODE=mode,
         RUN_COMMAND=_command("serve", argv),
         **fetch,

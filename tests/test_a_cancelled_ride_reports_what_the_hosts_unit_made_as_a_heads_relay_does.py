@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import base64
 import json
-import time
 from collections.abc import Iterator
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -35,6 +34,7 @@ import pytest
 from tests import rig_pool_fakes as fakes
 from tests.test_a_cancelled_relay_reports_what_its_head_made_before_the_agent_hangs_up import (  # noqa: E501
     CANCELLED,
+    ENDLESS,
     IDLE,
     MADE,
     PAGES,
@@ -114,6 +114,7 @@ def _host(unit: Head, rider_cap: int = 1) -> Host:
 def host() -> Iterator[Host]:
     built = _host(Head())
     yield built
+    built.head.page_free.set()
     built.relays.cancel_all()
     assert built.head.server is not None
     built.head.server.shutdown()
@@ -180,20 +181,39 @@ def test_a_unit_that_does_not_say_for_certain_leaves_the_end_as_it_was(
     assert host.head.seen("hung up")
 
 
-def test_a_slow_page_is_not_waited_for_and_the_agents_thread_never_waits(
+def test_a_slow_page_is_not_waited_for(
     host: Host, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """As a head's relay: the ride ends while the unit's page is still held."""
     from mcgyvr.rig import relay
 
     monkeypatch.setattr(relay, "REPORT_WAIT_S", 0.2)
-    host.head.page_delay_s = 3.0
+    host.head.page_held = True  # never answered while the test runs
+    host.head.chunks = ENDLESS
     host.ride()
     host.answering()
-    began = time.monotonic()
-    host.cancel()  # the handler, on the thread that hears the hub
-    assert time.monotonic() - began < 0.1
+    host.cancel()
     assert host.ended() == CANCELLED
-    assert time.monotonic() - began < 2.0
+    assert not host.head.page_free.is_set()  # the end did not wait for the page
+    assert host.head.seen("hung up")
+
+
+def test_the_agents_thread_never_waits_for_the_page(
+    host: Host, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """As a head's relay: the handler is back while the unit's page is read."""
+    from mcgyvr.rig import relay
+
+    monkeypatch.setattr(relay, "REPORT_WAIT_S", 60.0)  # held: no giving up
+    host.head.page_held = True
+    host.head.chunks = ENDLESS
+    host.ride()
+    host.answering()
+    host.cancel()  # the handler, on the thread that hears the hub
+    assert host.head.seen("GET /slots")  # the page is being read meanwhile
+    assert not host.box.of_type("relay_end")  # and the ride waits for it
+    host.head.page_free.set()
+    assert host.ended() == MADE
     assert host.head.seen("hung up")
 
 

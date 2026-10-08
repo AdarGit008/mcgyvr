@@ -215,9 +215,7 @@ def test_stopping_one_session_leaves_the_other_running_and_frees_its_cards(
     )
     assert pool.sessions.state_of("w2") == ("ready", "worker")
     assert pool.sessions.running() == ("w2",)
-    leases = pool.docker.leases
-    time.sleep(0.1)
-    assert pool.docker.leases > leases  # the other session's lease is kept up
+    pool.lease_renewed("w2", pool.renewals("w2"))  # its lease is kept up
     assert pool.sessions.state_of("w2") == ("ready", "worker")
 
     # card 0 is free again: a new session takes it

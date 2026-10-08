@@ -41,7 +41,9 @@ the dispatch itself reports for free, which is the cost
 ``python -m mcgyvr.serving.run serve up --host H --compose FILE --suffix S``,
 spawned as a subprocess, and a sleep is the same with ``down``. The ladder
 manager also uses ``sleep`` and ``wake``, vLLM's level 2 and its way back,
-where the process stays up (see :class:`CardSwitches` and :func:`resting`).
+where the process stays up (see :class:`CardSwitches` and :func:`resting`),
+and ``up``/``down --unit`` to start and stop one llama.cpp unit of a card
+alone, the swap's wake and sleep.
 Nothing here
 runs ``docker`` or ``ssh``: under the door those two names resolve to shims that
 "admit exactly the host the door was opened for and refuse any process the door
@@ -70,9 +72,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
-from mcgyvr.config import Config
+from mcgyvr.config import ROLE_SLEEPER, Config
 from mcgyvr.runner import RefusedConnectionError
-from mcgyvr.serving import Card, cards, host_of, port_of
+from mcgyvr.serving import DEFAULT_ENGINE, Card, cards, host_of, port_of
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.scan import Scan
@@ -406,6 +408,30 @@ def _all_vllm(config: Config, card: Card) -> bool:
     )
 
 
+#: The engines whose units a card can switch one at a time: vLLM sleeps one
+#: unit at level 2 (``serve sleep --unit``), and a llama.cpp unit's sleep is a
+#: stop of its container (``serve down --unit``) and its wake a start
+#: (``serve up --unit``).
+_ALONE_ENGINES = ("vllm", DEFAULT_ENGINE)
+
+
+def _engine(config: Config, rung: str) -> str | None:
+    """The engine a rung's unit runs, llama.cpp where it states none."""
+    unit = config.units.get(rung)
+    return None if unit is None else unit.engine or DEFAULT_ENGINE
+
+
+def _stopped_alone(config: Config, rungs: Sequence[str]) -> bool:
+    """Whether every one of ``rungs`` is a llama.cpp unit: stopped, not slept."""
+    return bool(rungs) and all(_engine(config, r) == DEFAULT_ENGINE for r in rungs)
+
+
+def _sleeper(config: Config, rung: str) -> bool:
+    """Whether ``rung``'s unit starts asleep, a swap partner (``role``)."""
+    unit = config.units.get(rung)
+    return unit is not None and unit.role == ROLE_SLEEPER
+
+
 def _unit_containers(
     config: Config, card: Card, compose: Path, rungs: Sequence[str]
 ) -> tuple[str, ...] | None:
@@ -435,11 +461,14 @@ def _unit_containers(
 def _per_unit(config: Config, card: Card) -> bool:
     """Whether this card's units sleep and wake one at a time.
 
-    A card of co-resident vLLM units, each its own container in the card's one
-    launch spec: each can sleep at level 2 alone, so one can make room for
+    A card of co-resident vLLM and llama.cpp units, each its own container in
+    the card's one launch spec: a vLLM unit sleeps at level 2 alone, and a
+    llama.cpp unit is stopped and started alone, so one can make room for
     another. Every other card acts whole.
     """
-    if len(card.rungs) < 2 or not _all_vllm(config, card):
+    if len(card.rungs) < 2 or not all(
+        _engine(config, name) in _ALONE_ENGINES for name in card.sources
+    ):
         return False
     compose = compose_for(card)
     return compose is not None and (
@@ -610,11 +639,7 @@ def _run_door(
     whole card.
     """
     predicted = predicted_wake_s(card)
-    containers = (
-        _unit_containers(config, card, compose, only)
-        if only and direction in ("sleep", "wake")
-        else None
-    )
+    containers = _unit_containers(config, card, compose, only) if only else None
     acting = tuple(only) if containers is not None else card.rungs
     started = time.monotonic()
     code = spawn_door(
@@ -692,6 +717,11 @@ class Waker:
             # Resident: never slept, so a refusal is the rung's own fault and
             # no wake is tried for it.
             return send()
+        if _sleeper(self._config, rung):
+            # A swap partner is started by the ladder manager, which stops the
+            # units whose room it needs first. Started here, it would load
+            # beside them on a card that holds one or the other.
+            return send()
         if card is not None and any(
             resting(card.host, port) for port in _ports(self._config, (rung,))
         ):
@@ -736,8 +766,9 @@ class Waker:
             return self._wake_for(card, refused_at, rung)
 
     def _wake_for(self, card: Card, refused_at: float | None, rung: str) -> bool:
-        # A card of co-resident vLLM units wakes one unit at a time, so a run
-        # remembers each unit's wake; any other card wakes whole, once.
+        # A card of co-resident vLLM or llama.cpp units wakes one unit at a
+        # time, so a run remembers each unit's wake; any other card wakes
+        # whole, once.
         alone = _per_unit(self._config, card)
         key = f"{card.host}:{rung}" if alone else card.host
         if key in self._woken:
@@ -780,7 +811,13 @@ class Waker:
             return False
         if alone:
             direction = _wake_direction(card, _ports(self._config, (rung,)))
-            only: tuple[str, ...] = (rung,) if direction == "wake" else ()
+            # A resting unit wakes alone, and so does a stopped llama.cpp
+            # unit: its container is started beside its running neighbours.
+            only: tuple[str, ...] = (
+                (rung,)
+                if direction == "wake" or _stopped_alone(self._config, (rung,))
+                else ()
+            )
         else:
             direction, only = _wake_direction(card), ()
         ok = _run_door(self._config, card, direction, compose, only=only).ok
@@ -843,7 +880,9 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
     """Sleep a vLLM card at level 2, and stop any other; inside the caller's drain.
 
     One path for a person's ``mcgyvr serve sleep`` and the ladder manager's
-    :class:`CardSwitches`. A card all of whose units are vLLM is asked to sleep
+    :class:`CardSwitches`. ``only`` naming llama.cpp units of a card that
+    switches one unit at a time stops their containers alone (``serve down
+    --unit``), the swap's sleep. A card all of whose units are vLLM is asked to sleep
     first (``serve sleep``): the process stays, the weights and KV cache leave
     the card, the card is marked resting (:func:`resting`), and the wake reads
     them back without a container start. One that turns out to have no sleep
@@ -869,6 +908,8 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
             f"split across machines, so {card.host} is stopped instead",
             file=sys.stderr,
         )
+    elif only and _per_unit(config, card) and _stopped_alone(config, only):
+        return _run_door(config, card, "down", compose, only=only)
     elif _all_vllm(config, card):
         asked = _run_door(config, card, "sleep", compose, only=only)
         if asked.code != NO_SLEEP_ROUTE:
@@ -956,12 +997,17 @@ class CardSwitches:
     went down and wake it straight back up. A door that fails, or refuses, is
     ``False`` as well.
 
-    **A card goes whole, except a card of co-resident vLLM units.** Sleep
-    evicts the entire card and wake brings the entire launch spec back, which
-    was sized whole by ``emit``. A card whose co-resident units are all vLLM is
-    the exception: each unit is its own process and sleeps at level 2 alone
-    (``serve sleep --unit``), so :meth:`card_of` is the unit and one unit can
-    make room for another.
+    **A card goes whole, except a card of co-resident vLLM or llama.cpp
+    units.** Sleep evicts the entire card and wake brings the entire launch
+    spec back, which was sized whole by ``emit``. A card whose co-resident
+    units are vLLM or llama.cpp is the exception: each unit is its own
+    container, a vLLM unit sleeps at level 2 alone (``serve sleep --unit``) and
+    a llama.cpp unit is stopped and started alone (``serve down|up --unit``),
+    so :meth:`card_of` is the unit and one unit can make room for another.
+    That is the swap: a unit that starts asleep (``role:
+    sleeps-until-needed``) shares the card's one launch spec with the fast
+    units, and waking it stops the ones whose room it needs; its sleep starts
+    them again (:mod:`mcgyvr.ladder_manager`).
 
     **Room is arithmetic on facts already held.** :meth:`room_for` adds each
     unit's ``room_mib`` and compares the sum with the memory of the card the
@@ -1014,7 +1060,7 @@ class CardSwitches:
         if card is None or compose_for(card) is None:
             return False
         alone = _per_unit(self._config, card)
-        # One unit of a shared vLLM card drains alone; any other card whole.
+        # One unit of a shared card drains alone; any other card whole.
         sources = (rung,) if alone else card.sources
         try:
             with self._capacity.drain(
@@ -1036,7 +1082,8 @@ class CardSwitches:
     def room_for(self, rung: str) -> tuple[str, ...]:
         """The co-resident units that must sleep before ``rung`` can wake.
 
-        Only on a card of co-resident vLLM units, and only from figures held:
+        Only on a card whose units switch one at a time (vLLM or llama.cpp),
+        and only from figures held:
         every unit's ``room_mib``, the card each is on and that card's memory.
         Where the waking unit and its neighbours on its card do not fit, the
         smallest neighbours are named first until the rest would. ``()`` where
@@ -1133,9 +1180,9 @@ class CardSwitches:
         return on
 
     def card_of(self, rung: str) -> tuple[str, ...]:
-        """The rungs a sleep of ``rung`` takes down: the unit alone on a card of
-        co-resident vLLM units, every rung the card serves otherwise, and the
-        rung alone where it has no card."""
+        """The rungs a sleep of ``rung`` takes down: the unit alone on a card
+        whose units switch one at a time, every rung the card serves otherwise,
+        and the rung alone where it has no card."""
         card = self._cards.get(rung)
         if card is None:
             return (rung,)

@@ -206,8 +206,8 @@ def test_units_that_fit_the_card_together_need_no_room(
 
 @pytest.mark.parametrize(
     "missing",
-    ["card", "small_mib", "llama.cpp"],
-    ids=["no-card-size", "no-room-mib", "not-vllm"],
+    ["card", "small_mib", "media"],
+    ids=["no-card-size", "no-room-mib", "not-vllm-or-llama.cpp"],
 )
 def test_without_the_numbers_or_the_engine_there_is_no_room_to_make(
     tmp_path: Path, home: Path, missing: str
@@ -215,13 +215,23 @@ def test_without_the_numbers_or_the_engine_there_is_no_room_to_make(
     specs = write_spec(tmp_path)
     if missing == "small_mib":
         config = parse(ladder_text(specs, small_mib=None))
-    elif missing == "llama.cpp":
-        config = parse(ladder_text(specs, engine="llama.cpp"))
+    elif missing == "media":
+        config = parse(ladder_text(specs, engine="diffusers"))
     else:
         config = parse(ladder_text(specs))
 
     card = None if missing == "card" else 12000
     assert switches(config, card_mib=card).room_for(LARGE) == ()
+
+
+def test_a_shared_llamacpp_card_makes_room_the_same_way(
+    tmp_path: Path, home: Path
+) -> None:
+    """A llama.cpp unit's sleep is a stop of its container, so it swaps too."""
+    config = parse(ladder_text(write_spec(tmp_path), engine="llama.cpp"))
+
+    assert switches(config).room_for(LARGE) == (SMALL,)
+    assert switches(config).card_of(LARGE) == (LARGE,)
 
 
 def test_a_shared_vllm_card_switches_one_unit_at_a_time(

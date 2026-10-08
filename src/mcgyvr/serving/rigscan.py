@@ -5,9 +5,10 @@ This is the one copy of the far-end scan. It must stay importable (the door
 reads it by file to base64-encode it) and stdlib-only (the rig has no venv, no
 mcgyvr, no PYTHONPATH). It measures the machine it runs on — cards via
 nvidia-smi, RAM via /proc/meminfo, CPU via os.cpu_count, bandwidth by a timed
-copy, free disk where weights would land, and the version of the rig's own
-docker daemon — and prints the same JSON shape :meth:`mcgyvr.scan.Scan.from_json`
-parses.
+copy, free disk where weights would land, the version of the rig's own
+docker daemon, and where it is reached: the address its ssh session arrived
+at and every IPv4 address on its interfaces — and prints the same JSON shape
+:meth:`mcgyvr.scan.Scan.from_json` parses.
 
 Run as a module or as ``python3 -``: under ``__main__`` it prints one JSON
 document to stdout and nothing else.
@@ -37,6 +38,12 @@ MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
 
 #: What the rig's own docker CLI is asked: the daemon's version, one line.
 DOCKER_VERSION_FORMAT = "{{.Server.Version}}"
+
+#: What sshd tells the session it starts: the client's address and port,
+#: then the address and port this machine was reached at.
+SSH_CONNECTION_ENV = "SSH_CONNECTION"
+#: What the rig's own ``ip`` is asked: every IPv4 address, one line each.
+IP_ADDR_ARGS = ("-4", "-o", "addr", "show")
 
 GPU_NOT_DETERMINED = "GPU: not determined"
 GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
@@ -354,6 +361,61 @@ def _scan_docker() -> tuple[str | None, tuple[str, ...]]:
     return version, ()
 
 
+def _parse_ip_addr(output: str) -> list[dict[str, str]]:
+    """``ip -4 -o addr show``: ``<n>: <interface> inet <address>/<prefix> ...``."""
+    found: list[dict[str, str]] = []
+    for line in output.splitlines():
+        parts = line.split()
+        if "inet" not in parts[:3] or len(parts) < 4:
+            continue
+        at = parts.index("inet")
+        if at + 1 >= len(parts):
+            continue
+        found.append(
+            {
+                "interface": parts[at - 1].split("@")[0],
+                "address": parts[at + 1].split("/")[0],
+            }
+        )
+    return found
+
+
+def _scan_network() -> tuple[
+    dict[str, Any],
+    tuple[dict[str, str], ...],
+    tuple[str, ...],
+]:
+    """Where this machine is reached, as it says itself. Nothing is resolved.
+
+    The address the ssh session arrived at is the one the controller reached
+    it by; the interface addresses are what else it holds. Which one a worker
+    listens on is picked by the controller from these, never looked up.
+    """
+    said = os.environ.get(SSH_CONNECTION_ENV, "").split()
+    reached = said[2] if len(said) == 4 else None
+    output = _run("ip", *IP_ADDR_ARGS)
+    ipv4 = _parse_ip_addr(output) if output is not None else []
+    facts: list[dict[str, str]] = []
+    notes: list[str] = []
+    if reached is None:
+        notes.append(
+            "Network: not reached over ssh (no SSH_CONNECTION), so the address "
+            "it was reached at is not known."
+        )
+    else:
+        facts.append(
+            {"field": "network.reached_at", "how": "local address in SSH_CONNECTION"}
+        )
+    if output is None:
+        notes.append(
+            "Network: `ip " + " ".join(IP_ADDR_ARGS) + "` is absent or failed, "
+            "so the addresses on its interfaces are not read."
+        )
+    else:
+        facts.append({"field": "network.ipv4", "how": "ip " + " ".join(IP_ADDR_ARGS)})
+    return {"reached_at": reached, "ipv4": ipv4}, tuple(facts), tuple(notes)
+
+
 def scan() -> dict[str, Any]:
     """Measure this machine and return the scan payload ``Scan.from_json`` reads."""
     machine, machine_facts, machine_notes = _scan_machine()
@@ -363,6 +425,7 @@ def scan() -> dict[str, Any]:
     bandwidth, bandwidth_facts, bandwidth_notes = _scan_bandwidth()
     disk, disk_facts = _scan_disk()
     docker, docker_notes = _scan_docker()
+    network, network_facts, network_notes = _scan_network()
     return {
         "machine": machine,
         "gpus": gpus,
@@ -371,6 +434,7 @@ def scan() -> dict[str, Any]:
         "bandwidth": bandwidth,
         "disk": disk,
         "docker": docker,
+        "network": network,
         "notes": [
             *machine_notes,
             *gpu_notes,
@@ -378,6 +442,7 @@ def scan() -> dict[str, Any]:
             *cpu_notes,
             *bandwidth_notes,
             *docker_notes,
+            *network_notes,
         ],
         "facts": [
             *machine_facts,
@@ -386,6 +451,7 @@ def scan() -> dict[str, Any]:
             *cpu_facts,
             *bandwidth_facts,
             *disk_facts,
+            *network_facts,
         ],
     }
 

@@ -48,7 +48,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from mcgyvr import derived
-from mcgyvr.config import Config
+from mcgyvr.config import ROLE_SLEEPER, Config
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
@@ -103,6 +103,11 @@ DEFAULT_PORT = 8080
 # side of that import. :mod:`mcgyvr.emit` re-exports both names.
 COMPOSE_PREFIX = "compose."
 COMPOSE_SUFFIX = ".yml"
+#: The compose profile a unit that starts asleep is written under
+#: (``units.<u>.role: sleeps-until-needed``). A whole ``docker compose up``
+#: starts no service that names a profile; naming the service starts it
+#: (``serve up --unit``), which is how the ladder manager wakes it.
+SLEEPER_PROFILE = "asleep"
 
 # What a host or a model may be spelled as inside a file name. The one regex,
 # used by :func:`spec_name` for the file and by :mod:`mcgyvr.emit` for the
@@ -536,6 +541,11 @@ class Unit:
     #: Environment the engine reads beside its argv, for what it takes no
     #: flag for: the order it numbers cards in, a pipeline's layer split.
     env: Mapping[str, str] = field(default_factory=dict)
+    #: Whether this process starts asleep: a swap partner
+    #: (``units.<u>.role: sleeps-until-needed``) that shares its card's launch
+    #: spec with the always-on units and is left down by a whole ``serve up``
+    #: (:data:`SLEEPER_PROFILE`).
+    asleep: bool = False
 
     @property
     def cards(self) -> tuple[int, ...]:
@@ -1129,6 +1139,8 @@ def units_for(
     windows: dict[UnitKey, dict[int, list[str]]] = {}
     #: The launch of every process split across cards, which it is sized from.
     splits: dict[UnitKey, dict[str, Any]] = {}
+    #: The role each unit naming a process states; one process has one.
+    roles: dict[UnitKey, dict[str, list[str]]] = {}
 
     users = config.get("users", 1)
     # The ruling's one home, read here and in capacity: chat and hybrid
@@ -1201,6 +1213,7 @@ def units_for(
         if provision and name == orchestrator_name:
             orchestrator_key = key
         grouped.setdefault(key, []).append(name)
+        roles.setdefault(key, {}).setdefault(unit.role, []).append(name)
         if unit.window is not None:
             windows.setdefault(key, {}).setdefault(unit.window, []).append(name)
         hosts.setdefault(key, scan)
@@ -1265,6 +1278,10 @@ def units_for(
             )
         ]
 
+    asleep = {
+        key: _starts_asleep(key, stated, key in splits) for key, stated in roles.items()
+    }
+
     # Resident first: the orchestrator's process claims the card before the
     # ladder and the verifier are sized against what is left. The claim is the
     # card figure the fit just produced, so the same law sized both.
@@ -1279,11 +1296,46 @@ def units_for(
             scan = _remaining_scan(scan, claimed[key.host])
             reduced[key.host] = scan
         sized = _sized(key, rungs, scan, reduced)
+        if asleep[key]:
+            sized[0] = replace(sized[0], asleep=True)
         if key == orchestrator_key:
             claimed[key.host] = sized[0].fit.vram_gb
             sized[0] = replace(sized[0], resident_claim_gb=sized[0].fit.vram_gb)
         built.extend(sized)
     return tuple(built)
+
+
+def _starts_asleep(key: UnitKey, stated: Mapping[str, list[str]], split: bool) -> bool:
+    """Whether the process ``key`` starts asleep, from its units' ``role``.
+
+    A process has one role: units naming it with two are refused. A sleeper is
+    a llama.cpp process on one card, because its sleep is a stop of its one
+    container and its wake a start: a vLLM unit swaps at level 2 with its
+    process kept, and a split unit is several processes a door run on one
+    machine cannot start whole.
+    """
+    if len(stated) > 1:
+        said = "; ".join(
+            f"{role} ({', '.join(names)})" for role, names in sorted(stated.items())
+        )
+        raise UnitError(
+            f"{key.slug} is one process and its units state two roles: {said}"
+        )
+    if ROLE_SLEEPER not in stated:
+        return False
+    names = ", ".join(stated[ROLE_SLEEPER])
+    if key.engine != DEFAULT_ENGINE:
+        raise UnitError(
+            f"{names}: role {ROLE_SLEEPER} is for llama.cpp units, whose sleep is "
+            f"a stop of their container; a {key.engine} unit is not started "
+            "asleep (vLLM sleeps at level 2 with its process kept)"
+        )
+    if split:
+        raise UnitError(
+            f"{names}: role {ROLE_SLEEPER} is for a unit on one card; a unit "
+            "split across cards is several processes and is not started asleep"
+        )
+    return True
 
 
 def _sharded_units(
@@ -1436,9 +1488,13 @@ def split_units(
     port: int,
     ctx_per_slot: int,
     engine: str = DEFAULT_ENGINE,
+    binds: Mapping[str, str] | None = None,
 ) -> tuple[Unit, ...]:
     """The processes that serve ``spec`` split across ``shards``, ``(host,
     card)`` each, the first on the machine the serving process runs on.
+    ``binds`` names, by host, the private IPv4 address a worker there listens
+    on (a shard's ``bind``); a host it does not name is reached at its own
+    name, which only an IPv4 literal can be.
 
     The same sizing a unit whose ``launch.shards`` names those cards gets
     (:func:`_sharded_units`, :func:`mcgyvr.serving.sharding.choose`): every
@@ -1452,8 +1508,12 @@ def split_units(
     if len(shards) < 2:
         raise UnitError(f"{spec.name}: a split over {len(shards)} card is not a split")
     host = shards[0][0]
+    bound = binds or {}
     launch: dict[str, Any] = {
-        SHARDS_KEY: [{"rig": rig, "gpu": card} for rig, card in shards],
+        SHARDS_KEY: [
+            {"rig": rig, "gpu": card, **({"bind": bound[rig]} if rig in bound else {})}
+            for rig, card in shards
+        ],
     }
     if engine == DEFAULT_ENGINE:
         from mcgyvr.serving.sharding import SPLIT_LAYER
@@ -1724,6 +1784,14 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
 
     A host mixing alternatives and co-residents is not refused: it is a
     conflict graph, and its specs are the sets that fit.
+
+    **Swap partners are one spec.** A unit that starts asleep
+    (:attr:`Unit.asleep`) is not up when the spec comes up, so it is not cut
+    against the units that are: where a host's always-on units come up as one
+    spec, its sleepers join that spec, and the ladder manager stops the units
+    whose room a sleeper needs before it starts it
+    (:meth:`mcgyvr.wake.CardSwitches.room_for`). One file per card is what
+    lets a wake find it (:func:`mcgyvr.wake.compose_for`).
     """
     on_host: dict[str, list[Unit]] = {}
     for unit in units:
@@ -1734,23 +1802,49 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
         here = tuple(
             sorted(on_host[host], key=lambda unit: (-unit.fit.vram_gb, unit.key.slug))
         )
-        found: dict[tuple[str, ...], tuple[Unit, ...]] = {}
-        for anchor in here:
-            chosen: tuple[Unit, ...] = (anchor,)
-            for other in here:
-                if other.key == anchor.key:
-                    continue
-                if _co_resident(chosen, other):
-                    chosen = (*chosen, other)
-            settled = tuple(sorted(chosen, key=lambda unit: unit.key.slug))
-            found.setdefault(tuple(unit.key.slug for unit in settled), settled)
-        sets = tuple(found.values())
+        awake = tuple(unit for unit in here if not unit.asleep)
+        if awake and len(awake) < len(here):
+            # Swap partners: the units that start asleep join the one spec the
+            # always-on units come up as, and a whole `up` leaves them down.
+            # Where the always-on units are themselves alternatives, there is
+            # no one spec to join, and the host is cut as any other.
+            awake_sets = _feasible(awake)
+            if len(awake_sets) == 1 and len(awake_sets[0]) == len(awake):
+                specs.append(
+                    LaunchSpec(
+                        host=host,
+                        units=tuple(sorted(here, key=lambda unit: unit.key.slug)),
+                    )
+                )
+                continue
+            # No one spec to join: every unit is an alternative like any other,
+            # and one that started asleep in its own file would never start.
+            here = tuple(replace(unit, asleep=False) for unit in here)
+        sets = _feasible(here)
         if len(sets) == 1 and len(sets[0]) == len(here):
             specs.append(LaunchSpec(host=host, units=sets[0]))
             continue
         for name, chosen in zip(_named(sets), sets, strict=True):
             specs.append(LaunchSpec(host=host, units=chosen, model=name))
     return tuple(specs)
+
+
+def _feasible(here: tuple[Unit, ...]) -> tuple[tuple[Unit, ...], ...]:
+    """One host's units as the feasible sets :func:`launch_specs` cuts them into.
+
+    One set per anchor, grown maximal largest-first, de-duplicated first-seen.
+    """
+    found: dict[tuple[str, ...], tuple[Unit, ...]] = {}
+    for anchor in here:
+        chosen: tuple[Unit, ...] = (anchor,)
+        for other in here:
+            if other.key == anchor.key:
+                continue
+            if _co_resident(chosen, other):
+                chosen = (*chosen, other)
+        settled = tuple(sorted(chosen, key=lambda unit: unit.key.slug))
+        found.setdefault(tuple(unit.key.slug for unit in settled), settled)
+    return tuple(found.values())
 
 
 def _named(sets: tuple[tuple[Unit, ...], ...]) -> tuple[str, ...]:
@@ -1866,7 +1960,10 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
         scan = scans[spec.host]
         free = _free_vram_bytes(scan) / _BYTES_PER_GIB
         on_card: dict[int, list[Unit]] = {}
-        for unit in spec.units:
+        # A unit that starts asleep holds nothing while the spec is up; it is
+        # started only once the units whose room it needs are stopped.
+        up = tuple(unit for unit in spec.units if not unit.asleep)
+        for unit in up:
             on_card.setdefault(unit.gpu, []).append(unit)
         for sharing in on_card.values():
             if len(sharing) < 2:
@@ -1889,7 +1986,7 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
             # about, which is the rule :mod:`mcgyvr.scan` runs on and the one
             # :func:`fit` took when it read ``available_ram`` as zero.
             continue
-        hungriest = sorted(spec.units, key=lambda unit: unit.key.slug)
+        hungriest = sorted(up, key=lambda unit: unit.key.slug)
         wanted = sum(unit.fit.ram_gb for unit in hungriest)
         # The refusal margin is a *text-engine* figure — room held clear past
         # spilled experts for decode. A media engine's host memory is its

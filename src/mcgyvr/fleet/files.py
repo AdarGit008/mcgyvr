@@ -55,6 +55,7 @@ _UNIT_KEYS = frozenset(
         "container",
         "hf_cache",
         "sampling",
+        "role",
         "launch",
     }
 )

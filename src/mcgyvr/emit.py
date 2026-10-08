@@ -58,6 +58,7 @@ from mcgyvr.serving import (
     ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
+    SLEEPER_PROFILE,
     Unit,
     launch_specs,
     port_of,
@@ -467,6 +468,10 @@ def _document(units: tuple[Unit, ...], *, sleep_mode: bool = False) -> str:
                 "one of them — rename a model so the two spell differently"
             )
         services[name] = _service(unit, sleep_mode=sleep_mode)
+        if unit.asleep:
+            # A swap partner: a whole `up` leaves it down, and naming it
+            # (`serve up --unit`) starts it once its room is made.
+            services[name]["profiles"] = [SLEEPER_PROFILE]
     _sequence_on_one_card(units, services)
     document = yaml.safe_dump({"services": services}, sort_keys=True, width=200)
     if sleep_mode and any(unit.engine == "vllm" for unit in units):
@@ -519,6 +524,10 @@ def _sequence_on_one_card(
         # it never passes and whatever waits on it never starts; they are not
         # chained.
         if unit.role != ROLE_SERVE:
+            continue
+        # A unit that starts asleep comes up alone, after the units whose
+        # room it takes are stopped; a whole `up` would wait on it forever.
+        if unit.asleep:
             continue
         for card in unit.cards:
             on_card.setdefault(card, []).append(

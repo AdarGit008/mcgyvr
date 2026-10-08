@@ -22,9 +22,9 @@ Six ways the pipeline from a verdict to the bytes on disk came apart:
 from __future__ import annotations
 
 import dataclasses
+import shlex
 import shutil
 import subprocess
-import time
 from pathlib import Path
 from typing import Any
 
@@ -113,12 +113,16 @@ def test_place_refuses_an_accepted_whose_bytes_left_their_digest(
 
 # --- PIPE-03: acceptance is timed by the run's own --config --------------------
 
-FORMAT_WITH_SLOW_ACCEPTANCE = """
+#: Longer than the named config's ceiling by far, and shorter than the
+#: default config's: only the named one's kills it.
+SLOW_ACCEPTANCE = ("python3", "-c", "import time; time.sleep(30)")
+
+FORMAT_WITH_SLOW_ACCEPTANCE = f"""
 id: tidy
 task_type: format
 task: Reformat the module.
 target: src/pkg/messy.py
-acceptance: ["python3 -c 'import time; time.sleep(6)'"]
+acceptance: ["{shlex.join(SLOW_ACCEPTANCE)}"]
 scope:
   allow: ["src/**"]
 """
@@ -141,8 +145,21 @@ def test_the_acceptance_ceiling_is_the_run_configs_not_the_default_one(
     )
     monkeypatch.setenv("MCGYVR_CONFIG", str(default))
     named = lj.append_policy(lj.make_config(tmp_path / "named"), "task_timeout_s: 1\n")
+    # Each command the sandbox runs, the ceiling it was given and what came of
+    # it: the run is judged by what it asked for, not by how long it took on
+    # a machine that may be busy.
+    from mcgyvr.sandbox.tempdir import TempDirSandbox
 
-    started = time.monotonic()
+    real_run = TempDirSandbox.run
+    ran: list[tuple[tuple[str, ...], float | None, bool]] = []
+
+    def run(self: TempDirSandbox, command: Any, **kwargs: Any) -> Any:
+        result = real_run(self, command, **kwargs)
+        ran.append((tuple(command), kwargs.get("timeout"), result.timed_out))
+        return result
+
+    monkeypatch.setattr(TempDirSandbox, "run", run)
+
     code = lj.main(
         [
             "run",
@@ -155,13 +172,17 @@ def test_the_acceptance_ceiling_is_the_run_configs_not_the_default_one(
             str(named),
         ]
     )
-    elapsed = time.monotonic() - started
 
     out = capsys.readouterr()
-    assert elapsed < 5, (
-        f"--config set a 1s ceiling and the acceptance command ran {elapsed:.1f}s: "
-        f"it was timed by the default config's 60s"
+    acceptance = [
+        (timeout, killed) for argv, timeout, killed in ran if argv == SLOW_ACCEPTANCE
+    ]
+    assert acceptance, f"the acceptance command never ran: {ran}"
+    assert all(timeout == 1.0 for timeout, _ in acceptance), (
+        f"--config set a 1s ceiling and the acceptance command was given "
+        f"{acceptance}: it was timed by the default config's 60s"
     )
+    assert all(killed for _, killed in acceptance), acceptance  # cut at 1s, not 30s
     assert code != 0, f"stdout: {out.out}\nstderr: {out.err}"
 
 

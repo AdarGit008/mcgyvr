@@ -485,6 +485,12 @@ SERVING_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+#: A unit's ``role``: up whenever its launch spec is, or a swap partner that
+#: starts asleep in that spec and is started by the ladder manager.
+ROLE_ALWAYS_ON = "always-on"
+ROLE_SLEEPER = "sleeps-until-needed"
+ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
+
 UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "address",
@@ -622,6 +628,20 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "fact about the unit's server, so it is here and not in the policy.",
         default="request",
         choices=("request", "server"),
+    ),
+    Field(
+        "role",
+        "enum",
+        "Whether this unit is up whenever its launch spec is (`always-on`) or "
+        "is a swap partner that starts asleep (`sleeps-until-needed`). A "
+        "sleeper shares its card's one launch spec with the always-on units "
+        "under a compose profile, so a whole `serve up` leaves it down and the "
+        "awake set still fits the card. The ladder manager starts it when the "
+        "dearest awake rung is full, stopping the units whose room it needs "
+        "first, and starts those again when it sleeps. llama.cpp units only: "
+        "a vLLM unit swaps at level 2 with its process kept.",
+        default=ROLE_ALWAYS_ON,
+        choices=ROLES,
     ),
     Field(
         "launch",
@@ -1217,6 +1237,9 @@ class Unit:
     #: Who sets a request's sampling parameters: ``request`` (the default,
     #: a temperature on every request) or ``server`` (none is sent).
     sampling: str = "request"
+    #: ``always-on`` or ``sleeps-until-needed`` (:data:`ROLE_SLEEPER`): whether
+    #: the unit starts asleep in its card's launch spec, as a swap partner.
+    role: str = ROLE_ALWAYS_ON
     launch: Mapping[str, Any] = field(default_factory=dict)
     #: How many of its slots riders the hub matches may use at once
     #: (hitchhike), from the policy's ``rider_slots``: 0, the default, shares
@@ -2035,6 +2058,7 @@ def _build(
             container=block["container"],
             hf_cache=block["hf_cache"],
             sampling=block.get("sampling") or "request",
+            role=block.get("role") or ROLE_ALWAYS_ON,
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
         )
