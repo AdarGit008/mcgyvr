@@ -45,8 +45,11 @@ A `serve up --unit` OR `serve down --unit` RUN (RUN_SERVE_ONLY) acts on the
 named units alone, in either mode: those are judged whatever was up before
 (an `up` expects each up, a `down` each gone), the file's other units are
 left as they are and judged neither way, and anything else the run left is
-named as on any run. A `serve fetch` starts nothing, so anything up after it
-that was not up before is named. And the run's log gets
+named as on any run. A whole `serve up`, `sleep` or `wake` judges the file's
+awake set: a service under a compose profile (RUN_SERVE_ASLEEP, a swap partner
+that starts asleep) is left down by a whole `up` and judged neither way; a
+whole `down` expects it gone like the rest. A `serve fetch` starts nothing, so
+anything up after it that was not up before is named. And the run's log gets
 its end, ``<RUN_ID>.end.json`` beside the header: the rig as read after the
 step, the containers up, the units serving, what was left or missing, and how
 the step exited.
@@ -195,6 +198,11 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
         os.environ.get("RUN_SERVE_ONLY", "").split()
     )
     judged = set(os.environ.get("RUN_SERVE_ONLY", "").split()) if alone else expected
+    # A whole `up` leaves the file's sleepers down (a compose profile), and
+    # `sleep` and `wake` act on what is up: those runs judge the awake set,
+    # and a sleeper is judged neither way. A whole `down` takes them too.
+    if not alone and serve in ("up", "sleep", "wake"):
+        judged = expected - set(os.environ.get("RUN_SERVE_ASLEEP", "").split())
     untouched = expected - judged
     seen["only"] = sorted(judged) if alone else []
     # `sleep` and `wake` open on a serving rig as `down` does, and end with

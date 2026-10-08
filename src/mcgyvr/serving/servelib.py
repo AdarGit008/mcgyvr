@@ -50,6 +50,10 @@ class Service:
     #: The card ids the service reserves, as written (``emit`` writes one
     #: index); empty where it reserves none.
     devices: tuple[str, ...] = ()
+    #: Whether the service names a compose profile, so a whole ``compose up``
+    #: leaves it down: a swap partner that starts asleep
+    #: (:data:`mcgyvr.serving.SLEEPER_PROFILE`), started only by name.
+    asleep: bool = False
 
 
 def services(compose: Path) -> tuple[Service, ...]:
@@ -91,6 +95,7 @@ def services(compose: Path) -> tuple[Service, ...]:
                 container=container.strip(),
                 port=port,
                 devices=_devices(block),
+                asleep=bool(block.get("profiles")),
             )
         )
     if not found:
@@ -153,7 +158,9 @@ def down(
     The whole file goes down with ``--remove-orphans``. Named units are
     stopped and removed alone (``rm --stop --force`` of their services), and
     the file's other units keep running. A swap puts away a unit that cannot
-    sleep this way.
+    sleep this way, and a whole down puts away a swap partner a swap left
+    running the same way (:attr:`Service.asleep`): a profile is not something
+    ``compose down`` is promised to reach.
     """
     if not units:
         return compose(compose_file, "down", "--remove-orphans")

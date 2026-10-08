@@ -1567,7 +1567,7 @@ def _floor(
     either. What is counted is what ran.
     """
     from mcgyvr.deterministic import tool_steps
-    from mcgyvr.drive import DriveError, gate_workspace, run_tool_step
+    from mcgyvr.drive import DriveError, gate_workspace, run_tool_step, task_ceiling
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.telemetry import correct, observe
 
@@ -1604,8 +1604,12 @@ def _floor(
     def work() -> GateResult:
         for note in sandbox.notes:
             print(f"note: {note}")
+        # The run's own ceiling, as its acceptance commands get
+        # (`acceptance_for`): left to `run_tool_step`, a step is timed by the
+        # config at the default location rather than the one `--config` named.
+        ceiling = task_ceiling(config)
         for step in steps:
-            outcome = run_tool_step(step, sandbox)
+            outcome = run_tool_step(step, sandbox, timeout=ceiling)
             print(f"  $ {' '.join(step.argv)}")
             if not outcome.ran:
                 raise FloorStoppedError(str(outcome.environment_issue))
@@ -2599,6 +2603,10 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
         print(f"  RAM     {now.ram_total_gb:.1f} GB", file=out)
     if now.disk_path is not None:
         print(f"  Disk    {now.disk_free_gb} GB free at {now.disk_path}", file=out)
+    if now.private_ipv4 is not None:
+        print(f"  Address {now.private_ipv4} ({now.private_ipv4_how})", file=out)
+    else:
+        print(f"  Address no private IPv4 recorded: {now.private_ipv4_how}", file=out)
     for note in now.notes:
         print(f"  - {note}", file=out)
     if before is not None:

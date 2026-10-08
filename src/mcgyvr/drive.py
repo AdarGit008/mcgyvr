@@ -123,8 +123,8 @@ class ContractTooLargeForRungError(DriveError):
 
     Its declared ceiling is larger than the window, its assembled prompt and
     reply do not fit inside it, or it claims more of the window than its share
-    allows — its own ``limits.max_window_fraction``, or the run's
-    ``max_window_fraction`` where it declared none
+    allows — the stricter of its own ``limits.max_window_fraction`` and the
+    run's ``max_window_fraction``
     (:func:`~mcgyvr.gate.preflight.check_contract_against_rung`). Owner ruling:
     a task too big for the rung it was sent to fails, before it is sent and
     without being moved up the ladder on its own. Not a
@@ -314,11 +314,10 @@ def refuse_unsendable(
     fit, and whether it claims more of the window than its share allows?
 
     ``window_fraction`` is the run's ``max_window_fraction``, read off the
-    config by the caller that holds it. It is the share a contract that
-    declared none is held to; a contract that declared its own
-    ``limits.max_window_fraction`` is held to that instead (the rule is
-    :func:`~mcgyvr.gate.preflight.check_contract_fits`'s). ``None`` enforces
-    no run-wide share.
+    config by the caller that holds it. It is a ceiling: a contract is held to
+    the stricter of it and its own ``limits.max_window_fraction`` (the rule is
+    :func:`~mcgyvr.gate.preflight.held_share`'s). ``None`` enforces no
+    run-wide share.
 
     A rung too small for the contract raises :class:`ContractTooLargeForRungError`
     (or :class:`OutputCapTooLargeError` when the reply cap alone fills the
@@ -398,7 +397,7 @@ def dispatch_prompt(
 
     Both refusals are :func:`refuse_unsendable`'s, which also measures the
     whole contract against the rung's window — and against ``window_fraction``,
-    the run's ``max_window_fraction``, where the contract declared no share.
+    the run's ``max_window_fraction``, a ceiling over the contract's own share.
     """
     endpoint = source_map.bind(rung)
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
@@ -716,8 +715,8 @@ def worker_attempt(
     # because it is the rung's — `draws_for` — and not the driver's.
     temperature = float(config.get("breadth.temperature", 0.0))
     tidying = bool(config.get("cleanup.enabled", True))
-    # The run's share of a rung's window, for every contract that declared
-    # none. Read once, here, because this is the layer holding the config, and
+    # The run's share of a rung's window, a ceiling over every contract's own.
+    # Read once, here, because this is the layer holding the config, and
     # handed to both refusals below — before the draws and at the binding — so
     # the two cannot disagree on what the run allows.
     declared_share = config.get("max_window_fraction")

@@ -11,6 +11,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `mcgyvr scan --rig RIG` records the rig's private IPv4 address in its rig
+  file (`private_ipv4`, with `private_ipv4_how`), as the rig reports it (owner,
+  Round 9): the address its ssh session arrived at (`SSH_CONNECTION`) when an
+  RPC worker may listen there, else the one private address on its interfaces
+  (`ip -4 -o addr show`); with several, none is guessed and the scan says
+  which there are. Nothing is resolved. `recommend` spans a chat or agent unit
+  across `--host`s given by name at those addresses; a machine with none
+  recorded is left out of the span, and the unit's notes name
+  `mcgyvr scan --rig RIG`. The plan's `shards` carry each worker's `bind`.
 - `mcgyvr recommend` plans a coding LADDER per rig (owner, Round 7): the
   fastest coding model at 8k per slot, filled with slots; a bigger rung only
   when it is a clear step up (`--clear-step`, default a 1.5x file, and a better
@@ -46,6 +55,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   lock or promote refusal, stamps nothing and lists why. Not yet sampled: a
   fleet with a unit that sleeps until needed ("the swap isn't built yet"),
   and media-gen. `mcgyvr setup` will run the sample; nothing calls it yet.
+- The ladder manager's swap works for llama.cpp. A unit can say
+  `units.<u>.role: sleeps-until-needed` (default `always-on`, which changes
+  nothing): `emit` writes it into its card's one launch spec beside the
+  always-on units, under the compose profile `asleep`, so a whole
+  `serve up` leaves it down and the awake set still fits the card. When the
+  dearest awake rung is full the manager stops the units whose room it needs
+  (`serve down --unit`), starts it (`serve up --unit`), and starts them again
+  when it sleeps. A card of co-resident llama.cpp units now switches one unit
+  at a time, as a vLLM card does. A task that climbs to a sleeping swap
+  partner does not start it; the manager does, after making room. The door
+  reads the profile: a whole `serve up` waits for and judges the awake units
+  only, and a whole `serve down` also removes a swap partner left running.
+  llama.cpp units only; vLLM keeps its level-2 sleep.
 - Model geometry (`mcgyvr.knowledge.geometry`, `data/model-geometry.json`):
   each model file's header row, the one thing the serving sizer reads, kept
   per file at a revision with one source and one date for the whole row. The
@@ -173,6 +195,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 - `mcgyvr init --priority throughput|quality|cost` replaces the free-text
   `--profile` for a composed ladder. The config's `profile: live|dev` is a
   different setting and is unchanged.
+- The run-wide `max_window_fraction` is a hard ceiling (owner ruling). A
+  contract is held to the stricter of its own `limits.max_window_fraction`
+  and the run's: it may hold itself to less of a window than the run allows,
+  never to more. Before, a contract's own share won wherever it stated one,
+  so a contract declaring 0.9 was sent under a run that allowed 0.25. The
+  refusal names the limit that was hit, and both when the two are equal.
 
 ### Deprecated
 
@@ -187,6 +215,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- The deterministic floor's program (`ruff format` for a `format` contract)
+  is timed by the run's own `--config` `task_timeout_s`, as its acceptance
+  commands are. It was given the ceiling of the config at the default
+  location instead, so a run that named another config could have its
+  formatter cut early or left running past the run's ceiling.
 - A contract too big for the rung it was sent to is refused before it is
   sent, and the run fails on that rung (owner ruling: it is not moved to a
   bigger rung). It went out anyway: a llama.cpp unit answered `400` and the
@@ -209,8 +242,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   the run's share before it is sent, by the same check and with the same
   outcome as an oversize contract: `error` on the rung it was sent to,
   `ContractTooLargeForRungError`, nothing dispatched, no journal row, no
-  sleeping card woken, no climb. A contract's own
-  `limits.max_window_fraction` still wins where it states one. The refusal
+  sleeping card woken, no climb. It is a ceiling over a contract's own
+  `limits.max_window_fraction` (see Changed). The refusal
   now says which limit was hit: the run's `max_window_fraction` (config) or
   the contract's own `limits.max_window_fraction`.
 - The rig agent's at-once frame test no longer fails on a busy machine: it

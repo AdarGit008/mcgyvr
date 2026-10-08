@@ -218,6 +218,30 @@ class Disk:
 
 
 @dataclass(frozen=True)
+class Interface:
+    """One IPv4 address on one of the machine's network interfaces."""
+
+    interface: str
+    address: str
+
+
+@dataclass(frozen=True)
+class Network:
+    """How the machine says it is reached, as it read it itself.
+
+    ``reached_at`` is the address its ssh session arrived at (the local
+    address in ``SSH_CONNECTION``), ``None`` when it was not reached over ssh;
+    ``ipv4`` is every IPv4 address on its interfaces. Read on the far end of a
+    remote scan (:mod:`mcgyvr.serving.rigscan`), so the controller resolves no
+    name to learn where a rig is: :func:`mcgyvr.serving.rigfile.private_ipv4`
+    picks from what the rig said.
+    """
+
+    reached_at: str | None
+    ipv4: tuple[Interface, ...] = ()
+
+
+@dataclass(frozen=True)
 class Gpu:
     index: int
     name: str
@@ -255,6 +279,9 @@ class Scan:
     #: a remote scan. ``None`` when it was not read: a scan of this machine
     #: does not ask docker, and a rig's daemon may not answer its user.
     docker: str | None = None
+    #: How the machine says it is reached, read by the shipped rig scanner on
+    #: the far end of a remote scan. ``None`` for a scan of this machine.
+    network: Network | None = None
 
     @property
     def gpus_determined(self) -> bool:
@@ -388,6 +415,17 @@ class Scan:
                 else {"path": str(self.disk.path), "free_gb": self.disk.free_gb}
             ),
             "docker": self.docker,
+            "network": (
+                None
+                if self.network is None
+                else {
+                    "reached_at": self.network.reached_at,
+                    "ipv4": [
+                        {"interface": one.interface, "address": one.address}
+                        for one in self.network.ipv4
+                    ],
+                }
+            ),
             "notes": list(self.notes),
             "facts": [{"field": f.field, "how": f.how} for f in self.facts],
         }
@@ -403,6 +441,7 @@ class Scan:
         cpu = raw.get("cpu")
         bandwidth = raw.get("bandwidth")
         disk = raw.get("disk")
+        network = raw.get("network")
         return cls(
             machine=Machine(
                 id=str(machine.get("id", "")),
@@ -455,6 +494,24 @@ class Scan:
                 for fact in raw.get("facts") or ()
             ),
             docker=str(raw["docker"]) if raw.get("docker") else None,
+            network=(
+                None
+                if network is None
+                else Network(
+                    reached_at=(
+                        None
+                        if network.get("reached_at") is None
+                        else str(network["reached_at"])
+                    ),
+                    ipv4=tuple(
+                        Interface(
+                            interface=str(one["interface"]),
+                            address=str(one["address"]),
+                        )
+                        for one in network.get("ipv4") or ()
+                    ),
+                )
+            ),
         )
 
 
