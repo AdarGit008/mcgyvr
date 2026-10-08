@@ -95,7 +95,8 @@ it. So each row also carries ``endpoint``,
 ``model``, ``protocol``, ``condition`` — always ``"stock"``: live work is the
 product as shipped, never an ablation, and the field is what tells a live row
 from a bench cell by content rather than by path — and ``bundle_sha256`` (the
-system prompt, hashed as the bench hashes it).
+system prompt, hashed as the bench hashes it). The round and the product
+revision are the caller's to say, as tags (below).
 
 **What the run belongs to is said by whoever started it, not looked up.** The
 product cannot know which experiment, build or round a process is part of, and
@@ -108,40 +109,29 @@ so a reader can tell what was measured here from what the caller asserted. A
 variable that is set and is not such an object is refused, as an unusable
 ``$MCGYVR_HOME`` is: a run whose rows silently lost their tags is noticed a
 week later, when they cannot be told apart. Unset or empty, the row has no
-``run_tags``.
-
-**One step only: the checkout fallback.** With the variable unset, a process
-running inside a development checkout still stamps ``round`` and
-``product_sha256`` from ``tools/bench/product.py`` loaded by path
-(:func:`_product_revision`), so the lab keeps its stamp until it sets the
-variable itself. That is the one place this module runs code that is not the
-package's, it is fenced by
-``tests/test_telemetry_runs_no_lab_code_but_its_dated_fallback.py``, and it is
-deleted once the lab sets ``$MCGYVR_RUN_TAGS`` (borders plan 2a, 2026-10-08).
+``run_tags``. The round a run measured under and the product revision that
+dispatched it are tags like any other, said by whoever started it; the product
+runs no code of the development checkout to find them
+(``tests/test_telemetry_runs_no_lab_code.py``).
 """
 
 from __future__ import annotations
 
 import contextlib
 import fcntl
-import functools
 import hashlib
-import importlib.util
 import json
 import math
 import os
-import sys
 import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import mcgyvr
 from mcgyvr.redact import scrub
 from mcgyvr.runner import Completion
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    import types
     from collections.abc import Callable, Mapping, Sequence
 
 # One record is one JSON object. Deliberately not a dataclass on the way out:
@@ -210,14 +200,6 @@ RUN_TAGS_MAX_BYTES = 4096
 RUN_TAGS_MAX_INT = 2**53
 
 type TagValue = str | int | float | bool
-
-# FALLBACK, one step only (borders plan 2a, 2026-10-08): delete with
-# `_checkout`, `_bench_product` and `_product_revision` once the lab sets
-# MCGYVR_RUN_TAGS. The `sys.modules` slot tools/breadth/measure.py loads
-# tools/bench/product.py into. The same slot, not a suffixed one, so a process
-# that already holds the module is handed that copy rather than a second one
-# that could disagree.
-_PRODUCT_SLOT = "bench_product"
 
 
 class RunTagsError(ValueError):
@@ -490,22 +472,20 @@ def _identity(
     """What the attempt is, known before it runs and shared by both rows it can write.
 
     The failing row and the succeeding row name the same prompt, endpoint and
-    product revision, which is what makes a raised attempt reviewable at all.
+    run tags, which is what makes a raised attempt reviewable at all.
     Every key here is absent, not null, when the caller could not supply it —
     an attempt that is not a dispatch has no endpoint and no prompt — under the
     rule that keeps an unreported token count out of the row.
 
     **Written into ``fields`` step by step rather than returned whole**, which
     is the whole reason this takes a dict instead of building one. Two of the
-    steps touch the disk — :func:`_prompt_identity` writes the prompt to the
-    blob store, :func:`_product_revision` reads the checkout. The blob store is
-    a sink and can raise. Filling the caller's dict as it goes means the row it
-    writes for that failure still carries everything the earlier steps
-    established: what endpoint was about to be asked and under what condition.
-    Returning a value would make that row empty of all of it, and an empty row
-    is the shape a reader cannot act on. The revision is not a sink: a checkout
-    whose round or surface cannot be read leaves ``round`` and
-    ``product_sha256`` absent and names the failure in ``revision_error``.
+    steps can raise — :func:`_prompt_identity` writes the prompt to the blob
+    store, which is a sink, and :func:`run_tags` refuses a variable it cannot
+    use. Filling the caller's dict as it goes means the row it writes for that
+    failure still carries everything the earlier steps established: what
+    endpoint was about to be asked and under what condition. Returning a value
+    would make that row empty of all of it, and an empty row is the shape a
+    reader cannot act on.
 
     **Which makes the order a contract and not a layout.** Everything the
     caller handed in — the condition, the endpoint, the task type, the session
@@ -514,8 +494,9 @@ def _identity(
     raise gives it away for nothing: ``observe`` promises ``task_type`` and
     ``session_file`` on both rows and a reader takes their absence to mean the
     caller had neither, so a full disk would silently unsay what the caller
-    said. The only keys a failure row can be missing are the two nothing can
-    establish without touching the disk.
+    said. The only keys a failure row can be missing are the prompt's two,
+    which nothing can establish without touching the disk, and the tags it
+    refused.
 
     ``condition`` is the one key always written: live work is the product as
     shipped, and the bench's word for "no ablation" is ``"stock"``.
@@ -534,25 +515,8 @@ def _identity(
     fields |= _prompt_identity(store, messages)
     # After the prompt, so a row for tags refused still names what it asked.
     tags = run_tags()
-    if tags is not None:
-        # Set is the whole answer, `{}` included: the caller said what the run
-        # belongs to, and the checkout is not also asked.
-        if tags:
-            fields[RUN_TAGS_KEY] = tags
-        return
-    # FALLBACK, one step only (borders plan 2a, 2026-10-08): delete from here
-    # to the end of this function once the lab sets MCGYVR_RUN_TAGS.
-    try:
-        revision = _product_revision()
-    except Exception as failure:
-        # Off-round is recorded, not refused, and so is a round or a surface
-        # that cannot be read at all: a rounds file mid-edit, a surface entry
-        # that moved. The row says the revision was not read and why; refusing
-        # would stop every dispatch on exactly the days the product changes.
-        fields["revision_error"] = type(failure).__name__
-        return
-    if revision is not None:
-        fields["round"], fields["product_sha256"] = revision
+    if tags:
+        fields[RUN_TAGS_KEY] = tags
 
 
 def _render(messages: Sequence[Mapping[str, str]]) -> bytes:
@@ -648,9 +612,9 @@ def run_tags() -> dict[str, TagValue] | None:
 
     Read on every call rather than once, so a process that sets the variable
     between runs tags the next one; it is a few kilobytes of JSON at most.
-    Unset and empty are the same answer, as for ``$MCGYVR_HOME``: no tags, and
-    the caller may look elsewhere. ``{}`` is an answer of its own — set, and
-    naming nothing.
+    Unset and empty are the same answer, as for ``$MCGYVR_HOME``: no tags.
+    ``{}`` is set and names nothing, and a row carries no ``run_tags`` for it
+    either.
 
     Refused with :class:`RunTagsError` naming the variable when it is not a
     JSON object; when it holds more than :data:`RUN_TAGS_MAX_BYTES`; when a key
@@ -731,60 +695,6 @@ def _utf8(text: str) -> bool:
     except UnicodeEncodeError:
         return False
     return True
-
-
-def _checkout() -> Path:
-    """The repository this package was imported from — never the working directory.
-
-    A wheel install run from inside somebody's checkout must not borrow that
-    checkout's round, and a checkout run from elsewhere must not lose its own,
-    so the only path that counts is the one the package itself resolves to.
-    """
-    return Path(mcgyvr.__file__).resolve().parents[2]
-
-
-def _bench_product() -> types.ModuleType | None:
-    """``tools/bench/product.py`` by path, or ``None`` when this is not the checkout.
-
-    ``tools/`` has no ``__init__.py``, so the bench loads it by path into a named
-    ``sys.modules`` slot; this uses the slot ``tools/breadth/measure.py`` uses
-    and reuses whatever is already there, so a process that holds the module
-    is not handed a second copy that could disagree with the first. ``None``
-    is the honest answer for an install with no ``tools/bench/product.py``
-    beside it: there is no round to name, and the row carries none.
-    """
-    cached = sys.modules.get(_PRODUCT_SLOT)
-    if cached is not None:
-        return cached
-    source = _checkout() / "tools" / "bench" / "product.py"
-    if not source.is_file():
-        return None
-    spec = importlib.util.spec_from_file_location(_PRODUCT_SLOT, source)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"{source} exists and cannot be loaded as a module")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[_PRODUCT_SLOT] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-@functools.cache
-def _product_revision() -> tuple[str, str] | None:
-    """The open round's id and this tree's digest, or ``None`` outside the checkout.
-
-    Memoised for the process because the digest walks every file of the
-    product surface, and it is a fact about the checkout rather than about any
-    orchestrator: two orchestrators in one process share one tree by
-    construction, so this is a memo and not the shared state §9 forbids.
-    ``require_pinned`` is deliberately not called. A live run off its round is
-    recorded as such — the digest written is the tree's — and the reader flags
-    it; refusing would make the journal go dark on exactly the days the
-    product is changing.
-    """
-    product = _bench_product()
-    if product is None:
-        return None
-    return str(product.open_round()["id"]), str(product.digest(_checkout()))
 
 
 def correct(

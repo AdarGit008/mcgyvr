@@ -14,10 +14,9 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 - `MCGYVR_RUN_TAGS` tags a run's journal rows (borders plan 2a). Set it to a
   JSON object of text, number or true/false values (at most 4096 bytes) and
   every row the run writes carries it under `run_tags`, text scrubbed. Set to
-  anything else, `mcgyvr run` refuses before it starts. Set, it replaces the
-  `round`/`product_sha256` stamp telemetry read by executing the bench's
-  product module from a development checkout; unset, that stamp
-  stays for one step so the lab can switch first, and is then deleted.
+  anything else, `mcgyvr run` refuses before it starts. It replaces the
+  `round`/`product_sha256` stamp telemetry read from a development checkout
+  (see Removed).
 - The door has a `step` verb, an advanced command (owner, 2026-10-08, design
   2b): `python -m mcgyvr.serving.run step --host RIG --campaign NAME --step
   PATH [-- ARGS]` runs one script of your own on a rig under the door's fixed
@@ -256,6 +255,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Removed
 
+- Telemetry no longer stamps `round` and `product_sha256` on a journal row
+  by executing the bench's product module from the development checkout
+  around the package, nor writes `revision_error` when that read failed
+  (borders plan 2a). The lab now sets `MCGYVR_RUN_TAGS` itself, and its
+  readers take the round and the product digest from `run_tags`. A row
+  nobody tagged carries neither, inside a checkout or out of one, and
+  telemetry runs no code that is not the package's.
 - The coding ladder and the hardware-recommendation planner are withdrawn, on
   the owner's decision; they will be redesigned in an issue. `mcgyvr recommend`
   is back to its 0.3.0 behaviour: `--profile coding|chatting|media_gen|other`,

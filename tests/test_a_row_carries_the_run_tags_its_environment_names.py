@@ -14,10 +14,10 @@ What these tests hold:
 * the tags are on the answering row and on the failing one;
 * a tag value that is text has a credentialed URL in it scrubbed, as every
   other string the row quotes and did not build;
-* a set variable is the whole answer: the checkout's round is not also read
+* the product adds no round or product revision of its own beside the tags
   (``{}`` says "no tags" and is obeyed);
-* unset or empty, nothing is tagged — and an install with no development
-  checkout around it carries no round either;
+* unset or empty, nothing is tagged and the row carries no round, inside a
+  development checkout or outside one: the product looks nothing up;
 * anything but a small JSON object of text, number or true/false values is
   refused, and refused before the run starts, the way the product refuses an
   unusable ``$MCGYVR_HOME``;
@@ -84,39 +84,21 @@ def _record(sink: Path, attempt: Callable[[], Any] = _completion) -> dict[str, A
     return row
 
 
-@pytest.fixture
-def no_revision(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Every read of the checkout's round, kept: a test asserts there were none.
-
-    Kept rather than raised, because ``_identity`` turns any ``Exception`` out
-    of the read into ``revision_error`` and a raise here would be swallowed.
-    """
-    reads: list[str] = []
-
-    def read() -> None:
-        reads.append("the checkout's round was read although tags were set")
-
-    monkeypatch.setattr(telemetry, "_product_revision", read)
-    return reads
-
-
 def test_the_row_carries_the_tags_under_run_tags(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, json.dumps(TAGS))
 
     row = _record(tmp_path / "journal" / "agent-a.jsonl")
 
     assert row[telemetry.RUN_TAGS_KEY] == TAGS
-    # A set variable is the whole answer: the checkout is not also asked.
+    # The tags are the whole answer: the product stamps nothing of its own.
     assert "round" not in row
     assert "product_sha256" not in row
-    assert "revision_error" not in row
-    assert no_revision == []
 
 
 def test_the_failing_row_carries_the_tags_too(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, json.dumps(TAGS))
     sink = tmp_path / "journal" / "agent-a.jsonl"
@@ -130,12 +112,10 @@ def test_the_failing_row_carries_the_tags_too(
     (row,) = fold(path=sink)
     assert row["ok"] is False
     assert row[telemetry.RUN_TAGS_KEY] == TAGS
-    assert "revision_error" not in row
-    assert no_revision == []
 
 
 def test_a_credential_in_a_tag_is_scrubbed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(
         telemetry.RUN_TAGS_ENV,
@@ -146,12 +126,10 @@ def test_a_credential_in_a_tag_is_scrubbed(
 
     assert "hunter2" not in json.dumps(row)
     assert row[telemetry.RUN_TAGS_KEY]["mirror"].startswith("https://")
-    assert "revision_error" not in row
-    assert no_revision == []
 
 
-def test_an_empty_object_tags_nothing_and_reads_no_round(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
+def test_an_empty_object_tags_nothing_and_stamps_no_round(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, "{}")
 
@@ -159,19 +137,6 @@ def test_an_empty_object_tags_nothing_and_reads_no_round(
 
     assert telemetry.RUN_TAGS_KEY not in row
     assert "round" not in row
-    assert "revision_error" not in row
-    assert no_revision == []
-
-
-def test_unset_or_empty_tags_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(telemetry, "_product_revision", lambda: None)
-    monkeypatch.delenv(telemetry.RUN_TAGS_ENV, raising=False)
-    assert telemetry.RUN_TAGS_KEY not in _record(tmp_path / "a" / "agent-a.jsonl")
-
-    monkeypatch.setenv(telemetry.RUN_TAGS_ENV, "")
-    assert telemetry.RUN_TAGS_KEY not in _record(tmp_path / "b" / "agent-a.jsonl")
 
 
 @pytest.mark.parametrize(
@@ -342,6 +307,89 @@ def test_outside_the_checkout_only_the_environment_tags_a_row(
         assert row[telemetry.RUN_TAGS_KEY] == TAGS
     else:
         assert telemetry.RUN_TAGS_KEY not in row
+
+
+#: The development tree's folder for its own tools, named once: the planted
+#: tree below copies its shape without the test spelling a path into it.
+_LAB = "tools"
+
+#: The bench's product module as a lab tree would hold it, planted: executing
+#: it at all leaves the sentinel, and what it would answer is a round nobody
+#: opened, so a row that carried it could only have run it.
+_PLANTED = """
+from pathlib import Path
+
+Path(SENTINEL).write_text("executed", encoding="utf-8")
+
+
+def open_round():
+    return {"id": "r-evil"}
+
+
+def digest(repo=None):
+    return "ee" * 32
+
+
+def load_rounds():
+    return [{"id": "r-evil", "product_sha256": "ee" * 32}]
+"""
+
+
+@pytest.mark.parametrize("unset", [True, False], ids=["unset", "empty"])
+def test_unset_or_empty_tags_nothing_even_inside_a_lab_shaped_tree(
+    tmp_path: Path, unset: bool
+) -> None:
+    """The package inside a tree shaped like the lab's, with the bench's product
+    module beside it: nothing of the tree is run, and the row carries only what
+    the product measured.
+
+    ``X/src/mcgyvr`` on ``PYTHONPATH`` ahead of the editable install, ``cwd``
+    ``X``, and ``X/<tools>/bench/product.py`` planted to leave a sentinel if it
+    is ever executed. The fixture is checked, not assumed: the package that ran
+    is the copy in ``X``, and the planted module does leave the sentinel when
+    it is run.
+    """
+    tree = tmp_path / "lab"
+    site = tree / "src"
+    shutil.copytree(
+        REPO / "src" / "mcgyvr",
+        site / "mcgyvr",
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    sentinel = tmp_path / "the-bench-module-ran"
+    planted = tree / _LAB / "bench" / "product.py"
+    planted.parent.mkdir(parents=True)
+    planted.write_text(
+        _PLANTED.replace("SENTINEL", repr(str(sentinel))), encoding="utf-8"
+    )
+    # Fixture sanity: the plant does leave its mark when it is run.
+    ran = subprocess.run(
+        [sys.executable, str(planted)], capture_output=True, text=True, timeout=60
+    )
+    assert ran.returncode == 0, ran.stderr
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    sink = tmp_path / "journal" / "a.jsonl"
+    env = {**os.environ, "PYTHONPATH": str(site)}
+    env.pop(telemetry.RUN_TAGS_ENV, None)
+    if not unset:
+        env[telemetry.RUN_TAGS_ENV] = ""
+    proc = subprocess.run(
+        [sys.executable, "-c", _OUTSIDE.replace("SINK", repr(str(sink)))],
+        env=env,
+        cwd=tree,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert Path(out["file"]).is_relative_to(site), out["file"]
+    assert not sentinel.exists(), "telemetry executed the tree's bench module"
+    row = out["row"]
+    for key in (telemetry.RUN_TAGS_KEY, "round", "product_sha256", "revision_error"):
+        assert key not in row, row
 
 
 def test_the_setup_document_names_the_variable_and_the_key() -> None:

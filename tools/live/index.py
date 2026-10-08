@@ -37,6 +37,10 @@ with a name, and the two must not read the same.
 ``reply_sha256`` is absent on an attempt that raised, ``round`` and
 ``product_sha256`` are absent outside a checkout, ``outcome`` is absent until
 someone corrects. ``NULL`` is the SQL spelling of absent-is-honest.
+Telemetry no longer writes ``round`` or ``product_sha256`` itself: a row now
+carries them under ``run_tags``, when whoever started the run set them. This
+copy reads only the top level and goes away in borders plan P3; the lab's
+copy reads ``run_tags``.
 
 **``off_round`` is the reader's verdict, and the one derived column.** A row
 written inside the checkout carries ``round`` and ``product_sha256`` — the

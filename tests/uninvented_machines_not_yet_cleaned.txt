@@ -66,7 +66,7 @@ src/mcgyvr/serving/ggufscan.py	dev-pointer=3
 src/mcgyvr/serving/run.py	dev-pointer=9
 src/mcgyvr/serving/servelib.py	dev-pointer=3
 src/mcgyvr/serving/vramfit.py	dev-pointer=7
-src/mcgyvr/telemetry.py	dev-pointer=16
+src/mcgyvr/telemetry.py	dev-pointer=8
 src/mcgyvr/wake.py	dev-pointer=6
 src/mcgyvr/weights.py	dev-pointer=1
 src/mcgyvr/worker/bundle.py	dev-pointer=4
@@ -105,7 +105,7 @@ tests/test_a_floor_run_is_in_the_corpus_too.py	dev-pointer=1
 tests/test_a_launch_argv_with_spec_flags_passes_admission_unchanged.py	host=1
 tests/test_a_launch_spec_this_config_does_not_plan_is_never_woken.py	host=1
 tests/test_a_live_probe_is_judged_against_its_lock.py	dev-pointer=9	host=6
-tests/test_a_live_row_names_what_answered_it_and_under_which_round.py	dev-pointer=7
+tests/test_a_live_row_names_what_answered_it_and_under_which_round.py	dev-pointer=2
 tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py	dev-pointer=2	host=3	identity=2
 tests/test_a_live_run_warns_when_its_step_is_pulled.py	dev-pointer=1
 tests/test_a_llamacpp_unit_may_declare_mtp_and_a_gguf_without_a_head_is_refused.py	dev-pointer=1	host=3
