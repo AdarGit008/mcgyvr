@@ -25,6 +25,11 @@ run_id=<RUN_ID>`, each equal to what the door exported to the step. A stamp
 that names another run, another round or nothing is exit 1 naming both. A
 `.json` keeps its own rule: it parses as JSON and is never stamped.
 
+IN USER MODE (``--mode user``) a TSV is not read with the lab's parser and
+its stamps are not asked for: the parser lives in the lab's run root, and a
+user-mode run reads no file of the run root. A lab that wants it read
+brings it as a gate of its own. A `.json` keeps its rule in both modes.
+
 AND IT MUST BE ONE REGULAR FILE OF THE ENVELOPE. A declared name that is a
 symlink, a hard link or a path resolving outside the resolved envelope is
 named with where it points and is not read: a step once wrote through such a
@@ -42,11 +47,13 @@ from types import ModuleType
 from typing import Any
 
 from mcgyvr.serving.gatelib import (
+    USER_MODE,
     artifact_escape,
     door_required,
     envelope_escape,
     need,
     root,
+    run_mode,
 )
 
 
@@ -156,6 +163,10 @@ def main() -> int:
     round_id = need("RUN_ROUND")
     digest = need("RUN_PRODUCT_SHA256")
     appended = set(declared.get("RUN_APPENDS", []))
+    # The TSV parser and its stamps are the lab's: in user mode a TSV is held
+    # to what any declared file is (there, and an append kept its prefix and
+    # grew), and read with no module of the run root.
+    user = run_mode() == USER_MODE
     status = 0
 
     escape = envelope_escape(out_dir)
@@ -235,11 +246,11 @@ def main() -> int:
             if path.suffix == ".json":
                 json.loads(path.read_text(encoding="utf-8"))
                 continue
-            if path.suffix != ".tsv":
+            if path.suffix != ".tsv" or user:
                 continue
             # The campaign's own parser, from the run root, and only where a
-            # TSV is read: a serve step files JSON alone, and a user's run
-            # root holds no tools/runs/.
+            # TSV is read in lab mode: a serve step files JSON alone, and a
+            # user's run root holds no tools/runs/.
             sys.path.insert(0, str(root()))
             from tools.runs import rows
 

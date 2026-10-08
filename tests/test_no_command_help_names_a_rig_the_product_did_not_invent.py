@@ -11,7 +11,7 @@ help.
 
 So this test builds every command's help as a user sees it: ``mcgyvr`` and
 each of its subcommands, the door (``python -m mcgyvr.serving.run`` and its
-``serve``, ``read`` and ``link``) and ``python -m mcgyvr.docgen``. Each help
+``serve``, ``read``, ``link`` and ``step``) and ``python -m mcgyvr.docgen``. Each help
 must hold none of the owner's rig names, and no hit of a machine kind the
 shared scan (:func:`tests.uninvented_machines.scan_text`) counts: an address,
 a host, a home folder, a card model or a machine's identity. Its
@@ -67,7 +67,7 @@ def _printed_help(
 
 def _every_help(capsys: pytest.CaptureFixture[str]) -> list[tuple[str, str]]:
     helps = _mcgyvr_helps(build_parser())
-    for door in ([], ["serve"], ["read"], ["link"]):
+    for door in ([], ["serve"], ["read"], ["link"], ["step"]):
         prog = " ".join(["mcgyvr.serving.run", *door])
         helps.append((prog, _printed_help(capsys, run.main, door)))
     helps.append(("mcgyvr.docgen", _printed_help(capsys, docgen.main, [])))
@@ -77,7 +77,7 @@ def _every_help(capsys: pytest.CaptureFixture[str]) -> list[tuple[str, str]]:
 def test_every_help_is_read(capsys: pytest.CaptureFixture[str]) -> None:
     helps = _every_help(capsys)
     door = [text for prog, text in helps if prog.startswith("mcgyvr.serving.run")]
-    assert len(door) == 4 and all("--host" in text for text in door)
+    assert len(door) == 5 and all("--host" in text for text in door)
     assert len(helps) > 10
     assert len(_MACHINE_KINDS) == len(um.KINDS) - 1
 
