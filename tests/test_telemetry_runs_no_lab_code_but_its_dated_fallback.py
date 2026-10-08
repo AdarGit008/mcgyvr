@@ -37,13 +37,27 @@ FALLBACK = frozenset(
 CALLER = "_identity"
 CALLED = "_product_revision"
 
-#: What loading code by path is spelled with.
+#: What loading or running code by path is spelled with: modules, and the
+#: functions read off them, seen as a name, an attribute or an import.
 _LOADERS = frozenset(
-    {"importlib", "exec_module", "spec_from_file_location", "module_from_spec"}
+    {
+        "importlib",
+        "runpy",
+        "exec_module",
+        "spec_from_file_location",
+        "module_from_spec",
+        "import_module",
+        "run_path",
+        "run_module",
+    }
 )
 
+#: The builtins that run code from text, seen as a bare name only: an
+#: attribute named ``compile`` is ``re.compile`` as often as not.
+_BUILTIN_LOADERS = frozenset({"exec", "eval", "compile", "__import__"})
+
 #: A string that names the lab's trees or the bench's module.
-_LAB_WORDS = re.compile(r"tools|bench|product\.py")
+_LAB_WORDS = re.compile(r"\btools\b|\bbench\b|\bproduct\.py\b")
 
 
 def _docstrings(tree: ast.Module) -> set[int]:
@@ -84,7 +98,9 @@ def _reaches(node: ast.AST, prose: set[int]) -> str | None:
             names.append(node.module)
         hit = [n for n in names if n.split(".")[0] in _LOADERS]
         return f"import {hit[0]}" if hit else None
-    if isinstance(node, ast.Name) and (node.id in _LOADERS or node.id in FALLBACK):
+    if isinstance(node, ast.Name) and (
+        node.id in _LOADERS or node.id in _BUILTIN_LOADERS or node.id in FALLBACK
+    ):
         return node.id
     if isinstance(node, ast.Attribute) and node.attr in _LOADERS:
         return node.attr
