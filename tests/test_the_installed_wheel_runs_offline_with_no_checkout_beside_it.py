@@ -30,10 +30,15 @@ What must be observably true, from that install:
 And a fresh ``init`` runs a contract with nothing from the development
 repository: ``init`` writes ``profile: live`` and approves the user's own fleet
 of what it bound, so live admission lets the run through, and the run gets as
-far as an attempt at the unit ``init`` bound, read from the run's result. That
-unit's address is a loopback listener of the test's own that answers every
-request at once with a server error, so the attempt ends without waiting on any
-timeout and nothing leaves the machine.
+far as an attempt at the unit ``init`` bound, read from the run's result and
+from the listener that took it. That unit is hosted at a public name in a
+domain reserved for examples, which ``init`` approves as it would a provider's
+and does not look up. The run's process alone resolves that one name to a
+loopback listener of the test's own (:data:`_RESOLVING_HOSTED_HERE`): the
+offline stand-in for the internet, as a substituted detection is for a machine.
+The listener answers at once with a server error, so the attempt ends without
+waiting on any timeout and nothing leaves the machine. A loopback address bound
+as hosted would be refused approval: it is a machine of the user's.
 
 The wheel is built and installed once per test session, also when the session
 runs on several workers: the first worker builds it under a lock in the
@@ -97,21 +102,56 @@ KEY_ENV = "MCGYVR_TEST_HOSTED_KEY"
 HOSTED_NAME = "api_claude-opus-5"
 
 
+#: Where the hosted unit is: a public name under a domain reserved for examples
+#: (RFC 2606), so no resolver anywhere answers it with a real machine.
+HOSTED_HOST = "api.hosted.example"
+
+
 def _hosted(address: str) -> str:
     """A hosted unit bound by hand at ``address``: ``init`` writes it without
     reaching it."""
     return f"model=claude-opus-5,address={address},api_key_env={KEY_ENV}"
 
 
-#: The hosted unit of the commands that dispatch nothing: its address is a
-#: loopback port nothing listens on (the discard port).
-HOSTED_UNIT = _hosted("http://127.0.0.1:9")
+#: The hosted unit of the commands that dispatch nothing.
+HOSTED_UNIT = _hosted(f"https://{HOSTED_HOST}/v1")
+
+#: ``mcgyvr`` from the installed package, run as its console script runs it,
+#: with :data:`HOSTED_HOST` alone resolved to this machine's loopback: a
+#: resolver substituted in the test's own process, nothing of the product's.
+_RESOLVING_HOSTED_HERE = f"""\
+import socket
+import sys
+
+_resolve = socket.getaddrinfo
+
+
+def _here(host, *args, **kwargs):
+    return _resolve("127.0.0.1" if host == {HOSTED_HOST!r} else host, *args, **kwargs)
+
+
+socket.getaddrinfo = _here
+from mcgyvr.cli import main
+
+sys.exit(main(sys.argv[1:]))
+"""
+
+
+class _Listener(ThreadingHTTPServer):
+    """A loopback listener that keeps the path of each request it took."""
+
+    def __init__(self) -> None:
+        super().__init__(("127.0.0.1", 0), _ServerError)
+        self.asked: list[str] = []
 
 
 class _ServerError(BaseHTTPRequestHandler):
     """Answers each dispatch at once with a server error, once its body is read."""
 
+    server: _Listener
+
     def do_POST(self) -> None:
+        self.server.asked.append(self.path)
         self.rfile.read(int(self.headers.get("Content-Length") or 0))
         body = b'{"error": {"message": "no model answers here"}}'
         self.send_response(500)
@@ -125,17 +165,17 @@ class _ServerError(BaseHTTPRequestHandler):
 
 
 @pytest.fixture
-def hosted_address() -> Iterator[str]:
-    """The address of a loopback listener of this test's own (:class:`_ServerError`).
+def listener() -> Iterator[_Listener]:
+    """A loopback listener of this test's own (:class:`_ServerError`).
 
     A dispatch to it ends at once whatever the unit's request timeout, where a
     closed port could be filtered and wait it out, and a fixed one could be
     held by some other listener."""
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _ServerError)
+    server = _Listener()
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://127.0.0.1:{server.server_address[1]}"
+        yield server
     finally:
         server.shutdown()
         server.server_close()
@@ -403,17 +443,21 @@ def test_the_installed_hub_client_reads_its_seccomp_profile_from_the_package(
 
 
 def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
-    installed: Installed, tmp_path: Path, hosted_address: str
+    installed: Installed, tmp_path: Path, listener: _Listener
 ) -> None:
     home, work, repo = _a_place(tmp_path)
     env = installed.env(home, **{KEY_ENV: "unused"})
-    init = _run(work, env, installed.mcgyvr, "init", "--api", _hosted(hosted_address))
-    assert init.returncode == 0, _ran(init)
+    address = f"http://{HOSTED_HOST}:{listener.server_address[1]}"
+    init = _run(work, env, installed.mcgyvr, "init", "--api", _hosted(address))
+    assert init.returncode == 0 and "Approved your own fleet" in init.stdout, _ran(init)
 
     done = _run(
         work,
         env,
-        installed.mcgyvr,
+        installed.python,
+        "-I",
+        "-c",
+        _RESOLVING_HOSTED_HERE,
         "run",
         "impl.yaml",
         "--repo",
@@ -434,4 +478,7 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
     assert rungs and rungs[0] == HOSTED_NAME, (
         f"the run made no attempt at {HOSTED_NAME}: {result.get('detail')}\n"
         + _ran(done)
+    )
+    assert any(path.endswith("/chat/completions") for path in listener.asked), (
+        f"the listener took no dispatch: {listener.asked}\n" + _ran(done)
     )
