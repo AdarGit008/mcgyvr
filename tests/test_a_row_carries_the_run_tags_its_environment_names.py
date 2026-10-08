@@ -189,6 +189,11 @@ def test_unset_or_empty_tags_nothing(
         ('{"ratio": Infinity}', "ratio"),
         (json.dumps({"blob": "x" * 5000}), "bytes"),
         ('{"https://u:hunter2@example.org/": 1}', "credential"),
+        (
+            '{"https://u:hunter2@example.org/": 1, '
+            '"https://u:hunter2@example.org/": 2}',
+            "twice",
+        ),
         ('{"n": 9007199254740993}', "'n'"),
         ('{"n": -9007199254740993}', "'n'"),
         ('{"s": "\\ud800"}', "'s'"),

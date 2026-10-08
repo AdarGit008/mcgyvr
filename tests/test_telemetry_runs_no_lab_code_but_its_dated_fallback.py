@@ -56,8 +56,9 @@ _LOADERS = frozenset(
 #: attribute named ``compile`` is ``re.compile`` as often as not.
 _BUILTIN_LOADERS = frozenset({"exec", "eval", "compile", "__import__"})
 
-#: A string that names the lab's trees or the bench's module.
-_LAB_WORDS = re.compile(r"\btools\b|\bbench\b|\bproduct\.py\b")
+#: A string that names the lab's trees or the bench's module. ``bench`` is
+#: bounded by letters only, so ``bench_product`` is caught and ``workbench`` not.
+_LAB_WORDS = re.compile(r"\btools\b|(?<![A-Za-z])bench(?![A-Za-z])|\bproduct\.py\b")
 
 
 def _docstrings(tree: ast.Module) -> set[int]:
@@ -154,7 +155,19 @@ def test_only_the_dated_fallback_reaches_the_checkout() -> None:
 def test_the_guard_sees_the_fallback() -> None:
     """The guard is not passing because it reads nothing."""
     seen = {what for _, _, what in _references()}
-    assert {"import importlib.util", "exec_module", "'tools'", CALLED} <= seen, seen
+    assert {
+        "import importlib.util",
+        "exec_module",
+        "'tools'",
+        "'bench_product'",
+        CALLED,
+    } <= seen, seen
+
+
+def test_the_lab_words_are_words() -> None:
+    """``bench_product`` is the bench's; ``workbench`` is nobody's."""
+    assert _LAB_WORDS.search("bench_product")
+    assert not _LAB_WORDS.search("workbench")
 
 
 @pytest.mark.xfail(

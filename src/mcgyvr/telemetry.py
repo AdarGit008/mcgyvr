@@ -681,7 +681,8 @@ def run_tags() -> dict[str, TagValue] | None:
         keys = [key for key, _ in items]
         twice = sorted({key for key in keys if keys.count(key) > 1})
         if twice:
-            raise RunTagsError(f"{RUN_TAGS_ENV} names {twice!r} twice")
+            named = [scrub(key) for key in twice]
+            raise RunTagsError(f"{RUN_TAGS_ENV} names {named!r} twice")
         return dict(items)
 
     try:
