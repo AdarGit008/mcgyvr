@@ -864,6 +864,66 @@
       "says": "How many frames a rig agent's sessions and relays may have waiting to be sent before a put waits too.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "rig/pooled.py:FULL_PINGS": {
+      "kind": "choice",
+      "says": "How many pings as large as the tunnel's interface carries a newly confirmed path is sent; one answer says the path carries them.",
+      "reason": "how often or how many times the product tries its own step again"
+    },
+    "rig/pooled.py:HEAD_API_PORT": {
+      "kind": "choice",
+      "says": "The port a session head's API listens on inside its own network namespace: the engine image's own.",
+      "reason": "a protocol or tool default"
+    },
+    "rig/pooled.py:HEAD_PIDS": {
+      "kind": "choice",
+      "says": "The most processes and threads a session's head container may run.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/pooled.py:PING_HEADERS": {
+      "kind": "fact",
+      "says": "The bytes a ping adds to its data inside a session's tunnel: an IPv4 header (20) and an ICMP header (8).",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/pooled.py:TUNNEL_MEMORY_MB": {
+      "kind": "estimate",
+      "says": "The memory, in MiB, a session's tunnel container takes while a model's weights cross it.",
+      "moves_to": "tunnel_memory_mb"
+    },
+    "rig/pooled.py:TUNNEL_GO_MEMORY_MB": {
+      "kind": "estimate",
+      "says": "The soft memory limit, in MiB, under the tunnel container's cap, from which wireguard-go collects its garbage harder instead of being killed for memory.",
+      "moves_to": "tunnel_go_memory_mb"
+    },
+    "rig/pooled.py:TUNNEL_MTU": {
+      "kind": "fact",
+      "says": "The MTU of a session's tunnel interface: the largest whose packets, with the 80 bytes WireGuard adds over IPv6 (its header and tag 32, UDP 8, IPv6 40), fit the smallest MTU an IPv6 path may have, 1280.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/pooled.py:TUNNEL_PIDS": {
+      "kind": "choice",
+      "says": "The most processes and threads a session's tunnel container may run.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/pooled.py:WORKER_PIDS": {
+      "kind": "choice",
+      "says": "The most processes and threads a session's worker container may run.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/pooled.py:_COUNT_DIGITS": {
+      "kind": "fact",
+      "says": "The most digits of a byte count WireGuard prints: a 64-bit counter.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/pooled.py:_NAME_DIGEST": {
+      "kind": "choice",
+      "says": "How many hex digits of a digest name a session's containers and its tunnel image's tag.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "rig/pooled.py:HeadSpec.slots": {
+      "kind": "fact",
+      "says": "The slots a pooled head serves at once when none is given: one, as a head start without slots asks.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/probe.py:MAX_OPEN": {
       "kind": "estimate",
       "says": "How many latency probes a rig holds a socket open for at once; past it a probe_open is answered busy.",
@@ -1878,66 +1938,6 @@
       "kind": "fact",
       "says": "A result that states no journal rows left one, the row of its single draw.",
       "reason": "a definition or arithmetic"
-    },
-    "sandbox/pooled.py:FULL_PINGS": {
-      "kind": "choice",
-      "says": "How many pings as large as the tunnel's interface carries a newly confirmed path is sent; one answer says the path carries them.",
-      "reason": "how often or how many times the product tries its own step again"
-    },
-    "sandbox/pooled.py:HEAD_API_PORT": {
-      "kind": "choice",
-      "says": "The port a session head's API listens on inside its own network namespace: the engine image's own.",
-      "reason": "a protocol or tool default"
-    },
-    "sandbox/pooled.py:HEAD_PIDS": {
-      "kind": "choice",
-      "says": "The most processes and threads a session's head container may run.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
-    },
-    "sandbox/pooled.py:PING_HEADERS": {
-      "kind": "fact",
-      "says": "The bytes a ping adds to its data inside a session's tunnel: an IPv4 header (20) and an ICMP header (8).",
-      "reason": "the specification of a format, protocol or tool"
-    },
-    "sandbox/pooled.py:TUNNEL_MEMORY_MB": {
-      "kind": "estimate",
-      "says": "The memory, in MiB, a session's tunnel container takes while a model's weights cross it.",
-      "moves_to": "tunnel_memory_mb"
-    },
-    "sandbox/pooled.py:TUNNEL_GO_MEMORY_MB": {
-      "kind": "estimate",
-      "says": "The soft memory limit, in MiB, under the tunnel container's cap, from which wireguard-go collects its garbage harder instead of being killed for memory.",
-      "moves_to": "tunnel_go_memory_mb"
-    },
-    "sandbox/pooled.py:TUNNEL_MTU": {
-      "kind": "fact",
-      "says": "The MTU of a session's tunnel interface: the largest whose packets, with the 80 bytes WireGuard adds over IPv6 (its header and tag 32, UDP 8, IPv6 40), fit the smallest MTU an IPv6 path may have, 1280.",
-      "reason": "the specification of a format, protocol or tool"
-    },
-    "sandbox/pooled.py:TUNNEL_PIDS": {
-      "kind": "choice",
-      "says": "The most processes and threads a session's tunnel container may run.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
-    },
-    "sandbox/pooled.py:WORKER_PIDS": {
-      "kind": "choice",
-      "says": "The most processes and threads a session's worker container may run.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
-    },
-    "sandbox/pooled.py:_COUNT_DIGITS": {
-      "kind": "fact",
-      "says": "The most digits of a byte count WireGuard prints: a 64-bit counter.",
-      "reason": "the specification of a format, protocol or tool"
-    },
-    "sandbox/pooled.py:_NAME_DIGEST": {
-      "kind": "choice",
-      "says": "How many hex digits of a digest name a session's containers and its tunnel image's tag.",
-      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
-    },
-    "sandbox/pooled.py:HeadSpec.slots": {
-      "kind": "fact",
-      "says": "The slots a pooled head serves at once when none is given: one, as a head start without slots asks.",
-      "reason": "the specification of a format, protocol or tool"
     },
     "scan.py:BANDWIDTH_TOLERANCE": {
       "kind": "estimate",

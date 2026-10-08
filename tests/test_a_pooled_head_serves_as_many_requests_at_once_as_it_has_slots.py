@@ -65,8 +65,7 @@ def _head_start(pool: Pool, **changes: Any) -> dict[str, Any] | None:
 
 def _engine(pool: Pool) -> list[str]:
     """The model server's own argv: everything from its binary on."""
-    from mcgyvr.rig import sharing
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled, sharing
 
     argv = pool.docker.containers[pooled.container_name("s1", "head")].argv
     return argv[argv.index(sharing.DEFAULT_HEAD_BINARY) :]
@@ -155,7 +154,7 @@ def test_slots_out_of_bounds_or_not_a_whole_number_is_refused_and_starts_nothing
 
 
 def _spec(slots: int, ctx: int) -> Any:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     return pooled.HeadSpec(
         session_id="s",
@@ -180,7 +179,7 @@ def _spec(slots: int, ctx: int) -> Any:
 def test_head_argv_gives_each_slot_its_own_context_and_never_a_shared_cache(
     slots: int,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     owner = pooled.Owner(uid=1000, gid=1000, agent_pid=4242)
     argv = pooled.head_argv(_spec(slots, 6144), owner)
@@ -289,7 +288,7 @@ def test_the_same_head_start_with_other_slots_is_refused(pool: Pool) -> None:
 def test_the_hubs_device_order_is_kept_exactly(
     pool: Pool, devices: list[dict[str, Any]], dev: str, ts: str
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _with_tunnel(pool)
     shares = [int(share) for share in ts.split(",")]

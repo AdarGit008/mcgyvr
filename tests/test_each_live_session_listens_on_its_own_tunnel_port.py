@@ -50,7 +50,7 @@ def _prepare(pool: Pool, session_id: str, role: str, message_id: str) -> Any:
 
 
 def _tunnel_argv(pool: Pool, session_id: str) -> list[str]:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     return pool.docker.containers[pooled.container_name(session_id, "tunnel")].argv
 
@@ -86,7 +86,7 @@ def test_a_second_live_session_listens_on_the_next_port(pool: Pool) -> None:
 
 
 def test_the_tunnel_comes_up_on_its_own_sessions_port(pool: Pool) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _prepare(pool, "s1", "worker", "p1")
     _prepare(pool, "s2", "worker", "p2")

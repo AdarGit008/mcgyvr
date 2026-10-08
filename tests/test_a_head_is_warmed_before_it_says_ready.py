@@ -67,7 +67,7 @@ def test_a_warm_up_that_fails_still_lets_the_session_be_ready(pool: Pool) -> Non
 
 
 def test_a_head_that_dies_while_warming_fails_the_session(pool: Pool) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     def die(port: int, ctx: int) -> bool:
         name = pooled.container_name("s1", "head")

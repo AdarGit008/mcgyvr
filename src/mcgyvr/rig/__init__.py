@@ -31,8 +31,8 @@ A rig may lend its cards to the hub's pooled-inference sessions:
   it is mounted.
 * :mod:`mcgyvr.rig.relay` — a relayed request to the head, and its answer.
 * :mod:`mcgyvr.rig.outbox` — what sessions and relays say, waiting its turn.
-
-Their containers are :mod:`mcgyvr.sandbox.pooled`'s.
+* :mod:`mcgyvr.rig.pooled` — a session's containers: its tunnel, its workers
+  and its head.
 
 A rig here is a machine on a hub. It is not the ``rigs`` of a ``fleet.yaml``,
 which name machines a fleet's units are served on; the two meet only when the

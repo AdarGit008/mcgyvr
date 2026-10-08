@@ -49,7 +49,7 @@ LOCAL_1 = {"kind": "local", "card_index": 1}
 def test_a_prepared_head_with_only_its_own_cards_loads_and_is_ready(
     pool: Pool,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     prepared(pool, role="head")
     ack = head_start(pool, "h1", LOCAL_1, LOCAL_0)

@@ -181,7 +181,7 @@ def test_a_path_that_carries_both_pings_is_taken_as_before(pool: Pool) -> None:
 
 
 def test_a_path_whose_pings_say_nothing_of_full_size_is_taken_as_before() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     assert pooled.read_ping("0.512\nfull ok 1172\n") == pooled.PingSeen(
         rtt_ms=0.512, full=True, size=1172
@@ -199,7 +199,7 @@ def test_a_path_whose_pings_say_nothing_of_full_size_is_taken_as_before() -> Non
 
 
 def test_the_full_size_ping_is_the_size_of_the_tunnels_own_interface() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     lines = pooled.PING_SCRIPT.splitlines()
     measured = next(i for i, line in enumerate(lines) if "min\\/avg" in line)

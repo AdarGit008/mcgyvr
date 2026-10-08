@@ -69,7 +69,7 @@ def test_a_worker_that_never_listens_fails_on_time_and_leaves_nothing(
 def test_a_worker_that_exits_after_it_was_ready_fails_the_session(pool: Pool) -> None:
     _worker(pool)
     pool.wait_for("session_status", "ready")
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     name = pooled.container_name("s1", "worker-0")
     with pool.docker.lock:
@@ -188,7 +188,7 @@ def _a_pid_that_is_not_running() -> int:
 
 
 def test_the_tunnel_ends_itself_when_its_lease_runs_out_and_takes_its_engine() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     entry = pooled.TUNNEL_ENTRY
     assert 'if [ $((now - seen)) -gt "$lease_s" ]' in entry

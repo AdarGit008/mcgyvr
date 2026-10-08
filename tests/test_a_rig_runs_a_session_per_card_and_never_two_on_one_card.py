@@ -104,7 +104,7 @@ def _head_and_worker(pool: Pool) -> None:
 
 
 def test_a_second_session_is_prepared_while_another_lives(pool: Pool) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _prepare(pool, "s1", "worker", "p1")
     second = _prepare(pool, "s2", "head", "p2")
@@ -117,7 +117,7 @@ def test_a_second_session_is_prepared_while_another_lives(pool: Pool) -> None:
 
 
 def test_two_sessions_on_different_cards_run_at_once(pool: Pool) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _head_and_worker(pool)
     assert pool.sessions.state_of("h1") == ("ready", "head")
@@ -137,7 +137,7 @@ def test_two_sessions_on_different_cards_run_at_once(pool: Pool) -> None:
 def test_a_worker_on_a_card_another_session_holds_is_busy_and_starts_nothing(
     pool: Pool,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _prepare(pool, "h1", "head", "p1")
     assert _head_on(pool, "h1", "c1", 0)["type"] == "ack"
@@ -160,7 +160,7 @@ def test_a_worker_on_a_card_another_session_holds_is_busy_and_starts_nothing(
 def test_a_head_on_a_card_another_session_holds_is_busy_and_starts_nothing(
     pool: Pool,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     prepared = _prepare(pool, "w1", "worker", "p1")
     _up(pool, "w1", prepared["body"]["listen_port"], "t1")
@@ -178,7 +178,7 @@ def test_a_head_on_a_card_another_session_holds_is_busy_and_starts_nothing(
 
 
 def test_a_session_is_busy_when_every_lent_card_is_held(pool: Pool) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _head_and_worker(pool)
     runs = list(pool.docker.runs())
@@ -192,7 +192,7 @@ def test_a_session_is_busy_when_every_lent_card_is_held(pool: Pool) -> None:
 def test_stopping_one_session_leaves_the_other_running_and_frees_its_cards(
     pool: Pool,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _head_and_worker(pool)
     pool.settle()
@@ -226,7 +226,7 @@ def test_stopping_one_session_leaves_the_other_running_and_frees_its_cards(
 
 
 def test_a_failed_session_frees_its_cards_and_the_other_runs_on(pool: Pool) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     _head_and_worker(pool)
     pool.docker.containers[pooled.container_name("h1", "head")].state = "exited"

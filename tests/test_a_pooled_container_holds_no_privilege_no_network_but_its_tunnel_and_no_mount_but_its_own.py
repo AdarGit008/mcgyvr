@@ -41,7 +41,7 @@ BRIDGE = "203.0.113.2"
 
 
 def _owner() -> Any:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     return pooled.Owner(uid=OWNER_UID, gid=OWNER_GID, agent_pid=AGENT_PID)
 
@@ -51,7 +51,7 @@ def _flags(argv: Sequence[str], flag: str) -> list[str]:
 
 
 def _lockdown(memory: str, pids: str) -> list[str]:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     return [
         "--user",
@@ -81,7 +81,7 @@ def _lockdown(memory: str, pids: str) -> list[str]:
 
 
 def test_the_worker_runs_with_nothing_but_its_card_its_cache_and_its_tunnel() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     spec = pooled.WorkerSpec(
         session_id="session-1",
@@ -135,7 +135,7 @@ def test_the_worker_runs_with_nothing_but_its_card_its_cache_and_its_tunnel() ->
 
 
 def test_a_worker_without_a_cache_mounts_nothing() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     spec = pooled.WorkerSpec(
         session_id="s",
@@ -153,7 +153,7 @@ def test_a_worker_without_a_cache_mounts_nothing() -> None:
 
 
 def test_the_head_runs_with_its_cards_its_models_read_only_and_its_tunnel() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     spec = pooled.HeadSpec(
         session_id="session-1",
@@ -231,7 +231,7 @@ def test_the_head_runs_with_its_cards_its_models_read_only_and_its_tunnel() -> N
 
 
 def test_the_tunnel_alone_holds_net_admin_and_publishes_its_port_and_loopback() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     spec = pooled.TunnelSpec(
         session_id="session-1",
@@ -294,7 +294,7 @@ def test_the_tunnels_wireguard_collects_before_its_memory_cap_kills_it() -> None
     the tunnel takes wg0 and with it the head: so its cap leaves room for that
     transfer, and Go's soft limit, well under the cap, makes wireguard-go
     collect its garbage before the kernel's OOM killer would act."""
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     spec = pooled.TunnelSpec(
         session_id="s",
@@ -318,7 +318,7 @@ def test_the_tunnels_wireguard_collects_before_its_memory_cap_kills_it() -> None
 def test_no_container_asks_for_the_hosts_network_a_wildcard_or_privilege(
     which: str,
 ) -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     owner = _owner()
     argv: list[str]
@@ -387,7 +387,7 @@ def test_no_container_asks_for_the_hosts_network_a_wildcard_or_privilege(
 
 
 def test_the_private_key_is_made_in_the_tunnel_and_never_written_or_said() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     entry = pooled.TUNNEL_ENTRY
     assert "wg genkey | wg set wg0 private-key /dev/stdin" in entry
@@ -400,7 +400,7 @@ def test_the_private_key_is_made_in_the_tunnel_and_never_written_or_said() -> No
 
 
 def test_the_tunnels_start_lines_are_read_only_when_it_says_it_is_ready() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     key = "A" * 43 + "="
     early = f"public-key {key}\naddress {BRIDGE}/24\n"
@@ -414,7 +414,7 @@ def test_the_tunnels_start_lines_are_read_only_when_it_says_it_is_ready() -> Non
 def test_the_seccomp_profile_is_dockers_default_without_tracing_or_handles() -> None:
     import hashlib
 
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     raw = pooled.SECCOMP_PROFILE.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == SECCOMP_SHA256
@@ -435,7 +435,7 @@ def test_the_seccomp_profile_is_dockers_default_without_tracing_or_handles() -> 
 def test_a_container_name_is_one_docker_takes_whatever_id_the_hub_picked() -> None:
     import re
 
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     for session in ("-leading-dash", "_under", "a" * 64, "x"):
         name = pooled.container_name(session, "tunnel")
@@ -444,7 +444,7 @@ def test_a_container_name_is_one_docker_takes_whatever_id_the_hub_picked() -> No
 
 
 def test_the_tunnel_image_is_named_by_what_it_is_built_from() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     tag = pooled.tunnel_image()
     assert tag.startswith("mcgyvr-tunnel:") and len(tag.split(":")[1]) == 12
@@ -452,7 +452,7 @@ def test_the_tunnel_image_is_named_by_what_it_is_built_from() -> None:
 
 
 def test_the_head_script_reads_the_port_range_whole() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     # busybox's `read` takes a /proc/sys file a byte at a time and gets nothing,
     # which failed the head's firewall on a live rig; the range is read whole.
@@ -462,7 +462,7 @@ def test_the_head_script_reads_the_port_range_whole() -> None:
 
 
 def test_the_round_trip_is_measured_after_the_handshake_not_with_it() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     # The first packet to a peer waits for WireGuard's handshake; a live run
     # reported a third of a second for a tunnel whose warm round trip was 1 ms.

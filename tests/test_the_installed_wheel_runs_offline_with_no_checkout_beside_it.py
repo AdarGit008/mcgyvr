@@ -23,7 +23,9 @@ What must be observably true, from that install:
   is not: the install has no checkout to read a round from. None of the
   commands above writes a row (only ``run`` does, and it is the xfail below),
   so this calls :func:`mcgyvr.telemetry.observe` from the installed
-  interpreter.
+  interpreter;
+* the hub client's data travels with it: the seccomp profile a pooled
+  session's containers run under is read from the installed ``mcgyvr.rig``.
 
 One thing that should be true is not yet, and is a strict, dated xfail: a
 fresh ``init`` writes ``profile: live``, and a live run is refused until a
@@ -336,6 +338,29 @@ def test_a_row_written_from_the_install_carries_only_the_tags_it_was_given(
         assert row["run_tags"] == TAGS, row
     else:
         assert "run_tags" not in row, row
+
+
+#: Loads the pooled sessions' seccomp profile the way the hub client does, from
+#: the installed package, and prints where it was read and what it allows.
+_SECCOMP_PROBE = """
+import json
+from mcgyvr.rig import pooled
+profile = json.loads(pooled.SECCOMP_PROFILE.read_text(encoding="utf-8"))
+print(pooled.SECCOMP_PROFILE.resolve())
+print(profile["defaultAction"], len(profile["syscalls"]))
+"""
+
+
+def test_the_installed_hub_client_reads_its_seccomp_profile_from_the_package(
+    installed: Installed, tmp_path: Path
+) -> None:
+    home, work, _ = _a_place(tmp_path)
+    done = _run(work, installed.env(home), installed.python, "-I", "-c", _SECCOMP_PROBE)
+    assert done.returncode == 0, _ran(done)
+    where, allows = done.stdout.splitlines()
+    rig = (installed.site / "mcgyvr" / "rig").resolve()
+    assert Path(where).parent == rig, _ran(done)
+    assert allows.startswith("SCMP_ACT_ERRNO "), _ran(done)
 
 
 @pytest.mark.xfail(

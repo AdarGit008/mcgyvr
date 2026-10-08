@@ -18,13 +18,13 @@ OVERHEAD = 32 + 8 + 40
 
 
 def test_a_wrapped_packet_fits_the_smallest_ipv6_link() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     assert pooled.TUNNEL_MTU + OVERHEAD <= SMALLEST_IPV6_MTU
 
 
 def test_the_tunnel_brings_its_interface_up_at_that_mtu() -> None:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     entry = pooled.TUNNEL_ENTRY
     ups = [line for line in entry.splitlines() if line.startswith("ip link set wg0")]

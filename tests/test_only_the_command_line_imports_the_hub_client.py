@@ -17,12 +17,12 @@ Two ways in are read:
   ``importlib.import_module`` and ``python -m`` are handed. A name inside
   prose (a docstring's ``:mod:`` reference) is not one.
 
-One edge breaks the rule today, and it is written down as data rather than
-exempted by module name: :data:`tests.hub_borders.IMPORTS_NOT_YET_MOVED`. It
-may only shrink. An entry leaves the list in the change that removes the
-import, and :func:`test_every_edge_not_yet_moved_is_still_in_the_tree` fails
-until it does, so the list cannot keep a slot a later import would fill in
-silence. That a pull request did not add to the list itself is CI's to see
+No edge breaks the rule today, and none is exempted by module name. The
+edges that did were written down as data,
+:data:`tests.hub_borders.IMPORTS_NOT_YET_MOVED`, which may only shrink and is
+now empty: an entry left the list in the change that removed the import, and
+:func:`test_every_edge_not_yet_moved_is_still_in_the_tree` failed until it did.
+That a pull request did not add to the list is CI's to see
 (``tests/hub_borders.py --compare``).
 """
 
@@ -116,6 +116,13 @@ def test_every_edge_not_yet_moved_is_still_in_the_tree() -> None:
     )
 
 
+def test_the_rule_holds_with_no_exception() -> None:
+    """Only the command line imports the hub client: no edge of the core is
+    excused, not even one written down."""
+    assert not IMPORTS_NOT_YET_MOVED
+    assert _edges(_the_core()) == set()
+
+
 def test_the_core_read_holds_the_scripts_no_import_reaches() -> None:
     read = {importer for importer, _, _ in _the_core()}
     assert "serving/gate-scripts/serve-fetch.py" in read
@@ -131,7 +138,7 @@ def test_the_command_line_does_import_the_hub_client() -> None:
     )
 
 
-# A core module reaching into the hub client the way the one real edge does,
+# A core module reaching into the hub client the way the last real edge did,
 # in the `from mcgyvr import rig` spelling a rule that read only module paths
 # would walk past, by name for importlib, and through the command line.
 _CORE_REACHING_IN = '''

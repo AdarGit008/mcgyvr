@@ -82,7 +82,7 @@ def _reflexive(host: str = REFLEXIVE, port: int = 40000) -> dict[str, Any]:
 
 
 def _scripts(pool: Pool, name: str) -> list[tuple[str, ...]]:
-    from mcgyvr.sandbox import pooled
+    from mcgyvr.rig import pooled
 
     script = getattr(pooled, name)
     return [args for _, s, args in pool.docker.scripts if s == script]

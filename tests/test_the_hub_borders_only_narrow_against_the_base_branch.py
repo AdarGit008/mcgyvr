@@ -28,6 +28,15 @@ def _with(old: str, new: str) -> str:
     return TEXT.replace(old, new)
 
 
+#: The list of imports not yet moved, empty as the module holds it, and with one
+#: import into the hub client in it.
+_NO_IMPORTS = "IMPORTS_NOT_YET_MOVED: frozenset[tuple[str, str]] = frozenset()"
+_AN_IMPORT = (
+    "IMPORTS_NOT_YET_MOVED: frozenset[tuple[str, str]] = "
+    'frozenset({("mcgyvr.runner", "mcgyvr.rig.rungs")})'
+)
+
+
 def _narrowed(changed: str) -> list[str]:
     """What the comparison finds when the base holds ``TEXT`` and the head
     ``changed``."""
@@ -63,9 +72,8 @@ def test_the_copy_read_from_the_syntax_tree_is_the_module() -> None:
             "words: verify.py: rider 0 -> 1",
         ),
         (
-            '("mcgyvr.sandbox.pooled", "mcgyvr.rig.sessionwire"),',
-            '("mcgyvr.sandbox.pooled", "mcgyvr.rig.sessionwire"),\n'
-            '        ("mcgyvr.runner", "mcgyvr.rig.rungs"),',
+            _NO_IMPORTS,
+            _AN_IMPORT,
             "imports: mcgyvr.runner: mcgyvr.rig.rungs 0 -> 1",
         ),
         (
@@ -110,7 +118,6 @@ def test_every_way_of_widening_is_refused(old: str, new: str, said: str) -> None
     [
         ('"route.py": {"relief": 3}', '"route.py": {"relief": 2}'),
         ('    "route.py": {"relief": 3},\n', ""),
-        ('        ("mcgyvr.sandbox.pooled", "mcgyvr.rig.sessionwire"),\n', ""),
         (
             '    "crew": r"(?<![a-z])(?:crew|Crew|CREW)",\n',
             '    "crew": r"(?<![a-z])(?:crew|Crew|CREW)",\n    "lend": r"lend",\n',
@@ -121,6 +128,14 @@ def test_every_way_of_widening_is_refused(old: str, new: str, said: str) -> None
 )
 def test_every_way_of_narrowing_passes(old: str, new: str) -> None:
     assert _narrowed(_with(old, new)) == []
+
+
+def test_emptying_the_imports_not_yet_moved_passes() -> None:
+    """The list is empty today; a base that still held an import lets the head
+    drop it."""
+    base = read_borders(_with(_NO_IMPORTS, _AN_IMPORT), source="base")
+    assert base.imports == {("mcgyvr.runner", "mcgyvr.rig.rungs")}
+    assert narrowed(base, read_borders(TEXT, source="head")) == []
 
 
 def test_a_copy_without_the_literals_is_refused() -> None:

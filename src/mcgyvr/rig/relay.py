@@ -2,7 +2,7 @@
 
 The hub relays OpenAI-compatible requests to a session's head; on the head's
 rig the agent is the only way in, since the head's API is published on this
-machine's loopback alone (:mod:`mcgyvr.sandbox.pooled`). A relay is:
+machine's loopback alone (:mod:`mcgyvr.rig.pooled`). A relay is:
 
 * ``relay_request``, then the body in ``relay_data`` frames numbered from 0,
   exactly as many bytes as announced — a frame out of order, or bytes past
