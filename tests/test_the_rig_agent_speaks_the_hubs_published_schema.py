@@ -123,6 +123,38 @@ def test_every_feature_the_agent_speaks_is_one_the_hub_publishes(
     assert set(session.FEATURES) <= set(schema["x-features"])
 
 
+def test_a_re_pin_that_cannot_read_every_file_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    work = tmp_path / "tests"
+    (work / "fixtures").mkdir(parents=True)
+    for pinned in rig_schema.PINS:
+        shutil.copy(pinned.fixture, work / "fixtures" / pinned.fixture.name)
+    here = work / "rig_schema.py"
+    shutil.copy(rig_schema.__file__, here)
+    hub = tmp_path / "hub" / "schemas"
+    hub.mkdir(parents=True)
+    moved = json.loads(rig_schema.PROTOCOL.fixture.read_bytes())
+    moved["x-moved"] = True
+    (hub / rig_schema.PROTOCOL.hub_name).write_text(json.dumps(moved))
+    before = {path: path.read_bytes() for path in [here, *work.glob("fixtures/*")]}
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("half_rig_schema", here)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+
+    with pytest.raises(OSError):
+        module.main([str(tmp_path / "hub")])
+
+    assert {path: path.read_bytes() for path in before} == before
+
+
 def test_the_agents_limits_are_the_schemas(schema: dict[str, Any]) -> None:
     from mcgyvr.rig import protocol as p
 

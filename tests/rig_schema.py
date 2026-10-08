@@ -26,6 +26,9 @@ The first is checked against a hub when one is named (:func:`hub_file`):
 same variable and runs that checkout's hub), and each file's own variable
 (``MCGYVR_HUB_SCHEMA``, ``MCGYVR_HUB_RIDER_SCHEMA``) names that file alone,
 before it. A hub that moved a schema then fails here instead of on the wire.
+Naming ``MCGYVR_HUB_REPO`` runs that real-hub test too, which fails on a
+checkout without its built ``.venv`` (``uv sync`` in it): a run that checks
+the schemas alone names each file by its own variable instead.
 
 To move to a new hub's schemas::
 
@@ -277,7 +280,9 @@ def _sources(argv: list[str]) -> list[tuple[Pinned, Path]]:
 
 def main(argv: list[str]) -> int:
     """Re-pin from the hub files ``argv`` names: write each copy, and the two
-    digests of each into this file in place of the old ones."""
+    digests of each into this file in place of the old ones. Every file is
+    read and every digest found before anything is written, so a re-pin that
+    fails leaves the copies and the digests as they were."""
     if not argv:
         print(
             "usage: python -m tests.rig_schema HUB_CHECKOUT | HUB_SCHEMA_FILE ...",
@@ -286,10 +291,11 @@ def main(argv: list[str]) -> int:
         return 2
     here = Path(__file__)
     source = here.read_text(encoding="utf-8")
+    copies: list[tuple[Pinned, bytes, bytes]] = []
     for pinned, path in _sources(argv):
         hub_bytes = path.read_bytes()
-        copy = pin(hub_bytes)
-        pinned.fixture.write_bytes(copy)
+        copies.append((pinned, hub_bytes, pin(hub_bytes)))
+    for pinned, hub_bytes, copy in copies:
         for old, new in (
             (pinned.hub_sha256, sha256(hub_bytes)),
             (pinned.pinned_sha256, sha256(copy)),
@@ -297,6 +303,8 @@ def main(argv: list[str]) -> int:
             if source.count(f'"{old}"') != 1:
                 raise SystemExit(f"{here.name}: digest {old} is not written once")
             source = source.replace(f'"{old}"', f'"{new}"')
+    for pinned, hub_bytes, copy in copies:
+        pinned.fixture.write_bytes(copy)
         print(f"{pinned.fixture.name}: hub {sha256(hub_bytes)} pinned {sha256(copy)}")
     here.write_text(source, encoding="utf-8")
     return 0

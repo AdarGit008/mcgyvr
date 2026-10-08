@@ -126,6 +126,24 @@ def test_every_published_vector_is_the_rigs_own_bytes() -> None:
     }
 
 
+def test_the_rigs_pong_to_each_published_ping_is_the_published_pong() -> None:
+    """The rig writes a pong only by echoing a ping (:func:`udpwire.pong`):
+    each ping vector's pong is the vector of the same fields, kind pong."""
+    from mcgyvr.rig import udpwire as u
+
+    vectors = [
+        v for v in rig_schema.load()["x-udp"]["vectors"] if v["format"] == "probe"
+    ]
+    pings = [v for v in vectors if v["fields"]["kind"] == "ping"]
+    assert pings
+    for ping in pings:
+        (pong,) = [
+            v for v in vectors if v["fields"] == {**ping["fields"], "kind": "pong"}
+        ]
+        echoed = u.pong(bytes.fromhex(ping["hex"]))
+        assert echoed == bytes.fromhex(pong["hex"]), ping["name"]
+
+
 def test_a_binding_request_is_its_layout_and_its_bounds() -> None:
     from mcgyvr.rig import udpwire as u
 

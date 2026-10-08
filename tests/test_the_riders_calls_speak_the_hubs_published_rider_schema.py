@@ -103,6 +103,4 @@ def test_every_hub_refusal_the_runner_reads_is_a_published_pair(
         runner.UNKNOWN_MODEL,
     }
     published = rider["x-openai-errors"]
-    assert {code: published.get(code) for _, code in read} == {
-        code: status for status, code in read
-    }
+    assert [pair for pair in sorted(read) if published.get(pair[1]) != pair[0]] == []
