@@ -2,7 +2,8 @@
 
 The door's user mode is the door run from an install: no lab checkout, so no
 round, no lab ``hosts.json`` and no declared docker version. What it holds the rig
-to instead is the user's own rig file, ``$MCGYVR_HOME/rigs/<rig>.json``, the
+to instead is the user's own rig file, ``<rig-file folder>/<rig>.json``
+(``$MCGYVR_RIGS``, default ``$MCGYVR_HOME/rigs``), the
 rig's read-only scan saved by ``mcgyvr scan --rig``.
 
 These helpers stand the one-door stubs (:mod:`tests.onedoor`) behind the

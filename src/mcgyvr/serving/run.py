@@ -136,7 +136,7 @@ TWO MODES, SAID AND NOT GUESSED. Every run takes ``--mode user|lab``
 version they declare; a lab run whose lab files are missing is refused
 and never run as a user's. ``user`` is a door run from an install: the round,
 ``hosts.json`` and the declared docker version are not asked for, and the rig
-is held to the user's own rig file instead (``$MCGYVR_HOME/rigs/<rig>.json``,
+is held to the user's own rig file instead (``<rig-file folder>/<rig>.json``,
 :mod:`mcgyvr.serving.rigfile`, written by ``mcgyvr scan --rig``): each run
 reads the rig again, says what moved, and refuses only when the fleet no
 longer fits. Every other gate is the same gate in both modes: the lease, the
@@ -181,6 +181,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from mcgyvr.config import CONFIG_PATH_ENV
+from mcgyvr.fleet.roots import RIGS_SHOWN
 from mcgyvr.serving import gatelib
 from mcgyvr.serving.gatelib import DOOR_MODULE, LAB_MODE, MODE_VAR, USER_MODE
 
@@ -324,7 +325,7 @@ SEQUENCE: tuple[Entry, ...] = (
         "consistent",
         exports=("RUN_LEASE", "RUN_DISPLACED", "RUN_PRE_RIG"),
         user_why="gate 2, user mode: the rig is leased to this run and read "
-        "again, and held to your rig file ($MCGYVR_HOME/rigs/<rig>.json, written "
+        f"again, and held to your rig file ({RIGS_SHOWN}/<rig>.json, written "
         "by `mcgyvr scan --rig`): what moved is said, and the run is refused only "
         "when the fleet no longer fits",
     ),
@@ -1182,7 +1183,7 @@ def _add_mode(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=(
             "user: a run from an install, the rig held to your rig file "
-            "($MCGYVR_HOME/rigs/RIG.json, written by `mcgyvr scan --rig RIG`); "
+            f"({RIGS_SHOWN}/RIG.json, written by `mcgyvr scan --rig RIG`); "
             f"lab: the lab's run, held to its round and {HOSTS_FILE}. With no "
             f"--mode, a run root holding {LAB_MARK}/ is refused and asked which, "
             "and any other runs as user"
@@ -1198,7 +1199,7 @@ def _command(verb: str, argv: list[str]) -> str:
 #: What ``--host`` says on every run.
 HOST_HELP = (
     f"the rig, as your ssh names it: its name in {HOSTS_FILE} (lab) or in "
-    "$MCGYVR_HOME/rigs/ (user)"
+    f"{RIGS_SHOWN}/ (user)"
 )
 
 
@@ -2310,7 +2311,7 @@ def _link(argv: list[str]) -> int:
 STEP_HELP = (
     "advanced: run one script of your own on a rig, under the door's fixed "
     "gates. The door settles the profile, leases the rig and reads it (held to "
-    "your rig file, $MCGYVR_HOME/rigs/RIG.json, in user mode), checks that its "
+    f"your rig file, {RIGS_SHOWN}/RIG.json, in user mode), checks that its "
     "docker daemon answers and is that machine, and makes the run's envelope; "
     "then it runs your --step with the run exported to it (RUN_ID, "
     "RUN_OUT_DIR, RUN_HOST, ...) and its ssh and docker reaching that rig "

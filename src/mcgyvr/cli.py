@@ -63,6 +63,7 @@ from mcgyvr.fleet.roots import (
     HOME_DIR,
     HOME_ENV,
     LIVE_FILE_SHOWN,
+    RIGS_SHOWN,
     FolderError,
 )
 from mcgyvr.initialize import (
@@ -3890,7 +3891,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         default=None,
         help=(
             "scan RIG instead, over your own ssh (read-only), and save it as the "
-            "serving door's rig file $MCGYVR_HOME/rigs/RIG.json, which a door run "
+            f"serving door's rig file RIG.json in {RIGS_SHOWN}, which a door run "
             "from an install holds the rig to; says what moved since the last"
         ),
     )
