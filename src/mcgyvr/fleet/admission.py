@@ -57,9 +57,10 @@ def unapproved(
     only where the live fleet's layout places a unit of that name, on that rig
     and at that address, so a rig the layout does not name is never dispatched
     to unread. A unit on no rig is hosted, and admission reads no rig for it;
-    but one whose address is a machine of the user's
-    (:func:`mcgyvr.fleet.promote.on_a_users_machine`) is approved only where
-    the live fleet's own folder holds a unit of that name at that address.
+    one whose address is a machine of the user's
+    (:func:`mcgyvr.fleet.promote.on_a_users_machine`) is never approved here,
+    held by the live folder or not: the lock pins only the layout, and no
+    layout holds a unit on no rig.
     """
     layout = fleet["fleets"][name].get("layout") or {}
     held = fleet.get("units") or {}
@@ -72,12 +73,12 @@ def unapproved(
     out: list[str] = []
     for unit, body in sorted(units.items()):
         rig = body.get("rig")
-        live = held.get(unit) or {}
         if not rig:
             why = on_a_users_machine(str(body.get("address") or ""))
-            if why is not None and live.get("address") != body.get("address"):
+            if why is not None:
                 out.append(f"{unit} ({why})")
             continue
+        live = held.get(unit) or {}
         if (unit, str(rig)) in placed and live.get("address") == body.get("address"):
             continue
         out.append(f"{unit} (on {rig})")

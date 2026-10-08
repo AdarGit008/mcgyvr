@@ -300,11 +300,12 @@ def on_a_users_machine(address: str) -> str | None:
     that is not public (loopback, private, link-local, shared, reserved), in
     any spelling a resolver reads as one (``inet_aton``'s octal, hexadecimal
     and short forms; an IPv4 address mapped into IPv6 or behind the NAT64
-    prefix, judged as that IPv4 address), or a name only a local network
-    answers (:data:`LOCAL_SUFFIXES`, ``localhost``, or a name with no dot). A
-    public name that a local resolver points at a machine of the user's is not
-    caught here: resolving would ask the network from an offline install, and
-    the answer may differ at the run.
+    prefix, judged as that IPv4 address; a name in other scripts, judged as
+    its IDNA spelling, so a full stop of another script is a dot), or a name
+    only a local network answers (:data:`LOCAL_SUFFIXES`, ``localhost``, or a
+    name with no dot). A public name that a local resolver points at a machine
+    of the user's is not caught here: resolving would ask the network from an
+    offline install, and the answer may differ at the run.
     """
     try:
         host = urlsplit(address).hostname
@@ -312,6 +313,13 @@ def on_a_users_machine(address: str) -> str | None:
         host = None
     if not host:
         return "names no host"
+    if not host.isascii():
+        # As the resolver will spell it: its IDNA step folds the dots of
+        # other scripts and full-width digits into ASCII ones.
+        try:
+            host = host.encode("idna").decode("ascii")
+        except UnicodeError:
+            return f"{host} is a name no resolver spells as a public one"
     host = host.rstrip(".").lower()
     ip: ipaddress.IPv4Address | ipaddress.IPv6Address
     try:

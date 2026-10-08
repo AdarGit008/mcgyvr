@@ -163,9 +163,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   installed into a fresh environment and run from outside any checkout,
   answers `--help`, `--version`, `capabilities`, `catalog`, `contract`,
   `init --api`, `config`, `pool` and `index`, imports every module and writes
-  nothing inside the install. A run right after a fresh `init` still makes no
-  attempt, refused by live admission; that is a strict xfail until `init`
-  can approve the user's own fleet. No product code changed.
+  nothing inside the install. A run right after a fresh `init` reaches the
+  unit `init` bound. No product code changed.
 - The rig agent's tests pin the hub's published contract more widely
   (borders plan P5). They now pin a second hub schema, the rider's REST API
   (`tests/fixtures/hub_rider_v1.schema.json`). The ladder a `rig rungs sync`
@@ -201,9 +200,9 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   serve` whose loaded config (the working directory's comes before the live
   folder's) holds a unit on a rig that the live fleet does not lay out there
   (by unit, rig and address), or a unit on no rig at a machine of yours (as
-  `init` reads an address) that the live fleet's own folder does not hold at
-  that address: that machine is not approved for live work yet. This holds
-  for every live fleet, promoted or `init`'s own.
+  `init` reads an address, a full stop of another script read as a dot):
+  that machine is not approved for live work yet. This holds for every live
+  fleet, promoted or `init`'s own.
 - `data/model-catalog.json` is version 2: every number carries its source and
   the day it was read, and each entry names the file a pick downloads (with
   its revision and sha256). Each number was re-read from the Hugging Face Hub

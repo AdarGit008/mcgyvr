@@ -203,6 +203,11 @@ USERS_MACHINES = (
     "127.000.000.001",
     "10.1",
     str(ipaddress.IPv6Address((0x64FF9B << 96) | 0x7F000001)),  # NAT64, RFC 6052
+    # Dots a resolver's IDNA step reads as dots: ideographic, fullwidth and
+    # halfwidth ideographic full stops.
+    "127\u30020.0.1",
+    "127.0\uff0e0.1",
+    "127.0.0\uff611",
     "localhost",
     "rig",
     *(f"rig{suffix}" for suffix in LOCAL_SUFFIXES),
@@ -262,9 +267,19 @@ def test_a_unit_on_a_rig_is_not_approved_by_init(
 #: A "hosted" unit at a machine of the user's, bound or written after the
 #: fleet was approved: init refuses to approve it, and a live run to it too.
 MINE = "http://127.0.0.1:8080/v1"
+#: The same machine, its dots ideographic full stops (U+3002): a resolver's IDNA
+#: step reads each one as a dot.
+MINE_IDEOGRAPHIC = "http://127\u30020\u30020\u30021:8080/v1"
+#: Where each way of adding a machine of the user's after the approval puts it.
+ADDED = {
+    "reinit-hosted": MINE,
+    "edit-hosted": MINE,
+    "reinit-ideo": MINE_IDEOGRAPHIC,
+    "edit-ideo": MINE_IDEOGRAPHIC,
+}
 
 
-@pytest.mark.parametrize("how", ["reinit", "edit", "reinit-hosted", "edit-hosted"])
+@pytest.mark.parametrize("how", ["reinit", "edit", *ADDED])
 def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -281,8 +296,8 @@ def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
         found = _found(LOCAL)
         assert _init(monkeypatch, setup, "--force", "--api", HOSTED, found=found) == 0
         assert live_fleet() == approved, "a unit on a rig approves nothing"
-    elif how == "reinit-hosted":
-        mine = f"model=small-model,address={MINE},api_key_env=K"
+    elif how.startswith("reinit-"):
+        mine = f"model=small-model,address={ADDED[how]},api_key_env=K"
         assert _init(monkeypatch, setup, "--force", "--api", mine, found=_found()) == 0
         said = capsys.readouterr().out
         assert live_fleet() == approved, "a machine of the user's approves nothing"
@@ -297,7 +312,7 @@ def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
                 "rig": "box",
             }
             if how == "edit"
-            else {"address": MINE, "model": "small-model", "width": 1}
+            else {"address": ADDED[how], "model": "small-model", "width": 1}
         )
         (setup / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
         policy = yaml.safe_load((setup / "policy.yaml").read_text(encoding="utf-8"))
@@ -312,23 +327,23 @@ def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
     unit = {
         "reinit": "local_small-model (on llama.cpp)",
         "reinit-hosted": "api_small-model (127.0.0.1",
+        "reinit-ideo": "api_small-model (127.0.0.1",
+        "edit-ideo": "box_small (127.0.0.1",
     }.get(how, "box_small")
     assert unit in err, err
 
 
-def test_a_live_fleet_that_holds_a_unit_at_a_machine_of_the_users_admits_it() -> None:
-    """The exception: a unit the live fleet's own folder holds at that address
-    was approved with the folder, as a promoted fleet's units are."""
+def test_a_unit_on_no_rig_at_a_machine_of_the_users_is_refused_even_if_held() -> None:
+    """A live folder's ``fleet.yaml`` holding such a unit approves nothing: its
+    lock pins the layout, and a unit on no rig is in no layout, so the folder
+    could have been edited to hold it."""
     lan = f"http://{_first_host(0xC0A80000, 16)}:8080/v1"
     unit = {"address": lan, "model": "small-model", "width": 1}
     live = {"units": {"lan_small": unit}, "fleets": {"f": {"layout": {}}}}
 
-    assert admission.unapproved({"lan_small": unit}, live, "f") == []
-    moved = {"lan_small": {**unit, "address": MINE}}
-    assert admission.unapproved(moved, live, "f") == [
-        "lan_small (127.0.0.1 is not a public address)"
+    assert admission.unapproved({"lan_small": unit}, live, "f") == [
+        f"lan_small ({_first_host(0xC0A80000, 16)} is not a public address)"
     ]
-    assert admission.unapproved({"other": unit}, live, "f") != []
 
 
 def test_a_rerun_of_init_reapproves_its_own_fleet_in_a_new_folder(
