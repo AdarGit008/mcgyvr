@@ -215,6 +215,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
+- The deterministic floor's program (`ruff format` for a `format` contract)
+  is timed by the run's own `--config` `task_timeout_s`, as its acceptance
+  commands are. It was given the ceiling of the config at the default
+  location instead, so a run that named another config could have its
+  formatter cut early or left running past the run's ceiling.
 - A contract too big for the rung it was sent to is refused before it is
   sent, and the run fails on that rung (owner ruling: it is not moved to a
   bigger rung). It went out anyway: a llama.cpp unit answered `400` and the
