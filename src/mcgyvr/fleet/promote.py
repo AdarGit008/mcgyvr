@@ -22,20 +22,28 @@ place and renamed into it, and an existing folder is never touched.
 promoted folder whose layout still matches its own lock. It says whether the
 move from the fleet that was live is one that fleet's lock measured
 (:class:`Switch`), and starts nothing. Nothing here writes the dev root.
+
+:func:`approve_own` is the one other way a folder is written: ``mcgyvr init``
+approves the user's own fleet of hosted units, which lays out no rig and so
+needs no dev lock, and names it live through :func:`use` like any other.
 """
 
 from __future__ import annotations
 
 import copy
+import ipaddress
 import json
 import os
+import re
 import shutil
+import socket
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -58,6 +66,20 @@ from mcgyvr.fleet.spans import SpanError, check_spans
 
 #: Where a lock sits under the dev root and under a live fleet folder alike.
 LOCK_DIR = Path("records") / "fleet"
+#: The fleet ``mcgyvr init`` approves from the setup it wrote (:func:`approve_own`),
+#: and who its lock says approved it.
+OWN_FLEET = "own"
+OWN_APPROVER = "mcgyvr init"
+#: An IPv4 address in a spelling ``inet_aton`` reads and ``ipaddress`` does not:
+#: one to four parts, each decimal, octal (a leading 0) or hexadecimal (0x).
+_OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")
+#: The NAT64 well-known prefix (RFC 6052) as its first 12 bytes; the last 4 of
+#: an address under it are an IPv4 address.
+_NAT64 = bytes.fromhex("0064ff9b 00000000 00000000")
+#: Names only a local network answers: ``localhost`` and its subdomains (RFC
+#: 6761), multicast DNS (RFC 6762), the home network (RFC 8375) and names kept
+#: for private use. A name with no dot at all is one too.
+LOCAL_SUFFIXES = (".localhost", ".local", ".home.arpa", ".internal")
 
 
 class PromoteRefusedError(Exception):
@@ -240,15 +262,26 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
         ) from exc
     _pinned(load_fleet(fleet_text), name, lock, "the live fleet.yaml")
 
+    files = {
+        Path(FLEET_FILENAME): fleet_text.encode("utf-8"),
+        Path(POLICY_FILENAME): policy_text.encode("utf-8"),
+    }
+    for relative in (LOCK_DIR / f"{name}.json", *records):
+        files[relative] = (dev_root / relative).read_bytes()
+    _build(folder, name, files)
+    return folder
+
+
+def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
+    """Write ``files`` (path in the folder -> bytes) as ``folder``: built beside
+    its place under the fleets directory and renamed into it, never over it."""
     fleets_dir().mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{name}.", dir=fleets_dir()))
     try:
-        (staging / FLEET_FILENAME).write_text(fleet_text, encoding="utf-8")
-        (staging / POLICY_FILENAME).write_text(policy_text, encoding="utf-8")
-        for relative in (LOCK_DIR / f"{name}.json", *records):
+        for relative, data in files.items():
             target = staging / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes((dev_root / relative).read_bytes())
+            target.write_bytes(data)
         if folder.exists() or folder.is_symlink():
             raise PromoteRefusedError(
                 f"{folder} appeared while it was being built; it is left as it is"
@@ -257,6 +290,156 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+
+def on_a_users_machine(address: str) -> str | None:
+    """Why ``address`` is a machine of the user's rather than a hosted service,
+    or ``None`` when it does not say so.
+
+    Read from the address as written, and nothing is looked up: an IP address
+    that is not public (loopback, private, link-local, shared, reserved), in
+    any spelling a resolver reads as one (``inet_aton``'s octal, hexadecimal
+    and short forms; an IPv4 address mapped into IPv6 or behind the NAT64
+    prefix, judged as that IPv4 address; a name in other scripts, judged as
+    its IDNA spelling, so a full stop of another script is a dot), or a name
+    only a local network answers (:data:`LOCAL_SUFFIXES`, ``localhost``, or a
+    name with no dot). A public name that a local resolver points at a machine
+    of the user's is not caught here: resolving would ask the network from an
+    offline install, and the answer may differ at the run.
+    """
+    try:
+        host = urlsplit(address).hostname
+    except ValueError:
+        host = None
+    if not host:
+        return "names no host"
+    if not host.isascii():
+        # As the resolver will spell it: its IDNA step folds the dots of
+        # other scripts and full-width digits into ASCII ones.
+        try:
+            host = host.encode("idna").decode("ascii")
+        except UnicodeError:
+            return f"{host} is a name no resolver spells as a public one"
+    host = host.rstrip(".").lower()
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        if not _OLD_IPV4.match(host):
+            if host == "localhost" or host.endswith(LOCAL_SUFFIXES) or "." not in host:
+                return f"{host} is a name only a local network answers"
+            return None
+        try:
+            ip = ipaddress.IPv4Address(socket.inet_aton(host))
+        except OSError:
+            return f"{host} is a number no resolver reads as a public address"
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip.packed.startswith(_NAT64):
+            ip = ipaddress.IPv4Address(ip.packed[len(_NAT64) :])
+    if not ip.is_global:
+        return f"{host} is not a public address"
+    return None
+
+
+def is_own(name: str) -> bool:
+    """Whether the live name ``name`` is a folder :func:`approve_own` wrote."""
+    layout = split_name(name)[0]
+    if layout != OWN_FLEET:
+        return False
+    lock = fleets_dir() / name / LOCK_DIR / f"{OWN_FLEET}.json"
+    try:
+        return bool(_read_json(lock).get("approved_by") == OWN_APPROVER)
+    except PromoteRefusedError:
+        return False
+
+
+def approve_own(setup: Path) -> Path:
+    """Write ``<config folder>/fleets/own@<today>/`` from the setup ``mcgyvr
+    init`` wrote at ``setup``; that folder.
+
+    The user's own fleet, approved by the product itself and by no dev
+    evidence: a stranger has none. Only a setup whose every unit is hosted is
+    approved: on no ``rig``, at an address that is not a machine of the user's
+    (:func:`on_a_users_machine`). Its fleet :data:`OWN_FLEET` lays out no rig,
+    so live admission reads none, and a machine of the user's is approved only
+    by a read of it, which ``init`` does not take. Its lock pins that empty
+    layout and says who approved it; the date in the folder's name is the day
+    of the approval, and a later folder of the same day is ``<date>-2``, then
+    ``-3``. Refused, with nothing written, when the setup cannot be read, holds
+    a unit on a rig or at a machine of the user's, already lays out rigs or
+    fleets, names an mcorch orchestrator (whose units a fleet with no rig
+    cannot hold awake), or would not load as a setup. It names nothing live:
+    :func:`use` does that, as for any promoted folder.
+    """
+    fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
+    policy = _read_setup(setup / POLICY_FILENAME, load_policy)
+    units = fleet.get("units") or {}
+    on_rigs = sorted(
+        f"{unit} (on {body['rig']})" for unit, body in units.items() if "rig" in body
+    )
+    if on_rigs:
+        raise PromoteRefusedError(
+            f"{', '.join(on_rigs)} sits on a rig, and a machine is not approved "
+            "for live work until it is read"
+        )
+    local = sorted(
+        f"{unit} ({why})"
+        for unit, body in units.items()
+        if (why := on_a_users_machine(str(body.get("address") or ""))) is not None
+    )
+    if local:
+        raise PromoteRefusedError(
+            f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
+            "a machine is not approved for live work until it is read"
+        )
+    if fleet.get("rigs") or fleet.get("fleets"):
+        raise PromoteRefusedError(
+            f"{setup / FLEET_FILENAME} lays out rigs or fleets of its own; a "
+            "fleet laid out on rigs is promoted from its lock"
+        )
+    try:
+        mcorch_units(policy, {}, name=OWN_FLEET)
+    except FleetError as exc:
+        raise PromoteRefusedError(
+            f"{exc}; a fleet that cannot serve its mcorch policy is not approved"
+        ) from exc
+    approved = datetime.now(UTC)
+    own = {**fleet, "profile": "live", "fleets": {OWN_FLEET: {"layout": {}}}}
+    lock = {
+        "layout_sha256": layout_sha256({}),
+        "next": [],
+        "switches": [],
+        "approved_by": OWN_APPROVER,
+        "approved_at": approved.isoformat(timespec="seconds"),
+    }
+    fleet_text = yaml.safe_dump(own, sort_keys=False)
+    policy_text = yaml.safe_dump(policy, sort_keys=False)
+    try:
+        parse(fleet_text, policy_text)
+    except ConfigError as exc:
+        raise PromoteRefusedError(
+            f"{OWN_FLEET}: the live fleet folder would not load as a setup: {exc}"
+        ) from exc
+    _pinned(load_fleet(fleet_text), OWN_FLEET, lock, "the live fleet.yaml")
+    day = approved.date().isoformat()
+    folder = fleets_dir() / tagged(OWN_FLEET, day)
+    later = 2
+    while folder.exists() or folder.is_symlink():
+        folder = fleets_dir() / tagged(OWN_FLEET, f"{day}-{later}")
+        later += 1
+    _build(
+        folder,
+        OWN_FLEET,
+        {
+            Path(FLEET_FILENAME): fleet_text.encode("utf-8"),
+            Path(POLICY_FILENAME): policy_text.encode("utf-8"),
+            LOCK_DIR / f"{OWN_FLEET}.json": (
+                json.dumps(lock, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8"),
+        },
+    )
     return folder
 
 
