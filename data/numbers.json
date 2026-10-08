@@ -1609,9 +1609,24 @@
       "says": "Where the IPv4 address sits in an ifreq's socket address.",
       "reason": "the specification of a format, protocol or tool"
     },
+    "rig/udpwire.py:BAD_TICKET": {
+      "kind": "fact",
+      "says": "The reason byte of a relay's refusal of a bind whose ticket it does not take, in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "rig/udpwire.py:BULK": {
       "kind": "fact",
       "says": "The kind byte of a probe's bulk packet in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:EXPIRED": {
+      "kind": "fact",
+      "says": "The reason byte of a relay's refusal of a bind whose ticket has expired, in the hub's UDP formats.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:FULL": {
+      "kind": "fact",
+      "says": "The reason byte of a relay's refusal of a bind when it has no room, in the hub's UDP formats.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/udpwire.py:MAX_SEQ": {
@@ -1642,6 +1657,11 @@
     "rig/udpwire.py:PROBE_PACKET_MIN_BYTES": {
       "kind": "fact",
       "says": "The smallest probe packet of the hub's UDP formats, in bytes.",
+      "reason": "the specification of a format, protocol or tool"
+    },
+    "rig/udpwire.py:RATE_LIMITED": {
+      "kind": "fact",
+      "says": "The reason byte of a relay's refusal of a bind sent too often, in the hub's UDP formats.",
       "reason": "the specification of a format, protocol or tool"
     },
     "rig/udpwire.py:RECEIVE_BYTES": {
