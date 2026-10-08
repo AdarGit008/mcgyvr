@@ -11,6 +11,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `MCGYVR_RUN_TAGS` tags a run's journal rows (borders plan 2a). Set it to a
+  JSON object of text, number or true/false values (at most 4096 bytes) and
+  every row the run writes carries it under `run_tags`, text scrubbed. Set to
+  anything else, `mcgyvr run` refuses before it starts. Set, it replaces the
+  `round`/`product_sha256` stamp telemetry read by executing
+  `tools/bench/product.py` from a development checkout; unset, that stamp
+  stays for one step so the lab can switch first, and is then deleted.
 - `mcgyvr scan --rig RIG` records the rig's private IPv4 address in its rig
   file (`private_ipv4`, with `private_ipv4_how`), as the rig reports it (owner,
   Round 9): the address its ssh session arrived at (`SSH_CONNECTION`) when an
