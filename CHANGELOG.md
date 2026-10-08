@@ -11,6 +11,15 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `mcgyvr scan --rig RIG` records the rig's private IPv4 address in its rig
+  file (`private_ipv4`, with `private_ipv4_how`), as the rig reports it (owner,
+  Round 9): the address its ssh session arrived at (`SSH_CONNECTION`) when an
+  RPC worker may listen there, else the one private address on its interfaces
+  (`ip -4 -o addr show`); with several, none is guessed and the scan says
+  which there are. Nothing is resolved. `recommend` spans a chat or agent unit
+  across `--host`s given by name at those addresses; a machine with none
+  recorded is left out of the span, and the unit's notes name
+  `mcgyvr scan --rig RIG`. The plan's `shards` carry each worker's `bind`.
 - `mcgyvr recommend` plans a coding LADDER per rig (owner, Round 7): the
   fastest coding model at 8k per slot, filled with slots; a bigger rung only
   when it is a clear step up (`--clear-step`, default a 1.5x file, and a better

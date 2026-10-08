@@ -1488,9 +1488,13 @@ def split_units(
     port: int,
     ctx_per_slot: int,
     engine: str = DEFAULT_ENGINE,
+    binds: Mapping[str, str] | None = None,
 ) -> tuple[Unit, ...]:
     """The processes that serve ``spec`` split across ``shards``, ``(host,
     card)`` each, the first on the machine the serving process runs on.
+    ``binds`` names, by host, the private IPv4 address a worker there listens
+    on (a shard's ``bind``); a host it does not name is reached at its own
+    name, which only an IPv4 literal can be.
 
     The same sizing a unit whose ``launch.shards`` names those cards gets
     (:func:`_sharded_units`, :func:`mcgyvr.serving.sharding.choose`): every
@@ -1504,8 +1508,12 @@ def split_units(
     if len(shards) < 2:
         raise UnitError(f"{spec.name}: a split over {len(shards)} card is not a split")
     host = shards[0][0]
+    bound = binds or {}
     launch: dict[str, Any] = {
-        SHARDS_KEY: [{"rig": rig, "gpu": card} for rig, card in shards],
+        SHARDS_KEY: [
+            {"rig": rig, "gpu": card, **({"bind": bound[rig]} if rig in bound else {})}
+            for rig, card in shards
+        ],
     }
     if engine == DEFAULT_ENGINE:
         from mcgyvr.serving.sharding import SPLIT_LAYER

@@ -2599,6 +2599,10 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
         print(f"  RAM     {now.ram_total_gb:.1f} GB", file=out)
     if now.disk_path is not None:
         print(f"  Disk    {now.disk_free_gb} GB free at {now.disk_path}", file=out)
+    if now.private_ipv4 is not None:
+        print(f"  Address {now.private_ipv4} ({now.private_ipv4_how})", file=out)
+    else:
+        print(f"  Address no private IPv4 recorded: {now.private_ipv4_how}", file=out)
     for note in now.notes:
         print(f"  - {note}", file=out)
     if before is not None:
