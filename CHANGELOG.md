@@ -111,18 +111,23 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   only. They were refused before; this is the start and stop a llama.cpp
   swap partner needs.
 - Three guards hold what is already true of the product's borders, so no
-  change can go backwards. Only `mcgyvr.cli` imports the hub client
-  (`mcgyvr.rig`); the one other import today, from `sandbox/pooled.py`, is
-  listed and may only be removed. The offline core (`src/mcgyvr/` but
-  `cli.py` and `rig/`) holds no more hub words (hub, relief, rider,
-  hitchhike, pooled, crew, ...) than it does today, file by file; that list
-  only shrinks, and a count that fell must be lowered with it. And a wheel
-  built from the product alone, installed into a fresh environment and run
-  from outside any checkout, answers `--help`, `--version`, `capabilities`,
-  `catalog`, `contract`, `init --api`, `config`, `pool` and `index`, imports
-  every module and writes nothing inside the install. A run right after a
-  fresh `init` is still refused by live admission; that is a strict xfail
-  until `init` can approve the user's own fleet. No product code changed.
+  change can go backwards. The offline core (`src/mcgyvr/` but `cli.py` and
+  `rig/`, its scripts included) imports nothing of the hub client
+  (`mcgyvr.rig`) or of `mcgyvr.cli`, by an import or by a module name handed
+  to `importlib`; the one such import today, from `sandbox/pooled.py`, is
+  listed and may only be removed. The core holds no more hub words (hub,
+  relief, rider, hitchhike, pooled, crew, pool session, in any of their
+  spellings) than it does today, file by file; that list only shrinks, and a
+  count that fell must be lowered with it. On a pull request CI compares both
+  lists, the words read and the places left out of the core with the base
+  branch's (`python3 tests/hub_borders.py --compare`), as it already does for
+  the list of uninvented machines. And a wheel built from the product alone,
+  installed into a fresh environment and run from outside any checkout,
+  answers `--help`, `--version`, `capabilities`, `catalog`, `contract`,
+  `init --api`, `config`, `pool` and `index`, imports every module and writes
+  nothing inside the install. A run right after a fresh `init` still makes no
+  attempt, refused by live admission; that is a strict xfail until `init`
+  can approve the user's own fleet. No product code changed.
 
 ### Changed
 
