@@ -1,7 +1,7 @@
 """``mcgyvr scan --rig RIG`` saves the rig's scan as the door's rig file.
 
 Owner, 2026-10-07 (Round 5): the door's user mode holds each run to the rig as
-the user described it: ``$MCGYVR_HOME/rigs/<rig>.json``, the read-only ssh
+the user described it: ``<rig-file folder>/<rig>.json``, the read-only ssh
 scan of the rig (hostname, cards and their memory, RAM, disk, docker version),
 over the user's own ssh config and keys. ``mcgyvr setup`` will write it on a
 first run; ``mcgyvr scan --rig`` writes it now, and says what moved since the
@@ -65,7 +65,7 @@ def test_scan_rig_writes_to_the_named_rigs_folder(
     assert str(path) in capsys.readouterr().out
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["rig"] == usermode.RIG
-    assert not (tmp_path / "settings" / "rigs").exists()
+    assert not (usermode.home() / ".mcgyvr" / "rigs").exists()
 
 
 def test_a_relative_rigs_folder_is_refused_before_anything_reaches_a_rig(

@@ -3,7 +3,7 @@
 Owner, 2026-10-07 (Round 5): the serving door gets a user mode, approved as
 drafted. From an install there is no lab checkout, so the round, the lab's
 ``hosts.json`` and its declared docker version are not asked for. What the
-run is held to instead is the rig file ``$MCGYVR_HOME/rigs/<rig>.json``, the
+run is held to instead is the rig file ``<rig-file folder>/<rig>.json``, the
 rig's read-only scan saved by ``mcgyvr scan --rig``: each run reads the rig
 again, says what moved, and refuses only when the fleet no longer fits. The
 safety gates stay: the daemon answers and is the machine that was read, the
