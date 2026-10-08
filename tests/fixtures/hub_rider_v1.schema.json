@@ -180,7 +180,7 @@
       "type": "object"
     },
     "RungPosition": {
-      "description": "Where a host's unit sits against a rider's own ladder (see\n``hitchhike``): never a step up in capability, only queue relief.",
+      "description": "Where a host's unit sits against a rider's own ladder: never a step\nup in capability, only queue relief.",
       "enum": [
         "above_ceiling",
         "below_floor",
@@ -247,7 +247,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "The hub's REST API as a rider's agent uses it, beside the agent channel.\n\n``GET /api/v1/me/rungs`` answers the rider's rungs (``RungsOut``);\n``POST /api/v1/me/rungs`` takes the rider's own ladder's shape\n(``RungsSyncIn``) and answers as the ``GET`` does. ``x-paths`` names each\nmethod's request and response model, taken from the endpoints themselves\n(``api.hitchhike``); ``$defs`` holds the models.\n\nA request to ``/v1`` (the OpenAI-compatible API) that the hub refuses is\nanswered with OpenAI's error shape, ``{\"error\": {\"message\", \"type\", \"code\",\n\"param\"}}``; each ``code`` comes with one HTTP status, the pairs in\n``x-openai-errors``. A client matches on the pair. A stream cut off after\nits first bytes ends with an error event instead, whose code may also be\nthe relay's own.\n\nCompatibility: answers are open (a client ignores fields it does not\nknow), so a new answer field or a new error code stays under ``/api/v1``.\nRequests are closed (``additionalProperties`` false: the hub answers ``422``\nto a field it does not know), so a new request field is not additive: an\nolder hub refuses it. A client sends one only to a hub that says it takes it\n(a feature it publishes), or it comes with ``/api/v2``, as any breaking\nchange does.\n\nWritten by ``render_json_schema`` and checked in at\nschemas/rider.schema.json.",
+  "description": "The hub's REST API as a rider's agent uses it, beside the agent channel.\n\n``GET /api/v1/me/rungs`` answers the rider's rungs (``RungsOut``);\n``POST /api/v1/me/rungs`` takes the rider's own ladder's shape\n(``RungsSyncIn``) and answers as the ``GET`` does. ``x-paths`` names each\nmethod's request and response model; ``$defs`` holds the models.\n\nA request to ``/v1`` (the OpenAI-compatible API) that the hub refuses is\nanswered with OpenAI's error shape, ``{\"error\": {\"message\", \"type\", \"code\",\n\"param\"}}``; each ``code`` comes with one HTTP status, the pairs in\n``x-openai-errors``. A client matches on the pair. A stream cut off after\nits first bytes ends with an error event instead, whose code may also be\nthe relay's own.\n\nCompatibility: answers are open (a client ignores fields it does not\nknow), so a new answer field or a new error code stays under ``/api/v1``.\nRequests are closed (``additionalProperties`` false: the hub answers ``422``\nto a field it does not know), so a new request field is not additive: an\nolder hub refuses it. A client sends one only to a hub that says it takes it\n(a feature it publishes), or it comes with ``/api/v2``, as any breaking\nchange does.",
   "title": "mcgyvr hub rider API",
   "x-openai-errors": {
     "busy": 503,

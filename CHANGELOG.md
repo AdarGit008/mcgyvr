@@ -171,6 +171,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- Re-pinned both hub schema copies (`tests/fixtures/hub_protocol_v1.schema.json`,
+  `tests/fixtures/hub_rider_v1.schema.json`). The hub reworded their descriptions
+  so they no longer name its internal modules. The structure is unchanged. No
+  behaviour of the product changed.
 - `data/model-catalog.json` is version 2: every number carries its source and
   the day it was read, and each entry names the file a pick downloads (with
   its revision and sha256). Each number was re-read from the Hugging Face Hub
