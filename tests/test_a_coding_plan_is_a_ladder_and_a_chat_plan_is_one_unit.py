@@ -1,18 +1,22 @@
 """A coding plan is a ladder, and a chat plan is one unit.
 
-Plan section 10, P5; owner, Round 7. Coding: a ladder per rig that starts
-with the fastest model serving coding, filled with slots, and climbs by clear
-steps to a top rung, within the climb budget. Chat and agent: one unit for
-the whole fleet, spanning every card.
+Plan section 10, P5; owner, Rounds 7 and 9. Coding: a ladder per rig that
+starts with the model serving coding that does the most work filled with
+slots, and climbs by clear steps to a top rung, a middle rung only within the
+climb budget. Chat and agent: one unit for the whole fleet, spanning every
+card.
 
 Promises, from the shipped knowledge on invented machines:
 
-* Coding: each rig's ladder starts with the fastest model that serves coding,
+* Coding: each rig's ladder starts with a model that serves coding (which
+  one: ``test_the_fast_rung_is_the_coder_that_does_the_most_work_filled_with_slots``),
   at 8k per slot, and ends with its top rung, at 32k per slot (the model's
   own context when shorter; a ladder of one rung is its own top rung, and
-  says so where it cannot hold that much); each rung is a clear step above
-  the one below, and a climb through every rung reads at most the climb
-  budget times the top rung's bytes per token. Every rung serves coding.
+  says so where it cannot hold that much); each model up the ladder is a
+  clear step above the one below (a copy of a rung is no step:
+  ``test_a_coding_rig_puts_work_on_every_card``), and where a middle rung was
+  added, a climb through every model reads at most the climb budget times
+  the top rung's bytes per token. Every rung serves coding.
 * Chat and agent: one serving unit in the whole plan, however many cards and
   machines, and it serves the use case.
 """
@@ -82,24 +86,18 @@ def test_a_coding_plan_is_a_ladder_per_rig(
         assert rungs
         coders = [m for m in models.values() if planner.serves(m, "coding")]
         assert all(planner.serves(models[r["model"]["id"]], "coding") for r in rungs)
-        fastest = min(coders, key=planner.token_bytes)
-        assert rungs[0]["model"]["id"] == fastest.model_id
+        assert rungs[0]["model"]["id"] in {m.model_id for m in coders}
         if len(rungs) > 1:
             assert rungs[0]["ctx_per_slot"] == 8192
         top = rungs[-1]
         if len(rungs) > 1 or not any("only rung" in n for n in top["notes"]):
             assert top["ctx_per_slot"] == min(32768, top["model"]["context_length"])
-        for lower, upper in itertools.pairwise(rungs):
-            assert planner.clear_step(
-                "coding",
-                models[lower["model"]["id"]],
-                models[upper["model"]["id"]],
-                step=planner.CLEAR_STEP,
-            )
-        climb = sum(planner.token_bytes(models[r["model"]["id"]]) for r in rungs)
-        assert climb <= planner.CLIMB_BUDGET * planner.token_bytes(
-            models[top["model"]["id"]]
-        )
+        steps = [models[i] for i in dict.fromkeys(r["model"]["id"] for r in rungs)]
+        for lower, upper in itertools.pairwise(steps):
+            assert planner.clear_step("coding", lower, upper, step=planner.CLEAR_STEP)
+        if len(steps) > 2:
+            climb = sum(planner.token_bytes(model) for model in steps)
+            assert climb <= planner.CLIMB_BUDGET * planner.token_bytes(steps[-1])
 
 
 @pytest.mark.parametrize("use_case", ["chat", "agent"])

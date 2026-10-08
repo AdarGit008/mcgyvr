@@ -27,14 +27,18 @@ gives. What this module decides is only what the sizer is asked:
   unit says so, naming the command that records it. Where the machines
   cannot be spanned, the unit spans one machine's cards, else takes the
   roomiest card, and says why.
-* **coding** (owner, Round 7): a ladder per rig. It starts with the fastest
-  model that serves coding, filled with slots; a bigger rung is added only
-  when it is a clear step up (:data:`CLEAR_STEP`) and only while a task that
-  climbs every rung finishes within :data:`CLIMB_BUDGET` times the top rung's
-  own time; the top rung is always-on when it fits beside the rest, else it
-  sleeps until needed and swaps with the rungs on its card (``--priority
-  throughput`` plans no sleeper). Fast rungs get :data:`FAST_RUNG_CTX` per
-  slot, the top rung :data:`TOP_RUNG_CTX`.
+* **coding** (owner, Rounds 7 and 9): a ladder per rig. It starts with the
+  model serving coding that does the most work once its card is filled with
+  slots (:func:`work`: slots over bytes per token), not the one fastest per
+  token for one user; a bigger rung is added only when it is a clear step up
+  (:data:`CLEAR_STEP`) and only while a task that climbs every rung finishes
+  within :data:`CLIMB_BUDGET` times the top rung's own time; the top rung is
+  always-on when it fits beside the rest, else it sleeps until needed and
+  swaps with the rungs on its card (``--priority throughput`` plans no
+  sleeper). A card of the rig no awake rung uses then gets a copy of the rung
+  that does the most work there: a unit of its own serving the same model,
+  listed beside it, so a batch fans out to whichever has a free slot. Fast
+  rungs get :data:`FAST_RUNG_CTX` per slot, the top rung :data:`TOP_RUNG_CTX`.
 * **the levers** (plan section 5). The KV cache is f16, and q8_0 only when f16
   misses the context the unit needs; the unit says so. A model's MTP head is
   its draft only when its header carries one and it fits. A unit that is not
@@ -327,6 +331,20 @@ def token_bytes(model: Model) -> float:
     return nonexpert + experts * min(used, n_expert) / n_expert
 
 
+def work(model: Model, slots: int) -> float:
+    """The output of a unit of ``model`` filled with ``slots``, estimated: its
+    slots over the bytes one token reads (:func:`token_bytes`).
+
+    A decode step of a filled unit serves every slot for one read of its
+    weights, so a unit's total output grows with its slots and falls with
+    its bytes per token (owner, Round 9: the fastest rung is the one that
+    gives the most total work once its card is filled with slots, not the
+    one fastest per token for one user). Only units of one card are compared
+    by it; the sample run checks real timings.
+    """
+    return slots / token_bytes(model)
+
+
 @dataclass(frozen=True)
 class Sized:
     """One model sized as one unit, by the serving sizer.
@@ -349,6 +367,12 @@ class Sized:
     notes: tuple[str, ...] = ()
     #: The cards of the always-on units this sleeper sleeps when it wakes.
     swaps_with: tuple[str, ...] = ()
+    #: Another copy of a rung, on a card no rung of its ladder used: the same
+    #: model, a unit and port of its own, filled with slots (owner, Round 9).
+    copy: bool = False
+    #: Its place on its rig's ladder, cheapest first: the fast rung 0, the
+    #: top rung last; a copy has the place of the rung it copies.
+    step: int = 0
 
     @property
     def units(self) -> tuple[serving.Unit, ...]:
@@ -820,6 +844,33 @@ class Choices:
 FLEET = "fleet"
 
 
+def _widest(
+    scans: Mapping[str, Scan],
+    one: Sized,
+    claims: Mapping[Card, float],
+) -> serving.Unit:
+    """``one`` as wide as its card allows with what ``claims`` leave of it,
+    at its own context, KV cache and head, with no expert moved off the
+    card: its own unit when no wider one fits."""
+    (card,) = one.cards
+    placer = _on_card(scans, card, claims)
+    spec = spec_of(one.model, kv=one.kv, speculative=one.speculative)
+    low, high = 1, serving.MAX_WIDTH
+    best = one.unit
+    while low < high:
+        middle = (low + high + 1) // 2
+        try:
+            (unit,) = placer(spec, middle, one.ctx_per_slot)
+        except serving.UnitError:
+            high = middle - 1
+            continue
+        if unit.fit.ram_gb or "--n-cpu-moe" in unit.args:
+            high = middle - 1
+            continue
+        best, low = unit, middle
+    return best
+
+
 def _fast_rung(
     scans: Mapping[str, Scan],
     rig: str,
@@ -827,39 +878,48 @@ def _fast_rung(
     claims: Mapping[Card, float],
     ctx: int | None,
 ) -> tuple[Sized | None, list[tuple[str, str]]]:
-    """The fastest model serving coding that fits wholly on a card of ``rig``
-    at the fast rungs' context and one slot. The catalog says which models
-    serve coding: that is what "good enough to be useful" is read from.
+    """The model serving coding that does the most work (:func:`work`) on a
+    card of ``rig`` once that card is filled with slots at the fast rungs'
+    context, wholly on the card (owner, Round 9); on a tie, the one that
+    reads fewer bytes per token. It is returned at one slot: the ladder
+    fills it beside the rungs it plans. The catalog says which models serve
+    coding: that is what "good enough to be useful" is read from.
 
     When none fits wholly, the fastest that fits with experts in RAM is the
     one rung there is, and it says so: a ladder of one slow rung is a plan,
     nothing is not.
     """
     cards = [card for card in all_cards(scans) if card[0] == rig]
+    card = _roomiest(scans, claims, cards)
+    if card is None:
+        return None, []
     dropped: list[tuple[str, str]] = []
     order = sorted(models, key=lambda m: (token_bytes(m), m.label))
-    for wholly in (True, False):
-        for model in order:
-            want = ctx if ctx is not None else min(FAST_RUNG_CTX, model.context_length)
-            card = _roomiest(scans, claims, cards)
-            if card is None:
-                return None, dropped
-            fit = _size(
-                _on_card(scans, card, claims), model, width=1, ctx=want, wholly=wholly
-            )
-            if isinstance(fit, str):
-                if wholly:
-                    dropped.append((model.label, f"not a fast rung on {rig}: {fit}"))
-                continue
-            note = (
-                ()
-                if wholly
-                else (
-                    "no model serving coding fits wholly on a card here, so this "
-                    "rung holds experts in RAM",
-                )
-            )
-            return _sized(model, fit, notes=note), dropped
+    best: tuple[float, Sized] | None = None
+    for model in order:
+        want = ctx if ctx is not None else min(FAST_RUNG_CTX, model.context_length)
+        fit = _size(
+            _on_card(scans, card, claims), model, width=1, ctx=want, wholly=True
+        )
+        if isinstance(fit, str):
+            dropped.append((model.label, f"not a fast rung on {rig}: {fit}"))
+            continue
+        one = _sized(model, fit)
+        done = work(model, _widest(scans, one, claims).width.value)
+        if best is None or done > best[0]:
+            best = (done, one)
+    if best is not None:
+        return best[1], dropped
+    for model in order:
+        want = ctx if ctx is not None else min(FAST_RUNG_CTX, model.context_length)
+        fit = _size(_on_card(scans, card, claims), model, width=1, ctx=want)
+        if isinstance(fit, str):
+            continue
+        note = (
+            "no model serving coding fits wholly on a card here, so this rung "
+            "holds experts in RAM"
+        )
+        return _sized(model, fit, notes=(note,)), dropped
     return None, dropped
 
 
@@ -999,32 +1059,74 @@ def assemble(
 
 
 def _fill(
-    scans: Mapping[str, Scan], fast: Sized, others: Sequence[Sized], jev: Sized | None
+    scans: Mapping[str, Scan], one: Sized, others: Sequence[Sized], jev: Sized | None
 ) -> Sized:
-    """``fast`` as wide as its card allows beside the other awake units on it,
+    """``one`` as wide as its card allows beside the other awake units on it,
     with no expert moved off the card: spare memory becomes slots on the
-    cheapest rung (plan section 6.1)."""
+    cheapest rung and on each copy (plan section 6.1)."""
     claims: dict[Card, float] = {}
-    for one in (*others, *((jev,) if jev else ())):
+    for other in (*others, *((jev,) if jev else ())):
+        if other.role == ROLE_ALWAYS_ON:
+            _claim(claims, other)
+    return replace(one, unit=_widest(scans, one, claims))
+
+
+def _copies(
+    scans: Mapping[str, Scan],
+    rig: str,
+    rungs: Sequence[Sized],
+    jev: Sized | None,
+) -> dict[int, list[Sized]]:
+    """A copy of a rung for each card of ``rig`` no awake rung uses, keyed by
+    the index in ``rungs`` of the rung it copies (owner, Round 9: "idle cards:
+    FILL them").
+
+    The ladder has already taken every rung that is a clear step and keeps
+    the climb within the budget, so a card it left idle gets a copy: of the
+    awake rung that does the most work there (:func:`work`) once the card is
+    filled with slots, wholly on the card at the rung's own context; on a
+    tie, the lower rung. A card no rung fits on wholly stays idle.
+    """
+    claims: dict[Card, float] = {}
+    for one in (*rungs, *((jev,) if jev else ())):
         if one.role == ROLE_ALWAYS_ON:
             _claim(claims, one)
-    (card,) = fast.cards
-    placer = _on_card(scans, card, claims)
-    spec = spec_of(fast.model, kv=fast.kv, speculative=fast.speculative)
-    low, high = 1, serving.MAX_WIDTH
-    best = fast.unit
-    while low < high:
-        middle = (low + high + 1) // 2
-        try:
-            (unit,) = placer(spec, middle, fast.ctx_per_slot)
-        except serving.UnitError:
-            high = middle - 1
+    busy = {
+        card
+        for one in rungs
+        if one.role == ROLE_ALWAYS_ON and not one.jev
+        for card in one.cards
+    }
+    out: dict[int, list[Sized]] = {}
+    for card in all_cards(scans):
+        if card[0] != rig or card in busy:
             continue
-        if unit.fit.ram_gb or "--n-cpu-moe" in unit.args:
-            high = middle - 1
-            continue
-        best, low = unit, middle
-    return replace(fast, unit=best)
+        best: tuple[float, int, Sized] | None = None
+        for index, rung in enumerate(rungs):
+            if rung.role != ROLE_ALWAYS_ON or rung.copy:
+                continue
+            fit = _size(
+                _on_card(scans, card, claims),
+                rung.model,
+                width=1,
+                ctx=rung.ctx_per_slot,
+                wholly=True,
+            )
+            if isinstance(fit, str):
+                continue
+            note = (
+                f"a copy of the rung {rung.model.label} on a card no rung used: "
+                f"no clear step up fits here within the climb budget"
+            )
+            copy = replace(_sized(rung.model, fit, notes=(note,)), copy=True)
+            done = work(rung.model, _widest(scans, copy, claims).width.value)
+            if best is None or done > best[0]:
+                best = (done, index, copy)
+        if best is not None:
+            _done, index, copy = best
+            _claim(claims, copy)
+            out.setdefault(index, []).append(copy)
+    return out
 
 
 def ladder(
@@ -1044,7 +1146,9 @@ def ladder(
     below it and below the top, cheapest first, while it fits awake and
     wholly on a card beside the others and a task that climbs every rung
     still finishes within ``budget`` times the top rung's own time; then the
-    top; then the fast rung's spare card memory becomes slots.
+    top. Each card of the rig no awake rung uses then gets a copy of a rung
+    (:func:`_copies`), listed beside it (owner, Round 9). Last, the spare
+    card memory of the fast rung and of each copy becomes slots.
     """
     fast = choices.fast
     assert fast is not None
@@ -1077,60 +1181,74 @@ def ladder(
             )
         else:
             fast = _sized(fast.model, fit, notes=fast.notes)
-        return (_fill(scans, fast, (), jev),)
-    rungs = [fast]
-    claims = dict(choices.claims)
-    if top.role == ROLE_ALWAYS_ON:
-        _claim(claims, top)
-    top_time = token_bytes(top.model)
-    middle = sorted(
-        (
-            m
-            for m in models
-            if serves(m, "coding")
-            and m.label not in (fast.model.label, top.model.label)
-            and token_bytes(m) < top_time
-        ),
-        key=lambda m: (token_bytes(m), m.label),
-    )
-    cards = [card for card in all_cards(scans) if card[0] == choices.key]
-    for model in middle:
-        below = rungs[-1].model
-        if not clear_step("coding", below, model, step=clear):
-            continue
-        if not clear_step("coding", model, top.model, step=clear):
-            continue
-        climb = sum(token_bytes(r.model) for r in rungs) + token_bytes(model) + top_time
-        if climb > budget * top_time:
-            continue
-        want = (
-            ctx_per_slot
-            if ctx_per_slot is not None
-            else min(FAST_RUNG_CTX, model.context_length)
+        rungs = [fast]
+    else:
+        rungs = [fast]
+        claims = dict(choices.claims)
+        if top.role == ROLE_ALWAYS_ON:
+            _claim(claims, top)
+        top_time = token_bytes(top.model)
+        middle = sorted(
+            (
+                m
+                for m in models
+                if serves(m, "coding")
+                and m.label not in (fast.model.label, top.model.label)
+                and token_bytes(m) < top_time
+            ),
+            key=lambda m: (token_bytes(m), m.label),
         )
-        roomiest = _roomiest(scans, claims, cards)
-        if roomiest is None:
-            break
-        card = roomiest
-        fit = _size(
-            _on_card(scans, card, claims), model, width=1, ctx=want, wholly=True
-        )
-        if isinstance(fit, str):
-            continue
-        rung = _sized(model, fit)
-        _claim(claims, rung)
-        rungs.append(rung)
-    filled = _fill(scans, fast, [*rungs[1:], top], jev)
-    rungs[0] = filled
-    if top.role == ROLE_SLEEPER:
-        partners = tuple(
-            f"{host}:{card}"
-            for rung in rungs
-            for host, card in rung.cards
-            if (host, card) in top.cards
-        )
-        top = replace(top, swaps_with=partners)
-    return (*rungs, top)
+        cards = [card for card in all_cards(scans) if card[0] == choices.key]
+        for model in middle:
+            below = rungs[-1].model
+            if not clear_step("coding", below, model, step=clear):
+                continue
+            if not clear_step("coding", model, top.model, step=clear):
+                continue
+            climb = (
+                sum(token_bytes(r.model) for r in rungs) + token_bytes(model) + top_time
+            )
+            if climb > budget * top_time:
+                continue
+            want = (
+                ctx_per_slot
+                if ctx_per_slot is not None
+                else min(FAST_RUNG_CTX, model.context_length)
+            )
+            roomiest = _roomiest(scans, claims, cards)
+            if roomiest is None:
+                break
+            card = roomiest
+            fit = _size(
+                _on_card(scans, card, claims), model, width=1, ctx=want, wholly=True
+            )
+            if isinstance(fit, str):
+                continue
+            rung = _sized(model, fit)
+            _claim(claims, rung)
+            rungs.append(rung)
+        rungs.append(top)
+    copies = _copies(scans, choices.key, rungs, jev)
+    placed = [
+        replace(one, step=index)
+        for index, rung in enumerate(rungs)
+        for one in (rung, *copies.get(index, ()))
+    ]
+    for index, one in enumerate(placed):
+        if index == 0 or one.copy:
+            others = placed[:index] + placed[index + 1 :]
+            placed[index] = _fill(scans, one, others, jev)
+    for index, one in enumerate(placed):
+        if one.role == ROLE_SLEEPER:
+            partners = tuple(
+                f"{host}:{card}"
+                for other in placed
+                if other.role == ROLE_ALWAYS_ON
+                for host, card in other.cards
+                if (host, card) in one.cards
+            )
+            placed[index] = replace(one, swaps_with=partners)
+    return tuple(placed)
 
 
 def _slug(text: str) -> str:
@@ -1315,7 +1433,7 @@ def document(
                 by_card.setdefault(f"{host}:{card}", []).append(_name(one))
     rungs = sorted(
         (one for one in laid if not one.jev),
-        key=lambda one: (one.role == ROLE_SLEEPER, token_bytes(one.model)),
+        key=lambda one: (one.role == ROLE_SLEEPER, one.step, token_bytes(one.model)),
     )
     for one in laid:
         for rig, doc in unit_documents(one, by_card):

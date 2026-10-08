@@ -769,6 +769,11 @@
       "says": "The least context per slot a chat or agent strong unit is planned at, when the model's own context allows it (owner, Round 7: least context 8k per user, more whenever it fits). Above it the unit gets the most that fits.",
       "set_by": "flag --ctx-per-slot"
     },
+    "planner.py:Sized.step": {
+      "kind": "fact",
+      "says": "A planned unit's place on its rig's coding ladder counts from the first place, the fast rung's, until the ladder sets it; a copy takes the place of the rung it copies.",
+      "reason": "where a count starts"
+    },
     "planner.py:TOP_RUNG_CTX": {
       "kind": "choice",
       "says": "The context per slot a coding plan's top rung is sized at (owner, Round 4: top rung 32k): the ceiling decompose may raise a contract's prompt to, so it serves anything decompose emits; a model whose own context is shorter is sized at its own.",
