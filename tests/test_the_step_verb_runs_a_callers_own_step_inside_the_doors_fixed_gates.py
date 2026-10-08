@@ -302,3 +302,45 @@ def test_a_callers_after_gate_reads_the_campaign_the_step_run_names(
         assert done.returncode == 0, said
         assert record.exists()
     assert onedoor.read_lease(tmp_path) is None
+
+
+#: The four serving flags of a step run and the variable each is exported as.
+SERVING = {
+    "--model": ("RUN_MODEL", "/models/x.gguf"),
+    "--parallel": ("RUN_PARALLEL", "4"),
+    "--ctx-per-slot": ("RUN_CTX_PER_SLOT", "2048"),
+    "--ubatch": ("RUN_UBATCH", "256"),
+}
+
+
+@pytest.mark.parametrize("given", [False, True])
+def test_a_step_exports_a_serving_flag_only_when_it_is_given(
+    tmp_path: Path, given: bool
+) -> None:
+    """Owner, on mcgyvr#633: a step run has no defaults for these four; the
+    campaign run keeps its own."""
+    usermode.save_rig()
+    stubs = usermode.machine(tmp_path, pending=())
+    record = tmp_path / "record.txt"
+    script = usermode.step_script(tmp_path, record)
+    extra = [part for flag, (_, value) in SERVING.items() for part in (flag, value)]
+
+    done = usermode.door(
+        usermode.step(script, extra=tuple(extra) if given else ()),
+        stubs=stubs,
+        run_root=usermode.install_root(tmp_path),
+        cwd=tmp_path,
+        env_extra={"MCGYVR_CONFIG": str(usermode.dev_setup(tmp_path))},
+    )
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    seen = usermode.recorded(record)
+    for name, value in SERVING.values():
+        assert seen[name] == (value if given else "UNSET"), name
+
+
+def test_the_campaign_run_keeps_its_own_serving_defaults() -> None:
+    opts, _ = run._parse(
+        ["--host", "h", "--campaign", "c", "--model", "/m.gguf", "--ctx-per-slot", "1"]
+    )
+    assert (opts.parallel, opts.ubatch) == (8, 512)

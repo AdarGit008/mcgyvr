@@ -118,10 +118,13 @@ timer's reading, which is the last line its caller reads.
 
 THE GATES A CALLER ADDS FROM THE ENVIRONMENT. ``$MCGYVR_DOOR_GATES``
 (:data:`GATES_ENV`) names a folder of gate lists, one per verb
-(``<verb>.json``). A ``serve``, ``read``, ``link`` or ``step`` run given no
-``--gates`` loads its verb's list from there, so a door that mcgyvr's own code
-opens (the waker, the ladder manager, the fleet's read and probe) carries the
-caller's gates too, with no product code naming them. A folder with no list
+(``<verb>.json``). A ``serve``, ``read``, ``link`` or ``step`` run loads its
+verb's list from there, so a door that mcgyvr's own code opens (the waker, the
+ladder manager, the fleet's read and probe) carries the caller's gates too,
+with no product code naming them. Given ``--gates`` as well, the run holds
+both lists: in each phase the folder's gates run first, then the option's,
+and the door says on stderr that the variable is also set (owner, on
+mcgyvr#633). A folder with no list
 for a verb adds none to it; a value that is not an existing folder named by an
 absolute path is refused before any gate. Its gates are a caller's gates like
 any other: they can add a refusal, and never skip, move or stand in for a
@@ -587,7 +590,7 @@ READ_PHASES = {"before": "read-01-profile.py", "after": "read-02-rig.py"}
 #: run's stdout, and that line is what its caller reads.
 LINK_PHASES = ("before",)
 #: Names a folder of a caller's gate lists, one per verb (``<verb>.json``),
-#: for a run given no ``--gates`` (:func:`callers_gates`).
+#: run before a ``--gates`` list's in each phase (:func:`callers_gates`).
 GATES_ENV = "MCGYVR_DOOR_GATES"
 #: What ``--campaign`` names on a step run: one folder name, which the
 #: envelope and the RUN_ID are made of.
@@ -907,17 +910,53 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
 def callers_gates(
     verb: str, named: str | None, phases: tuple[str, ...] = PHASES
 ) -> GateList | None:
-    """The caller's gate list of a ``verb`` run, or None when there is none.
+    """The caller's gates of a ``verb`` run, or None when there are none.
 
-    ``--gates FILE`` (``named``) when it is given. Else the verb's list in the
-    folder ``$MCGYVR_DOOR_GATES`` names, ``<folder>/<verb>.json``, when it is
-    set and holds one: a folder with no list for this verb adds no gate to it.
-    A value that is empty, relative or not an existing folder is refused, as
-    is a list there that :func:`load_gate_list` refuses; a path that cannot
-    be looked at is refused, never read as no list.
+    The verb's list in the folder ``$MCGYVR_DOOR_GATES`` names,
+    ``<folder>/<verb>.json``, when it is set and holds one (a folder with no
+    list for this verb adds no gate to it), and ``--gates FILE`` (``named``)
+    when it is given. With both (owner, on mcgyvr#633) both run: in each
+    phase the folder's gates first, then the option's, and the door says on
+    stderr that the variable is also set; one file named both ways is one
+    list. A name both lists export is refused, as two gates of one list
+    exporting it are. A value of the variable that is empty, relative or not
+    an existing folder is refused, as is a list that :func:`load_gate_list`
+    refuses; a path that cannot be looked at is refused, never read as no
+    list.
     """
-    if named is not None:
-        return load_gate_list(named, phases)
+    from_env = _env_gates(verb, phases)
+    if named is None:
+        return from_env
+    if GATES_ENV in os.environ:
+        print(
+            f"run.py: {GATES_ENV} is also set; its gates for `{verb}` run "
+            "before the --gates list's in each phase, and both lists run",
+            file=sys.stderr,
+        )
+    given = load_gate_list(named, phases)
+    if from_env is None or from_env.source.resolve() == given.source.resolve():
+        return given
+    shared = sorted(from_env.exports & given.exports)
+    if shared:
+        _refuse(
+            2,
+            _printable(
+                f"--gates {given.source} and {from_env.source} both export "
+                f"{', '.join(shared)}; a name is exported by one gate, so no "
+                "gate reads a value it cannot tell the source of"
+            ),
+        )
+    return GateList(
+        source=given.source,
+        root=given.root,
+        before=(*from_env.before, *given.before),
+        after=(*from_env.after, *given.after),
+        always=(*from_env.always, *given.always),
+    )
+
+
+def _env_gates(verb: str, phases: tuple[str, ...]) -> GateList | None:
+    """The verb's list in the ``$MCGYVR_DOOR_GATES`` folder, or None."""
     folder = os.environ.get(GATES_ENV)
     if folder is None:
         return None
@@ -1378,32 +1417,41 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     # likewise: a floor is only correct for the cache the unit will actually
     # allocate, so the run declares the window and a run that did not is
     # refused here rather than sized silently.
-    _add_serving(parser, required=True)
+    _add_serving(parser, campaign=True)
     return parser.parse_args(argv), step_args
 
 
-def _add_serving(parser: argparse.ArgumentParser, *, required: bool) -> None:
+def _add_serving(parser: argparse.ArgumentParser, *, campaign: bool) -> None:
     """``--model``, ``--parallel``, ``--ctx-per-slot`` and ``--ubatch``, the
     same four on the campaign run and the step run, exported to the step as
     RUN_MODEL, RUN_PARALLEL, RUN_CTX_PER_SLOT and RUN_UBATCH. The campaign run
-    requires the model and the window, which its data scripts read; on a step
-    run nothing of the door reads them, and they are exported only when given.
+    requires the model and the window, which its data scripts read, and has
+    8 slots and a ubatch of 512 when none is given. A step run has no
+    default for any of the four (owner, on mcgyvr#633): nothing of the door
+    reads them, and each is exported only when it is given.
     """
     parser.add_argument(
         "--model",
-        required=required,
+        required=campaign,
         default=None,
         help="blob path AS THE RIG SEES IT",
     )
-    parser.add_argument("--parallel", type=int, default=8, help="slots (-np)")
+    parser.add_argument(
+        "--parallel", type=int, default=8 if campaign else None, help="slots (-np)"
+    )
     parser.add_argument(
         "--ctx-per-slot",
         type=int,
-        required=required,
+        required=campaign,
         default=None,
         help="per-slot window; -c is this times --parallel",
     )
-    parser.add_argument("--ubatch", type=int, default=512, help="-ub, and -b with it")
+    parser.add_argument(
+        "--ubatch",
+        type=int,
+        default=512 if campaign else None,
+        help="-ub, and -b with it",
+    )
 
 
 def _end(proc: subprocess.Popen[bytes]) -> None:
@@ -1687,9 +1735,10 @@ def _gates_help(verb: str, phases: str) -> str:
     return (
         "a caller's gate list (JSON: root, gates of path, why, phase, "
         "exports, timeout_s), each gate run by the door's Python from the "
-        "root, in a session of its own. With no --gates, the list "
+        "root, in a session of its own. The list "
         f"${GATES_ENV}/{verb}.json, when that variable is set and the folder "
-        "holds one. At a gate's timeout_s (default "
+        "holds one, runs too, its gates before this list's in each phase. "
+        "At a gate's timeout_s (default "
         f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
         "door sends TERM to its process group, KILL when the group is still "
         f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
@@ -2312,7 +2361,7 @@ def _step_parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     )
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
-    _add_serving(parser, required=False)
+    _add_serving(parser, campaign=False)
     parser.add_argument(
         "--gates",
         default=None,
@@ -2420,18 +2469,21 @@ def _step(argv: list[str]) -> int:
         RUN_STEP_FILE=str(step_file),
         RUN_HOST=opts.host,
         RUN_SUFFIX=opts.suffix,
-        RUN_PARALLEL=str(opts.parallel),
-        RUN_UBATCH=str(opts.ubatch),
         # Read off the clock once, as the campaign run's is: the envelope
         # above was named by it, and gate 5 files under it.
         RUN_DATE=run_date,
         RUN_MODE=mode,
         RUN_COMMAND=_command("step", argv),
     )
-    if opts.model is not None:
-        env["RUN_MODEL"] = opts.model
-    if opts.ctx_per_slot is not None:
-        env["RUN_CTX_PER_SLOT"] = str(opts.ctx_per_slot)
+    # Each of the four only when it is given: a step run has no defaults.
+    for name, value in (
+        ("RUN_MODEL", opts.model),
+        ("RUN_PARALLEL", opts.parallel),
+        ("RUN_CTX_PER_SLOT", opts.ctx_per_slot),
+        ("RUN_UBATCH", opts.ubatch),
+    ):
+        if value is not None:
+            env[name] = str(value)
     if out_root:
         env[gatelib.OUT_ROOT_VAR] = out_root
     return _through_step(STEP_SEQUENCE, STEP_PHASES, env, gates, step_args)

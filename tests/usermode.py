@@ -259,8 +259,8 @@ def step_script(where: Path, record: Path, *, then: str = "") -> Path:
         "set -u\n"
         "{\n"
         "  for k in RUN_ID RUN_OUT_DIR RUN_CAMPAIGN RUN_HOST RUN_MODE RUN_ROOT"
-        " RUN_MODEL RUN_OUT_ROOT; do\n"
-        '    printf \'%s=%s\\n\' "$k" "$(printenv "$k" || true)"\n'
+        " RUN_MODEL RUN_OUT_ROOT RUN_PARALLEL RUN_UBATCH RUN_CTX_PER_SLOT; do\n"
+        '    printf \'%s=%s\\n\' "$k" "$(printenv "$k" || echo UNSET)"\n'
         "  done\n"
         "  printf 'ARGS=%s\\n' \"$*\"\n"
         f"  printf 'LEASE=%s\\n' \"$(cat '{lease}' 2>/dev/null)\"\n"

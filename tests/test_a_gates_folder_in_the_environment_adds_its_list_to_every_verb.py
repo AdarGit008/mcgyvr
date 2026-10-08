@@ -2,13 +2,17 @@
 
 Owner, 2026-10-08 (design 2b): a caller hands the door its gates from the
 environment as well as with ``--gates``: ``MCGYVR_DOOR_GATES=<folder>``, and
-a ``serve``, ``read``, ``link`` or ``step`` run given no ``--gates`` loads
-``<folder>/<verb>.json``. So a door mcgyvr's own code opens (the waker, the
-fleet's read and probe, the commands live admission prints) carries the
-caller's gates too, with no product code naming them. A list from the
-environment is a ``--gates`` list in every way: placed by phase, held to the
-same rules, and never in place of a door gate. A folder with no list for a
-verb adds none; a value that names no folder is refused before any gate.
+a ``serve``, ``read``, ``link`` or ``step`` run loads
+``<folder>/<verb>.json``. Owner, on mcgyvr#633: with ``--gates`` given too,
+both lists run, the environment's first and then the option's in each phase,
+and the door warns on stderr that ``MCGYVR_DOOR_GATES`` is also set; neither
+list can be skipped, and a name both lists export is refused. So a door
+mcgyvr's own code opens (the waker, the fleet's read and probe, the commands
+live admission prints) carries the caller's gates too, with no product code
+naming them. A list from the environment is a ``--gates`` list in every way:
+placed by phase, held to the same rules, and never in place of a door gate.
+A folder with no list for a verb adds none; a value that names no folder is
+refused before any gate.
 
 Every machine here is invented and stands behind the door's shims.
 """
@@ -73,23 +77,109 @@ def test_the_environments_list_runs_where_the_same_list_given_as_gates_runs(
     assert _order(by_env) == _order(by_flag)
 
 
+def _both(
+    verb: str, tmp_path: Path, log: Path, *, env_status: int = 0, flag_status: int = 0
+) -> Path:
+    """A folder list and a ``--gates`` list for ``verb``, each with one gate in
+    every phase the verb has. Returns the ``--gates`` list."""
+    phases = {"read": ("before", "after"), "link": ("before",)}.get(
+        verb, ("before", "after", "always")
+    )
+    lists = {}
+    for source, status in (("env", env_status), ("flag", flag_status)):
+        root = tmp_path / f"{source}-gates"
+        for phase in phases:
+            cg.executable(
+                root / f"{phase}.py",
+                cg.gate_text(log, f"{source}:{phase}", status=status),
+            )
+        where = tmp_path / source / f"{verb}.json"
+        where.parent.mkdir(parents=True, exist_ok=True)
+        lists[source] = cg.write_list(
+            where, str(root), [cg.entry(f"{phase}.py", phase) for phase in phases]
+        )
+    return lists["flag"]
+
+
 @pytest.mark.parametrize("verb", VERBS)
-def test_a_gates_option_is_the_list_and_the_environments_is_not_read(
-    verb: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_with_both_the_environments_list_runs_first_then_the_options_per_phase(
+    verb: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     cg.clean_door_env(monkeypatch)
     log = tmp_path / "order.log"
     cg.fake_door(tmp_path, monkeypatch, log)
-    folder = tmp_path / "folder"
-    _before_list(folder / f"{verb}.json", log, "caller:from-env")
-    listed = _before_list(tmp_path / "flag.json", log, "caller:from-flag")
-    monkeypatch.setenv(run.GATES_ENV, str(folder))
+    listed = _both(verb, tmp_path, log)
+    monkeypatch.setenv(run.GATES_ENV, str(tmp_path / "env"))
 
     assert run.main(_argv(verb, tmp_path, "--gates", str(listed))) == 0
 
+    callers = [name for name in _order(log) if not name.startswith("door:")]
+    phases = [name.split(":")[1] for name in callers[::2]]
+    assert callers == [
+        name for phase in phases for name in (f"env:{phase}", f"flag:{phase}")
+    ]
+    assert phases[0] == "before"
+    said = capsys.readouterr().err
+    assert run.GATES_ENV in said and "also set" in said, said
+
+
+@pytest.mark.parametrize("refusing", ["env", "flag"])
+@pytest.mark.parametrize("verb", VERBS)
+def test_with_both_a_refusal_in_either_list_ends_the_run(
+    verb: str, refusing: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Neither list can be skipped: the other one admitting changes nothing."""
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    listed = _both(
+        verb,
+        tmp_path,
+        log,
+        env_status=2 if refusing == "env" else 0,
+        flag_status=2 if refusing == "flag" else 0,
+    )
+    monkeypatch.setenv(run.GATES_ENV, str(tmp_path / "env"))
+
+    assert run.main(_argv(verb, tmp_path, "--gates", str(listed))) == 2
+
     order = _order(log)
-    assert "caller:from-flag" in order
-    assert "caller:from-env" not in order
+    assert f"{refusing}:before" in order
+    assert "door:06-step.py" not in order
+    if refusing == "env":
+        assert "flag:before" not in order
+
+
+@pytest.mark.parametrize("verb", VERBS)
+def test_with_both_a_name_both_lists_export_is_refused_before_any_gate(
+    verb: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    lists = []
+    for source in ("env", "flag"):
+        root = tmp_path / f"{source}-gates"
+        cg.executable(root / "early.py", cg.gate_text(log, f"{source}:before"))
+        where = tmp_path / source / f"{verb}.json"
+        where.parent.mkdir(parents=True)
+        lists.append(
+            cg.write_list(
+                where, str(root), [cg.entry("early.py", "before", ["RUN_SHARED_X"])]
+            )
+        )
+    monkeypatch.setenv(run.GATES_ENV, str(tmp_path / "env"))
+
+    assert run.main(_argv(verb, tmp_path, "--gates", str(lists[1]))) == 2
+
+    assert _order(log) == []
+    assert "RUN_SHARED_X" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("verb", VERBS)

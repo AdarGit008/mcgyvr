@@ -27,8 +27,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `DIR/<date>-<campaign>/`. A caller's gate list (`--gates`) runs inside that
   order as on `serve`. `link` takes `--gates` too, `before` gates only.
   `MCGYVR_DOOR_GATES=<folder>` gives a `serve`, `read`, `link` or `step` run
-  with no `--gates` the list `<folder>/<verb>.json`, so the doors mcgyvr opens
-  itself (waking a ladder, the fleet's read and probe) carry those gates too.
+  the list `<folder>/<verb>.json`, so the doors mcgyvr opens itself (waking a
+  ladder, the fleet's read and probe) carry those gates too; with `--gates`
+  as well, both lists run, the folder's first in each phase, with a warning.
+  `step` has no defaults for `--model`, `--parallel`, `--ctx-per-slot` or
+  `--ubatch`: each is exported to the step only when given.
   A caller's gate can add a refusal and never take a door gate's away. The
   lab's campaign run and `--mode` are unchanged.
 - `mcgyvr scan --rig RIG` records the rig's private IPv4 address in its rig
