@@ -216,7 +216,9 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `404 model_not_found`), and the runner reads them off the rung instead of
   naming them itself: the hub's vocabulary is the hub client's. Nothing
   changes for a rung: a sync writes the three answers the runner held, and an
-  older `relief.yaml` is read with them (borders plan, step 2d).
+  older `relief.yaml` is read with them (borders plan, step 2d). An older
+  mcgyvr refuses a `relief.yaml` that names `busy_answers` (an unknown key):
+  after a downgrade, run `mcgyvr rig rungs sync` to rewrite it.
 
 ### Deprecated
 

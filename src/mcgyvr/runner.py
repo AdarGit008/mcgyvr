@@ -302,9 +302,10 @@ class ReliefUnavailableError(SlotUnavailableError):
 
 #: The answers a relief rung is full on when its endpoint names none
 #: (``busy_answers``): an entry written before a sync wrote them. The hub
-#: client keeps that vocabulary (``mcgyvr.rig.rungs.BUSY``, which a test holds
-#: this equal to); this fallback is the one place the core still spells it.
-#: Delete it once release 0.4.0 is out (written 2026-10-08): an entry with no
+#: client writes that vocabulary (``mcgyvr.rig.rungs.BUSY``, read from here);
+#: this fallback is the one place the product spells it. Delete it once
+#: release 0.4.0 is out (written 2026-10-08; a test fails past 0.4.0 while it
+#: is here), moving the literal into ``rig/rungs.py``: an entry with no
 #: ``busy_answers`` then has none, until a sync rewrites it.
 RELIEF_UNAVAILABLE: frozenset[tuple[int, str]] = frozenset(
     {

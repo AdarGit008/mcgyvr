@@ -18,6 +18,7 @@ Every server here is a loopback one this test starts.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -234,6 +235,47 @@ def test_the_fallback_for_an_old_file_is_the_set_a_sync_writes() -> None:
     from mcgyvr.rig import rungs
 
     assert frozenset(rungs.BUSY) == runner.RELIEF_UNAVAILABLE
+
+
+#: The last release an old ``relief.yaml`` is read with the runner's fallback.
+FALLBACK_LAST_RELEASE = (0, 4, 0)
+
+
+def release_of(version: str) -> tuple[int, ...]:
+    """The release numbers a version starts with: ``0.3.1.dev88+g1`` is
+    ``(0, 3, 1)``."""
+    found = re.match(r"\d+(?:\.\d+)*", version)
+    assert found, version
+    return tuple(int(part) for part in found.group().split("."))
+
+
+def test_the_fallback_is_gone_after_the_release_it_was_kept_for() -> None:
+    """Past 0.4.0, delete ``runner.RELIEF_UNAVAILABLE`` and its use, move its
+    literal into ``rig/rungs.py`` as ``BUSY``, and delete this test with the
+    old-file tests above."""
+    import mcgyvr
+    from mcgyvr import runner
+
+    past = release_of(mcgyvr.__version__) > FALLBACK_LAST_RELEASE
+    assert not (past and hasattr(runner, "RELIEF_UNAVAILABLE")), (
+        f"mcgyvr {mcgyvr.__version__} is past 0.4.0, the one release an old "
+        "relief.yaml was read with runner.RELIEF_UNAVAILABLE: delete it"
+    )
+
+
+@pytest.mark.parametrize(
+    ("version", "release"),
+    [
+        ("0.3.1.dev88+gcd05b5ec", (0, 3, 1)),
+        ("0.4.0", (0, 4, 0)),
+        ("0.4.1.dev1", (0, 4, 1)),
+    ],
+)
+def test_a_version_is_read_by_its_release(
+    version: str, release: tuple[int, ...]
+) -> None:
+    assert release_of(version) == release
+    assert (release > FALLBACK_LAST_RELEASE) == version.startswith("0.4.1")
 
 
 def test_an_old_relief_yaml_loads_with_no_busy_answers() -> None:

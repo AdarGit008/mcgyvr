@@ -76,6 +76,7 @@ from mcgyvr.config import (
     parse,
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
+from mcgyvr.runner import RELIEF_UNAVAILABLE
 
 #: The rider's rungs, under a hub's address.
 RUNGS_PATH = "/api/v1/me/rungs"
@@ -110,11 +111,10 @@ _LADDER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@/:-]{0,127}")
 #: the rider schema publishes (``x-openai-errors``). A sync writes them into
 #: every rung it keeps (``busy_answers``), and the runner reads them there: an
 #: answer a rung names is a full rung, passed over at no cost.
-BUSY: tuple[tuple[int, str], ...] = (
-    (503, "hitchhike_not_served_yet"),
-    (503, "hitchhike_host_away"),
-    (404, "model_not_found"),
-)
+#: Read from the runner's fallback for a ``relief.yaml`` that names none, so
+#: the pairs are spelled once; when that fallback is deleted (once release
+#: 0.4.0 is out), its literal moves here.
+BUSY: tuple[tuple[int, str], ...] = tuple(sorted(RELIEF_UNAVAILABLE))
 #: How long the agent's refresher waits after a sync that failed, in seconds:
 #: the hub's own re-match interval in the contract's example.
 RETRY_S = 60.0
