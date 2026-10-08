@@ -27,14 +27,13 @@ What must be observably true, from that install:
 * the hub client's data travels with it: the seccomp profile a pooled
   session's containers run under is read from the installed ``mcgyvr.rig``.
 
-One thing that should be true is not yet, and is a strict, dated xfail: a
-fresh ``init`` writes ``profile: live``, and a live run is refused until a
-fleet is locked from dev evidence that only the development repository
-produces. ``mcgyvr init`` approving the user's own fleet (borders plan, step
-2c) turns it green, and the marker comes off then. Green means the run got as
-far as an attempt at the unit ``init`` bound, read from the run's result; that
-unit's address is a closed loopback port, so the attempt ends in a refused
-connection and nothing leaves the machine.
+And a fresh ``init`` runs a contract with nothing from the development
+repository: ``init`` writes ``profile: live`` and approves the user's own fleet
+of what it bound, so live admission lets the run through, and the run gets as
+far as an attempt at the unit ``init`` bound, read from the run's result. That
+unit's address is a loopback listener of the test's own that answers every
+request at once with a server error, so the attempt ends without waiting on any
+timeout and nothing leaves the machine.
 
 The wheel is built and installed once per test session, also when the session
 runs on several workers: the first worker builds it under a lock in the
@@ -48,7 +47,10 @@ import json
 import os
 import subprocess
 import sys
+import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -94,13 +96,50 @@ KEY_ENV = "MCGYVR_TEST_HOSTED_KEY"
 #: The unit ``init`` binds, by name as ``init`` names it.
 HOSTED_NAME = "api_claude-opus-5"
 
-#: A hosted unit bound by hand: ``init`` writes it without reaching it, and its
-#: address is a loopback port nothing listens on (the discard port), so a
-#: dispatch to it is refused at once and nothing leaves the machine.
-# after 2c: the run dispatches here, and the runner waits out its request
-# timeout on the refused port (about 4 s today); keep it short with a short
-# request timeout, or answer on an ephemeral listener instead of port 9.
-HOSTED_UNIT = f"model=claude-opus-5,address=http://127.0.0.1:9,api_key_env={KEY_ENV}"
+
+def _hosted(address: str) -> str:
+    """A hosted unit bound by hand at ``address``: ``init`` writes it without
+    reaching it."""
+    return f"model=claude-opus-5,address={address},api_key_env={KEY_ENV}"
+
+
+#: The hosted unit of the commands that dispatch nothing: its address is a
+#: loopback port nothing listens on (the discard port).
+HOSTED_UNIT = _hosted("http://127.0.0.1:9")
+
+
+class _ServerError(BaseHTTPRequestHandler):
+    """Answers each dispatch at once with a server error, once its body is read."""
+
+    def do_POST(self) -> None:
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        body = b'{"error": {"message": "no model answers here"}}'
+        self.send_response(500)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: object) -> None:
+        """Quiet: the run's result says what was asked."""
+
+
+@pytest.fixture
+def hosted_address() -> Iterator[str]:
+    """The address of a loopback listener of this test's own (:class:`_ServerError`).
+
+    A dispatch to it ends at once whatever the unit's request timeout, where a
+    closed port could be filtered and wait it out, and a fixed one could be
+    held by some other listener."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _ServerError)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 @dataclass(frozen=True)
@@ -363,23 +402,12 @@ def test_the_installed_hub_client_reads_its_seccomp_profile_from_the_package(
     assert allows.startswith("SCMP_ACT_ERRNO "), _ran(done)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "2026-10-08: owed — borders plan step 2c. A fresh `init` writes "
-        "`profile: live`, and live admission refuses every run until a fleet "
-        "is locked from dev evidence only the development repository "
-        "produces. `mcgyvr init` approving the user's own fleet turns this "
-        "green; then the marker comes off."
-    ),
-)
 def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
-    installed: Installed, tmp_path: Path
+    installed: Installed, tmp_path: Path, hosted_address: str
 ) -> None:
     home, work, repo = _a_place(tmp_path)
     env = installed.env(home, **{KEY_ENV: "unused"})
-    init = _run(work, env, installed.mcgyvr, "init", "--api", HOSTED_UNIT)
+    init = _run(work, env, installed.mcgyvr, "init", "--api", _hosted(hosted_address))
     assert init.returncode == 0, _ran(init)
 
     done = _run(
