@@ -140,6 +140,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- `mcgyvr recommend`'s coding ladder (owner, Round 9): its first rung is the
+  coder that does the most total work once its card is filled with slots
+  (slots over the bytes it reads per token), not the one fastest per token
+  for one user; on a 12 GB card that is the 7B coder at 14 slots of 8k, not
+  DeepSeek-Coder-V2-Lite at one slot with a q8_0 cache. A card of the rig no
+  awake rung uses gets a copy of the rung that does the most work there
+  (another rung only where a clear step fits within the climb budget, as
+  before): a unit of its own serving the same model at the same context,
+  filled with slots and listed beside it on the ladder, so `fanout: idle`
+  starts a batch on whichever has a free slot. The plan's `ladder` lists each
+  rig's rungs in their climb order (a rung reading fewer bytes per token
+  above the first no longer sorts ahead of it).
+
 - `recommend` chat and agent plan ONE unit for the fleet (owner, Round 7),
   spanning every card of every `--host` split by layer, the biggest model
   that fits, at 8k or more per user; across machines when they are given as

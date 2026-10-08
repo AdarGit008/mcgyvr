@@ -3,7 +3,8 @@
 Plan section 6.1, step 3: "fill: while a card has room, add a slot to the
 lowest always-on rung on it, if fit() holds and no expert block moves".
 Owner, Round 7: "start with the fastest model good enough to be useful, filled
-with slots". Plan section 10, P5: over every invented machine shape.
+with slots"; Round 9: a card no rung uses gets a copy of a rung, so more
+slots run. Plan section 10, P5: over every invented machine shape.
 
 Promises, for every shape of ``tests/machine_shapes.py`` a coding ladder is
 planned on, from the shipped knowledge:
@@ -11,7 +12,8 @@ planned on, from the shipped knowledge:
 * The cheapest rung has as many slots as fit beside the other awake units on
   its card: one more does not fit, or moves an expert block off the card, or
   is past the widest a unit is sized at.
-* Every other awake rung has one slot.
+* Every other awake rung has one slot, but for a copy of a rung on a card of
+  its own, which is filled the same way.
 """
 
 from __future__ import annotations
@@ -63,9 +65,11 @@ def test_spare_card_memory_becomes_slots_on_the_cheapest_rung(
     by_name = {u["name"]: u for u in plan["rigs"][machine.host]["units"]}
     rungs = [by_name[name] for name in plan["ladder"]]
     cheapest, *others = rungs
+    seen = {cheapest["model"]["id"]}
     for rung in others:
-        if rung["role"] == "always-on":
+        if rung["role"] == "always-on" and rung["model"]["id"] not in seen:
             assert rung["slots"] == 1, rung["name"]
+        seen.add(rung["model"]["id"])
 
     (card,) = cheapest["cards"]
     beside = sum(
