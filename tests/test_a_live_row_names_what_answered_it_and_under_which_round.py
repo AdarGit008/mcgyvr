@@ -18,6 +18,12 @@ row carries the identity fields it can know at dispatch time:
 Absent-is-honest applies to the last pair: an install that is not this checkout
 has no round to name, and a row that carried ``round: null`` or a made-up id
 would read to ``product.declare`` as a run that recorded something.
+
+The last pair is the one-step checkout fallback, read only while
+``$MCGYVR_RUN_TAGS`` is unset
+(``tests/test_a_row_carries_the_run_tags_its_environment_names.py``). It and
+the two tests of it here are deleted once the lab sets the variable (borders
+plan 2a, 2026-10-08).
 """
 
 from __future__ import annotations

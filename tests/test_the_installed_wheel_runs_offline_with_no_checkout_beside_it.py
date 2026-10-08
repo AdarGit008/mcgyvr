@@ -17,7 +17,13 @@ What must be observably true, from that install:
   ``--version``, ``capabilities``, ``catalog``, ``contract``, ``init`` with a
   hosted unit bound by hand, then ``config``, ``pool`` and ``index`` against
   what ``init`` wrote;
-* none of them writes inside the installed environment.
+* none of them writes inside the installed environment;
+* a telemetry row written from the install carries ``$MCGYVR_RUN_TAGS`` under
+  ``run_tags`` when the variable is set, and neither tags nor a round when it
+  is not: the install has no checkout to read a round from. None of the
+  commands above writes a row (only ``run`` does, and it is the xfail below),
+  so this calls :func:`mcgyvr.telemetry.observe` from the installed
+  interpreter.
 
 One thing that should be true is not yet, and is a strict, dated xfail: a
 fresh ``init`` writes ``profile: live``, and a live run is refused until a
@@ -45,6 +51,10 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_a_row_carries_the_run_tags_its_environment_names import (
+    _OUTSIDE,
+    TAGS,
+)
 from tests.test_every_module_of_the_package_imports_under_every_supported_python import (  # noqa: E501
     _IMPORT_ALL,
     _WALK_ENDED,
@@ -294,6 +304,38 @@ def test_the_installed_wheel_answers_every_offline_command(
 
     wrote = sorted(_installed_files(installed.site) - before)
     assert not wrote, f"a command wrote inside the installed package: {wrote}"
+
+
+@pytest.mark.parametrize("tagged", [False, True], ids=["no-env", "env"])
+def test_a_row_written_from_the_install_carries_only_the_tags_it_was_given(
+    installed: Installed, tmp_path: Path, tagged: bool
+) -> None:
+    home, work = tmp_path / "home", tmp_path / "work"
+    home.mkdir()
+    work.mkdir()
+    sink = tmp_path / "journal" / "a.jsonl"
+    extra = {"MCGYVR_RUN_TAGS": json.dumps(TAGS)} if tagged else {}
+    env = installed.env(home, **extra)
+
+    done = _run(
+        work,
+        env,
+        installed.python,
+        "-I",
+        "-c",
+        _OUTSIDE.replace("SINK", repr(str(sink))),
+    )
+
+    assert done.returncode == 0, _ran(done)
+    out = json.loads(done.stdout.strip().splitlines()[-1])
+    assert installed.site in Path(out["file"]).resolve().parents, out["file"]
+    row = out["row"]
+    assert "round" not in row, row
+    assert "product_sha256" not in row, row
+    if tagged:
+        assert row["run_tags"] == TAGS, row
+    else:
+        assert "run_tags" not in row, row
 
 
 @pytest.mark.xfail(

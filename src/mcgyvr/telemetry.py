@@ -94,16 +94,30 @@ served it, which system prompt it carried or which product revision dispatched
 it. So each row also carries ``endpoint``,
 ``model``, ``protocol``, ``condition`` — always ``"stock"``: live work is the
 product as shipped, never an ablation, and the field is what tells a live row
-from a bench cell by content rather than by path — ``bundle_sha256`` (the
-system prompt, hashed as the bench hashes it), and, when the process runs
-inside this repo checkout, ``round`` and ``product_sha256``, read from
-``tools/bench/product`` loaded by path the way ``tools/breadth/measure.py``
-loads it. Off-round is recorded, not refused: live work is not a measurement
-run, ``require_pinned`` is never called here, and the digest written is the
-tree's, so a reader can flag ``off_round`` instead of being told nothing ran.
-An install that is not this checkout has no round to name, and both keys are
-absent rather than null — ``round: null`` would read to ``product.declare`` as
-a run that recorded something.
+from a bench cell by content rather than by path — and ``bundle_sha256`` (the
+system prompt, hashed as the bench hashes it).
+
+**What the run belongs to is said by whoever started it, not looked up.** The
+product cannot know which experiment, build or round a process is part of, and
+it does not go looking: ``$MCGYVR_RUN_TAGS`` holds a small JSON object of text,
+number and true/false values, and every row the process writes carries it,
+scrubbed and otherwise as given, under ``run_tags`` (:func:`run_tags`). Under
+one key and not spread over the row, so no tag can stand in for a field this
+module writes — ``outcome`` is what :func:`fold` folds a correction into — and
+so a reader can tell what was measured here from what the caller asserted. A
+variable that is set and is not such an object is refused, as an unusable
+``$MCGYVR_HOME`` is: a run whose rows silently lost their tags is noticed a
+week later, when they cannot be told apart. Unset or empty, the row has no
+``run_tags``.
+
+**One step only: the checkout fallback.** With the variable unset, a process
+running inside a development checkout still stamps ``round`` and
+``product_sha256`` from ``tools/bench/product.py`` loaded by path
+(:func:`_product_revision`), so the lab keeps its stamp until it sets the
+variable itself. That is the one place this module runs code that is not the
+package's, it is fenced by
+``tests/test_telemetry_runs_no_lab_code_but_its_dated_fallback.py``, and it is
+deleted once the lab sets ``$MCGYVR_RUN_TAGS`` (borders plan 2a, 2026-10-08).
 """
 
 from __future__ import annotations
@@ -114,6 +128,7 @@ import functools
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import sys
 import threading
@@ -175,10 +190,42 @@ BLOB_DIR = "blobs"
 # told apart by content: a directory of rows says nothing about which it holds.
 STOCK = "stock"
 
-# The `sys.modules` slot tools/breadth/measure.py loads tools/bench/product.py
-# into. The same slot, not a suffixed one, so a process that already holds the
-# module is handed that copy rather than a second one that could disagree.
+#: The variable whoever starts a run sets to tag every row it writes: a JSON
+#: object of text, number and true/false values (:func:`run_tags`).
+RUN_TAGS_ENV = "MCGYVR_RUN_TAGS"
+
+#: The row key the tags land under, whole. One key rather than spread over the
+#: row: a tag named ``outcome`` or ``attempt_id`` would otherwise rewrite what
+#: :func:`fold` folds by, and a reader could not tell a caller's claim from a
+#: measurement.
+RUN_TAGS_KEY = "run_tags"
+
+#: The most bytes the variable may hold. The tags are copied onto every row, so
+#: the cap is what stops a run from writing a document thousands of times; a
+#: round id and a sha256 are about 120 bytes, and this leaves room for dozens.
+RUN_TAGS_MAX_BYTES = 4096
+
+#: The largest integer a tag may be, either sign: past 2**53 a reader that
+#: holds JSON numbers as doubles (JavaScript, jq) no longer reads it exactly.
+RUN_TAGS_MAX_INT = 2**53
+
+type TagValue = str | int | float | bool
+
+# FALLBACK, one step only (borders plan 2a, 2026-10-08): delete with
+# `_checkout`, `_bench_product` and `_product_revision` once the lab sets
+# MCGYVR_RUN_TAGS. The `sys.modules` slot tools/breadth/measure.py loads
+# tools/bench/product.py into. The same slot, not a suffixed one, so a process
+# that already holds the module is handed that copy rather than a second one
+# that could disagree.
 _PRODUCT_SLOT = "bench_product"
+
+
+class RunTagsError(ValueError):
+    """``$MCGYVR_RUN_TAGS`` is set and is not a small object of scalar values.
+
+    A ``ValueError``, so ``mcgyvr run`` refuses it with the one-line ``error:``
+    it gives every other recording it cannot set up.
+    """
 
 
 def observe[T](
@@ -485,6 +532,16 @@ def _identity(
     if temperature is not None:
         fields["temperature"] = temperature
     fields |= _prompt_identity(store, messages)
+    # After the prompt, so a row for tags refused still names what it asked.
+    tags = run_tags()
+    if tags is not None:
+        # Set is the whole answer, `{}` included: the caller said what the run
+        # belongs to, and the checkout is not also asked.
+        if tags:
+            fields[RUN_TAGS_KEY] = tags
+        return
+    # FALLBACK, one step only (borders plan 2a, 2026-10-08): delete from here
+    # to the end of this function once the lab sets MCGYVR_RUN_TAGS.
     try:
         revision = _product_revision()
     except Exception as failure:
@@ -584,6 +641,96 @@ def _store_one(path: Path, data: bytes) -> str:
             os.unlink(staging)
         raise
     return digest
+
+
+def run_tags() -> dict[str, TagValue] | None:
+    """``$MCGYVR_RUN_TAGS`` as the row will carry it, or ``None`` when it is unset.
+
+    Read on every call rather than once, so a process that sets the variable
+    between runs tags the next one; it is a few kilobytes of JSON at most.
+    Unset and empty are the same answer, as for ``$MCGYVR_HOME``: no tags, and
+    the caller may look elsewhere. ``{}`` is an answer of its own — set, and
+    naming nothing.
+
+    Refused with :class:`RunTagsError` naming the variable when it is not a
+    JSON object; when it holds more than :data:`RUN_TAGS_MAX_BYTES`; when a key
+    is empty or appears twice (JSON keeps the last silently, so one of the two
+    would be lost unsaid); or when a value is anything but text, a finite
+    number or true/false. ``null`` is refused under the absent-is-honest rule
+    of every other key here, a list or an object because a tag is a column a
+    reader filters on, ``NaN`` because the row would no longer be JSON, an
+    integer past :data:`RUN_TAGS_MAX_INT` because a reader in doubles would
+    read another number, and a lone surrogate in a key or a value because it
+    has no UTF-8 and the row could not be written.
+    Text values are scrubbed (:func:`~mcgyvr.redact.scrub`), as every string a
+    row quotes that it did not build; a key the scrub would change is refused
+    instead, unechoed, because a renamed key could collide with another.
+    """
+    value = os.environ.get(RUN_TAGS_ENV)
+    if not value:
+        return None
+    size = len(value.encode("utf-8", "surrogateescape"))
+    if size > RUN_TAGS_MAX_BYTES:
+        raise RunTagsError(
+            f"{RUN_TAGS_ENV} holds {size} bytes; it is copied onto every row, "
+            f"so it is held to {RUN_TAGS_MAX_BYTES} bytes. Tag the run, do not "
+            f"store a document in it"
+        )
+
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        keys = [key for key, _ in items]
+        twice = sorted({key for key in keys if keys.count(key) > 1})
+        if twice:
+            named = [scrub(key) for key in twice]
+            raise RunTagsError(f"{RUN_TAGS_ENV} names {named!r} twice")
+        return dict(items)
+
+    try:
+        parsed = json.loads(value, object_pairs_hook=pairs)
+    except json.JSONDecodeError as exc:
+        raise RunTagsError(
+            f"{RUN_TAGS_ENV} is not JSON ({exc.msg} at character {exc.pos}); set "
+            f'it to a JSON object, e.g. {{"round": "r7"}}, or unset it'
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise RunTagsError(
+            f"{RUN_TAGS_ENV} is not a JSON object but {type(parsed).__name__}; "
+            f'set it to an object, e.g. {{"round": "r7"}}'
+        )
+    tags: dict[str, TagValue] = {}
+    for key, tag in parsed.items():
+        if not key:
+            raise RunTagsError(f"{RUN_TAGS_ENV} has an empty key")
+        if not _utf8(key):
+            raise RunTagsError(f"{RUN_TAGS_ENV} has a key with a lone surrogate")
+        if scrub(key) != key:
+            raise RunTagsError(
+                f"{RUN_TAGS_ENV} has a key holding a credentialed URL; a key "
+                f"names a tag, it does not carry one"
+            )
+        if isinstance(tag, str) and _utf8(tag):
+            tags[key] = scrub(tag)
+        elif (
+            isinstance(tag, bool)
+            or (isinstance(tag, int) and abs(tag) <= RUN_TAGS_MAX_INT)
+            or (isinstance(tag, float) and math.isfinite(tag))
+        ):
+            tags[key] = tag
+        else:
+            raise RunTagsError(
+                f"{RUN_TAGS_ENV} sets {key!r} to {scrub(json.dumps(tag))}; a tag "
+                f"is text, a number within ±2**53 or true/false"
+            )
+    return tags
+
+
+def _utf8(text: str) -> bool:
+    """Whether ``text`` encodes as UTF-8: no lone surrogate in it."""
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def _checkout() -> Path:
