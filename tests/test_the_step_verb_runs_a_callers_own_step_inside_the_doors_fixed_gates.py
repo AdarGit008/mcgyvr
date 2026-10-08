@@ -344,3 +344,71 @@ def test_the_campaign_run_keeps_its_own_serving_defaults() -> None:
         ["--host", "h", "--campaign", "c", "--model", "/m.gguf", "--ctx-per-slot", "1"]
     )
     assert (opts.parallel, opts.ubatch) == (8, 512)
+
+
+def _lab_step(
+    root: Path, campaign: str, step: Path
+) -> subprocess.CompletedProcess[str]:
+    """A lab-mode ``step`` from the one-door fixture, to completion."""
+    argv = [sys.executable, str(root / onedoor.DOOR_REL), "step", "--mode", "lab"]
+    argv += ["--host", "srv1", "--campaign", campaign, "--step", str(step)]
+    argv += ["--date", onedoor.RUN_DATE]
+    return subprocess.run(
+        argv,
+        cwd=root,
+        env=onedoor.door_env(root),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+
+
+def test_a_lab_step_naming_a_campaign_the_lab_has_not_declared_is_refused_at_gate_5(
+    tmp_path: Path,
+) -> None:
+    root = onedoor.fixture_repo(tmp_path)
+    step = onedoor.executable(
+        root / "loose-step.sh", onedoor.probe_step(tmp_path / "step.env")
+    )
+
+    done = _lab_step(root, "no-such-campaign", step)
+
+    said = done.stdout + done.stderr
+    assert done.returncode == 2, said
+    assert "no campaign 'no-such-campaign'" in said
+    assert "05-envelope.py" in said
+    assert not (tmp_path / "step.env").exists(), "the step ran"
+    assert onedoor.written_under_records(root) == []
+
+
+def test_a_lab_steps_tsv_is_read_with_the_labs_parser_at_gate_8(
+    tmp_path: Path,
+) -> None:
+    root = onedoor.fixture_repo(tmp_path)
+    step = onedoor.add_step(
+        root,
+        "probe-camp",
+        "1-probe.sh",
+        onedoor.probe_step(tmp_path / "step.env", end_line="### END run_id=elsewhere"),
+    )
+
+    done = _lab_step(root, "probe-camp", step)
+
+    said = done.stdout + done.stderr
+    assert done.returncode == 1, said
+    assert "gate 8: probe.tsv" in said
+    assert "run_id='elsewhere'" in said
+
+
+def test_a_step_refuses_an_inherited_run_variable_before_any_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    monkeypatch.setenv("RUN_OUT_ROOT", str(tmp_path))
+
+    assert run.main(cg.step_argv(tmp_path)) == 2
+    assert _order(log) == []

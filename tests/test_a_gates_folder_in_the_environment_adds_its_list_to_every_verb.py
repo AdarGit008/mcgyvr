@@ -352,3 +352,22 @@ def test_the_fleets_probe_link_carries_the_environments_gates(
     assert ran.code == 2, ran.stderr
     assert _order(log) == ["caller:link"]
     assert onedoor.ssh_log(stubs) == []
+
+
+@pytest.mark.parametrize("verb", VERBS)
+def test_the_folders_list_named_again_by_gates_runs_once(
+    verb: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One file named both ways, the option by a link to it, is one list."""
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    folder = tmp_path / "folder"
+    listed = _before_list(folder / f"{verb}.json", log, "caller:early")
+    link = tmp_path / "linked.json"
+    link.symlink_to(listed)
+    monkeypatch.setenv(run.GATES_ENV, str(folder))
+
+    assert run.main(_argv(verb, tmp_path, "--gates", str(link))) == 0
+
+    assert _order(log).count("caller:early") == 1
