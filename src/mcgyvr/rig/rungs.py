@@ -8,7 +8,9 @@ beside the setup (:data:`mcgyvr.config.RELIEF_FILENAME`): one relief rung per
 listed rung, so a rung the hub no longer lists is gone, and nothing else in the
 setup is touched. Each rung names the variable that holds the key
 (``api_key_env``), never the key: the runner reads it at dispatch, as it reads
-every unit's.
+every unit's. Each also names the hub's answers that mean it cannot take the
+request now (``busy_answers``, :data:`BUSY`): the hub's vocabulary is kept
+here, and the runner reads it from the file.
 
 **The key goes only where the rig token may.** The hub is asked over
 ``https://``, or ``http://`` on this machine, by the one rule
@@ -101,6 +103,18 @@ NAME_PREFIX = "hitchhike-"
 MAX_LADDER_RUNGS = 64
 #: A reported rung's model, as the hub takes it.
 _LADDER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@/:-]{0,127}")
+#: The hub's answers that say a relief rung cannot take the request now, as
+#: (HTTP status, error code): not served yet (the relay to the host's unit),
+#: its host gone away (a hub that does not know that code yet says "not served
+#: yet" for it), or no longer matched (a stale ``relief.yaml``). Each is a pair
+#: the rider schema publishes (``x-openai-errors``). A sync writes them into
+#: every rung it keeps (``busy_answers``), and the runner reads them there: an
+#: answer a rung names is a full rung, passed over at no cost.
+BUSY: tuple[tuple[int, str], ...] = (
+    (503, "hitchhike_not_served_yet"),
+    (503, "hitchhike_host_away"),
+    (404, "model_not_found"),
+)
 #: How long the agent's refresher waits after a sync that failed, in seconds:
 #: the hub's own re-match interval in the contract's example.
 RETRY_S = 60.0
@@ -421,6 +435,7 @@ def render(rides: Rides, key_env: str) -> str:
             "position": each.position,
             "hosted_by": each.hosted_by,
             "served_model": each.served_model,
+            "busy_answers": [{"status": status, "code": code} for status, code in BUSY],
         }
         for each in rides.rungs
     }

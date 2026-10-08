@@ -183,6 +183,10 @@ class Endpoint:
     #: A relief rung's ``served_model``: the host's model, which a ridden
     #: answer must name, or ``None`` where the rung's entry states none.
     served_model: str | None = None
+    #: The answers, as ``(HTTP status, error code)``, that say this endpoint
+    #: cannot take a request now, which the runner reads as a full rung; or
+    #: ``None`` where its unit names none (:mod:`mcgyvr.runner`).
+    busy_answers: frozenset[tuple[int, str]] | None = None
     #: Who sets a request's sampling parameters (``units.<unit>.sampling``):
     #: ``request`` sends a temperature, ``server`` sends none because the
     #: unit's model refuses the parameter. Carried, not enforced: the runner
@@ -641,6 +645,9 @@ def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
         engine=unit.engine,
         relief=unit.relief,
         served_model=unit.served_model,
+        busy_answers=(
+            None if unit.busy_answers is None else frozenset(unit.busy_answers)
+        ),
         sampling=unit.sampling,
     )
 

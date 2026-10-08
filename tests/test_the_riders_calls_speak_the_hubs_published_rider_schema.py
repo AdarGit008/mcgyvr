@@ -10,8 +10,10 @@ OpenAI-compatible ``/v1`` as a code with its one HTTP status
 Held here: the path a sync asks is the one published; the ladder a sync
 ``POST``s is a request the hub takes, which is closed (a key the hub does not
 name is refused, so none is sent); the listing these tests serve as the
-hub's answer is one the hub may send; and every refusal the runner reads off
-a hub, by its status and code, is a pair the hub publishes, with that status.
+hub's answer is one the hub may send; and every refusal read off a hub, by
+its status and code, is a pair the hub publishes, with that status: the busy
+answers a sync writes into ``relief.yaml`` (:data:`mcgyvr.rig.rungs.BUSY`),
+and those the runner still names itself.
 """
 
 from __future__ import annotations
@@ -93,9 +95,24 @@ def test_the_listing_these_tests_serve_is_an_answer_the_hub_may_send(
     assert [each.id for each in read.rungs] == ([FIRST, SECOND] if ride else [])
 
 
+def test_every_busy_answer_a_sync_writes_is_a_published_pair(
+    rider: dict[str, Any],
+) -> None:
+    """The busy answers' home is the hub client: a sync writes them into
+    ``relief.yaml``, and the runner reads them from there."""
+    from mcgyvr.rig import rungs
+
+    published = rider["x-openai-errors"]
+    assert rungs.BUSY
+    assert [pair for pair in rungs.BUSY if published.get(pair[1]) != pair[0]] == []
+
+
 def test_every_hub_refusal_the_runner_reads_is_a_published_pair(
     rider: dict[str, Any],
 ) -> None:
+    """What the runner still names itself: the answers it reads on any rung,
+    and the busy answers it falls back to for a ``relief.yaml`` written
+    before a sync wrote them."""
     from mcgyvr import runner
 
     read = set(runner.RELIEF_UNAVAILABLE) | {

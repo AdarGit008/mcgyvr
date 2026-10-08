@@ -77,16 +77,19 @@ local OpenAI-compatible server needs no API key and is never sent an
 unauthenticated-looking credential. No error message here interpolates a key.
 
 **A relief rung that cannot take the request now is full.** A relief rung's
-endpoint is a hub relaying to another person's unit, and the hub answers ``503``
-``hitchhike_not_served_yet`` while it cannot relay, ``503``
-``hitchhike_host_away`` when the host has just gone away, and ``404``
-``model_not_found`` for a rung it no longer matches this rider to. None is a
-verdict on anything: no model was asked. So on a relief endpoint, and only
-there, those three answers are :class:`ReliefUnavailableError`, a
+endpoint is a hub relaying to another person's unit, and some of its answers
+say only that it cannot take the request now. Which ones is the rung's to say:
+its endpoint carries them (``busy_answers``, each an HTTP status and an error
+code, written by ``mcgyvr rig rungs sync``), and this module names them only
+as the fallback for an entry written before syncs wrote them
+(:data:`RELIEF_UNAVAILABLE`). None is a verdict on anything: no model was
+asked. So on a relief endpoint, and only there, those answers are
+:class:`ReliefUnavailableError`, a
 :class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
 around as a full rung. The rung is asked once and never again for the same
 request: a host that left is not waited for, whatever the answer says of
-retrying. From a ladder rung the two ``503`` bodies are that rung's error.
+retrying. From a ladder rung they are read by the rules below, or are that
+rung's error.
 A hub that cannot place a pooled model answers ``503`` ``model_unplaced``,
 on any rung: the same kind of answer, :class:`ModelUnplacedError`, and the
 climb tries the next rung at once, another model's included.
@@ -297,10 +300,12 @@ class ReliefUnavailableError(SlotUnavailableError):
     """
 
 
-#: The hub's answers that say a relief rung cannot take the request now: not
-#: served yet (the relay to the host's unit), its host gone away (a hub that
-#: does not know that code yet says "not served yet" for it), or no longer
-#: matched (a stale ``relief.yaml``).
+#: The answers a relief rung is full on when its endpoint names none
+#: (``busy_answers``): an entry written before a sync wrote them. The hub
+#: client keeps that vocabulary (``mcgyvr.rig.rungs.BUSY``, which a test holds
+#: this equal to); this fallback is the one place the core still spells it.
+#: Delete it once release 0.4.0 is out (written 2026-10-08): an entry with no
+#: ``busy_answers`` then has none, until a sync rewrites it.
 RELIEF_UNAVAILABLE: frozenset[tuple[int, str]] = frozenset(
     {
         (503, "hitchhike_not_served_yet"),
@@ -335,7 +340,8 @@ class UnknownModelError(SlotUnavailableError):
 
 
 #: The answer of an address asked for a model it does not know. On a relief
-#: rung it is in :data:`RELIEF_UNAVAILABLE`, a stale rung, and is read there.
+#: rung that names it among its busy answers (a stale rung; a sync names it),
+#: it is read as busy there.
 UNKNOWN_MODEL: tuple[int, str] = (404, "model_not_found")
 
 
@@ -686,7 +692,10 @@ class Runner(ABC):
                 url, self._payload(model, request), self._headers(), request.timeout_s
             )
         except BackendError as exc:
-            if self.endpoint.relief and (exc.status, exc.code) in RELIEF_UNAVAILABLE:
+            busy = self.endpoint.busy_answers
+            if busy is None:
+                busy = RELIEF_UNAVAILABLE
+            if self.endpoint.relief and (exc.status, exc.code) in busy:
                 raise ReliefUnavailableError(
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
