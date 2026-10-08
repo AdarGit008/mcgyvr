@@ -261,3 +261,66 @@ def test_the_doors_help_names_step_as_an_advanced_command(
     assert "advanced" in own
     for hole in ("--skip", "--force", "--no-"):
         assert hole not in own
+
+
+#: A caller's ``after`` gate of the shape the lab's serving-markers gate is:
+#: run by the door's Python, it loads the door's gate library, reads the tree
+#: and the campaign the run names, and refuses through the library when the
+#: campaign's folder under its root says so.
+CAMPAIGN_GATE = """\
+#!/usr/bin/env python3
+import os
+from mcgyvr.serving import gatelib
+
+where = gatelib.root()
+name = os.environ.get("RUN_CAMPAIGN", "")
+with open(os.environ["SEEN"], "a", encoding="utf-8") as out:
+    out.write(f"root={where} campaign={name} host={os.environ.get('RUN_HOST')}\\n")
+if (where / "campaigns" / name / "refuse").exists():
+    gatelib.refuse(f"campaign {name} is refused by the caller's own rule")
+"""
+
+
+@pytest.mark.parametrize("refuses", [False, True])
+def test_a_callers_after_gate_reads_the_campaign_the_step_run_names(
+    tmp_path: Path, refuses: bool
+) -> None:
+    usermode.save_rig()
+    stubs = usermode.machine(tmp_path, pending=())
+    record = tmp_path / "record.txt"
+    script = usermode.step_script(tmp_path, record)
+    lab = tmp_path / "callers-tree"
+    cg.executable(lab / "gates" / "campaign.py", CAMPAIGN_GATE)
+    (lab / "campaigns" / usermode.CAMPAIGN).mkdir(parents=True)
+    if refuses:
+        (lab / "campaigns" / usermode.CAMPAIGN / "refuse").touch()
+    listed = cg.write_list(
+        tmp_path / "step.json", str(lab), [cg.entry("gates/campaign.py", "after")]
+    )
+    seen = tmp_path / "seen.txt"
+
+    done = usermode.door(
+        usermode.step(script, extra=("--gates", str(listed))),
+        stubs=stubs,
+        run_root=usermode.install_root(tmp_path),
+        cwd=tmp_path,
+        env_extra={
+            "MCGYVR_CONFIG": str(usermode.dev_setup(tmp_path)),
+            "SEEN": str(seen),
+        },
+    )
+
+    said = done.stdout + done.stderr
+    assert seen.read_text(encoding="utf-8").split() == [
+        f"root={lab.resolve()}",
+        f"campaign={usermode.CAMPAIGN}",
+        f"host={usermode.RIG}",
+    ]
+    if refuses:
+        assert done.returncode == 2, said
+        assert "refused by the caller's own rule" in said
+        assert not record.exists()
+    else:
+        assert done.returncode == 0, said
+        assert record.exists()
+    assert onedoor.read_lease(tmp_path) is None
