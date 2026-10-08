@@ -96,3 +96,17 @@ jobs:
           fi
           git show "FETCH_HEAD:$LIST" > "$RUNNER_TEMP/base-list.txt"
           python3 tests/uninvented_machines.py --compare "$RUNNER_TEMP/base-list.txt"
+      # The hub's borders (tests/hub_borders.py) are held the same way: the
+      # imports into the hub client and the hub words in the offline core may
+      # only shrink, and the words read and the places that are not the core
+      # may not widen. The base's copy is read as a syntax tree, never run.
+      - name: compare the hub's borders with the base branch's
+        env:
+          BORDERS: tests/hub_borders.py
+        run: |
+          if ! git cat-file -e "FETCH_HEAD:$BORDERS" 2>/dev/null; then
+            echo "the base branch has no $BORDERS; nothing to compare"
+            exit 0
+          fi
+          git show "FETCH_HEAD:$BORDERS" > "$RUNNER_TEMP/base-borders.py"
+          python3 tests/hub_borders.py --compare "$RUNNER_TEMP/base-borders.py"
