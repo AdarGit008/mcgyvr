@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from mcgyvr.scan import Scan
 from mcgyvr.serving import rigfile
 from tests import onedoor, usermode
@@ -85,6 +87,21 @@ def test_with_no_rig_file_the_door_says_how_to_make_one_and_starts_nothing(
     assert onedoor.ssh_log(stubs) == [], "the rig was reached before the refusal"
     assert onedoor.docker_log(stubs) == []
     assert usermode.door_logs(usermode.home()) == []
+
+
+def test_serve_up_reads_the_rig_file_from_the_named_rigs_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rigs = tmp_path / "rigs-elsewhere"
+    rigs.mkdir()
+    monkeypatch.setenv("MCGYVR_RIGS", str(rigs))
+    _save_rig(usermode.scan_payload())
+    stubs = usermode.machine(tmp_path)
+
+    code, said = _up(tmp_path, stubs)
+
+    assert code == 0, said
+    assert not (usermode.home() / ".mcgyvr" / "rigs").exists(), said
 
 
 def test_a_rig_that_moved_but_still_holds_the_fleet_is_said_and_served(

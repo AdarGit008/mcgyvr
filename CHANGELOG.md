@@ -11,6 +11,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `MCGYVR_RIGS` names the folder that holds the door's rig files (borders plan
+  2b-P1b). Unset or empty, a rig file stays at `$MCGYVR_HOME/rigs/<rig>.json`
+  exactly as before. `~` is expanded; a relative path is refused, naming the
+  variable. Every reader and writer of a rig file (`mcgyvr scan --rig`, the
+  door's gate 2 and read-02, `fleet sample`) goes through
+  `mcgyvr.serving.rigfile.path`, so a value that names no usable folder is the
+  same refusal a bad rig name is.
 - `MCGYVR_RUN_TAGS` tags a run's journal rows (borders plan 2a). Set it to a
   JSON object of text, number or true/false values (at most 4096 bytes) and
   every row the run writes carries it under `run_tags`, text scrubbed. Set to

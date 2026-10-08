@@ -55,6 +55,13 @@ LIVE_FILE = "live.json"
 #: as the default. A refusal names the file it read (:func:`live_file`).
 FLEETS_SHOWN = f"${HOME_ENV}/{FLEETS_DIR} (default {HOME_DIR}/{FLEETS_DIR})"
 LIVE_FILE_SHOWN = f"${HOME_ENV}/{LIVE_FILE} (default {HOME_DIR}/{LIVE_FILE})"
+#: The variable that moves the rig-file folder, and the folder's name under
+#: the config folder when it is unset.
+RIGS_ENV = "MCGYVR_RIGS"
+RIGS_DIR = "rigs"
+#: The rig-file folder as help text names it: by the variable, with the default
+#: (the config folder's ``rigs``) marked as the default.
+RIGS_SHOWN = f"${RIGS_ENV} (default ${HOME_ENV}/{RIGS_DIR})"
 #: What separates a fleet from the date of its lock in a promoted folder's name.
 TAG = "@"
 #: The date a tag carries: the lock's ``validated_at`` day, ``YYYY-MM-DD``,
@@ -134,6 +141,16 @@ def data_home() -> Path:
 def fleets_dir() -> Path:
     """``<config folder>/fleets``: one folder per promoted fleet."""
     return home() / FLEETS_DIR
+
+
+def rigs_dir() -> Path:
+    """The rig-file folder: ``$MCGYVR_RIGS``, else ``<config folder>/rigs``.
+
+    The door's user mode reads each rig file here
+    (:func:`mcgyvr.serving.rigfile.path`), whatever folder it came from.
+    """
+    named = _named(RIGS_ENV, f"{HOME_ENV}/{RIGS_DIR}")
+    return named if named is not None else home() / RIGS_DIR
 
 
 def live_file() -> Path:

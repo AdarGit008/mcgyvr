@@ -2,13 +2,14 @@
 
 Owner, 2026-10-07 (Round 5): a door run from an install has no lab checkout,
 so there is no lab ``hosts.json`` declaring the rig. What it has
-instead is the rig file ``$MCGYVR_HOME/rigs/<rig>.json`` (:func:`path`): the
+instead is the rig file ``<rig-file folder>/<rig>.json`` (:func:`path`): the
 rig's read-only ssh scan (:mod:`mcgyvr.serving.rigscan`, the one scanner),
 saved by ``mcgyvr scan --rig`` -- its hostname, its cards and their memory,
 its RAM, its free disk, its docker version, and its private IPv4 address
 (:func:`private_ipv4`, owner Round 9: the address an RPC worker of a unit
 spanning machines listens on, as the rig reported it; nothing is resolved).
-``mcgyvr setup`` will write it on a first run.
+The rig-file folder is ``$MCGYVR_RIGS`` when the user named one, else the
+config folder's ``rigs``. ``mcgyvr setup`` will write the file on a first run.
 
 Each user-mode door run reads the rig again with the same scanner and holds
 the reading to the file (:func:`door_check`): it says what moved, and it
@@ -32,11 +33,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.fleet.roots import home
+from mcgyvr.fleet.roots import FolderError, rigs_dir
 from mcgyvr.scan import SSH_TIMEOUT_S, Network, Scan
 
-#: The folder of rig files under the config folder.
-RIGS_DIR = "rigs"
 #: What a rig name may be: a plain file name, as an ssh alias is.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 #: The command that writes a rig file, as a refusal names it.
@@ -226,17 +225,23 @@ def from_scan(rig: str, scan: Scan, read_at: str | None = None) -> Rig:
 
 
 def path(rig: str) -> Path:
-    """``$MCGYVR_HOME/rigs/<rig>.json`` (default ``~/.mcgyvr``), or refused.
+    """The rig file for ``rig``: ``<rig-file folder>/<rig>.json``, or refused.
 
+    The rig-file folder is ``$MCGYVR_RIGS`` (default ``$MCGYVR_HOME/rigs``).
     A rig name is a plain file name: a slash, a leading dot or an empty name
-    would put the file somewhere else than the folder of rig files.
+    would put the file somewhere else than the folder of rig files. A value
+    of ``$MCGYVR_RIGS`` that names no usable folder is refused the same way.
     """
     if NAME.fullmatch(rig) is None:
         raise RigFileError(
             f"rig name {rig!r} is not a plain name (letters, digits, '.', '_' and "
             "'-', not starting with '.'); a rig is named as your ssh names it"
         )
-    return home() / RIGS_DIR / f"{rig}.json"
+    try:
+        folder = rigs_dir()
+    except FolderError as exc:
+        raise RigFileError(str(exc)) from exc
+    return folder / f"{rig}.json"
 
 
 def write(rig: Rig) -> Path:

@@ -52,6 +52,36 @@ def test_scan_rig_writes_the_rig_file_under_the_config_folder(
     assert rigfile.read(usermode.RIG) == rigfile.from_json(path.read_text("utf-8"))
 
 
+def test_scan_rig_writes_to_the_named_rigs_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rigs = tmp_path / "rigs-elsewhere"
+    monkeypatch.setenv("MCGYVR_RIGS", str(rigs))
+    _on_path(usermode.machine(tmp_path), monkeypatch)
+
+    assert cli.main(["scan", "--rig", usermode.RIG]) == 0
+
+    path = rigs / f"{usermode.RIG}.json"
+    assert str(path) in capsys.readouterr().out
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["rig"] == usermode.RIG
+    assert not (tmp_path / "settings" / "rigs").exists()
+
+
+def test_a_relative_rigs_folder_is_refused_before_anything_reaches_a_rig(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    stubs = usermode.machine(tmp_path)
+    _on_path(stubs, monkeypatch)
+    monkeypatch.setenv("MCGYVR_RIGS", "relative/rigs")
+
+    assert cli.main(["scan", "--rig", usermode.RIG]) != 0
+
+    said = capsys.readouterr().err
+    assert "MCGYVR_RIGS" in said, said
+    assert onedoor.ssh_log(stubs) == [], "the rig was reached before the refusal"
+
+
 def test_a_second_scan_says_what_moved_since_the_last(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
