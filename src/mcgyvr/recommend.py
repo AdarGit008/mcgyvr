@@ -69,7 +69,7 @@ from mcgyvr.scan import (
     ScannerMissing,
     Unreachable,
 )
-from mcgyvr.serving import gatelib
+from mcgyvr.serving import gatelib, rigfile
 
 #: The deprecated ``--profile`` spellings, read for one release, and the use
 #: case each one means. ``other`` names no use case, so nothing is planned.
@@ -194,6 +194,26 @@ def _discover(host: str, directory: str) -> tuple[str, ...]:
     return tuple(
         line for line in (part.strip() for part in listing.splitlines()) if line
     )
+
+
+def recorded_addresses(hosts: Sequence[str]) -> dict[str, str]:
+    """The private IPv4 address each host's rig file records, by host.
+
+    Owner, Round 9: ``mcgyvr scan --rig`` records it, as the rig reported it,
+    and a unit spanning machines binds its workers there. A host with no rig
+    file, or one that records no address or cannot be read, is not in the
+    result: the plan says so where it leaves that machine out. Nothing is
+    resolved.
+    """
+    found: dict[str, str] = {}
+    for host in hosts:
+        try:
+            saved = rigfile.read(host)
+        except rigfile.RigFileError:
+            continue
+        if saved is not None and saved.private_ipv4 is not None:
+            found[host] = saved.private_ipv4
+    return found
 
 
 def _scan_host(host: str) -> Scan:
@@ -428,6 +448,7 @@ def plan(
         except Unreachable as exc:
             unreachable.append({"host": host, "why": f"ssh did not answer: {exc}"})
     read_at = datetime.now(UTC).isoformat(timespec="seconds")
+    addresses = recorded_addresses(list(scans))
 
     def done(
         laid: Sequence[planner.Sized],
@@ -485,6 +506,7 @@ def plan(
             jev=jev_unit,
             priority=priority,
             clear=clear_step,
+            addresses=addresses,
         )
 
     assembled: dict[str, planner.Choices] = {}

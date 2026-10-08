@@ -156,6 +156,15 @@ def _pinned() -> dict[str, str]:
     return {DEVICE_ORDER_ENV: DEVICE_ORDER_BUS}
 
 
+def worker_may_listen(address: ipaddress.IPv4Address) -> bool:
+    """Whether an ``rpc-server`` worker may listen on ``address``: not the
+    address that means every interface, not loopback, and not one reachable
+    from the internet. A private (RFC 1918), shared (RFC 6598, as overlay
+    networks use) or link-local address may. The one rule :func:`_bind` holds
+    a worker to and the rig file holds a recorded address to."""
+    return not (address.is_unspecified or address.is_loopback or address.is_global)
+
+
 def _bind(target: Target, *, model: str) -> str:
     """The IPv4 address a worker on this card's machine listens on.
 
@@ -183,20 +192,20 @@ def _bind(target: Target, *, model: str) -> str:
             f"IPv4 literal while {target.host!r} is a name. State the address "
             f"the head reaches it at as `bind` on that shard"
         ) from None
+    if worker_may_listen(address):
+        return str(address)
     if address.is_unspecified or address.is_loopback:
         raise LaunchError(
             f"{model}: {where} would bind {stated}, and a worker on another "
             f"machine must listen on the one address the head reaches it at, "
             f"never every interface and never loopback; state it as `bind`"
         )
-    if address.is_global:
-        raise LaunchError(
-            f"{model}: {where} would bind {stated}, an address reachable from "
-            f"the internet, and rpc-server has no authentication: anyone who "
-            f"reaches it can use the card. Bind a private or overlay-network "
-            f"address the head reaches it at"
-        )
-    return str(address)
+    raise LaunchError(
+        f"{model}: {where} would bind {stated}, an address reachable from "
+        f"the internet, and rpc-server has no authentication: anyone who "
+        f"reaches it can use the card. Bind a private or overlay-network "
+        f"address the head reaches it at"
+    )
 
 
 def _head_shards(plan: Plan, *, model: str) -> tuple[Shard, ...]:

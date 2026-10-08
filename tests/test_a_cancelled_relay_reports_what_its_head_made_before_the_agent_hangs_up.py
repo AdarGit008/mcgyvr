@@ -71,7 +71,10 @@ class Head:
 
     page: bytes = json.dumps([busy(), IDLE]).encode()
     page_status: int = 200
-    page_delay_s: float = 0.0
+    # A held page is answered only once ``page_free`` is set: as slow as a
+    # test needs, by what the test does, not by how long a clock runs.
+    page_held: bool = False
+    page_free: threading.Event = field(default_factory=threading.Event)
     answers_first: bool = True  # its headers go out before it generates
     chunks: int = 400
     events: list[str] = field(default_factory=list)  # in the order they happen
@@ -117,7 +120,8 @@ def _serve(head: Head) -> ThreadingHTTPServer:
 
         def do_GET(self) -> None:
             head.note(f"GET {self.path}")
-            time.sleep(head.page_delay_s)
+            if head.page_held:
+                head.page_free.wait()
             self.send_response(head.page_status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(head.page)))
@@ -263,6 +267,7 @@ def _rig(head: Head, slots: int = 1) -> Rig:
 def rig() -> Iterator[Rig]:
     built = _rig(Head())
     yield built
+    built.head.page_free.set()
     built.relays.cancel_all()
     assert built.head.server is not None
     built.head.server.shutdown()
@@ -332,20 +337,48 @@ def test_a_page_that_does_not_say_for_certain_leaves_the_end_as_it_was(
     assert rig.head.seen("hung up")
 
 
-def test_a_slow_page_is_not_waited_for_and_the_agents_thread_never_waits(
+#: An answer that is still streaming whenever a test ends it: the head
+#: writes it until it is hung up on.
+ENDLESS = 1 << 20
+
+
+def test_a_slow_page_is_not_waited_for(
     rig: Rig, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A page held past :data:`~mcgyvr.rig.relay.REPORT_WAIT_S` is given up
+    on: the relay ends while the page is still unanswered, as it always
+    did, and hangs up."""
     from mcgyvr.rig import relay
 
     monkeypatch.setattr(relay, "REPORT_WAIT_S", 0.2)
-    rig.head.page_delay_s = 3.0
+    rig.head.page_held = True  # never answered while the test runs
+    rig.head.chunks = ENDLESS
     rig.ask()
     rig.answering()
-    began = time.monotonic()
-    rig.cancel()  # the handler, on the thread that hears the hub
-    assert time.monotonic() - began < 0.1
+    rig.cancel()
     assert rig.ended() == CANCELLED
-    assert time.monotonic() - began < 2.0
+    assert not rig.head.page_free.is_set()  # the end did not wait for the page
+    assert rig.head.seen("hung up")
+
+
+def test_the_agents_thread_never_waits_for_the_page(
+    rig: Rig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The handler, on the thread that hears the hub, is back while the page
+    is still being read on a thread of its own, and the relay ends only once
+    that reading does."""
+    from mcgyvr.rig import relay
+
+    monkeypatch.setattr(relay, "REPORT_WAIT_S", 60.0)  # held: no giving up
+    rig.head.page_held = True
+    rig.head.chunks = ENDLESS
+    rig.ask()
+    rig.answering()
+    rig.cancel()  # the handler, on the thread that hears the hub
+    assert rig.head.seen("GET /slots")  # the page is being read meanwhile
+    assert not rig.box.of_type("relay_end")  # and the relay waits for it
+    rig.head.page_free.set()
+    assert rig.ended() == MADE
     assert rig.head.seen("hung up")
 
 

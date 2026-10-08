@@ -339,9 +339,10 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "-- its prompt and its own declared reply together, over the whole "
         "window. Distinct from whether the two *fit*, which the fit check "
         "already asks: a contract that fits with nothing to spare leaves the "
-        "rung nothing to absorb a long estimate with. Unset enforces no "
-        "share, which is not the same as 1.0: a run that declared none is "
-        "recorded as having declared none.",
+        "rung nothing to absorb a long estimate with. A ceiling: a contract's "
+        "own `limits.max_window_fraction` may be stricter, never wider. Unset "
+        "enforces no share, which is not the same as 1.0: a run that declared "
+        "none is recorded as having declared none.",
         min_value=0.0,
         max_value=1.0,
         bind_hint=(
@@ -484,6 +485,12 @@ SERVING_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+#: A unit's ``role``: up whenever its launch spec is, or a swap partner that
+#: starts asleep in that spec and is started by the ladder manager.
+ROLE_ALWAYS_ON = "always-on"
+ROLE_SLEEPER = "sleeps-until-needed"
+ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
+
 UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "address",
@@ -621,6 +628,20 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "fact about the unit's server, so it is here and not in the policy.",
         default="request",
         choices=("request", "server"),
+    ),
+    Field(
+        "role",
+        "enum",
+        "Whether this unit is up whenever its launch spec is (`always-on`) or "
+        "is a swap partner that starts asleep (`sleeps-until-needed`). A "
+        "sleeper shares its card's one launch spec with the always-on units "
+        "under a compose profile, so a whole `serve up` leaves it down and the "
+        "awake set still fits the card. The ladder manager starts it when the "
+        "dearest awake rung is full, stopping the units whose room it needs "
+        "first, and starts those again when it sleeps. llama.cpp units only: "
+        "a vLLM unit swaps at level 2 with its process kept.",
+        default=ROLE_ALWAYS_ON,
+        choices=ROLES,
     ),
     Field(
         "launch",
@@ -1035,9 +1056,10 @@ SCHEMA: tuple[Field, ...] = (
         "The largest share of a unit's context window one contract may claim "
         "-- its prompt and its declared reply together -- checked before the "
         "contract is sent, so a contract claiming more fails unsent on the "
-        "unit it was sent to. It is the share for every contract that "
-        "declares none; a contract's own `limits.max_window_fraction` wins "
-        "where it states one. Unset enforces no run-wide share.",
+        "unit it was sent to. It is a ceiling no contract can raise: a "
+        "contract's own `limits.max_window_fraction` may hold it to less, "
+        "never to more, and the stricter of the two applies. Unset enforces "
+        "no run-wide share.",
         min_value=0.0,
         max_value=1.0,
         bind_hint="a share between 0 and 1",
@@ -1215,6 +1237,9 @@ class Unit:
     #: Who sets a request's sampling parameters: ``request`` (the default,
     #: a temperature on every request) or ``server`` (none is sent).
     sampling: str = "request"
+    #: ``always-on`` or ``sleeps-until-needed`` (:data:`ROLE_SLEEPER`): whether
+    #: the unit starts asleep in its card's launch spec, as a swap partner.
+    role: str = ROLE_ALWAYS_ON
     launch: Mapping[str, Any] = field(default_factory=dict)
     #: How many of its slots riders the hub matches may use at once
     #: (hitchhike), from the policy's ``rider_slots``: 0, the default, shares
@@ -2033,6 +2058,7 @@ def _build(
             container=block["container"],
             hf_cache=block["hf_cache"],
             sampling=block.get("sampling") or "request",
+            role=block.get("role") or ROLE_ALWAYS_ON,
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
         )

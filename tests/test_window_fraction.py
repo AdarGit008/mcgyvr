@@ -105,7 +105,7 @@ def test_a_zero_window_is_refused_rather_than_divided_by() -> None:
     assert issue is not None and issue.reason == "window-share"
 
 
-# --- the share is the contract's, and the config's only as a fallback ------
+# --- the share is the contract's, under the run's as a ceiling -------------
 
 
 CONTRACT = """
@@ -202,11 +202,14 @@ def test_a_contract_that_cannot_fit_is_named_as_that_and_not_as_a_share() -> Non
     assert issue is not None and issue.reason == "prompt-too-large"
 
 
-def test_a_standing_default_applies_only_where_the_contract_is_silent() -> None:
-    """A contract that stated a share is not overruled by the caller's default.
+def test_the_stricter_of_the_contracts_share_and_the_runs_applies() -> None:
+    """Owner ruling (#621 follow-up): the run's share is a hard ceiling.
 
-    The contract's text has to stay true: a config that could tighten or
-    loosen a share the contract declared would make the contract a suggestion.
+    A contract may hold itself to less of a window than the run allows, and
+    it is held to that; it may not grant itself more. 2400 characters and a
+    512 reply claim 0.64 of a 2048 window: a run allowing a half refuses it
+    whatever the contract declared, and a contract declaring a half is refused
+    under a run that allows nine tenths.
     """
     from mcgyvr.gate.preflight import check_contract_fits
 
@@ -215,5 +218,40 @@ def test_a_standing_default_applies_only_where_the_contract_is_silent() -> None:
     assert (
         check_contract_fits(silent, "x" * 2400, 2048, default_fraction=0.5) is not None
     )
-    stated = _contract("  max_window_fraction: 0.9\n")
-    assert check_contract_fits(stated, "x" * 2400, 2048, default_fraction=0.5) is None
+    wider = _contract("  max_window_fraction: 0.9\n")
+    assert (
+        check_contract_fits(wider, "x" * 2400, 2048, default_fraction=0.5) is not None
+    )
+    narrower = _contract("  max_window_fraction: 0.5\n")
+    assert (
+        check_contract_fits(narrower, "x" * 2400, 2048, default_fraction=0.9)
+        is not None
+    )
+    assert check_contract_fits(wider, "x" * 2400, 2048, default_fraction=0.7) is None
+
+
+def test_the_refusal_names_the_share_that_was_the_stricter() -> None:
+    """The limit hit is the one to raise, so the refusal names that one."""
+    from mcgyvr.gate.preflight import CONTRACT_SHARE, RUN_SHARE, check_contract_fits
+
+    wider = _contract("  max_window_fraction: 0.9\n")
+    by_run = check_contract_fits(wider, "x" * 2400, 2048, default_fraction=0.5)
+    assert by_run is not None
+    assert RUN_SHARE in by_run.message and CONTRACT_SHARE not in by_run.message
+    assert "0.50" in by_run.message
+
+    narrower = _contract("  max_window_fraction: 0.5\n")
+    by_contract = check_contract_fits(narrower, "x" * 2400, 2048, default_fraction=0.9)
+    assert by_contract is not None
+    assert CONTRACT_SHARE in by_contract.message
+    assert RUN_SHARE not in by_contract.message
+
+
+def test_two_equal_shares_are_both_named() -> None:
+    """Raising either one alone would not let the contract through."""
+    from mcgyvr.gate.preflight import CONTRACT_SHARE, RUN_SHARE, check_contract_fits
+
+    same = _contract("  max_window_fraction: 0.5\n")
+    issue = check_contract_fits(same, "x" * 2400, 2048, default_fraction=0.5)
+    assert issue is not None
+    assert CONTRACT_SHARE in issue.message and RUN_SHARE in issue.message

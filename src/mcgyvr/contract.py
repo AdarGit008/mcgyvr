@@ -449,9 +449,9 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "with nothing to spare leaves nothing to hold anything beside it and "
         "nothing to absorb an estimate that ran long. Declared here because "
         "it is a statement about this unit of work, and checked before the "
-        "work is sent. It wins over the run's `max_window_fraction`, which "
-        "applies only where this is unset. Unset is not 1.0: a contract that "
-        "declared none is recorded as having declared none.",
+        "work is sent. The run's `max_window_fraction` caps it: the stricter "
+        "of the two applies. Unset is not 1.0: a contract that declared none "
+        "is recorded as having declared none.",
         default=None,
         min_value=0.0,
         max_value=1.0,

@@ -140,9 +140,7 @@ def test_the_agents_exit_takes_every_session_down(pool: Pool) -> None:
 def test_a_living_sessions_lease_is_renewed(pool: Pool) -> None:
     _worker(pool)
     pool.wait_for("session_status", "ready")
-    before = pool.docker.leases
-    time.sleep(pool.sessions.timing.renew_s * 5)
-    assert pool.docker.leases > before
+    pool.lease_renewed("s1", pool.renewals("s1"))
 
 
 def test_the_next_agent_removes_what_a_dead_one_left_and_nothing_a_live_one_owns(

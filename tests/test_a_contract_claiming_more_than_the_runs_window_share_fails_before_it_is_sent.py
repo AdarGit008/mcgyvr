@@ -13,10 +13,12 @@ contract claiming more than that share fails before it is sent — the same
 outcome as #616's oversize refusal: ``error`` on the rung it was sent to, no
 journal row, no wake, no climb.
 
-How the two shares combine is the rule the check already states and
-``test_window_fraction`` already pins: the contract's own share wins where it
-declared one, and the run's applies where it declared none. The refusal names
-which of the two was hit, because the fix lives in a different file for each.
+How the two shares combine is ``test_window_fraction``'s to pin: the stricter
+of the contract's own share and the run's applies, so the run's is a ceiling a
+contract cannot raise (owner ruling, after #621; the whole run is in
+``test_a_contract_cannot_claim_more_of_a_window_than_its_run_allows``). The
+refusal names which of the two was hit, because the fix lives in a different
+file for each.
 
 Every machine here is invented and no server is started: the runner's
 ``dispatch`` and the waker are the substituted seams.
@@ -212,7 +214,7 @@ def test_the_same_run_without_a_share_sends_the_contract(
     assert sent[:1] == ["local_narrow"], sent
 
 
-# --- the contract's own share: named as its own, and it wins -----------------
+# --- the contract's own share: named as its own ------------------------------
 
 
 def test_a_refusal_on_the_contracts_own_share_names_the_contract(
@@ -232,25 +234,6 @@ def test_a_refusal_on_the_contracts_own_share_names_the_contract(
     (only,) = outcome.history
     assert "contract's own `limits.max_window_fraction`" in only.detail, only.detail
     assert "run's `max_window_fraction`" not in only.detail, only.detail
-
-
-def test_a_contract_that_declared_a_wider_share_is_not_overruled_by_the_run(
-    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The rule the check already states: the contract's own share wins.
-
-    The run's share is the standing default for contracts that declared none;
-    a contract that declared one declared it about itself.
-    """
-    _, sent, _, _ = _run(
-        repo,
-        tmp_path,
-        monkeypatch,
-        policy=RUN_SHARE,
-        contract_text=_sharing(0.9),
-    )
-
-    assert sent[:1] == ["local_narrow"], sent
 
 
 # --- the binding: dispatch_prompt takes the run's share too ------------------

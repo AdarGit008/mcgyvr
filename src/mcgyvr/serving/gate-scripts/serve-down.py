@@ -11,6 +11,10 @@ this mode gate 7 expects an empty daemon.
 containers, by their compose services, and leaves the file's other units
 running (:func:`mcgyvr.serving.servelib.down`); a named one still up after
 it is exit 1. This is how a unit that cannot sleep is put away in a swap.
+
+A whole `down` also names the file's services that start asleep (a compose
+profile, a swap partner) and removes them alone: a swap may have left one
+running, and `compose down` is not promised to reach a profile.
 """
 
 from __future__ import annotations
@@ -49,6 +53,9 @@ def main() -> int:
 
     print(f"serve-down: docker compose down on {host}: {', '.join(expected)}")
     stopped = servelib.down(compose_file, units if only else ())
+    sleepers = () if only else tuple(s for s in units if s.asleep)
+    if sleepers and stopped.returncode == 0:
+        stopped = servelib.down(compose_file, sleepers)
     if stopped.returncode != 0:
         print(
             f"serve-down: docker compose down failed on {host}: "
