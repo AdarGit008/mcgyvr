@@ -228,3 +228,65 @@ def door_logs(home: Path) -> list[Path]:
 def home() -> Path:
     """The HOME this test runs under (``tests/conftest.py`` makes one per test)."""
     return Path(os.environ["HOME"])
+
+
+#: The campaign a user's ``step`` run names: the envelope's name, nothing more.
+CAMPAIGN = "my-check"
+
+
+def save_rig(scan: dict[str, object] | None = None) -> Path:
+    """The rig file as `mcgyvr scan --rig` writes it, from ``scan``."""
+    from mcgyvr.scan import Scan
+    from mcgyvr.serving import rigfile
+
+    payload = scan or scan_payload()
+    return rigfile.write(rigfile.from_scan(RIG, Scan.from_json(json.dumps(payload))))
+
+
+def step_script(where: Path, record: Path, *, then: str = "") -> Path:
+    """A step of the user's own, as ``step --step`` names one.
+
+    It declares one JSON artifact and writes it, and records in ``record``
+    what the door handed it: the run's variables, its arguments, the lease
+    on the stub rig while it runs, and what one ``ssh`` to the door's host
+    answered. ``then`` is shell run after that.
+    """
+    lease = where / "stubs" / "rig-home" / ".mcgyvr" / "lease"
+    return onedoor.executable(
+        where / "my-step.sh",
+        "#!/usr/bin/env bash\n"
+        "# RUN_ARTIFACTS: result.json\n"
+        "set -u\n"
+        "{\n"
+        "  for k in RUN_ID RUN_OUT_DIR RUN_CAMPAIGN RUN_HOST RUN_MODE RUN_ROOT"
+        " RUN_MODEL RUN_OUT_ROOT; do\n"
+        '    printf \'%s=%s\\n\' "$k" "$(printenv "$k" || true)"\n'
+        "  done\n"
+        "  printf 'ARGS=%s\\n' \"$*\"\n"
+        f"  printf 'LEASE=%s\\n' \"$(cat '{lease}' 2>/dev/null)\"\n"
+        "  printf 'SSH=%s\\n' \"$(ssh \"$RUN_HOST\" 'echo $HOME')\"\n"
+        f"}} > '{record}'\n"
+        'printf \'{"run_id": "%s"}\\n\' "$RUN_ID" > "$RUN_OUT_DIR/result.json"\n'
+        + then
+        + "\n",
+    )
+
+
+def step(
+    script: Path,
+    *,
+    campaign: str = CAMPAIGN,
+    mode: str | None = "user",
+    extra: tuple[str, ...] = (),
+    step_args: tuple[str, ...] = (),
+) -> list[str]:
+    """``step`` of the invented rig running ``script``, with ``--mode`` when given."""
+    argv = ["step", "--host", RIG, "--campaign", campaign, "--step", str(script)]
+    argv += ["--date", RUN_DATE, *extra]
+    argv += ["--mode", mode] if mode is not None else []
+    return argv + (["--", *step_args] if step_args else [])
+
+
+def recorded(record: Path) -> dict[str, str]:
+    """What :func:`step_script` recorded, by name."""
+    return onedoor.read_env_file(record)

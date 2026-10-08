@@ -4,13 +4,26 @@
     python -m mcgyvr.serving.run --host <rig> --campaign <name> --model <blob>
                                  --ctx-per-slot N [--step <path>] [--suffix S]
                                  [-- STEP ARGS...]
+    python -m mcgyvr.serving.run serve|read|link ...
+    python -m mcgyvr.serving.run step --host <rig> --campaign <name>
+                                 --step <path> [--out-root DIR] [--gates FILE]
+                                 [-- STEP ARGS...]
 
 Nothing else opens an ssh to a rig or starts a container on one. A caller
 that wants rig time writes its own script and names it as ``--step``, or takes
 the shipped ``gate-scripts/default-step.sh``; the door runs the gates around
-it. The step is the one part of a campaign run a caller supplies; ``serve``
-and ``read`` take a caller's own gates too (A CALLER'S GATES, below), which
-run inside the door's fixed order and never in place of any of it.
+it. The step is the one part of a campaign run a caller supplies; ``serve``,
+``read``, ``link`` and ``step`` take a caller's own gates too (A CALLER'S
+GATES, below), which run inside the door's fixed order and never in place of
+any of it.
+
+THE STEP RUN (``step``, an advanced command) is the campaign run without the
+lab's measuring: the door's profile gate, the rig's lease and reading, its
+daemon, the envelope, then the caller's own ``--step``, then gates 7 and 8
+whatever the step did, and the lease released last (:data:`STEP_SEQUENCE`).
+It runs in either mode. Its envelope is the user's door log, the lab's
+``records/evidence/`` in lab mode, or ``--out-root DIR`` as
+``DIR/<date>-<campaign>/`` in either.
 
 HOW THE DOOR IS THE ONLY WAY IN. The environment a gate or a step runs under
 has ``gate-scripts/bin`` first on PATH, where ``ssh`` and ``docker`` are shims
@@ -71,7 +84,8 @@ declared one and before the step, because a placement derived against the
 wrong machine is worse than no placement. Gates 7-8 run after the step
 whatever it did.
 
-A CALLER'S GATES. ``serve`` and ``read`` take ``--gates FILE``: a JSON object
+A CALLER'S GATES. ``serve``, ``read``, ``link`` and ``step`` take ``--gates
+FILE``: a JSON object
 naming a ``root`` folder and a list of gates, each ``{path, why, phase,
 exports[, timeout_s]}``. The door runs them inside its own run and never
 instead of any part of it; a ``before`` or ``after`` gate that refuses ends
@@ -98,6 +112,20 @@ left running past the lease release (see :func:`_run_entry`); a door that is
 killed or hung up leaves it running with no bound. It may
 export only the ``RUN_`` names its list declares, none of them a name the
 door sets (:data:`DOOR_NAMES`), in at most :data:`MAX_EXPORT_BYTES`.
+``step`` places its phases as ``serve`` does. ``link`` takes ``before``
+alone: it runs before the timer reaches the rig, and nothing may follow the
+timer's reading, which is the last line its caller reads.
+
+THE GATES A CALLER ADDS FROM THE ENVIRONMENT. ``$MCGYVR_DOOR_GATES``
+(:data:`GATES_ENV`) names a folder of gate lists, one per verb
+(``<verb>.json``). A ``serve``, ``read``, ``link`` or ``step`` run given no
+``--gates`` loads its verb's list from there, so a door that mcgyvr's own code
+opens (the waker, the ladder manager, the fleet's read and probe) carries the
+caller's gates too, with no product code naming them. A folder with no list
+for a verb adds none to it; a value that is not an existing folder named by an
+absolute path is refused before any gate. Its gates are a caller's gates like
+any other: they can add a refusal, and never skip, move or stand in for a
+door gate.
 
 TWO MODES, SAID AND NOT GUESSED. Every run takes ``--mode user|lab``
 (:func:`settle_mode`). ``lab`` is the lab's run, held to its round
@@ -413,6 +441,15 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
     in ("01-round.py", "02-rig.py", "03-image.py", "05-envelope.py", "06-step.py")
 )
 
+#: THE STEP RUN (`python -m mcgyvr.serving.run step --host H --campaign C
+#: --step PATH`). The campaign run's gates without the lab's measuring: gate
+#: 4 (the pinned workload) and the three data scripts (a checkpoint's
+#: geometry and placement) are about one model under measurement, and a
+#: caller who needs them brings them as gates of its own. The same entries as
+#: the serve run, and :data:`ALWAYS` after whatever the step did; order and
+#: membership are enforced exactly as for SEQUENCE.
+STEP_SEQUENCE: tuple[Entry, ...] = SERVE_SEQUENCE
+
 #: THE READ RUN (`python -m mcgyvr.serving.run read --host H [--probe UNIT...
 #: [--load WxN]]`). A third fixed sequence: the profile is settled and no round
 #: is opened, then one reader goes to the rig, is compared with the rig's
@@ -508,6 +545,9 @@ EXPORTED = (
     "RUN_READ_FLEET",
     # The link run's one: the timer's mode and its arguments, as one line.
     "RUN_LINK",
+    # The step run's one: the folder its envelope is made under, when it
+    # names one (`--out-root`).
+    gatelib.OUT_ROOT_VAR,
     # Every run's mode (``user`` or ``lab``), the command line it was opened
     # with, and, once a serve run's step has ended, how it ended: what a
     # user-mode run files in its log.
@@ -538,7 +578,20 @@ PHASES = ("before", "after", "always")
 #: reaches one. ``always`` is not here: on ``serve`` it runs after
 #: :data:`ALWAYS`, and a read has no such phase.
 SERVE_PHASES = {"before": "01-round.py", "after": "03-image.py"}
+#: A step run places its caller's gates as a serve run does: ``after`` once
+#: the rig is leased and read and its daemon answers, before the envelope.
+STEP_PHASES = SERVE_PHASES
 READ_PHASES = {"before": "read-01-profile.py", "after": "read-02-rig.py"}
+#: A link run's one phase: ``before``, which runs before the timer reaches the
+#: rig. Nothing runs after the timer: its reading is the last line of the
+#: run's stdout, and that line is what its caller reads.
+LINK_PHASES = ("before",)
+#: Names a folder of a caller's gate lists, one per verb (``<verb>.json``),
+#: for a run given no ``--gates`` (:func:`callers_gates`).
+GATES_ENV = "MCGYVR_DOOR_GATES"
+#: What ``--campaign`` names on a step run: one folder name, which the
+#: envelope and the RUN_ID are made of.
+CAMPAIGN_NAME = re.compile(r"[A-Za-z0-9_.-]+")
 #: The keys of a gate list, and of one gate in it. Anything else is refused.
 GATE_LIST_KEYS = frozenset({"root", "gates"})
 GATE_KEYS = frozenset({"path", "why", "phase", "exports", "timeout_s"})
@@ -784,9 +837,15 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
                 f"asks for phase {_brief(phase)}; this run has "
                 f"{', '.join(phases)} and no other"
                 + (
-                    " (a read has no teardown and no lease for an `always` "
-                    "gate to follow)"
+                    " (a read and a link have no teardown and no lease for an "
+                    "`always` gate to follow)"
                     if phase == "always"
+                    else ""
+                )
+                + (
+                    " (nothing runs after a link's timer: its reading is the "
+                    "last line its caller reads)"
+                    if phase == "after" and "after" not in phases
                     else ""
                 ),
             )
@@ -843,6 +902,55 @@ def load_gate_list(named: str, phases: tuple[str, ...] = PHASES) -> GateList:
         after=tuple(held["after"]),
         always=tuple(held["always"]),
     )
+
+
+def callers_gates(
+    verb: str, named: str | None, phases: tuple[str, ...] = PHASES
+) -> GateList | None:
+    """The caller's gate list of a ``verb`` run, or None when there is none.
+
+    ``--gates FILE`` (``named``) when it is given. Else the verb's list in the
+    folder ``$MCGYVR_DOOR_GATES`` names, ``<folder>/<verb>.json``, when it is
+    set and holds one: a folder with no list for this verb adds no gate to it.
+    A value that is empty, relative or not an existing folder is refused, as
+    is a list there that :func:`load_gate_list` refuses; a path that cannot
+    be looked at is refused, never read as no list.
+    """
+    if named is not None:
+        return load_gate_list(named, phases)
+    folder = os.environ.get(GATES_ENV)
+    if folder is None:
+        return None
+    try:
+        where = Path(folder)
+        usable = bool(folder) and where.is_absolute() and where.is_dir()
+    except (OSError, ValueError):
+        usable = False
+    if not usable:
+        _refuse(
+            2,
+            _printable(
+                f"{GATES_ENV}={folder!r} is not an existing folder named by an "
+                "absolute path. It names the folder of a caller's gate lists, "
+                "one per verb (<verb>.json); a value that names none would run "
+                "the door without the gates it was set to add. Name a folder "
+                "that exists, or unset the variable"
+            ),
+        )
+    listed = where / f"{verb}.json"
+    try:
+        listed.lstat()
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as escape:
+        _refuse(
+            2,
+            _printable(
+                f"{GATES_ENV}: {listed} cannot be looked at ({escape}); a list "
+                "that cannot be looked at is refused, never taken for no list"
+            ),
+        )
+    return load_gate_list(str(listed), phases)
 
 
 def _outside(target: Path, root: Path) -> tuple[str | None, Path]:
@@ -1241,6 +1349,16 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run",
         description="the one access point to the rigs",
+        epilog=(
+            "With no verb, this is the lab's campaign run (--mode lab). The "
+            "verbs, each with its own --help: `serve up|down|sleep|wake|fetch` "
+            "starts, stops, sleeps or wakes a ladder on a rig, or fetches "
+            "weights onto it; `read` reads a rig; `link` times a link on one; "
+            "and, advanced, `step` runs one script of your own on a rig under "
+            "the door's fixed gates (the lease, the rig's reading, its daemon, "
+            "the envelope, then teardown and parse), filed under the door's log "
+            "or --out-root"
+        ),
     )
     parser.add_argument("--host", required=True, help=HOST_HELP)
     _add_mode(parser)
@@ -1253,23 +1371,39 @@ def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     )
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
-    # --model is required, and that is the door saying what it is for. Every run
-    # through mcgyvr.serving.run serves a checkpoint, so the geometry and
-    # placement scripts always have something to read; an optional model would
-    # make them conditional, and a conditional gate is a skippable one.
-    parser.add_argument("--model", required=True, help="blob path AS THE RIG SEES IT")
-    parser.add_argument("--parallel", type=int, default=8, help="slots (-np)")
-    # Required: a floor is only correct for the cache the unit will actually
+    # --model is required, and that is the door saying what it is for. Every
+    # campaign run serves a checkpoint, so the geometry and placement scripts
+    # always have something to read; an optional model would make them
+    # conditional, and a conditional gate is a skippable one. --ctx-per-slot
+    # likewise: a floor is only correct for the cache the unit will actually
     # allocate, so the run declares the window and a run that did not is
     # refused here rather than sized silently.
+    _add_serving(parser, required=True)
+    return parser.parse_args(argv), step_args
+
+
+def _add_serving(parser: argparse.ArgumentParser, *, required: bool) -> None:
+    """``--model``, ``--parallel``, ``--ctx-per-slot`` and ``--ubatch``, the
+    same four on the campaign run and the step run, exported to the step as
+    RUN_MODEL, RUN_PARALLEL, RUN_CTX_PER_SLOT and RUN_UBATCH. The campaign run
+    requires the model and the window, which its data scripts read; on a step
+    run nothing of the door reads them, and they are exported only when given.
+    """
+    parser.add_argument(
+        "--model",
+        required=required,
+        default=None,
+        help="blob path AS THE RIG SEES IT",
+    )
+    parser.add_argument("--parallel", type=int, default=8, help="slots (-np)")
     parser.add_argument(
         "--ctx-per-slot",
         type=int,
-        required=True,
+        required=required,
+        default=None,
         help="per-slot window; -c is this times --parallel",
     )
     parser.add_argument("--ubatch", type=int, default=512, help="-ub, and -b with it")
-    return parser.parse_args(argv), step_args
 
 
 def _end(proc: subprocess.Popen[bytes]) -> None:
@@ -1542,6 +1676,55 @@ def _rel(path: Path, base: Path = ROOT) -> str:
         return str(path)
 
 
+def _gates_help(verb: str, phases: str) -> str:
+    """``--gates``'s help on ``verb``: what every caller's gate is held to,
+    then ``phases``, where this verb runs each phase."""
+    return (
+        "a caller's gate list (JSON: root, gates of path, why, phase, "
+        "exports, timeout_s), each gate run by the door's Python from the "
+        "root, in a session of its own. With no --gates, the list "
+        f"${GATES_ENV}/{verb}.json, when that variable is set and the folder "
+        "holds one. At a gate's timeout_s (default "
+        f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
+        "door sends TERM to its process group, KILL when the group is still "
+        f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
+        "for the group to be empty, and refuses the gate; there is no bound "
+        "over the whole list, each gate has its own. A signal to the door's "
+        "process group does not reach a gate: the door ends it on INT or "
+        "TERM, except a gate the signal reaches while the door is starting "
+        "it, which can be left running past the lease release; a door that "
+        "is killed or hung up leaves it running with no bound. A process "
+        "a gate leaves behind after ending within its "
+        "bound outlives the door, unless it holds the gate's export "
+        "descriptor open: then the door waits up to the bound for it to "
+        "close it, and if it has not, refuses the gate and ends the gate's "
+        "process group, which ends that process only while it is in the "
+        "group. One in a group or a session of its own outlives the door "
+        "even while it holds the descriptor. A gate may write at most "
+        f"{MAX_EXPORT_BYTES // 1024} KiB of UTF-8 on its export descriptor; "
+        "one that writes more is ended and refused. What all gates export "
+        "together must fit in the environment a process starts with: when "
+        "it does not, the next gate cannot start, and the door refuses "
+        "naming that gate. " + phases
+    )
+
+
+#: Where a serve or a step run places each phase of a caller's gates, as its
+#: ``--gates`` help says it.
+SERVE_PHASES_HELP = (
+    "`before` gates run after the "
+    "profile and before anything is sent to the machine; `after` gates "
+    "after the identity and daemon gates and before the envelope and "
+    "the step; `always` gates after gates 7 and 8 and before the lease "
+    "is released, and only when the run got as far as gate 5. A "
+    "`before` or `after` gate that refuses, runs past its bound or dies "
+    "ends the run as a door gate's refusal does: the door's gates after "
+    "it do not run, and the lease is still released. An `always` gate "
+    "that refuses does not stop the next. A caller's gate never runs in "
+    "place of a door gate or moves one"
+)
+
+
 def _serve_parse(argv: list[str]) -> argparse.Namespace:
     """The serve run's arguments. As with :func:`_parse`, nothing skips a gate."""
     parser = argparse.ArgumentParser(
@@ -1611,41 +1794,9 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
         "--gates",
         default=None,
         metavar="FILE",
-        help=(
-            "a caller's gate list (JSON: root, gates of path, why, phase, "
-            "exports, timeout_s), each gate run by the door's Python from the "
-            "root, in a session of its own. At a gate's timeout_s (default "
-            f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
-            "door sends TERM to its process group, KILL when the group is still "
-            f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
-            "for the group to be empty, and refuses the gate; there is no bound "
-            "over the whole list, each gate has its own. A signal to the door's "
-            "process group does not reach a gate: the door ends it on INT or "
-            "TERM, except a gate the signal reaches while the door is starting "
-            "it, which can be left running past the lease release; a door that "
-            "is killed or hung up leaves it running with no bound. A process "
-            "a gate leaves behind after ending within its "
-            "bound outlives the door, unless it holds the gate's export "
-            "descriptor open: then the door waits up to the bound for it to "
-            "close it, and if it has not, refuses the gate and ends the gate's "
-            "process group, which ends that process only while it is in the "
-            "group. One in a group or a session of its own outlives the door "
-            "even while it holds the descriptor. A gate may write at most "
-            f"{MAX_EXPORT_BYTES // 1024} KiB of UTF-8 on its export descriptor; "
-            "one that writes more is ended and refused. What all gates export "
-            "together must fit in the environment a process starts with: when "
-            "it does not, the next gate cannot start, and the door refuses "
-            "naming that gate. "
-            "`before` gates run after the "
-            "profile and before anything is sent to the machine; `after` gates "
-            "after the identity and daemon gates and before the envelope and "
-            "the step; `always` gates after gates 7 and 8 and before the lease "
-            "is released, and only when the run got as far as gate 5. A "
-            "`before` or `after` gate that refuses, runs past its bound or dies "
-            "ends the run as a door gate's refusal does: the door's gates after "
-            "it do not run, and the lease is still released. An `always` gate "
-            "that refuses does not stop the next. A caller's gate never runs in "
-            "place of a door gate or moves one"
+        help=_gates_help(
+            "serve",
+            SERVE_PHASES_HELP,
         ),
     )
     return parser.parse_args(argv)
@@ -1757,7 +1908,7 @@ def _serve(argv: list[str]) -> int:
             )
             return 2
     try:
-        gates = load_gate_list(opts.gates) if opts.gates is not None else None
+        gates = callers_gates("serve", opts.gates)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -1787,19 +1938,38 @@ def _serve(argv: list[str]) -> int:
     )
     if opts.date:
         env["RUN_DATE"] = opts.date
+    return _through_step(SERVE_SEQUENCE, SERVE_PHASES, env, gates)
 
+
+def _through_step(
+    sequence: tuple[Entry, ...],
+    phases: dict[str, str],
+    env: dict[str, str],
+    gates: GateList | None,
+    step_args: list[str] | None = None,
+) -> int:
+    """A serve or a step run's fixed ``sequence``, to completion.
+
+    Each entry in order, a caller's gates placed after the entry their phase
+    names in ``phases``; the step's own failure is a result, not a refusal,
+    so the run goes on past it. Then gates 7 and 8 and the caller's
+    ``always`` gates (:func:`_always`), whatever the step did, and gate 5's
+    claim and the rig's lease released on every way out. ``step_args`` are
+    handed to gate 6 alone.
+    """
     interrupted = False
     step_status = 0
     try:
         try:
             check_manifest()
-            for entry in SERVE_SEQUENCE:
-                status = _run_entry(entry, env)
+            for entry in sequence:
+                args = step_args if entry.script == "06-step.py" else None
+                status = _run_entry(entry, env, args)
                 if status != 0:
                     if entry.script != "06-step.py":
                         return _stop(entry, status, env)
                     step_status = status
-                for gate in _following(entry, SERVE_PHASES, gates):
+                for gate in _following(entry, phases, gates):
                     status = _run_entry(gate, env)
                     if status != 0:
                         return _stop_caller(gate, status)
@@ -1881,31 +2051,8 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         "--gates",
         default=None,
         metavar="FILE",
-        help=(
-            "a caller's gate list (JSON: root, gates of path, why, phase, "
-            "exports, timeout_s), each gate run by the door's Python from the "
-            "root, in a session of its own. At a gate's timeout_s (default "
-            f"{CALLER_GATE_TIMEOUT_S:g} s, at most {CALLER_GATE_MOST_S:g} s) the "
-            "door sends TERM to its process group, KILL when the group is still "
-            f"there {GROUP_GRACE_S:g} s later, then waits up to {GROUP_GONE_S:g} s "
-            "for the group to be empty, and refuses the gate; there is no bound "
-            "over the whole list, each gate has its own. A signal to the door's "
-            "process group does not reach a gate: the door ends it on INT or "
-            "TERM, except a gate the signal reaches while the door is starting "
-            "it, which can be left running past the lease release; a door that "
-            "is killed or hung up leaves it running with no bound. A process "
-            "a gate leaves behind after ending within its "
-            "bound outlives the door, unless it holds the gate's export "
-            "descriptor open: then the door waits up to the bound for it to "
-            "close it, and if it has not, refuses the gate and ends the gate's "
-            "process group, which ends that process only while it is in the "
-            "group. One in a group or a session of its own outlives the door "
-            "even while it holds the descriptor. A gate may write at most "
-            f"{MAX_EXPORT_BYTES // 1024} KiB of UTF-8 on its export descriptor; "
-            "one that writes more is ended and refused. What all gates export "
-            "together must fit in the environment a process starts with: when "
-            "it does not, the next gate cannot start, and the door refuses "
-            "naming that gate. "
+        help=_gates_help(
+            "read",
             "`before` gates run after the "
             "profile and before anything is sent to the machine. `after` gates "
             "run after the machine is read and what was read is filed, so they "
@@ -1913,7 +2060,7 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
             "it exits non-zero when it refused, and also after filing when a "
             "probe or a load on the rig failed, or when a read under the dev "
             "profile raised an alert. A read has no `always` phase, and a list "
-            "that asks for one is refused"
+            "that asks for one is refused",
         ),
     )
     return parser.parse_args(argv)
@@ -1956,11 +2103,7 @@ def _read(argv: list[str]) -> int:
         root = run_root()
         mode = settle_mode(opts.mode, root)
         # A read has no teardown and no lease, so no `always` phase to run in.
-        gates = (
-            load_gate_list(opts.gates, tuple(READ_PHASES))
-            if opts.gates is not None
-            else None
-        )
+        gates = callers_gates("read", opts.gates, tuple(READ_PHASES))
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -2019,6 +2162,19 @@ def _link_parse(argv: list[str]) -> argparse.Namespace:
     modes = parser.add_mutually_exclusive_group(required=True)
     for flag, names in LINK_MODES.items():
         modes.add_argument(flag, nargs=2, metavar=names)
+    parser.add_argument(
+        "--gates",
+        default=None,
+        metavar="FILE",
+        help=_gates_help(
+            "link",
+            "A link takes `before` gates alone, which run before the timer "
+            "reaches the rig; a gate that refuses, runs past its bound or dies "
+            "ends the run and the timer does not run. Nothing runs after the "
+            "timer: its reading is the last line the run prints, and a list "
+            "that asks for `after` or `always` is refused",
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -2063,6 +2219,7 @@ def _link(argv: list[str]) -> int:
         timer = _link_args(opts)
         root = run_root()
         mode = settle_mode(opts.mode, root)
+        gates = callers_gates("link", opts.gates, LINK_PHASES)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -2078,6 +2235,11 @@ def _link(argv: list[str]) -> int:
     )
     try:
         check_manifest()
+        # The link's one phase, before the timer: nothing has reached the rig.
+        for gate in gates.before if gates else ():
+            status = _run_entry(gate, env)
+            if status != 0:
+                return _stop_caller(gate, status)
         for entry in LINK_SEQUENCE:
             status = _run_entry(entry, env)
             if status != 0:
@@ -2090,6 +2252,183 @@ def _link(argv: list[str]) -> int:
     return 0
 
 
+#: What ``step --help`` says the step run is.
+STEP_HELP = (
+    "advanced: run one script of your own on a rig, under the door's fixed "
+    "gates. The door settles the profile, leases the rig and reads it (held to "
+    "your rig file, $MCGYVR_HOME/rigs/RIG.json, in user mode), checks that its "
+    "docker daemon answers and is that machine, and makes the run's envelope; "
+    "then it runs your --step with the run exported to it (RUN_ID, "
+    "RUN_OUT_DIR, RUN_HOST, ...) and its ssh and docker reaching that rig "
+    "alone; then, whatever the step did, it names any container the step left "
+    "and parses what the step declared it writes, and releases the lease. "
+    "Nothing here skips a gate"
+)
+
+
+def _step_parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+    """The step run's arguments. As with :func:`_parse`, nothing skips a gate."""
+    step_args: list[str] = []
+    if "--" in argv:
+        cut = argv.index("--")
+        argv, step_args = argv[:cut], argv[cut + 1 :]
+    parser = argparse.ArgumentParser(
+        prog="python -m mcgyvr.serving.run step", description=STEP_HELP
+    )
+    parser.add_argument("--host", required=True, help=HOST_HELP)
+    _add_mode(parser)
+    parser.add_argument(
+        "--campaign",
+        required=True,
+        help="names the run, as one folder name: its envelope and its RUN_ID",
+    )
+    parser.add_argument(
+        "--step",
+        required=True,
+        metavar="PATH",
+        help=(
+            "your own executable script; gate 6 runs it from the run root with "
+            "the run exported to it and the arguments after `--`. It declares "
+            "what it writes on one `# RUN_ARTIFACTS: NAME...` comment line (or "
+            "RUN_REWRITES / RUN_APPENDS), and writes it under RUN_OUT_DIR"
+        ),
+    )
+    parser.add_argument(
+        "--out-root",
+        default=None,
+        metavar="DIR",
+        help=(
+            "an existing folder the run is filed under, as "
+            "DIR/<date>-<campaign>/ (default: the run's own folder of the "
+            "door's log under the data folder in user mode, the run root's "
+            "records/evidence/<date>-<campaign>/ in lab mode). The door never "
+            "makes it"
+        ),
+    )
+    parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
+    parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
+    _add_serving(parser, required=False)
+    parser.add_argument(
+        "--gates",
+        default=None,
+        metavar="FILE",
+        help=_gates_help("step", SERVE_PHASES_HELP),
+    )
+    return parser.parse_args(argv), step_args
+
+
+def _step(argv: list[str]) -> int:
+    """`step`: the step run's fixed sequence around the caller's own step."""
+    opts, step_args = _step_parse(argv)
+    # Every refusal below happens before a gate runs: nothing checked,
+    # nothing made, no rig read.
+    inherited = _ambient()
+    if inherited is not None:
+        print(
+            f"run.py: REFUSED — {inherited} is set in the calling environment; "
+            "unset it and rerun; the door mints its own vocabulary",
+            file=sys.stderr,
+        )
+        return 2
+    if CAMPAIGN_NAME.fullmatch(opts.campaign) is None or opts.campaign in (".", ".."):
+        print(
+            _printable(
+                f"run.py: REFUSED — --campaign {opts.campaign!r} is not one folder "
+                "name ([A-Za-z0-9_.-]+): it names the run's envelope and its "
+                "RUN_ID, and a name that is a path would file the run elsewhere"
+            ),
+            file=sys.stderr,
+        )
+        return 2
+    escape = _model_escape(opts.model) if opts.model is not None else None
+    if escape is not None:
+        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
+        return 2
+    try:
+        root = run_root()
+        mode = settle_mode(opts.mode, root)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    step = Path(opts.step)
+    step = step if step.is_absolute() else Path.cwd() / step
+    if not step.is_file():
+        print(f"run.py: REFUSED — --step {opts.step} is not a file", file=sys.stderr)
+        return 2
+    out_root = ""
+    if opts.out_root is not None:
+        folder = Path(opts.out_root)
+        folder = folder if folder.is_absolute() else Path.cwd() / folder
+        if not opts.out_root or not folder.is_dir():
+            print(
+                f"run.py: REFUSED — --out-root {opts.out_root!r} is not an "
+                "existing folder. The run is filed under it, and the door never "
+                "makes the folder a run is filed under: a folder made silently "
+                "is a run filed where nobody looks",
+                file=sys.stderr,
+            )
+            return 2
+        out_root = str(folder.resolve())
+
+    run_date = opts.date or datetime.now(UTC).strftime("%Y-%m-%d")
+    from mcgyvr.fleet.roots import FolderError
+
+    try:
+        envelope = gatelib.envelope_of(
+            mode=mode,
+            root=root,
+            out_root=out_root,
+            run_date=run_date,
+            campaign=opts.campaign,
+            run_id=gatelib.run_id_of(run_date, opts.campaign, step, opts.suffix),
+        )
+    except (FolderError, RuntimeError) as unnamed:
+        print(
+            f"run.py: REFUSED — the data folder cannot be named: {unnamed}",
+            file=sys.stderr,
+        )
+        return 2
+    escape = _check_step_args(step_args, envelope, root)
+    if escape is not None:
+        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
+        return 2
+    try:
+        gates = callers_gates("step", opts.gates)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+
+    env = dict(os.environ)
+    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    try:
+        pin_config(env)
+    except RefusedError as refusal:
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status
+    env.update(
+        RUN_ROOT=str(root),
+        RUN_BIN=str(BIN),
+        RUN_CAMPAIGN=opts.campaign,
+        RUN_STEP_FILE=str(step.resolve()),
+        RUN_HOST=opts.host,
+        RUN_SUFFIX=opts.suffix,
+        RUN_PARALLEL=str(opts.parallel),
+        RUN_UBATCH=str(opts.ubatch),
+        # Read off the clock once, as the campaign run's is: the envelope
+        # above was named by it, and gate 5 files under it.
+        RUN_DATE=run_date,
+        RUN_MODE=mode,
+        RUN_COMMAND=_command("step", argv),
+    )
+    if opts.model is not None:
+        env["RUN_MODEL"] = opts.model
+    if opts.ctx_per_slot is not None:
+        env["RUN_CTX_PER_SLOT"] = str(opts.ctx_per_slot)
+    if out_root:
+        env[gatelib.OUT_ROOT_VAR] = out_root
+    return _through_step(STEP_SEQUENCE, STEP_PHASES, env, gates, step_args)
+
+
 def main(argv: list[str] | None = None) -> int:
     given = list(sys.argv[1:] if argv is None else argv)
     if given[:1] == ["serve"]:
@@ -2098,6 +2437,8 @@ def main(argv: list[str] | None = None) -> int:
         return _read(given[1:])
     if given[:1] == ["link"]:
         return _link(given[1:])
+    if given[:1] == ["step"]:
+        return _step(given[1:])
     opts, step_args = _parse(given)
 
     # Every refusal below happens before a gate runs: nothing checked, nothing

@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -61,6 +60,7 @@ from mcgyvr.serving.gatelib import (
     root,
     run_mode,
     ssh,
+    step_name,
 )
 
 HERE = Path(__file__).resolve().parent
@@ -189,9 +189,9 @@ def take_lease(host: str) -> tuple[Lease, Lease | None]:
     naming the last one.
     """
     profile = need("RUN_PROFILE")
-    step_name = re.sub(r"^\d+-", "", Path(need("RUN_STEP_FILE")).stem)
+    step = step_name(Path(need("RUN_STEP_FILE")))
     # The door's pid, not this gate's: the gate exits, the door holds the run.
-    mine = new_lease(profile, need("RUN_CAMPAIGN"), step_name, os.getppid())
+    mine = new_lease(profile, need("RUN_CAMPAIGN"), step, os.getppid())
     held = lease_read(host)
     for _ in range(3):
         if held is None:

@@ -123,6 +123,44 @@ LAB_MODE = "lab"
 MODE_VAR = "RUN_MODE"
 #: The folder of the user mode's door log, under the data folder.
 DOOR_LOG = "door"
+#: The variable the door names a ``step`` run's ``--out-root`` in: the folder
+#: the run's envelope is made under, as ``<it>/<date>-<campaign>/``. Unset on
+#: every other run, and on a step run that names none.
+OUT_ROOT_VAR = "RUN_OUT_ROOT"
+
+
+def step_name(step_file: Path) -> str:
+    """The step a run id names: the file's stem without its ``<n>-`` order."""
+    return re.sub(r"^\d+-", "", step_file.stem)
+
+
+def run_id_of(run_date: str, campaign: str, step_file: Path, suffix: str) -> str:
+    """The RUN_ID gate 5 mints: ``<date>-<campaign>-<step>[-<suffix>]``."""
+    return f"{run_date}-{campaign}-{step_name(step_file)}" + (
+        f"-{suffix}" if suffix else ""
+    )
+
+
+def envelope_of(
+    *, mode: str, root: Path, out_root: str, run_date: str, campaign: str, run_id: str
+) -> Path:
+    """Where a run's envelope is made, the one rule the door and gate 5 share.
+
+    Under ``out_root`` when a step run names one (``<out_root>/<date>-
+    <campaign>/``); else, in user mode, the run's own folder of the door's
+    log under the data folder (``<data folder>/door/<date>/<RUN_ID>/``); else
+    the lab's ``<root>/records/evidence/<date>-<campaign>/``. The data folder
+    is named by :func:`mcgyvr.fleet.roots.data_home`, imported only here, so
+    a shim loading this file by path needs nothing beyond the stdlib; it
+    raises what that raises when the folder cannot be named.
+    """
+    if out_root:
+        return Path(out_root) / f"{run_date}-{campaign}"
+    if mode == USER_MODE:
+        from mcgyvr.fleet.roots import data_home
+
+        return data_home() / DOOR_LOG / run_date / run_id
+    return root / "records" / "evidence" / f"{run_date}-{campaign}"
 
 
 def run_mode() -> str:

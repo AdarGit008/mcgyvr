@@ -381,3 +381,16 @@ def alive(pid: int) -> bool:
     except ProcessLookupError:
         return False
     return True
+
+
+def step_argv(where: Path, *extra: str) -> list[str]:
+    """``step`` of a script of the test's own on :data:`HOST`."""
+    script = executable(
+        where / "own-step.sh", "#!/usr/bin/env bash\n# RUN_ARTIFACTS: out.json\n"
+    )
+    return ["step", "--host", HOST, "--campaign", "own", "--step", str(script), *extra]
+
+
+def link_argv(*extra: str) -> list[str]:
+    """A ``link --peer`` of two cards of :data:`HOST`."""
+    return ["link", "--host", HOST, "--peer", "0", "1", *extra]

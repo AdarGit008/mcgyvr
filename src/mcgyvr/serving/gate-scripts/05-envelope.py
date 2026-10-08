@@ -50,7 +50,14 @@ the run's own folder in the door's log under the data folder,
 ``$MCGYVR_DATA`` or ``$XDG_STATE_HOME`` moves it), and the header also files
 the run's mode, the command it was opened with, the rig as gate 2 read it
 before the step, and the compose file's text. Gate 7 adds the rest at the
-end (``<RUN_ID>.end.json``).
+end (``<RUN_ID>.end.json``). A user-mode run's campaign is a name for its
+envelope and nothing more: no campaign folder is asked for, since the
+campaigns are the lab's.
+
+A ``step`` RUN THAT NAMES AN OUT-ROOT (``--out-root DIR``, :data:`OUT_ROOT_VAR`)
+is filed under ``DIR/<date>-<campaign>/`` in either mode, the layout of the
+lab's ``records/evidence/``. The folder exists, or the run is refused: the
+door never makes the folder a run is filed under.
 
 Every check happens before anything is written; then the lease on the rig is
 stamped, and the envelope, the claim, the header and the moves aside are made.
@@ -68,9 +75,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import mcgyvr
-from mcgyvr.fleet.roots import FolderError, data_home
+from mcgyvr.fleet.roots import FolderError
 from mcgyvr.serving.gatelib import (
-    DOOR_LOG,
+    OUT_ROOT_VAR,
     USER_MODE,
     artifact_escape,
     claim,
@@ -78,6 +85,7 @@ from mcgyvr.serving.gatelib import (
     displaced_by_run,
     door_required,
     envelope_escape,
+    envelope_of,
     export,
     lease_of_run,
     lease_stamp,
@@ -85,7 +93,9 @@ from mcgyvr.serving.gatelib import (
     refuse,
     release,
     root,
+    run_id_of,
     run_mode,
+    step_name,
 )
 
 DIRECTIVES = ("RUN_ARTIFACTS", "RUN_REWRITES", "RUN_APPENDS")
@@ -217,10 +227,19 @@ def user_header(record: dict[str, str]) -> dict[str, object]:
     }
 
 
-def user_envelope(run_date: str, run_id: str) -> Path:
-    """Where a user-mode run is filed: its own folder of the door's log."""
+def envelope(run_date: str, campaign: str, run_id: str, *, user: bool) -> Path:
+    """Where this run is filed (:func:`gatelib.envelope_of`): under a step
+    run's ``--out-root``, else a user-mode run's own folder of the door's
+    log, else the lab's ``records/evidence/``."""
     try:
-        return data_home() / DOOR_LOG / run_date / run_id
+        return envelope_of(
+            mode=USER_MODE if user else "",
+            root=root(),
+            out_root=os.environ.get(OUT_ROOT_VAR, ""),
+            run_date=run_date,
+            campaign=campaign,
+            run_id=run_id,
+        )
     except (FolderError, RuntimeError) as exc:
         refuse(f"gate 5: the data folder cannot be named: {exc}. Nothing is minted")
 
@@ -235,14 +254,17 @@ def main() -> int:
     campaign = need("RUN_CAMPAIGN")
     suffix = os.environ.get("RUN_SUFFIX", "")
 
+    user = run_mode() == USER_MODE
     # The archived door's first check (archive/runs/run.sh, check_argv): a
     # campaign is a directory under tools/runs/campaigns/, and a name that is
     # not one mints nothing — a typo would otherwise open a fresh envelope
     # beside the real one and file a run where nobody looks. The default step
-    # is the exception, deliberately: it is not a campaign's step.
+    # is the exception, deliberately: it is not a campaign's step. A lab
+    # rule: in user mode the campaign is a name for the envelope, and the
+    # campaigns are the lab's to declare.
     campaigns_dir = root() / "tools" / "runs" / "campaigns"
     campaign_dir = campaigns_dir / campaign
-    if not campaign_dir.is_dir() and step_file.resolve() not in DOOR_STEPS:
+    if not user and not campaign_dir.is_dir() and step_file.resolve() not in DOOR_STEPS:
         known = (
             sorted(p.name for p in campaigns_dir.iterdir() if p.is_dir())
             if campaigns_dir.is_dir()
@@ -284,37 +306,30 @@ def main() -> int:
         refuse(f"gate 5: RUN_DATE={run_date!r} is not YYYY-MM-DD")
 
     # `<n>-<name>.sh` -> `<name>`, matching how a run id is parsed back.
-    step_name = re.sub(r"^\d+-", "", step_file.stem)
+    step = step_name(step_file)
     siblings = (
-        [re.sub(r"^\d+-", "", p.stem) for p in sorted(campaign_dir.glob("[0-9]*-*.sh"))]
+        [step_name(p) for p in sorted(campaign_dir.glob("[0-9]*-*.sh"))]
         if campaign_dir.is_dir()
         else []
     )
-    if step_name not in siblings:
-        siblings.append(step_name)
+    if step not in siblings:
+        siblings.append(step)
     if suffix:
         for other in siblings:
-            if other != step_name and (
-                f"{step_name}-{suffix}" == other
-                or f"{step_name}-{suffix}".startswith(f"{other}-")
-            ):
+            named = f"{step}-{suffix}"
+            if other != step and (named == other or named.startswith(f"{other}-")):
                 refuse(
                     f"gate 5: --suffix {suffix!r} would mint a run id that "
                     f"reads as step {other!r}; a run id names exactly one step"
                 )
 
-    run_id = f"{run_date}-{campaign}-{step_name}" + (f"-{suffix}" if suffix else "")
+    run_id = run_id_of(run_date, campaign, step_file, suffix)
     if not PLAIN_NAME.match(run_id):
         refuse(
             f"gate 5: RUN_ID {run_id!r} is not [A-Za-z0-9_.-]+; it names "
             "containers (<RUN_ID>-<role>) and must be legal as a docker name prefix"
         )
-    user = run_mode() == USER_MODE
-    out_dir = (
-        user_envelope(run_date, run_id)
-        if user
-        else root() / "records" / "evidence" / f"{run_date}-{campaign}"
-    )
+    out_dir = envelope(run_date, campaign, run_id, user=user)
     escape = envelope_escape(out_dir)
     if escape is not None:
         refuse(f"gate 5: {escape}. Nothing is minted into a directory that is a link")
@@ -368,11 +383,11 @@ def main() -> int:
                 "never superseded by one it does"
             )
         writer = step_of_run_id(old, campaign, siblings)
-        if writer != step_name:
+        if writer != step:
             refuse(
                 f"gate 5: {name} was written by run_id={old}"
                 + (f" (step {writer})" if writer else "")
-                + f", not by {campaign}/{step_name}; a step may supersede its "
+                + f", not by {campaign}/{step}; a step may supersede its "
                 "own artifact and never another step's"
             )
         if old == run_id:
@@ -424,8 +439,16 @@ def main() -> int:
     # The root was judged when the door opened; gates 1-4 have spent rig time
     # since, and a root that went away meanwhile is not re-made here — a
     # `parents=True` below would recreate it silently, which is the root made
-    # by nobody that the door refuses to make.
-    if not user and not root().is_dir():
+    # by nobody that the door refuses to make. A step run's --out-root is
+    # held to the same rule: it is the folder the envelope is made under.
+    out_root = os.environ.get(OUT_ROOT_VAR, "")
+    if out_root and not Path(out_root).is_dir():
+        refuse(
+            f"gate 5: the out-root {out_root} is no longer a directory; the "
+            "door files under a folder that exists and never makes one. "
+            "Nothing is minted"
+        )
+    if not user and not out_root and not root().is_dir():
         refuse(
             f"gate 5: the run root {root()} is no longer a directory; the door "
             "files under a root that exists and never makes one. Nothing is "
@@ -442,7 +465,7 @@ def main() -> int:
             f"this RUN_ID ({run_id}) has been made before. Two door invocations "
             "never share a run id: a same-day re-run takes --suffix"
         )
-    record = header_record(run_id, step_name, campaign, run_date)
+    record = header_record(run_id, step, campaign, run_date)
     header_doc: Mapping[str, object] = user_header(record) if user else record
 
     # A live run that displaced another run of this step, from another
@@ -486,7 +509,7 @@ def main() -> int:
     export("RUN_ID", run_id)
     export("RUN_OUT_DIR", out_dir)
     export("RUN_DATE", run_date)
-    export("RUN_STEP", step_name)
+    export("RUN_STEP", step)
     export("RUN_HOST", need("RUN_HOST"))
     export("RUN_DECLARED", json.dumps(declared, separators=(",", ":")))
     export("RUN_APPEND_STATE", json.dumps(append_state, separators=(",", ":")))
