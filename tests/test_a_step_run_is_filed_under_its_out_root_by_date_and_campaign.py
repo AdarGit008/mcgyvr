@@ -2,10 +2,10 @@
 
 Owner, 2026-10-08 (design 2b): the lab keeps its evidence layout, one
 ``<date>-<campaign>/`` folder per run under its evidence folder, by naming
-that folder as the step run's out-root; a user's run with none is filed in the door's log. The
-folder exists, or the run is refused before any gate: the door never makes
-the folder a run is filed under. And a step's own output flag still cannot
-leave the envelope.
+that folder as the step run's out-root; a user's run with none is filed in
+the door's log. The folder exists, or the run is refused before any gate:
+the door never makes the folder a run is filed under. And a step's own
+output flag still cannot leave the envelope.
 
 Every machine here is invented and stands behind the door's shims.
 """
