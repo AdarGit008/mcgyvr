@@ -1,0 +1,25 @@
+# The agent use case's sample task (plan section 8.2): one grounded contract,
+# run by `mcgyvr run` on the staged setup. Green when the reply is grounded
+# (every sentence cites the source) and clears the safety check. Read by
+# mcgyvr.fleet.bundled; `files` is the repository as it starts, and
+# `reference` is one reply the grounded check accepts.
+use_case: agent
+contract:
+  id: mcgyvr-sample-agent
+  task_type: agent
+  task: |
+    Read harbour-notes. In two short sentences, say what colour the sky was
+    and on which day. End each sentence with the citation [1].
+  target: answer.txt
+  stop_conditions:
+    - harbour-notes does not say what colour the sky was.
+  output_schema: prose
+  sources: ["harbour-notes"]
+  scope:
+    allow: ["answer.txt"]
+files:
+  harbour-notes: |
+    On Tuesday the sky over the harbour was green.
+reference:
+  answer.txt: |
+    The sky was green [1]. It was Tuesday [1].

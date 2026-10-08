@@ -15,14 +15,18 @@ when it is green:
    :func:`mcgyvr.fleet.lock.write` -- a dev root
    of its own, so a stamp from an install needs no lab checkout;
 2. promotes the fleet from there (:func:`mcgyvr.fleet.promote.promote`) to
-   ``<config folder>/fleets/<fleet>@<lock date>/``;
-3. names it live (:func:`mcgyvr.fleet.promote.use`). Nothing is started or
-   stopped here: what runs is the sample's.
+   ``<config folder>/fleets/<fleet>@<lock date>/``, and then each fleet its
+   ``next`` lists -- a swap's F-strong (owner, Round 8: a swap is stamped as
+   two fleets, each in the other's ``next``) -- so ``mcgyvr fleet use`` can
+   name either;
+3. names the fleet live (:func:`mcgyvr.fleet.promote.use`). Nothing is
+   started or stopped here: what runs is the sample's.
 
 A red sample, a lock refusal and a promotion refusal are all "no stamp", each
 by its own reasons, and leave nothing behind: the folder is built beside its
-place and renamed in only once the lock is written, and removed again when
-promotion refuses. ``live.json`` is written last, and only on a promotion.
+place and renamed in only once the lock is written, and removed again, with
+every fleet it promoted, when a promotion refuses. ``live.json`` is written
+last, and only once every promotion is made.
 """
 
 from __future__ import annotations
@@ -66,6 +70,8 @@ class Stamp:
     promoted: Path | None = None
     #: What naming it live did.
     switch: Switch | None = None
+    #: The fleets its ``next`` lists, promoted beside it: a swap's F-strong.
+    partners: tuple[Path, ...] = ()
     #: Why nothing was stamped, one reason per line.
     why: tuple[str, ...] = ()
 
@@ -78,6 +84,7 @@ class Stamp:
         if self.name is not None:
             return [
                 f"stamped: {self.name} ({self.promoted})",
+                *(f"stamped: {other.name} ({other})" for other in self.partners),
                 f"live: {self.name}",
                 f"evidence: {self.folder}",
             ]
@@ -172,11 +179,17 @@ def stamp(sample: Sample, *, run_id: str) -> Stamp:
         shutil.rmtree(staging, ignore_errors=True)
         raise
 
+    made: list[Path] = []
+    block = (fleet.get("fleets") or {}).get(sample.fleet) or {}
     try:
-        promoted = promote(target, target / SETUP_DIR, sample.fleet)
+        for name in dict.fromkeys([sample.fleet, *(block.get("next") or ())]):
+            made.append(promote(target, target / SETUP_DIR, name))
     except PromoteRefusedError as exc:
+        for folder_made in made:
+            shutil.rmtree(folder_made, ignore_errors=True)
         shutil.rmtree(target, ignore_errors=True)
         return red(f"promote: {exc}")
+    promoted, *partners = made
     switch = use(promoted.name)
     return Stamp(
         fleet=sample.fleet,
@@ -184,4 +197,5 @@ def stamp(sample: Sample, *, run_id: str) -> Stamp:
         folder=target,
         promoted=promoted,
         switch=switch,
+        partners=tuple(partners),
     )

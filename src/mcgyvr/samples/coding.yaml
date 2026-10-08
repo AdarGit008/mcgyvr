@@ -1,0 +1,39 @@
+# The coding use case's sample task (plan section 8.2): a one-function bug fix
+# in a throwaway repository, run by `mcgyvr run` on the staged setup. Green
+# when the deterministic gate passes on any rung. Read by
+# mcgyvr.fleet.bundled; `files` is the repository as it starts, and
+# `reference` is one fix the demonstration accepts.
+use_case: coding
+contract:
+  id: mcgyvr-sample-coding
+  task_type: bug_fix
+  task: |
+    add(a, b) returns a minus b. It must return the sum of a and b. Return the
+    complete fixed file.
+  target: calc.py
+  target_content: |
+    def add(a, b):
+        return a - b
+  interface: "def add(a: int, b: int) -> int"
+  stop_conditions:
+    - What add should return for values that are not numbers is not stated.
+  demonstration: ["python3 accept.py"]
+  limits:
+    max_output_tokens: 1024
+  risk: low
+  scope:
+    allow: ["calc.py"]
+files:
+  calc.py: |
+    def add(a, b):
+        return a - b
+  accept.py: |
+    from calc import add
+
+    assert add(2, 3) == 5, add(2, 3)
+    assert add(-4, 4) == 0, add(-4, 4)
+    print("add returns the sum")
+reference:
+  calc.py: |
+    def add(a, b):
+        return a + b

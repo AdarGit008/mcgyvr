@@ -2,9 +2,9 @@
 
 Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample green = fleet STAMPED;
 sample red = no stamp, report why. Plan section 8.2: a lock refusal is a red
-sample, reported by its own message. Round 8: until P10 lands, a plan with a
-llama.cpp sleeper samples red, "the swap isn't built yet (P10)"; media-gen
-waits for P11.
+sample, reported by its own message. Round 8: since P10 landed, a sleeper
+(``role: sleeps-until-needed``) samples red only when its swap was not
+measured (P7b); media-gen waits for P11.
 
 "Stamps nothing" is checked on disk: no promoted folder, no ``live.json``
 written or changed, and no stamp folder left under the data folder. The reason
@@ -134,18 +134,22 @@ def test_a_rig_with_no_rig_file_is_red(
     assert "rig file" in said and fx.RIG in said, said
 
 
-def test_a_sleeper_is_red_until_the_swap_is_built(
+def test_a_sleeper_with_no_swap_measured_is_red(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """P10 built the swap, so a sleeper (by its role) is red only when its swap
+    was not stamped: here F-strong was never read and no move ran."""
     monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
-    setup = fx.staged(tmp_path, fleet=fx.fleet_doc(asleep=True))
-    fx.read(setup, fx.READS[0], text=fx.reader_text(strong=True))
-    fx.read(setup, fx.READS[1], text=fx.reader_text(strong=True), load=None)
+    setup = fx.staged(
+        tmp_path, fleet=fx.swap_doc(), policy=fx.swap_policy(tmp_path)
+    )
+    _read_twice(setup)
 
     said = _red(setup, _sample(setup))
 
-    assert fx.STRONG in said and "the swap isn't built yet (P10)" in said, said
+    assert fx.STRONG_FLEET in said and "did not run" in said, said
+    assert "P10" not in said, said
 
 
 def test_a_media_gen_sample_is_red_until_it_is_built(

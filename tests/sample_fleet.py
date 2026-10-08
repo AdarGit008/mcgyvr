@@ -21,6 +21,8 @@ import yaml
 
 RIG = "rig-a"
 FLEET = "coding-rig-a"
+#: The fleet the strong rung's swap is stamped as, beside :data:`FLEET`.
+STRONG_FLEET = "coding-rig-a-strong"
 UNIT = "rig-a-coder-s-8081"
 STRONG = "rig-a-coder-l-8082"
 UNIT_ID = "unt-" + "a" * 64
@@ -31,6 +33,8 @@ STRONG_CONTAINER = "mcgyvr-rig-a-coder-l-8082"
 STRONG_CONTAINER_ID = "c0ffee000002"
 #: Two reads of the sample, a minute apart: before the task, and after it.
 READS = ("run-20261005T100000-0000000a", "run-20261005T100100-0000000b")
+#: Two reads of the strong fleet, once the swap woke its strong rung.
+STRONG_READS = ("run-20261005T100200-0000000c", "run-20261005T100300-0000000d")
 #: The day the sample's last read was taken, which the stamp is dated by.
 SAMPLE_DAY = "2026-10-05"
 LOAD = "4x8192"
@@ -67,8 +71,9 @@ def unit(
     port: int = 8081,
     container: str = CONTAINER,
     room_mib: int = 6000,
+    role: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    block = {
         "rig": RIG,
         "unit_id": unit_id,
         "engine": "llama.cpp",
@@ -81,6 +86,9 @@ def unit(
         "room_mib": room_mib,
         "container": container,
     }
+    if role is not None:
+        block["role"] = role
+    return block
 
 
 def fleet_doc(*, asleep: bool = False) -> dict[str, Any]:
@@ -99,12 +107,43 @@ def fleet_doc(*, asleep: bool = False) -> dict[str, Any]:
     }
 
 
+def swap_doc() -> dict[str, Any]:
+    """The staged ``fleet.yaml`` of a swap (owner, Round 8): the fast rung
+    awake in :data:`FLEET`, the strong rung -- ``role: sleeps-until-needed`` --
+    awake in its slot in :data:`STRONG_FLEET`, each fleet in the other's
+    ``next``."""
+    return {
+        "profile": "dev",
+        "units": {
+            UNIT: unit(role="always-on"),
+            STRONG: unit(
+                STRONG,
+                STRONG_ID,
+                8082,
+                STRONG_CONTAINER,
+                room_mib=5000,
+                role="sleeps-until-needed",
+            ),
+        },
+        "rigs": {RIG: {"rig_id": rig_id()}},
+        "fleets": {
+            FLEET: {"layout": {RIG: [[UNIT, "awake"]]}, "next": [STRONG_FLEET]},
+            STRONG_FLEET: {"layout": {RIG: [[STRONG, "awake"]]}, "next": [FLEET]},
+        },
+    }
+
+
 def policy_doc(tmp_path: Path, use_case: str = "coding") -> dict[str, Any]:
     return {
         "use_case": use_case,
         "ladder": [UNIT],
         "journal": {"dir": str(tmp_path / "journal")},
     }
+
+
+def swap_policy(tmp_path: Path) -> dict[str, Any]:
+    """The policy of :func:`swap_doc`: its ladder climbs to the strong rung."""
+    return {**policy_doc(tmp_path), "ladder": [UNIT, STRONG]}
 
 
 def staged(
@@ -165,10 +204,17 @@ def reader_text(
     restarts: str = "0",
     snapshot: dict[str, str] | None = None,
     strong: bool = False,
+    strong_only: bool = False,
 ) -> str:
-    """What the reader prints for the invented rig with the fast rung up."""
+    """What the reader prints for the invented rig with the fast rung up, or
+    with ``strong_only`` the strong rung alone, swapped in."""
     values = SNAPSHOT if snapshot is None else snapshot
     lines = "".join(f"{key}={value}\n" for key, value in values.items())
+    if strong_only:
+        lines += f"container={STRONG_CONTAINER},{STRONG_CONTAINER_ID},mcgyvr,{restarts}\n"
+        lines += f"gpu_app=4343,{card_mib},{STRONG_CONTAINER_ID},llama-server\n"
+        lines += f"status=8082,{_b64(slots_page())}\n"
+        return lines
     lines += f"container={CONTAINER},{CONTAINER_ID},mcgyvr,{restarts}\n"
     lines += f"gpu_app=4242,{card_mib},{CONTAINER_ID},llama-server\n"
     lines += f"status=8081,{_b64(slots_page())}\n"
@@ -186,6 +232,7 @@ class Harness:
     prefill: float = 900.0
     load_mib: tuple[int, ...] = (5300, 5600, 5450)
     fails: str | None = None
+    container_id: str = CONTAINER_ID
     specs: list[dict[str, Any]] = field(default_factory=list)
 
     def __call__(self, name: str, spec: str) -> str:
@@ -204,7 +251,7 @@ class Harness:
                         "started_at": "2026-10-05T10:00:05",
                         "finished_at": "2026-10-05T10:00:40",
                         "samples": [
-                            f"gpu_app=4242,{mib},{CONTAINER_ID},llama-server\n"
+                            f"gpu_app=4242,{mib},{self.container_id},llama-server\n"
                             for mib in self.load_mib
                         ],
                         "restarts_before": "0",
@@ -232,6 +279,7 @@ def read(
     harness: Harness | None = None,
     load: str | None = LOAD,
     probe: tuple[str, ...] = (UNIT,),
+    fleet: str = FLEET,
 ) -> Any:
     """One door read of the invented rig under the staged setup, filed."""
     from mcgyvr.fleet import read as door_read
@@ -244,8 +292,28 @@ def read(
         probe=probe,
         measure=Harness() if harness is None else harness,
         load=load,
-        fleet_name=FLEET,
+        fleet_name=fleet,
         setup=setup,
+    )
+
+
+def strong_harness() -> Harness:
+    """The harness on the strong rung: its load peaks inside its room."""
+    return Harness(
+        warm=12.5, prefill=300.0, load_mib=(4500, 4700), container_id=STRONG_CONTAINER_ID
+    )
+
+
+def read_strong(setup: Path, run_id: str, *, load: str | None = LOAD) -> Any:
+    """One door read of the strong fleet, its strong rung probed."""
+    return read(
+        setup,
+        run_id,
+        text=reader_text(card_mib=4600, strong_only=True),
+        harness=strong_harness(),
+        load=load,
+        probe=(STRONG,),
+        fleet=STRONG_FLEET,
     )
 
 

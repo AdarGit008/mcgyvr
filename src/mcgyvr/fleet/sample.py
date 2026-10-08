@@ -21,8 +21,12 @@ back and says, plan section 8.2:
   safety checks; ``media-gen`` is not sampled yet (P11);
 * **an opted-in Jev** (``policy.yaml`` ``jev.unit``) gave one typed choice: a
   label and a probability;
-* **no unit sleeps**: until P10 builds the llama.cpp swap, a fleet with an
-  asleep slot is red (owner, Round 8).
+* **every sleeper swaps** (owner, Round 8, after P10): a unit whose
+  ``units.<u>.role`` is ``sleeps-until-needed`` is woken by a fleet F lists
+  in ``next`` -- F-strong, which lists F back -- and the sample measured the
+  move each way (:class:`Move`): passed, with its downtime and wake seconds.
+  F-strong is judged as F is: every awake unit probed. An ``asleep`` slot is
+  no reason by itself.
 
 What the reads measured becomes the dev-run evidence ``mcgyvr fleet lock``
 already reads (:mod:`mcgyvr.fleet.lock`): the rig file the user's scan saved
@@ -30,8 +34,8 @@ already reads (:mod:`mcgyvr.fleet.lock`): the rig file the user's scan saved
 snapshot names the rig and gives the card's reserve as the combination's
 overhead, and each unit's card peak is the highest card reading around the
 sample (its card and its load's peak), its steady card the last read's. The
-evidence carries ``passed`` as the sample's verdict. Nothing here reads a rig
-or writes a file.
+evidence carries ``passed`` as the sample's verdict, and the swap's moves as
+``moves``. Nothing here reads a rig or writes a file.
 """
 
 from __future__ import annotations
@@ -42,9 +46,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeGuard
 
-from mcgyvr.config import CHAT
+from mcgyvr.config import CHAT, ROLE_SLEEPER
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
-from mcgyvr.fleet.layout import ASLEEP, AWAKE
+from mcgyvr.fleet.layout import AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
 
 #: The use cases and the task outcome each is judged by (plan section 8.2).
@@ -61,8 +65,8 @@ TASK_GROUNDED = "grounded"
 TASK_SAFETY = "safety"
 TASK_CHOICE = "choice"
 CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
-#: Why a fleet with a sleeper is not stamped yet (owner, Round 8).
-SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
+#: The arrow a switch between two fleets is named by.
+TO = "→"
 #: Why a media-gen fleet is not stamped yet.
 MEDIA_NOT_BUILT = "the media sample isn't built yet (P11)"
 #: The figures every awake unit's probe must read.
@@ -95,6 +99,23 @@ class Outcome:
 
 
 @dataclass(frozen=True)
+class Move:
+    """One rig's switch between two fleets, as the sample's swap made it.
+
+    ``downtime_s`` runs from the first unit stopped to the last unit started
+    answering; ``wake_s`` is the start alone. ``why`` is what failed.
+    """
+
+    rig: str
+    from_fleet: str
+    to_fleet: str
+    passed: bool = False
+    downtime_s: float | None = None
+    wake_s: float | None = None
+    why: str = ""
+
+
+@dataclass(frozen=True)
 class Sample:
     """What ran: the staged setup, the reads of it, and the task's outcomes.
 
@@ -102,7 +123,8 @@ class Sample:
     one that read a rig is its steady state. ``journal`` is where those reads
     filed, by default the setup's own (``journal.dir`` of its ``policy.yaml``).
     ``validated_at`` is by default the moment of the sample's last read.
-    ``envelope`` is the door run's envelope, when it filed one.
+    ``envelope`` is the door run's envelope, when it filed one. ``moves`` are
+    the swap's moves, between ``fleet`` and the fleets its ``next`` lists.
     """
 
     setup: Path
@@ -112,6 +134,7 @@ class Sample:
     journal: Path | None = None
     validated_at: str | None = None
     envelope: str | None = None
+    moves: Sequence[Move] = ()
 
 
 @dataclass(frozen=True)
@@ -168,32 +191,38 @@ def _number(value: Any) -> TypeGuard[int | float]:
 
 
 class _Reads:
-    """The rows the sample's reads filed for its fleet, from its setup, in order."""
+    """The rows the sample's reads filed for its fleets, from its setup, in order.
 
-    def __init__(self, sample: Sample, journal: Path) -> None:
+    Keyed by fleet: a unit awake in F and in F-strong is read in each.
+    """
+
+    def __init__(self, sample: Sample, journal: Path, fleets: Sequence[str]) -> None:
         order = {run_id: index for index, run_id in enumerate(sample.reads)}
-        self.rig: dict[str, list[dict[str, Any]]] = {}
-        self.unit: dict[str, list[dict[str, Any]]] = {}
+        self.rig: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        self.unit: dict[tuple[str, str], list[dict[str, Any]]] = {}
         if not journal.is_dir():
             return
         for path in sorted(journal.glob("*/*.jsonl")):
             for row in _rows(path):
                 if (
                     row.get("run_id") not in order
-                    or row.get("fleet") != sample.fleet
+                    or row.get("fleet") not in fleets
                     or not _same(row.get("setup"), sample.setup)
                 ):
                     continue
+                fleet = str(row["fleet"])
                 if path.name == RIG_ROWS:
-                    self.rig.setdefault(str(row.get("rig")), []).append(row)
+                    key = (fleet, str(row.get("rig")))
+                    self.rig.setdefault(key, []).append(row)
                 else:
-                    self.unit.setdefault(str(row.get("unit_id")), []).append(row)
+                    key = (fleet, str(row.get("unit_id")))
+                    self.unit.setdefault(key, []).append(row)
         for rows in (*self.rig.values(), *self.unit.values()):
             rows.sort(key=lambda row: order[row["run_id"]])
 
-    def of_unit(self, unit_id: str) -> _UnitRead:
+    def of_unit(self, fleet: str, unit_id: str) -> _UnitRead:
         read = _UnitRead()
-        for row in self.unit.get(unit_id, []):
+        for row in self.unit.get((fleet, unit_id), []):
             name, value = row.get("field"), row.get("observed")
             if row.get("alert") is True and name != "restarts":
                 read.alerts.append(str(name))
@@ -366,6 +395,99 @@ def _rig_block(saved: Any, snapshot: Mapping[str, Any]) -> dict[str, Any]:
     return block
 
 
+def _slots(slots: Any) -> list[Any]:
+    return [list(slot) if slot is not None else None for slot in slots or ()]
+
+
+def _partners(
+    fleets: Mapping[str, Any], name: str
+) -> tuple[list[str], list[str]]:
+    """The fleets ``name`` switches to, and a reason for each switch that is not a
+    fleet of the file or does not list ``name`` back."""
+    found: list[str] = []
+    why: list[str] = []
+    for target in fleets[name].get("next") or ():
+        block = fleets.get(target)
+        if block is None:
+            why.append(f"swap: {name} {TO} {target}: {target} is not a fleet here")
+        elif name not in (block.get("next") or ()):
+            why.append(f"swap: {target} does not list {name} back in its next")
+        elif target not in found:
+            found.append(target)
+    return found, why
+
+
+def _sleeper_reasons(
+    units: Mapping[str, Any],
+    fleets: Mapping[str, Any],
+    name: str,
+    partners: Sequence[str],
+) -> list[str]:
+    """A sleeper no fleet ``name`` switches to holds awake, by its name."""
+    out: list[str] = []
+    for unit_name, unit in units.items():
+        if not isinstance(unit, Mapping) or unit.get("role") != ROLE_SLEEPER:
+            continue
+        woken = any(
+            slot is not None and slot[0] == unit_name and slot[1] == AWAKE
+            for target in partners
+            for slots in (fleets[target].get("layout") or {}).values()
+            for slot in slots or ()
+        )
+        if not woken:
+            out.append(
+                f"swap: {unit_name} sleeps until needed, and no fleet {name} "
+                "switches to wakes it"
+            )
+    return out
+
+
+def _move_reasons(
+    fleets: Mapping[str, Any],
+    name: str,
+    partners: Sequence[str],
+    moves: Sequence[Move],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Each switch between ``name`` and its partners, both ways and rig by rig:
+    a reason per move that did not run, failed or was not timed, and the
+    evidence's ``moves``."""
+    why: list[str] = []
+    evidence: list[dict[str, Any]] = []
+    for there in partners:
+        for source, target in ((name, there), (there, name)):
+            before = fleets[source].get("layout") or {}
+            after = fleets[target].get("layout") or {}
+            for rig in sorted(set(before) | set(after)):
+                if before.get(rig) == after.get(rig):
+                    continue
+                switch = f"swap: {source} {TO} {target} on {rig}"
+                made = [
+                    one
+                    for one in moves
+                    if (one.rig, one.from_fleet, one.to_fleet) == (rig, source, target)
+                ]
+                if not made:
+                    why.append(f"{switch}: the move did not run")
+                    continue
+                one = made[-1]
+                if not one.passed:
+                    why.append(f"{switch}: {one.why or 'the move did not pass'}")
+                elif one.downtime_s is None or one.wake_s is None:
+                    why.append(f"{switch}: its downtime and wake were not timed")
+                record: dict[str, Any] = {
+                    "rig": rig,
+                    "from": _slots(before.get(rig)),
+                    "to": _slots(after.get(rig)),
+                    "passed": one.passed,
+                }
+                if one.downtime_s is not None:
+                    record["downtime_s"] = one.downtime_s
+                if one.wake_s is not None:
+                    record["wake_s"] = one.wake_s
+                evidence.append(record)
+    return why, evidence
+
+
 def judge(sample: Sample) -> Verdict:
     """The sample judged against plan section 8.2, with its evidence.
 
@@ -380,91 +502,105 @@ def judge(sample: Sample) -> Verdict:
         journal = sample.journal or journal_dir(sample.setup)
     except ProbeError as exc:
         raise SampleError(str(exc)) from exc
-    reads = _Reads(sample, journal)
     units = fleet.get("units") or {}
-    layout = fleet["fleets"][sample.fleet].get("layout") or {}
+    fleets = fleet["fleets"]
     use_case = str(policy.get("use_case") or DEFAULT_USE_CASE)
     jev_block = policy.get("jev")
     jev = jev_block.get("unit") if isinstance(jev_block, Mapping) else None
 
-    why: list[str] = []
+    partners, why = _partners(fleets, sample.fleet)
+    why.extend(_sleeper_reasons(units, fleets, sample.fleet, partners))
+    judged = [sample.fleet, *partners]
+    reads = _Reads(sample, journal, judged)
+
     awake: list[str] = []
     rigs: dict[str, Any] = {}
+    saved_rigs: dict[str, Any] = {}
     combinations: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
     whole = True
     last_at: list[str] = []
-    for rig, slots in layout.items():
-        named = [slot for slot in slots or () if slot is not None]
-        for name, state in named:
-            if state == ASLEEP:
-                why.append(f"swap: {name} sleeps until needed, and {SWAP_NOT_BUILT}")
-            elif state == AWAKE:
-                awake.append(name)
-        try:
-            saved = rigfile.read(rig)
-        except rigfile.RigFileError as exc:
-            why.append(f"rig file: {rig}: {exc}")
-            saved = None
-        else:
-            if saved is None:
+    for name in judged:
+        layout = fleets[name].get("layout") or {}
+        for rig, slots in layout.items():
+            key = (rig, json.dumps(_slots(slots)))
+            if key in seen:
+                continue
+            seen.add(key)
+            named = [slot for slot in slots or () if slot is not None]
+            if name == sample.fleet:
+                awake.extend(unit for unit, state in named if state == AWAKE)
+            if rig not in saved_rigs:
+                try:
+                    saved_rigs[rig] = rigfile.read(rig)
+                except rigfile.RigFileError as exc:
+                    why.append(f"rig file: {rig}: {exc}")
+                    saved_rigs[rig] = None
+                else:
+                    if saved_rigs[rig] is None:
+                        why.append(
+                            f"rig file: {rig} has no rig file ({rigfile.path(rig)}); "
+                            f"`{rigfile.MAKE.format(rig=rig)}` writes it"
+                        )
+            saved = saved_rigs[rig]
+            rows = reads.rig.get((name, rig), [])
+            if not rows:
                 why.append(
-                    f"rig file: {rig} has no rig file ({rigfile.path(rig)}); "
-                    f"`{rigfile.MAKE.format(rig=rig)}` writes it"
+                    f"read: {rig} has no read of {name} from {sample.setup} "
+                    f"among the sample's reads ({', '.join(sample.reads) or 'none'})"
                 )
-        rows = reads.rig.get(rig, [])
-        if not rows:
-            why.append(
-                f"read: {rig} has no read of {sample.fleet} from {sample.setup} "
-                f"among the sample's reads ({', '.join(sample.reads) or 'none'})"
-            )
-        if saved is None or not rows:
-            whole = False
-            continue
-        snapshot = rows[-1].get("snapshot") or {}
-        last_at.append(str(rows[-1].get("at") or ""))
-        reserves = [
-            int(str((row.get("snapshot") or {}).get(RESERVE_FIELD)))
-            for row in rows
-            if str((row.get("snapshot") or {}).get(RESERVE_FIELD, "")).isdigit()
-        ]
-        if not reserves:
-            why.append(f"read: {rig}: the snapshot did not read {RESERVE_FIELD}")
+            if saved is None or not rows:
+                whole = False
+                continue
+            snapshot = rows[-1].get("snapshot") or {}
+            last_at.append(str(rows[-1].get("at") or ""))
+            reserves = [
+                int(str((row.get("snapshot") or {}).get(RESERVE_FIELD)))
+                for row in rows
+                if str((row.get("snapshot") or {}).get(RESERVE_FIELD, "")).isdigit()
+            ]
+            if not reserves:
+                why.append(
+                    f"read: {rig}: the snapshot of {name} did not read {RESERVE_FIELD}"
+                )
 
-        comb: dict[str, Any] = {
-            "rig": rig,
-            "slots": [list(slot) if slot is not None else None for slot in slots],
-            "restarts": {},
-            "warm_decode_tok_s": {},
-            "prefill_tok_s": {},
-            "baseline_tok_s": {},
-            "card_peak_mib": {},
-            "card_steady_mib": {},
-        }
-        if reserves:
-            comb["overhead_mib"] = max(reserves)
-        backends: dict[str, str] = {}
-        for name, state in named:
-            unit = units[name]
-            read = reads.of_unit(str(unit.get("unit_id")))
-            if state == AWAKE:
-                why.extend(_probe_reasons(name, unit, read, rows))
-            if read.restarts:
-                comb["restarts"][name] = max(read.restarts)
-            for key in PROBE_FIELDS:
-                if key in read.figures:
-                    comb[key][name] = read.figures[key]
-            if read.card or read.peaks:
-                comb["card_peak_mib"][name] = max([*read.card, *read.peaks])
-            if read.card:
-                comb["card_steady_mib"][name] = read.card[-1]
-            if read.backend is not None:
-                backends[name] = read.backend
-        if backends:
-            comb["attention_backend"] = backends
-        comb["envelope"] = sample.envelope
-        rigs[rig] = _rig_block(saved, snapshot)
-        combinations.append(comb)
+            comb: dict[str, Any] = {
+                "rig": rig,
+                "slots": _slots(slots),
+                "restarts": {},
+                "warm_decode_tok_s": {},
+                "prefill_tok_s": {},
+                "baseline_tok_s": {},
+                "card_peak_mib": {},
+                "card_steady_mib": {},
+            }
+            if reserves:
+                comb["overhead_mib"] = max(reserves)
+            backends: dict[str, str] = {}
+            for unit_name, state in named:
+                unit = units[unit_name]
+                read = reads.of_unit(name, str(unit.get("unit_id")))
+                if state == AWAKE:
+                    why.extend(_probe_reasons(unit_name, unit, read, rows))
+                if read.restarts:
+                    comb["restarts"][unit_name] = max(read.restarts)
+                for field_name in PROBE_FIELDS:
+                    if field_name in read.figures:
+                        comb[field_name][unit_name] = read.figures[field_name]
+                if read.card or read.peaks:
+                    comb["card_peak_mib"][unit_name] = max([*read.card, *read.peaks])
+                if read.card:
+                    comb["card_steady_mib"][unit_name] = read.card[-1]
+                if read.backend is not None:
+                    backends[unit_name] = read.backend
+            if backends:
+                comb["attention_backend"] = backends
+            comb["envelope"] = sample.envelope
+            rigs[rig] = _rig_block(saved, snapshot)
+            combinations.append(comb)
 
+    moved, moves = _move_reasons(fleets, sample.fleet, partners, sample.moves)
+    why.extend(moved)
     why.extend(_task_reasons(use_case, fleet, awake, jev, sample.outcomes))
     if jev is not None:
         why.extend(_choice(str(jev), _ran(sample.outcomes, TASK_CHOICE, str(jev))))
@@ -478,5 +614,5 @@ def judge(sample: Sample) -> Verdict:
         for comb in combinations:
             comb["passed"] = green
             comb["validated_at"] = validated_at
-        evidence = {"rigs": rigs, "combinations": combinations, "moves": []}
+        evidence = {"rigs": rigs, "combinations": combinations, "moves": moves}
     return Verdict(green=green, why=tuple(why), evidence=evidence)
