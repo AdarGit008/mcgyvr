@@ -11,8 +11,8 @@ Promises:
 * A model the cache holds is read from the cache, every other model from the
   shipped catalog, and each says which of the two it came from. A model only
   the cache knows is known too.
-* ``mcgyvr recommend``'s models (:func:`mcgyvr.recommend.load_models`, the
-  one seam its plan places downloads from) are that knowledge: a cached
+* ``mcgyvr recommend``'s catalog (:func:`mcgyvr.recommend.load_catalog`, the
+  one seam its plan prices catalog picks from) is that knowledge: a cached
   figure reaches the plan before the shipped one.
 * The cache is where ``$MCGYVR_HOME`` puts it.
 * A cache file that cannot be read, or that is of another format version, is
@@ -107,14 +107,16 @@ def test_the_plans_catalog_reads_the_cache_first() -> None:
     cached = _recached(first, first.size_bytes.value + 1)
     ks.write(cached)
 
-    models = {(m.model_id, m.quant): m for m in recommend.load_models().models}
+    models = {
+        (m["model_id"], m["quant"]): m for m in recommend.load_catalog()["models"]
+    }
 
-    assert models[first.key].size_bytes == cached.size_bytes.value
-    assert models[first.key].sources["size"] == cached.size_bytes.source
+    assert models[first.key]["size_bytes"] == cached.size_bytes.value
     for other in rest:
-        assert models[other.key].size_bytes == other.size_bytes.value
-        assert models[other.key].context_length == other.context_length.value
-        assert models[other.key].sources["size"] == other.size_bytes.source
+        assert models[other.key]["size_bytes"] == other.size_bytes.value
+        assert models[other.key]["context_length"] == other.context_length.value
+        assert models[other.key]["kv_bytes_per_token"] == other.kv_bytes_per_token.value
+        assert models[other.key]["engines"] == list(other.engines)
 
 
 def test_the_cache_is_where_mcgyvr_home_puts_it(

@@ -16,30 +16,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   Round 9): the address its ssh session arrived at (`SSH_CONNECTION`) when an
   RPC worker may listen there, else the one private address on its interfaces
   (`ip -4 -o addr show`); with several, none is guessed and the scan says
-  which there are. Nothing is resolved. `recommend` spans a chat or agent unit
-  across `--host`s given by name at those addresses; a machine with none
-  recorded is left out of the span, and the unit's notes name
-  `mcgyvr scan --rig RIG`. The plan's `shards` carry each worker's `bind`.
-- `mcgyvr recommend` plans a coding LADDER per rig (owner, Round 7): the
-  fastest coding model at 8k per slot, filled with slots; a bigger rung only
-  when it is a clear step up (`--clear-step`, default a 1.5x file, and a better
-  board score where a board scores both), and only while a task climbing every
-  rung stays within `--climb-budget` (default 2.0) times the top rung's time,
-  estimated from the bytes each reads per token; the top rung at 32k, awake
-  when it fits beside the rest, else `sleeps-until-needed` with `swaps_with`
-  naming the awake rungs on its card (the plan then turns the manager on).
-  `--priority throughput` plans no rung that sleeps.
-- `recommend --jev [MODEL]`: an opt-in resident Jev unit (default
-  `Qwen/Qwen3.5-4B`, `--jev-ctx` 4096 per slot, a slot per user), sized first
-  on the card with the most room; the unit is marked `"jev": true` and its
-  role is `always-on`.
-- The model catalog gains `Qwen/Qwen3.5-4B` (the Jev default, from
-  `unsloth/Qwen3.5-4B-GGUF`), `Qwen/Qwen3-8B`, `Qwen/Qwen3-14B` and
-  `Qwen/Qwen3-30B-A3B` at Q4_K_M, each with its header row, read from the Hub
-  on 2026-10-07; every record says what it `serves`.
-- `serving.split_units`: one model split by layer across cards of several
-  machines (llama.cpp RPC workers), sized as `launch.shards` is.
-
+  which there are. Nothing is resolved.
 - A sample stamps a fleet (`mcgyvr.fleet.sample`, `mcgyvr.fleet.stamp`;
   owner, 2026-10-07: confirm = run the sample, sample green = fleet
   stamped). A staged fleet's sample is judged from the door's own reads of it
@@ -72,12 +49,9 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   each model file's header row, the one thing the serving sizer reads, kept
   per file at a revision with one source and one date for the whole row. The
   shipped catalog's three files ship with theirs (read over HTTP `Range` on
-  2026-10-07); an online `recommend` files the row of any other file it reads
-  under `$MCGYVR_HOME/knowledge/geometry/`, so an MoE is sized offline next
-  time. A cache file that does not read is skipped and named.
-- `mcgyvr recommend --priority throughput|quality|cost` (said in the plan and
-  to the Jev unit), `--ctx-per-slot TOKENS` (every unit's context per slot,
-  instead of the use case's) and `--first-port PORT` (default 8081).
+  2026-10-07); an online refresh (`mcgyvr.knowledge.online.refresh`) files
+  the row of any other file it reads under `$MCGYVR_HOME/knowledge/geometry/`,
+  so an MoE can be sized offline next time. A cache file that does not read is skipped and named.
 - Model knowledge, offline half (`mcgyvr.knowledge`): a record per model and
   quantisation in which every number says its kind (fact, estimate or
   reading), its source and the day it was read, and the closed lists of
@@ -91,11 +65,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   and its MTP head. The boards of each use case are read into scores: LMArena
   text (chat), BFCL (agent), SWE-bench Verified bash-only rows and EvalPlus
   below them (coding), LMArena text-to-image and Open ASR (media-gen); TTS
-  has none. `mcgyvr recommend` refreshes the known models online before it
-  prices catalog picks and files what it read in the cache; its plan's
-  `knowledge` says whether it was online and names what could not be read.
-  `recommend --offline` (or `HF_HUB_OFFLINE=1`) asks nothing. Requests time
-  out after 20 seconds, and a network that does not answer stops every
+  has none. The refresh (`mcgyvr.knowledge.online.refresh`) re-reads the
+  known models online and files what it read in the cache; asked offline (or
+  under `HF_HUB_OFFLINE=1`) it asks nothing. No command runs it yet. Requests
+  time out after 20 seconds, and a network that does not answer stops every
   lookup at once.
 - The serving door has a user mode (`python -m mcgyvr.serving.run ...
   --mode user|lab`), approved by the owner 2026-10-07. A run from an install
@@ -140,46 +113,6 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
-- `mcgyvr recommend`'s coding ladder (owner, Round 9): its first rung is the
-  coder that does the most total work once its card is filled with slots
-  (slots over the bytes it reads per token), not the one fastest per token
-  for one user; on a 12 GB card that is the 7B coder at 14 slots of 8k, not
-  DeepSeek-Coder-V2-Lite at one slot with a q8_0 cache. A card of the rig no
-  awake rung uses gets a copy of the rung that does the most work there
-  (another rung only where a clear step fits within the climb budget, as
-  before): a unit of its own serving the same model at the same context,
-  filled with slots and listed beside it on the ladder, so `fanout: idle`
-  starts a batch on whichever has a free slot. The plan's `ladder` lists each
-  rig's rungs in their climb order (a rung reading fewer bytes per token
-  above the first no longer sorts ahead of it).
-
-- `recommend` chat and agent plan ONE unit for the fleet (owner, Round 7),
-  spanning every card of every `--host` split by layer, the biggest model
-  that fits, at 8k or more per user; across machines when they are given as
-  private IPv4 addresses (an RPC worker binds an address it is given, never a
-  name it would resolve), else across the first machine's cards, and the unit
-  says why. A model wholly on its card(s) ranks before one that needs RAM for
-  its experts. Plan units say `process` (`serve` or `rpc`), `jev`, `shards`
-  and `swaps_with`; `role` is `always-on` or `sleeps-until-needed`.
-- `mcgyvr recommend` prints plan version 2: a plan of units per rig, each
-  sized by the serving sizer `mcgyvr emit` uses (`serving.unit_for`, a split
-  across the rig's cards through `serving.split_unit`, an MoE's experts in
-  RAM at the lowest offload the card admits), not by recommend's own fit,
-  which is gone. Each unit says its role, card(s), model file (repository,
-  revision, sha256), port, context per slot, slots, KV cache, expert offload,
-  speculative head, the sizer's own sentence, its download, and where its
-  numbers came from; the plan adds the fleet name, the ladder, `fanout`,
-  the total download per rig, the models that did not fit (`dropped`, with
-  the sizer's reason) and the hosts not read (`unreachable`, with why).
-  `chat` and `agent` are planned now: one strong unit per rig, a slot per
-  user, at the most context per slot that fits (at least 8192, capped at the
-  model's own). `coding` plans its top rung at 32768 per slot (or the model's
-  own context, when shorter), its spare card memory made into slots. The KV
-  cache is f16, and q8_0 only when f16 does not fit the context the use case
-  needs, which the unit says. `decision_unit`/`decision_why` become
-  `decision: {by, why}`; the bound Jev unit is asked one question per rig, of
-  at most 8 candidates. `knowledge` names the cache files skipped and the
-  known models that cannot be sized. Nothing consumed version 1.
 - `data/model-catalog.json` is version 2: every number carries its source and
   the day it was read, and each entry names the file a pick downloads (with
   its revision and sha256). Each number was re-read from the Hugging Face Hub
@@ -200,11 +133,6 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   published" fallback to the GitHub release wheel and tag, and `install.sh`'s
   `cli:` line names the package instead of the git URL. A test holds the
   README's install line and its `cli:` line to `install.sh`.
-- One name per use case everywhere: `chat`, `agent`, `coding`, `media-gen`.
-  `mcgyvr recommend` takes `--use-case` (the four names `init --use-case`
-  takes), and its JSON plan carries `use_case` where it carried `profile`.
-  Only `coding` is placed; `chat`, `agent` and `media-gen` print the rigs
-  and no placement, as `chatting` and `media_gen` did.
 - `mcgyvr init --priority throughput|quality|cost` replaces the free-text
   `--profile` for a composed ladder. The config's `profile: live|dev` is a
   different setting and is unchanged.
@@ -217,14 +145,32 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Deprecated
 
-- `mcgyvr recommend --profile`, removed in the release after next. It still
-  works, with a warning on stderr: `chatting` is `--use-case chat`,
-  `media_gen` is `--use-case media-gen`, and `other` names no use case, so
-  nothing is planned.
 - `mcgyvr init --profile`, removed in the release after next. A word naming a
   priority (`throughput`, `quality`, `cost`) maps onto `--priority`; other
   text is ignored. Either way it warns on stderr, and `--priority` wins when
   both are given.
+
+### Removed
+
+- The coding ladder and the hardware-recommendation planner are withdrawn, on
+  the owner's decision; they will be redesigned in an issue. `mcgyvr recommend`
+  is back to its 0.3.0 behaviour: `--profile coding|chatting|media_gen|other`,
+  `--users`, `--host` and `--model-store`, and one JSON plan naming the
+  checkpoint and engine for `coding` (it still reads the catalog through the
+  model knowledge, cache first). Gone with them: the planner
+  (`mcgyvr.planner`, plan version 2 and its `decision: {by, why}`), the
+  recommend flags `--use-case`, `--offline`, `--config`, `--priority`,
+  `--ctx-per-slot`, `--first-port`, `--jev`, `--jev-ctx`, `--climb-budget`
+  and `--clear-step`, the plan's `knowledge`, `decision_unit` and
+  `decision_why`, the unique candidate names and the placement's `host`,
+  `serving.split_unit` and `serving.split_units`, the catalog's `serves` field
+  and the four models added for the planner (`Qwen/Qwen3.5-4B`,
+  `Qwen/Qwen3-8B`, `Qwen/Qwen3-14B`, `Qwen/Qwen3-30B-A3B`) with their header
+  rows. The model-knowledge library (`mcgyvr.knowledge`: records, cache,
+  online lookup, boards, geometry) and the Jev picker (`jev.unit`,
+  `decision.classify_for`) stay as library code; `recommend` uses only the
+  offline catalog read. `mcgyvr scan --rig` still records the rig's private
+  address, and `init --priority` stays.
 
 ### Fixed
 
@@ -289,19 +235,6 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   It now runs with `--seccomp-bpf` where strace has it, stopping only at the
   traced calls (9-12 s, the same calls seen). No product code changed: no
   worker can mount a torn cache file while the check runs late.
-- `mcgyvr recommend` asks the bound Jev unit, and no other. It asked
-  whatever answered on `127.0.0.1:8080` under the model name
-  `recommend-decision`, which no config names. Now it reads the config
-  (`--config`, or the one found as for any command) and asks the unit its
-  `jev.unit` binds, through `classify_for`. With no config, no `jev.unit`, or
-  a Jev unit that does not answer, nothing is asked and the largest fitting
-  candidate is picked; the plan's `decision_unit` and `decision_why` say
-  which unit and why (they replace `decision_endpoint`).
-- `mcgyvr recommend` can choose any candidate on any host. Candidates were
-  named only by engine and head (or engine and model), so a checkpoint on two
-  rigs, or two checkpoints in one store, shared a name and only the last
-  could be chosen. Each name now carries the rig, engine, weights (and quant)
-  and head, and the placement carries the `host` it goes on.
 - README: the `mcgyvr --help` usage now lists `recommend`, `manage` and
   `mcorch`; a command map gives every command's own help line, and a test
   holds both to the parser.

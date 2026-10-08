@@ -1,7 +1,7 @@
 """A model file's geometry: its header row, with one source and one date.
 
-A plan sizes a unit with the product's serving sizer (:func:`mcgyvr.serving.fit`),
-and that sizer reads one ``ggufscan`` row: the tensor table summed per block,
+The product's serving sizer (:func:`mcgyvr.serving.fit`) sizes a unit from one
+``ggufscan`` row: the tensor table summed per block,
 the cache geometry per layer, the recurrent state, the experts per block (an
 MoE) and the multi-token-prediction head (MTP). A model record
 (:mod:`mcgyvr.knowledge.record`) says what a file weighs; this says how it is

@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
 from mcgyvr import __version__
-from mcgyvr import planner as planner_module
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
@@ -2631,113 +2630,18 @@ def _users_count(value: str) -> int:
     return count
 
 
-def _recommend_use_case(args: argparse.Namespace) -> str | None:
-    """The use case ``recommend`` plans for, reading the old ``--profile``.
-
-    ``--profile`` is deprecated: it maps onto the use case it meant and says so
-    on stderr, so stdout stays the plan alone. ``other`` names no use case.
-    """
-    if args.profile is None:
-        use_case: str = args.use_case
-        return use_case
-    mapped = recommend_module.OLD_PROFILES[args.profile]
-    head = (
-        "warning: `mcgyvr recommend --profile` is deprecated and will be "
-        "removed in the release after next"
-    )
-    if mapped is None:
-        from mcgyvr.catalog import catalog
-
-        names = ", ".join(u.name for u in catalog().use_cases)
-        print(
-            f"{head}; `--profile other` names no use case ({names}), so "
-            f"nothing is planned {_NOT_THE_CONFIG_PROFILE}",
-            file=sys.stderr,
-        )
-    else:
-        print(
-            f"{head}; use `--use-case {mapped}` {_NOT_THE_CONFIG_PROFILE}",
-            file=sys.stderr,
-        )
-    return mapped
-
-
-def _positive_tokens(value: str) -> int:
-    """A context per slot: a whole number of tokens, at least one."""
-    try:
-        count = int(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"a context per slot is a whole number of tokens, not {value!r}"
-        ) from None
-    if count < 1:
-        raise argparse.ArgumentTypeError(
-            f"a context per slot is at least 1 token, not {count}"
-        )
-    return count
-
-
-def _above_one(value: str) -> float:
-    """A ratio above 1: how many times another figure."""
-    try:
-        ratio = float(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"a ratio is a number, not {value!r}"
-        ) from None
-    if not ratio > 1.0:
-        raise argparse.ArgumentTypeError(f"a ratio here is above 1, not {ratio}")
-    return ratio
-
-
-def _port_number(value: str) -> int:
-    """A TCP port a server can listen on: 1 to 65535."""
-    try:
-        port = int(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"a port is a number, not {value!r}") from None
-    if not 1 <= port <= 65535:
-        raise argparse.ArgumentTypeError(f"a port is 1 to 65535, not {port}")
-    return port
-
-
 def _recommend(args: argparse.Namespace) -> int:
-    """Print one JSON plan (version 2): the units each rig runs for ``args.use_case``.
+    """Print one JSON plan: which checkpoint and engine serve ``args.profile``.
 
     Read-only: the rigs are re-read over the sanctioned detection ssh path and
     nothing is written, woken or slept. The plan is the only thing on stdout.
     """
-    use_case = _recommend_use_case(args)
-    # The config is read for its `jev.unit` alone. A default location with
-    # nothing in it is a machine not set up yet, the one `recommend` plans
-    # for, and its pick is deterministic; a path somebody typed that holds
-    # nothing is refused, as `delegate` refuses it.
-    chosen = Path(args.config) if args.config else None
-    config: Config | None = None
-    try:
-        config = load_config(chosen)
-    except ConfigMissingError as exc:
-        if (chosen if chosen is not None else named_config_path()) is not None:
-            print(f"error: {exc}", file=sys.stderr)
-            return Exit.ERROR
-    except ConfigError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return Exit.ERROR
     try:
         made = recommend_module.plan(
-            use_case=use_case,
+            profile=args.profile,
             users=args.users,
             hosts=args.host,
             model_stores=args.model_store,
-            offline=args.offline,
-            config=config,
-            priority=args.priority,
-            ctx_per_slot=args.ctx_per_slot,
-            first_port=args.first_port,
-            jev=args.jev,
-            climb_budget=args.climb_budget,
-            clear_step=args.clear_step,
-            jev_ctx=args.jev_ctx,
         )
     except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3934,22 +3838,13 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
 
     rec = sub.add_parser(
         "recommend",
-        help="print one JSON plan: the units each rig runs for a use case",
+        help="print one JSON plan: which checkpoint and engine serve a profile",
     )
-    rec_use_case = rec.add_mutually_exclusive_group(required=True)
-    rec_use_case.add_argument(
-        "--use-case",
-        choices=use_case_names,
-        metavar="USE_CASE",
-        help="the use case to plan for: chat, agent, coding or media-gen",
-    )
-    rec_use_case.add_argument(
+    rec.add_argument(
         "--profile",
-        choices=tuple(recommend_module.OLD_PROFILES),
-        help=(
-            "deprecated, removed in the release after next: use --use-case "
-            "(chatting is chat, media_gen is media-gen; other plans nothing)"
-        ),
+        required=True,
+        choices=recommend_module.PROFILES,
+        help="the usage profile to place for",
     )
     rec.add_argument(
         "--users",
@@ -3973,94 +3868,6 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "a directory on the rig holding *.gguf checkpoints (repeatable); "
             "when any fits, recommend only from it"
-        ),
-    )
-    rec.add_argument(
-        "--offline",
-        action="store_true",
-        help=(
-            "ask huggingface.co and the leaderboards nothing: use the model "
-            "knowledge cache and the shipped catalog only (so does "
-            "HF_HUB_OFFLINE=1)"
-        ),
-    )
-    rec.add_argument(
-        "--config",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=(
-            "config whose `jev.unit` names each rig's pick; without one the pick "
-            f"is deterministic (default: {CONFIG_DEFAULT_HELP})"
-        ),
-    )
-    rec.add_argument(
-        "--priority",
-        choices=PRIORITIES,
-        default=None,
-        help=(
-            "what the plan optimises for, said in the plan and to the Jev unit: "
-            + ", ".join(PRIORITIES)
-        ),
-    )
-    rec.add_argument(
-        "--ctx-per-slot",
-        type=_positive_tokens,
-        default=None,
-        metavar="TOKENS",
-        help=(
-            "every unit's context per slot, instead of the use case's own "
-            "(chat and agent: the most that fits; coding: "
-            f"{planner_module.TOP_RUNG_CTX} on the top rung)"
-        ),
-    )
-    rec.add_argument(
-        "--first-port",
-        type=_port_number,
-        default=planner_module.FIRST_PORT,
-        metavar="PORT",
-        help=(
-            "the port each rig's first unit answers on, the next unit one above "
-            f"it (default: {planner_module.FIRST_PORT})"
-        ),
-    )
-    rec.add_argument(
-        "--jev",
-        nargs="?",
-        const=planner_module.JEV_DEFAULT,
-        default=None,
-        metavar="MODEL",
-        help=(
-            "also plan a resident Jev unit (opt-in), sized first at "
-            f"{planner_module.JEV_CTX} tokens per slot; MODEL is a model id the "
-            f"knowledge holds (default: {planner_module.JEV_DEFAULT})"
-        ),
-    )
-    rec.add_argument(
-        "--jev-ctx",
-        type=_positive_tokens,
-        default=planner_module.JEV_CTX,
-        metavar="TOKENS",
-        help=(f"the Jev unit's context per slot (default: {planner_module.JEV_CTX})"),
-    )
-    rec.add_argument(
-        "--climb-budget",
-        type=_above_one,
-        default=planner_module.CLIMB_BUDGET,
-        metavar="X",
-        help=(
-            "coding: a task that climbs every rung finishes within X times the "
-            f"top rung's own time (default: {planner_module.CLIMB_BUDGET})"
-        ),
-    )
-    rec.add_argument(
-        "--clear-step",
-        type=_above_one,
-        default=planner_module.CLEAR_STEP,
-        metavar="X",
-        help=(
-            "coding: a bigger rung's file is at least X times the one below it "
-            f"(default: {planner_module.CLEAR_STEP})"
         ),
     )
     rec.set_defaults(func=_recommend)

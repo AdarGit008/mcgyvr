@@ -41,7 +41,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -1339,7 +1339,7 @@ def _starts_asleep(key: UnitKey, stated: Mapping[str, list[str]], split: bool) -
 
 
 def _sharded_units(
-    config: Config | None,
+    config: Config,
     scans: Mapping[str, Scan],
     spec: ModelSpec,
     *,
@@ -1387,11 +1387,6 @@ def _sharded_units(
                 f"{spec.name}: served by vLLM, which loads a repository id from "
                 f"the rig's HuggingFace cache, and nothing says where that cache "
                 f"is — set units.<unit>.hf_cache to its absolute path on the rig"
-            )
-        if config is None:
-            raise UnitError(
-                f"{spec.name}: a vLLM unit split across cards is sized from the "
-                f"tensor table its config names, and there is no config"
             )
         table = _tensor_table(config, spec.name, launch.get("tensor_table_json"))
         weights = Path(spec.hf_cache)
@@ -1477,87 +1472,6 @@ def _sharded_units(
             )
         )
     return tuple(units)
-
-
-def split_units(
-    scans: Mapping[str, Scan],
-    spec: ModelSpec,
-    *,
-    shards: Sequence[tuple[str, int]],
-    width: int,
-    port: int,
-    ctx_per_slot: int,
-    engine: str = DEFAULT_ENGINE,
-    binds: Mapping[str, str] | None = None,
-) -> tuple[Unit, ...]:
-    """The processes that serve ``spec`` split across ``shards``, ``(host,
-    card)`` each, the first on the machine the serving process runs on.
-    ``binds`` names, by host, the private IPv4 address a worker there listens
-    on (a shard's ``bind``); a host it does not name is reached at its own
-    name, which only an IPv4 literal can be.
-
-    The same sizing a unit whose ``launch.shards`` names those cards gets
-    (:func:`_sharded_units`, :func:`mcgyvr.serving.sharding.choose`): every
-    block on a card, none in host memory, at ``width`` slots of
-    ``ctx_per_slot`` each, split by layer (the pipeline split llama.cpp runs
-    across cards and, over RPC, across machines). The serving process comes
-    first; each other machine's process lends its cards to it. A planner that
-    has no config yet asks it here. Refused, by the split's own reason, when
-    no split over those cards fits or a worker cannot be bound to an address.
-    """
-    if len(shards) < 2:
-        raise UnitError(f"{spec.name}: a split over {len(shards)} card is not a split")
-    host = shards[0][0]
-    bound = binds or {}
-    launch: dict[str, Any] = {
-        SHARDS_KEY: [
-            {"rig": rig, "gpu": card, **({"bind": bound[rig]} if rig in bound else {})}
-            for rig, card in shards
-        ],
-    }
-    if engine == DEFAULT_ENGINE:
-        from mcgyvr.serving.sharding import SPLIT_LAYER
-
-        launch["split"] = SPLIT_LAYER
-    key = UnitKey(host=host, model=spec.name, engine=engine, port=port)
-    built = _sharded_units(
-        None,
-        scans,
-        spec,
-        key=key,
-        launch=launch,
-        width=width,
-        ctx_per_slot=ctx_per_slot,
-    )
-    written = Width(value=width, how="written")
-    return tuple(replace(unit, width=written) for unit in built)
-
-
-def split_unit(
-    scan: Scan,
-    spec: ModelSpec,
-    *,
-    cards: tuple[int, ...],
-    width: int,
-    port: int,
-    ctx_per_slot: int,
-    engine: str = DEFAULT_ENGINE,
-) -> Unit:
-    """The one process that serves ``spec`` split across ``cards`` of one
-    machine (:func:`split_units` over one machine)."""
-    host = scan.machine.host
-    (head, *rest) = split_units(
-        {host: scan},
-        spec,
-        shards=[(host, card) for card in cards],
-        width=width,
-        port=port,
-        ctx_per_slot=ctx_per_slot,
-        engine=engine,
-    )
-    if rest:  # pragma: no cover - one machine's cards are one process
-        raise UnitError(f"{spec.name}: a split over one machine is one process")
-    return head
 
 
 def _how(width: int | None) -> str:

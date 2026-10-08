@@ -233,19 +233,13 @@ bring it under the check is to name it. The kinds and reasons are listed in
 models `mcgyvr recommend` prices when no local model store fits. It is read
 after the user's cache, `$MCGYVR_HOME/knowledge/` (default
 `~/.mcgyvr/knowledge`): a model the cache holds is taken from the cache, every
-other model from this file (`mcgyvr.knowledge.store.offline`). Online,
-`mcgyvr recommend` re-reads each of these models from the Hugging Face Hub
-and the use case's leaderboards and files what it read in that cache
-(`mcgyvr.knowledge.online.refresh`); `--offline` or `HF_HUB_OFFLINE=1` skips
-that.
+other model from this file (`mcgyvr.knowledge.store.offline`). The library's
+online half, `mcgyvr.knowledge.online.refresh`, re-reads each of these models
+from the Hugging Face Hub and a use case's leaderboards and files what it read
+in that cache (`HF_HUB_OFFLINE=1` skips that); no command runs it.
 
 Each entry is one model at one quantisation. `weights` names the file a pick
-downloads: its repository, revision, file name and sha256. `serves` says what
-it is catalogued for (`chat`, `agent`, `coding`, `media-gen`, or `jev`, the
-small model that answers typed decisions; `mcgyvr.knowledge.record.SERVES`):
-a plan places a model only for what it serves. The coding models are what
-"good enough to be useful" for a ladder's fast rung is read from, and
-`Qwen/Qwen3.5-4B` is the default of `recommend --jev`. Every number is an
+downloads: its repository, revision, file name and sha256. Every number is an
 object that says four things:
 
 - `value`, the number;
@@ -268,16 +262,16 @@ refused by name when the file is read.
 names: the row `python -m mcgyvr.serving.ggufscan` gives for it (the tensor
 table summed per block, the cache geometry per layer, the recurrent state, the
 experts per block of an MoE and a grafted MTP head), read from the file's
-header over HTTP `Range`, never a weight. `mcgyvr recommend` sizes every unit
-it plans with the serving sizer `mcgyvr emit` uses (`mcgyvr.serving.fit`),
-and that sizer reads this row; a model with no row cannot be sized, and the
-plan names it under `knowledge.unsized`.
+header over HTTP `Range`, never a weight. It is the row the serving sizer
+`mcgyvr emit` uses (`mcgyvr.serving.fit`) reads, kept so a catalog model can
+be sized before it is downloaded; no command reads this file yet
+(`mcgyvr.knowledge.geometry` is library code).
 
 Each entry is one file at one revision: `weights` names it (repository,
 revision, file) and `geometry` holds the row as its `value`, with ONE `kind`
 (a fact), one `source` (`gguf-header-range:<repo>@<revision>/<file>`) and one
 `read_at` for every number in it: a row is one reading of one file. The user's
 cache, `$MCGYVR_HOME/knowledge/geometry/` (one file per file at a revision,
-written by an online `mcgyvr recommend` that read the header), is read first
+written by an online refresh that read the header), is read first
 (`mcgyvr.knowledge.geometry.load`). A model added to `model-catalog.json` gets
 its row here.
