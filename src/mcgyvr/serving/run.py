@@ -915,19 +915,19 @@ def callers_gates(
     The verb's list in the folder ``$MCGYVR_DOOR_GATES`` names,
     ``<folder>/<verb>.json``, when it is set and holds one (a folder with no
     list for this verb adds no gate to it), and ``--gates FILE`` (``named``)
-    when it is given. With both (owner, on mcgyvr#633) both run: in each
-    phase the folder's gates first, then the option's, and the door says on
-    stderr that the variable is also set; one file named both ways is one
-    list. A name both lists export is refused, as two gates of one list
-    exporting it are. A value of the variable that is empty, relative or not
-    an existing folder is refused, as is a list that :func:`load_gate_list`
-    refuses; a path that cannot be looked at is refused, never read as no
-    list.
+    when it is given. With both (owner, on mcgyvr#633) both run: in each phase
+    the folder's gates first, then the option's, and the door says on stderr
+    that the variable is also set when its folder holds a list for this verb;
+    one file named both ways is one list. A name both lists export is refused,
+    as two gates of one list exporting it are. A value of the variable that is
+    empty, relative or not an existing folder is refused, as is a list that
+    :func:`load_gate_list` refuses; a path that cannot be looked at is refused,
+    never read as no list.
     """
     from_env = _env_gates(verb, phases)
     if named is None:
         return from_env
-    if GATES_ENV in os.environ:
+    if from_env is not None:
         print(
             f"run.py: {GATES_ENV} is also set; its gates for `{verb}` run "
             "before the --gates list's in each phase, and both lists run",

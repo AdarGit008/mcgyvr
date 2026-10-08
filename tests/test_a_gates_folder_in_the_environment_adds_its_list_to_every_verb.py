@@ -371,3 +371,24 @@ def test_the_folders_list_named_again_by_gates_runs_once(
     assert run.main(_argv(verb, tmp_path, "--gates", str(link))) == 0
 
     assert _order(log).count("caller:early") == 1
+
+
+@pytest.mark.parametrize("verb", VERBS)
+def test_no_warning_when_the_folder_holds_no_list_for_the_verb(
+    verb: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cg.clean_door_env(monkeypatch)
+    log = tmp_path / "order.log"
+    cg.fake_door(tmp_path, monkeypatch, log)
+    folder = tmp_path / "folder"
+    folder.mkdir()
+    listed = _before_list(tmp_path / "flag.json", log, "caller:from-flag")
+    monkeypatch.setenv(run.GATES_ENV, str(folder))
+
+    assert run.main(_argv(verb, tmp_path, "--gates", str(listed))) == 0
+
+    assert "also set" not in capsys.readouterr().err
+    assert "caller:from-flag" in _order(log)
