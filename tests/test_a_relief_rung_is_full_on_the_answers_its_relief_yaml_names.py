@@ -233,7 +233,7 @@ def test_the_fallback_for_an_old_file_is_the_set_a_sync_writes() -> None:
     from mcgyvr import runner
     from mcgyvr.rig import rungs
 
-    assert runner.RELIEF_UNAVAILABLE == frozenset(rungs.BUSY)
+    assert frozenset(rungs.BUSY) == runner.RELIEF_UNAVAILABLE
 
 
 def test_an_old_relief_yaml_loads_with_no_busy_answers() -> None:
