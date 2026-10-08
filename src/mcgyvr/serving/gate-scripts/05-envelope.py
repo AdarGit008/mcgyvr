@@ -56,7 +56,7 @@ campaigns are the lab's.
 
 A ``step`` RUN THAT NAMES AN OUT-ROOT (``--out-root DIR``, :data:`OUT_ROOT_VAR`)
 is filed under ``DIR/<date>-<campaign>/`` in either mode, the layout of the
-lab's ``records/evidence/``. The folder exists, or the run is refused: the
+lab's own evidence folder. The folder exists, or the run is refused: the
 door never makes the folder a run is filed under.
 
 Every check happens before anything is written; then the lease on the rig is
@@ -230,15 +230,15 @@ def user_header(record: dict[str, str]) -> dict[str, object]:
 def envelope(run_date: str, campaign: str, run_id: str, *, user: bool) -> Path:
     """Where this run is filed (:func:`gatelib.envelope_of`): under a step
     run's ``--out-root``, else a user-mode run's own folder of the door's
-    log, else the lab's ``records/evidence/``."""
+    log, else the lab's ``<root>/records/evidence/``."""
     try:
         return envelope_of(
             mode=USER_MODE if user else "",
-            root=root(),
             out_root=os.environ.get(OUT_ROOT_VAR, ""),
             run_date=run_date,
             campaign=campaign,
             run_id=run_id,
+            lab=root() / "records" / "evidence" / f"{run_date}-{campaign}",
         )
     except (FolderError, RuntimeError) as exc:
         refuse(f"gate 5: the data folder cannot be named: {exc}. Nothing is minted")

@@ -142,17 +142,18 @@ def run_id_of(run_date: str, campaign: str, step_file: Path, suffix: str) -> str
 
 
 def envelope_of(
-    *, mode: str, root: Path, out_root: str, run_date: str, campaign: str, run_id: str
+    *, mode: str, out_root: str, run_date: str, campaign: str, run_id: str, lab: Path
 ) -> Path:
     """Where a run's envelope is made, the one rule the door and gate 5 share.
 
     Under ``out_root`` when a step run names one (``<out_root>/<date>-
     <campaign>/``); else, in user mode, the run's own folder of the door's
     log under the data folder (``<data folder>/door/<date>/<RUN_ID>/``); else
-    the lab's ``<root>/records/evidence/<date>-<campaign>/``. The data folder
-    is named by :func:`mcgyvr.fleet.roots.data_home`, imported only here, so
-    a shim loading this file by path needs nothing beyond the stdlib; it
-    raises what that raises when the folder cannot be named.
+    ``lab``, the lab's envelope under its run root as the caller names it.
+    The data folder is named by :func:`mcgyvr.fleet.roots.data_home`,
+    imported only here, so a shim loading this file by path needs nothing
+    beyond the stdlib; it raises what that raises when the folder cannot be
+    named.
     """
     if out_root:
         return Path(out_root) / f"{run_date}-{campaign}"
@@ -160,7 +161,7 @@ def envelope_of(
         from mcgyvr.fleet.roots import data_home
 
         return data_home() / DOOR_LOG / run_date / run_id
-    return root / "records" / "evidence" / f"{run_date}-{campaign}"
+    return lab
 
 
 def run_mode() -> str:

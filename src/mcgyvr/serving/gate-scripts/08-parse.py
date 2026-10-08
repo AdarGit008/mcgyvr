@@ -26,8 +26,8 @@ that names another run, another round or nothing is exit 1 naming both. A
 `.json` keeps its own rule: it parses as JSON and is never stamped.
 
 IN USER MODE (``--mode user``) a TSV is not read with the lab's parser and
-its stamps are not asked for: the parser lives in the lab's ``tools/runs/``,
-and a user-mode run reads no file of the run root. A lab that wants it read
+its stamps are not asked for: the parser lives in the lab's run root, and a
+user-mode run reads no file of the run root. A lab that wants it read
 brings it as a gate of its own. A `.json` keeps its rule in both modes.
 
 AND IT MUST BE ONE REGULAR FILE OF THE ENVELOPE. A declared name that is a

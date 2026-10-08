@@ -8,8 +8,9 @@ whatever the step did, and the lease released last. A caller's gates
 visible to users, and ``--help`` names it as an advanced command.
 
 The seal holds under it as under every verb: the step reaches the rig only
-through the door's shims, which admit the door's host alone and refuse a
-process the door did not start, and the lease is the run's while it runs.
+through the door's shims, which admit the door's host alone, and the lease is
+the run's while it runs. That the shims refuse a process the door did not
+start is ``tests/test_serving_gatelib.py``'s, whatever verb opened the door.
 
 Every machine here is invented and stands behind the door's shims.
 """
@@ -17,7 +18,6 @@ Every machine here is invented and stands behind the door's shims.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -153,28 +153,6 @@ def test_a_step_is_refused_a_host_the_door_was_not_opened_for(tmp_path: Path) ->
     assert done.returncode == 0, done.stdout + done.stderr
     assert "refused" in other.read_text(encoding="utf-8")
     assert not any("other-box" in line for line in onedoor.ssh_log(stubs))
-
-
-def test_the_shims_refuse_a_process_the_door_did_not_start(tmp_path: Path) -> None:
-    """``RUN_*`` typed into a shell is no door: the shim reads the parent chain."""
-    stubs = usermode.machine(tmp_path, pending=())
-    env = {k: v for k, v in os.environ.items() if not k.startswith("RUN_")}
-    env.update(RUN_HOST=usermode.RIG, RUN_ID="typed-by-hand", RUN_MODE="user")
-    env["PATH"] = f"{stubs}{os.pathsep}{env.get('PATH', os.defpath)}"
-
-    for shim, argv in (("ssh", [usermode.RIG, "true"]), ("docker", ["ps"])):
-        done = subprocess.run(
-            [sys.executable, str(run.BIN / shim), *argv],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
-        assert done.returncode == 2, done.stderr
-        assert "not started by the door" in done.stderr
-    assert onedoor.ssh_log(stubs) == []
-    assert onedoor.docker_log(stubs) == []
 
 
 @pytest.mark.parametrize(

@@ -21,9 +21,9 @@ THE STEP RUN (``step``, an advanced command) is the campaign run without the
 lab's measuring: the door's profile gate, the rig's lease and reading, its
 daemon, the envelope, then the caller's own ``--step``, then gates 7 and 8
 whatever the step did, and the lease released last (:data:`STEP_SEQUENCE`).
-It runs in either mode. Its envelope is the user's door log, the lab's
-``records/evidence/`` in lab mode, or ``--out-root DIR`` as
-``DIR/<date>-<campaign>/`` in either.
+It runs in either mode. Its envelope is the user's door log, the run root's
+evidence folder in lab mode, or ``--out-root DIR`` as
+``DIR/<date>-<campaign>/`` in either (:func:`gatelib.envelope_of`).
 
 HOW THE DOOR IS THE ONLY WAY IN. The environment a gate or a step runs under
 has ``gate-scripts/bin`` first on PATH, where ``ssh`` and ``docker`` are shims
@@ -1669,6 +1669,11 @@ def _check_step_args(
     return None
 
 
+def _lab_envelope(root: Path, run_date: str, campaign: str) -> Path:
+    """Where a lab-mode run with no out-root is filed under its run root."""
+    return root / "records" / "evidence" / f"{run_date}-{campaign}"
+
+
 def _rel(path: Path, base: Path = ROOT) -> str:
     try:
         return str(path.relative_to(base))
@@ -2300,8 +2305,8 @@ def _step_parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         help=(
             "an existing folder the run is filed under, as "
             "DIR/<date>-<campaign>/ (default: the run's own folder of the "
-            "door's log under the data folder in user mode, the run root's "
-            "records/evidence/<date>-<campaign>/ in lab mode). The door never "
+            "door's log under the data folder in user mode, "
+            "RUN_ROOT/records/evidence/<date>-<campaign>/ in lab mode). The door never "
             "makes it"
         ),
     )
@@ -2355,6 +2360,9 @@ def _step(argv: list[str]) -> int:
     if not step.is_file():
         print(f"run.py: REFUSED — --step {opts.step} is not a file", file=sys.stderr)
         return 2
+    # Resolved once: gate 5 names the run by the file the door exports, so
+    # the envelope the step's arguments are held to is named by it too.
+    step_file = step.resolve()
     out_root = ""
     if opts.out_root is not None:
         folder = Path(opts.out_root)
@@ -2376,11 +2384,11 @@ def _step(argv: list[str]) -> int:
     try:
         envelope = gatelib.envelope_of(
             mode=mode,
-            root=root,
             out_root=out_root,
             run_date=run_date,
             campaign=opts.campaign,
-            run_id=gatelib.run_id_of(run_date, opts.campaign, step, opts.suffix),
+            run_id=gatelib.run_id_of(run_date, opts.campaign, step_file, opts.suffix),
+            lab=_lab_envelope(root, run_date, opts.campaign),
         )
     except (FolderError, RuntimeError) as unnamed:
         print(
@@ -2409,7 +2417,7 @@ def _step(argv: list[str]) -> int:
         RUN_ROOT=str(root),
         RUN_BIN=str(BIN),
         RUN_CAMPAIGN=opts.campaign,
-        RUN_STEP_FILE=str(step.resolve()),
+        RUN_STEP_FILE=str(step_file),
         RUN_HOST=opts.host,
         RUN_SUFFIX=opts.suffix,
         RUN_PARALLEL=str(opts.parallel),
@@ -2495,7 +2503,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     run_date = opts.date or datetime.now(UTC).strftime("%Y-%m-%d")
-    envelope = root / "records" / "evidence" / f"{run_date}-{opts.campaign}"
+    envelope = _lab_envelope(root, run_date, opts.campaign)
     escape = _check_step_args(step_args, envelope, root)
     if escape is not None:
         print(f"run.py: REFUSED — {escape}", file=sys.stderr)
