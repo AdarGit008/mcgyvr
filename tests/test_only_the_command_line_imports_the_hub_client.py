@@ -2,114 +2,158 @@
 
 ``src/mcgyvr/rig/`` is the agent that publishes this machine as a rig of a hub.
 The product is offline and for one user; the hub is an option it can join, and
-``mcgyvr rig`` is the one way in. So the rest of the package — everything an
-install runs with no hub — imports nothing under ``mcgyvr.rig``:
-:data:`~tests.test_the_seam_holds.THE_COMMAND_LINE_ENTRYPOINT` dispatches ``mcgyvr
-rig`` and is the one module outside ``rig/`` that may.
+``mcgyvr rig`` is the one way in. So the offline core
+(:func:`tests.hub_borders.in_core`: everything under ``src/mcgyvr/`` but
+``cli.py`` and ``rig/``) reaches nothing under ``mcgyvr.rig``, and nothing of
+``mcgyvr.cli`` either, which imports it and would carry it in. Every tracked
+Python file of the core is read: the modules, and the scripts under
+``serving/gate-scripts/`` that no import reaches but that run on their own.
+Two ways in are read:
 
-One edge breaks that today, and it is written down as data rather than
-exempted by module name: :data:`NOT_YET_MOVED`. It may only shrink. An entry
-leaves the list in the change that removes the import, and
-:func:`test_every_edge_not_yet_moved_is_still_in_the_tree` fails until it does,
-so the list cannot keep a slot a later import would fill in silence.
+* an import, by the seam test's own walk
+  (:func:`tests.test_the_seam_holds._imports_in`): every spelling, wherever it
+  sits, deferred ones included;
+* a string that is nothing but a dotted name under one of them, the shape
+  ``importlib.import_module`` and ``python -m`` are handed. A name inside
+  prose (a docstring's ``:mod:`` reference) is not one.
 
-The import walk is the seam test's own (:func:`tests.test_the_seam_holds._imports_in`):
-every spelling, wherever the import sits, deferred ones included. The last test
-hands the rule a synthetic crossing, to show it catches one.
+One edge breaks the rule today, and it is written down as data rather than
+exempted by module name: :data:`tests.hub_borders.IMPORTS_NOT_YET_MOVED`. It
+may only shrink. An entry leaves the list in the change that removes the
+import, and :func:`test_every_edge_not_yet_moved_is_still_in_the_tree` fails
+until it does, so the list cannot keep a slot a later import would fill in
+silence. That a pull request did not add to the list itself is CI's to see
+(``tests/hub_borders.py --compare``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import ast
+import re
+from collections.abc import Iterable
 
+from tests.hub_borders import (
+    HUB_CLIENT,
+    IMPORTS_NOT_YET_MOVED,
+    SRC,
+    core_files,
+)
 from tests.test_the_seam_holds import (
     THE_COMMAND_LINE_ENTRYPOINT,
+    _dotted_name,
     _imports_in,
     _mcgyvr_imports,
-    _the_tree,
 )
 
-#: The hub client: the rig agent and everything it holds.
-HUB_CLIENT = "mcgyvr.rig"
+#: What the core may not reach: the hub client, and the command line that
+#: imports it.
+OUT_OF_BOUNDS = (HUB_CLIENT, THE_COMMAND_LINE_ENTRYPOINT)
 
-#: ``(importer, imported)`` edges into the hub client from outside it that the
-#: tree still has. Entries may only be removed, never added.
-#:
-#: * ``sandbox.pooled`` is the sandbox a hub's pooled session runs in, and is
-#:   itself imported only from ``rig/``; it reads the WireGuard key shape from
-#:   ``rig.sessionwire``. It moves into ``rig/`` (borders plan, step 2d), and
-#:   this entry goes with it.
-NOT_YET_MOVED: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("mcgyvr.sandbox.pooled", "mcgyvr.rig.sessionwire"),
+_DOTTED = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*")
+
+
+def _out_of_bounds(dotted: str) -> bool:
+    return any(dotted == p or dotted.startswith(f"{p}.") for p in OUT_OF_BOUNDS)
+
+
+def _reached(source: str, package: str) -> set[str]:
+    """What ``source`` imports, and the dotted names it holds as whole strings."""
+    named = {
+        node.value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and _DOTTED.fullmatch(node.value)
     }
-)
+    return _imports_in(source, package=package) | named
 
 
-def _in_hub_client(dotted: str) -> bool:
-    return dotted == HUB_CLIENT or dotted.startswith(f"{HUB_CLIENT}.")
+def _edges(files: Iterable[tuple[str, str, str]]) -> set[tuple[str, str]]:
+    """``(importer, reached)`` for each ``(importer, package, source)`` that
+    reaches out of bounds."""
+    return {
+        (importer, reached)
+        for importer, package, source in files
+        for reached in _reached(source, package)
+        if _out_of_bounds(reached)
+    }
 
 
-def _edges_into_the_hub_client(
-    imports: Callable[[str], set[str]] = _mcgyvr_imports,
-    modules: set[str] | None = None,
-) -> set[tuple[str, str]]:
-    """Every ``(importer, imported)`` edge into ``mcgyvr.rig`` from a module
-    outside it, the command line left out."""
-    edges: set[tuple[str, str]] = set()
-    for module in sorted(_the_tree() if modules is None else modules):
-        if module == THE_COMMAND_LINE_ENTRYPOINT or _in_hub_client(module):
+def _the_core() -> list[tuple[str, str, str]]:
+    """Every tracked Python file of the core: a module by its dotted name and
+    the package its relative imports resolve in, a script by its path."""
+    found = []
+    for rel in core_files():
+        if not rel.endswith(".py"):
             continue
-        edges.update(
-            (module, imported)
-            for imported in imports(module)
-            if _in_hub_client(imported)
-        )
-    return edges
+        path = SRC / rel
+        source = path.read_text(encoding="utf-8")
+        dotted = _dotted_name(path)
+        if dotted is None:
+            found.append((rel, "mcgyvr", source))
+            continue
+        package = dotted if path.name == "__init__.py" else dotted.rpartition(".")[0]
+        found.append((dotted, package, source))
+    return found
 
 
 def test_nothing_but_the_command_line_imports_the_hub_client() -> None:
-    new = sorted(_edges_into_the_hub_client() - NOT_YET_MOVED)
+    new = sorted(_edges(_the_core()) - IMPORTS_NOT_YET_MOVED)
     assert not new, (
-        "only mcgyvr.cli may import mcgyvr.rig; these modules reach into the "
-        "hub client and must not (NOT_YET_MOVED only shrinks): "
-        + ", ".join(f"{a} imports {b}" for a, b in new)
+        "only mcgyvr.cli may import mcgyvr.rig, and nothing of the core may "
+        "import mcgyvr.cli; these reach out of bounds "
+        "(IMPORTS_NOT_YET_MOVED only shrinks): "
+        + ", ".join(f"{a} reaches {b}" for a, b in new)
     )
 
 
 def test_every_edge_not_yet_moved_is_still_in_the_tree() -> None:
-    gone = sorted(NOT_YET_MOVED - _edges_into_the_hub_client())
+    gone = sorted(IMPORTS_NOT_YET_MOVED - _edges(_the_core()))
     assert not gone, (
-        "these edges no longer exist; take them off NOT_YET_MOVED so the list "
-        "stays as short as the tree: " + ", ".join(f"{a} imports {b}" for a, b in gone)
+        "these edges no longer exist; take them off IMPORTS_NOT_YET_MOVED so "
+        "the list stays as short as the tree: "
+        + ", ".join(f"{a} reaches {b}" for a, b in gone)
     )
+
+
+def test_the_core_read_holds_the_scripts_no_import_reaches() -> None:
+    read = {importer for importer, _, _ in _the_core()}
+    assert "serving/gate-scripts/serve-fetch.py" in read
+    assert "mcgyvr.runner" in read
+    assert not any(_out_of_bounds(name) for name in read)
 
 
 def test_the_command_line_does_import_the_hub_client() -> None:
     """The one sanctioned importer is real: ``mcgyvr rig`` is wired in."""
-    assert any(_in_hub_client(m) for m in _mcgyvr_imports(THE_COMMAND_LINE_ENTRYPOINT))
+    imported = _mcgyvr_imports(THE_COMMAND_LINE_ENTRYPOINT)
+    assert any(
+        name == HUB_CLIENT or name.startswith(f"{HUB_CLIENT}.") for name in imported
+    )
 
 
 # A core module reaching into the hub client the way the one real edge does,
-# and in the `from mcgyvr import rig` spelling a rule that read only module
-# paths would walk past.
+# in the `from mcgyvr import rig` spelling a rule that read only module paths
+# would walk past, by name for importlib, and through the command line.
 _CORE_REACHING_IN = '''
+"""A docstring may name :mod:`mcgyvr.rig.rungs` and :mod:`mcgyvr.cli`."""
+import importlib
+
+
 def dispatch(endpoint, args):
     """A rung that asks the hub before it dispatches."""
     from mcgyvr.rig import rungs
     from mcgyvr import rig
+    from mcgyvr.cli import main
 
-    return rungs, rig
+    return rungs, rig, main, importlib.import_module("mcgyvr.rig.verbs")
 '''
 
 
-def test_the_rule_catches_a_core_module_that_reaches_into_the_hub_client() -> None:
-    imported = _imports_in(_CORE_REACHING_IN)
-    edges = _edges_into_the_hub_client(
-        imports=lambda _module: imported,
-        modules={"mcgyvr.runner", "mcgyvr.cli", "mcgyvr.rig.verbs"},
-    )
+def test_the_rule_catches_each_way_into_the_hub_client() -> None:
+    edges = _edges([("serving/gate-scripts/x.py", "mcgyvr", _CORE_REACHING_IN)])
     assert edges == {
-        ("mcgyvr.runner", "mcgyvr.rig"),
-        ("mcgyvr.runner", "mcgyvr.rig.rungs"),
+        ("serving/gate-scripts/x.py", "mcgyvr.rig"),
+        ("serving/gate-scripts/x.py", "mcgyvr.rig.rungs"),
+        ("serving/gate-scripts/x.py", "mcgyvr.rig.verbs"),
+        ("serving/gate-scripts/x.py", "mcgyvr.cli"),
     }
