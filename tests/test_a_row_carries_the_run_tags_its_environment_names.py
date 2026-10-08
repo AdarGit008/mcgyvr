@@ -85,17 +85,23 @@ def _record(sink: Path, attempt: Callable[[], Any] = _completion) -> dict[str, A
 
 
 @pytest.fixture
-def no_revision(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The checkout's round, made unreadable: a call to it fails the test."""
+def no_revision(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Every read of the checkout's round, kept: a test asserts there were none.
+
+    Kept rather than raised, because ``_identity`` turns any ``Exception`` out
+    of the read into ``revision_error`` and a raise here would be swallowed.
+    """
+    reads: list[str] = []
 
     def read() -> None:
-        raise AssertionError("the checkout's round was read although tags were set")
+        reads.append("the checkout's round was read although tags were set")
 
     monkeypatch.setattr(telemetry, "_product_revision", read)
+    return reads
 
 
 def test_the_row_carries_the_tags_under_run_tags(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, json.dumps(TAGS))
 
@@ -106,10 +112,11 @@ def test_the_row_carries_the_tags_under_run_tags(
     assert "round" not in row
     assert "product_sha256" not in row
     assert "revision_error" not in row
+    assert no_revision == []
 
 
 def test_the_failing_row_carries_the_tags_too(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, json.dumps(TAGS))
     sink = tmp_path / "journal" / "agent-a.jsonl"
@@ -123,10 +130,12 @@ def test_the_failing_row_carries_the_tags_too(
     (row,) = fold(path=sink)
     assert row["ok"] is False
     assert row[telemetry.RUN_TAGS_KEY] == TAGS
+    assert "revision_error" not in row
+    assert no_revision == []
 
 
 def test_a_credential_in_a_tag_is_scrubbed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
 ) -> None:
     monkeypatch.setenv(
         telemetry.RUN_TAGS_ENV,
@@ -137,10 +146,12 @@ def test_a_credential_in_a_tag_is_scrubbed(
 
     assert "hunter2" not in json.dumps(row)
     assert row[telemetry.RUN_TAGS_KEY]["mirror"].startswith("https://")
+    assert "revision_error" not in row
+    assert no_revision == []
 
 
 def test_an_empty_object_tags_nothing_and_reads_no_round(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_revision: list[str]
 ) -> None:
     monkeypatch.setenv(telemetry.RUN_TAGS_ENV, "{}")
 
@@ -148,6 +159,8 @@ def test_an_empty_object_tags_nothing_and_reads_no_round(
 
     assert telemetry.RUN_TAGS_KEY not in row
     assert "round" not in row
+    assert "revision_error" not in row
+    assert no_revision == []
 
 
 def test_unset_or_empty_tags_nothing(
@@ -175,6 +188,11 @@ def test_unset_or_empty_tags_nothing(
         ('{"ratio": NaN}', "ratio"),
         ('{"ratio": Infinity}', "ratio"),
         (json.dumps({"blob": "x" * 5000}), "bytes"),
+        ('{"https://u:hunter2@example.org/": 1}', "credential"),
+        ('{"n": 9007199254740993}', "'n'"),
+        ('{"n": -9007199254740993}', "'n'"),
+        ('{"s": "\\ud800"}', "'s'"),
+        ('{"\\ud800": 1}', "surrogate"),
     ],
 )
 def test_anything_but_a_small_object_of_scalars_is_refused(
@@ -187,6 +205,15 @@ def test_anything_but_a_small_object_of_scalars_is_refused(
 
     assert telemetry.RUN_TAGS_ENV in str(refused.value)
     assert says in str(refused.value)
+    assert "hunter2" not in str(refused.value)
+
+
+def test_the_largest_exact_integer_is_a_tag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """2**53 is where a JSON reader in doubles stops counting exactly."""
+    monkeypatch.setenv(
+        telemetry.RUN_TAGS_ENV, json.dumps({"hi": 2**53, "lo": -(2**53)})
+    )
+    assert telemetry.run_tags() == {"hi": 2**53, "lo": -(2**53)}
 
 
 def test_a_refused_variable_still_leaves_its_one_row(

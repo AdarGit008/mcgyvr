@@ -205,6 +205,10 @@ RUN_TAGS_KEY = "run_tags"
 #: round id and a sha256 are about 120 bytes, and this leaves room for dozens.
 RUN_TAGS_MAX_BYTES = 4096
 
+#: The largest integer a tag may be, either sign: past 2**53 a reader that
+#: holds JSON numbers as doubles (JavaScript, jq) no longer reads it exactly.
+RUN_TAGS_MAX_INT = 2**53
+
 type TagValue = str | int | float | bool
 
 # FALLBACK, one step only (borders plan 2a, 2026-10-08): delete with
@@ -654,9 +658,13 @@ def run_tags() -> dict[str, TagValue] | None:
     would be lost unsaid); or when a value is anything but text, a finite
     number or true/false. ``null`` is refused under the absent-is-honest rule
     of every other key here, a list or an object because a tag is a column a
-    reader filters on, and ``NaN`` because the row would no longer be JSON.
+    reader filters on, ``NaN`` because the row would no longer be JSON, an
+    integer past :data:`RUN_TAGS_MAX_INT` because a reader in doubles would
+    read another number, and a lone surrogate in a key or a value because it
+    has no UTF-8 and the row could not be written.
     Text values are scrubbed (:func:`~mcgyvr.redact.scrub`), as every string a
-    row quotes that it did not build.
+    row quotes that it did not build; a key the scrub would change is refused
+    instead, unechoed, because a renamed key could collide with another.
     """
     value = os.environ.get(RUN_TAGS_ENV)
     if not value:
@@ -692,18 +700,36 @@ def run_tags() -> dict[str, TagValue] | None:
     for key, tag in parsed.items():
         if not key:
             raise RunTagsError(f"{RUN_TAGS_ENV} has an empty key")
-        if isinstance(tag, str):
+        if not _utf8(key):
+            raise RunTagsError(f"{RUN_TAGS_ENV} has a key with a lone surrogate")
+        if scrub(key) != key:
+            raise RunTagsError(
+                f"{RUN_TAGS_ENV} has a key holding a credentialed URL; a key "
+                f"names a tag, it does not carry one"
+            )
+        if isinstance(tag, str) and _utf8(tag):
             tags[key] = scrub(tag)
-        elif isinstance(tag, bool | int) or (
-            isinstance(tag, float) and math.isfinite(tag)
+        elif (
+            isinstance(tag, bool)
+            or (isinstance(tag, int) and abs(tag) <= RUN_TAGS_MAX_INT)
+            or (isinstance(tag, float) and math.isfinite(tag))
         ):
             tags[key] = tag
         else:
             raise RunTagsError(
-                f"{RUN_TAGS_ENV} sets {key!r} to {scrub(json.dumps(tag))}; a tag is "
-                f"text, a number or true/false"
+                f"{RUN_TAGS_ENV} sets {key!r} to {scrub(json.dumps(tag))}; a tag "
+                f"is text, a number within ±2**53 or true/false"
             )
     return tags
+
+
+def _utf8(text: str) -> bool:
+    """Whether ``text`` encodes as UTF-8: no lone surrogate in it."""
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def _checkout() -> Path:
