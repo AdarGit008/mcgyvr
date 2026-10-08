@@ -246,6 +246,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `limits.max_window_fraction` (see Changed). The refusal
   now says which limit was hit: the run's `max_window_fraction` (config) or
   the contract's own `limits.max_window_fraction`.
+- The rig agent's at-once frame test no longer fails on a busy machine: it
+  wanted a queued frame at the hub within 0.1 s (it took 0.24 s at load 90).
+  The agent's read of its channel now lasts far past the fake hub's patience
+  in that test, and the frame is put while the agent is in that read, so a
+  frame that arrives at all was sent by the put's wake, not by the read's end.
+  No product code changed.
 - Five more tests no longer fail on a busy machine: they bounded how long
   something took, not what it did. The slow-page tests of a cancelled relay
   and of a cancelled ride wanted the hub's handler back in 0.1 s and the end
