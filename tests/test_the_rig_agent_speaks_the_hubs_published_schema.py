@@ -11,7 +11,6 @@ digest names, and, with a hub checkout named, is that hub's file.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -30,21 +29,130 @@ def _defs(schema: dict[str, Any], name: str) -> dict[str, Any]:
     return node
 
 
-def test_the_pinned_copy_is_the_one_its_digest_names() -> None:
-    data = rig_schema.FIXTURE.read_bytes()
-    assert rig_schema.sha256(data) == rig_schema.PINNED_SHA256
+_PINS = pytest.mark.parametrize(
+    "pinned", rig_schema.PINS, ids=[p.hub_name for p in rig_schema.PINS]
+)
 
 
-def test_the_pinned_copy_is_a_named_hubs_file_pinned() -> None:
-    named = os.environ.get(rig_schema.HUB_SCHEMA_ENV)
-    if not named:
-        pytest.skip(f"${rig_schema.HUB_SCHEMA_ENV} names no hub schema file")
-    hub_file = Path(named).read_bytes()
-    assert rig_schema.sha256(hub_file) == rig_schema.HUB_SCHEMA_SHA256, (
-        "the hub's schema moved: re-pin with `python -m tests.rig_schema` "
-        "and bring the agent's limits to it"
+@_PINS
+def test_the_pinned_copy_is_the_one_its_digest_names(
+    pinned: rig_schema.Pinned,
+) -> None:
+    data = pinned.fixture.read_bytes()
+    assert rig_schema.sha256(data) == pinned.pinned_sha256
+
+
+@_PINS
+def test_the_pinned_copy_is_a_named_hubs_file_pinned(
+    pinned: rig_schema.Pinned,
+) -> None:
+    named = rig_schema.hub_file(pinned)
+    if named is None:
+        pytest.skip(f"neither ${pinned.env} nor ${rig_schema.HUB_REPO_ENV} names a hub")
+    hub_file = named.read_bytes()
+    assert rig_schema.sha256(hub_file) == pinned.hub_sha256, (
+        f"the hub's {pinned.hub_name} moved: re-pin with "
+        "`python -m tests.rig_schema` and bring the agent's limits to it"
     )
-    assert rig_schema.pin(hub_file) == rig_schema.FIXTURE.read_bytes()
+    assert rig_schema.pin(hub_file) == pinned.fixture.read_bytes()
+
+
+def test_a_hub_is_named_by_its_files_own_variable_else_by_its_checkout(
+    tmp_path: Path,
+) -> None:
+    rider = rig_schema.RIDER
+    assert rig_schema.hub_file(rider, {}) is None
+    repo = {rig_schema.HUB_REPO_ENV: str(tmp_path)}
+    assert rig_schema.hub_file(rider, repo) == tmp_path / "schemas" / rider.hub_name
+    alone = {**repo, rider.env: str(tmp_path / "x.json")}
+    assert rig_schema.hub_file(rider, alone) == tmp_path / "x.json"
+    assert rig_schema.hub_file(rig_schema.PROTOCOL, alone) == (
+        tmp_path / "schemas" / rig_schema.PROTOCOL.hub_name
+    )
+
+
+def test_a_re_pin_rewrites_every_copy_and_its_digests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    work = tmp_path / "tests"
+    (work / "fixtures").mkdir(parents=True)
+    for pinned in rig_schema.PINS:
+        shutil.copy(pinned.fixture, work / "fixtures" / pinned.fixture.name)
+    here = work / "rig_schema.py"
+    shutil.copy(rig_schema.__file__, here)
+    hub = tmp_path / "hub" / "schemas"
+    hub.mkdir(parents=True)
+    for pinned in rig_schema.PINS:
+        moved = json.loads(pinned.fixture.read_bytes())
+        moved["$id"] = "https://hub.invalid/" + pinned.hub_name
+        moved["x-moved"] = True
+        (hub / pinned.hub_name).write_text(json.dumps(moved), encoding="utf-8")
+    import importlib.util
+    import sys
+
+    # The rewritten file is as long as before, maybe in the same second: a
+    # cached compile of it would be taken for it.
+    monkeypatch.setattr(sys, "dont_write_bytecode", True)
+    spec = importlib.util.spec_from_file_location("moved_rig_schema", here)
+    assert spec is not None and spec.loader is not None
+    moved_module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, moved_module)
+    spec.loader.exec_module(moved_module)
+
+    assert moved_module.main([str(tmp_path / "hub")]) == 0
+
+    spec.loader.exec_module(moved_module)
+    for pinned in moved_module.PINS:
+        hub_bytes = (hub / pinned.hub_name).read_bytes()
+        assert pinned.hub_sha256 == rig_schema.sha256(hub_bytes)
+        assert pinned.fixture.read_bytes() == rig_schema.pin(hub_bytes)
+        assert moved_module.load(pinned)["x-moved"] is True
+
+
+def test_every_feature_the_agent_speaks_is_one_the_hub_publishes(
+    schema: dict[str, Any],
+) -> None:
+    """A subset, not the same set: the hub may publish a behaviour before this
+    agent speaks it, and keeps serving agents that lack it; a name it does not
+    publish is a behaviour it never uses, switched off without a word."""
+    from mcgyvr.rig import session
+
+    assert len(set(session.FEATURES)) == len(session.FEATURES)
+    assert set(session.FEATURES) <= set(schema["x-features"])
+
+
+def test_a_re_pin_that_cannot_read_every_file_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    work = tmp_path / "tests"
+    (work / "fixtures").mkdir(parents=True)
+    for pinned in rig_schema.PINS:
+        shutil.copy(pinned.fixture, work / "fixtures" / pinned.fixture.name)
+    here = work / "rig_schema.py"
+    shutil.copy(rig_schema.__file__, here)
+    hub = tmp_path / "hub" / "schemas"
+    hub.mkdir(parents=True)
+    moved = json.loads(rig_schema.PROTOCOL.fixture.read_bytes())
+    moved["x-moved"] = True
+    (hub / rig_schema.PROTOCOL.hub_name).write_text(json.dumps(moved))
+    before = {path: path.read_bytes() for path in [here, *work.glob("fixtures/*")]}
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("half_rig_schema", here)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+
+    with pytest.raises(OSError):
+        module.main([str(tmp_path / "hub")])
+
+    assert {path: path.read_bytes() for path in before} == before
 
 
 def test_the_agents_limits_are_the_schemas(schema: dict[str, Any]) -> None:
@@ -344,3 +452,24 @@ def test_an_unknown_type_is_read_as_an_envelope_for_the_dispatcher() -> None:
 def test_the_validator_refuses_a_keyword_it_does_not_read() -> None:
     with pytest.raises(rig_schema.SchemaError):
         rig_schema.validate({}, {"$defs": {"X": {"uniqueItems": True}}}, "#/$defs/X")
+
+
+def test_the_validator_refuses_a_key_a_closed_object_does_not_name() -> None:
+    closed = {
+        "$defs": {
+            "X": {
+                "type": "object",
+                "properties": {"a": {"type": "integer"}},
+                "additionalProperties": False,
+            }
+        }
+    }
+    rig_schema.validate({"a": 1}, closed, "#/$defs/X")
+    rig_schema.validate({}, closed, "#/$defs/X")
+    with pytest.raises(rig_schema.SchemaError, match="'b'"):
+        rig_schema.validate({"a": 1, "b": 2}, closed, "#/$defs/X")
+    open_ = {"$defs": {"X": {"additionalProperties": True}}}
+    rig_schema.validate({"b": 2}, open_, "#/$defs/X")
+    typed = {"$defs": {"X": {"additionalProperties": {"type": "string"}}}}
+    with pytest.raises(rig_schema.SchemaError):
+        rig_schema.validate({}, typed, "#/$defs/X")
