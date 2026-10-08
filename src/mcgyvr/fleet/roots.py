@@ -57,8 +57,9 @@ FLEETS_SHOWN = f"${HOME_ENV}/{FLEETS_DIR} (default {HOME_DIR}/{FLEETS_DIR})"
 LIVE_FILE_SHOWN = f"${HOME_ENV}/{LIVE_FILE} (default {HOME_DIR}/{LIVE_FILE})"
 #: What separates a fleet from the date of its lock in a promoted folder's name.
 TAG = "@"
-#: The date a tag carries: the lock's ``validated_at`` day, ``YYYY-MM-DD``.
-_TAG_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+#: The date a tag carries: the lock's ``validated_at`` day, ``YYYY-MM-DD``,
+#: then, for the second folder of one fleet on one day and on, ``-<n>`` from 2.
+_TAG_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:-[2-9]|-[1-9]\d+)?$")
 
 
 class LiveFleetError(Exception):
@@ -157,16 +158,21 @@ def layout_of(name: str) -> str:
 
 
 def tagged(fleet: str, lock_date: str) -> str:
-    """The live name of ``fleet`` promoted from a lock dated ``lock_date``."""
+    """The live name of ``fleet`` promoted from a lock dated ``lock_date``.
+
+    ``lock_date`` may carry ``-<n>`` from 2, for a later folder of the same day
+    (:func:`is_tag_date`)."""
     return f"{fleet}{TAG}{lock_date}"
 
 
 def is_tag_date(text: str) -> bool:
-    """Whether ``text`` is a calendar day spelled ``YYYY-MM-DD``."""
-    if not _TAG_DATE.match(text):
+    """Whether ``text`` is a calendar day spelled ``YYYY-MM-DD``, or such a day
+    and ``-<n>`` from 2: a later folder of one fleet on that day."""
+    matched = _TAG_DATE.match(text)
+    if not matched:
         return False
     try:
-        date.fromisoformat(text)
+        date.fromisoformat(matched.group(1))
     except ValueError:
         return False
     return True
@@ -175,7 +181,8 @@ def is_tag_date(text: str) -> bool:
 def is_fleet_name(name: str) -> bool:
     """Whether ``name`` can name one folder directly under the fleets directory.
 
-    A fleet, or a fleet at a date: ``<fleet>`` or ``<fleet>@<YYYY-MM-DD>``.
+    A fleet, or a fleet at a date: ``<fleet>`` or ``<fleet>@<YYYY-MM-DD>``,
+    the date followed by ``-<n>`` from 2 for a later folder of the same day.
     """
     fleet, tag = split_name(name)
     if not fleet or fleet in (".", "..") or "/" in name:

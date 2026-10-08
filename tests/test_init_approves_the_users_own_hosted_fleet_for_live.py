@@ -11,18 +11,30 @@ approves what it bound itself, through the one path live reads:
   which says ``mcgyvr init`` approved it. ``live.json`` names it, as ``mcgyvr
   fleet use`` would. Live admission then admits a run without reading any rig:
   the fleet has none, and a hosted unit is not a machine of the user's.
-* **A unit on a rig:** nothing is approved. A machine is approved for live work
-  only by a read of it, which ``init`` does not take; ``init`` says so, and
-  admission refuses as before.
-* **A fleet already live** is never replaced, and an ``init`` that wrote
-  nothing approves nothing.
+* **A machine of the user's is not approved by init:** a unit on a rig, or a
+  "hosted" unit whose address is a loopback, private, link-local or otherwise
+  non-public address, or a name only a local network answers (``localhost``, a
+  name with no dot, ``.local``...). Such a machine is approved only by a read of
+  it, which ``init`` does not take; ``init`` says so. Nor is an mcorch setup,
+  whose units a fleet with no rig cannot hold awake.
+* **A live run is refused** when the config it loaded holds a unit on a rig the
+  live fleet does not lay out there, whatever the fleet: re-running ``init``
+  after a local server appeared, or adding one by hand, does not ride on an
+  approval of hosted units.
+* **A re-run of init re-approves its own fleet** in a new folder
+  (``own@<today>-2`` on the same day), and names that live; the old folder is
+  kept. A fleet live that is not init's own is never replaced, and an ``init``
+  that wrote nothing approves nothing.
 
 The machines are invented; detection is substituted, so nothing is probed.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import os
+import subprocess
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,13 +44,31 @@ import yaml
 
 from mcgyvr import cli
 from mcgyvr.detect import Backend, Detection
+from mcgyvr.exits import Exit
 from mcgyvr.fleet import admission
 from mcgyvr.fleet.admit import LiveRefusedError
-from mcgyvr.fleet.promote import LOCK_DIR
-from mcgyvr.fleet.roots import fleets_dir, live_file, live_fleet
+from mcgyvr.fleet.promote import LOCAL_SUFFIXES, LOCK_DIR
+from mcgyvr.fleet.roots import fleets_dir, is_fleet_name, live_file, live_fleet
 
-HOSTED = "model=hosted-model,address=http://127.0.0.1:9,api_key_env=HOSTED_KEY"
+HOSTED = "model=hosted-model,address=https://api.hosted.example/v1,api_key_env=K"
 HOSTED_UNIT = "api_hosted-model"
+#: A second hosted unit, for a re-run of init that binds more.
+OTHER = "model=other-model,address=https://api.other.example/v1,api_key_env=K"
+
+TARGET = "src/pkg/messy.py"
+CONTRACT = f"""\
+id: impl
+task_type: function_implementation
+task: Set VALUE to 1.
+target: {TARGET}
+stop_conditions: ["The value is not stated."]
+demonstration: ["sh -c 'grep -q VALUE {TARGET}'"]
+acceptance: ["sh -c 'exit 0'"]
+limits:
+  max_output_tokens: 256
+scope:
+  allow: ["src/**"]
+"""
 
 
 def _found(*backends: Backend) -> Detection:
@@ -71,6 +101,42 @@ def _no_read(rig: str, run_id: str, probe: Sequence[str]) -> int:
 
 def _today() -> str:
     return datetime.now(UTC).date().isoformat()
+
+
+def _run(
+    tmp_path: Path,
+    setup: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> tuple[int, str, list[str]]:
+    """``mcgyvr run`` from ``setup``: its exit, its stderr and the units dispatched."""
+    import mcgyvr.drive as drive
+
+    repo = tmp_path / "repo"
+    (repo / "src" / "pkg").mkdir(parents=True)
+    (repo / TARGET).write_text("x = 0\n", encoding="utf-8")
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull}
+    for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t.invalid", *args],
+            cwd=repo,
+            env=env,
+            check=True,
+            capture_output=True,
+        )
+    contract = tmp_path / "impl.yaml"
+    contract.write_text(CONTRACT, encoding="utf-8")
+    dispatched: list[str] = []
+
+    def dispatch(_map: object, rung: str, _request: object, **_: object) -> object:
+        dispatched.append(rung)
+        raise AssertionError(f"{rung} was dispatched")
+
+    monkeypatch.setattr(drive, "dispatch", dispatch)
+    monkeypatch.chdir(setup)
+    capsys.readouterr()
+    argv = ["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
+    return cli.main(argv), capsys.readouterr().err, dispatched
 
 
 def test_a_fresh_init_of_hosted_units_makes_its_own_fleet_live(
@@ -106,6 +172,67 @@ def test_a_fresh_init_of_hosted_units_makes_its_own_fleet_live(
     assert admitted.admitted and admitted.commands == []
 
 
+def _first_host(block: int, prefix: int, *, v6: bool = False) -> str:
+    """The first host of the address block ``block/prefix``, from its numbers."""
+    network = (ipaddress.IPv6Network if v6 else ipaddress.IPv4Network)((block, prefix))
+    return str(next(network.hosts()))
+
+
+#: Where a unit bound as hosted would be a machine of the user's: the blocks
+#: are the RFCs' own (built from their numbers, so no machine is spelled), the
+#: names are ``localhost``, one label, and each suffix the product reads as
+#: local.
+USERS_MACHINES = (
+    "127.0.0.1",
+    "::1",
+    _first_host(0x0A000000, 8),  # RFC 1918
+    _first_host(0xAC100000, 12),  # RFC 1918
+    _first_host(0xC0A80000, 16),  # RFC 1918
+    _first_host(0xA9FE0000, 16),  # link-local, RFC 3927
+    _first_host(0x64400000, 10),  # shared, RFC 6598
+    _first_host(0xFD << 120, 8, v6=True),  # unique local, RFC 4193
+    _first_host(0xFE80 << 112, 10, v6=True),  # link-local, RFC 4291
+    "::ffff:" + _first_host(0xC0A80000, 16),  # an RFC 1918 address, mapped
+    "192.0.2.20",  # documentation, RFC 5737: no public address either
+    "localhost",
+    "rig",
+    *(f"rig{suffix}" for suffix in LOCAL_SUFFIXES),
+)
+
+
+@pytest.mark.parametrize("host", USERS_MACHINES)
+def test_a_hosted_unit_at_a_machine_of_the_users_is_not_approved(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    host: str,
+) -> None:
+    where = f"[{host}]" if ":" in host else host
+    spec = f"model=small-model,address=http://{where}:8080/v1,api_key_env=K"
+    assert _init(monkeypatch, tmp_path / "setup", "--api", spec, found=_found()) == 0
+    said = capsys.readouterr().out
+
+    assert not live_file().exists()
+    assert not fleets_dir().exists()
+    assert "No fleet was made live" in said and "api_small-model" in said, said
+    assert "not approved" in said, said
+
+
+def test_an_mcorch_setup_is_not_approved_by_init(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    flags = ("--api", HOSTED, "--jev", HOSTED_UNIT, "--mcorch", HOSTED_UNIT)
+    setup = tmp_path / "setup"
+    assert _init(monkeypatch, setup, *flags, "--window", "8192", found=_found()) == 0
+    said = capsys.readouterr().out
+
+    assert not live_file().exists()
+    assert not fleets_dir().exists()
+    assert "No fleet was made live" in said and "mcorch" in said, said
+
+
 def test_a_unit_on_a_rig_is_not_approved_by_init(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -121,6 +248,81 @@ def test_a_unit_on_a_rig_is_not_approved_by_init(
     assert "No fleet was made live" in said and "llama.cpp" in said, said
     with pytest.raises(LiveRefusedError, match="no fleet is live"):
         admission.admit(reader=_no_read)
+
+
+@pytest.mark.parametrize("how", ["reinit", "edit"])
+def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    how: str,
+) -> None:
+    setup = tmp_path / "setup"
+    assert _init(monkeypatch, setup, "--api", HOSTED, found=_found()) == 0
+    approved = live_fleet()
+    assert approved == f"own@{_today()}"
+
+    if how == "reinit":
+        # A local server came up, and init was run again over the files.
+        found = _found(LOCAL)
+        assert _init(monkeypatch, setup, "--force", "--api", HOSTED, found=found) == 0
+        assert live_fleet() == approved, "a unit on a rig approves nothing"
+    else:
+        fleet = yaml.safe_load((setup / "fleet.yaml").read_text(encoding="utf-8"))
+        fleet["units"]["box_small"] = {
+            "address": "http://rig.invalid:8080/v1",
+            "model": "small-model",
+            "width": 1,
+            "rig": "box",
+        }
+        (setup / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
+        policy = yaml.safe_load((setup / "policy.yaml").read_text(encoding="utf-8"))
+        policy["ladder"] = ["box_small", *policy["ladder"]]
+        (setup / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
+
+    code, err, dispatched = _run(tmp_path, setup, monkeypatch, capsys)
+
+    assert code == Exit.REFUSED, err
+    assert dispatched == []
+    assert "not approved for live work yet" in err, err
+    on_rig = "local_small-model (on llama.cpp)" if how == "reinit" else "box_small"
+    assert on_rig in err, err
+
+
+def test_a_rerun_of_init_reapproves_its_own_fleet_in_a_new_folder(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = tmp_path / "setup"
+    assert _init(monkeypatch, setup, "--api", HOSTED, found=_found()) == 0
+    first = fleets_dir() / f"own@{_today()}"
+    before = (first / "fleet.yaml").read_text(encoding="utf-8")
+
+    flags = ("--force", "--api", HOSTED, "--api", OTHER)
+    assert _init(monkeypatch, setup, *flags, found=_found()) == 0
+    said = capsys.readouterr().out
+
+    second = f"own@{_today()}-2"
+    assert live_fleet() == second, said
+    live = yaml.safe_load(
+        (fleets_dir() / second / "fleet.yaml").read_text(encoding="utf-8")
+    )
+    assert sorted(live["units"]) == [HOSTED_UNIT, "api_other-model"]
+    assert (first / "fleet.yaml").read_text(encoding="utf-8") == before
+    assert admission.admit(reader=_no_read).admitted
+
+    assert _init(monkeypatch, setup, *flags, found=_found()) == 0
+    assert live_fleet() == f"own@{_today()}-3"
+
+
+def test_a_second_folder_of_a_day_is_a_live_name() -> None:
+    assert is_fleet_name("own@2026-10-08-2")
+    assert is_fleet_name("own@2026-10-08-12")
+    for bad in ("own@2026-10-08-1", "own@2026-10-08-0", "own@2026-10-08-02"):
+        assert not is_fleet_name(bad), bad
+    for bad in ("own@2026-10-08-", "own@2026-10-08_2", "own@2026-02-30-2"):
+        assert not is_fleet_name(bad), bad
 
 
 def test_a_fleet_already_live_is_never_replaced_by_init(

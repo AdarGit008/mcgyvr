@@ -31,6 +31,7 @@ needs no dev lock, and names it live through :func:`use` like any other.
 from __future__ import annotations
 
 import copy
+import ipaddress
 import json
 import os
 import shutil
@@ -40,6 +41,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -66,6 +68,10 @@ LOCK_DIR = Path("records") / "fleet"
 #: and who its lock says approved it.
 OWN_FLEET = "own"
 OWN_APPROVER = "mcgyvr init"
+#: Names only a local network answers: ``localhost`` and its subdomains (RFC
+#: 6761), multicast DNS (RFC 6762), the home network (RFC 8375) and names kept
+#: for private use. A name with no dot at all is one too.
+LOCAL_SUFFIXES = (".localhost", ".local", ".home.arpa", ".internal")
 
 
 class PromoteRefusedError(Exception):
@@ -278,38 +284,99 @@ def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
         raise
 
 
+def _on_a_users_machine(address: str) -> str | None:
+    """Why ``address`` is a machine of the user's rather than a hosted service,
+    or ``None`` when it does not say so.
+
+    Read from the address as written, and nothing is looked up: an IP address
+    that is not public (loopback, private, link-local, shared, reserved), or a
+    name only a local network answers (:data:`LOCAL_SUFFIXES`, ``localhost``,
+    or a name with no dot). A public name that a local resolver points at a
+    machine of the user's is not caught here: resolving would ask the network
+    from an offline install, and the answer may differ at the run.
+    """
+    try:
+        host = urlsplit(address).hostname
+    except ValueError:
+        host = None
+    if not host:
+        return "names no host"
+    host = host.rstrip(".").lower()
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        if host == "localhost" or host.endswith(LOCAL_SUFFIXES) or "." not in host:
+            return f"{host} is a name only a local network answers"
+        return None
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    if not ip.is_global:
+        return f"{host} is not a public address"
+    return None
+
+
+def is_own(name: str) -> bool:
+    """Whether the live name ``name`` is a folder :func:`approve_own` wrote."""
+    layout = split_name(name)[0]
+    if layout != OWN_FLEET:
+        return False
+    lock = fleets_dir() / name / LOCK_DIR / f"{OWN_FLEET}.json"
+    try:
+        return bool(_read_json(lock).get("approved_by") == OWN_APPROVER)
+    except PromoteRefusedError:
+        return False
+
+
 def approve_own(setup: Path) -> Path:
     """Write ``<config folder>/fleets/own@<today>/`` from the setup ``mcgyvr
     init`` wrote at ``setup``; that folder.
 
     The user's own fleet, approved by the product itself and by no dev
-    evidence: a stranger has none. Only a setup whose every unit is outside —
-    hosted, on no ``rig`` — is approved: its fleet :data:`OWN_FLEET` lays out
-    no rig, so live admission reads none, and a unit on a rig is approved only
+    evidence: a stranger has none. Only a setup whose every unit is hosted is
+    approved: on no ``rig``, at an address that is not a machine of the user's
+    (:func:`_on_a_users_machine`). Its fleet :data:`OWN_FLEET` lays out no rig,
+    so live admission reads none, and a machine of the user's is approved only
     by a read of it, which ``init`` does not take. Its lock pins that empty
     layout and says who approved it; the date in the folder's name is the day
-    of the approval. Refused, with nothing written, when the setup cannot be
-    read, holds a unit on a rig, already lays out rigs or fleets, would not
-    load as a setup, or the folder exists. It names nothing live: :func:`use`
-    does that, as for any promoted folder.
+    of the approval, and a later folder of the same day is ``<date>-2``, then
+    ``-3``. Refused, with nothing written, when the setup cannot be read, holds
+    a unit on a rig or at a machine of the user's, already lays out rigs or
+    fleets, names an mcorch orchestrator (whose units a fleet with no rig
+    cannot hold awake), or would not load as a setup. It names nothing live:
+    :func:`use` does that, as for any promoted folder.
     """
     fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
     policy = _read_setup(setup / POLICY_FILENAME, load_policy)
+    units = fleet.get("units") or {}
     on_rigs = sorted(
-        f"{unit} (on {body['rig']})"
-        for unit, body in (fleet.get("units") or {}).items()
-        if "rig" in body
+        f"{unit} (on {body['rig']})" for unit, body in units.items() if "rig" in body
     )
     if on_rigs:
         raise PromoteRefusedError(
-            f"{', '.join(on_rigs)} sits on a rig, and a machine is approved for "
-            "live work only by a read of it"
+            f"{', '.join(on_rigs)} sits on a rig, and a machine is not approved "
+            "for live work until it is read"
+        )
+    local = sorted(
+        f"{unit} ({why})"
+        for unit, body in units.items()
+        if (why := _on_a_users_machine(str(body.get("address") or ""))) is not None
+    )
+    if local:
+        raise PromoteRefusedError(
+            f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
+            "a machine is not approved for live work until it is read"
         )
     if fleet.get("rigs") or fleet.get("fleets"):
         raise PromoteRefusedError(
             f"{setup / FLEET_FILENAME} lays out rigs or fleets of its own; a "
             "fleet laid out on rigs is promoted from its lock"
         )
+    try:
+        mcorch_units(policy, {}, name=OWN_FLEET)
+    except FleetError as exc:
+        raise PromoteRefusedError(
+            f"{exc}; a fleet that cannot serve its mcorch policy is not approved"
+        ) from exc
     approved = datetime.now(UTC)
     own = {**fleet, "profile": "live", "fleets": {OWN_FLEET: {"layout": {}}}}
     lock = {
@@ -328,11 +395,12 @@ def approve_own(setup: Path) -> Path:
             f"{OWN_FLEET}: the live fleet folder would not load as a setup: {exc}"
         ) from exc
     _pinned(load_fleet(fleet_text), OWN_FLEET, lock, "the live fleet.yaml")
-    folder = fleets_dir() / tagged(OWN_FLEET, approved.date().isoformat())
-    if folder.exists() or folder.is_symlink():
-        raise PromoteRefusedError(
-            f"{folder} already exists: a fleet folder is never written over"
-        )
+    day = approved.date().isoformat()
+    folder = fleets_dir() / tagged(OWN_FLEET, day)
+    later = 2
+    while folder.exists() or folder.is_symlink():
+        folder = fleets_dir() / tagged(OWN_FLEET, f"{day}-{later}")
+        later += 1
     _build(
         folder,
         OWN_FLEET,
