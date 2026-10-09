@@ -473,9 +473,11 @@ def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
     the rig id that read named, and this writes the fleet ``own`` with ``rig``
     laid out (each of its units awake) and the lock pinning that layout. The
     rig is the user's own machine, approved by no dev evidence: a stranger has
-    none. Refused, with nothing written, when the setup cannot be read, lays
-    out no unit on ``rig``, holds a hosted unit at a machine of the user's, or
-    would not load as a setup. It names nothing live: :func:`use` does that.
+    none. Refused, with no fleet folder written, when the setup cannot be read,
+    lays out no unit on ``rig``, holds a hosted unit at a machine of the user's,
+    or would not load as a setup (the caller's read of ``rig`` may already have
+    filed its rig file; that is the read's record, not this approval's). It
+    names nothing live: :func:`use` does that.
     """
     fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
     policy = _read_setup(setup / POLICY_FILENAME, load_policy)

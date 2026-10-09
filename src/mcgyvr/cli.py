@@ -845,6 +845,10 @@ def _read_local_rig(rig: str) -> str:
         )
     except subprocess.TimeoutExpired as exc:
         raise PromoteRefusedError(f"{rig}: the local snapshot timed out") from exc
+    except OSError as exc:
+        raise PromoteRefusedError(
+            f"{rig}: the local snapshot could not start: {exc}"
+        ) from exc
     if done.returncode != 0:
         raise PromoteRefusedError(
             f"{rig}: the local snapshot could not run: "
