@@ -96,6 +96,9 @@ from mcgyvr.serving.gatelib import (
 DIRECTIVES = ("RUN_ARTIFACTS", "RUN_REWRITES", "RUN_APPENDS")
 PLAIN_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
 RUN_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+#: The variable a caller sets to declare its campaign's sibling steps, as a
+#: JSON list of step file paths; the door itself knows no campaign folder.
+SIBLINGS_ENV = "MCGYVR_DOOR_SIBLINGS"
 #: `### START ... run_id=<id>` on the file's first START line.
 START_RUN_ID = re.compile(r"^###\s+START\s+.*\brun_id=(\S+)", re.MULTILINE)
 
@@ -153,6 +156,34 @@ def step_of_run_id(run_id: str, campaign: str, steps: list[str]) -> str | None:
     tail = run_id.split(prefix, 1)[1]
     matches = [s for s in steps if tail == s or tail.startswith(f"{s}-")]
     return max(matches, key=len) if matches else None
+
+
+def _siblings(step: str) -> list[str]:
+    """The step names a run id may parse back to.
+
+    The door is single-mode and knows no campaign folder, so a caller that
+    needs cross-step ``RUN_APPENDS`` (or a suffix that must not forge a
+    sibling step's name) declares its campaign's sibling steps in
+    ``MCGYVR_DOOR_SIBLINGS``: a JSON list of step file paths. Unset, only the
+    current step qualifies.
+    """
+    names = [step]
+    raw = os.environ.get(SIBLINGS_ENV, "")
+    if not raw:
+        return names
+    try:
+        declared = json.loads(raw)
+    except ValueError as error:
+        refuse(f"gate 5: {SIBLINGS_ENV} is not JSON: {error}")
+    if not isinstance(declared, list) or not all(
+        isinstance(path, str) for path in declared
+    ):
+        refuse(f"gate 5: {SIBLINGS_ENV} is not a JSON list of step file paths")
+    for path in declared:
+        name = step_name(Path(path))
+        if name not in names:
+            names.append(name)
+    return names
 
 
 def header_path(out_dir: Path, run_id: str) -> Path:
@@ -257,7 +288,7 @@ def main() -> int:
 
     # `<n>-<name>.sh` -> `<name>`, matching how a run id is parsed back.
     step = step_name(step_file)
-    siblings = [step]
+    siblings = _siblings(step)
     if suffix:
         for other in siblings:
             named = f"{step}-{suffix}"
