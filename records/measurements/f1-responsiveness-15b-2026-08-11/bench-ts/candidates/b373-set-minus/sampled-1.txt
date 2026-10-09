@@ -1,5 +1,0 @@
-```ts
-export function setMinus(entries: string[], remove: string[]): string[] {
-    return entries.filter(entry => !remove.includes(entry));
-}
-```

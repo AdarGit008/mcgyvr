@@ -1,3 +1,0 @@
-assistant
-[STOP]
-Task complete. Implemented net_tally with strict input validation, cumulative tallying across sheets, and proper report formatting. No item name case-insensitivity assumed.

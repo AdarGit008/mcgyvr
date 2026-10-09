@@ -50,7 +50,7 @@ is the most specific thing in the prompt and the least useful to read first.
 
 **The estimate is injectable, and the count says which kind it was.** The
 model-free proxy under-counts by an amount that depends on the vocabulary
-(``mcgyvr-lab/records/measurements/tokens-2026-08-03/README.md``), so
+(the lab's token-estimator measurement), so
 ``check_prompt_fits`` charges a proxy count a reserve and an exact count
 nothing. Passing a real tokenizer here — with
 ``counted_by=TOKENIZER`` to say so — is how a caller opts out of the reserve.

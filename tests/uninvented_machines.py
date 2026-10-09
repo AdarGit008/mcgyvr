@@ -211,9 +211,9 @@ LIST_NAME = LIST_PATH.relative_to(REPO).as_posix()
 #: whether they are read or not.
 LAB_FOLDERS = ("archive", "fleet-setup", "records", "tools")
 
-#: The folders not read, while they are in the product. A test says when one
-#: has left; it is then dropped from here, not from LAB_FOLDERS.
-UNREAD = ("archive", "fleet-setup", "records", "tools")
+#: The folders not read, while they are in the product. The four folders have
+#: left the product, so nothing is excluded: a file is read again.
+UNREAD: tuple[str, ...] = ()
 
 KINDS = ("address", "card-model", "dev-pointer", "home-path", "host", "identity")
 

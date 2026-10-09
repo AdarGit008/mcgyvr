@@ -1,8 +1,8 @@
 """The lock's own measurement of a unit, in one module the rig can run as it is.
 
-``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py`` and
-``records/measurements/fleet-setup-2026-09-13/srv1/harness_llama.py`` measured
-the numbers the fleet lock holds. This is their method, once:
+The lab's 2026-09-13 fleet measurement harnesses (``measure_vllm.py`` on srv2
+and ``harness_llama.py`` on srv1) measured the numbers the fleet lock holds.
+This is their method, once:
 
 * vLLM: one 64-token warm-up, five 256-token decodes with ``ignore_eos``
   (``completion_tokens`` over wall seconds) and three 16-token requests of the
@@ -720,7 +720,7 @@ def load(
     readings = 0
     while True:
         # Owner ruling, 2026-09-15: "Sample the card until idle". A close does not
-        # cancel the unit's work (``records/measurements/lock-fleets``), so the
+        # cancel the unit's work (the lab's lock-fleets measurement), so the
         # card is sampled beside every status reading, the idle one included.
         samples.append(read_rig("--card-holders"))
         after_page = page(status_url)

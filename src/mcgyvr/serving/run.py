@@ -65,13 +65,12 @@ THE RUN ROOT. The run root is ``$MCGYVR_RUN_ROOT`` when it is set and the
 checkout otherwise (:func:`run_root`): the door's own gates run from it and
 see it as ``RUN_ROOT``, so a gate that reads a file of the run reads it from
 one named place. The code and the root are two places on purpose — an
-installed wheel has no ``records/`` — and the door exports both, ``RUN_ROOT``
-and ``RUN_BIN`` (its shim directory), so a step derives neither from the
-other. A value naming a directory that does not exist is refused, never
-created.
+installed wheel has no checkout — and the door exports both, ``RUN_ROOT`` and
+``RUN_BIN`` (its shim directory), so a step derives neither from the other. A
+value naming a directory that does not exist is refused, never created.
 
 GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-4 write nothing
-under ``records/``: gate 1 reaches no rig, gate 2 takes the rig's lease (a live
+under the run root: gate 1 reaches no rig, gate 2 takes the rig's lease (a live
 run tears down what it displaced) and reads the rig, gates 3-4 only read, and
 none launches anything, so a tree on the wrong round or a machine that is not
 what it claims leaves no artifact to clean up. Gate 5 stamps the lease and
@@ -1468,8 +1467,8 @@ def _check_step_args(
 ) -> str | None:
     """A step's own output flag may not leave the envelope — the door owns it.
 
-    Ported from the archived door (archive/runs/run.sh, check_step_args): six
-    steps kept an output override from their bare-run days and three a
+    Ported from the lab's archived door (its ``check_step_args``): six steps
+    kept an output override from their bare-run days and three a
     ``--force``; through the door, ``-- --out <recorded file>`` overwrote
     committed evidence under a green line and ``-- --out-dir <anywhere>``
     filed a run where gates 5, 7 and 8 could not see it. Refused here, before

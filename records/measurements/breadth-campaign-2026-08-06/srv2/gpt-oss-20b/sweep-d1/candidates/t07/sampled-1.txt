@@ -1,6 +1,0 @@
-```ts
-/**
- * Flatten an array up to the specified depth.
- */
-export function flatten(items: readonly unknown[], depth?: number): unknown[] {
-  const d = depth === undefined ? Infinity

@@ -4,8 +4,8 @@
 The profile is settled exactly as gate 1 settles it (``01-round.py``'s
 ``profile()``, loaded rather than copied): the config ``mcgyvr`` itself would
 load, and ``live`` when there is none. A read measures nothing a round pins and
-must not append one to ``tools/bench/rounds.json`` (owner, 2026-09-15, D2), so
-the round half of gate 1 is not run.
+must not append one to the round record (owner, 2026-09-15, D2), so the
+round half of gate 1 is not run.
 """
 
 from __future__ import annotations

@@ -1,4 +1,0 @@
-```python
-def line_number(block: str) -> str:
-    return "\n".join(f"{i+1}: {line}" for i, line in enumerate(block.splitlines()))
-```

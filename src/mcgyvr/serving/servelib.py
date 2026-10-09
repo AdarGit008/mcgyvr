@@ -10,9 +10,8 @@ cannot tell from a stranger.
 
 **Answering is not the same as serving.** A vLLM unit slept at level 2 answers
 ``/v1/models`` with 200, reports ``{"is_sleeping": true}``, and then hangs on a
-real request (``mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md``). So
-the probe asks a second question, and :func:`sleeping` is careful about what
-an answer to it is.
+real request (the lab's vllm-sleep measurement). So the probe asks a second
+question, and :func:`sleeping` is careful about what an answer to it is.
 """
 
 from __future__ import annotations
@@ -247,9 +246,8 @@ def sleeping(host: str, port: int) -> bool | str | None:
     ``/is_sleeping`` is a **vLLM** development route, registered only when the
     server runs with ``VLLM_SERVER_DEV_MODE=1`` (sleeping also needs
     ``--enable-sleep-mode``); without the variable it is 404, and llama.cpp has
-    no such route at any launch
-    (``mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md``). **So
-    a 404 is None, the ordinary answer, and it means awake.** An engine that
+    no such route at any launch (the lab's vllm-sleep measurement). **So a
+    404 is None, the ordinary answer, and it means awake.** An engine that
     cannot report a sleep has no way to be asleep.
 
     ``{"is_sleeping": true}`` or ``false`` is the unit's own answer. Everything
@@ -304,8 +302,8 @@ def sleep(host: str, port: int, level: int) -> bool:
     rather than a leak — a second cycle costs nothing more — and it buys nothing
     at all, because it releases the same card as level 2 (within 14-26 MiB)
     while being slower to sleep and to wake. Its only distinguishing
-    property on this fleet is RAM it does not return
-    (``mcgyvr-lab/records/measurements/fleet-gaps-2026-09-09/README.md``, M7).
+    property on this fleet is RAM it does not return (the lab's fleet-gaps
+    measurement, M7).
 
     The refusal is raised **before the transport**, because the cost is paid by
     the request arriving rather than by it succeeding: a ban that dialled first

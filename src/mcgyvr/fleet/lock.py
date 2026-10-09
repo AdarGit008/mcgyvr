@@ -1,12 +1,12 @@
 """The fleet lock: what production may run, written only from passing dev runs.
 
-``mcgyvr fleet lock`` writes two kinds of file
-(``mcgyvr-lab/records/plans/fleet-identity.md`` §4):
+``mcgyvr fleet lock`` writes two kinds of file (the lab's fleet-identity plan,
+§4):
 
-* ``records/fleet/<fleet>.json`` — the layout's sha256, the fleet's ``next``
-  list, and each switch's dev evidence;
-* ``records/fleet/rigs/<rig->/<cmb->.json`` — one combination's validation,
-  shared by every fleet that lists it.
+* one fleet lock file — the layout's sha256, the fleet's ``next`` list, and
+  each switch's dev evidence;
+* one combination record per rig — a combination's validation, shared by
+  every fleet that lists it.
 
 Committing them is the approval. Locking refuses, naming what failed, because a
 lock that could not prove a fact must not pretend it did. Every check here is
@@ -431,9 +431,9 @@ def write(
 ) -> None:
     """Write the fleet lock from passing dev runs, refusing what it cannot pin.
 
-    ``root`` is the dev root the ``records/fleet/`` tree is written under — the
-    checkout, where committing the lock is the approval. A live lock is never
-    written here: ``mcgyvr fleet promote`` copies it (:mod:`mcgyvr.fleet.promote`).
+    ``root`` is the dev root the lock tree is written under — the checkout,
+    where committing the lock is the approval. A live lock is never written
+    here: ``mcgyvr fleet promote`` copies it (:mod:`mcgyvr.fleet.promote`).
     """
     units = fleet.get("units", {})
     fleets = fleet.get("fleets", {})

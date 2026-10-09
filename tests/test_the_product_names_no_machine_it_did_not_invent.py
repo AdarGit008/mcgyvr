@@ -157,7 +157,7 @@ def test_the_pointer_rules_are_built_from_the_lab_folders_not_from_unread(
     the folder test asks, still finds a path, an import and a join into that
     folder: the rules are compiled from LAB_FOLDERS alone."""
     source = Path(um.__file__).read_text(encoding="utf-8")
-    assignment = re.compile(r"^UNREAD = \(.*\)$", re.MULTILINE)
+    assignment = re.compile(r"^UNREAD[^=]* = \(.*\)$", re.MULTILINE)
     assert len(assignment.findall(source)) == 1
     fewer = tuple(folder for folder in um.UNREAD if folder != _FOLDER)
     fresh = types.ModuleType("fresh_uninvented_machines")

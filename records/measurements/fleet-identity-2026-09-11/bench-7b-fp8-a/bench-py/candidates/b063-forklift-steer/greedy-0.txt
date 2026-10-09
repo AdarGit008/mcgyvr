@@ -1,3 +1,0 @@
-```python
-def steer_forklift(    raise NotImplementedError("The implementation has been blocked due to missing of details.")
-```

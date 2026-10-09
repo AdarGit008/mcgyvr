@@ -1,6 +1,0 @@
-```typescript
-/** The values with every negative number removed. */
-export function removeNegatives(values: readonly number[]): readableNumberArray {
-  return [...values.filter(value => Number.isInteger(value) && value >= 0)];
-}
-```

@@ -1,5 +1,0 @@
-```python
-def size_unit(bytes_count: int) -> str:
-    if bytes_count < 1024:
-        return "B"
-    if bytes_count < 1

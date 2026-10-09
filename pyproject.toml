@@ -95,50 +95,13 @@ packages = ["src/mcgyvr"]
 line-length = 88
 target-version = "py312"
 src = ["src", "tests"]
-# records/measurements/ holds run artifacts, including the harness as it was
-# actually run. Reformatting one is not a tidy-up: the file stops being what
-# produced the numbers beside it. Same reason as records/evidence/ below.
-# records/evidence/ is third-party source
-# vendored as evidence and hashed in its MANIFEST.json (#118): a formatter run
-# there does not tidy anything, it invalidates the citation.
-#
-# tools/bundle/python/tasks/ is the same case one step removed. Its acceptance
-# scripts and reference solutions are copied byte for byte out of the recovered
-# instrument.
-# They are also what decides whether a cell passes, so reformatting them would
-# not be a tidy-up: it would change the instrument #167 exists to keep fixed,
-# and the arm would stop being the task set. The contracts beside them
-# are ours and are not excluded — YAML is not ruff's anyway.
+# The GGUF parser in src/mcgyvr/serving/ggufscan.py (the `T`/`NAME` type maps
+# and the reader) is byte for byte the one a published bandwidth/ncmoe-floor
+# measurement vendored as evidence. The parser half must stay comparable line
+# for line with that evidence file, and a formatter pass would make that diff
+# impossible. Excluding the whole file holds that half still; the rest is
+# covered by tests/test_serving_vramfit.py rather than by the formatter.
 extend-exclude = [
-    "records/measurements",
-    "records/evidence",
-    # archive/forensic-ollama/ holds the ollama backend as it stood when it was
-    # removed on 2026-09-06 (#418). The .py files there are excerpts, not
-    # modules: nothing imports them, they are not whole compilation units, and
-    # a formatter or syntax pass on them would change the record rather than
-    # tidy it.
-    "archive/forensic-ollama",
-    "tools/bundle/python/tasks",
-    # tools/problems/tasks/ is digest-pinned by tools/problems/admissions.jsonl:
-    # run directories pin
-    # the task set's digests, so a formatter pass is not a tidy-up, it
-    # invalidates every prior run's resume and the manifest's pins (#197).
-    "tools/problems/tasks",
-    # tools/bench/ task material is the same case again (#225): both halves are
-    # digest-pinned by tools/bench/admissions.jsonl, and the bench half is the
-    # instrument every lever is judged against. A formatter pass would break
-    # every pin and change the instrument, not tidy it.
-    "tools/bench/tasks",
-    "tools/bench/reserve",
-    # The GGUF parser in src/mcgyvr/serving/ggufscan.py (the `T`/`NAME` type
-    # maps and the reader) is byte for byte the one in
-    # records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/ggufscan.py, excluded
-    # above for the reason every evidence file is; everything after the tensor
-    # walk is this repository's. The parser half must stay comparable line for
-    # line with the file a published measurement was computed with, and a
-    # formatter pass would make that diff impossible. Excluding the whole file
-    # holds that half still; the rest is covered by
-    # tests/test_serving_vramfit.py rather than by the formatter.
     "src/mcgyvr/serving/ggufscan.py",
     # The semantic rung's resolver engine: third-party source copied byte for
     # byte and pinned by sha256 in gate/semantic.py, which refuses to run it on
@@ -159,23 +122,10 @@ indent-style = "space"
 
 [tool.mypy]
 python_version = "3.12"
-# `tools/` is here for the same reason `src` and `tests` are: `make
-# journal-index` and `make journal-review` run tools/live/*.py over the live
-# journal, and tests/conftest.py imports tools/bench/*.py at collection. A
-# directory ruff lints and the type checker never sees is a check that reports
-# green over code nothing measured.
-files = ["src", "tests", "tools", "scripts"]
+files = ["src", "tests", "scripts"]
 strict = true
-# The four task-material directories ruff already excludes, for the reason
-# stated there: their contents are digest-pinned instruments, not code this
-# repository maintains.
 # The resolver engine is excluded for the reason stated at its ruff exclusion.
-exclude = "^(tools/(bundle/python/tasks|problems/tasks|bench/tasks|bench/reserve)|src/mcgyvr/gate/_engine)/"
-# `tools/` has no `__init__.py` (see the docstring of tests/conftest.py), so two
-# rigs may both hold a `measure.py` and neither is `measure`. Naming each file
-# by its path is what lets both be checked; MYPYPATH puts `src` ahead of the
-# repository root so a module under it stays `mcgyvr.*` and is not also found
-# as `src.mcgyvr.*`.
+exclude = "^src/mcgyvr/gate/_engine/"
 explicit_package_bases = true
 mypy_path = "src"
 
@@ -185,26 +135,6 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 module = "mcgyvr.serving.ggufscan"
 ignore_errors = true
-
-# The siblings a rig under `tools/` reaches by bare name. `tools/` is not a
-# package, so these scripts put their neighbour's directory on `sys.path` and
-# import it as `mode`, `mde`, `frames` — a name no import system resolves from
-# the repository root. The files themselves are checked in full under their
-# own paths; this says only that the *importer's* view of them is untyped,
-# which is what the path-loading already made true at runtime.
-[[tool.mypy.overrides]]
-module = ["mode", "mde", "power.mde", "frames", "emit", "product", "responsiveness"]
-ignore_missing_imports = true
-
-# Third-party packages with no stubs, installed only where a rig under
-# `tools/` needs them (finetune, tokens; torch and pynvml exist only in
-# the vLLM image srv1-multi-gpu/mgpu_link.py is shipped into).
-[[tool.mypy.overrides]]
-module = [
-    "datasets", "tokenizers", "trl", "unsloth.*", "unsloth",
-    "torch", "torch.*", "pynvml",
-]
-ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

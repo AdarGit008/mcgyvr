@@ -1,5 +1,0 @@
-```ts
-/** An append-only log of timestamped events. */
-export interface Event {
-  name: string;
-  timestamp:

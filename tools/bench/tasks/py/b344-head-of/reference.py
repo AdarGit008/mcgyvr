@@ -1,5 +1,0 @@
-def head_of(entries: list, count: int) -> list:
-    """The first few entries of a list."""
-    if count <= 0:
-        return []
-    return entries[:count]

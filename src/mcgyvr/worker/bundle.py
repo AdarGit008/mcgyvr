@@ -2,9 +2,8 @@
 
 A system-prompt bundle is a worker-tier device: it pays where a small worker
 over-produces without output rules, and only there. Figures and method are in
-``mcgyvr-lab/records/measurements/python-bundle-2026-08-07/README.md`` and
-``mcgyvr-lab/records/measurements/jsts-bundle-2026-08-04/README.md``;
-``tools/bundle/`` is the instrument.
+the lab's python-bundle and jsts-bundle measurements; the lab's bundle
+instrument produced them.
 
 **The ceiling is enforced here, not documented.** :data:`MAX_BUNDLE_BYTES` is a
 load-time refusal, because a size limit that lives in a comment is a size limit
@@ -83,8 +82,8 @@ class BundleStanding(StrEnum):
     `python.md`: the gain was measured against a user message with no output
     rule in it. :func:`~mcgyvr.worker.prompt.render_user_message` ends every
     message by requiring the complete file as one fenced block and nothing
-    else, which is the device the bundle's gain runs through. Figures:
-    ``mcgyvr-lab/records/measurements/python-bundle-2026-08-07/README.md``.
+    else, which is the device the bundle's gain runs through. Figures: the
+    lab's python-bundle measurement.
 
     Distinct from :data:`MEASURED_NO_EFFECT`, and the distinction is
     load-bearing in both directions. A reader must not cite a gain here — on

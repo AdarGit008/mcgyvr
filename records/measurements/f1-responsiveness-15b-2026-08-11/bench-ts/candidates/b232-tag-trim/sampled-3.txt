@@ -1,7 +1,0 @@
-```ts
-export function tagTrim(tag: string): string {
-  if (tag === null || tag === undefined) return '';
-  const trimmed = tag.replace(/^[#:]+/, '').replace(/[#:]+$/, '');
-  return trimmed;
-}
-```

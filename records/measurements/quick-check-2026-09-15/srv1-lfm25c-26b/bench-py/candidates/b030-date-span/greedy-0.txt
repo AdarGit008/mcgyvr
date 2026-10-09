@@ -1,2 +1,0 @@
-```python
-"""How many days lie between two proleptic Gregorian calendar dates

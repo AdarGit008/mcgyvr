@@ -1,5 +1,0 @@
-```ts
-export function sortAscending(values: readonly number[]): number[] {
-  return values.slice().sort((a, b) => a - b);
-}
-```

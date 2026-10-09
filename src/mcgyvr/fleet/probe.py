@@ -14,10 +14,9 @@ probe asks the lock's own question instead:
   and three 16-token long prompts read from ``timings.prompt_per_second``,
   with ``cache_prompt`` off.
 
-Both take the median, as the lock's numbers were taken
-(``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``mcgyvr-lab/fleet-setup/REPORT-srv2.md``).
-Unlike the harnesses, the probe does not run on the rig: it asks the unit at its
-address.
+Both take the median, as the lock's numbers were taken (the lab's fleet
+reports for srv1 and srv2). Unlike the harnesses, the probe does not run on
+the rig: it asks the unit at its address.
 
 **A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM stopwatch
 on the rig; record till then". ``measure_vllm.py`` timed its requests on the
@@ -109,8 +108,8 @@ JOURNAL_SUBDIR = "fleet"
 #: The two harnesses the lock's numbers were measured with. Their method is
 #: :mod:`mcgyvr.fleet.harness`, which the probe asks of a unit at its address and
 #: the door's ``read --probe`` runs on the rig.
-VLLM_HARNESS = "records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py"
-LLAMA_HARNESS = "records/measurements/fleet-setup-2026-09-13/srv1/harness_llama.py"
+VLLM_HARNESS = "the lock's vLLM harness"
+LLAMA_HARNESS = "the lock's llama.cpp harness"
 
 #: The figures a probe cannot read from a unit's HTTP face.
 NOT_READ_ON_THE_RIG: tuple[str, ...] = ("card_mib", "restarts")

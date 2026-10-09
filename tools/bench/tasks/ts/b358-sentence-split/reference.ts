@@ -1,7 +1,0 @@
-/** A passage broken into its sentences. */
-export function sentenceSplit(passage: string): string[] {
-  return passage
-    .split(/[.!?]/)
-    .map((piece) => piece.trim())
-    .filter((piece) => piece !== "");
-}

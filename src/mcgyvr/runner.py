@@ -47,8 +47,8 @@ to ask in. The invariants:
   ``response_schema`` on a :class:`Request` is a JSON Schema the answer should
   conform to. The OpenAI-compatible path sends it as ``response_format``, and a
   server that implements it answers with the object instead of prose — a whole
-  class of parse failure that then never happens
-  (``mcgyvr-lab/archive/docs/port-from-local-ai.md``, D13). A path that cannot carry one
+  class of parse failure that then never happens (the lab's port-from-local-ai
+  note, D13). A path that cannot carry one
   still runs a pinned request and still answers; it answers in prose, and the
   completion says so in a note rather than leaving a caller to infer it from
   the shape of the text.
@@ -561,8 +561,8 @@ class Completion:
     #: How many tokens the unit's speculative draft proposed for this reply and
     #: how many the target accepted -- llama-server's ``timings.draft_n`` and
     #: ``draft_n_accepted``, which it reports only when it drafted. Their ratio
-    #: is the acceptance the MTP lever was measured by
-    #: (``records/evidence/2026-08-28-mtp-ornith/``, ~0.90 on srv2), and it is
+    #: is the acceptance the MTP lever was measured by (the lab's mtp-ornith
+    #: measurement, ~0.90 on srv2), and it is
     #: how the lever's effect is seen in production. ``None`` where the server
     #: reported none; a reported zero is a count and is kept.
     draft_n: int | None = None
@@ -1149,9 +1149,9 @@ def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None
     """The reply's decode rate and where it was read, or ``(None, None)``.
 
     The server's own figure first. Otherwise ``output_tokens / latency_s`` —
-    the formula the vLLM units' lock was measured with
-    (``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py``), so
-    a live figure and a locked one are the same quantity. No count, no rate.
+    the formula the vLLM units' lock was measured with (the lab's fleet
+    measurement on srv2), so a live figure and a locked one are the same
+    quantity. No count, no rate.
     """
     if parsed.decode_tok_s is not None:
         return parsed.decode_tok_s, DECODE_FROM_TIMINGS

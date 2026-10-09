@@ -133,18 +133,17 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 # the page cache needs room to work and the host has its own processes.
 #
 # There are two of these, because :func:`fit` asks host RAM two questions in a
-# row: they compare different figures and they fail differently
-# (``records/measurements/ram-headroom-2026-09-09/``).
+# row: they compare different figures and they fail differently (the lab's
+# ram-headroom measurement).
 
 # The **mode** gate, weighed against the *blob*: what has to be clear before
 # llama.cpp is left to map the weights rather than told ``--load-mode none``.
-# Mapping with less than this clear costs wake time; decode did not move
-# (``records/measurements/ram-headroom-2026-09-09/``). Not zero: the process
+# Mapping with less than this clear costs wake time; decode did not move (the
+# lab's ram-headroom measurement). Not zero: the process
 # holds host RAM beyond the blob, the runtime :func:`_host_gb` charges.
 #
 # The unmapped arm costs the card more than the mapped one and :func:`fit`
-# does not charge it
-# (``mcgyvr-lab/records/measurements/fleet-gaps-2026-09-09/README.md`` M1).
+# does not charge it (the lab's fleet-gaps measurement, M1).
 MODE_RAM_HEADROOM_GB = 0.5
 
 # The **refusal** gate, weighed against the *spilled experts*: what has to be
@@ -154,8 +153,8 @@ MODE_RAM_HEADROOM_GB = 0.5
 # none`` too, because the experts are shared anonymous memory, which the
 # kernel can swap out. 2.0 and not smaller: against the experts, decode holds
 # at the smallest positive clearance the sweep sampled and collapses at the
-# first negative one, and nothing between the two was sampled
-# (``records/measurements/ram-headroom-2026-09-09/``).
+# first negative one, and nothing between the two was sampled (the lab's
+# ram-headroom measurement).
 REFUSAL_RAM_HEADROOM_GB = 2.0
 
 # The widest slot count :func:`_placement` derives when nobody wrote a width.
@@ -187,8 +186,8 @@ SIZE_TOLERANCE_GB = 0.005
 #: 12 GB RTX 3060 at +26.5% decode at width 1 and +22.0% at width 2
 #: with acceptance ~0.90, and on an offload-bound 6 GB card at +20.5% at
 #: width 1 and -10.0% at width 2 -- the win is a fact about a card with room
-#: for the head, not about the model
-#: (``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` section 2).
+#: for the head, not about the model (the lab's mtp-ornith measurement,
+#: section 2).
 SPECULATIVE_NONE = "none"
 SPECULATIVE_MTP = "mtp"
 SPECULATIVE_CHOICES = (SPECULATIVE_NONE, SPECULATIVE_MTP)
@@ -431,8 +430,8 @@ class Fit:
     #: pages are clean the moment they are uploaded to the card. Which of the
     #: three it is depends on ``load_mode``, which is why the figure is settled
     #: here and not recomputed: a sum taken before the modes are picked would
-    #: be summing the wrong numbers (F2.1,
-    #: ``mcgyvr-lab/records/plans/fleet-shape/formulas.md``). Carried for the same
+    #: be summing the wrong numbers (F2.1, the lab's fleet-shape formulas).
+    #: Carried for the same
     #: reason ``vram_gb`` is — every unit on a host clearing the same
     #: ``MemAvailable`` alone is how a 15 GB host is asked for 26.
     ram_gb: float = 0.0
@@ -447,8 +446,8 @@ class Fit:
     #: can be on that card *at the same time* and is handed units and nothing
     #: else — ``emit_all(units, root)`` is a function of its units, and a cut
     #: that needed a second scan would make every caller carry one, the wake
-    #: path included, which is the thing D1 exists to avoid
-    #: (``mcgyvr-lab/records/plans/sleep-wake.md`` §3).
+    #: path included, which is the thing D1 exists to avoid (the lab's
+    #: sleep-wake plan, §3).
     #:
     #: Zero means nobody measured it, which claims nothing: a unit built by
     #: hand is not evidence that two units contend, and inventing a contention
@@ -697,9 +696,8 @@ def _sized(
     # figure that has to fit. Under `--load-mode none` only the spilled experts
     # are resident, as anonymous memory nothing can take back. Neither mode is
     # the better one in general — measured +63% on a rig too tight for its blob
-    # and -12% on one with room to map it
-    # (`records/evidence/2026-08-25-moe-expert-offload/`) — which is why the rig
-    # decides it and not a default.
+    # and -12% on one with room to map it (the lab's moe-expert-offload
+    # measurement) — which is why the rig decides it and not a default.
     #
     # A model with nothing to spill has no arm to take: its weights are the
     # card's, the pages it reads are clean the moment they are uploaded, and
@@ -1683,8 +1681,8 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
       set may have no spec: A, B and C at 5 GiB each on a 12 GiB card yield
       ``{A,B}`` and ``{A,C}`` and not ``{B,C}``. Every unit is still reachable,
       which is the property that matters, and choosing *which* feasible set to
-      run is the fleet-shape controller's question and not this one's
-      (``mcgyvr-lab/records/plans/fleet-shape/``).
+      run is the fleet-shape controller's question and not this one's (the
+      lab's fleet-shape plan).
     * **A host whose units all co-reside is still one spec holding all of
       them**, which falls out rather than being special-cased: every anchor
       grows to the same set and the de-duplication leaves one.
@@ -2027,8 +2025,8 @@ def spec_files(root: Path, host: str) -> tuple[Path, ...]:
     **A directory listing and not a planner call, and the difference is the
     point.** Asking the planner what a config emits needs units, units need a
     :class:`~mcgyvr.scan.Scan`, and needing a scan is exactly what :func:`cards`
-    and the wake path exist to not need (D1, ``mcgyvr-lab/records/plans/sleep-wake.md``
-    §3). What is asked here is the other question, and it is the one a wake
+    and the wake path exist to not need (D1, the lab's sleep-wake plan, §3).
+    What is asked here is the other question, and it is the one a wake
     actually has: *which files are on this disk for this rig* — answerable from
     the config, the convention and the filesystem, on a laptop that never
     scanned the rig.
@@ -2142,7 +2140,7 @@ def cards(config: Config) -> dict[str, Card]:
     file mcgyvr's own convention gives this host and hands back all of them.
 
     Which of several specs is the current one is not a question the config
-    answers (D2 of ``mcgyvr-lab/records/plans/sleep-wake.md``): the files'
+    answers (D2 of the lab's sleep-wake plan): the files'
     existence answers "can mcgyvr bring this back?" and does not answer "bring
     back *which*".
 

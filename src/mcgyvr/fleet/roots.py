@@ -1,13 +1,12 @@
 """Dev and live read different fleet locks, and a fleet moves one way: dev to live.
 
-Owner, 2026-09-15: "(~/.mcgyvr/ for live), (records/fleet/ for dev) - 2
-separate locks and fleets - data flows one way dev->live"; "stamped for live =
-another fleet setup available for live (no overwrite, not in place of, new
-folder new files)"; "~/.mcgyvr/fleets/<name>/   live can switch between fleets
-runtime".
+Owner, 2026-09-15: the config folder holds live fleets and the dev root holds
+the dev lock - 2 separate locks and fleets - data flows one way dev->live;
+"stamped for live = another fleet setup available for live (no overwrite, not
+in place of, new folder new files)"; "~/.mcgyvr/fleets/<name>/   live can
+switch between fleets runtime".
 
-* The dev lock is committed in the checkout at ``records/fleet/`` — committing
-  it is the approval.
+* The dev lock is committed in the dev root — committing it is the approval.
 * A live fleet is a folder of its own, ``~/.mcgyvr/fleets/<fleet>@<date>/``,
   written once by ``mcgyvr fleet promote`` and never in place. Owner,
   2026-09-16: "all fleets get tagged with date" — the date is the lock's own
@@ -238,7 +237,7 @@ def live_fleet_dir() -> Path | None:
 
 
 def lock_root(profile: str) -> Path | None:
-    """The directory whose ``records/fleet/`` is the lock ``profile`` reads.
+    """The directory whose lock tree is the lock ``profile`` reads.
 
     ``live`` is the fleet folder the config folder's ``live.json`` names, and
     ``None`` when no fleet is named — no live lock, so live admits nothing.
