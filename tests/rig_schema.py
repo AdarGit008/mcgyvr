@@ -30,6 +30,18 @@ Naming ``MCGYVR_HUB_REPO`` runs that real-hub test too, which fails on a
 checkout without its built ``.venv`` (``uv sync`` in it): a run that checks
 the schemas alone names each file by its own variable instead.
 
+A hub's own CI can run the agent's contract tests against a schema it is
+about to publish, before it is pinned here: ``MCGYVR_HUB_SCHEMA_UNDER_TEST``
+names a directory holding the hub's schema files (its ``schemas/`` folder, or
+any directory containing ``protocol.schema.json`` and
+``rider.schema.json``). :func:`load` then reads ``<dir>/<pinned.hub_name>``
+instead of the pinned copy and skips the ``pinned_sha256`` check, so a
+candidate that moved a value the agent reads fails the contract assertion
+that reads it rather than the digest tripwire. The drift check above is
+separate and unchanged: ``MCGYVR_HUB_SCHEMA`` and ``MCGYVR_HUB_REPO`` still
+name the published file the copy was pinned from, and still fail when it
+moved from ``hub_sha256``.
+
 To move to a new hub's schemas::
 
     uv run --no-sync python -m tests.rig_schema /path/to/hub-checkout
@@ -58,6 +70,10 @@ FIXTURES = Path(__file__).parent / "fixtures"
 #: The variable naming a hub checkout, whose ``schemas/`` folder holds every
 #: file pinned here.
 HUB_REPO_ENV = "MCGYVR_HUB_REPO"
+#: The variable naming a directory of candidate hub schema files, read by
+#: :func:`load` in place of the pinned copies without the pinned-copy digest
+#: check.
+UNDER_TEST_ENV = "MCGYVR_HUB_SCHEMA_UNDER_TEST"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -115,13 +131,20 @@ def pin(hub_file: bytes) -> bytes:
 
 
 def load(pinned: Pinned = PROTOCOL) -> dict[str, Any]:
-    """A pinned schema, after checking it is the copy its digest names."""
-    data = pinned.fixture.read_bytes()
-    if sha256(data) != pinned.pinned_sha256:
-        raise SchemaError(
-            f"{pinned.fixture.name} is not the pinned copy (sha256 {sha256(data)}); "
-            "re-pin it from the hub with `python -m tests.rig_schema`"
-        )
+    """The schema the contract tests read: the candidate named by
+    ``MCGYVR_HUB_SCHEMA_UNDER_TEST`` when it is set, else the pinned copy
+    after checking it is the copy its digest names."""
+    under_test = os.environ.get(UNDER_TEST_ENV)
+    if under_test:
+        data = (Path(under_test) / pinned.hub_name).read_bytes()
+    else:
+        data = pinned.fixture.read_bytes()
+        if sha256(data) != pinned.pinned_sha256:
+            raise SchemaError(
+                f"{pinned.fixture.name} is not the pinned copy "
+                f"(sha256 {sha256(data)}); "
+                "re-pin it from the hub with `python -m tests.rig_schema`"
+            )
     schema: dict[str, Any] = json.loads(data)
     return schema
 
