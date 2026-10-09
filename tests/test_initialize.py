@@ -292,7 +292,7 @@ def test_force_overwrites_and_says_what_changed(tmp_path: Path) -> None:
     assert forced.written and not forced.created
     assert any("width" in str(d) for d in forced.deltas)
     units = load_config(path).units.values()
-    assert next(u for u in units if u.rig == KINDS[0]).width == 1
+    assert next(u for u in units if u.rig == "localhost").width == 1
 
 
 def test_rendering_is_deterministic() -> None:
@@ -414,7 +414,7 @@ def test_a_laptop_with_no_gpu_binds_the_rigs_it_can_reach(tmp_path: Path) -> Non
     assert result.created and path.exists()
     config = load_config(path)
     assert config.ladder.names, "a reachable rig is a bindable rig"
-    assert {u.rig for u in config.units.values()} == {b.name for b in found.backends}
+    assert {u.rig for u in config.units.values()} == {b.host for b in found.backends}
     assert config.is_local_only, "no key is needed to reach your own machines"
 
 
@@ -456,7 +456,7 @@ def test_hosts_are_ignored_when_a_detection_is_supplied(tmp_path: Path) -> None:
     found = _remote_only()
     result = initialize(tmp_path / "c.yaml", detection=found, hosts=("nope.invalid",))
     assert {u.rig for u in load_config(result.path).units.values()} == {
-        b.name for b in found.backends
+        b.host for b in found.backends
     }
 
 

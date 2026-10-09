@@ -728,9 +728,17 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     init's own fleet already live, a new folder is approved and named in its
     place, and the old one is kept. Any other live fleet is never replaced
     (``mcgyvr fleet use`` switches), and a machine of the user's is not
-    approved: it is approved only by a read of it.
+    approved: it is approved only by a read of it. The one machine ``init`` can
+    read without ssh is the one it runs on; it is read and approved with its
+    rig laid out.
     """
-    from mcgyvr.fleet.promote import PromoteRefusedError, approve_own, is_own, use
+    from mcgyvr.fleet.promote import (
+        PromoteRefusedError,
+        approve_own,
+        approve_own_rig,
+        is_own,
+        use,
+    )
     from mcgyvr.fleet.roots import LiveFleetError, live_fleet
 
     refused = (
@@ -746,8 +754,12 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
             f"{current} is live, and stays so: your own fleet was not approved "
             "over it (`mcgyvr fleet use` switches).",
         ), ()
+    rig = _local_rig(setup)
     try:
-        folder = approve_own(setup)
+        if rig is None:
+            folder = approve_own(setup)
+        else:
+            folder = approve_own_rig(setup, rig=rig, rig_id=_read_local_rig(rig))
         switch = use(folder.name)
     except PromoteRefusedError as exc:
         if current is None:
@@ -757,13 +769,95 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
             "before, stays live, and a run that dispatches to an unapproved "
             "machine is refused.",
         )
+    if rig is not None:
+        where = (
+            ". Every unit in it sits on the machine mcgyvr runs on, laid out "
+            f"as {rig}, which a read of it approved."
+        )
+    else:
+        where = (
+            ". Every unit in it is hosted, so it lays out no rig and live "
+            "admission reads none."
+        )
     return (
         f"Approved your own fleet for live runs: {folder}, named in "
         f"{switch.pointer}"
         + (f" in place of {current}" if current is not None else "")
-        + ". Every unit in it is hosted, so it lays out no rig and live "
-        "admission reads none.",
+        + where,
     ), ()
+
+
+def _local_rig(setup: Path) -> str | None:
+    """``localhost`` when the setup init wrote lays units on this machine and on
+    no other rig, else ``None``.
+
+    Only a machine read through the door is approved, and the one machine init
+    can read without ssh is the one it runs on; a unit on any other rig is left
+    to :func:`approve_own`, which refuses it.
+    """
+    from mcgyvr.config import FLEET_FILENAME
+    from mcgyvr.fleet.files import FleetFileError, load_fleet
+
+    try:
+        fleet = load_fleet((setup / FLEET_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, FleetFileError):
+        return None
+    rigs = {
+        str(body.get("rig"))
+        for body in (fleet.get("units") or {}).values()
+        if "rig" in body
+    }
+    return "localhost" if rigs == {"localhost"} else None
+
+
+def _read_local_rig(rig: str) -> str:
+    """Read the local machine with the door's own readers, no ssh, and write its
+    rig file; return the rig id the lock pins.
+
+    The machine mcgyvr runs on is reached directly: the door's scanner
+    (:mod:`mcgyvr.serving.rigscan`) for the rig file, and the door's snapshot
+    reader (``rig-snapshot.sh``) for the rig id (:func:`mcgyvr.fleet.ids.rig_id`).
+    Nothing here ssh's; a remote machine is read over ssh, which ``init`` does
+    not take.
+    """
+    import json
+    import subprocess
+
+    from mcgyvr import scan as scan_module
+    from mcgyvr.fleet import ids
+    from mcgyvr.fleet.promote import PromoteRefusedError
+    from mcgyvr.fleet.read import ReadError
+    from mcgyvr.fleet.read import parse as parse_reading
+    from mcgyvr.serving import rigfile, rigscan
+    from mcgyvr.serving.run import GATE_SCRIPTS
+
+    # The door's own scanner, run locally: the same copy the door ships to a
+    # remote rig, so the rig file this writes reads the same when the door
+    # re-reads it.
+    measured = scan_module.Scan.from_json(json.dumps(rigscan.scan()))
+    done = subprocess.run(
+        ["bash", str(GATE_SCRIPTS / "rig-snapshot.sh")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode != 0:
+        raise PromoteRefusedError(
+            f"{rig}: the local snapshot could not run: "
+            f"{done.stderr.strip()[:300] or '(no stderr)'}"
+        )
+    try:
+        snapshot = parse_reading(done.stdout).snapshot
+    except ReadError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
+    try:
+        rig_id = ids.rig_id(snapshot)
+    except ValueError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
+    # Both readers succeeded before anything is written: a refusal leaves the
+    # rig-folder untouched.
+    rigfile.write(rigfile.from_scan(rig, measured))
+    return rig_id
 
 
 def _attach(args: argparse.Namespace) -> int:

@@ -247,19 +247,62 @@ def test_an_mcorch_setup_is_not_approved_by_init(
     assert "No fleet was made live" in said and "mcorch" in said, said
 
 
-def test_a_unit_on_a_rig_is_not_approved_by_init(
+#: The rig id a substituted local read hands back, shaped as a rig id is.
+RIG_ID = "rig-" + "2" * 64
+
+
+def test_a_local_gpu_is_read_then_approved_by_init(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """A unit on this machine is approved once init reads it: the fleet lays
+    out the rig ``localhost`` (pinned by the read's rig id), and a hosted unit
+    beside it stays hosted."""
     setup = tmp_path / "setup"
     found = _found(LOCAL)
+    monkeypatch.setattr("mcgyvr.cli._read_local_rig", lambda rig: RIG_ID)
     assert _init(monkeypatch, setup, "--api", HOSTED, found=found) == 0
+    said = capsys.readouterr().out
+
+    name = f"own@{_today()}"
+    assert live_fleet() == name, said
+    folder = fleets_dir() / name
+    live = yaml.safe_load((folder / "fleet.yaml").read_text(encoding="utf-8"))
+    assert live["rigs"] == {"localhost": {"rig_id": RIG_ID}}
+    assert live["fleets"] == {
+        "own": {"layout": {"localhost": [["local_small-model", "awake"]]}}
+    }
+    assert live["units"]["local_small-model"]["rig"] == "localhost"
+    assert live["units"]["local_small-model"]["unit_id"]
+    assert live["units"]["api_hosted-model"].get("rig") is None
+    lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))
+    assert lock["approved_by"] == "mcgyvr init"
+    assert lock["layout_sha256"]
+
+
+def test_a_unit_on_a_remote_rig_is_not_approved_by_init(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A unit on a machine other than this one is refused: init reads only the
+    local machine, and a remote one is read over ssh, which init does not take."""
+    setup = tmp_path / "setup"
+    remote = Backend(
+        name="llama.cpp",
+        base_url="http://box.invalid:8080/v1",
+        api="openai",
+        models=("small-model",),
+        how="substituted",
+        host="box.invalid",
+    )
+    assert _init(monkeypatch, setup, "--api", HOSTED, found=_found(remote)) == 0
     said = capsys.readouterr().out
 
     assert not live_file().exists()
     assert not fleets_dir().exists()
-    assert "No fleet was made live" in said and "llama.cpp" in said, said
+    assert "No fleet was made live" in said and "box.invalid" in said, said
     with pytest.raises(LiveRefusedError, match="no fleet is live"):
         admission.admit(reader=_no_read)
 
@@ -279,7 +322,7 @@ ADDED = {
 }
 
 
-@pytest.mark.parametrize("how", ["reinit", "edit", *ADDED])
+@pytest.mark.parametrize("how", ["edit", *ADDED])
 def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -291,12 +334,7 @@ def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
     approved = live_fleet()
     assert approved == f"own@{_today()}"
 
-    if how == "reinit":
-        # A local server came up, and init was run again over the files.
-        found = _found(LOCAL)
-        assert _init(monkeypatch, setup, "--force", "--api", HOSTED, found=found) == 0
-        assert live_fleet() == approved, "a unit on a rig approves nothing"
-    elif how.startswith("reinit-"):
+    if how.startswith("reinit-"):
         mine = f"model=small-model,address={ADDED[how]},api_key_env=K"
         assert _init(monkeypatch, setup, "--force", "--api", mine, found=_found()) == 0
         said = capsys.readouterr().out
@@ -325,7 +363,6 @@ def test_a_live_run_refuses_a_unit_on_a_rig_its_live_fleet_does_not_lay_out(
     assert dispatched == []
     assert "not approved for live work yet" in err, err
     unit = {
-        "reinit": "local_small-model (on llama.cpp)",
         "reinit-hosted": "api_small-model (127.0.0.1",
         "reinit-ideo": "api_small-model (127.0.0.1",
         "edit-ideo": "box_small (127.0.0.1",
