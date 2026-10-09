@@ -6,29 +6,14 @@ exited green on the rig and turned red a commit later, by which time the rig
 was booked for something else and the rows could not be retaken. So the
 read-back happens where the rig time is spent.
 
-A TSV is read with the campaign's own parser and not with a second one written
-for this gate: a shim that accepts what the parser rejects is not a check. A
-`.json` is read with `json.loads` — one artifact was checked as TSV, passed,
-and turned out to be two JSON documents concatenated.
+A `.json` is read with `json.loads` — one artifact was checked as TSV, passed,
+and turned out to be two JSON documents concatenated. A TSV is not read with
+a lab parser: it is held to what any declared file is (there, and an append
+kept its prefix and grew).
 
 An appended file must have KEPT ITS PREFIX and GROWN: gate 5 recorded the size
 and digest before the step, so a step that rewrote the file it was supposed to
 add to is caught here rather than discovered later as missing history.
-
-A TSV THAT PARSES IS NOT YET THIS RUN'S. An empty file parses; a file with no
-stamp at all parses; a file stamped by another run parses. So the part of
-every declared TSV that this run wrote — the whole file, or the bytes after
-gate 5's recorded size for an appended one — must open with `### START
-run_id=<RUN_ID>` (the first of the run's stamps), carry a `### ROUND
-id=<RUN_ROUND> product_sha256=<RUN_PRODUCT_SHA256>` and close with `### END
-run_id=<RUN_ID>`, each equal to what the door exported to the step. A stamp
-that names another run, another round or nothing is exit 1 naming both. A
-`.json` keeps its own rule: it parses as JSON and is never stamped.
-
-IN USER MODE (``--mode user``) a TSV is not read with the lab's parser and
-its stamps are not asked for: the parser lives in the lab's run root, and a
-user-mode run reads no file of the run root. A lab that wants it read
-brings it as a gate of its own. A `.json` keeps its rule in both modes.
 
 AND IT MUST BE ONE REGULAR FILE OF THE ENVELOPE. A declared name that is a
 symlink, a hard link or a path resolving outside the resolved envelope is
@@ -43,114 +28,13 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from types import ModuleType
-from typing import Any
 
 from mcgyvr.serving.gatelib import (
-    USER_MODE,
     artifact_escape,
     door_required,
     envelope_escape,
     need,
-    root,
-    run_mode,
 )
-
-
-def _named(line: str, word: str) -> bool:
-    """Whether a marker line is a `### <word>` stamp, by its first token."""
-    return line.removeprefix("###").split()[:1] == [word]
-
-
-def _stamped(
-    rows: ModuleType, sweep: Any, skip: int, word: str
-) -> list[tuple[int, dict[str, str]]]:
-    """Every `### <word>` in this run's portion, as (line, fields).
-
-    The portion is every marker after line ``skip``. The fields are read by
-    the parser's own `Sweep.stamps` over exactly those markers — not by a
-    second parser here — so what this gate accepts is what the parser reads.
-    """
-    own = tuple((n, line) for n, line in sweep.markers if n > skip)
-    numbers = [n for n, line in own if _named(line, word)]
-    fields = rows.Sweep(sweep.path, (), own, {}).stamps(word)
-    return list(zip(numbers, fields, strict=True))
-
-
-def _unbound(
-    rows: ModuleType,
-    sweep: Any,
-    raw: bytes,
-    start: int,
-    run_id: str,
-    round_id: str,
-    digest: str,
-) -> list[str]:
-    """Every way the TSV's own portion fails to name THIS run, in words.
-
-    ``start`` is the byte where this run's writing begins: 0 for a file it
-    created, gate 5's recorded size for one it appended to.
-    """
-    if not raw[start:].strip():
-        return [
-            f"is empty ({len(raw) - start} bytes of this run's writing): a "
-            "declared artifact that says nothing measured nothing"
-        ]
-    skip = raw[:start].count(b"\n")
-    starts = _stamped(rows, sweep, skip, "START")
-    rounds = _stamped(rows, sweep, skip, "ROUND")
-    ends = _stamped(rows, sweep, skip, "END")
-    problems: list[str] = []
-    if not starts:
-        problems.append(
-            "carries no `### START run_id=` stamp of its own; an artifact the "
-            f"door produced opens with the run that made it ({run_id}), and one "
-            "that names no run is not this run's evidence"
-        )
-    for lineno, fields in starts:
-        if fields.get("run_id") != run_id:
-            problems.append(
-                f"line {lineno}: ### START names run_id={fields.get('run_id')!r} "
-                f"and this run is run_id={run_id!r}; a stamp that names another "
-                "run (or none) is not this run's evidence"
-            )
-    if not rounds:
-        problems.append(
-            "carries no `### ROUND id= product_sha256=` stamp of its own; the "
-            f"door handed the step id={round_id} product_sha256={digest} and a "
-            "file that does not say which round it measured under is comparable "
-            "with nothing"
-        )
-    for lineno, fields in rounds:
-        if fields.get("id") != round_id or fields.get("product_sha256") != digest:
-            problems.append(
-                f"line {lineno}: ### ROUND names id={fields.get('id')!r} "
-                f"product_sha256={fields.get('product_sha256')!r} and this run "
-                f"measured under id={round_id!r} product_sha256={digest!r}"
-            )
-    if not ends:
-        problems.append(
-            "carries no `### END run_id=` stamp of its own; a run that did not "
-            "close is one whose end state is unknown, and an END that does not "
-            "name the run is not its close"
-        )
-    for lineno, fields in ends:
-        if fields.get("run_id") != run_id:
-            problems.append(
-                f"line {lineno}: ### END names run_id={fields.get('run_id')!r} "
-                f"and this run is run_id={run_id!r}"
-            )
-    if starts:
-        first = starts[0][0]
-        for word, found in (("ROUND", rounds), ("END", ends)):
-            for lineno, _ in found:
-                if lineno < first:
-                    problems.append(
-                        f"line {lineno}: ### {word} precedes this run's first "
-                        f"### START (line {first}); START is the first stamp a "
-                        "run writes"
-                    )
-    return problems
 
 
 def main() -> int:
@@ -159,14 +43,7 @@ def main() -> int:
     state = json.loads(need("RUN_APPEND_STATE"))
     superseded = json.loads(need("RUN_SUPERSEDED"))
     out_dir = Path(need("RUN_OUT_DIR"))
-    run_id = need("RUN_ID")
-    round_id = need("RUN_ROUND")
-    digest = need("RUN_PRODUCT_SHA256")
     appended = set(declared.get("RUN_APPENDS", []))
-    # The TSV parser and its stamps are the lab's: in user mode a TSV is held
-    # to what any declared file is (there, and an append kept its prefix and
-    # grew), and read with no module of the run root.
-    user = run_mode() == USER_MODE
     status = 0
 
     escape = envelope_escape(out_dir)
@@ -242,33 +119,13 @@ def main() -> int:
                 status = 1
                 continue
 
-        try:
-            if path.suffix == ".json":
+        if path.suffix == ".json":
+            try:
                 json.loads(path.read_text(encoding="utf-8"))
-                continue
-            if path.suffix != ".tsv" or user:
-                continue
-            # The campaign's own parser, from the run root, and only where a
-            # TSV is read in lab mode: a serve step files JSON alone, and a
-            # user's run root holds no tools/runs/.
-            sys.path.insert(0, str(root()))
-            from tools.runs import rows
-
-            sweep = rows.read(path)
-            unbound = _unbound(rows, sweep, raw, size_before, run_id, round_id, digest)
-        except Exception as error:
-            print(f"gate 8: {name} does not parse: {error!r}", file=sys.stderr)
-            status = 1
+            except Exception as error:
+                print(f"gate 8: {name} does not parse: {error!r}", file=sys.stderr)
+                status = 1
             continue
-        for problem in unbound:
-            print(f"gate 8: {name} {problem}", file=sys.stderr)
-        if unbound:
-            print(
-                f"gate 8: {name} is not this run's evidence until its own "
-                "stamps name it; the run is not green",
-                file=sys.stderr,
-            )
-            status = 1
 
     if status == 0:
         print(f"gate 8: {sum(len(v) for v in declared.values())} artifact(s) parse")

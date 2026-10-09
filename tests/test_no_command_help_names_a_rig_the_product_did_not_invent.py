@@ -77,7 +77,11 @@ def _every_help(capsys: pytest.CaptureFixture[str]) -> list[tuple[str, str]]:
 def test_every_help_is_read(capsys: pytest.CaptureFixture[str]) -> None:
     helps = _every_help(capsys)
     door = [text for prog, text in helps if prog.startswith("mcgyvr.serving.run")]
-    assert len(door) == 5 and all("--host" in text for text in door)
+    assert len(door) == 5
+    # The door with no verb shows the verb list; each verb shows its own
+    # ``--host`` help.
+    assert "{serve,read,link,step}" in door[0]
+    assert all("--host" in text for text in door[1:])
     assert len(helps) > 10
     assert len(_MACHINE_KINDS) == len(um.KINDS) - 1
 

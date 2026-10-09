@@ -62,10 +62,20 @@ def test_without_a_host_the_door_does_not_start(root: Path, tmp_path: Path) -> N
 
 
 def test_help_offers_no_way_past_a_gate(root: Path) -> None:
-    """The same is pinned against the installed door by
-    ``tests/test_serving_door_cli.py::test_help_offers_no_way_past_a_gate``;
-    here it is the fixture's copy, the one every test in this suite drives."""
-    result = onedoor.door_help(root)
+    """The ``step`` verb's ``--help`` names none of the ways past a gate."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mcgyvr.serving.run", "step", "--help"],
+        cwd=root,
+        env=onedoor.door_env(root),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
     assert result.returncode == 0, result.stderr
     for hole in ("--skip", "--force", "--no-"):
         assert hole not in result.stdout, f"--help names {hole}"

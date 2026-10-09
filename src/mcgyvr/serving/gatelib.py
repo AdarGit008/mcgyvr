@@ -113,15 +113,11 @@ def root() -> Path:
     return Path(need("RUN_ROOT"))
 
 
-#: The door's two modes (:data:`mcgyvr.serving.run.MODES`), and the variable
-#: the door names its run's mode in. ``user`` is a door run from an install:
-#: the rig is held to the user's rig file (:mod:`mcgyvr.serving.rigfile`), and
-#: the run is filed under the data folder's :data:`DOOR_LOG`. ``lab`` is the
-#: lab's run, held to the lab's round and declarations.
+#: The door's one mode: a run from an install, held to the user's rig file
+#: (:mod:`mcgyvr.serving.rigfile`) and filed under the data folder's
+#: :data:`DOOR_LOG`.
 USER_MODE = "user"
-LAB_MODE = "lab"
-MODE_VAR = "RUN_MODE"
-#: The folder of the user mode's door log, under the data folder.
+#: The folder of the door's log, under the data folder.
 DOOR_LOG = "door"
 #: The variable the door names a ``step`` run's ``--out-root`` in: the folder
 #: the run's envelope is made under, as ``<it>/<date>-<campaign>/``. Unset on
@@ -141,42 +137,21 @@ def run_id_of(run_date: str, campaign: str, step_file: Path, suffix: str) -> str
     )
 
 
-def envelope_of(
-    *, mode: str, out_root: str, run_date: str, campaign: str, run_id: str, lab: Path
-) -> Path:
+def envelope_of(*, out_root: str, run_date: str, campaign: str, run_id: str) -> Path:
     """Where a run's envelope is made, the one rule the door and gate 5 share.
 
     Under ``out_root`` when a step run names one (``<out_root>/<date>-
-    <campaign>/``); else, in user mode, the run's own folder of the door's
-    log under the data folder (``<data folder>/door/<date>/<RUN_ID>/``); else
-    ``lab``, the lab's envelope under its run root as the caller names it.
-    The data folder is named by :func:`mcgyvr.fleet.roots.data_home`,
-    imported only here, so a shim loading this file by path needs nothing
-    beyond the stdlib; it raises what that raises when the folder cannot be
-    named.
+    <campaign>/``); else the run's own folder of the door's log under the data
+    folder (``<data folder>/door/<date>/<RUN_ID>/``). The data folder is named
+    by :func:`mcgyvr.fleet.roots.data_home`, imported only here, so a shim
+    loading this file by path needs nothing beyond the stdlib; it raises what
+    that raises when the folder cannot be named.
     """
     if out_root:
         return Path(out_root) / f"{run_date}-{campaign}"
-    if mode == USER_MODE:
-        from mcgyvr.fleet.roots import data_home
+    from mcgyvr.fleet.roots import data_home
 
-        return data_home() / DOOR_LOG / run_date / run_id
-    return lab
-
-
-def run_mode() -> str:
-    """The mode the door ran this run in, ``user`` or ``lab``.
-
-    A gate started with no mode named is a lab gate, as every gate was before
-    the door had a user mode: a missing value never reads as the user's door.
-    """
-    mode = os.environ.get(MODE_VAR) or LAB_MODE
-    if mode not in (USER_MODE, LAB_MODE):
-        refuse(
-            f"{MODE_VAR}={mode!r} is not a mode of the door; it runs as "
-            f"{USER_MODE} or {LAB_MODE}, and the door names which"
-        )
-    return mode
+    return data_home() / DOOR_LOG / run_date / run_id
 
 
 def is_door(argv: list[str]) -> bool:
@@ -601,7 +576,7 @@ def release(out_dir: Path, run_id: str) -> None:
 # --------------------------------------------------------------------------
 
 #: Where a rig keeps the lease on itself. ON the rig, because the rig is the
-#: contended resource: a laptop and srv1 both reach it, and a file on either
+#: contended resource: a laptop and a rig both reach it, and a file on either
 #: of them would be a lock only one of them could see.
 LEASE_DIR = "~/.mcgyvr"
 LEASE_FILE = f"{LEASE_DIR}/lease"

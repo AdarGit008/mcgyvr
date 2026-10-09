@@ -71,12 +71,12 @@ def _claim(out_dir: Path) -> Path:
     return gatelib.claim_path(out_dir, RUN_ID)
 
 
-def test_a_data_script_that_refuses_leaves_no_claim_behind(
+def test_a_gate_after_the_envelope_that_refuses_leaves_no_claim_behind(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The measured case: an entry after gate 5 refuses, and the claim must go."""
     out_dir = tmp_path / "envelope"
-    gates = _gates(tmp_path / "gate-scripts", out_dir, refuse_at="data-10-scan.py")
+    gates = _gates(tmp_path / "gate-scripts", out_dir, refuse_at="07-teardown.py")
     monkeypatch.setattr(run, "GATE_SCRIPTS", gates)
     monkeypatch.setattr(run, "BIN", gates / "bin")
 
@@ -84,14 +84,11 @@ def test_a_data_script_that_refuses_leaves_no_claim_behind(
     executable(step, "#!/usr/bin/env bash\nexit 0\n")
     status = run.main(
         [
+            "step",
             "--host",
             "srv1",
             "--campaign",
             "claim-probe",
-            "--model",
-            "/models/x.gguf",
-            "--ctx-per-slot",
-            "2048",
             "--step",
             str(step),
             "--date",
@@ -127,14 +124,11 @@ def test_a_run_that_reaches_the_end_still_releases(
         executable(step, "#!/usr/bin/env bash\nexit 0\n")
         run.main(
             [
+                "step",
                 "--host",
                 "srv1",
                 "--campaign",
                 "claim-probe",
-                "--model",
-                "/models/x.gguf",
-                "--ctx-per-slot",
-                "2048",
                 "--step",
                 str(step),
                 "--date",

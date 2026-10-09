@@ -286,7 +286,7 @@ class SleepLevelError(ValueError):
 
 
 #: The host RAM a level-1 sleep surrenders for the life of the process, measured
-#: on srv2 twice on 2026-09-09 with identical results: 3.14 GiB for the 3B and
+#: on one rig twice on 2026-09-09 with identical results: 3.14 GiB for the 3B and
 #: 10.32 for the 7B. A later level-2 sleep does not release it and sixty seconds
 #: idle does not release it; only a container restart does.
 _LEVEL_ONE_RAM_GIB = 13.46
@@ -388,7 +388,7 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
     would abandon a wake that may already be under way.
 
     ``/v1/models`` stays the gate on asking at all: a unit still reading its
-    weights — 50-129 s of it on srv1 — cannot answer either question, and a
+    weights — 50-129 s of it on one rig — cannot answer either question, and a
     second ssh per poll for two minutes buys nothing.
 
     The row carries ``sleeping`` so the envelope can tell the two failures

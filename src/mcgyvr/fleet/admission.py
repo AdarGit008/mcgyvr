@@ -163,26 +163,24 @@ def door_commands(fleet: Mapping[str, Any], name: str, plan: Plan) -> list[str]:
     """One line per step of ``plan``, naming the door command that would take it."""
     from mcgyvr.serving import spec_name
     from mcgyvr.serving.gatelib import DOOR_MODULE
-    from mcgyvr.serving.run import callers_mode
 
     door = f"python -m {DOOR_MODULE} serve"
-    mode = callers_mode()
     units = fleet.get("units") or {}
     names = {str(unit.get("unit_id")): unit_name for unit_name, unit in units.items()}
     lines: list[str] = []
     for rig, key in plan.clean:
         compose = spec_name(rig, name)
         lines.append(
-            f"clean {rig} {key}: {door} down --mode {mode} --host {rig} "
+            f"clean {rig} {key}: {door} down --host {rig} "
             f"--compose {compose} stops every unit of ours on {rig}, this one "
-            f"included; {door} up --mode {mode} --host {rig} --compose "
+            f"included; {door} up --host {rig} --compose "
             f"{compose} brings {name}'s back"
         )
     for rig, unit_id, state in plan.restore:
         compose = spec_name(rig, name)
         lines.append(
             f"restore {rig} {unit_id} ({names.get(unit_id, 'no unit of this fleet')}) "
-            f"{state}: `mcgyvr emit` writes {compose}; {door} up --mode {mode} "
+            f"{state}: `mcgyvr emit` writes {compose}; {door} up "
             f"--host {rig} --compose {compose} starts it"
         )
     return lines

@@ -41,8 +41,6 @@ EXEMPT: tuple[str, ...] = (
     "tests/test_no_retired_door_names.py",
     # Spells the seam names as the patterns it scans for.
     "tests/test_one_door.py",
-    # Asserts RUN_DOCKER is gone from the door's vocabulary and reaches no gate.
-    "tests/test_serving_door_cli.py",
 )
 
 #: Directories that are not this repository's text.

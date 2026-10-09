@@ -1,29 +1,24 @@
 #!/usr/bin/env python3
 """The one access point to the rigs.
 
-    python -m mcgyvr.serving.run --host <rig> --campaign <name> --model <blob>
-                                 --ctx-per-slot N [--step <path>] [--suffix S]
-                                 [-- STEP ARGS...]
     python -m mcgyvr.serving.run serve|read|link ...
     python -m mcgyvr.serving.run step --host <rig> --campaign <name>
                                  --step <path> [--out-root DIR] [--gates FILE]
                                  [-- STEP ARGS...]
 
 Nothing else opens an ssh to a rig or starts a container on one. A caller
-that wants rig time writes its own script and names it as ``--step``, or takes
-the shipped ``gate-scripts/default-step.sh``; the door runs the gates around
-it. The step is the one part of a campaign run a caller supplies; ``serve``,
-``read``, ``link`` and ``step`` take a caller's own gates too (A CALLER'S
-GATES, below), which run inside the door's fixed order and never in place of
-any of it.
+that wants rig time writes its own script and names it as ``--step``; the door
+runs the gates around it. The step is the one part of a run a caller
+supplies; ``serve``, ``read``, ``link`` and ``step`` take a caller's own
+gates too (A CALLER'S GATES, below), which run inside the door's fixed order
+and never in place of any of it.
 
-THE STEP RUN (``step``, an advanced command) is the campaign run without the
-lab's measuring: the door's profile gate, the rig's lease and reading, its
-daemon, the envelope, then the caller's own ``--step``, then gates 7 and 8
-whatever the step did, and the lease released last (:data:`STEP_SEQUENCE`).
-It runs in either mode. Its envelope is the user's door log, the run root's
-evidence folder in lab mode, or ``--out-root DIR`` as
-``DIR/<date>-<campaign>/`` in either (:func:`gatelib.envelope_of`).
+THE STEP RUN (``step``, an advanced command) is the run: the door's profile
+gate, the rig's lease and reading, its daemon, the envelope, then the
+caller's own ``--step``, then gates 7 and 8 whatever the step did, and the
+lease released last (:data:`STEP_SEQUENCE`). Its envelope is the user's door
+log, or ``--out-root DIR`` as ``DIR/<date>-<campaign>/``
+(:func:`gatelib.envelope_of`).
 
 HOW THE DOOR IS THE ONLY WAY IN. The environment a gate or a step runs under
 has ``gate-scripts/bin`` first on PATH, where ``ssh`` and ``docker`` are shims
@@ -66,13 +61,14 @@ earlier still exits 130, otherwise the exit is what 7 and 8 decided. And the
 claim gate 5 took on the RUN_ID (``.<RUN_ID>.running`` in the envelope) is
 released on every exit path, the interrupted ones included.
 
-WHERE A RUN IS FILED. The run root is ``$MCGYVR_RUN_ROOT`` when it is set and
-the checkout otherwise (:func:`run_root`): the envelope is made under its
-``records/evidence/``, and the round, ``hosts.json`` and the campaigns are
-read from it. The code and the root are two places on purpose — an installed
-wheel has no ``records/`` — and the door exports both, ``RUN_ROOT`` and
-``RUN_BIN`` (its shim directory), so a step derives neither from the other. A
-value naming a directory that does not exist is refused, never created.
+THE RUN ROOT. The run root is ``$MCGYVR_RUN_ROOT`` when it is set and the
+checkout otherwise (:func:`run_root`): the door's own gates run from it and
+see it as ``RUN_ROOT``, so a gate that reads a file of the run reads it from
+one named place. The code and the root are two places on purpose — an
+installed wheel has no ``records/`` — and the door exports both, ``RUN_ROOT``
+and ``RUN_BIN`` (its shim directory), so a step derives neither from the
+other. A value naming a directory that does not exist is refused, never
+created.
 
 GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-4 write nothing
 under ``records/``: gate 1 reaches no rig, gate 2 takes the rig's lease (a live
@@ -130,23 +126,17 @@ absolute path is refused before any gate. Its gates are a caller's gates like
 any other: they can add a refusal, and never skip, move or stand in for a
 door gate.
 
-TWO MODES, SAID AND NOT GUESSED. Every run takes ``--mode user|lab``
-(:func:`settle_mode`). ``lab`` is the lab's run, held to its round
-(:data:`LAB_MARK`), its rigs' declarations (:data:`HOSTS_FILE`) and the docker
-version they declare; a lab run whose lab files are missing is refused
-and never run as a user's. ``user`` is a door run from an install: the round,
-``hosts.json`` and the declared docker version are not asked for, and the rig
-is held to the user's own rig file instead (``<rig-file folder>/<rig>.json``,
-:mod:`mcgyvr.serving.rigfile`, written by ``mcgyvr scan --rig``): each run
-reads the rig again, says what moved, and refuses only when the fleet no
-longer fits. Every other gate is the same gate in both modes: the lease, the
-daemon that answers and is the machine that was read, the envelope, the step,
-the stray-container check and the live fleet's lock. A user's serve run is
-filed under the data folder's ``door/<date>/<run_id>/`` (command, rig reading
-before and after, compose text, units up, step exit), and a container or a
-card holder mcgyvr did not start is reported and left as it is. With no
-``--mode``, a run root holding :data:`LAB_MARK` is refused and asked which
-mode, and any other runs as the user's. A campaign run is a lab run.
+ONE MODE, THE USER'S. The round, ``hosts.json`` and the declared docker
+version are not asked for: the rig is held to the user's own rig file
+(``<rig-file folder>/<rig>.json``, :mod:`mcgyvr.serving.rigfile`, written by
+``mcgyvr scan --rig``). Each run reads the rig again, says what moved, and
+refuses only when the fleet no longer fits. Every gate is the same on every
+run: the profile and the live fleet's lock, the lease, the daemon that
+answers and is the machine that was read, the envelope, the step, and the
+stray-container check. A serve run is filed under the data folder's
+``door/<date>/<run_id>/`` (command, rig reading before and after, compose
+text, units up, step exit), and a container or a card holder mcgyvr did not
+start is reported and left as it is.
 
 THE CONTRACT WITH A GATE SCRIPT. The door's own gates are executables under
 ``gate-scripts/``; a caller's gates are the executables its list names.
@@ -183,7 +173,7 @@ from typing import Any, NoReturn
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.fleet.roots import RIGS_SHOWN
 from mcgyvr.serving import gatelib
-from mcgyvr.serving.gatelib import DOOR_MODULE, LAB_MODE, MODE_VAR, USER_MODE
+from mcgyvr.serving.gatelib import DOOR_MODULE
 
 #: The package directory. ``gate-scripts`` carries a hyphen so it can never be
 #: imported: these are executables the door SPAWNS, and a caller that could
@@ -193,23 +183,19 @@ GATE_SCRIPTS = HERE / "gate-scripts"
 #: What `ssh` and `docker` resolve to for everything the door starts.
 BIN = GATE_SCRIPTS / "bin"
 SHIMS = ("docker", "ssh")
-#: The step a caller gets without naming one.
-DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
 #: The shell files beside the gates that a gate READS rather than spawns.
 #: `rig-snapshot.sh` is the reader gate 2 sends to the rig and gate 7 compares
-#: against; `default-step.sh` is what a run without `--step` executes. Neither
-#: is an entry in SEQUENCE, so neither was on the manifest — and a check that
-#: covers only the entries someone remembered is the absence the manifest
-#: exists to turn into a refusal: delete `rig-snapshot.sh` and gate 2 died on a
-#: FileNotFoundError traceback, which is a gate that stopped running without
-#: anyone deciding it should.
+#: against. It is not an entry in SEQUENCE, so it was not on the manifest —
+#: and a check that covers only the entries someone remembered is the absence
+#: the manifest exists to turn into a refusal: delete `rig-snapshot.sh` and
+#: gate 2 died on a FileNotFoundError traceback, which is a gate that stopped
+#: running without anyone deciding it should.
 #: `rig-units.sh` is the second half of the one reader the read run ships to a
 #: rig, behind `rig-snapshot.sh` (gate-scripts/read-02-rig.py).
 #: `linktime.py` is the one timer the link run ships to a rig
 #: (gate-scripts/link-01-time.py), and `fetcher.py` the one downloader a
 #: `serve fetch` ships (gate-scripts/serve-fetch.py).
 READERS = (
-    DEFAULT_STEP,
     GATE_SCRIPTS / "rig-snapshot.sh",
     GATE_SCRIPTS / "rig-units.sh",
     HERE / "linktime.py",
@@ -243,19 +229,10 @@ OUTPUT_FLAGS = ("--out", "--out-dir")
 #: and never from the caller's cwd, because a door invoked from a subdirectory
 #: must still put evidence in one place.
 ROOT = HERE.parents[2]
-#: Names the run root: where the envelope is made (``records/evidence/``) and
-#: where the gates read the declarations a run is measured against — the
-#: round (``tools/bench/``), the rigs (``tools/runs/hosts.json``) and the
-#: campaigns. Separate from the code because the code need not be a checkout:
-#: from an installed wheel :data:`ROOT` is ``site-packages/``, and a run's
-#: evidence written there is evidence nobody finds. See :func:`run_root`.
+#: Names the run root: the folder the door's gates run from, separate from the
+#: code because the code need not be a checkout: from an installed wheel
+#: :data:`ROOT` is ``site-packages/``. See :func:`run_root`.
 ROOT_ENV = "MCGYVR_RUN_ROOT"
-#: The door's two modes, in the order its help names them.
-MODES = (USER_MODE, LAB_MODE)
-#: What makes a run root a lab checkout: the round's folder. And the lab's
-#: declaration of its rigs, beside it. Both relative to the run root.
-LAB_MARK = Path("tools", "bench")
-HOSTS_FILE = Path("tools", "runs", "hosts.json")
 
 
 class RefusedError(Exception):
@@ -289,9 +266,6 @@ class Entry:
     #: A caller's gate's time bound in seconds. The door's own entries have
     #: none (0).
     timeout_s: float = 0.0
-    #: What the entry holds in user mode, where it differs from ``why``: a
-    #: refusal says the rule the run was held to, in the mode it ran in.
-    user_why: str = ""
 
 
 #: THE RUN. Order is enforced, membership is enforced, and neither is
@@ -300,54 +274,33 @@ class Entry:
 SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "01-round.py",
-        "gate 1: the tree is on the open product round, and the run knows "
-        "which profile it is under. A measurement taken against an unpinned "
-        "tree cannot be compared with anything, and a dev run does not touch "
-        "the live ladder, so both refuse before the rig is touched",
+        "gate 1: the run knows which profile it is under, and a live `serve "
+        "up` starts only units of the stamped fleet; a user's run pins no "
+        "round",
         exports=(
             "RUN_ROUND",
             "RUN_PRODUCT_SHA256",
             "RUN_PROFILE",
             "RUN_CONFIG",
         ),
-        user_why="gate 1, user mode: the run knows which profile it is under, and "
-        "a live `serve up` starts only units of the stamped fleet; a user's run "
-        "pins no round",
     ),
     Entry(
         "02-rig.py",
-        "gate 2: the rig is leased to this run — a dev run yields to a held "
-        "rig, a live run takes it and tears down what it displaced (R1) — "
-        "and the live machine equals its declaration in hosts.json. The "
-        "steps' own start==end check catches a rig that moves DURING a run and "
-        "says nothing about one that moved before it — RAM swapped between "
-        "these two rigs twice in six days with every artifact internally "
-        "consistent",
-        exports=("RUN_LEASE", "RUN_DISPLACED", "RUN_PRE_RIG"),
-        user_why="gate 2, user mode: the rig is leased to this run and read "
-        f"again, and held to your rig file ({RIGS_SHOWN}/<rig>.json, written "
-        "by `mcgyvr scan --rig`): what moved is said, and the run is refused only "
+        "gate 2: the rig is leased to this run and read again, and held to "
+        f"your rig file ({RIGS_SHOWN}/<rig>.json, written by "
+        "`mcgyvr scan --rig`): what moved is said, and the run is refused only "
         "when the fleet no longer fits",
+        exports=("RUN_LEASE", "RUN_DISPLACED", "RUN_PRE_RIG"),
     ),
     Entry(
         "03-image.py",
-        "gate 3: the daemon a tag is resolved through answers NOW, and is the "
-        "same one gate 7 asks about leftovers. A CLI with no daemon behind it "
-        "passes `command -v` and fails inside the step, after the run is "
-        "stamped, as a REFUSED row against the arm",
-        user_why="gate 3, user mode: the daemon `docker` reaches answers now and "
-        "is the machine gate 2 read",
-    ),
-    Entry(
-        "04-workload.py",
-        "gate 4: the workload module generates the pinned prompts. The digest "
-        "is over generated output and not the file text, so a formatter cannot "
-        "void a comparison and a changed decile does",
+        "gate 3: the daemon `docker` reaches answers now and is the machine "
+        "gate 2 read",
     ),
     Entry(
         "05-envelope.py",
-        "gate 5: the evidence directory is made, the step's declared artifacts "
-        "are write-once, and RUN_ID is minted. Nothing recorded is overwritten",
+        "gate 5: the run's folder in the door's log is made, the step's "
+        "declared artifacts are write-once, and RUN_ID is minted",
         exports=(
             "RUN_ID",
             "RUN_OUT_DIR",
@@ -358,31 +311,6 @@ SEQUENCE: tuple[Entry, ...] = (
             "RUN_APPEND_STATE",
             "RUN_SUPERSEDED",
         ),
-        user_why="gate 5, user mode: the run's folder in the door's log is made, "
-        "the step's declared artifacts are write-once, and RUN_ID is minted",
-    ),
-    # --- data scripts: the facts a placement needs, taken in the only order
-    # --- in which each is meaningful. All three are mandatory for the same
-    # --- reason the gates are: a run that sized itself from a stale reading is
-    # --- indistinguishable, in the artifact, from one that measured.
-    Entry(
-        "data-10-scan.py",
-        "the rig's own account of itself — card buckets, MemAvailable, "
-        "threads — read live. `total = reserved + used + free`, and a card is "
-        "not always idle, so the VRAM term is `free`",
-        exports=("RUN_SCAN_JSON",),
-    ),
-    Entry(
-        "data-20-geometry.py",
-        "the checkpoint's geometry, summed from its own tensor table on the "
-        "serving host. Bits-per-weight is a guess and the tensor table is not",
-        exports=("RUN_GEOMETRY_JSON",),
-    ),
-    Entry(
-        "data-30-placement.py",
-        "the --n-cpu-moe floor and what the card will hold, from the geometry "
-        "and the scan. Refuses rather than guessing a cache it cannot size",
-        exports=("RUN_PLACEMENT_JSON",),
     ),
     Entry(
         "06-step.py",
@@ -425,19 +353,12 @@ LEASE_RELEASE = Entry(
 )
 
 #: THE SERVE RUN (`python -m mcgyvr.serving.run serve up|down --host H
-#: --compose FILE`). A second fixed sequence, not a switch on the first: a
-#: live ladder is started and LEFT RUNNING, which is the one thing the
-#: campaign run exists to refuse, so the two cannot share gate 7's reading of
-#: "left a container". What they share is every gate that makes a rig the
-#: declared rig — the round, the machine, the daemon, the envelope — and the
-#: two that run after whatever the step did. Gate 4 (the pinned workload) and
-#: the three data scripts (a checkpoint's geometry and placement) are about
-#: one model under measurement and have no meaning for a compose file
-#: `mcgyvr emit` already sized; they are not skipped, they are not in this
-#: run. Order and membership are enforced exactly as for SEQUENCE. `serve
-#: fetch --weights FILE` runs the same sequence: it leases the rig it
-#: downloads onto, and gate 7 names any container that is up after it and was
-#: not before.
+#: --compose FILE`). The same fixed sequence as a step run: profile, rig,
+#: daemon, envelope, then the serve step, then gates 7 and 8. A live ladder
+#: is started and LEFT RUNNING, which gate 7 reads in its own serve
+#: vocabulary; `serve fetch --weights FILE` runs the same sequence: it leases
+#: the rig it downloads onto, and gate 7 names any container that is up after
+#: it and was not before.
 SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
     entry
     for entry in SEQUENCE
@@ -446,18 +367,15 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
 )
 
 #: THE STEP RUN (`python -m mcgyvr.serving.run step --host H --campaign C
-#: --step PATH`). The campaign run's gates without the lab's measuring: gate
-#: 4 (the pinned workload) and the three data scripts (a checkpoint's
-#: geometry and placement) are about one model under measurement, and a
-#: caller who needs them brings them as gates of its own. The same entries as
-#: the serve run, and :data:`ALWAYS` after whatever the step did; order and
-#: membership are enforced exactly as for SEQUENCE.
+#: --step PATH`). The same entries as the serve run, and :data:`ALWAYS` after
+#: whatever the step did; order and membership are enforced exactly as for
+#: SEQUENCE.
 STEP_SEQUENCE: tuple[Entry, ...] = SERVE_SEQUENCE
 
 #: THE READ RUN (`python -m mcgyvr.serving.run read --host H [--probe UNIT...
 #: [--load WxN]]`). A third fixed sequence: the profile is settled and no round
 #: is opened, then one reader goes to the rig, is compared with the rig's
-#: declaration, and is filed. A plain read starts nothing on the rig; `--probe`
+#: file, and is filed. A plain read starts nothing on the rig; `--probe`
 #: and `--load` run the lock's harness there against idle units. There is no
 #: lease, no envelope, no teardown and no gate 7 or 8 in it.
 READ_SEQUENCE: tuple[Entry, ...] = (
@@ -469,9 +387,9 @@ READ_SEQUENCE: tuple[Entry, ...] = (
     ),
     Entry(
         "read-02-rig.py",
-        "read, rig: one reader on the rig, its facts held to hosts.json and the "
-        "rest filed under the read fleet's journal; nothing leased, nothing torn "
-        "down, and a busy rig read as it is",
+        "read, rig: one reader on the rig, its facts held to the user's rig "
+        "file and the rest filed under the read fleet's journal; nothing "
+        "leased, nothing torn down, and a busy rig read as it is",
     ),
 )
 #: THE LINK RUN (`python -m mcgyvr.serving.run link --host H (--peer A B |
@@ -511,10 +429,9 @@ def mint_read_id(now: datetime | None = None) -> str:
 #: not on this list is asking for a fact nobody gated.
 EXPORTED = (
     # The run root (:func:`run_root`) and the door's own shim directory. Two
-    # variables because they are two places: the root is where a run is filed
-    # and measured against, the shims are part of the code, and a step that
-    # derived one from the other found no shims under a run root that was not
-    # a checkout.
+    # variables because they are two places: the root is where the door's
+    # gates run, the shims are part of the code, and a step that derived one
+    # from the other found no shims under a run root that was not a checkout.
     "RUN_ROOT",
     "RUN_BIN",
     "RUN_CAMPAIGN",
@@ -552,10 +469,8 @@ EXPORTED = (
     # The step run's one: the folder its envelope is made under, when it
     # names one (`--out-root`).
     gatelib.OUT_ROOT_VAR,
-    # Every run's mode (``user`` or ``lab``), the command line it was opened
-    # with, and, once a serve run's step has ended, how it ended: what a
-    # user-mode run files in its log.
-    MODE_VAR,
+    # The command line it was opened with, and, once a serve run's step has
+    # ended, how it ended: what the run files in its log.
     "RUN_COMMAND",
     "RUN_STEP_EXIT",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
@@ -1088,11 +1003,9 @@ def run_root() -> Path:
     """The run root: ``$MCGYVR_RUN_ROOT`` when it is set, else the checkout.
 
     A value that is set names a directory that exists, or the run is refused
-    before any gate — the door does not create it. A root the door made
-    silently is how evidence goes missing: the operator meant one directory,
-    typed another, and the run filed itself under a path nobody looks at,
-    exit 0. Resolved, so every gate sees one spelling of it (``RUN_ROOT`` is
-    exported once, by the door, and gate 5 files under exactly that).
+    before any gate — the door does not create it. Resolved, so every gate
+    sees one spelling of it (``RUN_ROOT`` is exported once, by the door, and
+    every gate runs with that folder as its working directory).
     """
     named = os.environ.get(ROOT_ENV)
     if named is None:
@@ -1112,83 +1025,13 @@ def run_root() -> Path:
         _refuse(
             2,
             f"{ROOT_ENV}={named!r} is not an existing directory named by an "
-            "absolute path. The run root is where the envelope is made "
-            "(records/evidence/) and where the round, hosts.json and the "
-            "campaigns are read from; the door never creates it, because a "
-            "root made silently is a run filed where nobody looks. Name a "
-            "directory that exists, or unset the variable to use the tree "
+            "absolute path. The run root is the folder the door's gates run "
+            "from; the door never creates it, because a root made silently is "
+            "a run that runs where nobody looks. Name a directory that exists, "
+            "or unset the variable to use the tree "
             f"the door runs from ({ROOT})",
         )
     return path.resolve()
-
-
-def settle_mode(given: str | None, root: Path) -> str:
-    """The run's mode: ``given``, or ``user`` where the run root is no lab checkout.
-
-    A run root holding :data:`LAB_MARK` with no mode named is refused before
-    any gate: there the door cannot tell a lab tool that forgot the flag from
-    a user, and a lab run read as a user's is held to none of the lab's
-    declarations. ``lab`` where the run root holds no :data:`LAB_MARK` is
-    refused too: a lab run with its lab files missing is never run as a
-    user's.
-    """
-    lab_checkout = (root / LAB_MARK).is_dir()
-    if given is None:
-        if lab_checkout:
-            _refuse(
-                2,
-                f"the run root {root} is a lab checkout (it holds {LAB_MARK}/) and "
-                "this run names no mode. Say which: --mode lab for the lab's run, "
-                f"held to its round and {HOSTS_FILE}, or --mode user for a "
-                "user's run, held to the rig file `mcgyvr scan --rig` writes. The "
-                "door does not guess: a lab tool that forgot the flag would "
-                "otherwise run held to none of the lab's declarations",
-            )
-        return USER_MODE
-    if given == LAB_MODE and not lab_checkout:
-        _refuse(
-            2,
-            f"--mode lab, and the run root {root} is not a lab checkout: it holds "
-            f"no {LAB_MARK}/. A lab run is held to the lab's round and "
-            "declarations, and with them missing it is refused, never run as a "
-            f"user's. Name the lab checkout with {ROOT_ENV}, or run --mode user",
-        )
-    return given
-
-
-def callers_mode() -> str:
-    """The mode mcgyvr's own door calls name: ``lab`` where the run root is a
-    lab checkout, ``user`` anywhere else.
-
-    Owner, 2026-10-07 (Round 6): the product's callers (the waker and the
-    ladder manager, the fleet's read and link, the door commands live
-    admission prints) never hard-code a mode. The test is the door's own
-    (:func:`settle_mode`), so inside the lab checkout they run as the lab's
-    tools do and need no rig file, and from an install they run as the user's.
-    A run root the door would refuse is left for the door to refuse with its
-    own rule, and reads as ``user`` here.
-    """
-    try:
-        root = run_root()
-    except RefusedError:
-        return USER_MODE
-    return LAB_MODE if (root / LAB_MARK).is_dir() else USER_MODE
-
-
-def _add_mode(parser: argparse.ArgumentParser) -> None:
-    """``--mode``, the same on every run."""
-    parser.add_argument(
-        "--mode",
-        choices=MODES,
-        default=None,
-        help=(
-            "user: a run from an install, the rig held to your rig file "
-            f"({RIGS_SHOWN}/RIG.json, written by `mcgyvr scan --rig RIG`); "
-            f"lab: the lab's run, held to its round and {HOSTS_FILE}. With no "
-            f"--mode, a run root holding {LAB_MARK}/ is refused and asked which, "
-            "and any other runs as user"
-        ),
-    )
 
 
 def _command(verb: str, argv: list[str]) -> str:
@@ -1197,10 +1040,7 @@ def _command(verb: str, argv: list[str]) -> str:
 
 
 #: What ``--host`` says on every run.
-HOST_HELP = (
-    f"the rig, as your ssh names it: its name in {HOSTS_FILE} (lab) or in "
-    f"{RIGS_SHOWN}/ (user)"
-)
+HOST_HELP = f"the rig, as your ssh names it: its name in {RIGS_SHOWN}/"
 
 
 def check_manifest() -> None:
@@ -1375,82 +1215,29 @@ def _run_entry(entry: Entry, env: dict[str, str], args: list[str] | None = None)
     return status
 
 
-def _parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
-    """Arguments. Note what is absent: there is no --skip, --no-gate or --force.
-
-    Adding one would not be a feature, it would be the hole every gate here was
-    written to close, and the flag would be reached for on exactly the night it
-    should not be.
-    """
-    step_args: list[str] = []
-    if "--" in argv:
-        cut = argv.index("--")
-        argv, step_args = argv[:cut], argv[cut + 1 :]
-    parser = argparse.ArgumentParser(
-        prog="python -m mcgyvr.serving.run",
-        description="the one access point to the rigs",
-        epilog=(
-            "With no verb, this is the lab's campaign run (--mode lab). The "
-            "verbs, each with its own --help: `serve up|down|sleep|wake|fetch` "
-            "starts, stops, sleeps or wakes a ladder on a rig, or fetches "
-            "weights onto it; `read` reads a rig; `link` times a link on one; "
-            "and, advanced, `step` runs one script of your own on a rig under "
-            "the door's fixed gates (the lease, the rig's reading, its daemon, "
-            "the envelope, then teardown and parse), filed under the door's log "
-            "or --out-root"
-        ),
-    )
-    parser.add_argument("--host", required=True, help=HOST_HELP)
-    _add_mode(parser)
-    parser.add_argument("--campaign", required=True, help="names the evidence envelope")
-    parser.add_argument(
-        "--step",
-        default="",
-        help="the caller's own script; gate 6 runs it (default: "
-        "gate-scripts/default-step.sh)",
-    )
-    parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
-    parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
-    # --model is required, and that is the door saying what it is for. Every
-    # campaign run serves a checkpoint, so the geometry and placement scripts
-    # always have something to read; an optional model would make them
-    # conditional, and a conditional gate is a skippable one. --ctx-per-slot
-    # likewise: a floor is only correct for the cache the unit will actually
-    # allocate, so the run declares the window and a run that did not is
-    # refused here rather than sized silently.
-    _add_serving(parser, campaign=True)
-    return parser.parse_args(argv), step_args
-
-
-def _add_serving(parser: argparse.ArgumentParser, *, campaign: bool) -> None:
+def _add_serving(parser: argparse.ArgumentParser) -> None:
     """``--model``, ``--parallel``, ``--ctx-per-slot`` and ``--ubatch``, the
-    same four on the campaign run and the step run, exported to the step as
-    RUN_MODEL, RUN_PARALLEL, RUN_CTX_PER_SLOT and RUN_UBATCH. The campaign run
-    requires the model and the window, which its data scripts read, and has
-    8 slots and a ubatch of 512 when none is given. A step run has no
-    default for any of the four (owner, on mcgyvr#633): nothing of the door
-    reads them, and each is exported only when it is given.
+    same four on a step run, exported to the step as RUN_MODEL,
+    RUN_PARALLEL, RUN_CTX_PER_SLOT and RUN_UBATCH. A step run has no default
+    for any of the four (owner, on mcgyvr#633): nothing of the door reads
+    them, and each is exported only when it is given.
     """
     parser.add_argument(
         "--model",
-        required=campaign,
         default=None,
         help="blob path AS THE RIG SEES IT",
     )
-    parser.add_argument(
-        "--parallel", type=int, default=8 if campaign else None, help="slots (-np)"
-    )
+    parser.add_argument("--parallel", type=int, default=None, help="slots (-np)")
     parser.add_argument(
         "--ctx-per-slot",
         type=int,
-        required=campaign,
         default=None,
         help="per-slot window; -c is this times --parallel",
     )
     parser.add_argument(
         "--ubatch",
         type=int,
-        default=512 if campaign else None,
+        default=None,
         help="-ub, and -b with it",
     )
 
@@ -1718,11 +1505,6 @@ def _check_step_args(
     return None
 
 
-def _lab_envelope(root: Path, run_date: str, campaign: str) -> Path:
-    """Where a lab-mode run with no out-root is filed under its run root."""
-    return root / "records" / "evidence" / f"{run_date}-{campaign}"
-
-
 def _rel(path: Path, base: Path = ROOT) -> str:
     try:
         return str(path.relative_to(base))
@@ -1781,7 +1563,7 @@ SERVE_PHASES_HELP = (
 
 
 def _serve_parse(argv: list[str]) -> argparse.Namespace:
-    """The serve run's arguments. As with :func:`_parse`, nothing skips a gate."""
+    """The serve run's arguments. Nothing skips a gate."""
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run serve",
         description=(
@@ -1795,7 +1577,6 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
         help="up | down | sleep | wake | fetch",
     )
     parser.add_argument("--host", required=True, help=HOST_HELP)
-    _add_mode(parser)
     parser.add_argument(
         "--compose",
         default=None,
@@ -1884,7 +1665,7 @@ def _serve_refusal(opts: argparse.Namespace) -> str | None:
 
 
 def _serve(argv: list[str]) -> int:
-    """`serve up|down|sleep|wake|fetch`: the second fixed sequence, to completion."""
+    """`serve up|down|sleep|wake|fetch`: the serve run's fixed sequence."""
     opts = _serve_parse(argv)
     inherited = _ambient()
     if inherited is not None:
@@ -1896,7 +1677,6 @@ def _serve(argv: list[str]) -> int:
         return 2
     try:
         root = run_root()
-        mode = settle_mode(opts.mode, root)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -1987,7 +1767,6 @@ def _serve(argv: list[str]) -> int:
         RUN_SERVE_EXPECTED=" ".join(unit.container for unit in units),
         RUN_SERVE_ONLY=" ".join(sorted(set(opts.unit))),
         RUN_SERVE_ASLEEP=" ".join(sorted(u.container for u in units if u.asleep)),
-        RUN_MODE=mode,
         RUN_COMMAND=_command("serve", argv),
         **fetch,
     )
@@ -2054,7 +1833,7 @@ def _through_step(
 
 
 def _read_parse(argv: list[str]) -> argparse.Namespace:
-    """The read run's arguments. As with :func:`_parse`, nothing skips a gate."""
+    """The read run's arguments. Nothing skips a gate."""
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run read",
         description=(
@@ -2064,7 +1843,6 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument("--host", required=True, help=HOST_HELP)
-    _add_mode(parser)
     parser.add_argument(
         "--probe",
         nargs="+",
@@ -2122,7 +1900,7 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
 
 
 def _read(argv: list[str]) -> int:
-    """`read`: the third fixed sequence, to completion. Nothing is leased."""
+    """`read`: the read run's fixed sequence, to completion. Nothing is leased."""
     opts = _read_parse(argv)
     inherited = _ambient()
     if inherited is not None:
@@ -2156,7 +1934,6 @@ def _read(argv: list[str]) -> int:
         return 2
     try:
         root = run_root()
-        mode = settle_mode(opts.mode, root)
         # A read has no teardown and no lease, so no `always` phase to run in.
         gates = callers_gates("read", opts.gates, tuple(READ_PHASES))
     except RefusedError as refusal:
@@ -2177,7 +1954,6 @@ def _read(argv: list[str]) -> int:
         RUN_READ_PROBE=" ".join(opts.probe),
         RUN_READ_LOAD=opts.load,
         RUN_READ_FLEET=opts.fleet,
-        RUN_MODE=mode,
         RUN_COMMAND=_command("read", argv),
     )
     try:
@@ -2213,7 +1989,6 @@ def _link_parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--host", required=True, help="the rig the timer runs on, as ssh names it"
     )
-    _add_mode(parser)
     modes = parser.add_mutually_exclusive_group(required=True)
     for flag, names in LINK_MODES.items():
         modes.add_argument(flag, nargs=2, metavar=names)
@@ -2260,7 +2035,7 @@ def _link_args(opts: argparse.Namespace) -> list[str]:
 
 
 def _link(argv: list[str]) -> int:
-    """`link`: the fourth fixed sequence, to completion. Nothing is leased."""
+    """`link`: the link run's fixed sequence, to completion. Nothing is leased."""
     opts = _link_parse(argv)
     inherited = _ambient()
     if inherited is not None:
@@ -2273,7 +2048,6 @@ def _link(argv: list[str]) -> int:
     try:
         timer = _link_args(opts)
         root = run_root()
-        mode = settle_mode(opts.mode, root)
         gates = callers_gates("link", opts.gates, LINK_PHASES)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
@@ -2285,7 +2059,6 @@ def _link(argv: list[str]) -> int:
         RUN_BIN=str(BIN),
         RUN_HOST=opts.host,
         RUN_LINK=" ".join(timer),
-        RUN_MODE=mode,
         RUN_COMMAND=_command("link", argv),
     )
     try:
@@ -2311,8 +2084,8 @@ def _link(argv: list[str]) -> int:
 STEP_HELP = (
     "advanced: run one script of your own on a rig, under the door's fixed "
     "gates. The door settles the profile, leases the rig and reads it (held to "
-    f"your rig file, {RIGS_SHOWN}/RIG.json, in user mode), checks that its "
-    "docker daemon answers and is that machine, and makes the run's envelope; "
+    f"your rig file, {RIGS_SHOWN}/RIG.json), checks that its docker daemon "
+    "answers and is that machine, and makes the run's envelope; "
     "then it runs your --step with the run exported to it (RUN_ID, "
     "RUN_OUT_DIR, RUN_HOST, ...) and its ssh and docker reaching that rig "
     "alone; then, whatever the step did, it names any container the step left "
@@ -2322,7 +2095,7 @@ STEP_HELP = (
 
 
 def _step_parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
-    """The step run's arguments. As with :func:`_parse`, nothing skips a gate."""
+    """The step run's arguments. Nothing skips a gate."""
     step_args: list[str] = []
     if "--" in argv:
         cut = argv.index("--")
@@ -2331,7 +2104,6 @@ def _step_parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         prog="python -m mcgyvr.serving.run step", description=STEP_HELP
     )
     parser.add_argument("--host", required=True, help=HOST_HELP)
-    _add_mode(parser)
     parser.add_argument(
         "--campaign",
         required=True,
@@ -2355,14 +2127,12 @@ def _step_parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         help=(
             "an existing folder the run is filed under, as "
             "DIR/<date>-<campaign>/ (default: the run's own folder of the "
-            "door's log under the data folder in user mode, "
-            "RUN_ROOT/records/evidence/<date>-<campaign>/ in lab mode). The door never "
-            "makes it"
+            "door's log under the data folder). The door never makes it"
         ),
     )
     parser.add_argument("--suffix", default="", help="distinguishes a re-run's RUN_ID")
     parser.add_argument("--date", default="", help="YYYY-MM-DD; defaults to today, UTC")
-    _add_serving(parser, campaign=False)
+    _add_serving(parser)
     parser.add_argument(
         "--gates",
         default=None,
@@ -2401,7 +2171,6 @@ def _step(argv: list[str]) -> int:
         return 2
     try:
         root = run_root()
-        mode = settle_mode(opts.mode, root)
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
@@ -2433,12 +2202,10 @@ def _step(argv: list[str]) -> int:
 
     try:
         envelope = gatelib.envelope_of(
-            mode=mode,
             out_root=out_root,
             run_date=run_date,
             campaign=opts.campaign,
             run_id=gatelib.run_id_of(run_date, opts.campaign, step_file, opts.suffix),
-            lab=_lab_envelope(root, run_date, opts.campaign),
         )
     except (FolderError, RuntimeError) as unnamed:
         print(
@@ -2470,10 +2237,9 @@ def _step(argv: list[str]) -> int:
         RUN_STEP_FILE=str(step_file),
         RUN_HOST=opts.host,
         RUN_SUFFIX=opts.suffix,
-        # Read off the clock once, as the campaign run's is: the envelope
-        # above was named by it, and gate 5 files under it.
+        # Read off the clock once: the envelope above was named by it, and
+        # gate 5 files under it.
         RUN_DATE=run_date,
-        RUN_MODE=mode,
         RUN_COMMAND=_command("step", argv),
     )
     # Each of the four only when it is given: a step run has no defaults.
@@ -2500,138 +2266,23 @@ def main(argv: list[str] | None = None) -> int:
         return _link(given[1:])
     if given[:1] == ["step"]:
         return _step(given[1:])
-    opts, step_args = _parse(given)
-
-    # Every refusal below happens before a gate runs: nothing checked, nothing
-    # made, no rig read.
-    escape = _model_escape(opts.model)
-    if escape is not None:
-        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
-        return 2
-    inherited = _ambient()
-    if inherited is not None:
-        print(
-            f"run.py: REFUSED — {inherited} is set in the calling environment; "
-            "unset it and rerun; the door mints its own vocabulary (RUN_* and "
-            "DOCKER_* are the door's to set, and a value inherited from the "
-            "shell is one no gate set)",
-            file=sys.stderr,
-        )
-        return 2
-    # The root is settled before the step is looked for and before the
-    # envelope is named, because both are said relative to it.
-    try:
-        root = run_root()
-        mode = settle_mode(opts.mode, root)
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    if mode != LAB_MODE:
-        print(
-            "run.py: REFUSED — a campaign run measures against the lab's round, "
-            f"its campaigns and {HOSTS_FILE}, so it is a lab run: run it "
-            "with --mode lab from a lab checkout. A user's door is `serve`, "
-            "`read` and `link`",
-            file=sys.stderr,
-        )
-        return 2
-
-    if opts.step:
-        step = Path(opts.step)
-        step = step if step.is_absolute() else (Path.cwd() / step)
-        if not step.is_file():
-            print(
-                f"run.py: REFUSED — --step {opts.step} is not a file", file=sys.stderr
-            )
-            return 2
-    else:
-        step = DEFAULT_STEP
-        if not step.is_file():
-            print(
-                f"run.py: REFUSED — the default step is missing: "
-                f"{_rel(DEFAULT_STEP)} does not exist, and the door does not "
-                "write one; name a step with --step PATH",
-                file=sys.stderr,
-            )
-            return 2
-
-    run_date = opts.date or datetime.now(UTC).strftime("%Y-%m-%d")
-    envelope = _lab_envelope(root, run_date, opts.campaign)
-    escape = _check_step_args(step_args, envelope, root)
-    if escape is not None:
-        print(f"run.py: REFUSED — {escape}", file=sys.stderr)
-        return 2
-
-    env = dict(os.environ)
-    # The shims come first, so `ssh` and `docker` under the door are the
-    # door's; whatever PATH the operator had follows for everything else.
-    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
-    try:
-        pin_config(env)
-    except RefusedError as refusal:
-        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-        return refusal.status
-    env.update(
-        RUN_ROOT=str(root),
-        RUN_BIN=str(BIN),
-        RUN_CAMPAIGN=opts.campaign,
-        RUN_STEP_FILE=str(step.resolve()),
-        RUN_HOST=opts.host,
-        RUN_SUFFIX=opts.suffix,
-        RUN_MODEL=opts.model,
-        RUN_PARALLEL=str(opts.parallel),
-        RUN_CTX_PER_SLOT=str(opts.ctx_per_slot),
-        RUN_UBATCH=str(opts.ubatch),
-        # The date the envelope above was named and checked by, read off the
-        # clock once: gate 5 files under it, and a gate reading the clock
-        # again past midnight UTC would mint the next day's envelope.
-        RUN_DATE=run_date,
-        RUN_MODE=mode,
-        RUN_COMMAND=_command("", given),
+    parser = argparse.ArgumentParser(
+        prog="python -m mcgyvr.serving.run",
+        description="the one access point to the rigs",
+        epilog=(
+            "The verbs, each with its own --help: `serve "
+            "up|down|sleep|wake|fetch` starts, stops, sleeps or wakes a "
+            "ladder on a rig, or fetches weights onto it; `read` reads a rig; "
+            "`link` times a link on one; and, advanced, `step` runs one script "
+            "of your own on a rig under the door's fixed gates (the lease, the "
+            "rig's reading, its daemon, the envelope, then teardown and parse), "
+            "filed under the door's log or --out-root"
+        ),
     )
-
-    interrupted = False
-    step_status = 0
-    try:
-        try:
-            check_manifest()
-            for entry in SEQUENCE:
-                args = step_args if entry.script == "06-step.py" else None
-                status = _run_entry(entry, env, args)
-                if status != 0:
-                    if entry.script != "06-step.py":
-                        return _stop(entry, status, env)
-                    # The step's own failure is the operator's result, not the
-                    # door's refusal: 7 and 8 still run, and its status propagates
-                    # after them.
-                    step_status = status
-        except RefusedError as refusal:
-            print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
-            return refusal.status
-        except KeyboardInterrupt:
-            # Ctrl-C or SIGTERM (`_sigterm` turns it into this). The entry that
-            # was running has been ended by `_run_entry`; what follows is the
-            # main flow, not a signal handler, so gate 7's own ssh is not the
-            # nested read that came back empty in the shell door.
-            interrupted = True
-            print(
-                "run.py: interrupted — gates 7 and 8 still run; a run whose end "
-                "state is unknown is the one that ended silently",
-                file=sys.stderr,
-            )
-
-        after = _always(env)
-
-        if interrupted:
-            return 130
-        return step_status or after
-    finally:
-        # Gate 5's claim is released here and not only in `_always`, which
-        # a refusal between the claim and the always-block returns straight
-        # past. Releasing twice is releasing once: `gatelib.release`
-        # unlinks `missing_ok`.
-        _release_claim(env)
-        _release_lease(env)
+    parser.add_argument("verb", nargs="?", choices=("serve", "read", "link", "step"))
+    parser.parse_args(given)
+    parser.print_help()
+    return 0
 
 
 #: What the ALWAYS phase will not be stopped by.
@@ -2791,13 +2442,8 @@ def _stop_caller(entry: Entry, status: int) -> int:
 
 
 def _stop(entry: Entry, status: int, env: dict[str, str]) -> int:
-    """A gate before the step refused: say which rule, in the run's mode, and stop."""
-    why = (
-        entry.user_why
-        if env.get(MODE_VAR) == USER_MODE and entry.user_why
-        else entry.why
-    )
-    print(f"run.py: REFUSED at {entry.script} — {why}", file=sys.stderr)
+    """A gate before the step refused: say which rule, and stop."""
+    print(f"run.py: REFUSED at {entry.script} — {entry.why}", file=sys.stderr)
     return status or entry.status
 
 
