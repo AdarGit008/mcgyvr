@@ -771,7 +771,7 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
         )
     if rig is not None:
         where = (
-            ". Every unit in it sits on the machine mcgyvr runs on, laid out "
+            ". Its rig units sit on the machine mcgyvr runs on, laid out "
             f"as {rig}, which a read of it approved."
         )
     else:
@@ -835,12 +835,16 @@ def _read_local_rig(rig: str) -> str:
     # remote rig, so the rig file this writes reads the same when the door
     # re-reads it.
     measured = scan_module.Scan.from_json(json.dumps(rigscan.scan()))
-    done = subprocess.run(
-        ["bash", str(GATE_SCRIPTS / "rig-snapshot.sh")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        done = subprocess.run(
+            ["bash", str(GATE_SCRIPTS / "rig-snapshot.sh")],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60.0,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise PromoteRefusedError(f"{rig}: the local snapshot timed out") from exc
     if done.returncode != 0:
         raise PromoteRefusedError(
             f"{rig}: the local snapshot could not run: "
@@ -855,8 +859,14 @@ def _read_local_rig(rig: str) -> str:
     except ValueError as exc:
         raise PromoteRefusedError(f"{rig}: {exc}") from exc
     # Both readers succeeded before anything is written: a refusal leaves the
-    # rig-folder untouched.
-    rigfile.write(rigfile.from_scan(rig, measured))
+    # rig-folder untouched. A rig file that will not write is a refusal, not a
+    # traceback: the fleet is not approved for lack of a read's record.
+    try:
+        rigfile.write(rigfile.from_scan(rig, measured))
+    except (OSError, rigfile.RigFileError) as exc:
+        raise PromoteRefusedError(
+            f"{rig}: its rig file could not be written: {exc}"
+        ) from exc
     return rig_id
 
 

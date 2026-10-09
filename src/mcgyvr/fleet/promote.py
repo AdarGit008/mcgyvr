@@ -474,8 +474,8 @@ def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
     laid out (each of its units awake) and the lock pinning that layout. The
     rig is the user's own machine, approved by no dev evidence: a stranger has
     none. Refused, with nothing written, when the setup cannot be read, lays
-    out no unit on ``rig``, or would not load as a setup. It names nothing
-    live: :func:`use` does that.
+    out no unit on ``rig``, holds a hosted unit at a machine of the user's, or
+    would not load as a setup. It names nothing live: :func:`use` does that.
     """
     fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
     policy = _read_setup(setup / POLICY_FILENAME, load_policy)
@@ -484,6 +484,17 @@ def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
     if not on_rig:
         raise PromoteRefusedError(
             f"{setup / FLEET_FILENAME} lays out no unit on {rig}; nothing is approved"
+        )
+    local = sorted(
+        f"{unit} ({why})"
+        for unit, body in units.items()
+        if "rig" not in body
+        and (why := on_a_users_machine(str(body.get("address") or ""))) is not None
+    )
+    if local:
+        raise PromoteRefusedError(
+            f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
+            "a machine is not approved for live work until it is read"
         )
     layout = {rig: [[name, "awake"] for name in on_rig]}
     try:

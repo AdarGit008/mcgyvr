@@ -46,7 +46,7 @@ from mcgyvr import cli
 from mcgyvr.detect import Backend, Detection
 from mcgyvr.exits import Exit
 from mcgyvr.fleet import admission
-from mcgyvr.fleet.admit import LiveRefusedError
+from mcgyvr.fleet.admit import LiveRefusedError, admit_live
 from mcgyvr.fleet.promote import LOCAL_SUFFIXES, LOCK_DIR
 from mcgyvr.fleet.roots import fleets_dir, is_fleet_name, live_file, live_fleet
 
@@ -250,6 +250,40 @@ def test_an_mcorch_setup_is_not_approved_by_init(
 #: The rig id a substituted local read hands back, shaped as a rig id is.
 RIG_ID = "rig-" + "2" * 64
 
+#: A ``rig-snapshot.sh`` reading for the invented local machine, every declared
+#: key ``mcgyvr.fleet.ids.rig_id`` hashes, printed as the reader prints them.
+SNAPSHOT_SCRIPT = """\
+#!/usr/bin/env bash
+cat <<'EOF'
+hostname=box.invalid
+cpu_model=FakeCPU
+cpu_max_mhz=100
+ram_mt_s=3200
+pl1_uw=125000000
+pl2_uw=250000000
+gpu_name=FakeGPU
+gpu_vram_mib=8192
+gpu_cc=8.6
+gpu_slot=0
+os_machine_id=0000000000000000
+kernel=6.1.0
+driver=550.54.15
+docker=26.1.4
+EOF
+"""
+
+#: What the shipped rig scanner answers for the invented local machine.
+LOCAL_SCAN = {
+    "machine": {"id": "id-localhost", "host": "localhost", "kernel": "6.1.0"},
+    "gpus": [
+        {
+            "index": 0,
+            "name": "FakeGPU",
+            "vram": {"total_mib": 8192, "used_mib": 0, "free_mib": 8192},
+        }
+    ],
+}
+
 
 def test_a_local_gpu_is_read_then_approved_by_init(
     monkeypatch: pytest.MonkeyPatch,
@@ -279,6 +313,69 @@ def test_a_local_gpu_is_read_then_approved_by_init(
     lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))
     assert lock["approved_by"] == "mcgyvr init"
     assert lock["layout_sha256"]
+
+    # Given the door reads the local rig back and finds the unit awake, the
+    # fleet is admitted: nothing to clean, nothing to restore. Live admission
+    # on this rig still runs through the door's (ssh) read until its local path
+    # lands; this proves the part init wrote — layout, lock, unit id — admits.
+    unit_id = live["units"]["local_small-model"]["unit_id"]
+    plan = admit_live(
+        folder,
+        live,
+        "own",
+        {
+            "localhost": {
+                "rig_id": RIG_ID,
+                "units": {unit_id: "awake"},
+                "foreign": [],
+            }
+        },
+    )
+    assert plan.clean == [] and plan.restore == [], plan
+
+
+def test_a_hosted_unit_at_a_user_machine_is_not_approved_beside_a_local_rig(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A local rig read and approved does not carry a hosted unit at a machine
+    of the user's: the rig is read, the hosted unit is refused."""
+    setup = tmp_path / "setup"
+    mine = (
+        f"model=small-model,address=http://{_first_host(0xC0A80000, 16)}:8080/v1,"
+        "api_key_env=K"
+    )
+    monkeypatch.setattr("mcgyvr.cli._read_local_rig", lambda rig: RIG_ID)
+    assert _init(monkeypatch, setup, "--api", mine, found=_found(LOCAL)) == 0
+    said = capsys.readouterr().out
+
+    assert not live_file().exists()
+    assert not fleets_dir().exists()
+    assert "No fleet was made live" in said and "machine of yours" in said, said
+
+
+def test_read_local_rig_runs_the_doors_readers_locally(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The genuine reader runs ``rigscan`` and ``rig-snapshot.sh`` on this
+    machine, writes the rig file, and returns the rig id the snapshot names."""
+    from mcgyvr.serving import rigfile
+
+    gates = tmp_path / "gates"
+    gates.mkdir()
+    (gates / "rig-snapshot.sh").write_text(SNAPSHOT_SCRIPT, encoding="utf-8")
+    monkeypatch.setattr("mcgyvr.serving.run.GATE_SCRIPTS", gates)
+    monkeypatch.setattr("mcgyvr.serving.rigscan.scan", lambda: LOCAL_SCAN)
+    rigs = tmp_path / "rigs"
+    monkeypatch.setattr("mcgyvr.serving.rigfile.rigs_dir", lambda: rigs)
+
+    rig_id = cli._read_local_rig("localhost")
+
+    assert rig_id.startswith("rig-") and len(rig_id) == 68, rig_id
+    saved = rigfile.read("localhost")
+    assert saved is not None and saved.rig == "localhost"
 
 
 def test_a_unit_on_a_remote_rig_is_not_approved_by_init(
