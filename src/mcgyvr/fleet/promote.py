@@ -443,6 +443,111 @@ def approve_own(setup: Path) -> Path:
     return folder
 
 
+def _unit_id(unit: dict[str, Any]) -> str:
+    """``unt-`` for one unit init bound from a running backend, hashed over the
+    facts that stay: its engine, where it answers and the model it serves.
+
+    A backend init detects is already running, so it is not launched here and
+    has no image, weights, argv or env to hash. The id is the same spelling the
+    lock pins (:func:`mcgyvr.fleet.ids.digest`).
+    """
+    from mcgyvr.fleet import ids
+
+    engine = unit.get("engine")
+    return ids.digest(
+        "unt-",
+        {
+            "engine": engine if isinstance(engine, str) and engine else "llama.cpp",
+            "address": str(unit.get("address") or ""),
+            "model": str(unit.get("model") or ""),
+        },
+    )
+
+
+def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
+    """Write ``<config folder>/fleets/own@<today>/`` with ``rig`` laid out; that
+    folder.
+
+    :func:`approve_own` for a setup whose units sit on the user's own machine,
+    read through the door's own reader before it is approved: the caller hands
+    the rig id that read named, and this writes the fleet ``own`` with ``rig``
+    laid out (each of its units awake) and the lock pinning that layout. The
+    rig is the user's own machine, approved by no dev evidence: a stranger has
+    none. Refused, with no fleet folder written, when the setup cannot be read,
+    lays out no unit on ``rig``, holds a hosted unit at a machine of the user's,
+    or would not load as a setup (the caller's read of ``rig`` may already have
+    filed its rig file; that is the read's record, not this approval's). It
+    names nothing live: :func:`use` does that.
+    """
+    fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
+    policy = _read_setup(setup / POLICY_FILENAME, load_policy)
+    units = fleet.get("units") or {}
+    on_rig = [name for name, body in units.items() if str(body.get("rig")) == rig]
+    if not on_rig:
+        raise PromoteRefusedError(
+            f"{setup / FLEET_FILENAME} lays out no unit on {rig}; nothing is approved"
+        )
+    local = sorted(
+        f"{unit} ({why})"
+        for unit, body in units.items()
+        if "rig" not in body
+        and (why := on_a_users_machine(str(body.get("address") or ""))) is not None
+    )
+    if local:
+        raise PromoteRefusedError(
+            f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
+            "a machine is not approved for live work until it is read"
+        )
+    layout = {rig: [[name, "awake"] for name in on_rig]}
+    try:
+        mcorch_units(policy, layout, name=OWN_FLEET)
+    except FleetError as exc:
+        raise PromoteRefusedError(
+            f"{exc}; a fleet that cannot serve its mcorch policy is not approved"
+        ) from exc
+    own = copy.deepcopy(fleet)
+    own["profile"] = "live"
+    own["rigs"] = {rig: {"rig_id": rig_id}}
+    own["fleets"] = {OWN_FLEET: {"layout": layout}}
+    for name in on_rig:
+        own["units"][name]["unit_id"] = _unit_id(units[name])
+    approved = datetime.now(UTC)
+    lock = {
+        "layout_sha256": layout_sha256(layout_ids(own, layout)),
+        "next": [],
+        "switches": [],
+        "approved_by": OWN_APPROVER,
+        "approved_at": approved.isoformat(timespec="seconds"),
+    }
+    fleet_text = yaml.safe_dump(own, sort_keys=False)
+    policy_text = yaml.safe_dump(policy, sort_keys=False)
+    try:
+        parse(fleet_text, policy_text)
+    except ConfigError as exc:
+        raise PromoteRefusedError(
+            f"{OWN_FLEET}: the live fleet folder would not load as a setup: {exc}"
+        ) from exc
+    _pinned(load_fleet(fleet_text), OWN_FLEET, lock, "the live fleet.yaml")
+    day = approved.date().isoformat()
+    folder = fleets_dir() / tagged(OWN_FLEET, day)
+    later = 2
+    while folder.exists() or folder.is_symlink():
+        folder = fleets_dir() / tagged(OWN_FLEET, f"{day}-{later}")
+        later += 1
+    _build(
+        folder,
+        OWN_FLEET,
+        {
+            Path(FLEET_FILENAME): fleet_text.encode("utf-8"),
+            Path(POLICY_FILENAME): policy_text.encode("utf-8"),
+            LOCK_DIR / f"{OWN_FLEET}.json": (
+                json.dumps(lock, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8"),
+        },
+    )
+    return folder
+
+
 @dataclass(frozen=True)
 class Switch:
     """What ``use`` did: the pointer it wrote, and what the lock knows of the move."""

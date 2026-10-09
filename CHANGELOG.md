@@ -11,6 +11,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Added
 
+- `mcgyvr init` approves a model served on the machine it runs on, not just
+  hosted units (borders plan 2c-2). When it binds a backend detected on this
+  machine, it reads that machine with the door's own readers, run locally and
+  not over ssh, writes its rig file (`$MCGYVR_RIGS/localhost.json`), and
+  approves the fleet with the rig `localhost` laid out and pinned by the rig
+  id the read named. A unit on any other machine is still refused: a remote
+  machine is read over ssh, which `init` does not take.
 - `MCGYVR_RIGS` names the folder that holds the door's rig files (borders plan
   2b-P1b). Unset or empty, a rig file stays at `$MCGYVR_HOME/rigs/<rig>.json`
   exactly as before. `~` is expanded; a relative path is refused, naming the

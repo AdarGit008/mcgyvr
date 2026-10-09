@@ -594,6 +594,19 @@ def _deployment_default(use_case: str) -> str:
     return "local-only" if use_case == "chat" else "hybrid"
 
 
+def _rig_name(backend: Any, fallback: str) -> str:
+    """The machine a unit runs on, named as the door reaches it.
+
+    A rig is a machine, not a backend kind: init wrote the backend's name
+    (``llama.cpp``), which no door can reach. A backend on this machine is the
+    rig ``localhost`` (the owner's name for it); a remote one is the host the
+    sweep named; a rung with no backend keeps its source's name.
+    """
+    if backend is None:
+        return fallback
+    return "localhost" if backend.is_local else backend.host
+
+
 def build(
     detection: Detection,
     proposal: Proposal,
@@ -635,7 +648,7 @@ def build(
         }
         if backend is not None and backend.kind == "vllm":
             unit["engine"] = "vllm"
-        unit["rig"] = backend.name if backend is not None else rung.source
+        unit["rig"] = _rig_name(backend, rung.source)
         units[rung.name] = unit
     for api in api_units:
         # The same whole fact, minus the `rig` a hosted endpoint does not have,
