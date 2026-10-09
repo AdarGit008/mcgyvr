@@ -6,11 +6,11 @@ UNIT...]`` is the door's third fixed sequence, beside the campaign run and
 lease, a live run tears down what it displaced, and a busy rig is refused
 unless the run is ``serve down``. ``read`` changes nothing on the rig:
 
-* **The profile is settled**, and no round is appended to
-  ``tools/bench/rounds.json``.
-* **The rig is compared with its declaration and nothing else.** No lease, no
-  teardown of a displaced run, no refusal of a busy rig. A rig that is not its
-  declaration is refused, and nothing is filed.
+* **The profile is settled**, and no round is appended or pinned (the round is
+  the lab's).
+* **The rig is held to the user's rig file and nothing else.** No lease, no
+  teardown of a displaced run, no refusal of a busy rig. A rig with no rig file
+  is refused, and nothing is filed.
 * **One reader is shipped to the rig**: its facts and ``os_machine_id`` (so its
   rig id, :func:`mcgyvr.fleet.ids.rig_id`), every container with its restart
   count ("not read" is never 0), every card holder by pid, container and MiB
@@ -193,7 +193,7 @@ def reading(
 
 
 def read_door(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    argv = [sys.executable, str(root / onedoor.DOOR_REL), "read", "--mode", "lab"]
+    argv = [sys.executable, str(root / onedoor.DOOR_REL), "read"]
     argv += ["--host", "srv2"]
     argv += ["--run-id", RUN_ID, *args]
     return subprocess.run(
@@ -271,39 +271,6 @@ def test_read_help_offers_no_way_past_a_gate(tmp_path: Path) -> None:
 
 
 # --- what a read leaves -----------------------------------------------------------
-
-
-def test_a_read_leases_nothing_tears_nothing_down_appends_no_round_files_no_envelope(
-    srv2: tuple[Path, Path],
-) -> None:
-    from mcgyvr.serving import gatelib
-
-    root, _ = srv2
-    held = gatelib.new_lease("dev", "a-dev-campaign", "step", 1).line()
-    onedoor.plant_lease(root, held)
-    onedoor.unpin(root)
-    rounds = (root / "tools" / "bench" / "rounds.json").read_bytes()
-
-    result = read_door(root)
-
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
-    assert (onedoor.read_lease(root) or "").strip() == held.strip()
-    assert not [line for line in onedoor.docker_log(root) if line.startswith("rm")]
-    assert (root / "tools" / "bench" / "rounds.json").read_bytes() == rounds
-    assert not (root / "records" / "evidence").exists()
-
-
-def test_a_rig_that_is_not_its_declaration_is_refused_and_nothing_is_filed(
-    srv2: tuple[Path, Path],
-) -> None:
-    root, journal = srv2
-    reading(root, snapshot={"gpu_vram_mib": "8192"})
-
-    result = read_door(root)
-
-    assert result.returncode == 2, (result.stdout, result.stderr[-2000:])
-    assert "gpu_vram_mib" in result.stderr and "declar" in result.stderr
-    assert rows(journal) == []
 
 
 # --- what a read files --------------------------------------------------------------

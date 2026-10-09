@@ -1,19 +1,17 @@
 """The door refuses before it acts, and leaves ``records/`` as it found it.
 
 ``python -m mcgyvr.serving.run`` is the one access point to the rigs. Asked
-for a campaign that has no directory under ``tools/runs/campaigns/``, a host
-``hosts.json`` does not declare, a ``--step`` that is not a file, or no
-``--host`` at all, it exits 2 naming what was asked and writes nothing under
-``records/``. And ``--help`` shows no ``--skip``, ``--force`` or ``--no-``
+for a host whose rig file does not exist, a ``--step`` that is not a file, or
+no ``--host`` at all, it exits 2 naming what was asked and writes nothing
+under ``records/``. And ``--help`` shows no ``--skip``, ``--force`` or ``--no-``
 anything: there is no way past a gate, so the usage cannot show one.
 
 Where each refusal lands is the door's, and it is not uniform. An absent
-``--host`` and a ``--step`` that is not a file stop in argument parsing; an
-undeclared host stops at gate 2 before the rig is read; an unknown campaign
-stops at gate 5, where the envelope would have been made and ``RUN_ID``
-minted — so it costs a rig read (gates 2-4 have run) and no artifact. The
-refusal names the campaigns that do exist, so an operator learns the
-vocabulary from the door and not from a document.
+``--host`` and a ``--step`` that is not a file stop in argument parsing; a
+host with no rig file stops at gate 2 before the rig is read (the user-mode
+``rigfile.required`` check, before anything reaches the rig). The refusal
+names how to make the file, so an operator learns the vocabulary from the
+door and not from a document.
 """
 
 from __future__ import annotations
@@ -47,9 +45,10 @@ def test_an_undeclared_host_is_refused_at_gate_2_before_the_rig_is_read(
     result = onedoor.door(root, Scenario("alpha", "1-probe.sh", host="srv9"))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "srv9" in result.stderr, result.stderr
-    assert "hosts.json" in result.stderr, result.stderr
+    assert "no rig file" in result.stderr, result.stderr
+    assert "mcgyvr scan --rig srv9" in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
-    assert onedoor.ssh_log(root) == [], "a rig nobody declared was reached"
+    assert onedoor.ssh_log(root) == [], "a rig nobody described was reached"
     assert not (tmp_path / "e").exists()
 
 
