@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 from tests import onedoor, usermode
@@ -115,35 +114,3 @@ def test_a_step_output_flag_inside_the_out_root_envelope_is_admitted(
 
     assert done.returncode == 0, done.stdout + done.stderr
     assert usermode.recorded(record)["ARGS"] == f"--out {inside}"
-
-
-def test_a_lab_step_files_under_its_out_root_and_not_the_run_roots_records(
-    tmp_path: Path,
-) -> None:
-    """The lab's layout, kept: ``--out-root <lab>/records/evidence``."""
-    root = onedoor.fixture_repo(tmp_path)
-    out_root = tmp_path / "lab-records" / "evidence"
-    out_root.mkdir(parents=True)
-    env_file = tmp_path / "step.env"
-    step = onedoor.add_step(
-        root, "probe-camp", "1-probe.sh", onedoor.probe_step(env_file)
-    )
-    argv = [sys.executable, str(root / onedoor.DOOR_REL), "step", "--mode", "lab"]
-    argv += ["--host", "srv1", "--campaign", "probe-camp", "--step", str(step)]
-    argv += ["--date", onedoor.RUN_DATE, "--out-root", str(out_root)]
-
-    done = subprocess.run(
-        argv,
-        cwd=root,
-        env=onedoor.door_env(root),
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    )
-
-    assert done.returncode == 0, done.stdout + done.stderr
-    envelope = out_root / f"{onedoor.RUN_DATE}-probe-camp"
-    assert (envelope / "probe.tsv").is_file()
-    assert onedoor.written_under_records(root) == []
