@@ -1,3 +1,0 @@
-```python
-def fuel_legs(litres: int, burn: int) -> int:
-    """

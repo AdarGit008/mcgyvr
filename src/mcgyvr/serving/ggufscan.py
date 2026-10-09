@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Read a GGUF's tensor table and report what is expert weight and what is not.
 
-**Vendored from ``records/evidence/2026-09-01-bandwidth-and-ncmoe-floor/
-ggufscan.py``, which stays where it is.** That copy is the evidence a dated
-record was computed from and must not move; this one is a live dependency of
-the door (``gate-scripts/data-20-geometry.py``) and of the bench
-(``tools/bench/serving/backends/llamacpp.py``, ``_geometry``), both of which
-ship it to the serving host and run it there as ``python3 -``. Operators run
-it as ``python -m mcgyvr.serving.ggufscan <gguf>``. Two copies of one parser
-is a cost paid deliberately: importing a module out of ``records/`` would let
-an edit made for a gate silently rewrite what a published measurement claims
-to have been computed with.
+**Vendored from the lab's bandwidth/ncmoe-floor evidence parser, which stays
+where it is.** That copy is the evidence a dated record was computed from and
+must not move; this one is a live dependency of the door
+(``gate-scripts/data-20-geometry.py``) and of the bench's llamacpp backend
+(``_geometry``), both of which ship it to the serving host and run it there
+as ``python3 -``. Operators run it as ``python -m mcgyvr.serving.ggufscan
+<gguf>``. Two copies of one parser is a cost paid deliberately: importing a
+module out of the evidence record would let an edit made for a gate silently
+rewrite what a published measurement claims to have been computed with.
 
 **The point of reading the header rather than the file size is that the two
 answer different questions.** ``stat -c %s`` says what the blob weighs on

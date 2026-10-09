@@ -1,2 +1,0 @@
-```python
-def sort_by_len(words: list) -> list:

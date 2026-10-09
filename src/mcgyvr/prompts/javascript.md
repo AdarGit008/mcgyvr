@@ -1,5 +1,6 @@
 <!-- MEASURED, AND IT FOUND NO EFFECT (#144). This file is
-     tools/bundle/'s c2 condition byte for byte, and that ladder was run on
+     the lab bundle instrument's c2 condition byte for byte, and that ladder
+     was run on
      qwen2.5-coder:3b Q4_K_M over 20 JS/TS tasks: c0/c1/c2/c3 scored
      45/55/50/45% first-pass, every delta inside the ±1-task noise floor the
      design set in advance. So this bundle is not the c0 condition's rescue

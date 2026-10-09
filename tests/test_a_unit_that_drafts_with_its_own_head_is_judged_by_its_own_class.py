@@ -16,19 +16,14 @@ sample the lock itself accepted.
   nobody. Checked on invented units, and on each unit the committed fleet
   declares against its class with the mtp request taken out, so the check
   holds whichever units the fleet carries.
-* ``tools/runs/derived.json`` states ``mtp`` in both judged fields: prefill at
-  the 5% ``assemble_evidence.py tolerance`` derived from the window
-  (``records/measurements/lock-fleets/mtp-ornith/prefill-tolerance-mtp.json``),
-  warm decode at the same rule over the same three runs' decode samples
-  (``runs.json``: L = the median of the run medians, tol = max(1, ceil(worst
-  shortfall %))), which is 2%. An absent ``mtp`` is refused by name, as any
-  class is.
+* The lab's derived numbers state ``mtp`` in both judged fields: prefill at
+  the 5% tolerance derived from the mtp-ornith window, warm decode at the same
+  rule over the same three runs' decode samples, which is 2%. An absent
+  ``mtp`` is refused by name, as any class is.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -42,7 +37,6 @@ from mcgyvr.fleet.tolerance import (
     tolerance_class,
 )
 
-REPO = Path(__file__).resolve().parent.parent
 SPEC = ["--spec-type", "draft-mtp", "--spec-draft-n-max", "2"]
 BASE = ["--model", "/models/moe/x.gguf", "--parallel", "1", "-c", "4096", "-ngl", "99"]
 
@@ -131,19 +125,3 @@ def test_any_other_spec_type_or_a_bare_word_is_judged_as_before(
 def test_a_vllm_unit_is_vllm_whatever_its_argv_says() -> None:
     unit = {"engine": "vllm", "launch": {"argv": ["Qwen/x", *SPEC]}}
     assert tolerance_class(unit) == CLASS_VLLM
-
-
-# --- the numbers ----------------------------------------------------------------
-
-
-@pytest.mark.parametrize("entry", ["warm_decode_class_pct", "prefill_class_pct"])
-def test_an_absent_mtp_class_is_refused_by_name(entry: str, tmp_path: Path) -> None:
-    from mcgyvr import derived
-
-    doc = json.loads((REPO / "tools/runs/derived.json").read_text(encoding="utf-8"))
-    del doc["engine"][entry][CLASS_MTP]
-    path = tmp_path / "derived.json"
-    path.write_text(json.dumps(doc), encoding="utf-8")
-    with pytest.raises(derived.DerivedNumbersError, match=entry) as was:
-        derived.class_tolerances(path=path)
-    assert repr(CLASS_MTP) in str(was.value)

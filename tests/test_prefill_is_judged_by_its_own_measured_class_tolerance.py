@@ -1,14 +1,13 @@
 """A live prefill is judged by its own measured class tolerance, not decode's.
 
-The owner's ruling (``mcgyvr-lab/records/plans/fleet-identity.md`` §12):
-"Prefill tolerance — ruled 8%". A probe's prefill is judged by the prefill class
-percent, never the warm decode class percent (``engine.warm_decode_class_pct``):
-an on-rig ``read --probe srv2_3b`` prefill a few percent under its lock is inside
-vLLM's prefill class and outside vLLM decode's 1%.
+The owner's ruling (the lab's fleet-identity plan, §12): "Prefill tolerance —
+ruled 8%". A probe's prefill is judged by the prefill class percent, never the
+warm decode class percent (``engine.warm_decode_class_pct``): an on-rig ``read
+--probe srv2_3b`` prefill a few percent under its lock is inside vLLM's prefill
+class and outside vLLM decode's 1%.
 
-The prefill classes are those of
-``mcgyvr-lab/records/measurements/fleet-identity-prefill-2026-09-12/README.md``,
-stated in ``tools/runs/derived.json`` as ``engine.prefill_class_pct``:
+The prefill classes are the lab's fleet-identity-prefill measurement, stated as
+``engine.prefill_class_pct``:
 
 * **vLLM 8%**: the 3B's 7.86% worst single-sample shortfall, rounded up, after
   the single restart-tail outlier (the 7B's 9,460 tok/s) is dropped;
@@ -25,7 +24,6 @@ percent its field was judged at.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -33,43 +31,15 @@ import pytest
 
 from tests import test_a_live_probe_is_judged_against_its_lock as probed
 
-REPO = Path(__file__).resolve().parent.parent
 RUN_ID = "run-20260915T120000-0a1b2c3d"
 LEASE_ID = "probe-0a1b2c3d"
-
-
-# --- the numbers ------------------------------------------------------------
-
-
-@pytest.mark.parametrize("name", ["vllm", "llamacpp", "cpu_experts", "mtp"])
-def test_an_absent_prefill_class_is_refused_by_name(name: str, tmp_path: Path) -> None:
-    from mcgyvr import derived
-
-    doc = json.loads((REPO / "tools/runs/derived.json").read_text(encoding="utf-8"))
-    del doc["engine"]["prefill_class_pct"][name]
-    path = tmp_path / "derived.json"
-    path.write_text(json.dumps(doc), encoding="utf-8")
-    with pytest.raises(derived.DerivedNumbersError, match="prefill_class_pct") as was:
-        derived.class_tolerances(path=path)
-    assert repr(name) in str(was.value), str(was.value)
-
-
-def test_an_absent_prefill_entry_is_refused_by_name(tmp_path: Path) -> None:
-    from mcgyvr import derived
-
-    doc = json.loads((REPO / "tools/runs/derived.json").read_text(encoding="utf-8"))
-    del doc["engine"]["prefill_class_pct"]
-    path = tmp_path / "derived.json"
-    path.write_text(json.dumps(doc), encoding="utf-8")
-    with pytest.raises(derived.DerivedNumbersError, match="prefill_class_pct"):
-        derived.class_tolerances(path=path)
 
 
 # --- the probe's judge ------------------------------------------------------
 
 
 def _approved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unit: str) -> Any:
-    """The probe's view of ``unit``, from a promoted lock and derived.json."""
+    """The probe's view of ``unit``, from a promoted lock and its tolerances."""
     from mcgyvr import derived
     from mcgyvr.fleet import probe
     from mcgyvr.fleet.admit import layout_ids

@@ -269,8 +269,9 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "lands in the repository a run works on, and nothing on the command "
         "line moves it: it is the one place every run is, which is what makes "
         "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
-        "copy for your own use. Read either back with `tools/live/review.py "
-        "DIR`.",
+        "copy for your own use. Read either copy back from DIR directly: one "
+        "JSONL per writer, prompts and replies under `blobs/`, results under "
+        "`results/`.",
         default=JOURNAL_DIR_DEFAULT,
     ),
 )

@@ -6,7 +6,7 @@ computed for. A live alert pulls its combination and warns once (the journal is
 the memory, so a repeat warns nowhere); a dev run with an alert fails. A pull
 clears only when the combination's validation is re-committed; ``rejudge``
 re-checks the journal under a tighter rule and pulls nothing.
-(``mcgyvr-lab/records/plans/fleet-identity.md`` §5 and §7.)
+(the lab's fleet-identity plan, §5 and §7.)
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def _plain_hit(
     """Whether ``value`` falls outside a lock's plain value, or ``None`` unjudged.
 
     The lock pins a unit's figures as plain numbers (the ``approved`` block of
-    ``records/fleet/rigs/<rig->/<cmb->.json``). A probe judges each with its own
+    one combination record per rig). A probe judges each with its own
     class percent, carried beside them in ``tolerance_pct`` keyed by field
     (:func:`_plain_pct`), and its card against ``room_mib``. A figure with no
     locked value, or no stated bound, is recorded and not judged.

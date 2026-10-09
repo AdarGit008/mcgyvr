@@ -204,7 +204,7 @@ mem_available_kib() {
 
 # The rig identity (`rig-` = H{ host, hardware, system }) hashes the kernel,
 # MemTotal, swap and swappiness: a kernel update or a swap change mints a new
-# rig on purpose (mcgyvr-lab/records/plans/fleet-identity.md §1).
+# rig on purpose (the lab's fleet-identity plan, §1).
 kernel_version() {
     local out
     out=$(tok "$(uname -r 2>/dev/null)")

@@ -1483,16 +1483,16 @@ def _run(args: argparse.Namespace) -> int:
     # parser could have looked: attached now that the directory is known.
     session = with_mcorch_transcript(session, journal_dir)
     # Theirs, for their own reading. A complete copy — every line, every blob,
-    # the result file — so `tools/live/review.py DIR` reads it exactly as it
-    # reads ours, and a failure to write one is a note rather than the end of a
+    # the result file — so a reader of the journal reads it exactly as it reads
+    # ours, and a failure to write one is a note rather than the end of a
     # run we have already recorded correctly (`Recording.copy_failed`).
     #
     # A copy of the corpus *into* the corpus is dropped rather than made, and
     # this is not a nicety: the copy is written to `<dir>/<orchestrator>.jsonl`
     # by the same name ours is, so naming our own directory would append every
     # line to the same file twice. `fold` keeps both rows — a repeat attempt id
-    # is a collision, not a supersede — so `tools/live/index.py`, one table row
-    # per folded attempt, would count one dispatch as two.
+    # is a collision, not a supersede — so a reader that builds one table row
+    # per folded attempt would count one dispatch as two.
     # Resolved before comparing, because `--record .` and an absolute
     # `journal.dir` are the same directory spelled two ways.
     asked = Path(args.record).expanduser() if args.record is not None else None
@@ -1928,7 +1928,7 @@ def _climb(
     from mcgyvr.verify import reviewers_for
 
     # Live is admitted before anything here is built, opened or dispatched
-    # (`mcgyvr-lab/records/plans/fleet-identity.md` §6): each rig of the live
+    # (the lab's fleet-identity plan, §6): each rig of the live
     # fleet is read through the door and held to its lock
     # (`mcgyvr.fleet.admission`). At the
     # top, the conservative place: a refused run costs no pool, no capacity slot
@@ -2826,7 +2826,7 @@ def _serve(args: argparse.Namespace) -> int:
     by hand, and it is deliberately **not** gated by
     ``serving.enable_sleep_wake``: that switch exists so that mcgyvr does not
     decide to take a card down without being asked, and a person typing this has
-    asked (``mcgyvr-lab/records/plans/sleep-wake.md`` §15).
+    asked (the lab's sleep-wake plan, §15).
 
     ``sleep`` drains before it evicts. Every slot of every bound the card serves
     is taken first, so a dispatch that had already been admitted finishes rather
@@ -2877,8 +2877,8 @@ def _serve(args: argparse.Namespace) -> int:
     if not made.ok:
         print(
             f"error: the door exited {made.code} on `serve {made.direction}` for "
-            f"{made.host} — read its envelope under "
-            f"records/evidence/<date>-live-{made.host}/",
+            f"{made.host} — read its envelope in the door's log under "
+            f"~/.local/state/mcgyvr/door/",
             file=sys.stderr,
         )
         return Exit.ERROR
@@ -3527,7 +3527,7 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
     (:mod:`mcgyvr.session`): ``--orchestrator ID`` if given, else the Claude
     Code or Pi session in the environment, else a refusal whose message names
     all three. A default derived from the process is a single-orchestrator
-    assumption (``mcgyvr-lab/archive/docs/port-from-local-ai.md`` §9), so there
+    assumption (the lab's port-from-local-ai note, §9), so there
     is no default, only a flag and two variables to ask for.
 
     An id containing ``/`` is refused here too, because the id *is* the file
@@ -4433,7 +4433,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     fleet_sub = fleet.add_subparsers(dest="fleet_command", required=True)
     flock = fleet_sub.add_parser(
         "lock",
-        help="write the fleet lock from passing dev runs (records/fleet/)",
+        help=(
+            "write the fleet lock from passing dev runs (into the dev root's lock tree)"
+        ),
     )
     flock.add_argument(
         "--fleet",
@@ -4458,7 +4460,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         default=None,
         metavar="DIR",
         help=(
-            "where records/fleet/ is written (default: the dev root — "
+            "where the lock tree is written (default: the dev root — "
             "$MCGYVR_RUN_ROOT, else the checkout). Anything in or under the config "
             f"folder (${HOME_ENV}, else {HOME_DIR}) or in or under {HOME_DIR} is "
             "refused: a live fleet comes only from `mcgyvr fleet promote`"
@@ -4540,7 +4542,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         default=None,
         metavar="DIR",
         help=(
-            "where records/fleet/ is read (default: the lock root the config's "
+            "where the lock tree is read (default: the lock root the config's "
             f"profile names — for live the fleet {LIVE_FILE_SHOWN} names, "
             "for dev the dev root)"
         ),
@@ -4640,7 +4642,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "also journal this run under DIR, as a complete second copy for "
             "your own reading: DIR/<ID>.jsonl, DIR/blobs/, DIR/results/, read "
-            "back with tools/live/review.py DIR. This does not move mcgyvr's "
+            "back from DIR directly. This does not move mcgyvr's "
             "own record, which is always written under the config's "
             "`journal.dir` so that every run there has ever been can be counted "
             "in one place; a copy that cannot be written is reported and does "

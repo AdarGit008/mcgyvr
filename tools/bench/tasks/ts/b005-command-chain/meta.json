@@ -1,6 +1,0 @@
-{
-  "file_shape": "multi_symbol",
-  "shape": "recursion",
-  "steering_band": "g1",
-  "target_symbol": {"ts": "chainOfCommand", "py": "chain_of_command"}
-}

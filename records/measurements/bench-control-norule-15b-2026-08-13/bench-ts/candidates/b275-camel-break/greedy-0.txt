@@ -1,8 +1,0 @@
-```ts
-function camelBreak(name: string): string[] {
-  if (!name) return [];
-
-  const words = name.split(/(?=[A-Z])/);
-  return words.map(word => word.toLowerCase());
-}
-```

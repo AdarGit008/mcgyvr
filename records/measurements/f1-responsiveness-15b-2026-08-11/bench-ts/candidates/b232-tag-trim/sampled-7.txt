@@ -1,9 +1,0 @@
-```ts
-export function tagTrim(tag: string): string {
-  // Strip leading hash if present
-  const stripped = tag.replace(/^#/, '');
-
-  // Strip trailing colon if present
-  return stripped.replace(/:$/, '');
-}
-```

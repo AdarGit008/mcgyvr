@@ -1,8 +1,8 @@
 # The product is built here, once, from a `v*` tag, and nowhere else.
 #
 # Four buckets: source (this repository), product (a
-# wheel built from src/mcgyvr on a tag), declared config (~/.mcgyvr/config,
-# tools/runs/hosts.json) and live state (the rigs). The arrows go one way —
+# wheel built from src/mcgyvr on a tag), declared config (~/.mcgyvr/config)
+# and live state (the rigs). The arrows go one way —
 # source -> product -> install — and config joins at install time, never at
 # build time: the same wheel runs on the laptop and on srv1, and only
 # $MCGYVR_CONFIG differs. A wheel built twice would be two products with one

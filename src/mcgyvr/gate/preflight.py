@@ -46,9 +46,9 @@ class TokenCount(StrEnum):
 
 
 # How much room a proxy count must leave for its own error, as a fraction of
-# the estimate. Measured, not chosen:
-# `mcgyvr-lab/records/measurements/tokens-2026-08-03/README.md` puts the
-# estimator's 5th-percentile error at -31.1% on the worst of the three distinct
+# the estimate. Measured, not chosen: the lab's token-estimator measurement
+# puts the estimator's 5th-percentile error at -31.1% on the worst of the
+# three distinct
 # vocabularies the shipped capability table's models use (DeepSeek-Coder-V2),
 # over 2,387 units of the text production actually asks it to count. Rounded up
 # to the next whole percent, and *only* the under-estimating tail matters here:
@@ -57,7 +57,7 @@ class TokenCount(StrEnum):
 #
 # It leaves a stated ~5% residual rather than an unquantified one, which is the
 # improvement — a hard cap enforced by an unmeasured proxy could not say which
-# way it was failing. Re-derive with `tools/tokens/measure.py`.
+# way it was failing. Re-derive with the lab's token measurement instrument.
 ESTIMATE_RESERVE = 0.32
 
 

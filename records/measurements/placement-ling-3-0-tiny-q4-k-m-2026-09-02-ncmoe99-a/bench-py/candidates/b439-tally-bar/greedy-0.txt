@@ -1,4 +1,0 @@
-```python
-def tally_bar(count: int, width: int) -> str:
-    if count <= 0:
-       

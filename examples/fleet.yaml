@@ -8,7 +8,7 @@
 # refused, never ignored — a file that does not say what it means is refused
 # rather than read under the wrong rules.
 #
-# A concrete dev setup lives at `fleet-setup/fleet.yaml` in the mcgyvr repository.
+# A concrete dev setup lives with the lab's fleet records, not in this product.
 
 profile: dev          # live | dev — live outranks dev on the rigs
 
@@ -45,7 +45,7 @@ units:
 rigs:
   local:
     # Identity digest over {host, hardware, system} — compute with
-    # `mcgyvr.fleet.ids.digest("rig-", fields)` (see mcgyvr-lab/records/plans/fleet-identity.md).
+    # `mcgyvr.fleet.ids.digest("rig-", fields)` (see the lab's fleet-identity plan).
     rig_id: "rig-0000000000000000"
 
 fleets:

@@ -1,7 +1,0 @@
-def apply_inflections(word: str, rules: list[list[str]]) -> str:
-    for suffix, replacement in rules:
-        if suffix == "":
-            raise ValueError("empty suffix in rule table")
-        if word.endswith(suffix):
-            return word[: -len(suffix)] + replacement
-    return word

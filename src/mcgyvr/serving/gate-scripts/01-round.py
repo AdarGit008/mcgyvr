@@ -82,8 +82,8 @@ def profile() -> tuple[str, str]:
 def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
     """The containers the ``which`` profile's fleet lock names for ``rig``.
 
-    The lock's combination records under ``records/fleet/rigs/<rig->/`` name
-    each locked unit by its container, under the root the profile reads
+    The lock's combination records under its rigs tree name each locked unit
+    by its container, under the root the profile reads
     (:func:`mcgyvr.fleet.roots.lock_root`: for live, the fleet folder the
     config folder's ``live.json`` names, and no lock at all without one) and never
     under the run root. Gate 1 reaches no rig, so this is a read of local
@@ -151,10 +151,10 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
 def main() -> int:
     door_required("gate 1")
     # The profile first, and the round second: the round check may APPEND a
-    # round to tools/bench/rounds.json when the tree moved (a boundary in the
-    # record, and the door's job), while a run refused for its profile should
-    # leave nothing behind at all — and the profile needs nothing from the
-    # round to be judged.
+    # round to the round record when the tree moved (a boundary in the record,
+    # and the door's job), while a run refused for its profile should leave
+    # nothing behind at all — and the profile needs nothing from the round to
+    # be judged.
     which, source = profile()
     serve = os.environ.get("RUN_SERVE")
     if serve:

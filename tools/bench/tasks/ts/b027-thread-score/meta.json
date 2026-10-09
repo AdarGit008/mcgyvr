@@ -1,6 +1,0 @@
-{
-  "file_shape": "multi_symbol",
-  "shape": "recursion",
-  "steering_band": "g3",
-  "target_symbol": { "ts": "threadScore", "py": "thread_score" }
-}

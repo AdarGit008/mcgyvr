@@ -4,7 +4,7 @@ Live is production: mcgyvr delegating real code tasks. It runs a fleet the
 operator picked from the locked set, and nothing else. ``admit_live`` checks the
 lock, the pin, the rig and the holders of the card, and returns what to clean
 and what to restore. ``wake`` finds the one listed switch that wakes a unit.
-(``mcgyvr-lab/records/plans/fleet-identity.md`` §6.)
+(the lab's fleet-identity plan, §6.)
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def admit_live(
 
     lock_path = root / "records" / "fleet" / f"{fleet_name}.json"
     if not lock_path.is_file():
-        raise LiveRefusedError(f"{fleet_name} has no lock in records/fleet/")
+        raise LiveRefusedError(f"{fleet_name} has no lock in its fleet folder")
     lock_record = json.loads(lock_path.read_text(encoding="utf-8"))
 
     block = fleets[fleet_name]

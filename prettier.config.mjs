@@ -23,10 +23,9 @@
 // disk for a cosmetic gain. `identity.bar_material` puts the asymmetry in the
 // manifest so a reader of a ts/py contrast sees it.
 //
-// The bench copies this file into each scored workspace
-// (`tools/bench/score.py:stage_config`), so a candidate is judged by the
-// project's declared style rather than by whatever prettier falls back to when
-// it finds no configuration.
+// A scored workspace copies this file in before it is judged, so a candidate
+// is judged by the project's declared style rather than by whatever prettier
+// falls back to when it finds no configuration.
 
 export default {
   // --- global ---------------------------------------------------------------

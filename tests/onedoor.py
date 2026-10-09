@@ -24,7 +24,7 @@ because the door derives its repo root from its own file — holding:
   user mode. The rigs are described by user rig files under
   ``$MCGYVR_RIGS/<rig>.json``, written for this tree from the same
   ``RIG``/``LIVE`` readings the stubs answer, and a run is filed under
-  ``--out-root records/evidence`` (a folder the fixture makes);
+  ``--out-root out`` (a folder the fixture makes);
 * ``stubs/``, first on the PATH :func:`door_env` builds: the ``ssh`` reads the
   rig-snapshot request off its command line and answers from
   ``snapshot.txt`` (or ``snapshot-moved.txt`` once a flag file the test names
@@ -62,6 +62,8 @@ SERVING_SRC = REPO / "src" / "mcgyvr" / "serving"
 BIN = SERVING_SRC / "gate-scripts" / "bin"
 DOOR_REL = Path("src") / "mcgyvr" / "serving" / "run.py"
 MODEL = "/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf"
+#: Where a step run files its envelope, relative to the throw-away fixture.
+OUT_ROOT = "out"
 
 RUN_DATE = "2026-09-05"
 #: Digests the docker stub knows. ``vllm/vllm-openai:v0.26.0`` has a registry
@@ -692,7 +694,7 @@ def fixture_repo(tmp_path: Path, *, host: str = "srv1") -> Path:
     )
     # A step run files under --out-root; the folder must exist, as the door
     # never makes it.
-    (root / "records" / "evidence").mkdir(parents=True, exist_ok=True)
+    (root / OUT_ROOT).mkdir(parents=True, exist_ok=True)
     for name in ("srv1", "srv2"):
         folder = rigs_home(root) / "rigs"
         folder.mkdir(parents=True, exist_ok=True)
@@ -813,7 +815,7 @@ def _command(root: Path, scenario: Scenario | None) -> list[str]:
     argv += ["--campaign", scenario.campaign]
     if scenario.step:
         argv += ["--step", str(_step_path(root, scenario))]
-    argv += ["--out-root", "records/evidence"]
+    argv += ["--out-root", OUT_ROOT]
     argv += ["--model", scenario.model]
     argv += ["--date", scenario.date]
     argv += ["--parallel", str(scenario.parallel)]
@@ -895,7 +897,7 @@ def door_help(root: Path) -> subprocess.CompletedProcess[str]:
 
 def envelope(root: Path, campaign: str, date: str = RUN_DATE) -> Path:
     """The envelope a step run's ``--out-root`` names in the fixture."""
-    return root / "records" / "evidence" / f"{date}-{campaign}"
+    return root / OUT_ROOT / f"{date}-{campaign}"
 
 
 def serve_envelope(
@@ -911,10 +913,10 @@ def serve_envelope(
 
 
 def written_under_records(root: Path) -> list[str]:
-    records = root / "records"
-    if not records.exists():
+    out = root / OUT_ROOT
+    if not out.exists():
         return []
-    return sorted(str(p.relative_to(root)) for p in records.rglob("*") if p.is_file())
+    return sorted(str(p.relative_to(root)) for p in out.rglob("*") if p.is_file())
 
 
 def is_claim(name: str) -> bool:
@@ -925,7 +927,7 @@ def is_claim(name: str) -> bool:
 
 
 def claims(root: Path) -> list[str]:
-    """Every claim marker under ``records/`` right now. Empty after any run
+    """Every claim marker under the out root right now. Empty after any run
     the door finished, however it ended."""
     return [p for p in written_under_records(root) if is_claim(Path(p).name)]
 

@@ -1,9 +1,0 @@
-{
-  "file_shape": "multi_symbol",
-  "shape": "iteration",
-  "steering_band": "f1",
-  "target_symbol": {
-    "ts": "spanList",
-    "py": "span_list"
-  }
-}

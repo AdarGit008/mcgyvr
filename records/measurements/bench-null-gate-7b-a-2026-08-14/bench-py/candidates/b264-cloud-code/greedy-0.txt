@@ -1,4 +1,0 @@
-```python
-def cloud_code(table: dict, code: str) -> str:
-    return table.get(code.upper(), "unknown")
-```

@@ -5,10 +5,8 @@
 #   make typecheck mypy (strict)
 #   make docs      regenerate the generated docs (config reference, /mcgyvr skill)
 #   make check     everything CI runs
-#   make journal-index DIR=…   build DIR/index.sqlite over a live journal
-#   make journal-review DIR=… [OUTCOME=…]   print prompt/reply/outcome triples
 # uv provides the interpreter and a reproducible, locked dependency set.
-.PHONY: setup test lint typecheck docs docs-check check journal-index journal-review
+.PHONY: setup test lint typecheck docs docs-check check
 
 setup:  ## install dependencies (frozen — resolved from uv.lock)
 	# The project itself is rebuilt every time: its version is read from git
@@ -39,10 +37,3 @@ check: setup  ## everything CI runs — one build, then lint, typecheck, docs-ch
 	uv run --no-sync mypy
 	uv run --no-sync python -m mcgyvr.docgen --check
 	uv run --no-sync pytest
-
-DIR ?= $(HOME)/.local/state/mcgyvr/journal
-journal-index: setup  ## build DIR/index.sqlite over the live journal (default: the schema's journal.dir)
-	uv run --no-sync python tools/live/index.py $(DIR)
-
-journal-review: setup  ## print prompt/reply/outcome triples from DIR; OUTCOME=word filters
-	uv run --no-sync python tools/live/review.py $(DIR) $(if $(OUTCOME),--outcome $(OUTCOME),)

@@ -336,10 +336,9 @@ def main() -> int:
         linked(name)
         if (out_dir / name).exists():
             refuse(
-                f"gate 5: {name} already exists under "
-                f"records/evidence/{run_date}-{campaign}/; an artifact is "
-                "written once. Move it aside deliberately if this is a re-run "
-                "— the door does not overwrite evidence"
+                f"gate 5: {name} already exists under {out_dir}; an artifact "
+                "is written once. Move it aside deliberately if this is a "
+                "re-run — the door does not overwrite evidence"
             )
 
     # Every rewrite is JUDGED before any is MOVED, so a refusal on the second
@@ -388,9 +387,8 @@ def main() -> int:
         if not path.exists():
             refuse(
                 f"gate 5: {name} is declared under RUN_APPENDS and does not "
-                f"exist under records/evidence/{run_date}-{campaign}/; this "
-                "step appends to a file another step creates, and that step "
-                "has not run through the door yet"
+                f"exist under {out_dir}; this step appends to a file another "
+                "step creates, and that step has not run through the door yet"
             )
         old = start_run_id(path)
         if not old:

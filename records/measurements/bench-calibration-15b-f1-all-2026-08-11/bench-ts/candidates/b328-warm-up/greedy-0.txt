@@ -1,9 +1,0 @@
-```ts
-export function warmUp(readings: number[], floor: number): number[] {
-  let i = 0;
-  while (i < readings.length && readings[i] < floor) {
-    i++;
-  }
-  return readings.slice(i);
-}
-```

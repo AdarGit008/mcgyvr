@@ -1,6 +1,0 @@
-{
-  "file_shape": "multi_symbol",
-  "shape": "recursion",
-  "steering_band": "g0",
-  "target_symbol": {"ts": "numberSections", "py": "number_sections"}
-}

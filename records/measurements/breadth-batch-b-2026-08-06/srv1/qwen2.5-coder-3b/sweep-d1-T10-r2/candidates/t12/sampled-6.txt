@@ -1,6 +1,0 @@
-```ts
-
-export function removeNegatives(values: readonly number[]): number[] {
-  return values.filter(v => v >= 0);
-}
-```

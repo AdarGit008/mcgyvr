@@ -10,7 +10,7 @@ between verified fleets is a common action during runtime".
 ``~/.mcgyvr/fleets/<fleet>@<date>/`` — a setup of its own that ``mcgyvr
 config`` loads: ``fleet.yaml`` (profile live, that fleet's units, rigs and
 fleet block), ``policy.yaml`` (the dev policy, its ladder filtered to those
-units) and the fleet's lock under ``records/fleet/``. The date is the lock's
+units) and the fleet's lock in its own lock tree. The date is the lock's
 own (:func:`lock_date`) and the folder's name is the only place it is
 spelled: inside, the fleet keeps its plain name, so a re-lock on a new date
 is a new folder beside the old, which stays as a verified config, and a
@@ -157,9 +157,9 @@ def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
     """The day the lock under ``root`` validated ``name``'s layout, ``YYYY-MM-DD``.
 
     The latest ``validated_at`` among the combination records the lock wrote
-    for the layout (``records/fleet/rigs/<rig>/<cmb>.json``, one per rig of
-    the layout). ``root`` is a dev root or a promoted folder, and ``fleet``
-    the loaded ``fleet.yaml`` the lock was written from — the dev setup's, or
+    for the layout (one combination record per rig of the layout). ``root`` is
+    a dev root or a promoted folder, and ``fleet`` the loaded ``fleet.yaml``
+    the lock was written from — the dev setup's, or
     the folder's own — which names the layout's pins.
     """
     if name not in (fleet.get("fleets") or {}):

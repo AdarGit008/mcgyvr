@@ -1,6 +1,0 @@
-{
-  "file_shape": "multi_symbol",
-  "shape": "data_structure",
-  "steering_band": "g3",
-  "target_symbol": {"ts": "bestAction", "py": "best_action"}
-}

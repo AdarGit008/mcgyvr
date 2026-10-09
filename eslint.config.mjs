@@ -22,17 +22,6 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
-      "records/evidence/**",
-      "tools/bundle/tasks/**",
-      "tools/bundle/python/tasks/**",
-      // Historical run manifests pin these digests — a formatter pass here does not
-      // tidy anything, it breaks the resume of every run that used them.
-      // ruff has no equivalent entry because the corpus is TypeScript: this
-      // is the exclusion eslint needs and ruff never did.
-      "tools/breadth/tasks/**",
-      "tools/problems/tasks/**",
-      "tools/bench/tasks/**",
-      "tools/bench/reserve/**",
       "node_modules/**",
     ],
   },
