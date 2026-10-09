@@ -1,45 +1,36 @@
 #!/usr/bin/env python3
-"""gate 2 — the live machine equals its declaration.
+"""gate 2 — the live machine is the rig the user's file describes.
 
 WHY start==end IS NOT ENOUGH. A step's own check compares the rig with itself
 before and after, which catches a machine that moves DURING a run and says
-nothing at all about one that moved BEFORE it. RAM moved between srv1 and srv2
-twice in six days and every artifact from that window is internally consistent
-and wrong. hosts.json[HOST].rig is the declaration — read live on its read_on
-date — and every declared key must match now, except ``gpu_reserve_mib``,
-which a reboot moves within a small tolerance (:data:`RESERVE_TOLERANCE_MIB`).
+nothing at all about one that moved BEFORE it. The user's rig file is the
+declaration — the rig as `mcgyvr scan --rig` saved it — and the rig is scanned
+again here and held to that file (:mod:`mcgyvr.serving.rigfile`): what moved
+is said, and the run is refused only when the fleet no longer fits.
 
 The reading is exported for gate 7, which takes a second one after the step and
 stamps any key that moved into the artifacts, because rows produced under two
 machines have to say so.
 
 THE RIG IS LEASED HERE, before it is read. Gate 5's claim on the RUN_ID is per
-envelope, so two steps — or a laptop and srv1 — could still land on one rig
-together; the contended resource is the rig, so the lease sits on it, at
-``~/.mcgyvr/lease``, and every run takes it before it spends rig time. Under a
-``dev`` profile a held rig is a refusal naming the holder and since when
-(owner's ruling R1, 2026-09-06: live outranks dev). Under ``live`` the lease is
-taken whatever holds it, the displaced run is named, and its containers — by
-the run id its lease carries — are removed here, so this run's step opens on
-an idle rig, and again by gate 7 for anything that came back. A lease whose
-holder is a pid on this machine that is gone is stale: named, not silently
-ignored, and taken. The door releases the lease on every way out, and the
-shims refuse a displaced run's next touch of the rig, so dev yields by the
-machine and not by convention.
+envelope, so two steps could still land on one rig together; the contended
+resource is the rig, so the lease sits on it, at ``~/.mcgyvr/lease``, and every
+run takes it before it spends rig time. Under a ``dev`` profile a held rig is a
+refusal naming the holder and since when (owner's ruling R1, 2026-09-06: live
+outranks dev). Under ``live`` the lease is taken whatever holds it, the
+displaced run is named, and its containers — by the run id its lease carries —
+are removed here, so this run's step opens on an idle rig, and again by gate 7
+for anything that came back. A lease whose holder is a pid on this machine that
+is gone is stale: named, not silently ignored, and taken. The door releases the
+lease on every way out, and the shims refuse a displaced run's next touch of
+the rig, so dev yields by the machine and not by convention.
 
-IN USER MODE (a door run from an install, ``--mode user``) there is no
-hosts.json. The rig is held to the user's own rig file instead
-(:mod:`mcgyvr.serving.rigfile`), asked for before anything reaches the rig:
-the rig is scanned again with the scanner that wrote the file, what moved is
-said, and the run is refused only when the fleet no longer fits -- a card the
-compose file reserves is gone or holds less than the file records. A machine
-that is not idle is not refused either: a container or a card holder up
+A machine that is not idle is not refused: a container or a card holder up
 before the run is reported and left as it is, since mcgyvr did not start it.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
@@ -48,7 +39,6 @@ from pathlib import Path
 from mcgyvr.serving import rigfile, servelib
 from mcgyvr.serving.gatelib import (
     DEV,
-    USER_MODE,
     Lease,
     door_required,
     export,
@@ -57,8 +47,6 @@ from mcgyvr.serving.gatelib import (
     need,
     new_lease,
     refuse,
-    root,
-    run_mode,
     ssh,
     step_name,
 )
@@ -68,14 +56,8 @@ HERE = Path(__file__).resolve().parent
 #: What the reader prints beyond the declared keys that must read `none`: a
 #: card held by a process, or a container up, before the step starts, is a
 #: machine somebody else is using. The door does not repair a machine it
-#: found wrong, so the refusal names them and leaves them.
+#: found wrong, so the run names them and leaves them.
 IDLE_KEYS = ("gpu_procs", "containers")
-
-#: ``gpu_reserve_mib`` is the card's ``memory.reserved``, carved by GSP
-#: firmware per boot and so not identical across boots. The M8 two-boot
-#: measurements moved srv1 399↔401 MiB (≤ 2 MiB) and left srv2 at 377 MiB,
-#: so gate 2 admits a reading within this many MiB of its declaration.
-RESERVE_TOLERANCE_MIB = 3
 
 
 def snapshot(host: str) -> dict[str, str]:
@@ -235,141 +217,18 @@ def take_lease(host: str) -> tuple[Lease, Lease | None]:
     )
 
 
-def _matches(key: str, declared: str, reading: str | None) -> bool:
-    """Whether one declared rig key matches its live reading.
-
-    Every key is compared literally except ``gpu_reserve_mib``, the card's
-    ``memory.reserved``, which GSP firmware carves per boot: see
-    :data:`RESERVE_TOLERANCE_MIB`. A value that is not an int on either side
-    falls back to the literal comparison rather than crashing.
-    """
-    if reading is None:
-        return False
-    if key == "gpu_reserve_mib":
-        try:
-            declared_int = int(declared)
-            reading_int = int(reading)
-        except (ValueError, TypeError):
-            return declared == reading
-        return abs(declared_int - reading_int) <= RESERVE_TOLERANCE_MIB
-    return declared == reading
-
-
 def main() -> int:
     door_required("gate 2")
     host = need("RUN_HOST")
-    if run_mode() == USER_MODE:
-        return main_user(host)
-    hosts_file = root() / "tools" / "runs" / "hosts.json"
-    if not hosts_file.is_file():
-        refuse(
-            f"gate 2: {hosts_file} is missing; there is no declaration to compare with"
-        )
-    declared_all = json.loads(hosts_file.read_text(encoding="utf-8"))
-    if host not in declared_all or "rig" not in declared_all.get(host, {}):
-        known = sorted(
-            k for k, v in declared_all.items() if isinstance(v, dict) and "rig" in v
-        )
-        refuse(
-            f"gate 2: --host {host} carries no `rig` declaration in "
-            f"tools/runs/hosts.json (declared: {', '.join(known)}). Nothing is "
-            "measured on a machine nobody has described"
-        )
-    declared = declared_all[host]["rig"]
-
-    # The lease first: it is what makes the reading below this run's to act
-    # on. Exported before the reading so the door can release it on every
-    # exit path from here on, a refusal of the reading included.
-    mine, displaced = take_lease(host)
-    export("RUN_LEASE", mine.line())
-    # The displaced lease as it was read, whole: one the door did not write
-    # (a field missing) is still the run gate 7 must name and tear down.
-    export("RUN_DISPLACED", displaced.raw if displaced is not None else "")
-    if displaced is not None:
-        teardown_displaced(host, displaced, "gate 2")
-
-    live = snapshot(host)
-    bad = [
-        f"{key}: declared {value!r}, reads {live.get(key)!r}"
-        for key, value in declared.items()
-        if not _matches(key, value, live.get(key))
-    ]
-    if bad:
-        refuse(
-            f"gate 2: THIS MACHINE IS NOT THE DECLARED {host} — "
-            + "; ".join(bad)
-            + f". tools/runs/hosts.json[{host}].rig is what the rig was read as "
-            f"on {declared_all[host].get('read_on')}; either the wrong --host "
-            "was named, or the rig moved before this run. Fix the machine or "
-            "re-declare it deliberately"
-        )
-
-    busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
-    busy = {key: value for key, value in busy.items() if value != "none"}
-    serve = os.environ.get("RUN_SERVE", "")
-    alone = serve == "up" and bool(os.environ.get("RUN_SERVE_ONLY", "").split())
-    if serve in ("down", "sleep", "wake", "fetch") or alone:
-        # Taking a live ladder down is a run that opens on a busy rig by
-        # design: the units it is here to stop hold the card and the daemon.
-        # So is putting it to sleep or waking it, whose units stay up
-        # throughout, starting one unit of a file beside its running
-        # neighbours (`serve up --unit`), and a fetch, which starts nothing.
-        # Nothing is admitted on that account beyond the run itself — gate 7
-        # expects an EMPTY daemon after a whole `down`, exactly the declared
-        # containers after `sleep` and `wake`, the named units up or gone
-        # after a `--unit` run, nothing new after a fetch, and names whatever
-        # else the run left, ours or not.
-        if busy:
-            print(
-                f"gate 2: {host} is serving ("
-                + ", ".join(f"{key}={value}" for key, value in busy.items())
-                + f"); serve {os.environ.get('RUN_SERVE')} opens on it, and "
-                "gate 7 checks what is left"
-            )
-        busy = {}
-    if busy:
-        refuse(
-            f"gate 2: {host} is not idle — "
-            + ", ".join(f"{key}={value}" for key, value in busy.items())
-            + ". Nothing is measured on a card or a daemon something else is "
-            "using, and the door does not clean a machine it found busy: stop "
-            "what holds it (gpu_procs lists the card's compute processes as "
-            "pid,name,MiB; containers lists the ids `docker ps -q` prints; a "
-            "key shown as (unread) could not be read and counts as busy), "
-            "then run again"
-        )
-
-    # Gate 2b, only where a campaign says it serves: the serving harness's
-    # markers are verified here, before any step.
-    campaign_json = (
-        root() / "tools" / "runs" / "campaigns" / need("RUN_CAMPAIGN") / "campaign.json"
-    )
-    if campaign_json.is_file():
-        doc = json.loads(campaign_json.read_text(encoding="utf-8"))
-        if doc.get("serving") is True:
-            sys.path.insert(0, str(root()))
-            from tools.bench.serving.launch import verify_markers
-
-            problems = verify_markers(root())
-            if problems:
-                refuse(
-                    "gate 2b: the serving harness on disk fails its own "
-                    "markers: " + "; ".join(problems)
-                )
-
-    # Whitespace-free by construction (the reader's `tok`), so the whole
-    # reading survives as one exported line and gate 7 can diff against it.
-    export("RUN_PRE_RIG", " ".join(f"{k}={v}" for k, v in sorted(live.items())))
-    print(f"gate 2: {host} matches its declaration on {len(declared)} keys")
-    return 0
+    return main_user(host)
 
 
 def main_user(host: str) -> int:
-    """Gate 2 in user mode: the lease, the reading, and the user's rig file.
+    """Gate 2: the lease, the reading, and the user's rig file.
 
     The rig file is asked for first, so a run with none reaches no rig. The
-    lease and the reading gate 7 diffs against are taken as in the lab; the
-    rig is then scanned again and held to its file (:func:`rigfile.door_check`).
+    lease and the reading gate 7 diffs against are taken first; the rig is
+    then scanned again and held to its file (:func:`rigfile.door_check`).
     """
     saved = rigfile.required(host, "gate 2")
     mine, displaced = take_lease(host)

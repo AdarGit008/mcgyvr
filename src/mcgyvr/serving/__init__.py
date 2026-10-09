@@ -183,9 +183,9 @@ SIZE_TOLERANCE_GB = 0.005
 
 #: What ``units.<unit>.launch.speculative`` may say. ``mtp`` is llama.cpp's
 #: ``--spec-type draft-mtp``: the GGUF's own grafted multi-token-prediction
-#: head run as the draft, with no second model to load. Measured on
-#: srv2 (RTX 3060, 12 GB) at +26.5% decode at width 1 and +22.0% at width 2
-#: with acceptance ~0.90, and on srv1's offload-bound 6 GB card at +20.5% at
+#: head run as the draft, with no second model to load. Measured on a
+#: 12 GB RTX 3060 at +26.5% decode at width 1 and +22.0% at width 2
+#: with acceptance ~0.90, and on an offload-bound 6 GB card at +20.5% at
 #: width 1 and -10.0% at width 2 -- the win is a fact about a card with room
 #: for the head, not about the model
 #: (``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` section 2).

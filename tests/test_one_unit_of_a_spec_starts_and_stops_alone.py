@@ -164,8 +164,6 @@ def test_a_fetch_takes_no_unit(tmp_path: Path) -> None:
             str(listed),
             "--unit",
             FAST,
-            "--mode",
-            "user",
         ],
         stubs=stubs,
         run_root=usermode.install_root(tmp_path),

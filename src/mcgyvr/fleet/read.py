@@ -1012,12 +1012,10 @@ def judged(journal: Path, run_id: str) -> list[dict[str, Any]]:
 
 
 def door_read_argv(host: str, run_id: str, probe: Sequence[str] = ()) -> list[str]:
-    """The door's ``read`` of ``host``, in the mode the product's callers name
-    (:func:`mcgyvr.serving.run.callers_mode`)."""
+    """The door's ``read`` of ``host``."""
     from mcgyvr.serving.gatelib import DOOR_MODULE
-    from mcgyvr.serving.run import callers_mode
 
-    argv = [sys.executable, "-m", DOOR_MODULE, "read", "--mode", callers_mode()]
+    argv = [sys.executable, "-m", DOOR_MODULE, "read"]
     argv += ["--host", host]
     argv += ["--run-id", run_id]
     if probe:

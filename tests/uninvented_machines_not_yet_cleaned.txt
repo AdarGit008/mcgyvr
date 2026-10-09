@@ -51,19 +51,14 @@ src/mcgyvr/prompts/javascript.md	dev-pointer=1
 src/mcgyvr/prompts/python.md	dev-pointer=2
 src/mcgyvr/runner.py	dev-pointer=3
 src/mcgyvr/serving/__init__.py	address=4	card-model=1	dev-pointer=11
-src/mcgyvr/serving/gate-scripts/01-round.py	dev-pointer=5
-src/mcgyvr/serving/gate-scripts/02-rig.py	dev-pointer=5
-src/mcgyvr/serving/gate-scripts/03-image.py	dev-pointer=3
-src/mcgyvr/serving/gate-scripts/04-workload.py	dev-pointer=3
-src/mcgyvr/serving/gate-scripts/05-envelope.py	dev-pointer=7
-src/mcgyvr/serving/gate-scripts/08-parse.py	dev-pointer=2
+src/mcgyvr/serving/gate-scripts/01-round.py	dev-pointer=3
+src/mcgyvr/serving/gate-scripts/05-envelope.py	dev-pointer=2
 src/mcgyvr/serving/gate-scripts/read-01-profile.py	dev-pointer=1
-src/mcgyvr/serving/gate-scripts/read-02-rig.py	dev-pointer=4
 src/mcgyvr/serving/gate-scripts/rig-snapshot.sh	dev-pointer=1
 src/mcgyvr/serving/gate-scripts/rig-units.sh	dev-pointer=1
 src/mcgyvr/serving/gate-scripts/serve-up.py	dev-pointer=2
 src/mcgyvr/serving/ggufscan.py	dev-pointer=3
-src/mcgyvr/serving/run.py	dev-pointer=9
+src/mcgyvr/serving/run.py	dev-pointer=3
 src/mcgyvr/serving/servelib.py	dev-pointer=3
 src/mcgyvr/serving/vramfit.py	dev-pointer=7
 src/mcgyvr/telemetry.py	dev-pointer=8
@@ -81,7 +76,7 @@ tests/red_port/test_dod_coresident_start_order.py	host=1
 tests/red_port/test_dod_ollama_is_gone.py	dev-pointer=5	host=1
 tests/red_port/test_dod_one_context_number.py	host=2
 tests/red_port/test_dod_placement_conservatism.py	dev-pointer=1
-tests/red_port/test_dod_profile.py	dev-pointer=1	home-path=1
+tests/red_port/test_dod_profile.py	dev-pointer=1
 tests/red_port/test_dod_release.py	dev-pointer=2
 tests/red_port/test_dod_rig_lease.py	host=1
 tests/red_port/test_dod_run_root.py	home-path=1
@@ -175,7 +170,6 @@ tests/test_route.py	address=2
 tests/test_sandbox_docker.py	host=5
 tests/test_sandbox_image.py	host=4
 tests/test_sandbox_tempdir.py	host=2
-tests/test_serving_door_cli.py	host=7
 tests/test_serving_gatelib.py	dev-pointer=1	host=7
 tests/test_serving_unit.py	host=7
 tests/test_serving_vramfit.py	dev-pointer=1

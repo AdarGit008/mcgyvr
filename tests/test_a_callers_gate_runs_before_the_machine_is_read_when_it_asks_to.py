@@ -69,8 +69,6 @@ def test_a_refusing_before_gate_ends_a_serve_with_nothing_sent_to_the_machine(
             cg.compose_file(tmp_path / "compose.yaml"),
             "--gates",
             str(listed),
-            "--mode",
-            "lab",
         ),
         stubs=stubs,
         run_root=run_root,

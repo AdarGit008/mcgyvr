@@ -24,7 +24,7 @@ The split this module rests on:
     **It steps when the first expert block leaves the card.** llama.cpp's
     op offload copies a host-stored expert tensor into the device compute
     buffer for a large batch, so that buffer grows once any expert is on the
-    host and then stays: deepseek-coder-v2-16b on srv2 reads 76.13 MiB at
+    host and then stays: deepseek-coder-v2-16b on one rig reads 76.13 MiB at
     ``--n-cpu-moe 0`` and 151.51 MiB at 13 and at 26, and ``C`` moves by the
     same 74 MiB. ``--no-op-offload`` removes the step and is banned for what it
     costs prefill, which op offload runs on the card. Nor is the offloaded side
@@ -75,7 +75,7 @@ SCRATCH_AND_CONTEXT_MIB = 768
 #: above bounds. 768 is a bound over every architecture probed and it is the
 #: right number for a *derivation*, which walks down from it and has no
 #: measurement of the card in hand. It is the wrong number for judging a
-#: placement somebody is holding: on srv1, 2026-09-06, the card hands out 5726
+#: placement somebody is holding: on one rig, 2026-09-06, the card hands out 5726
 #: MiB, the running ``--n-cpu-moe 32`` placement occupies 5306, and this
 #: module's own prediction for it is 5347.2 -- accurate to 41 MiB. Adding 768
 #: to that refuses a placement the rig has been running for hours, and derives
@@ -292,7 +292,7 @@ def experts_on_card(geometry: dict[str, Any], n_cpu_moe: int) -> int:
 
     What the positional reading cost, against the engine's own ``CUDA0 model
     buffer size``: at ``--n-cpu-moe 40`` nemotron holds 4110.75 MiB of experts
-    and the positional sum said 0 -- a third of srv2's card. Its floor came out
+    and the positional sum said 0 -- a third of one rig's card. Its floor came out
     9 where the rig loads at 21 and refuses at 20, i.e. a cell that clears the
     gate and then OOMs at load, which is the single outcome the gate exists to
     prevent. On ``deepseek2``, whose block 0 is dense, ``--n-cpu-moe 1`` moves
@@ -357,7 +357,7 @@ def constant_from_probe(
     prints -- as one lump, which is all a placement decision needs.
 
     **Pass ``vram_used_bytes`` net of the card's idle baseline.** ``memory.used``
-    is card-wide; srv1 idles at 17 MiB and srv2 at 1 MiB, and letting that ride
+    is card-wide; one rig idles at 17 MiB and another at 1 MiB, and letting that ride
     along puts a 16 MiB rig difference into a number that has nothing to do with
     either rig.
 
@@ -403,7 +403,7 @@ class Placement:
     ``predicted_mib`` is what this module says the card will hold at this
     offload: non-expert weights, cache, recurrent state and the experts that
     stay. It is a claim about the card, checkable against ``nvidia-smi`` — on
-    srv1, 2026-09-06, it reads 5347.2 against a measured 5306.
+    one rig, 2026-09-06, it reads 5347.2 against a measured 5306.
 
     ``allowance_mib`` is the room demanded past that claim, which is policy.
     Reported separately, because one summed figure that misses a measurement
@@ -450,7 +450,7 @@ def explain(
     ``ctx_per_slot`` has no default here for the reason stated at the top of
     :mod:`mcgyvr.serving`: the cache is priced against the window, so a
     prediction made at a window nobody declared is a prediction about a process
-    nobody is running. srv1's figures above are at 4096 per slot across eight
+    nobody is running. The figures above are at 4096 per slot across eight
     slots, which is the ``-c 32768 --parallel 8`` it was measured serving.
 
     ``speculative`` is the unit's ``launch.speculative``: under ``mtp``

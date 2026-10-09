@@ -29,10 +29,9 @@ The tripwires, each a scan over the tree:
    outside the shim, and no ``env -u``/``env -i`` that would strip the
    door's vocabulary.
 3. The archived door's seam variables are gone from src, tools and tests.
-4. A hand-set ``RUN_*`` environment admits nothing: every gate script and the
-   default step, given every variable the door would export and no door
-   ancestor, exit 2 naming the door before an ``ssh`` or ``docker`` stub sees
-   a line.
+4. A hand-set ``RUN_*`` environment admits nothing: every gate script, given
+   every variable the door would export and no door ancestor, exits 2 naming
+   the door before an ``ssh`` or ``docker`` stub sees a line.
 5. No Python file sits at the repository root.
 """
 
@@ -162,10 +161,6 @@ ALLOWED: dict[str, str] = {
         "the reader itself: it RUNS ON the rig, piped in on stdin by gate 2, "
         "and opens nothing of its own"
     ),
-    "src/mcgyvr/serving/gate-scripts/default-step.sh": (
-        "the shipped step: it proves the door (gatelib.under_door) first, then "
-        "runs the shims BY PATH under RUN_BIN, never an ssh or docker from PATH"
-    ),
     "tools/runs/_common.sh": (
         "the emitter every campaign step sources: rig_snapshot and image_digest "
         "prove the door, then run the shims by path under RUN_BIN; "
@@ -204,9 +199,6 @@ ALLOWED: dict[str, str] = {
     "tests/test_one_door.py": "this file names the patterns it scans for",
     "tests/test_serving_gatelib.py": (
         "drives gatelib.ssh under a fake door against an ssh stub"
-    ),
-    "tests/test_serving_door_cli.py": (
-        "drives the shims under a fake door against ssh and docker stubs"
     ),
 }
 
@@ -429,12 +421,10 @@ def test_nothing_under_tools_or_src_names_its_own_daemon() -> None:
     )
 
 
-#: Files that must spell the retired names: the guard, this file, and the
-#: door's CLI test, which asserts the seam is gone from the door's vocabulary.
+#: Files that must spell the retired names: the guard and this file.
 SPELLS_THE_SEAMS = (
     "tests/test_no_retired_door_names.py",
     "tests/test_one_door.py",
-    "tests/test_serving_door_cli.py",
 )
 
 
@@ -455,7 +445,6 @@ def test_the_archived_doors_seam_variables_are_gone() -> None:
 # --------------------------------------------------------------------------
 
 GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
-DEFAULT_STEP = GATE_SCRIPTS / "default-step.sh"
 
 
 def _stubs(where: Path) -> Path:
@@ -506,16 +495,13 @@ def _hand_set(stubs: Path, tmp_path: Path, **only: str) -> dict[str, str]:
         RUN_STEP="kernel-arms",
         RUN_CAMPAIGN="srv1-kernel-arms",
         RUN_MODEL="/models/x.gguf",
-        RUN_STEP_FILE=str(DEFAULT_STEP),
+        RUN_STEP_FILE=str(GATE_SCRIPTS / "06-step.py"),
         RUN_PARALLEL="1",
         RUN_CTX_PER_SLOT="4096",
         RUN_UBATCH="512",
         RUN_DATE="2026-09-05",
         RUN_SUFFIX="",
         RUN_EXPORT_FD="1",
-        RUN_SCAN_JSON=str(out_dir / "scan.json"),
-        RUN_GEOMETRY_JSON=str(out_dir / "geometry.json"),
-        RUN_PLACEMENT_JSON=str(out_dir / "placement.json"),
     )
     return env
 
@@ -557,14 +543,6 @@ def test_a_gate_with_every_run_variable_typed_in_is_refused_before_any_subproces
         [sys.executable, str(GATE_SCRIPTS / script)], _hand_set(stubs, tmp_path)
     )
     _refused_naming_the_door(done, stubs, script)
-
-
-def test_the_default_step_with_every_run_variable_typed_in_is_refused_outside_the_door(
-    tmp_path: Path,
-) -> None:
-    stubs = _stubs(tmp_path / "stubs")
-    done = _outside(["bash", str(DEFAULT_STEP)], _hand_set(stubs, tmp_path))
-    _refused_naming_the_door(done, stubs, "default-step.sh")
 
 
 # --------------------------------------------------------------------------

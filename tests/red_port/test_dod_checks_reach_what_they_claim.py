@@ -120,13 +120,15 @@ def test_the_manifest_covers_every_file_a_gate_reads(
 
     monkeypatch.setattr(door, "GATE_SCRIPTS", scripts)
     monkeypatch.setattr(door, "BIN", moved(door.BIN))
-    monkeypatch.setattr(door, "DEFAULT_STEP", moved(door.DEFAULT_STEP))
     monkeypatch.setattr(door, "READERS", tuple(moved(p) for p in door.READERS))
     monkeypatch.setattr(
         door, "SERVE_STEPS", {k: moved(v) for k, v in door.SERVE_STEPS.items()}
     )
-    readers = sorted(path.name for path in scripts.iterdir() if path.suffix == ".sh")
-    assert readers, "the fixture must find the shell readers beside the gates"
+    readers = sorted(path.name for path in door.READERS if path.suffix == ".sh")
+    assert readers == ["rig-snapshot.sh", "rig-units.sh"], (
+        "the door's shell readers changed; a shell file a gate reads must be "
+        "on READERS, and a shell file no gate reads must not be"
+    )
 
     # Asserted by removing one and asking the door, rather than by looking for
     # the filename in the source: a comment naming the file would satisfy a

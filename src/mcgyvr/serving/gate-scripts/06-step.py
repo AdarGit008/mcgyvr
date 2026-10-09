@@ -13,7 +13,7 @@ A SIGNAL REACHES THE STEP ONCE, AND THE STEP IS GONE BEFORE THIS EXITS. The
 step runs in its own session, so a terminal's Ctrl-C reaches it only through
 here, and the first SIGINT or SIGTERM that arrives here — the terminal's, or
 the door's `_end` — is forwarded to the step's whole process group. Then this
-waits for the step to run its own INT/TERM trap (`default-step.sh` removes the
+waits for the step to run its own INT/TERM trap (a step removes the
 container it started there), and only past :data:`GRACE_S` kills the group.
 Ending here at once instead left the step running, reparented, while gate 7
 read the rig; answering Ctrl-C with a kill cut the step's trap short. The grace

@@ -112,7 +112,6 @@ def test_a_step_from_an_install_runs_under_the_seal_and_is_filed_in_the_door_log
     run_id = f"{usermode.RUN_DATE}-{usermode.CAMPAIGN}-my-step"
     assert seen["RUN_ID"] == run_id
     assert seen["RUN_CAMPAIGN"] == usermode.CAMPAIGN
-    assert seen["RUN_MODE"] == "user"
     assert seen["ARGS"] == "--rounds 3"
     # The step reached the door's host through the shim, and held the lease
     # while it ran; the lease was released when the run ended.
@@ -173,7 +172,7 @@ def test_a_step_run_that_cannot_be_said_is_refused_before_any_gate(
     argv = [str(script) if word == "STEP" else word for word in argv]
 
     done = usermode.door(
-        ["step", "--host", usermode.RIG, "--mode", "user", *argv],
+        ["step", "--host", usermode.RIG, *argv],
         stubs=stubs,
         run_root=usermode.install_root(tmp_path),
         cwd=tmp_path,
