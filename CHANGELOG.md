@@ -7,6 +7,17 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.12] - 2026-10-10
+
+### Fixed
+
+- The fetch saved each downloaded GGUF under its Hub base name
+  (`qwen2.5-coder-7b-instruct-q4_k_m.gguf`), but `emit` serves it from
+  the model id flattened (`Qwen_Qwen2.5-Coder-7B-Instruct.gguf`). The
+  container then crashed with `failed to open GGUF file`. The fetch list
+  now carries an explicit local `name`, and `from_records` names it
+  canonically; the setup wizard's on-disk reuse match finds it too.
+
 ## [0.4.11] - 2026-10-10
 
 ### Fixed
