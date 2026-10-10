@@ -9,6 +9,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-10
+
+### Removed
+
+- The one-release relief fallback. Until now a `relief.yaml` rung that named
+  no `busy_answers` was read as full on a fixed set the runner carried for one
+  release (`RELIEF_UNAVAILABLE`). Past 0.4.0 that fallback is deleted: a rung
+  that names no `busy_answers` names no busy answers, and a sync writes every
+  rung's `busy_answers`, so a current file never relies on the old set.
+
 ## [0.4.0] - 2026-10-10
 
 ### Added
