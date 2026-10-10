@@ -218,7 +218,7 @@ breadth:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(

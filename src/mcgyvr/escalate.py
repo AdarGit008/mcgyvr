@@ -79,7 +79,7 @@ not on tries. ``max_attempts`` bounds what the task *spends* in total. Neither
 charges a decline: a rung that steps aside consumed no attempt, and
 charging the move to it would let a ladder of rungs that never ran exhaust a
 budget. Unset, ``max_attempts`` is the ladder's own budget, which is a real
-bound and is printed by ``mcgyvr pool`` — the field exists so that raising a
+bound and is printed by ``mcgyvr local_pool`` — the field exists so that raising a
 rung's ``attempts`` cannot multiply into a task nobody bounded, not to introduce
 a number this project has no measurement for.
 
@@ -169,7 +169,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # distinguishable at every use in this file rather than only at the import.
     from mcgyvr.deliver import Accepted as BoundContent
     from mcgyvr.gate import GateResult
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
 
 GATE_ONLY = "gate_only"
 MODEL = "model"
@@ -499,7 +499,7 @@ class Ceiling:
 
     ``attempts`` of ``None`` is not "unbounded": it means the bound is the
     ladder's own budget, which :attr:`Ascent.budget` computes and
-    ``mcgyvr pool`` prints. Making the unset case mean "no independent ceiling"
+    ``mcgyvr local_pool`` prints. Making the unset case mean "no independent ceiling"
     rather than a number keeps this project from shipping a default it has no
     measurement behind, and keeps two knobs from silently overriding each
     other — an operator who raises ``max_escalations`` does not want a ceiling
@@ -667,7 +667,7 @@ class Ascent:
         headroom past the end of the operator's ladder — the ceiling would stop
         a task later than the config it was read from says.
 
-        Not the figure ``mcgyvr pool`` prints, and it never could be. That one
+        Not the figure ``mcgyvr local_pool`` prints, and it never could be. That one
         sums each rung's configured ``attempts`` with no contract in hand; every
         step counted here has already been through
         :func:`~mcgyvr.route.attempts_for`, which takes the lower of the rung's

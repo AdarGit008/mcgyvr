@@ -1,4 +1,4 @@
-"""`mcgyvr init` binds a listed model whether or not a card is read.
+"""`mcgyvr setup` binds a listed model whether or not a card is read.
 
 Promise: on every invented machine with a server on it, local or over the
 network, init writes a setup that binds every model the server lists: beside

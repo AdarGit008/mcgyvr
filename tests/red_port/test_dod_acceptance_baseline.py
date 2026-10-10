@@ -74,7 +74,7 @@ def _prompts(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     sends none, a run that reached a rung sends one.
     """
     import mcgyvr.drive as drive
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     sent: list[str] = []

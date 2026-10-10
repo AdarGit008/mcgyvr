@@ -23,7 +23,7 @@ promoted folder whose layout still matches its own lock. It says whether the
 move from the fleet that was live is one that fleet's lock measured
 (:class:`Switch`), and starts nothing. Nothing here writes the dev root.
 
-:func:`approve_own` is the one other way a folder is written: ``mcgyvr init``
+:func:`approve_own` is the one other way a folder is written: ``mcgyvr setup``
 approves the user's own fleet of hosted units, which lays out no rig and so
 needs no dev lock, and names it live through :func:`use` like any other.
 """
@@ -66,10 +66,10 @@ from mcgyvr.fleet.spans import SpanError, check_spans
 
 #: Where a lock sits under the dev root and under a live fleet folder alike.
 LOCK_DIR = Path("records") / "fleet"
-#: The fleet ``mcgyvr init`` approves from the setup it wrote (:func:`approve_own`),
+#: The fleet ``mcgyvr setup`` approves from the setup it wrote (:func:`approve_own`),
 #: and who its lock says approved it.
 OWN_FLEET = "own"
-OWN_APPROVER = "mcgyvr init"
+OWN_APPROVER = "mcgyvr setup"
 #: An IPv4 address in a spelling ``inet_aton`` reads and ``ipaddress`` does not:
 #: one to four parts, each decimal, octal (a leading 0) or hexadecimal (0x).
 _OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")

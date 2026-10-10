@@ -43,8 +43,8 @@ import pytest
 from mcgyvr import runner as runner_module
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import parse
-from mcgyvr.pool import Endpoint, Protocol
-from mcgyvr.pool import source_map as build_source_map
+from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.local_pool import source_map as build_source_map
 from mcgyvr.runner import Completion, Request, StopReason, dispatch, runner_for
 from mcgyvr.telemetry import fold, observe
 

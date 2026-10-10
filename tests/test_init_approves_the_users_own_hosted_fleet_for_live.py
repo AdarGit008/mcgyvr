@@ -1,4 +1,4 @@
-"""``mcgyvr init`` approves the user's own fleet for live work, and no more.
+"""``mcgyvr setup`` approves the user's own fleet for live work, and no more.
 
 A fresh ``init`` writes ``profile: live``, and live admission refuses a run
 until the config folder's ``live.json`` names a promoted fleet whose lock it can
@@ -8,7 +8,7 @@ approves what it bound itself, through the one path live reads:
 * **Only hosted units bound:** ``init`` writes a fleet folder of its own beside
   the promoted ones, ``<config folder>/fleets/own@<today>/``, holding the setup
   it wrote, a fleet ``own`` whose layout names no rig, and that fleet's lock,
-  which says ``mcgyvr init`` approved it. ``live.json`` names it, as ``mcgyvr
+  which says ``mcgyvr setup`` approved it. ``live.json`` names it, as ``mcgyvr
   fleet use`` would. Live admission then admits a run without reading any rig:
   the fleet has none, and a hosted unit is not a machine of the user's.
 * **A machine of the user's is not approved by init:** a unit on a rig, or a
@@ -92,7 +92,7 @@ def _init(
     found: Detection,
 ) -> int:
     monkeypatch.setattr("mcgyvr.initialize.detect", lambda _targets: found)
-    return cli.main(["init", *flags, str(setup)])
+    return cli.main(["setup", *flags, str(setup)])
 
 
 def _no_read(rig: str, run_id: str, probe: Sequence[str]) -> int:
@@ -164,7 +164,7 @@ def test_a_fresh_init_of_hosted_units_makes_its_own_fleet_live(
 
     # The lock says who approved it: init, not dev evidence.
     lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))
-    assert lock["approved_by"] == "mcgyvr init"
+    assert lock["approved_by"] == "mcgyvr setup"
     assert lock["next"] == [] and lock["switches"] == []
 
     admitted = admission.admit(reader=_no_read)
@@ -311,7 +311,7 @@ def test_a_local_gpu_is_read_then_approved_by_init(
     assert live["units"]["local_small-model"]["unit_id"]
     assert live["units"]["api_hosted-model"].get("rig") is None
     lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))
-    assert lock["approved_by"] == "mcgyvr init"
+    assert lock["approved_by"] == "mcgyvr setup"
     assert lock["layout_sha256"]
 
     # Given the door reads the local rig back and finds the unit awake, the

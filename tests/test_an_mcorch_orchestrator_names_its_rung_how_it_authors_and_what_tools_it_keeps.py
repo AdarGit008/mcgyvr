@@ -15,7 +15,7 @@ An mcorch setup is refused at load, naming the key and the fix, unless:
   a local rung does best is still being measured.
 
 ``orchestrator.tools`` names the harness tools kept in the rung's prompt; empty
-keeps every tool. ``mcgyvr init`` writes ``type: proposer`` from the schema's
+keeps every tool. ``mcgyvr setup`` writes ``type: proposer`` from the schema's
 own default, and ``SETUP.md`` documents all three keys.
 """
 

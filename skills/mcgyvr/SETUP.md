@@ -6,11 +6,11 @@ First run, once per machine. Nothing here is read to author a contract;
 this is how `fleet.yaml` and `policy.yaml` come to exist and what they can say.
 
 ```
-mcgyvr init
-mcgyvr pool
+mcgyvr setup
+mcgyvr local_pool
 ```
 
-`mcgyvr init` detects what is reachable and writes a config bound to it. It
+`mcgyvr setup` detects what is reachable and writes a config bound to it. It
 refuses to overwrite an existing config without `--force`, and prints what
 was decided and why, then what is *not* configured and what that costs.
 Backends on another machine come in with `--host` (repeatable).
@@ -42,9 +42,9 @@ What the config is for comes in with these, all optional:
   conversational agent a harness points at (`mcgyvr mcorch serve`);
   it needs `--jev`.
 
-`mcgyvr init --help` has each one's full text.
+`mcgyvr setup --help` has each one's full text.
 
-Two commands measure and plan before `mcgyvr init` writes a config.
+Two commands measure and plan before `mcgyvr setup` writes a config.
 `mcgyvr scan` measures this machine (free and total VRAM, available RAM,
 cores, timed memory bandwidth, free disk), records it (by default under
 `~/.local/state/mcgyvr/scans`), and exits 4 when a card, total RAM or
@@ -55,7 +55,7 @@ that profile, from `--model-store DIR` when a checkpoint there fits,
 otherwise from the shipped model catalog. It writes, wakes and sleeps
 nothing.
 
-A setup is two files in one directory, and `mcgyvr init` writes both (by
+A setup is two files in one directory, and `mcgyvr setup` writes both (by
 default into the working directory):
 
 - `fleet.yaml` — what runs where: `profile`, `units`, `rigs` and `fleets`.
@@ -71,14 +71,14 @@ keys a lock on them, and the run config drops them when it loads the
 setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is
 checked only as a block. `examples/fleet.yaml` shows all three.
 
-`mcgyvr pool` reads that config back: the usable rungs cheapest-first with
+`mcgyvr local_pool` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it
 came from; every skipped rung with the reason it was skipped; and the
 orchestrator and verifier models. `--probe` also asks each unit whether it
 is answering — off by default, because resolving a ladder should not need
 a network. Run it whenever a run picks a rung you did not expect.
 
-Three keys across the two files are the levers, and `mcgyvr pool` is how
+Three keys across the two files are the levers, and `mcgyvr local_pool` is how
 you read all three:
 
 - `units` — What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout.
@@ -116,7 +116,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
 | `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |
 | `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. `{<unit>: 2}`. |
-| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
+| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr local_pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
 | `rider_slots` | map of numbers (min 0) | no | — | How many of each named unit's slots riders may use at once (hitchhike): people the hub matches to you, whose requests for the unit's model the agent of `mcgyvr rig` passes to it and whose prompts you can read. A unit the map does not name shares none. It is policy, not a fact of the unit, so changing it never changes the setup's identity or its lock, and a running agent sends the hub the change within a second, with no reconnect. Below the unit's `width`, so you always keep a slot, and your own requests go first: a ride is taken only while the unit has a slot free, your requests and the rides in flight together fewer than its `width`, so riders use only slots you are not using, and a unit whose server does not report what it has in flight shares nothing. A ride that has started runs to its end; a request of yours that arrives meanwhile waits for a slot as any of yours does. A unit is shared only when it is on the `ladder`, needs no key (`api_key_env`), is not a relief rung, states its `window`, the context of each slot, and has a `width` of at most 16, the most the hub takes; one unit per model. To bind it: e.g. `{<unit>: 1}` -- at most one below the unit's `width`. |
 | `max_escalations` | number (min 0) | no | `1` | How many rungs a task may climb before it is handed back unfinished. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |

@@ -26,7 +26,7 @@ import pytest
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import Config, parse
 from mcgyvr.escalate import ascent
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 
 FAST = "local_fast"
 

@@ -34,7 +34,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 
 #: Two units on an invented rig. The narrow one serves 4096 tokens, which the
 #: contract's own ceiling (the schema's 4096) fits, so only the share can
@@ -99,7 +99,7 @@ def repo(tmp_path: Path) -> Path:
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Record every rung a request reaches; answer with a valid file."""
     from mcgyvr import drive
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     seen: list[str] = []

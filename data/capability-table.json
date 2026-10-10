@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "_purpose": "Estimates of what a model costs to serve, so that serving can be sized without a benchmark of your machine; `mcgyvr init` does not read them. Every figure is an estimate for a card class. One card was read per class, so a class is a rough guide: speed depends on the card, not only on its memory. Most figures were taken through another server program (each reading's `backend` says which), with a file of the same model, usually of the same quantisation type; a reading's `note` says when it was not. None is a reading of your machine.",
+  "_purpose": "Estimates of what a model costs to serve, so that serving can be sized without a benchmark of your machine; `mcgyvr setup` does not read them. Every figure is an estimate for a card class. One card was read per class, so a class is a rough guide: speed depends on the card, not only on its memory. Most figures were taken through another server program (each reading's `backend` says which), with a file of the same model, usually of the same quantisation type; a reading's `note` says when it was not. None is a reading of your machine.",
   "card_classes": [
     { "id": "6gb", "label": "6 GB class", "memory_gb": 6 },
     { "id": "12gb", "label": "12 GB class", "memory_gb": 12 }

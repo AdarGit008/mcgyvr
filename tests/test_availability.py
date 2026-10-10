@@ -35,7 +35,7 @@ from mcgyvr.availability import (
     probe_endpoint,
 )
 from mcgyvr.config import parse
-from mcgyvr.pool import Endpoint, Protocol, SourceUnavailableError, source_map
+from mcgyvr.local_pool import Endpoint, Protocol, SourceUnavailableError, source_map
 
 TWO_SOURCES = """\
 units:

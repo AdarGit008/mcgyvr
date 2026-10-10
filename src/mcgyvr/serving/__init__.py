@@ -54,7 +54,7 @@ from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
 
 # The engine a unit gets when nothing says otherwise. A source's ``api`` is a
-# wire protocol (:class:`mcgyvr.pool.Protocol`) and cannot answer this: vLLM
+# wire protocol (:class:`mcgyvr.local_pool.Protocol`) and cannot answer this: vLLM
 # and llama-server both speak ``openai`` and take entirely different argv.
 DEFAULT_ENGINE = "llama.cpp"
 

@@ -353,7 +353,7 @@ def test_a_unit_slept_with_its_process_kept_reads_asleep_though_it_answers(
     did not make, and dwell and sleep would act on a unit that is resting."""
     import mcgyvr.pressure as pressure
     from mcgyvr.capacity import Capacity
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
 
     config = parse(ladder_text(write_spec(tmp_path), engine="vllm"))
     door_by_verb(monkeypatch)
@@ -607,7 +607,7 @@ def test_manage_is_listed_beside_serve_in_the_help(
 def test_a_unit_that_failed_three_switches_in_a_row_is_cooled_and_a_success_resets_it(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.pressure import RungCooling
 
     config = parse(ladder_text(write_spec(tmp_path)))
@@ -626,7 +626,7 @@ def test_a_unit_that_failed_three_switches_in_a_row_is_cooled_and_a_success_rese
 
 def test_a_cooled_unit_is_held_out_for_at_least_the_dwell(tmp_path: Path) -> None:
     """A sentence shorter than the dwell would expire before the next switch."""
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.pressure import RungCooling
 
     config = parse(ladder_text(write_spec(tmp_path)))
@@ -736,7 +736,7 @@ def test_a_sleeping_unit_is_never_read_as_cooling_for_being_asleep(
 ) -> None:
     """Nothing answers on any rung here, and nothing is cooled for it."""
     import mcgyvr.availability as availability
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.pressure import RungCooling
 
     def nothing_answers(*args: Any, **kwargs: Any) -> Any:
@@ -749,7 +749,7 @@ def test_a_sleeping_unit_is_never_read_as_cooling_for_being_asleep(
 
 
 def test_a_rung_the_pool_does_not_know_is_not_cooled(tmp_path: Path) -> None:
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.pressure import RungCooling
 
     config = parse(ladder_text(write_spec(tmp_path)))

@@ -1,4 +1,4 @@
-"""`mcgyvr init` says a unit has no estimate, and that the user's declaration wins.
+"""`mcgyvr setup` says a unit has no estimate, and that the user's declaration wins.
 
 Promise: init matches no estimate to a unit it binds from a server's listing,
 and says so in that unit's decision, also for a unit whose listed model id is

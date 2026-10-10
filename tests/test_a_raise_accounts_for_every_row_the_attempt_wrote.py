@@ -43,7 +43,7 @@ def test_the_two_draws_before_the_raise_still_learn_how_they_landed(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Three draws, the third one's dispatch dies: three rows, three outcomes."""
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, RunnerError, StopReason
 
     answers: list[str | None] = [lj.BAD_REPLY, lj.BAD_REPLY, None]

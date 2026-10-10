@@ -47,7 +47,7 @@ from mcgyvr.escalate import (
     ascent,
     escalate,
 )
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import Try, Verdict
 
 FAST = "local_fast"
@@ -372,7 +372,7 @@ def test_an_escalation_stopped_by_its_ceiling_does_not_go_on_to_a_relief_rung(
     assert script.tried == [FAST]
 
 
-# --- what `mcgyvr pool` shows --------------------------------------------------
+# --- what `mcgyvr local_pool` shows --------------------------------------------------
 
 
 def test_pool_shows_the_relief_rungs_apart_from_the_ladder(
@@ -386,7 +386,7 @@ def test_pool_shows_the_relief_rungs_apart_from_the_ladder(
         SETUP.format(fanout="idle", escalations=1) + RELIEF + SECOND,
     )
 
-    assert main(["pool", str(folder)]) == 0
+    assert main(["local_pool", str(folder)]) == 0
     out = capsys.readouterr().out
 
     ladder, _, relief = out.partition("Relief rungs")

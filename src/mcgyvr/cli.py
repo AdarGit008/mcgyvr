@@ -89,7 +89,7 @@ CONFIG_DEFAULT_HELP = (
     f"then the live fleet folder under {FLEETS_SHOWN} that {LIVE_FILE_SHOWN} "
     f"names — a directory holding fleet.yaml and policy.yaml"
 )
-#: Where `mcgyvr init` writes when no path is given. Never a live fleet folder:
+#: Where `mcgyvr setup` writes when no path is given. Never a live fleet folder:
 #: those are written only by `mcgyvr fleet promote`, and never in place.
 INIT_DEFAULT_HELP = (
     f"${CONFIG_PATH_ENV}, else the working directory — never a live fleet "
@@ -109,8 +109,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
+    from mcgyvr.local_pool import SourceMap
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
-    from mcgyvr.pool import SourceMap
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
@@ -181,10 +181,10 @@ def _config(args: argparse.Namespace) -> int:
     return 0
 
 
-def _pool(args: argparse.Namespace) -> int:
+def _local_pool(args: argparse.Namespace) -> int:
     from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
-    from mcgyvr.pool import SourceUnavailableError, source_map
+    from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import draws_for, family_of
 
     try:
@@ -608,8 +608,8 @@ _NOT_THE_CONFIG_PROFILE = (
 )
 
 
-def _init_priority(args: argparse.Namespace) -> str | None:
-    """The priority ``init`` composes for, reading the old ``--profile``.
+def _setup_priority(args: argparse.Namespace) -> str | None:
+    """The priority ``setup`` composes for, reading the old ``--profile``.
 
     ``--profile`` is deprecated: a word naming a priority maps onto it, any
     other text is ignored, and ``--priority`` wins when both are given. Each
@@ -619,7 +619,7 @@ def _init_priority(args: argparse.Namespace) -> str | None:
     if args.profile is None:
         return priority
     head = (
-        "warning: `mcgyvr init --profile` is deprecated and will be removed "
+        "warning: `mcgyvr setup --profile` is deprecated and will be removed "
         "in the release after next"
     )
     word = str(args.profile).strip().lower()
@@ -645,7 +645,7 @@ def _init_priority(args: argparse.Namespace) -> str | None:
     return None
 
 
-def _init(args: argparse.Namespace) -> int:
+def _setup(args: argparse.Namespace) -> int:
     # Not the config resolution order: with a fleet named live, that ends in a
     # promoted folder, and a promoted folder is never written in place.
     path = Path(args.path) if args.path else (named_config_path() or Path.cwd())
@@ -657,7 +657,7 @@ def _init(args: argparse.Namespace) -> int:
     except ApiSpecError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    priority = _init_priority(args)
+    priority = _setup_priority(args)
     try:
         result = initialize(
             path,
@@ -686,8 +686,8 @@ def _init(args: argparse.Namespace) -> int:
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    # What init wrote is the user's own fleet; approving it is what lets a
-    # fresh `profile: live` setup run. A setup init did not write is not one
+    # What setup wrote is the user's own fleet; approving it is what lets a
+    # fresh `profile: live` setup run. A setup run that did not write is not one
     # it bound, so it approves nothing.
     approved, unapproved = _own_fleet_live(result.path) if result.written else ((), ())
     decisions = result.decisions + approved
@@ -719,7 +719,7 @@ def _init(args: argparse.Namespace) -> int:
 
 
 def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Approve the setup ``init`` wrote at ``setup`` as the user's own fleet and
+    """Approve the setup ``setup`` wrote at ``setup`` as the user's own fleet and
     name it live; ``(decisions, limits)`` saying what was done, or why not.
 
     Through the path every live fleet takes: a folder under the config folder
@@ -1162,6 +1162,7 @@ def _delegate(args: argparse.Namespace) -> int:
     from mcgyvr.config import ConfigError, ConfigMissingError, named_config_path
     from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
     from mcgyvr.exits import Exit
+    from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.orchestrator import (
         AttachError,
         IndexBuildError,
@@ -1169,7 +1170,6 @@ def _delegate(args: argparse.Namespace) -> int:
         build_index,
         decompose,
     )
-    from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.runner import RunnerError
 
     chosen = Path(args.config) if args.config else None
@@ -1464,7 +1464,7 @@ def _run(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         config_error = exc
     if config is None and not contract.is_deterministic:
-        # `config_error` says `mcgyvr init` and where the file would go, which
+        # `config_error` says `mcgyvr setup` and where the file would go, which
         # is the whole remedy for an operator who already knows what a config
         # is for. It is not the whole remedy for the reader this line actually
         # has: an agent following the skill, which names no setup verb and no
@@ -1922,7 +1922,7 @@ def _climb(
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import ascent, escalate
     from mcgyvr.fleet_manager import hook_for as fleet_hook_for
-    from mcgyvr.pool import SourceUnavailableError, source_map
+    from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.verify import reviewers_for
@@ -1953,7 +1953,7 @@ def _climb(
 
     # Structural resolution, no probe: a live-reachability sweep costs one
     # timeout per source and answers a question the dispatch below is about to
-    # ask for real. `mcgyvr pool --probe` is where an operator asks it in
+    # ask for real. `mcgyvr local_pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
     #
     # `Availability.not_serving` — whether the model a rung declares is the one
@@ -1984,7 +1984,7 @@ def _climb(
     # The cooldown learns from dispatch failures, not from a probe, so its
     # liveness half is a stub that always reports live. Probing here would
     # charge every run for a diagnosis the dispatch below is about to make for
-    # real, and `mcgyvr pool --probe` is where an operator asks it in advance.
+    # real, and `mcgyvr local_pool --probe` is where an operator asks it in advance.
     # The probe parameter is typed `object` rather than `Endpoint` because the
     # seam guard forbids importing `Endpoint` above the seam, and `object` is
     # accepted contravariantly.
@@ -2669,7 +2669,9 @@ def _scan(args: argparse.Namespace) -> int:
     """
     if args.rig is not None:
         return _scan_rig(args.rig, as_json=args.json)
-    measured = scan_module.scan()
+    measured = scan_module.scan(
+        model_stores=tuple(Path(store) for store in (args.model_store or ()))
+    )
     root = scan_module.default_root()
     prior = scan_module.load_prior(scan_module.os_machine_id(measured), root)
     drift = scan_module.compare(measured, prior)
@@ -2711,7 +2713,22 @@ def _scan(args: argparse.Namespace) -> int:
             f"({measured.bandwidth.how})"
         )
     if measured.disk is not None:
-        print(f"  Disk     {measured.disk.free_gb:.1f} GB free at {measured.disk.path}")
+        device = f" on {measured.disk.device}" if measured.disk.device else ""
+        total = (
+            f" of {measured.disk.total_gb:.1f} GB"
+            if measured.disk.total_gb is not None
+            else ""
+        )
+        print(
+            f"  Disk     {measured.disk.free_gb:.1f} GB free{total} "
+            f"at {measured.disk.path}{device}"
+        )
+    for model in measured.models_on_disk:
+        quant = f" {model.quant}" if model.quant else ""
+        print(
+            f"  Model    {model.name}{quant} "
+            f"({model.size_bytes / 1024 / 1024 / 1024:.1f} GiB)"
+        )
     for note in measured.notes:
         print(f"  - {note}")
     print(f"\nRecorded at {path}")
@@ -2769,8 +2786,31 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
         print(f"  card {card.index}  {card.said()}", file=out)
     if now.ram_total_gb is not None:
         print(f"  RAM     {now.ram_total_gb:.1f} GB", file=out)
+    if now.cpu_cores is not None or now.cpu_threads is not None:
+        print(
+            f"  CPU     {now.cpu_cores or '?'} cores, {now.cpu_threads or '?'} threads",
+            file=out,
+        )
+    if now.bandwidth_gbps is not None:
+        print(
+            f"  Memory  {now.bandwidth_gbps:.1f} GB/s ({now.bandwidth_how})",
+            file=out,
+        )
     if now.disk_path is not None:
-        print(f"  Disk    {now.disk_free_gb} GB free at {now.disk_path}", file=out)
+        device = f" on {now.disk_device}" if now.disk_device else ""
+        print(
+            f"  Disk    {now.disk_free_gb} GB free"
+            f"{f' of {now.disk_total_gb} GB' if now.disk_total_gb is not None else ''}"
+            f" at {now.disk_path}{device}",
+            file=out,
+        )
+    for model in now.models_on_disk:
+        quant = f" {model.quant}" if model.quant else ""
+        print(
+            f"  Model   {model.name}{quant} "
+            f"({model.size_bytes / 1024 / 1024 / 1024:.1f} GiB)",
+            file=out,
+        )
     if now.private_ipv4 is not None:
         print(f"  Address {now.private_ipv4} ({now.private_ipv4_how})", file=out)
     else:
@@ -2967,7 +3007,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     from mcgyvr import wake as wakelib
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.pressure import Board, Gauge, HostCooling, Pressure, RungCooling
 
     pool = source_map(config)
@@ -3365,7 +3405,7 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     a machine already in it.
 
     Without this, ``emit`` refuses the machine it is running on. A config
-    written by ``mcgyvr init`` says ``address: http://localhost:8080``,
+    written by ``mcgyvr setup`` says ``address: http://localhost:8080``,
     ``mcgyvr scan`` files the record under ``platform.node()``, and the two
     never agree — so the most ordinary setup there is, one rig serving itself,
     reports "localhost has never been scanned" the instant after it was
@@ -3572,9 +3612,9 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
     """
     from mcgyvr.config import MCORCH
     from mcgyvr.decision import UnboundRoleError
+    from mcgyvr.local_pool import SourceUnavailableError
     from mcgyvr.mcorch import bind, serve
     from mcgyvr.mcorch.authoring import AuthoringUnavailableError
-    from mcgyvr.pool import SourceUnavailableError
 
     try:
         config = load_config(Path(args.config) if args.config else None)
@@ -3894,18 +3934,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     conf.set_defaults(func=_config)
 
-    pool = sub.add_parser(
-        "pool",
+    local_pool = sub.add_parser(
+        "local_pool",
         help="show the ladder as it resolves against the declared sources",
     )
-    pool.add_argument(
+    local_pool.add_argument(
         "path",
         nargs="?",
         default=None,
         type=_named_path,
         help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
-    pool.add_argument(
+    local_pool.add_argument(
         "--probe",
         action="store_true",
         help=(
@@ -3914,14 +3954,14 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "require a network)"
         ),
     )
-    pool.add_argument(
+    local_pool.add_argument(
         "--probe-timeout",
         type=float,
         default=PROBE_TIMEOUT_S,
         metavar="SECONDS",
         help=f"how long a source has to answer a probe (default: {PROBE_TIMEOUT_S:g})",
     )
-    pool.set_defaults(func=_pool)
+    local_pool.set_defaults(func=_local_pool)
 
     cat = sub.add_parser(
         "catalog",
@@ -4001,6 +4041,17 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "scan RIG instead, over your own ssh (read-only), and save it as the "
             f"serving door's rig file RIG.json in {RIGS_SHOWN}, which a door run "
             "from an install holds the rig to; says what moved since the last"
+        ),
+    )
+    sca.add_argument(
+        "--model-store",
+        action="append",
+        default=[],
+        metavar="DIR",
+        help=(
+            "a directory holding *.gguf and *.safetensors checkpoints to "
+            "inventory as models-on-disk, in addition to the weights dir "
+            "(repeatable)"
         ),
     )
     sca.set_defaults(func=_scan)
@@ -4159,11 +4210,13 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     sbx.set_defaults(func=_sandbox)
 
-    ini = sub.add_parser(
-        "init",
-        help="detect what is reachable and write a config bound to it",
+    setup = sub.add_parser(
+        "setup",
+        help=(
+            "scan, plan, download, emit and write a config bound to what is reachable"
+        ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--host",
         action="append",
         default=[],
@@ -4173,7 +4226,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "(repeatable; default: localhost only)"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--api",
         action="append",
         default=[],
@@ -4185,18 +4238,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "key, never the key itself"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "path",
         nargs="?",
         default=None,
         help=f"where to write (default: {INIT_DEFAULT_HELP})",
     )
-    ini.add_argument(
+    setup.add_argument(
         "--force",
         action="store_true",
         help="overwrite an existing config, discarding hand edits",
     )
-    ini.add_argument(
+    setup.add_argument(
         "--priority",
         default=None,
         choices=PRIORITIES,
@@ -4208,7 +4261,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "measured or the schema's, never the model's"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--profile",
         default=None,
         metavar="TEXT",
@@ -4218,7 +4271,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "the config's `profile: live|dev`"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--use-case",
         default="coding",
         choices=use_case_names,
@@ -4229,7 +4282,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "media-gen (media_valid + safety + ASR-WER); default: coding"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--deployment",
         default=None,
         choices=("hybrid", "local-only"),
@@ -4237,11 +4290,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
             "local-only (mcgyvr is the backend and provisions a local "
-            "orchestrator for a non-chat use case); default: local-only for "
-            "chat, hybrid otherwise"
+            "orchestrator for a non-chat use case); default: hybrid"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--jev",
         default=None,
         metavar="UNIT",
@@ -4250,7 +4302,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "asks, never slept or woken (an opt-in; no model is picked for you)"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--mcorch",
         default=None,
         metavar="UNIT",
@@ -4261,7 +4313,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "local-only"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--window",
         default=None,
         type=int,
@@ -4271,7 +4323,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "read back off the running process"
         ),
     )
-    ini.set_defaults(func=_init)
+    setup.set_defaults(func=_setup)
 
     att = sub.add_parser(
         "attach",

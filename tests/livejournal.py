@@ -143,7 +143,7 @@ def pi_transcript(home: Path, session_id: str) -> Path:
 
 def completion(text: str, request: Any) -> Any:
     """The reply a stubbed dispatch hands back, shaped as the runner's own."""
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(

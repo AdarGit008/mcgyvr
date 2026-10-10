@@ -25,7 +25,7 @@ import pytest
 
 from mcgyvr import decision as decision_module
 from mcgyvr.decision import BoolAnswer, Noul, classify
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import Hangup, HungUpError
 from tests.test_the_runner_streams_from_every_unit_and_hangs_up_when_the_asker_has_gone import (  # noqa: E501
     Unit,

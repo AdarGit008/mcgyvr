@@ -37,7 +37,7 @@ DEFAULT_HEADROOM_GB = 2.0
 NO_BACKEND_NOTE = (
     "No local backend is reachable, so the local ladder is empty. "
     "Bind an API source, start a backend and re-run, or name the "
-    "rig that serves your models — `mcgyvr init --host <name>`."
+    "rig that serves your models — `mcgyvr setup --host <name>`."
 )
 
 

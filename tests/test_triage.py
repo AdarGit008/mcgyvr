@@ -22,7 +22,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Score, ScoreAnswer
 from mcgyvr.escalate import ascent
-from mcgyvr.pool import Endpoint, Protocol, SourceMap, source_map
+from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, source_map
 from mcgyvr.triage import (
     FLOOR_QUESTION,
     TASK_TYPE_QUESTION,

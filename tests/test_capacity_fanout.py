@@ -56,7 +56,7 @@ from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import Accepted, Result, Try, climb, plan
 
 # How long a job waits for its group to assemble before giving up. Nothing
@@ -222,7 +222,7 @@ def climbing(
     The attempt function is where a real caller would dispatch, so it is where
     the slot is held — around the request and not around the task, which is the
     rule :mod:`mcgyvr.capacity` is built on. Resolving the rung to an endpoint
-    goes through :meth:`~mcgyvr.pool.SourceMap.bind`, the one seam crossing,
+    goes through :meth:`~mcgyvr.local_pool.SourceMap.bind`, the one seam crossing,
     because the source a rung lands on is exactly the fact under test and a job
     that closed over an endpoint would have assumed the answer.
     """

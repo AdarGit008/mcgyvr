@@ -30,7 +30,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 
 #: Two units on an invented rig: the cheap one serves a 2048-token window, the
 #: dear one 32768. The dear one is there so "not climbed" can be asserted.
@@ -83,7 +83,7 @@ def repo(tmp_path: Path) -> Path:
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Record every rung a request reaches; answer with a valid file."""
     from mcgyvr import drive
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     seen: list[str] = []

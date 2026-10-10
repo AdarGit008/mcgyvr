@@ -1,6 +1,6 @@
 """Is anything actually there — per-source liveness, priced at one timeout a run.
 
-:mod:`mcgyvr.pool` resolves the ladder *structurally*: a rung whose source names
+:mod:`mcgyvr.local_pool` resolves the ladder *structurally*: a rung whose source names
 a credential the environment does not hold is unusable, and that is knowable
 without touching the network. This module answers the other half: a source that
 is declared, credentialled and simply **down**.
@@ -29,7 +29,7 @@ the classification below is asymmetric. **The 401 arm is there for hosted
 providers and the 404 arm is there for local backends**, and each would look
 like an over-reaction if only the other kind existed.
 
-It is also why :attr:`~mcgyvr.pool.Endpoint.credential_env` is reported rather
+It is also why :attr:`~mcgyvr.local_pool.Endpoint.credential_env` is reported rather
 than assumed: the reason text names the variable when there is one and says that
 none is configured when there is not, so the message is actionable for whichever
 kind it turns out to be.
@@ -81,7 +81,7 @@ is why this is not simply "2xx is up":
   stating: the source *is* answering, so a naive reachability check would call it
   live and hand it dispatches that all fail identically. A key that
   is wrong, expired or revoked does not improve with retries. Note this is a
-  different fault from the one :func:`mcgyvr.pool.source_map` already catches
+  different fault from the one :func:`mcgyvr.local_pool.source_map` already catches
   structurally — there the variable is *unset*, here it is set and rejected.
 * **5xx is down.** The server is there and is telling us it cannot serve. A
   provider outage, most often.
@@ -110,7 +110,7 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-from mcgyvr.pool import Endpoint, PoolError, Protocol
+from mcgyvr.local_pool import Endpoint, PoolError, Protocol
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
 
@@ -145,7 +145,7 @@ class AvailabilityVerdict:
     """What one probe found, and how it found it.
 
     ``reason`` is written to be read by whoever sees a shortened ladder, because
-    it becomes :attr:`mcgyvr.pool.Skipped.reason` verbatim. ``how`` follows
+    it becomes :attr:`mcgyvr.local_pool.Skipped.reason` verbatim. ``how`` follows
     :mod:`mcgyvr.detect`'s rule that a detected fact carries its provenance: a
     verdict with no account of how it was reached is indistinguishable from a
     guess, and this one shortens a ladder.
@@ -172,7 +172,7 @@ ProbeFn = Callable[[Endpoint, float], AvailabilityVerdict]
 class Availability:
     """Per-source liveness for one run, probed at most once per source.
 
-    Construct one per run and pass it to :func:`mcgyvr.pool.source_map`. Holding
+    Construct one per run and pass it to :func:`mcgyvr.local_pool.source_map`. Holding
     it for longer is the one thing that breaks it: the cache never expires, so a
     long-lived instance would keep reporting a verdict from whenever it first
     looked.
@@ -274,9 +274,9 @@ class Availability:
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
         """Which of these sources cannot serve, and why — the pool's seam.
 
-        Deliberately the narrowest thing :func:`mcgyvr.pool.source_map` could
+        Deliberately the narrowest thing :func:`mcgyvr.local_pool.source_map` could
         need: a mapping of source name to reason, holding only the sources that
-        are down. :mod:`mcgyvr.pool` therefore learns nothing about probes,
+        are down. :mod:`mcgyvr.local_pool` therefore learns nothing about probes,
         verdicts or HTTP, and this module stays the only place that knows the
         network exists.
         """

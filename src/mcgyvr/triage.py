@@ -59,7 +59,7 @@ from mcgyvr.decision import (
     ScoreAnswer,
     classify,
 )
-from mcgyvr.pool import Endpoint
+from mcgyvr.local_pool import Endpoint
 
 #: The question names, stable so a caller can read the answers by key.
 TASK_TYPE_QUESTION = "task_type"

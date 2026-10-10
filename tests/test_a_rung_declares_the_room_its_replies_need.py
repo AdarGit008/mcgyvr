@@ -26,7 +26,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.pool import Protocol, source_map
+from mcgyvr.local_pool import Protocol, source_map
 from tests import livejournal as lj
 
 #: Two rungs on one rig that serves a 4096-token window. The dear rung declares

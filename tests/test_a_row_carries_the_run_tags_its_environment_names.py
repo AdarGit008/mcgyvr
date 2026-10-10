@@ -38,7 +38,7 @@ import pytest
 
 from mcgyvr import config as configlib
 from mcgyvr import telemetry
-from mcgyvr.pool import Protocol
+from mcgyvr.local_pool import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import ATTEMPT_KIND, fold, observe
 from tests import livejournal as lj
@@ -249,7 +249,7 @@ _OUTSIDE = """
 import json
 from pathlib import Path
 import mcgyvr
-from mcgyvr.pool import Protocol
+from mcgyvr.local_pool import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import fold, observe
 

@@ -352,7 +352,7 @@ def test_the_verifier_role_is_answered_without_handing_over_a_credential(
     which is precisely why the import guard could not see it.
     """
     from mcgyvr.config import parse as parse_config
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
 
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     pool = source_map(
@@ -386,7 +386,7 @@ def test_the_seam_guard_catches_every_spelling_it_used_to_miss(
     """E6: the guard had three bypasses, so it was reporting on spelling.
 
     Each module below crosses the seam in a way the original guard's single
-    shape — ``ast.ImportFrom`` with ``module == "mcgyvr.pool"`` — does not match.
+    shape — ``ast.ImportFrom`` with ``module == "mcgyvr.local_pool"`` — does not match.
     Written as synthetic source rather than by asserting against ``src/``,
     because a guard is only shown to hold by giving it something that should
     fail.
@@ -394,10 +394,10 @@ def test_the_seam_guard_catches_every_spelling_it_used_to_miss(
     from tests.test_pool import seam_offenders
 
     (tmp_path / "by_module_import.py").write_text(
-        "import mcgyvr.pool\n\nE = mcgyvr.pool.Endpoint\n", encoding="utf-8"
+        "import mcgyvr.local_pool\n\nE = mcgyvr.local_pool.Endpoint\n", encoding="utf-8"
     )
     (tmp_path / "by_relative_import.py").write_text(
-        "from .pool import Endpoint\n", encoding="utf-8"
+        "from .local_pool import Endpoint\n", encoding="utf-8"
     )
     (tmp_path / "by_accessor.py").write_text(
         "def f(source_map):\n    return source_map.role('verifier').endpoint\n",
@@ -422,7 +422,7 @@ def test_the_seam_guard_still_passes_an_innocent_module(tmp_path: Path) -> None:
     from tests.test_pool import seam_offenders
 
     (tmp_path / "innocent.py").write_text(
-        "from mcgyvr.pool import SourceMap\n\n"
+        "from mcgyvr.local_pool import SourceMap\n\n"
         "def f(source_map: SourceMap) -> str | None:\n"
         "    return source_map.role_model('verifier')\n",
         encoding="utf-8",

@@ -5,7 +5,7 @@ to setup.
 
 Step 2 (`mcgyvr contract CONTRACT.yaml`) and Step 3
 (`mcgyvr run CONTRACT.yaml ...`) are the two commands the skill points an agent
-at, in order, on every machine including one nobody has run `mcgyvr init` on.
+at, in order, on every machine including one nobody has run `mcgyvr setup` on.
 They are not the same command. Step 3 needs a ladder: `_run` refuses a
 model-executed contract when no config loads and names where `SETUP.md` lives
 beside the loader's own message (`cli.SETUP_DOC`). Step 2 needs nothing:
@@ -434,7 +434,7 @@ def test_a_machine_carrying_the_old_skill_with_no_record_upgrades_unforced(
     names it. A frozen copy is what an old machine has.
     """
     old = OLD_SKILL_MD.read_bytes()
-    assert b"mcgyvr init" in old, (
+    assert b"mcgyvr setup" in old, (
         "the frozen copy must still be the Step-0-carrying one this upgrade "
         "is for; if it is not, this test is not driving the recordless upgrade"
     )

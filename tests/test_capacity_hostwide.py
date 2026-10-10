@@ -35,7 +35,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.capacity import Capacity, CapacityError, _slot_stem
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 
 BASE_URL = "http://rig:11434"
 
@@ -58,7 +58,7 @@ import os, sys, time
 from pathlib import Path
 
 from mcgyvr.capacity import Capacity, CapacityError
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 
 lock_dir, log_file, ready_dir, go_file, limit, timeout, hold_s = sys.argv[1:8]
 limit = int(limit)

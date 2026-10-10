@@ -167,13 +167,13 @@ def test_uninstall_removes_both_and_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_skill_body_no_longer_documents_first_run_onboarding() -> None:
-    # An agent authoring a contract does not read `mcgyvr init` or
-    # `mcgyvr pool` here — that onboarding path is SETUP.md, beside the skill
+    # An agent authoring a contract does not read `mcgyvr setup` or
+    # `mcgyvr local_pool` here — that onboarding path is SETUP.md, beside the skill
     # it is not part of.
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     body = _body(SKILL_MD)
-    assert "mcgyvr init" not in body
-    assert "mcgyvr pool" not in body
+    assert "mcgyvr setup" not in body
+    assert "mcgyvr local_pool" not in body
 
 
 def test_skill_body_no_longer_documents_the_levers() -> None:
@@ -205,7 +205,7 @@ def test_cli_exposes_the_onboarding_verbs(
         main(["--help"])
     assert exc.value.code == 0
     help_text = capsys.readouterr().out
-    for verb in ("init", "pool", "config", "detect", "capabilities", "catalog"):
+    for verb in ("setup", "local_pool", "config", "detect", "capabilities", "catalog"):
         assert verb in help_text
 
 

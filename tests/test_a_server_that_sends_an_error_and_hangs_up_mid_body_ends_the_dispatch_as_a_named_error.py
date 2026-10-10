@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import BackendError, Request, runner_for
 
 STATUS = 500

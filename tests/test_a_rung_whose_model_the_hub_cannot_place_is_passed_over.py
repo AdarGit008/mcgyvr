@@ -34,7 +34,7 @@ from mcgyvr.config import parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.escalate import Delivered, escalate
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.route import Verdict
 from mcgyvr.runner import BackendError, Request, RunnerError, dispatch
 from mcgyvr.sandbox.tempdir import TempDirSandbox

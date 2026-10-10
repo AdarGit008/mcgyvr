@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import parse
-from mcgyvr.pool import (
+from mcgyvr.local_pool import (
     Endpoint,
     Protocol,
     Rung,
@@ -129,7 +129,7 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 
 
 # The modules allowed to hold an `Endpoint`, which is to say the ones that live
-# *below* the seam. `pool.py` defines it; `runner.py` (#21) is what it was
+# *below* the seam. `local_pool.py` defines it; `runner.py` (#21) is what it was
 # defined for — dispatch is the whole reason the type exists, and a runner is
 # the last place that can still be said to not know who asked. Anything else
 # reaching for it is the failure this guard is here to catch, so the list is
@@ -153,7 +153,7 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # the credential, so it cannot dispatch even by accident. And it is the use
 # `Endpoint` itself names: "``source`` is the declared source name, kept for
 # capacity accounting and telemetry — both of which live below the seam"
-# (`pool.py`). Nothing travels upward either — a caller above the seam hands
+# (`local_pool.py`). Nothing travels upward either — a caller above the seam hands
 # `run_batch` a capacity and gets back outcomes, and never an endpoint.
 #
 # `cooldown.py` (D09) is the fifth, and it is capacity's argument rather than
@@ -204,7 +204,7 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # candidates are sized from the rig and the checkpoint header before any model
 # is consulted.
 BELOW_THE_SEAM = {
-    "pool.py",
+    "local_pool.py",
     "runner.py",
     "availability.py",
     "capacity.py",
@@ -227,8 +227,8 @@ def seam_offenders(root: Path) -> list[str]:
     """Every way a module under ``root`` reaches an endpoint, with where.
 
     Three routes, because the guard was defeated by two of them. The original
-    checked one shape — ``from mcgyvr.pool import Endpoint`` — and the 2026-08-29
-    pressure test found the rule crossed anyway by ``import mcgyvr.pool`` and by
+    checked one shape — ``from mcgyvr.local_pool import Endpoint`` — and the 2026-08-29
+    pressure test found the rule crossed anyway by ``import mcgyvr.local_pool`` and by
     a relative import, neither of which that shape matches, and once more by
     ``SourceMap.role()``, which needs no import at all: it *returns* a
     ``RoleBinding``, so a module could hold a live ``credential()`` while
@@ -248,18 +248,20 @@ def seam_offenders(root: Path) -> list[str]:
         where = path.relative_to(root)
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            # `from mcgyvr.pool import Endpoint`, and the relative spelling of
+            # `from mcgyvr.local_pool import Endpoint`, and the relative spelling of
             # the same import, which resolves to the same module.
             if isinstance(node, ast.ImportFrom):
                 module = node.module or ""
-                if module == "mcgyvr.pool" or (node.level and module == "pool"):
+                if module == "mcgyvr.local_pool" or (
+                    node.level and module == "local_pool"
+                ):
                     imported = {alias.name for alias in node.names}
                     if imported & BELOW_THE_SEAM_NAMES:
                         offenders.append(f"{where}: imports {sorted(imported)}")
-            # `import mcgyvr.pool`, which reaches every name in it.
+            # `import mcgyvr.local_pool`, which reaches every name in it.
             elif isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name == "mcgyvr.pool":
+                    if alias.name == "mcgyvr.local_pool":
                         offenders.append(f"{where}: imports the module whole")
             # `something.role(...)` — an endpoint through an accessor.
             elif isinstance(node, ast.Call):

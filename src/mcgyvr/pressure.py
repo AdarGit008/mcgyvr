@@ -79,7 +79,7 @@ from mcgyvr.wake import _ours, resting
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
-    from mcgyvr.pool import Endpoint, SourceMap
+    from mcgyvr.local_pool import Endpoint, SourceMap
 
 # Marker names keep a readable prefix of the key for an operator listing the
 # directory, and a digest for identity — two keys that sanitize alike must not
@@ -528,14 +528,14 @@ class Pressure:
 
     ``live`` and ``in_flight`` take the rung's endpoint and are injectable so
     that nothing here needs a network to be asserted; the defaults are the real
-    probe and the real status read. The pool is a :class:`~mcgyvr.pool.SourceMap`
+    probe and the real status read. The pool is a :class:`~mcgyvr.local_pool.SourceMap`
     built *without* an availability filter, because the question is whether a
     rung that is declared answers, and a map that had already dropped it would
     have no endpoint to ask about.
 
     An unknown rung raises the pool's own error: a manager asking about a rung
     nobody declared is holding a config that is not this one, which is the
-    mistake :meth:`~mcgyvr.pool.SourceMap.bind` names, and answering it with an
+    mistake :meth:`~mcgyvr.local_pool.SourceMap.bind` names, and answering it with an
     empty reading would hide it.
     """
 
@@ -586,7 +586,7 @@ def server_counts(pool: SourceMap) -> Callable[[str], int | None]:
     a config, and only the ladder's are on the pool.
     """
 
-    from mcgyvr.pool import UnknownRungError
+    from mcgyvr.local_pool import UnknownRungError
 
     def count(source: str) -> int | None:
         try:

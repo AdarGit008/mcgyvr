@@ -42,6 +42,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import time
@@ -91,6 +92,13 @@ TIGHT_RAM_GB = 2.0
 
 SCAN_ROOT_ENV = "MCGYVR_SCANS"
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
+
+#: A GGUF quantisation as file names spell it, at the end of the name.
+_GGUF_QUANT = re.compile(
+    r"[-_.]((?:I?Q\d+(?:_[A-Z0-9]+)*)|BF16|FP16|F16|F32|MXFP4(?:_MOE)?)\.gguf$",
+    re.IGNORECASE,
+)
+
 
 # systemd's own advice is not to hand /etc/machine-id out as-is; hashing keeps
 # the property this needs (same machine, same answer) without publishing an id
@@ -215,6 +223,25 @@ class Disk:
 
     path: Path
     free_gb: float
+    total_gb: float | None = None
+    device: str | None = None
+
+
+@dataclass(frozen=True)
+class ModelOnDisk:
+    """One weights file on disk, named enough to be reused instead of fetched.
+
+    ``name`` is the model id/name read off the file name; ``quant`` is the
+    GGUF quantisation when the file name carries one, else None (safetensors
+    shards name their model by the directory they sit in). ``size_bytes`` is
+    the file's size, which is what a later download step matches before it
+    spends the bandwidth.
+    """
+
+    name: str
+    quant: str | None
+    size_bytes: int
+    path: Path
 
 
 @dataclass(frozen=True)
@@ -272,6 +299,7 @@ class Scan:
     cpu: Cpu | None = None
     bandwidth: Bandwidth | None = None
     disk: Disk | None = None
+    models_on_disk: tuple[ModelOnDisk, ...] = ()
     notes: _Notes = ()
     facts: _Facts = ()
     #: The version the machine's own docker daemon reports, read by the
@@ -412,8 +440,22 @@ class Scan:
             "disk": (
                 None
                 if self.disk is None
-                else {"path": str(self.disk.path), "free_gb": self.disk.free_gb}
+                else {
+                    "path": str(self.disk.path),
+                    "free_gb": self.disk.free_gb,
+                    "total_gb": self.disk.total_gb,
+                    "device": self.disk.device,
+                }
             ),
+            "models_on_disk": [
+                {
+                    "name": model.name,
+                    "quant": model.quant,
+                    "size_bytes": model.size_bytes,
+                    "path": str(model.path),
+                }
+                for model in self.models_on_disk
+            ],
             "docker": self.docker,
             "network": (
                 None
@@ -486,7 +528,27 @@ class Scan:
             disk=(
                 None
                 if disk is None
-                else Disk(path=Path(str(disk["path"])), free_gb=float(disk["free_gb"]))
+                else Disk(
+                    path=Path(str(disk["path"])),
+                    free_gb=float(disk["free_gb"]),
+                    total_gb=(
+                        None
+                        if disk.get("total_gb") is None
+                        else float(disk["total_gb"])
+                    ),
+                    device=(
+                        None if disk.get("device") is None else str(disk["device"])
+                    ),
+                )
+            ),
+            models_on_disk=tuple(
+                ModelOnDisk(
+                    name=str(model["name"]),
+                    quant=None if model.get("quant") is None else str(model["quant"]),
+                    size_bytes=int(model["size_bytes"]),
+                    path=Path(str(model["path"])),
+                )
+                for model in raw.get("models_on_disk") or ()
             ),
             notes=tuple(str(note) for note in raw.get("notes") or ()),
             facts=tuple(
@@ -592,6 +654,48 @@ def _free_bytes(path: Path) -> int:
             if parent == probe:
                 return 0
             probe = parent
+
+
+def _total_bytes(path: Path) -> int:
+    """Total bytes on the filesystem holding ``path``, by the same ancestor
+    walk as :func:`_free_bytes`."""
+    probe = path
+    while True:
+        try:
+            return shutil.disk_usage(probe).total
+        except OSError:
+            parent = probe.parent
+            if parent == probe:
+                return 0
+            probe = parent
+
+
+def _disk_usage(path: Path) -> tuple[int, int]:
+    """Free and total bytes on the filesystem holding ``path``."""
+    return _free_bytes(path), _total_bytes(path)
+
+
+def _disk_device(path: Path) -> str | None:
+    """The device/type of the filesystem holding ``path``, when /proc mounts
+    name one; None elsewhere (macOS, a namespace without /proc)."""
+    try:
+        mounts = Path("/proc/self/mounts").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    resolved = str(path.resolve(strict=False))
+    best: str | None = None
+    best_len = -1
+    for line in mounts.splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        source, mount = parts[0], parts[1]
+        mount = mount.replace("\\040", " ")
+        if (resolved == mount or resolved.startswith(mount.rstrip("/") + "/")) and len(
+            mount
+        ) > best_len:
+            best, best_len = source, len(mount)
+    return best
 
 
 def _spare_gb() -> float:
@@ -952,12 +1056,77 @@ def _scan_bandwidth() -> tuple[Bandwidth | None, _Facts, _Notes]:
 
 def _scan_disk(weights_dir: Path | None) -> tuple[Disk, _Facts]:
     path = weights_dir if weights_dir is not None else default_weights_dir()
-    free = _free_bytes(path)
-    disk = Disk(path=path, free_gb=round(free / BYTES_PER_GB, 1))
-    return disk, (Fact(field="disk.free_gb", how=f"free space on {path}"),)
+    free, total = _disk_usage(path)
+    device = _disk_device(path)
+    disk = Disk(
+        path=path,
+        free_gb=round(free / BYTES_PER_GB, 1),
+        total_gb=round(total / BYTES_PER_GB, 1) if total else None,
+        device=device,
+    )
+    facts: tuple[Fact, ...] = (Fact(field="disk.free_gb", how=f"free space on {path}"),)
+    if disk.total_gb is not None:
+        facts += (Fact(field="disk.total_gb", how=f"total space on {path}"),)
+    if device is not None:
+        facts += (
+            Fact(field="disk.device", how=f"/proc/self/mounts source for {path}"),
+        )
+    return disk, facts
 
 
-def scan(weights_dir: Path | None = None) -> Scan:
+def _scan_models_on_disk(
+    roots: Sequence[Path],
+) -> tuple[tuple[ModelOnDisk, ...], _Facts]:
+    """Inventory ``*.gguf`` and ``*.safetensors`` under ``roots``.
+
+    A missing root is absence, not a failure, and a file that cannot be
+    stat'ed is skipped rather than guessed at. For a GGUF the name is the stem
+    before its quant tag; for a safetensors shard the name is the directory
+    that holds it (the model's own name in a Hugging Face layout).
+    """
+    found: list[ModelOnDisk] = []
+    facts: list[Fact] = []
+    seen: set[Path] = set()
+    for root in dict.fromkeys(roots):
+        root = Path(root).expanduser()
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path in seen:
+                continue
+            lower = path.name.lower()
+            if lower.endswith(".gguf"):
+                name, quant = _model_name_and_quant(path)
+            elif lower.endswith(".safetensors"):
+                name, quant = path.stem, None
+            else:
+                continue
+            try:
+                size = path.stat().st_size
+            except OSError:
+                continue
+            seen.add(path)
+            found.append(
+                ModelOnDisk(
+                    name=name,
+                    quant=quant,
+                    size_bytes=size,
+                    path=path,
+                )
+            )
+            facts.append(Fact(field=f"models_on_disk[{path}]", how="filesystem"))
+    return tuple(found), tuple(facts)
+
+
+def _model_name_and_quant(path: Path) -> tuple[str, str | None]:
+    """A GGUF's model name and quant, read off its file name."""
+    match = _GGUF_QUANT.search(path.name)
+    if match is None:
+        return path.name[: -len(".gguf")], None
+    return path.name[: match.start()], match.group(1).upper()
+
+
+def scan(weights_dir: Path | None = None, model_stores: Sequence[Path] = ()) -> Scan:
     """Measure this machine. Never raises: a bare machine is a valid answer."""
     machine, machine_facts, machine_notes = _scan_machine()
     gpus, gpu_facts, gpu_notes = _scan_gpus()
@@ -965,6 +1134,12 @@ def scan(weights_dir: Path | None = None) -> Scan:
     cpu, cpu_facts, cpu_notes = _scan_cpu()
     bandwidth, bandwidth_facts, bandwidth_notes = _scan_bandwidth()
     disk, disk_facts = _scan_disk(weights_dir)
+    models, model_facts = _scan_models_on_disk(
+        (
+            *(model_stores or ()),
+            weights_dir if weights_dir is not None else default_weights_dir(),
+        )
+    )
     return Scan(
         machine=machine,
         gpus=gpus,
@@ -972,6 +1147,7 @@ def scan(weights_dir: Path | None = None) -> Scan:
         cpu=cpu,
         bandwidth=bandwidth,
         disk=disk,
+        models_on_disk=models,
         notes=(
             *machine_notes,
             *gpu_notes,
@@ -986,6 +1162,7 @@ def scan(weights_dir: Path | None = None) -> Scan:
             *cpu_facts,
             *bandwidth_facts,
             *disk_facts,
+            *model_facts,
         ),
     )
 

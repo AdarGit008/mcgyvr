@@ -20,7 +20,7 @@ the hook *routes*, and the existing wake-on-demand does the waking, still gated
 by ``serving.enable_sleep_wake`` and live admission exactly as it is today.
 
 This module sits above the seam: it names rungs and reads a contract, and it
-never imports an :class:`~mcgyvr.pool.Endpoint` or :mod:`mcgyvr.serving`. It
+never imports an :class:`~mcgyvr.local_pool.Endpoint` or :mod:`mcgyvr.serving`. It
 asks :mod:`mcgyvr.decision` to judge, naming a rung and never binding one —
 the decision module resolves the endpoint — and it asks :mod:`mcgyvr.wake` which
 rungs are asleep — both below-the-seam answers, read through seams that return
@@ -34,14 +34,14 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr import decision
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-from mcgyvr.pool import Rung
+from mcgyvr.local_pool import Rung
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable, Mapping, Sequence
 
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
 
 #: The one bounded question Jev is asked. A single-token ``Yes``/``No``.
 INSTRUCTIONS = (
@@ -54,7 +54,7 @@ class Cooling(Protocol):
     """What the hook asks a cooldown: which of these endpoints cannot serve now.
 
     :class:`mcgyvr.cooldown.Cooldown` answers it; the endpoints are the ones
-    :meth:`~mcgyvr.pool.SourceMap.bind` hands back, and the hook passes them
+    :meth:`~mcgyvr.local_pool.SourceMap.bind` hands back, and the hook passes them
     through without looking inside.
     """
 

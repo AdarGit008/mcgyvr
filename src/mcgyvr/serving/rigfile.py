@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet.roots import FolderError, rigs_dir
-from mcgyvr.scan import SSH_TIMEOUT_S, Network, Scan
+from mcgyvr.scan import SSH_TIMEOUT_S, ModelOnDisk, Network, Scan
 
 #: What a rig name may be: a plain file name, as an ssh alias is.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -68,8 +68,15 @@ class Rig:
     machine_id: str
     cards: tuple[Card, ...] = ()
     ram_total_gb: float | None = None
+    cpu_cores: int | None = None
+    cpu_threads: int | None = None
+    bandwidth_gbps: float | None = None
+    bandwidth_how: str = ""
     disk_path: str | None = None
     disk_free_gb: float | None = None
+    disk_total_gb: float | None = None
+    disk_device: str | None = None
+    models_on_disk: tuple[ModelOnDisk, ...] = ()
     docker: str | None = None
     notes: tuple[str, ...] = ()
     #: The private IPv4 address a worker on this rig listens on, or None.
@@ -88,11 +95,35 @@ class Rig:
                 for card in self.cards
             ],
             "ram_total_gb": self.ram_total_gb,
+            "cpu": (
+                None
+                if self.cpu_cores is None and self.cpu_threads is None
+                else {"cores": self.cpu_cores, "threads": self.cpu_threads}
+            ),
+            "bandwidth": (
+                None
+                if self.bandwidth_gbps is None
+                else {"measured_gbps": self.bandwidth_gbps, "how": self.bandwidth_how}
+            ),
             "disk": (
                 None
                 if self.disk_path is None
-                else {"path": self.disk_path, "free_gb": self.disk_free_gb}
+                else {
+                    "path": self.disk_path,
+                    "free_gb": self.disk_free_gb,
+                    "total_gb": self.disk_total_gb,
+                    "device": self.disk_device,
+                }
             ),
+            "models_on_disk": [
+                {
+                    "name": model.name,
+                    "quant": model.quant,
+                    "size_bytes": model.size_bytes,
+                    "path": str(model.path),
+                }
+                for model in self.models_on_disk
+            ],
             "docker": self.docker,
             "private_ipv4": self.private_ipv4,
             "private_ipv4_how": self.private_ipv4_how,
@@ -107,6 +138,8 @@ def from_json(text: str) -> Rig:
         raw = json.loads(text)
         disk = raw.get("disk")
         ram = raw.get("ram_total_gb")
+        cpu = raw.get("cpu")
+        bandwidth = raw.get("bandwidth")
         address = raw.get("private_ipv4")
         if address is not None and _listenable(address) is None:
             raise ValueError(
@@ -127,8 +160,37 @@ def from_json(text: str) -> Rig:
                 for card in raw.get("cards") or ()
             ),
             ram_total_gb=None if ram is None else float(ram),
+            cpu_cores=(
+                None if not cpu or cpu.get("cores") is None else int(cpu["cores"])
+            ),
+            cpu_threads=(
+                None if not cpu or cpu.get("threads") is None else int(cpu["threads"])
+            ),
+            bandwidth_gbps=(
+                None
+                if not bandwidth or bandwidth.get("measured_gbps") is None
+                else float(bandwidth["measured_gbps"])
+            ),
+            bandwidth_how="" if not bandwidth else str(bandwidth.get("how") or ""),
             disk_path=None if not disk else str(disk["path"]),
             disk_free_gb=None if not disk else float(disk["free_gb"]),
+            disk_total_gb=(
+                None
+                if not disk or disk.get("total_gb") is None
+                else float(disk["total_gb"])
+            ),
+            disk_device=(
+                None if not disk or disk.get("device") is None else str(disk["device"])
+            ),
+            models_on_disk=tuple(
+                ModelOnDisk(
+                    name=str(model["name"]),
+                    quant=None if model.get("quant") is None else str(model["quant"]),
+                    size_bytes=int(model["size_bytes"]),
+                    path=Path(model["path"]),
+                )
+                for model in raw.get("models_on_disk") or ()
+            ),
             docker=None if raw.get("docker") is None else str(raw["docker"]),
             notes=tuple(str(note) for note in raw.get("notes") or ()),
             private_ipv4=None if address is None else str(address),
@@ -215,8 +277,15 @@ def from_scan(rig: str, scan: Scan, read_at: str | None = None) -> Rig:
             for gpu in scan.gpus
         ),
         ram_total_gb=None if scan.memory is None else scan.memory.total_gb,
+        cpu_cores=None if scan.cpu is None else scan.cpu.cores,
+        cpu_threads=None if scan.cpu is None else scan.cpu.threads,
+        bandwidth_gbps=None if scan.bandwidth is None else scan.bandwidth.measured_gbps,
+        bandwidth_how="" if scan.bandwidth is None else scan.bandwidth.how,
         disk_path=None if scan.disk is None else str(scan.disk.path),
         disk_free_gb=None if scan.disk is None else scan.disk.free_gb,
+        disk_total_gb=None if scan.disk is None else scan.disk.total_gb,
+        disk_device=None if scan.disk is None else scan.disk.device,
+        models_on_disk=scan.models_on_disk,
         docker=scan.docker,
         notes=scan.notes,
         private_ipv4=address,

@@ -86,7 +86,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.decision import Decision
     from mcgyvr.deterministic import ToolStep
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
     from mcgyvr.sandbox.base import CommandResult, Sandbox
     from mcgyvr.verify import Ask, Reviewers
     from mcgyvr.wake import Waker

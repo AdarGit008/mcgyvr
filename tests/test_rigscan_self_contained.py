@@ -29,6 +29,7 @@ STDLIB_ONLY = {
     "subprocess",
     "time",
     "typing",
+    "re",
 }
 
 
@@ -101,6 +102,7 @@ def test_the_scanner_runs_isolated_and_prints_the_scan_shape() -> None:
         "cpu",
         "bandwidth",
         "disk",
+        "models_on_disk",
         "notes",
         "facts",
     ):

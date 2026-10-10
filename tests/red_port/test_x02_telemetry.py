@@ -47,7 +47,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.pool import Protocol
+from mcgyvr.local_pool import Protocol
 from mcgyvr.runner import Completion, StopReason
 from tests.red_port.conftest import required
 
