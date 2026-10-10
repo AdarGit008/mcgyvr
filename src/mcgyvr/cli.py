@@ -821,17 +821,38 @@ def _setup_downloads(
     return tuple(downloads)
 
 
+def _setup_suffix() -> str:
+    """A RUN_ID suffix unique to this setup step (gate 5 claims the id)."""
+    import os
+    import time
+
+    return f"setup-{os.getpid()}-{int(time.monotonic() * 1000) % 1_000_000}"
+
+
 def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
     """Step 5: download one chosen model through the door's ``serve fetch``."""
+    from mcgyvr import wake as wakelib
     from mcgyvr.serving import fetchlist, safe_host
-    from mcgyvr.serving import run as serving_run
+    from mcgyvr.serving.gatelib import DOOR_MODULE
 
     wants = fetchlist.from_records([record])
     path.mkdir(parents=True, exist_ok=True)
     fetch_file = path / f"fetch-{safe_host(rig)}.json"
     fetch_file.write_text(fetchlist.dump(wants), encoding="utf-8")
-    code = serving_run.main(
-        ["serve", "fetch", "--host", rig, "--weights", str(fetch_file)]
+    code = wakelib.spawn_door(
+        [
+            sys.executable,
+            "-m",
+            DOOR_MODULE,
+            "serve",
+            "fetch",
+            "--host",
+            rig,
+            "--weights",
+            str(fetch_file),
+            "--suffix",
+            _setup_suffix(),
+        ]
     )
     if code != 0:
         raise _SetupInteractiveError(f"{rig}: serve fetch exited {code}")
@@ -889,7 +910,7 @@ def _setup_emit(path: Path) -> None:
 
 def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> None:
     """Step 6b: start each emitted launch spec through the door's ``serve up``."""
-    from mcgyvr.serving import run as serving_run
+    from mcgyvr import wake as wakelib
     from mcgyvr.serving import spec_files, spec_name
 
     for rig in dict.fromkeys(rigs):
@@ -913,8 +934,10 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
                     "start one by hand"
                 )
             compose = files[0]
-        code = serving_run.main(
-            ["serve", "up", "--host", rig, "--compose", str(compose)]
+        code = wakelib.spawn_door(
+            wakelib.door_argv(
+                direction="up", host=rig, compose=compose, suffix=_setup_suffix()
+            )
         )
         if code != 0:
             raise _SetupInteractiveError(f"{rig}: serve up exited {code}")

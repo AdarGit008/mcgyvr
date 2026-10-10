@@ -7,6 +7,16 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Fixed
+
+- The interactive `mcgyvr setup` wizard's download and start steps now run the
+  door (`python -m mcgyvr.serving.run serve fetch|up`) as a subprocess through
+  ``mcgyvr.wake.spawn_door`` instead of calling the door's ``main`` in-process,
+  which the door's gate 1 refused because the process was not started by the
+  door.
+
 ## [0.4.4] - 2026-10-10
 
 ### Fixed
