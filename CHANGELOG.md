@@ -7,6 +7,17 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.8] - 2026-10-10
+
+### Fixed
+
+- A catalog pick is again priced at the base model's ``config.json``
+  context (its native window), not the GGUF header's ``n_ctx_train``.
+  0.4.7 priced the shipped Qwen GGUFs at their repacked 128K window, which
+  made the 7B (weights plus a 128K KV cache) no longer fit a 12 GB card, so
+  ``mcgyvr recommend`` refused it. The native 32K window is the window the
+  model fits and is priced at; the serve pins its own window.
+
 ## [0.4.7] - 2026-10-10
 
 ### Fixed

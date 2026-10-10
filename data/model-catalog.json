@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits, and that mcgyvr's model knowledge falls back to offline, after the user's cache ($MCGYVR_HOME/knowledge). Each entry is one model at one quantisation: `weights` names the file a pick downloads (repository, revision, file, sha256), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the GGUF header's declared context (`n_ctx_train`), the context the checkpoint serves and a catalog pick is priced at (a repacked GGUF serves the header's context, not `config.json`); `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
+  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits, and that mcgyvr's model knowledge falls back to offline, after the user's cache ($MCGYVR_HOME/knowledge). Each entry is one model at one quantisation: `weights` names the file a pick downloads (repository, revision, file, sha256), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
   "models": [
     {
       "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
@@ -22,9 +22,9 @@
         "read_at": "2026-10-07"
       },
       "context_length": {
-        "value": 131072,
+        "value": 32768,
         "kind": "fact",
-        "source": "gguf-header-range:Qwen/Qwen2.5-Coder-7B-Instruct-GGUF@13fb94bfda8c8cf22497dc57b78f391a9acb426a/qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+        "source": "hub-config:Qwen/Qwen2.5-Coder-7B-Instruct@c03e6d358207e414f1eca0bb1891e29f1db0e242/config.json#max_position_embeddings",
         "read_at": "2026-10-07"
       },
       "kv_bytes_per_token": {
@@ -61,9 +61,9 @@
         "read_at": "2026-10-07"
       },
       "context_length": {
-        "value": 131072,
+        "value": 32768,
         "kind": "fact",
-        "source": "gguf-header-range:Qwen/Qwen2.5-Coder-14B-Instruct-GGUF@d0a692ef765eefbf2fabb130b3cb2e8917e3d225/qwen2.5-coder-14b-instruct-q4_k_m.gguf",
+        "source": "hub-config:Qwen/Qwen2.5-Coder-14B-Instruct@aedcc2d42b622764e023cf882b6652e646b95671/config.json#max_position_embeddings",
         "read_at": "2026-10-07"
       },
       "kv_bytes_per_token": {

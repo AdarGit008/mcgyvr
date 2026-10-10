@@ -281,14 +281,8 @@ def read_header(
 def _context(
     get: Get | None, base: str | None, row: Mapping[str, Any], at: str, today: date
 ) -> Number:
-    """The context a pick is priced at: the GGUF header's declared context
-    (``n_ctx_train``), as the checkpoint serves it. A repacked GGUF serves the
-    header's context, not the base model's ``config.json``, so the header is
-    the primary source; the base model's config.json answers only when the
-    header states no ``n_ctx_train``."""
-    n_ctx = row.get("n_ctx_train")
-    if isinstance(n_ctx, int) and not isinstance(n_ctx, bool) and n_ctx > 0:
-        return Number(n_ctx, "fact", f"gguf-header-range:{at}", today)
+    """The context a pick is priced at: the base model's config.json, as the
+    shipped catalog states it, or the header's own when that does not answer."""
     if base is not None:
         try:
             info = repo_info(get, base)
@@ -309,7 +303,10 @@ def _context(
                     f"hub-config:{base}@{info.sha}/config.json#max_position_embeddings",
                     today,
                 )
-    raise OnlineError(f"{at}: the header states no context length")
+    n_ctx = row.get("n_ctx_train")
+    if not isinstance(n_ctx, int) or n_ctx <= 0:
+        raise OnlineError(f"{at}: the header states no context length")
+    return Number(n_ctx, "fact", f"gguf-header-range:{at}", today)
 
 
 def _record(
