@@ -7,6 +7,24 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.7] - 2026-10-10
+
+### Fixed
+
+- A catalog pick is now priced at the GGUF header's declared context
+  (`n_ctx_train`), not the base model's `config.json`. The shipped
+  Qwen 7B/14B GGUFs are repacked to 128K, so the old figure under-counted
+  the KV cache fourfold in `mcgyvr recommend`'s fit check.
+
+### Added
+
+- The capability table's rows may name the catalog model whose weights they
+  match (a `model_id`), linking the two tables.
+- `mcgyvr emit` sizes any catalog model from the file's bytes and its own
+  context and KV figures, so a `recommend` pick is servable even when the
+  capability table has no row for it; a mapped measured row and an operator's
+  `launch` declaration still win in that order.
+
 ## [0.4.6] - 2026-10-10
 
 ### Fixed
