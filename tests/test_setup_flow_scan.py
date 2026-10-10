@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -326,6 +327,62 @@ def test_interactive_reuse_is_found_on_the_rigs_inventory(
     got = cli._setup_downloads(plans, {"rig": scan}, prompt=lambda question: "n")
     assert len(got) == 1
     assert got[0][1].model_id == "org/coder-7b"
+
+
+def test_setup_fetch_and_start_go_through_the_door(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from collections.abc import Sequence
+    from datetime import date
+
+    from mcgyvr.knowledge.record import ModelRecord, Number, Weights
+    from mcgyvr.serving import spec_name
+
+    calls: list[tuple[str, ...]] = []
+
+    def fake_spawn(argv: Sequence[str], **_: object) -> int:
+        calls.append(tuple(argv))
+        return 0
+
+    monkeypatch.setattr("mcgyvr.wake.spawn_door", fake_spawn)
+
+    def number() -> Number:
+        return Number(
+            value=1024, kind="fact", source="shipped:test", read_at=date(2026, 1, 1)
+        )
+
+    record = ModelRecord(
+        model_id="org/coder-7b",
+        quant="Q4_K_M",
+        engines=("llama.cpp",),
+        weights=Weights(
+            repo="org/repo",
+            revision="0" * 40,
+            file="coder-7b-Q4_K_M.gguf",
+            sha256="0" * 64,
+        ),
+        size_bytes=number(),
+        context_length=number(),
+        kv_bytes_per_token=number(),
+        recurrent_bytes_per_slot=number(),
+        scores=(),
+    )
+
+    cli._setup_fetch("srv1", record, tmp_path)
+    argv = calls[-1]
+    assert argv[:5] == (sys.executable, "-m", "mcgyvr.serving.run", "serve", "fetch")
+    assert argv[argv.index("--host") + 1] == "srv1"
+    assert "--weights" in argv and "--suffix" in argv
+
+    scan = scan_module.Scan(
+        machine=scan_module.Machine(id="x", host="localhost", kernel="k")
+    )
+    (tmp_path / spec_name("localhost")).write_text("services: {}", encoding="utf-8")
+    cli._setup_start(["srv1"], {"srv1": scan}, tmp_path)
+    argv = calls[-1]
+    assert argv[:5] == (sys.executable, "-m", "mcgyvr.serving.run", "serve", "up")
+    assert argv[argv.index("--host") + 1] == "srv1"
+    assert "--compose" in argv and "--suffix" in argv
 
 
 def test_setup_writes_through_the_initialize_engine(
