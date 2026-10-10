@@ -7,6 +7,16 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Fixed
+
+- The door's own serve steps (`serve fetch`, `serve up`, `serve down`, `serve
+  sleep`, `serve wake`) now run on the door's interpreter, not on whatever
+  ``python3`` a cleared PATH finds. Under `uv tool` / `pipx` the package lives
+  in an isolated venv the system interpreter cannot see, so `serve fetch` and
+  `serve up` failed with `ModuleNotFoundError: No module named 'mcgyvr'`.
+
 ## [0.4.5] - 2026-10-10
 
 ### Fixed

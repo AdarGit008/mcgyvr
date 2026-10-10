@@ -80,7 +80,14 @@ def main() -> int:
         f"(RUN_ID={need('RUN_ID')})",
         file=sys.stderr,
     )
-    return _run([step, *sys.argv[1:]])
+    argv = [step, *sys.argv[1:]]
+    if os.environ.get("RUN_SERVE"):
+        # The door's own serve step is mcgyvr code that imports the package;
+        # run it on the door's interpreter, not on the ``python3`` a cleared
+        # PATH finds (uv tool / pipx put the package in an isolated venv the
+        # system interpreter cannot see).
+        argv = [sys.executable, step, *sys.argv[1:]]
+    return _run(argv)
 
 
 if __name__ == "__main__":
