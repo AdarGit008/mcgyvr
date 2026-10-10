@@ -7,6 +7,15 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.13] - 2026-10-10
+
+### Fixed
+
+- Two rigs asked to serve the same model collapse to one unit (one unit per
+  model); the rig left out gets no launch spec. The setup wizard's
+  `serve up` treated that as an emit failure and aborted; it now skips the
+  redundant rig with a note, so a multi-rig setup with one model completes.
+
 ## [0.4.12] - 2026-10-10
 
 ### Fixed
