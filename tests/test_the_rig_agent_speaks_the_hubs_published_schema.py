@@ -74,6 +74,12 @@ def test_a_hub_is_named_by_its_files_own_variable_else_by_its_checkout(
 def test_a_re_pin_rewrites_every_copy_and_its_digests(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # The re-pinned copy is what ``load`` must read here. A hub that runs this
+    # test while naming a candidate schema directory would send ``load`` there
+    # instead, and the test would fail on the candidate, not the copy it just
+    # re-pinned.
+    monkeypatch.delenv(rig_schema.UNDER_TEST_ENV, raising=False)
+
     import shutil
 
     work = tmp_path / "tests"
@@ -109,6 +115,26 @@ def test_a_re_pin_rewrites_every_copy_and_its_digests(
         assert pinned.hub_sha256 == rig_schema.sha256(hub_bytes)
         assert pinned.fixture.read_bytes() == rig_schema.pin(hub_bytes)
         assert moved_module.load(pinned)["x-moved"] is True
+
+
+def test_a_re_pin_runs_when_the_hub_names_a_candidate_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The re-pin test clears the candidate directory before it re-imports
+    ``rig_schema``. A candidate without ``x-moved`` would fail the re-pin's
+    final assertion if ``load`` read it, so naming one proves the fix."""
+    scratch = tmp_path / "candidate"
+    scratch.mkdir()
+    for pinned in rig_schema.PINS:
+        candidate = json.loads(pinned.fixture.read_bytes())
+        candidate["x-candidate"] = True
+        (scratch / pinned.hub_name).write_text(
+            json.dumps(candidate, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    monkeypatch.setenv(rig_schema.UNDER_TEST_ENV, str(scratch))
+
+    test_a_re_pin_rewrites_every_copy_and_its_digests(tmp_path, monkeypatch)
 
 
 def test_every_feature_the_agent_speaks_is_one_the_hub_publishes(
