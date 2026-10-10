@@ -758,15 +758,17 @@ def _setup_on_disk_match(
 
     The scan collected the rig's own inventory, so this holds for a remote rig
     (its weights live on the rig, not on the machine running ``setup``). The id
-    is matched by its last segment — a GGUF's name carries no org — and the size
-    only when it is known (a size of 0 is not known).
+    is matched by its last segment, its canonical local name, or the id itself
+    — a GGUF's name carries no org — and the size only when it is known (a size
+    of 0 is not known).
     """
     if scan is None:
         return None
     basename = model_id.lower().rsplit("/", 1)[-1]
+    canonical = model_id.replace("/", "_").lower()
     wanted_quant = (quant or "").lower()
     for model in scan.models_on_disk:
-        if model.name.lower() not in (basename, model_id.lower()):
+        if model.name.lower() not in (basename, model_id.lower(), canonical):
             continue
         if (model.quant or "").lower() != wanted_quant:
             continue

@@ -1,8 +1,9 @@
 """What ``serve fetch`` is asked to download, held to a hash before any gate runs.
 
 A fetch list is a JSON object ``{"files": [{repo, revision, file, sha256,
-bytes}, ...]}``: each file a weights file of a Hugging Face repository at one
-pinned revision (a commit id), its sha256 as the Hub states it, and its size.
+bytes, name}, ...]}``: each file a weights file of a Hugging Face repository
+at one pinned revision (a commit id), its sha256 as the Hub states it, its
+size, and the local name it is saved under in the weights folder.
 These are what the model knowledge records of a downloadable file
 (:class:`mcgyvr.knowledge.record.Weights` and ``size_bytes``), and
 :func:`from_weights` writes the list from them. The door reads the list
@@ -10,8 +11,9 @@ before any gate (:func:`read`), so a file it could not hold to a hash, a
 revision that is a branch rather than a commit, or a name that could leave
 the weights folder is refused before anything reaches a rig.
 
-On the rig the files land directly in the weights folder under their own
-base names (:mod:`mcgyvr.serving.fetcher`), where ``mcgyvr emit`` mounts it
+On the rig the files land directly in the weights folder under the explicit
+local ``name`` each entry carries (:mod:`mcgyvr.serving.fetcher`) — the
+canonical name a model id is served from — where ``mcgyvr emit`` mounts it
 and the scan measured its disk.
 
 The Hub is ``HF_ENDPOINT`` when that is set (the Hub's own variable for a
@@ -43,11 +45,12 @@ ENDPOINT_ENV = "HF_ENDPOINT"
 #: The most bytes of a fetch list the door reads.
 MAX_LIST_BYTES = 1024 * 1024
 
-_KEYS = ("repo", "revision", "file", "sha256", "bytes")
+_KEYS = ("repo", "revision", "file", "sha256", "bytes", "name")
 _REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _FILE = re.compile(r"[A-Za-z0-9._+-]+(?:/[A-Za-z0-9._+-]+)*")
+_NAME = re.compile(r"[A-Za-z0-9._+-]+")
 _VARIABLE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -55,20 +58,32 @@ class FetchListError(ValueError):
     """The fetch list cannot be held to a hash; the message says which entry."""
 
 
+def _weights_file_name(model_id: str) -> str:
+    """The local file a model id is served from, as ``emit`` names it.
+
+    Kept in step with :func:`mcgyvr.serving._weights_file_name`. The fetch
+    list does not import :mod:`mcgyvr.serving` — that would pull the whole
+    serving seam into the door's list reader — so the one-line rule lives here
+    too and must match it.
+    """
+    return f"{model_id.replace('/', '_')}.gguf"
+
+
 @dataclass(frozen=True)
 class Want:
-    """One file a fetch downloads, pinned to its revision and its sha256."""
+    """One file a fetch downloads, pinned to its revision and its sha256.
+
+    ``name`` is the file's local name in the rig's weights folder — the
+    canonical name a model id is served from — and ``file`` its name inside
+    the Hugging Face repository.
+    """
 
     repo: str
     revision: str
     file: str
     sha256: str
     bytes: int
-
-    @property
-    def name(self) -> str:
-        """The name it has in the rig's weights folder: its base name."""
-        return PurePosixPath(self.file).name
+    name: str
 
     def as_json(self) -> dict[str, object]:
         return {key: getattr(self, key) for key in _KEYS}
@@ -83,7 +98,7 @@ def _want(raw: object, where: str) -> Want:
     missing = [key for key in _KEYS if key not in raw]
     if missing:
         raise FetchListError(f"{where} says no {', '.join(missing)}")
-    repo, revision, file, sha256, size = (raw[key] for key in _KEYS)
+    repo, revision, file, sha256, size, name = (raw[key] for key in _KEYS)
     if not isinstance(repo, str) or _REPO.fullmatch(repo) is None:
         raise FetchListError(f"{where} repo {repo!r} is not an `org/name` repository")
     if not isinstance(revision, str) or _COMMIT.fullmatch(revision) is None:
@@ -106,7 +121,15 @@ def _want(raw: object, where: str) -> Want:
         )
     if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
         raise FetchListError(f"{where} bytes {size!r} is not a positive whole number")
-    return Want(repo, revision, file, sha256, size)
+    if (
+        not isinstance(name, str)
+        or _NAME.fullmatch(name) is None
+        or name in (".", "..")
+    ):
+        raise FetchListError(
+            f"{where} name {name!r} is not a plain filename inside the weights folder"
+        )
+    return Want(repo, revision, file, sha256, size, name)
 
 
 def parse(text: str) -> tuple[Want, ...]:
@@ -153,33 +176,46 @@ def dump(wants: Iterable[Want]) -> str:
     return json.dumps({"files": [want.as_json() for want in wants]}, sort_keys=True)
 
 
+def _want_for(weights: Weights, size: Number, name: str) -> Want:
+    """One ``Want`` for ``weights`` at ``size``, saved under the local ``name``."""
+    return _want(
+        {
+            "repo": weights.repo,
+            "revision": weights.revision,
+            "file": weights.file,
+            "sha256": weights.sha256,
+            "bytes": int(size.value),
+            "name": name,
+        },
+        f"{weights.repo}/{weights.file}",
+    )
+
+
 def from_weights(picked: Iterable[tuple[Weights, Number]]) -> tuple[Want, ...]:
-    """The fetch list for each picked file and its recorded size."""
+    """The fetch list for each picked file and its recorded size.
+
+    With no model id the local name falls back to the file's Hub base name;
+    :func:`from_records` names it canonically from the record's model id.
+    """
     return tuple(
-        _want(
-            {
-                "repo": weights.repo,
-                "revision": weights.revision,
-                "file": weights.file,
-                "sha256": weights.sha256,
-                "bytes": int(size.value),
-            },
-            f"{weights.repo}/{weights.file}",
-        )
+        _want_for(weights, size, PurePosixPath(weights.file).name)
         for weights, size in picked
     )
 
 
 def from_records(records: Iterable[ModelRecord]) -> tuple[Want, ...]:
     """The fetch list for model knowledge records, each naming its file."""
-    picked = []
+    wants: list[Want] = []
     for record in records:
-        if record.weights is None:
+        weights = record.weights
+        if weights is None:
             raise FetchListError(
                 f"{record.model_id} {record.quant} names no file to download"
             )
-        picked.append((record.weights, record.size_bytes))
-    return from_weights(picked)
+        wants.append(
+            _want_for(weights, record.size_bytes, _weights_file_name(record.model_id))
+        )
+    return tuple(wants)
 
 
 def total_bytes(wants: Iterable[Want]) -> int:
