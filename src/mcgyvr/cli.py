@@ -73,7 +73,7 @@ from mcgyvr.initialize import (
     initialize,
     parse_api_unit,
 )
-from mcgyvr.scan import Mismatch, Scan
+from mcgyvr.scan import Mismatch, ModelOnDisk, Scan
 from mcgyvr.serving import (
     ModelSpec,
     UnitError,
@@ -751,13 +751,37 @@ def _setup_placements(
     return plans
 
 
+def _setup_on_disk_match(
+    scan: Scan | None, model_id: str, quant: str, size_bytes: int
+) -> ModelOnDisk | None:
+    """The first model already on the rig's disk matching id + quant + size.
+
+    The scan collected the rig's own inventory, so this holds for a remote rig
+    (its weights live on the rig, not on the machine running ``setup``). The id
+    is matched by its last segment — a GGUF's name carries no org — and the size
+    only when it is known (a size of 0 is not known).
+    """
+    if scan is None:
+        return None
+    basename = model_id.lower().rsplit("/", 1)[-1]
+    wanted_quant = (quant or "").lower()
+    for model in scan.models_on_disk:
+        if model.name.lower() not in (basename, model_id.lower()):
+            continue
+        if (model.quant or "").lower() != wanted_quant:
+            continue
+        if size_bytes and model.size_bytes != size_bytes:
+            continue
+        return model
+    return None
+
+
 def _setup_downloads(
     plans: Mapping[str, Mapping[str, Any]],
     scans: Mapping[str, Scan],
     prompt: Callable[[str], str] = input,
 ) -> tuple[tuple[str, ModelRecord], ...]:
     """Step 4: ask reuse or download for every placement, gated on the answer."""
-    from mcgyvr import weights as weights_module
     from mcgyvr.knowledge import store as knowledge_store
 
     known = {record.key: record for record in knowledge_store.offline().records}
@@ -771,18 +795,13 @@ def _setup_downloads(
         quant = str(placement.get("quant") or "")
         size_bytes = int(placement.get("size_bytes") or 0)
         scan = scans.get(rig)
-        roots = (scan.disk.path,) if scan is not None and scan.disk is not None else ()
-        hit = weights_module.existing_model(
-            model_id, quant=quant, size_bytes=size_bytes, roots=roots
-        )
+        hit = _setup_on_disk_match(scan, model_id, quant, size_bytes)
         if hit is not None:
-            if weights_module.reuse_or_download(
-                model_id,
-                quant=quant,
-                size_bytes=size_bytes,
-                roots=roots,
-                prompt=prompt,
-            ):
+            answer = prompt(
+                f"{rig}: {model_id} {quant} ({hit.size_bytes} bytes) is already "
+                f"on disk. Reuse it instead of downloading? [Y/n] "
+            )
+            if str(answer).strip().lower() not in {"n", "no"}:
                 print(f"{rig}: reusing {model_id} {quant} already on disk")
                 continue
             chosen = True

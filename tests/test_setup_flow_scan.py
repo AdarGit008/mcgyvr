@@ -257,6 +257,77 @@ def test_interactive_download_is_gated_on_an_explicit_yes(
     assert got[0][1].model_id == "m"
 
 
+def test_interactive_reuse_is_found_on_the_rigs_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import date
+
+    from mcgyvr.knowledge.record import ModelRecord, Number, Weights
+    from mcgyvr.knowledge.store import Knowledge, Known
+
+    def number() -> Number:
+        return Number(
+            value=1024, kind="fact", source="shipped:test", read_at=date(2026, 1, 1)
+        )
+
+    record = ModelRecord(
+        model_id="org/coder-7b",
+        quant="Q4_K_M",
+        engines=("llama.cpp",),
+        weights=Weights(
+            repo="org/repo",
+            revision="0" * 40,
+            file="coder-7b-Q4_K_M.gguf",
+            sha256="0" * 64,
+        ),
+        size_bytes=number(),
+        context_length=number(),
+        kv_bytes_per_token=number(),
+        recurrent_bytes_per_slot=number(),
+        scores=(),
+    )
+    monkeypatch.setattr(
+        "mcgyvr.knowledge.store.offline",
+        lambda: Knowledge(known=(Known(record=record, origin="shipped"),), skipped=()),
+    )
+    scan = scan_module.Scan(
+        machine=scan_module.Machine(id="x", host="localhost", kernel="k"),
+        models_on_disk=(
+            scan_module.ModelOnDisk(
+                name="coder-7b",
+                quant="Q4_K_M",
+                size_bytes=1024,
+                path=Path("/x/coder-7b-Q4_K_M.gguf"),
+            ),
+        ),
+    )
+    plans = {
+        "rig": {
+            "placement": {
+                "model_id": "org/coder-7b",
+                "quant": "Q4_K_M",
+                "size_bytes": 1024,
+                "engine": "llama.cpp",
+            }
+        }
+    }
+
+    asked: list[str] = []
+
+    def ask_default(question: str) -> str:
+        asked.append(question)
+        return ""
+
+    # The default (an empty answer) reuses the on-disk model.
+    assert cli._setup_downloads(plans, {"rig": scan}, prompt=ask_default) == ()
+    assert asked, "a reuse match is a question, not a silent reuse"
+
+    # A "no" downloads it instead.
+    got = cli._setup_downloads(plans, {"rig": scan}, prompt=lambda question: "n")
+    assert len(got) == 1
+    assert got[0][1].model_id == "org/coder-7b"
+
+
 def test_setup_writes_through_the_initialize_engine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
