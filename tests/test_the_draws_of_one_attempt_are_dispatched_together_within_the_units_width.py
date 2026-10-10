@@ -32,7 +32,7 @@ from mcgyvr.config import parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import Recording, worker_attempt
 from mcgyvr.escalate import DispatchRaisedError
-from mcgyvr.pool import Rung, source_map
+from mcgyvr.local_pool import Rung, source_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.runner import RunnerError
 from mcgyvr.sandbox.tempdir import TempDirSandbox

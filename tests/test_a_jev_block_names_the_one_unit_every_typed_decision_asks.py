@@ -9,7 +9,7 @@ unbound it resolves to nothing, and every one of those callers asks what it
 asked before the block existed.
 
 The block is policy, not fleet: it lives in `policy.yaml` beside the other
-role blocks, `mcgyvr init` writes it unbound, and a `jev.unit` naming a unit
+role blocks, `mcgyvr setup` writes it unbound, and a `jev.unit` naming a unit
 nobody declared is refused at load time, naming the key.
 """
 
@@ -25,7 +25,7 @@ from mcgyvr.config import load as load_config
 from mcgyvr.detect import Detection
 from mcgyvr.fleet.files import _POLICY_KEYS
 from mcgyvr.initialize import _sources_for, build, initialize
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.propose import propose
 from tests.machine_shapes import detection, shape, with_server
 

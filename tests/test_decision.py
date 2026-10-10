@@ -31,7 +31,7 @@ from mcgyvr.decision import (
     labels_for,
     probabilities_from_logprobs,
 )
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 
 LOCAL = Endpoint(
     source="llama-server",

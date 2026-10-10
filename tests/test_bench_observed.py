@@ -30,7 +30,7 @@ def test_no_runner_in_this_tree_sends_a_seed() -> None:
     process, and a payload assembled from a dict is not something a pattern
     over the source can be trusted about.
     """
-    from mcgyvr.pool import Endpoint, Protocol
+    from mcgyvr.local_pool import Endpoint, Protocol
     from mcgyvr.runner import _RUNNERS, Request
 
     assert set(_RUNNERS) == set(Protocol), "a protocol with no runner is untested here"

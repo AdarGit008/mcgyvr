@@ -15,7 +15,7 @@ those checkpoints' files, at the end).
 `capability-table.json` holds estimates of what a model costs to serve.
 `mcgyvr capabilities` lists them, and `mcgyvr emit` sizes a unit from the row
 whose `id` equals the unit's model, unless a unit in fleet.yaml declares that
-model, for example under `launch` or as `room_mib`. `mcgyvr init` does not read
+model, for example under `launch` or as `room_mib`. `mcgyvr setup` does not read
 the table: it binds the models running servers list. The estimates exist so that
 serving can be sized **without benchmarking the user's machine**, which would
 turn an install into a benchmarking session.

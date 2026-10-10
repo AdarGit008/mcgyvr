@@ -38,7 +38,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.decision import BoolAnswer, Decision, DecisionError, Noul, ScoreAnswer
 from mcgyvr.escalate import Assurance, Opinion, Review, judge
 from mcgyvr.gate import GateResult
-from mcgyvr.pool import Protocol, Rung, source_map
+from mcgyvr.local_pool import Protocol, Rung, source_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.runner import Completion, StopReason, TransportError
 

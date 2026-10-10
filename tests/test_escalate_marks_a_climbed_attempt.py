@@ -36,7 +36,7 @@ from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Halted, Judgement, escalate
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import Try, Verdict
 
 FAST = "local_fast"

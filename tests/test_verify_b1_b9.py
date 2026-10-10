@@ -35,7 +35,7 @@ from mcgyvr.deterministic import tool_steps
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
 from mcgyvr.gate import ChangeSet, Gate, GateResult
 from mcgyvr.lines import parser_lines
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.repair import _insert_imports, repair
 from mcgyvr.route import Verdict
 
@@ -444,7 +444,7 @@ def test_pattern_a_consensus_reports_content_it_cannot_write_as_its_own_error(
     strict=True,
     reason=(
         "2026-08-29: "
-        "The `Ceiling` mcgyvr pool prints sums the configured attempts of every "
+        "The `Ceiling` mcgyvr local_pool prints sums the configured attempts of every "
         "rung; the one escalate enforces is attempts_for(), which also clamps "
         "by contract.limits.attempts. The two do not agree."
     ),
@@ -478,7 +478,7 @@ attempts:
     enforced = ascent(config, pool, work_contract("src/pkg/fetch.py")).ladder_budget
 
     assert printed == enforced, (
-        f"`mcgyvr pool` prints {printed} attempt(s) per task and the climb "
+        f"`mcgyvr local_pool` prints {printed} attempt(s) per task and the climb "
         f"enforces {enforced}"
     )
 

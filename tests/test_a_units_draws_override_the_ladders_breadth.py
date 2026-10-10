@@ -11,7 +11,7 @@ lives in ``policy.yaml`` with the other routing decisions, and never in the
 locked ``fleet.yaml``.
 
 The effective breadth for a rung is its own entry where it has one and the
-ladder's ``breadth.draws`` where it has not, and ``mcgyvr pool`` prints it
+ladder's ``breadth.draws`` where it has not, and ``mcgyvr local_pool`` prints it
 beside the attempt budget, where the routing decision is already shown.
 """
 
@@ -24,7 +24,7 @@ import pytest
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
-from mcgyvr.pool import Rung, source_map
+from mcgyvr.local_pool import Rung, source_map
 from mcgyvr.route import Try, Verdict, draws_for
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from tests import livejournal as lj
@@ -88,13 +88,13 @@ def test_pool_prints_the_effective_draws_beside_the_attempts(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     config = lj.make_config(tmp_path / "setup")
-    assert lj.main(["pool", str(config)]) == 0
+    assert lj.main(["local_pool", str(config)]) == 0
     plain = capsys.readouterr().out
     assert "1 attempt" in plain
     assert "draw" not in plain, "a single draw is the default and is not announced"
 
     lj.append_policy(config, "draws:\n  local_qwen-7b: 3\n")
-    assert lj.main(["pool", str(config)]) == 0
+    assert lj.main(["local_pool", str(config)]) == 0
     widened = capsys.readouterr().out
     (line,) = [line for line in widened.splitlines() if "local_qwen-7b" in line]
     assert "1 attempt" in line and "3 draws" in line, line

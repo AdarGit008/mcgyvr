@@ -82,7 +82,7 @@ from mcgyvr.escalate import (
     required_policy,
 )
 from mcgyvr.gate import Finding, GateResult
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import RouteError, Try, Verdict
 from mcgyvr.worker.prompt import build_prompt
 
@@ -1744,7 +1744,7 @@ def test_the_pool_command_prints_the_ceilings_that_bound_a_task(
     path.write_text(with_budgets(MIXED, max_attempts=2), encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
-    assert main(["pool"]) == 0
+    assert main(["local_pool"]) == 0
 
     out = capsys.readouterr().out
     assert "1 escalation(s)" in out
@@ -1763,7 +1763,7 @@ def test_the_pool_command_says_where_an_unset_ceiling_comes_from(
     path.write_text(MIXED, encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
-    assert main(["pool"]) == 0
+    assert main(["local_pool"]) == 0
 
     out = capsys.readouterr().out
     assert "the ladder's own budget" in out

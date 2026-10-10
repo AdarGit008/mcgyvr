@@ -51,10 +51,10 @@ from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
 
 #: What the pool calls the orchestrator. One name, in one place, because a role
-#: spelled differently here than in :mod:`mcgyvr.pool` is a role that is
+#: spelled differently here than in :mod:`mcgyvr.local_pool` is a role that is
 #: silently never found.
 ORCHESTRATOR_ROLE = "orchestrator"
 
@@ -340,7 +340,7 @@ def proposer_for(
 ) -> Proposer | None:
     """The install's orchestrator role as a :class:`Proposer`, or ``None``.
 
-    ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role_model` and is an
+    ``None`` mirrors :meth:`~mcgyvr.local_pool.SourceMap.role_model` and is an
     ordinary answer: a keyless install has no orchestrator, which the CLI
     answers with :data:`NO_ORCHESTRATOR_ROLE` rather than by failing. The
     request is not marked ``quality_sensitive`` for the same reason the

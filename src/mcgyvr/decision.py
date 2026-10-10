@@ -1,6 +1,6 @@
 """Typed decisions over a unit's next-token probabilities.
 
-The Jev-class primitive: a caller hands a :class:`~mcgyvr.pool.Endpoint` some
+The Jev-class primitive: a caller hands a :class:`~mcgyvr.local_pool.Endpoint` some
 ``state`` and a set of typed ``questions``, and gets back typed ``answers``
 with a probability per option — never prose. A :class:`Choice` picks one of
 several options, a :class:`Noul` answers yes or no, and a :class:`Score` rates
@@ -49,7 +49,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import whole
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-from mcgyvr.pool import Endpoint, PoolError, SourceMap
+from mcgyvr.local_pool import Endpoint, PoolError, SourceMap
 from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -371,10 +371,10 @@ def classify_role(
 ) -> Decision | None:
     """Answer ``questions`` on the model a non-ladder ``role`` binds, or ``None``.
 
-    :func:`classify` takes an :class:`~mcgyvr.pool.Endpoint`; this is the same
+    :func:`classify` takes an :class:`~mcgyvr.local_pool.Endpoint`; this is the same
     seam crossing :func:`~mcgyvr.runner.dispatch_role` performs for a
     generation, done here for a decision. ``None`` mirrors
-    :meth:`~mcgyvr.pool.SourceMap.role`: a role with no binding is an ordinary
+    :meth:`~mcgyvr.local_pool.SourceMap.role`: a role with no binding is an ordinary
     answer, not a failure, and a role declared but unusable still raises.
 
     ``capacity`` bounds the decision the way a dispatch is bounded — the role
@@ -407,7 +407,7 @@ def classify_rung(
     """Answer ``questions`` on the model a ladder ``rung`` serves.
 
     :func:`classify_role` one seam over, for a rung rather than a role: the
-    endpoint is the rung's own (:meth:`~mcgyvr.pool.SourceMap.bind`), the model
+    endpoint is the rung's own (:meth:`~mcgyvr.local_pool.SourceMap.bind`), the model
     is the one the rung names, and the slot is the per-source one a dispatch
     to that rung holds. Raises what ``bind`` raises for a rung the ladder does
     not offer, because asking a rung that is not there is a caller's mistake.
@@ -424,7 +424,7 @@ def classify_rung(
 def jev_bound(source_map: SourceMap) -> bool:
     """Whether ``jev.unit`` binds a unit, so every typed decision asks it.
 
-    Raises what :meth:`~mcgyvr.pool.SourceMap.role_model` raises for a Jev
+    Raises what :meth:`~mcgyvr.local_pool.SourceMap.role_model` raises for a Jev
     unit declared on a source that cannot serve: a ``jev.unit`` that is
     misconfigured is not the same answer as no ``jev.unit`` at all, and
     falling back to the old askers in silence would hide the binding.

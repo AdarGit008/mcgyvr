@@ -1,6 +1,6 @@
 """Jev-composed setup recommendation.
 
-``mcgyvr init`` writes a deterministic ladder: the models a running server
+``mcgyvr setup`` writes a deterministic ladder: the models a running server
 lists, in the order they were found, with hosted ``--api`` units after them.
 This module adds the Jev-composed path: the same facts — a measured
 :class:`~mcgyvr.detect.Detection`, a :class:`~mcgyvr.propose.Proposal` and the
@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, classify
 from mcgyvr.detect import Backend, Detection
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.propose import Proposal
 
 if TYPE_CHECKING:

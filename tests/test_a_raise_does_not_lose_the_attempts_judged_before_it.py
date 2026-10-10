@@ -67,7 +67,7 @@ def test_every_row_before_the_raise_is_corrected_and_listed(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     import mcgyvr.drive as drive
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, RunnerError, StopReason
 
     answers: list[str | None] = [lj.BAD_REPLY, lj.BAD_REPLY, None]

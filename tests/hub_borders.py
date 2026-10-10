@@ -123,7 +123,7 @@ WORDS_NOT_YET_MOVED: dict[str, dict[str, int]] = {
     "escalate.py": {"hub": 5, "relief": 47, "rider": 8},
     "fleet/files.py": {"hub": 2, "hitchhik": 1, "relief": 26, "rider": 2},
     "initialize.py": {"relief": 4},
-    "pool.py": {"hub": 4, "relief": 40, "rider": 2},
+    "local_pool.py": {"hub": 4, "relief": 40, "rider": 2},
     "route.py": {"relief": 3},
     "runner.py": {"hub": 11, "hitchhik": 1, "relief": 15, "rider": 2, "pooled": 2},
     "weights.py": {"relief": 1},

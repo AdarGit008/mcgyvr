@@ -8,7 +8,7 @@ part in sizing. A row that cannot be read at all is quoted in a note, and the
 quote is of bounded length, whatever the row's.
 
 What the commands say holds to the same promise. ``mcgyvr detect`` prints every
-card and every note. ``mcgyvr init`` names every card it found, of known size or
+card and every note. ``mcgyvr setup`` names every card it found, of known size or
 not, in its decisions and in the comment it writes into the setup, and binds
 what a server lists whatever the cards. When nothing is listed it refuses, the
 refusal names each card whose size is not determined as such, and it offers

@@ -106,7 +106,7 @@ from mcgyvr.config import Ladder
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.cooldown import SharedHold
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
     from mcgyvr.pressure import Gauge, Reading
 
 #: The question names Jev is asked under. One spelling each, because the

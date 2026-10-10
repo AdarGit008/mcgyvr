@@ -50,7 +50,7 @@ from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import KnowledgeError
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
     BYTES_PER_GB,

@@ -7,6 +7,32 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Changed
+
+- `mcgyvr pool` is renamed `mcgyvr local_pool` (module `mcgyvr.pool` →
+  `mcgyvr.local_pool`); the hub's pooled-inference rig side
+  (`mcgyvr.rig.pooled`) is a different "pool" and stays.
+- `mcgyvr setup` is the single setup entry point and absorbs the old
+  `mcgyvr init` options — `--host`, `--api`, `--use-case`, `--deployment`,
+  `--priority` (plus repeatable `--api` for two hosted tiers) — and defaults
+  to `hybrid` with a hosted orchestrator. mcorch is never auto-selected.
+- `mcgyvr setup` writes hosted API tiers cheapest first: `deepseek-flash`
+  below `deepseek-v4-pro`, so a coding ladder climbs local rig(s) →
+  `deepseek-flash` → `deepseek-v4-pro`.
+- `mcgyvr scan` (local and `--rig`) now reports disk total and device where
+  available, CPU cores/threads, memory bandwidth on the rig, and a
+  models-on-disk inventory of `*.gguf` and `*.safetensors` under the weights
+  dir and any `--model-store` dirs.
+- Before downloading a model, the download path checks for an existing model
+  with the same id + quant + size and asks whether to reuse it, defaulting to
+  reuse.
+
+### Removed
+
+- `mcgyvr init` (use `mcgyvr setup`).
+
 ## [0.4.2] - 2026-10-10
 
 ### Changed

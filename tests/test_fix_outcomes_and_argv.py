@@ -37,7 +37,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import Routed, ToolStep, tool_steps
 from mcgyvr.deterministic import route as floor_route
 from mcgyvr.escalate import ascent
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import Step
 
 # A keyless install with one local rung: the cheapest ladder a stranger has.

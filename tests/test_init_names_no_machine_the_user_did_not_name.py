@@ -1,4 +1,4 @@
-"""`mcgyvr init` names no machine the user did not name.
+"""`mcgyvr setup` names no machine the user did not name.
 
 Promise: every machine named in the files `init` writes, in the text of its
 refusals, and in every example hint of the config schema is a machine the
@@ -351,7 +351,7 @@ def test_every_schema_example_names_only_placeholder_machines() -> None:
     ("text", "expected"),
     [
         ("e.g. http://somebox:8123", ["somebox"]),
-        ("run `mcgyvr init --host alpha --host 10.1.2.3`", ["10.1.2.3", "alpha"]),
+        ("run `mcgyvr setup --host alpha --host 10.1.2.3`", ["10.1.2.3", "alpha"]),
         ("e.g. mcgyvr-somebox-unit_7b", ["somebox"]),
         ("reach 172.16.9.9 directly", ["172.16.9.9"]),
         ("e.g. http://<host>:<port>", []),
@@ -392,7 +392,7 @@ _STAND_INS: tuple[str, ...] = (
     f"ssh://ops@{_STAND_IN}",
     f"{_STAND_IN}:8123",
     f"ops@{_STAND_IN}",
-    f"`mcgyvr init --host {_STAND_IN}`",
+    f"`mcgyvr setup --host {_STAND_IN}`",
     "172.16.9.9",
     f"mcgyvr-{_STAND_IN}-unit_7b",
 )

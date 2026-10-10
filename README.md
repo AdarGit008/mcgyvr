@@ -47,7 +47,7 @@ mcgyvr --help
 
 ```text
 usage: mcgyvr [-h] [--version]
-              {capabilities,caps,config,pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,init,attach,index,resolve,read,fleet,rig,mcorch,run,delegate}
+              {capabilities,caps,config,local_pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,setup,attach,index,resolve,read,fleet,rig,mcorch,run,delegate}
               ...
 
 Offload scoped coding work to a configurable worker ladder.
@@ -102,12 +102,12 @@ It copies `SKILL.md` and `references/`, never `SETUP.md`. The skill sets
 Real output from a machine with no local model server. `~` is that run's home
 directory.
 
-**1. Set up the machine.** `mcgyvr init` looks for model servers and writes
+**1. Set up the machine.** `mcgyvr setup` looks for model servers and writes
 `fleet.yaml` and `policy.yaml`. With nothing answering, it refuses (exit 1),
 writes nothing, and lists the fixes:
 
 ```text
-$ mcgyvr init
+$ mcgyvr setup
 error: Refusing to write a config that cannot load.
 
 No model server answered on any endpoint tried (http://localhost:8080, http://localhost:8000, http://localhost:1234, http://localhost:3000), so there is nothing to bind: init binds only a model a running server lists. A config with no unit or no ladder dispatches nowhere.
@@ -120,7 +120,7 @@ no local backend. It writes the same two files any other init writes, here
 into `~/setup`:
 
 ```text
-$ mcgyvr init --api model=claude-opus-5,address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY ~/setup
+$ mcgyvr setup --api model=claude-opus-5,address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY ~/setup
 Wrote ~/setup
 
 What was decided, and why:
@@ -130,10 +130,10 @@ What was decided, and why:
 `api_key_env` is the NAME of the environment variable holding your key; the
 key itself is never written to either file, and init never reads it.
 
-From `~/setup`, `mcgyvr pool` reads the setup back:
+From `~/setup`, `mcgyvr local_pool` reads the setup back:
 
 ```text
-$ mcgyvr pool
+$ mcgyvr local_pool
 ~/setup: 1 usable rung(s), cheapest first:
 
   api_claude-opus-5    api            1 attempt   claude-opus-5
@@ -225,7 +225,7 @@ has its options.
 | --- | --- |
 | `capabilities` (`caps`) | show the shipped estimates by card class |
 | `config` | validate the configuration file and show what it resolves to |
-| `pool` | show the ladder as it resolves against the declared sources |
+| `local_pool` | show the ladder as it resolves against the declared sources |
 | `catalog` | show the task types mcgyvr can be asked for, and what each guarantees |
 | `contract` | validate a task contract and show what it resolves to |
 | `detect` | show what can run the work, and how each fact was detected |
@@ -235,7 +235,7 @@ has its options.
 | `manage` | let Jev sleep and wake the ladder's units by the queue on it (runs until interrupted) |
 | `emit` | write a compose file per launch spec for the ladder's serving units |
 | `sandbox` | show the sandbox mode and the stack detected for a repository |
-| `init` | detect what is reachable and write a config bound to it |
+| `setup` | scan, plan, download, emit and write a config bound to what is reachable |
 | `attach` | attach a repository (local path or clone URL) and show its state |
 | `index` | build the deterministic index of a repository and show what it cost |
 | `resolve` | resolve a natural-language target to a ranked shortlist of paths |
@@ -262,7 +262,7 @@ has its options.
 | Journal | Every run appends to `<orchestrator>.jsonl` under `journal.dir` (default `~/.local/state/mcgyvr/journal`), with prompts and replies under `blobs/` and result files under `results/`. It never lands in the repository. `--record DIR` adds a second copy. |
 | Data leaving the machine | A model task sends the contract, including the target's current content, to the unit it runs on: a server you bound, or an API model's `address`. A tool task that its tool finishes calls no unit. |
 | API keys | A setup names the environment variable (`api_key_env`), never the key. Task commands run with every credential-shaped variable removed (`src/mcgyvr/sandbox/base.py`). |
-| Network probes | `mcgyvr init` probes default local endpoints, plus machines you name with `--host`. `mcgyvr pool --probe` asks each unit whether it answers; it is off by default, because it spends. |
+| Network probes | `mcgyvr setup` probes default local endpoints, plus machines you name with `--host`. `mcgyvr local_pool --probe` asks each unit whether it answers; it is off by default, because it spends. |
 | Your GPU machines | `serving.enable_sleep_wake` is `false` by default. Set to `true`, it lets `mcgyvr run` stop and start containers on a machine others may share. `mcgyvr serve sleep` and `mcgyvr serve wake` act only when you type them. |
 | The serving door | `mcgyvr serve` and the ladder manager start, stop, sleep and wake containers only through `python -m mcgyvr.serving.run`, which reaches a rig over your own ssh config and keys (`BatchMode`, no stored credentials) and its docker as `docker -H ssh://<rig>`, admitting only the rig named. Run from an install (`--mode user`), it holds the rig to `$MCGYVR_RIGS/<rig>.json` (default `$MCGYVR_HOME/rigs`), which `mcgyvr scan --rig <rig>` writes from a read-only scan, files each serve run under `~/.local/state/mcgyvr/door/`, and reports, never touches, a container it did not start. The advanced `step` verb runs one script of your own on a rig under the same gates; gate lists you add (`--gates`, or `MCGYVR_DOOR_GATES`) can only add refusals. |
 | Weight downloads | `python -m mcgyvr.serving.run serve fetch --host <rig> --weights FILE` downloads the files the list names on the rig itself, from huggingface.co (or `HF_ENDPOINT`), into its weights folder (`$MCGYVR_WEIGHTS`, else `~/.cache/mcgyvr/weights`). It says the total first, and there is no size cap. Each file is pinned to a commit and its sha256: a download resumes from its `.part`, and one whose hash does not match is deleted. A gated model's token is read from the variable you name (`--hf-token-env`, default `HF_TOKEN`), goes to the Hub inside the ssh connection, and is never written to disk. Nothing is downloaded unless this is run. |

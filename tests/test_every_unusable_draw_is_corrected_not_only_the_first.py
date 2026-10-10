@@ -41,7 +41,7 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
-from mcgyvr.pool import Rung, source_map
+from mcgyvr.local_pool import Rung, source_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from mcgyvr.telemetry import fold

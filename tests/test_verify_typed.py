@@ -20,7 +20,7 @@ from mcgyvr.contract import loads
 from mcgyvr.decision import BoolAnswer, Decision
 from mcgyvr.escalate import Opinion
 from mcgyvr.gate import GateResult
-from mcgyvr.pool import Endpoint, Protocol, RoleBinding, SourceMap
+from mcgyvr.local_pool import Endpoint, Protocol, RoleBinding, SourceMap
 from mcgyvr.verify import decider_for, read_typed_verdict, verdict_state, verify
 
 LOCAL = Endpoint(
@@ -174,7 +174,7 @@ def test_the_free_text_reviewer_dispatch_is_uncapped_by_default(
     prompting issue, not a cap issue. The default dispatch is None."""
     import mcgyvr.verify as verify_module
     from mcgyvr.config import parse
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.runner import Completion, StopReason
     from mcgyvr.verify import reviewer_for
 

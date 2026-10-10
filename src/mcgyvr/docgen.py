@@ -286,7 +286,7 @@ def render_reference() -> str:
 # --- SETUP.md ----------------------------------------------------------------
 
 #: The three lever keys, across `fleet.yaml` and `policy.yaml`, that
-#: `mcgyvr pool` reads back. They are named here rather than described here:
+#: `mcgyvr local_pool` reads back. They are named here rather than described here:
 #: the bullet each one gets carries the
 #: `Field`'s own `doc`, so the levers cannot say one thing in SETUP.md and
 #: another in the schema the loader walks.
@@ -329,11 +329,11 @@ def render_setup() -> str:
         f"and what they can say.",
         "",
         "```",
-        "mcgyvr init",
-        "mcgyvr pool",
+        "mcgyvr setup",
+        "mcgyvr local_pool",
         "```",
         "",
-        "`mcgyvr init` detects what is reachable and writes a config bound to it. It",
+        "`mcgyvr setup` detects what is reachable and writes a config bound to it. It",
         "refuses to overwrite an existing config without `--force`, and prints what",
         "was decided and why, then what is *not* configured and what that costs.",
         "Backends on another machine come in with `--host` (repeatable).",
@@ -365,9 +365,9 @@ def render_setup() -> str:
         "  conversational agent a harness points at (`mcgyvr mcorch serve`);",
         "  it needs `--jev`.",
         "",
-        "`mcgyvr init --help` has each one's full text.",
+        "`mcgyvr setup --help` has each one's full text.",
         "",
-        "Two commands measure and plan before `mcgyvr init` writes a config.",
+        "Two commands measure and plan before `mcgyvr setup` writes a config.",
         "`mcgyvr scan` measures this machine (free and total VRAM, available RAM,",
         "cores, timed memory bandwidth, free disk), records it (by default under",
         "`~/.local/state/mcgyvr/scans`), and exits 4 when a card, total RAM or",
@@ -378,7 +378,7 @@ def render_setup() -> str:
         "otherwise from the shipped model catalog. It writes, wakes and sleeps",
         "nothing.",
         "",
-        "A setup is two files in one directory, and `mcgyvr init` writes both (by",
+        "A setup is two files in one directory, and `mcgyvr setup` writes both (by",
         "default into the working directory):",
         "",
         f"- `{FLEET_FILENAME}` — what runs where: `profile`, `units`, `rigs` and "
@@ -396,14 +396,16 @@ def render_setup() -> str:
         "setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is",
         "checked only as a block. `examples/fleet.yaml` shows all three.",
         "",
-        "`mcgyvr pool` reads that config back: the usable rungs cheapest-first with",
+        "`mcgyvr local_pool` reads that config back: the usable rungs "
+        "cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
         "orchestrator and verifier models. `--probe` also asks each unit whether it",
         "is answering — off by default, because resolving a ladder should not need",
         "a network. Run it whenever a run picks a rung you did not expect.",
         "",
-        "Three keys across the two files are the levers, and `mcgyvr pool` is how",
+        "Three keys across the two files are the levers, and `mcgyvr local_pool` "
+        "is how",
         "you read all three:",
         "",
     ]

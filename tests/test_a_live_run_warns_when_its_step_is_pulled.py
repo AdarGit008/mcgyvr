@@ -184,7 +184,7 @@ def _git(repo: Path, *args: str) -> None:
 
 
 def _completion(text: str) -> Any:
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(

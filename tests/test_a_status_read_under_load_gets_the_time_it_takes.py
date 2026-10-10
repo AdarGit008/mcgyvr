@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import runner as runner_module
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import Request, runner_for
 
 ASK = Request(prompt="write a function", max_output_tokens=256)

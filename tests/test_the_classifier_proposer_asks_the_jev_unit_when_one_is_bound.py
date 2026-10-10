@@ -21,7 +21,7 @@ import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decision import Choice
 from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 
 ORCH = "http://localhost:18003/v1/chat/completions"
 JUDGE = "http://localhost:18009/v1/chat/completions"

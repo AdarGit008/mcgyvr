@@ -257,7 +257,7 @@ def setup_of(config: Config) -> Setup:
     :func:`mcgyvr.pressure.server_counts`), so a ride and the host's own
     dispatch count against the same slots."""
     from mcgyvr.capacity import Capacity
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.pressure import server_counts
 
     units, notes = shared_units(config)

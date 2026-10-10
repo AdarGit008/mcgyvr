@@ -545,7 +545,7 @@ def test_a_missing_file_says_how_to_get_one(
 ) -> None:
     """Two answers, and which is right turns on who chose the path.
 
-    This asked for "run ``mcgyvr init``" from a path passed straight in, and
+    This asked for "run ``mcgyvr setup``" from a path passed straight in, and
     got it because that was the answer to everything — including to a caller
     who had named a file and mistyped it. The remedy now follows the naming
     (see ``tests/test_a_command_told_where_the_config_is_...``), so the
@@ -555,7 +555,7 @@ def test_a_missing_file_says_how_to_get_one(
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(ConfigFileError, match="mcgyvr init"):
+    with pytest.raises(ConfigFileError, match="mcgyvr setup"):
         load()
     with pytest.raises(ConfigFileError, match="Name one that is there"):
         load(tmp_path / "absent.yaml")

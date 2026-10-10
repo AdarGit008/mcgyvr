@@ -24,7 +24,7 @@ import pytest
 from mcgyvr.config import BREADTH_FIELDS, ConfigSchemaError, parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import dispatch_prompt, worker_attempt
-from mcgyvr.pool import Rung, source_map
+from mcgyvr.local_pool import Rung, source_map
 from mcgyvr.route import Try
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from mcgyvr.worker.prompt import build_prompt

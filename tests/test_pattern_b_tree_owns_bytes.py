@@ -191,7 +191,7 @@ UNJUDGED_CONTENT = {
     # The model's reply, parsed out of its fence. It exists before any rung has
     # run; binding it to a verdict is what the rest of the pipeline is for.
     "mcgyvr.worker.reply.ParsedFile",
-    # The config file `mcgyvr init` wrote or would write. No gate, no change
+    # The config file `mcgyvr setup` wrote or would write. No gate, no change
     # set, no repository — this is a rendering, reported so `--dry-run` can
     # print it.
     "mcgyvr.initialize.InitResult",

@@ -1,4 +1,4 @@
-"""`mcgyvr init` is the first thing a stranger runs.
+"""`mcgyvr setup` is the first thing a stranger runs.
 
 The v1 release criterion is written around it: clean machine, no key, no
 Docker, and the result must be a config that supports a real local task. So
@@ -112,13 +112,13 @@ def test_init_writes_the_use_case_and_its_deployment_default(tmp_path: Path) -> 
     assert config.provisions_local_orchestrator is False
 
 
-def test_chat_defaults_to_local_only_and_an_explicit_deployment_wins(
+def test_chat_defaults_to_hybrid_and_an_explicit_deployment_wins(
     tmp_path: Path,
 ) -> None:
     initialize(tmp_path / "chat", detection=KEYLESS_RIG, use_case="chat")
     chat = load_config(tmp_path / "chat")
     assert chat.use_case == "chat"
-    assert chat.deployment == "local-only"
+    assert chat.deployment == "hybrid"
     assert chat.provisions_local_orchestrator is False  # chat needs no orchestrator
 
     initialize(
@@ -174,7 +174,7 @@ def test_the_invocation_the_refusal_advertises_actually_works(tmp_path: Path) ->
     advertised = next(
         line.strip()
         for line in str(exc.value).splitlines()
-        if line.strip().startswith("mcgyvr init --api ")
+        if line.strip().startswith("mcgyvr setup --api ")
     )
     path = tmp_path / "setup"
     result = initialize(
@@ -482,7 +482,7 @@ def test_no_rung_of_a_written_config_carries_the_quality_caveat(
     init wrote can serve a measurement. That is `Runner.quality_safe`, so the
     assertion goes through the runner rather than through the string.
     """
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.runner import runner_for
 
     path = tmp_path / "setup"

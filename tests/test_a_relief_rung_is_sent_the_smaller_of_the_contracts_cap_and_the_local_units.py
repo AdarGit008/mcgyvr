@@ -33,7 +33,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate.preflight import reply_cap
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from tests.test_a_relief_rung_that_cannot_take_the_request_now_is_full import (
     RIDE,
     RUNG_ID,

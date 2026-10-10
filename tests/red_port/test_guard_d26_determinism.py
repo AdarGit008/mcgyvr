@@ -46,9 +46,9 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
+from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, source_map
 from mcgyvr.orchestrator.decompose import DepRef, Proposal, RecordedProposer, decompose
 from mcgyvr.orchestrator.index import build_index
-from mcgyvr.pool import Endpoint, Protocol, SourceMap, source_map
 from mcgyvr.route import Try, Verdict, plan
 from tests.red_port.conftest import CONTRACT, git
 

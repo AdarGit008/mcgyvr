@@ -15,8 +15,8 @@ from typing import Any
 
 from mcgyvr.config import parse
 from mcgyvr.delegate import proposer_by_authoring
+from mcgyvr.local_pool import source_map
 from mcgyvr.orchestrator.decompose import Evidence, Proposal
-from mcgyvr.pool import source_map
 
 SETUP = """\
 units:

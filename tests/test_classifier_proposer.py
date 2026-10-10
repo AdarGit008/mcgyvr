@@ -31,11 +31,11 @@ from mcgyvr.delegate import (
     ClassifierProposer,
     classifier_proposer_for,
 )
+from mcgyvr.local_pool import Protocol, source_map
 from mcgyvr.orchestrator.decompose import Evidence, Proposal, decompose
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
-from mcgyvr.pool import Protocol, source_map
 from mcgyvr.runner import Completion, StopReason
 
 #: A keyless local ladder with no orchestrator block.

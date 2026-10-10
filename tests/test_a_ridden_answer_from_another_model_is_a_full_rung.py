@@ -28,7 +28,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import parse
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.runner import Completion, Request, dispatch
 from tests.test_a_relief_rung_that_cannot_take_the_request_now_is_full import (
     RIDE,

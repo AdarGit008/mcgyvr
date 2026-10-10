@@ -79,7 +79,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import ToolStep
 from mcgyvr.escalate import Assurance, Judgement, Outcome, escalate
-from mcgyvr.pool import Endpoint, Rung, SourceMap, source_map
+from mcgyvr.local_pool import Endpoint, Rung, SourceMap, source_map
 from mcgyvr.route import (
     Accepted,
     Attempted,
@@ -385,7 +385,7 @@ class Judging(Recorder):
 
 
 class DownProbe:
-    """A :class:`~mcgyvr.pool.SourceProbe` that says the named sources are down.
+    """A :class:`~mcgyvr.local_pool.SourceProbe` that says the named sources are down.
 
     The structural type is the whole of #22's surface as the pool sees it, so a
     test can supply one without a network — which is what lets "skipped because
@@ -1617,7 +1617,7 @@ def test_the_pool_command_shows_the_family_and_budget_of_every_rung(
 ) -> None:
     """Routing that cannot be read cannot be checked.
 
-    ``mcgyvr pool`` already answered "what can run"; a rung's family is how dear
+    ``mcgyvr local_pool`` already answered "what can run"; a rung's family is how dear
     it is to ask and its budget is how many times it will be asked, and both are
     decided before anything is spent. Printing them keeps the two numbers a
     reader can act on next to the ladder they belong to — and a family is a cost
@@ -1627,7 +1627,7 @@ def test_the_pool_command_shows_the_family_and_budget_of_every_rung(
     path.write_text(with_attempts(MIXED, "local_qwen-14b", 3), encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
-    assert main(["pool"]) == 0
+    assert main(["local_pool"]) == 0
 
     lines = capsys.readouterr().out.splitlines()
     assert any(

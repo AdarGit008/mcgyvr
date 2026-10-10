@@ -116,7 +116,7 @@ def contract(tmp_path: Path) -> Path:
 def _scripted(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     """Answer each dispatch from a script; an unscripted dispatch is a failure."""
     import mcgyvr.drive as drive
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     sent: list[str] = []

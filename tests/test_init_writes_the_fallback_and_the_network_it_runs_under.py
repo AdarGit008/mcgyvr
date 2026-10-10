@@ -1,4 +1,4 @@
-"""``mcgyvr init`` writes ``sandbox.allow_fallback`` and ``sandbox.network``.
+"""``mcgyvr setup`` writes ``sandbox.allow_fallback`` and ``sandbox.network``.
 
 Both have a default the loader fills in, and a default left out reads in the
 file as ``# allow_fallback:  # unset`` — true of the file, false of the run.

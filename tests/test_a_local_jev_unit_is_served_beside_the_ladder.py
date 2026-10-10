@@ -1,4 +1,4 @@
-"""A local Jev unit is served beside the ladder, and `mcgyvr pool` names it.
+"""A local Jev unit is served beside the ladder, and `mcgyvr local_pool` names it.
 
 The unit `jev.unit` binds answers every typed decision, so where it is a unit
 you run (no key) it has to be brought up, the way a local verifier is: served
@@ -6,7 +6,7 @@ beside the ladder, sized and given a launch spec, and never made a rung of
 it. A hosted Jev unit is someone else's process and is not served. A Jev unit
 that is also the verifier's is one process, served once.
 
-`mcgyvr pool` prints each role's model; the Jev role is printed like the
+`mcgyvr local_pool` prints each role's model; the Jev role is printed like the
 orchestrator and the verifier.
 """
 
@@ -98,6 +98,6 @@ def test_pool_prints_the_jev_role_like_the_others(
 ) -> None:
     text = FLEET + "jev:\n  unit: judge\n"
     folder = write_setup(tmp_path / "setup", text)
-    assert main(["pool", str(folder)]) == 0
+    assert main(["local_pool", str(folder)]) == 0
     out = capsys.readouterr().out
     assert f"\njev: {THREE_B}\n" in out, out
