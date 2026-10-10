@@ -80,10 +80,8 @@ unauthenticated-looking credential. No error message here interpolates a key.
 endpoint is a hub relaying to another person's unit, and some of its answers
 say only that it cannot take the request now. Which ones is the rung's to say:
 its endpoint carries them (``busy_answers``, each an HTTP status and an error
-code, written by ``mcgyvr rig rungs sync``), and this module names them only
-as the fallback for an entry written before syncs wrote them
-(:data:`RELIEF_UNAVAILABLE`). None is a verdict on anything: no model was
-asked. So on a relief endpoint, and only there, those answers are
+code, written by ``mcgyvr rig rungs sync``). None is a verdict on anything: no
+model was asked. So on a relief endpoint, and only there, those answers are
 :class:`ReliefUnavailableError`, a
 :class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
 around as a full rung. The rung is asked once and never again for the same
@@ -298,22 +296,6 @@ class ReliefUnavailableError(SlotUnavailableError):
     A full rung, not a failure: no model was asked, so the climb steps aside
     at no cost (see the module docstring).
     """
-
-
-#: The answers a relief rung is full on when its endpoint names none
-#: (``busy_answers``): an entry written before a sync wrote them. The hub
-#: client writes that vocabulary (``mcgyvr.rig.rungs.BUSY``, read from here);
-#: this fallback is the one place the product spells it. Delete it once
-#: release 0.4.0 is out (written 2026-10-08; a test fails past 0.4.0 while it
-#: is here), moving the literal into ``rig/rungs.py``: an entry with no
-#: ``busy_answers`` then has none, until a sync rewrites it.
-RELIEF_UNAVAILABLE: frozenset[tuple[int, str]] = frozenset(
-    {
-        (503, "hitchhike_not_served_yet"),
-        (503, "hitchhike_host_away"),
-        (404, "model_not_found"),
-    }
-)
 
 
 class ModelUnplacedError(SlotUnavailableError):
@@ -694,9 +676,11 @@ class Runner(ABC):
             )
         except BackendError as exc:
             busy = self.endpoint.busy_answers
-            if busy is None:
-                busy = RELIEF_UNAVAILABLE
-            if self.endpoint.relief and (exc.status, exc.code) in busy:
+            if (
+                self.endpoint.relief
+                and busy is not None
+                and (exc.status, exc.code) in busy
+            ):
                 raise ReliefUnavailableError(
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"

@@ -92,13 +92,13 @@ def test_the_words_are_read_in_every_spelling_where_the_hub_is_meant() -> None:
     text = (
         "A relief rung is lent through the hub to a rider (hitchhike); "
         "on_hub_error, MCGYVR_HUB_API_KEY, a crew and its pool session, a pooled "
-        "unit. class ReliefRung, RELIEF_UNAVAILABLE, RIDER_LIMIT, HITCHHIKE_ON, "
+        "unit. class ReliefRung, RIDER_LIMIT, HITCHHIKE_ON, "
         "POOLED, CREW_SIZE, HUB_URL, HubClient, pool_session, mcgyvr.pool.session."
     )
     assert counted(text) == {
         "hub": 5,
         "hitchhik": 2,
-        "relief": 3,
+        "relief": 2,
         "rider": 2,
         "crew": 2,
         "pool session": 3,
