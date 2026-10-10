@@ -434,6 +434,41 @@ def test_setup_start_runs_the_door_against_the_bootstrap_config(
     assert env[configlib.CONFIG_PATH_ENV] == str(tmp_path)
 
 
+def test_setup_start_skips_a_rig_that_emit_wrote_no_compose_for(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rig whose model init bound to another rig has no compose file; skip it.
+
+    The product holds one unit per model, so two rigs asked to serve the same
+    model collapse to one backend; the rig left out gets no launch spec and
+    must not abort the whole ``serve up``.
+    """
+    from collections.abc import Sequence
+
+    from mcgyvr.serving import spec_name
+
+    spawns: list[tuple[str, ...]] = []
+
+    def fake_spawn(argv: Sequence[str], **_: object) -> int:
+        spawns.append(tuple(argv))
+        return 0
+
+    monkeypatch.setattr("mcgyvr.wake.spawn_door", fake_spawn)
+
+    scan1 = scan_module.Scan(
+        machine=scan_module.Machine(id="a", host="rig.example", kernel="k")
+    )
+    scan2 = scan_module.Scan(
+        machine=scan_module.Machine(id="b", host="rig2.example", kernel="k")
+    )
+    (tmp_path / spec_name("rig.example")).write_text("services: {}", encoding="utf-8")
+
+    cli._setup_start(["srv1", "srv2"], {"srv1": scan1, "srv2": scan2}, tmp_path)
+
+    assert len(spawns) == 1
+    assert spawns[0][spawns[0].index("--host") + 1] == "srv1"
+
+
 def test_setup_emit_declares_the_priced_context_window(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

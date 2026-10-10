@@ -956,9 +956,17 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
         else:
             files = spec_files(path, host)
             if not files:
-                raise _SetupInteractiveError(
-                    f"{rig}: mcgyvr emit wrote no compose file for {host}"
+                # The product holds one unit per model: two rigs asked to
+                # serve the same model collapse to one backend, and the rig
+                # left out gets no launch spec. That is expected, not an
+                # emit failure, so skip it rather than abort the whole
+                # ``serve up``.
+                print(
+                    f"{rig}: no launch spec was emitted for {host} — its model "
+                    "is served from another rig (one unit per model); leaving "
+                    "it idle"
                 )
+                continue
             if len(files) > 1:
                 raise _SetupInteractiveError(
                     f"{rig}: mcgyvr emit wrote alternatives for {host}; "
