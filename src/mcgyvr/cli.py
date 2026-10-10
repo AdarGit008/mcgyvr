@@ -969,7 +969,9 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
             ),
             env={
                 **os.environ,
-                CONFIG_PATH_ENV: str(path / FLEET_FILENAME),
+                # The config directory, not its fleet.yaml: the loader reads
+                # both fleet.yaml and policy.yaml (the ladder) from it.
+                CONFIG_PATH_ENV: str(path),
             },
         )
         if code != 0:

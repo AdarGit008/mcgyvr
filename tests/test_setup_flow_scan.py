@@ -388,7 +388,7 @@ def test_setup_fetch_and_start_go_through_the_door(
 def test_setup_start_runs_the_door_against_the_bootstrap_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Step 6b points the door at the bootstrap fleet.yaml via MCGYVR_CONFIG."""
+    """Step 6b points the door at the bootstrap config directory via MCGYVR_CONFIG."""
     from collections.abc import Sequence
 
     from mcgyvr import config as configlib
@@ -411,7 +411,7 @@ def test_setup_start_runs_the_door_against_the_bootstrap_config(
     assert spawns and spawns[-1]["env"] is not None
     env = spawns[-1]["env"]
     assert isinstance(env, dict)
-    assert env[configlib.CONFIG_PATH_ENV] == str(tmp_path / configlib.FLEET_FILENAME)
+    assert env[configlib.CONFIG_PATH_ENV] == str(tmp_path)
 
 
 def test_setup_emit_declares_the_priced_context_window(
