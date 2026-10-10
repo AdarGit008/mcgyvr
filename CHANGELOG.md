@@ -7,7 +7,7 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
-## [Unreleased]
+## [0.4.6] - 2026-10-10
 
 ### Fixed
 
