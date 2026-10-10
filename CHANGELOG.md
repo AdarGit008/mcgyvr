@@ -7,7 +7,12 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
-## [Unreleased]
+## [0.4.2] - 2026-10-10
+
+### Changed
+
+- The `relief.busy_answers` doc no longer claims a one-release fallback (docs
+  only): an unset rung names no busy answers, and a sync writes them.
 
 ## [0.4.1] - 2026-10-10
 
