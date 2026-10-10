@@ -3818,10 +3818,16 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
     return matched[0]
 
 
-def _model_spec(model: Model, moe: bool) -> ModelSpec:
-    """One serving spec from one capability row; the table's decimal GB to GiB."""
+def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
+    """One serving spec from one capability row; the table's decimal GB to GiB.
+
+    ``name`` is the key the catalogue files the spec under, which is normally
+    the row's ``id``; a row that also carries a catalog ``model_id`` is filed
+    under that id too (the same measured numbers, so a unit named by its
+    catalog pick resolves to this benchmarked row).
+    """
     return ModelSpec(
-        name=model.id,
+        name=name or model.id,
         vram_gb=model.vram_gb_working / GB_PER_GIB,
         ram_gb=0.0,
         disk_gb=model.weights_gb / GB_PER_GIB,
@@ -3837,6 +3843,14 @@ def _model_spec(model: Model, moe: bool) -> ModelSpec:
 def _model_specs() -> tuple[ModelSpec, ...]:
     """Serving specs for the rows of the shipped capability estimates.
 
+    The shipped model catalog's own facts are folded in first, keyed by each
+    entry's ``model_id``: a catalog pick the capability table does not name is
+    still servable, sized from the file's bytes and its own context and KV
+    figures (:func:`_catalog_specs`). Then the capability table's measured
+    rows are added, keyed by BOTH their ``id`` and (when one is mapped) their
+    ``model_id``, so the measured ``vram_gb_working`` wins over the computed
+    catalog figure wherever the two name one model.
+
     ``vram_gb`` and ``disk_gb`` come off the typed reader. Whether a model has
     experts — and so a knob for *where* its weights sit — is in the table file
     but not in :class:`mcgyvr.capability.Model`, so it is read
@@ -3844,9 +3858,9 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     cosmetic: a dense model that does not fit is a refusal, while an MoE that
     does not fit is a model that fits differently (:mod:`mcgyvr.serving`).
 
-    ``geometry`` is ``None`` for every row because the table carries no GGUF
-    geometry for any model. A dense row is therefore sized on its scalar
-    figures, one slot wide; an MoE row is refused rather than sized
+    ``geometry`` is ``None`` for every row because neither the table nor the
+    catalog carries GGUF geometry. A dense row is therefore sized on its
+    scalar figures, one slot wide; an MoE row is refused rather than sized
     (:func:`mcgyvr.serving.fit`), because ``--n-cpu-moe`` moves whole blocks
     and what each block's experts weigh is in the tensor table and nowhere
     else. An operator who has scanned the file points
@@ -3862,11 +3876,53 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     actually spills depends on the card and is derived per machine by
     :func:`mcgyvr.serving._placement`.
     """
+    specs: list[ModelSpec] = list(_catalog_specs())
     architectures = _architectures()
-    return tuple(
-        _model_spec(model, architectures.get(model.id) == "moe")
-        for model in load().models
-    )
+    for model in load().models:
+        moe = architectures.get(model.id) == "moe"
+        specs.append(_model_spec(model, moe))
+        if model.model_id is not None and model.model_id != model.id:
+            specs.append(_model_spec(model, moe, name=model.model_id))
+    return tuple(specs)
+
+
+def _catalog_specs() -> tuple[ModelSpec, ...]:
+    """Serving specs derived from the shipped model catalog's own facts.
+
+    A catalog pick the capability table does not name is still servable: the
+    file's bytes and the KV cache its own ``context_length`` and
+    ``kv_bytes_per_token`` price give a dense scalar spec, one slot wide, with
+    no GGUF geometry. ``disk_gb`` is the file's bytes in GiB; ``vram_gb`` is
+    the weights plus the full-context KV cache, also in GiB, so the fit check
+    no longer relies on a measured scalar that may not exist. ``moe`` and
+    ``cpu_only`` are false because these rows are dense GGUF checkpoints, and
+    ``geometry`` is ``None``: the catalog carries no tensor table.
+    """
+    from mcgyvr.knowledge import store as knowledge_store
+    from mcgyvr.knowledge.record import KnowledgeError
+
+    try:
+        records = knowledge_store.shipped()
+    except KnowledgeError as exc:
+        raise CapabilityTableError(str(exc)) from exc
+    specs: list[ModelSpec] = []
+    for one in records:
+        size_gib = one.size_bytes.value / (1024**3)
+        kv_gib = one.context_length.value * one.kv_bytes_per_token.value / (1024**3)
+        specs.append(
+            ModelSpec(
+                name=one.model_id,
+                vram_gb=size_gib + kv_gib,
+                ram_gb=0.0,
+                disk_gb=size_gib,
+                moe=False,
+                cpu_only=False,
+                geometry=None,
+                kv_cache_dtype_k="f16",
+                kv_cache_dtype_v="f16",
+            )
+        )
+    return tuple(specs)
 
 
 def _architectures() -> dict[str, str]:

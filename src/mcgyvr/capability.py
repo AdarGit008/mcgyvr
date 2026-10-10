@@ -90,6 +90,12 @@ class Model:
     ``not_for_fit`` is ``None``, or the table's text saying why this row is
     never listed as fitting a card (:meth:`CapabilityTable.fitting`), for
     example that its memory figure is not the model's own footprint.
+
+    ``model_id`` is the catalog repository id this row's weights are the same
+    file as, when one matches: the shared key that lets ``emit`` size a unit
+    named by its catalog pick against this row's measured figure. It is
+    ``None`` for a row whose file is not a catalog pick (a non-catalog tag, an
+    AWQ quantisation, a media row).
     """
 
     id: str
@@ -102,6 +108,7 @@ class Model:
     requires_backend: str | None
     notes: str
     not_for_fit: str | None = None
+    model_id: str | None = None
     # Media cost units, empty on a text row. Image and video are reading
     # lists like ``throughput``; the scalar media fields sit on the row
     # itself, where the shape document puts them.
@@ -207,6 +214,7 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
         "model row": frozenset(
             {
                 "id",
+                "model_id",
                 "family",
                 "params_b",
                 "active_params_b",
@@ -446,6 +454,12 @@ def _check_readings(
             f"{path}: {row} gives 'not_for_fit' as {entry['not_for_fit']!r}; it "
             f"is the text saying why the row is never listed as fitting a card"
         )
+    if "model_id" in entry and not _text(entry["model_id"]):
+        raise CapabilityTableError(
+            f"{path}: {row} gives 'model_id' as {entry['model_id']!r}; a model's "
+            f"'model_id' is the catalog repository id its weights match, written "
+            f"as non-empty text"
+        )
     if "resolution" in entry and not _text(entry["resolution"]):
         raise CapabilityTableError(
             f"{path}: {row} gives 'resolution' as {entry['resolution']!r}; it "
@@ -578,6 +592,7 @@ def load(path: Path | None = None) -> CapabilityTable:
             requires_backend=entry.get("requires_backend"),
             notes=str(entry.get("notes", "")),
             not_for_fit=str(entry["not_for_fit"]) if "not_for_fit" in entry else None,
+            model_id=(str(entry["model_id"]) if "model_id" in entry else None),
             seconds_per_image=_measurements(
                 entry.get("seconds_per_image", []), "value"
             ),
@@ -603,6 +618,12 @@ def load(path: Path | None = None) -> CapabilityTable:
     )
     if not models:
         raise CapabilityTableError(f"{path} declares no models")
+    mapped = [m.model_id for m in models if m.model_id is not None]
+    if len(mapped) != len(set(mapped)):
+        raise CapabilityTableError(
+            f"{path}: a model_id is declared twice; the shared catalog key must "
+            f"name one row, not two"
+        )
 
     caveats = tuple(
         Caveat(

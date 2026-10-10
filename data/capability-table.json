@@ -62,6 +62,7 @@
     },
     {
       "id": "qwen2.5-coder:7b",
+      "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
       "family": "qwen2.5-coder",
       "params_b": 7,
       "quant": "q4_K_M",
@@ -74,6 +75,7 @@
     },
     {
       "id": "qwen2.5-coder:14b",
+      "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct",
       "family": "qwen2.5-coder",
       "params_b": 14,
       "quant": "q4_K_M",
