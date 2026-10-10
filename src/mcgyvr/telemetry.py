@@ -36,7 +36,7 @@ properties is load-bearing:
   error the rule exists to prevent; one that reads it as "not reported" is
   reading the store correctly.
 
-**The v2 constraint (mcgyvr-lab/archive/docs/port-from-local-ai.md §9).** The queue
+**The v2 constraint (the lab's port-from-local-ai note, §9).** The queue
 architecture puts several orchestrators behind one stream, so this module holds no
 state: there is no logger object, no default sink, and nothing module-level for a
 second orchestrator to share by accident. ``path`` is required at every call —
@@ -63,7 +63,7 @@ and not the text can be counted and never reviewed. So the row carries digests
 and the text is kept beside it. Four rules govern how the text is kept:
 
 * **Content-addressed, under ``<sink dir>/blobs/<sha256>``.** The row carries
-  ``prompt_sha256`` — the name ``tools/bench/identity.py`` gives it — and
+  ``prompt_sha256`` — the name the bench's identity script gives it — and
   ``reply_sha256``, and a blob is named by the digest of its own
   bytes, so a reader can verify a blob without trusting the row that named it.
   It is also what keeps the store small: one scaffold shared by
@@ -87,8 +87,9 @@ and the text is kept beside it. Four rules govern how the text is kept:
   softening. A row naming a ``prompt_sha256`` whose blob was never written is
   worse than no row, because the hash reads as evidence that exists.
 
-**A row names what answered it, and under which round.** ``tools/bench/identity.py``
-names what a measurement records; a live row that carried none of those names
+**A row names what answered it, and under which round.** The bench's identity
+script names what a measurement records; a live row that carried none of those
+names
 could not be laid beside a bench cell, because it would not say which endpoint
 served it, which system prompt it carried or which product revision dispatched
 it. So each row also carries ``endpoint``,
@@ -161,7 +162,7 @@ CORRECTION_KIND = "correction"
 # gave it. So :func:`fold` moves the three as one block rather than field by
 # field — a byline left standing beside somebody else's newer verdict is a row
 # that credits a judgement to whoever last happened to write prose about the
-# attempt, and ``tools/live/index.py`` copies that into a column whose whole
+# attempt, and a journal indexer copies that into a column whose whole
 # question is "who judged this". ``applied_by`` is carried onto the row rather
 # than left on the correction line alone because a folded row is all a reader
 # of the fold gets, and under §9 the one applying a correction need not be the
@@ -175,7 +176,7 @@ _CORRECTABLE = (_VERDICT, "detail", "applied_by")
 # the sink because the sink is one orchestrator's and the blobs are shared.
 BLOB_DIR = "blobs"
 
-# The bench's word for "no ablation" (tools/bench/identity.py's `condition`).
+# The bench's word for "no ablation" (the identity script's `condition`).
 # Written on every live row, because a live row and a bench cell have to be
 # told apart by content: a directory of rows says nothing about which it holds.
 STOCK = "stock"
@@ -451,7 +452,7 @@ def _prompt_identity(
     system = next((m["content"] for m in messages if m.get("role") == "system"), None)
     if system is not None:
         # Raw, not scrubbed: this is the bench's ``bundle_sha256``
-        # (``sha256(prompt.system)``, tools/breadth/measure.py) and has to
+        # (``sha256(prompt.system)``, the bench's breadth measure) and has to
         # equal it for a live row to lie beside a bench cell. A digest
         # discloses nothing, so scrubbing would only make the two disagree.
         fields["bundle_sha256"] = hashlib.sha256(_bytes(system)).hexdigest()
@@ -571,8 +572,8 @@ def _store(
     ``mirrors`` get the same bytes under the same name. The digest is the
     bytes' own, so every store that holds them agrees on it without being told,
     and a copy that failed leaves a row naming a blob the *caller's* store
-    lacks — which ``tools/live/review.py`` already prints as missing, because
-    that is a thing a journal can be.
+    lacks — which a journal reviewer already prints as missing, because that
+    is a thing a journal can be.
     """
     digest = _store_one(path, data)
     _also(mirrors, on_copy_error, lambda mirror: _store_one(mirror / path.name, data))
@@ -772,8 +773,8 @@ def fold(*, path: Path) -> list[Record]:
     shared by other hosts, other processes and other versions of this module
     by construction. The alternative — each field latest-wins on its own —
     produces a row whose ``applied_by`` names somebody who did not give its
-    ``outcome``, which is a lie ``tools/live/index.py`` then stores in a
-    column and a reviewer then weighs.
+    ``outcome``, which is a lie a journal indexer then stores in a column and
+    a reviewer then weighs.
     """
     attempts: list[Record] = []
     corrections: list[tuple[int, Record]] = []

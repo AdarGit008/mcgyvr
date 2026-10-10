@@ -1,4 +1,0 @@
-```python
-ed
- the trimming pass; the trimming pass;
-```

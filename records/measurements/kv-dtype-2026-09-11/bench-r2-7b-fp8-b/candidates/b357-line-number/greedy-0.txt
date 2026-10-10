@@ -1,7 +1,0 @@
-```python
-def line_list(text: str) -> str:
-    if not text:
-        return ""
-    
-    return "\n".join(f"{i + 1}: {line}" for    i, line in enumerate(text.splitlines()))
-```

@@ -1,54 +1,34 @@
 #!/usr/bin/env python3
-"""gate 1 — name the round this run is measured under, opening one if needed.
+"""gate 1 — name the profile this run is under.
 
-Runs first and reaches no rig, so the round is settled before any rig time is
-spent. A measurement taken against an unpinned tree is not comparable with any
-other measurement, which makes it worse than no measurement: it looks like
-evidence — so every run is stamped with a round that pins the tree it ran on.
+Runs first and reaches no rig, so the profile is settled before any rig time
+is spent. The config is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`,
+then `./fleet.yaml`, then the live fleet folder the config folder's
+`live.json` names — and its `profile:` is exported as RUN_PROFILE. No config
+at all is `live` (owner's ruling R4: the default is prod, and forgetting the
+variable lands there); a config that is there and cannot be read, or a
+`$MCGYVR_CONFIG` naming a file that is not there, is a refusal, because a run
+whose config cannot be read cannot say which profile it ran under. Dev runs
+everything, `serve up` and `down` included (the owner ruled N11 on
+2026-09-10), and a live `serve up` is admitted only for units the fleet lock
+names for this rig; a live `serve down` is always admitted.
 
-It gets there by drawing the boundary rather than demanding it (owner,
-2026-09-06). A round is a boundary in the record, not a permission to work: a
-tree that has moved gets the next round opened for it here, pinned to the
-revision about to run, and the run proceeds. What the pin is for is untouched —
-two revisions never share a round — and this is exactly why the new round is
-appended and the one that was open keeps the digest its own arms ran against.
-
-THE PROFILE IS SETTLED HERE TOO, for the same reason: it is a fact about the
-run that costs no rig time to know and that every later gate reads. The config
-is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`, then `./fleet.yaml`,
-then the live fleet folder the config folder's `live.json` names — and its
-`profile:` is exported as RUN_PROFILE. No config at all is `live` (owner's
-ruling R4: the default is prod, and forgetting the variable lands there); a
-config that is there and cannot be read, or a `$MCGYVR_CONFIG` naming a
-file that is not there, is a refusal, because a run whose config cannot be
-read cannot say which profile it ran under. Dev runs everything, `serve up` and `down`
-included (the owner ruled N11 on 2026-09-10), and a live `serve up` is
-admitted only for units the fleet lock names for this rig; a live
-`serve down` is always admitted.
-
-IN USER MODE (a door run from an install, ``--mode user``) no round is
-opened or pinned: the round is the lab's. The profile and the live fleet's
-lock are settled exactly as above, and RUN_ROUND and RUN_PRODUCT_SHA256 are
-exported as ``none``.
+No round is opened or pinned: the round is the lab's. RUN_ROUND and
+RUN_PRODUCT_SHA256 are exported as ``none``.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
-import sys
 
 from mcgyvr import config as configlib
 from mcgyvr.fleet.roots import LiveFleetError, live_file, lock_root
 from mcgyvr.serving.gatelib import (
     DEV,
-    USER_MODE,
     door_required,
     export,
     refuse,
-    root,
-    run_mode,
 )
 
 
@@ -102,8 +82,8 @@ def profile() -> tuple[str, str]:
 def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
     """The containers the ``which`` profile's fleet lock names for ``rig``.
 
-    The lock's combination records under ``records/fleet/rigs/<rig->/`` name
-    each locked unit by its container, under the root the profile reads
+    The lock's combination records under its rigs tree name each locked unit
+    by its container, under the root the profile reads
     (:func:`mcgyvr.fleet.roots.lock_root`: for live, the fleet folder the
     config folder's ``live.json`` names, and no lock at all without one) and never
     under the run root. Gate 1 reaches no rig, so this is a read of local
@@ -171,60 +151,20 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
 def main() -> int:
     door_required("gate 1")
     # The profile first, and the round second: the round check may APPEND a
-    # round to tools/bench/rounds.json when the tree moved (a boundary in the
-    # record, and the door's job), while a run refused for its profile should
-    # leave nothing behind at all — and the profile needs nothing from the
-    # round to be judged.
+    # round to the round record when the tree moved (a boundary in the record,
+    # and the door's job), while a run refused for its profile should leave
+    # nothing behind at all — and the profile needs nothing from the round to
+    # be judged.
     which, source = profile()
     serve = os.environ.get("RUN_SERVE")
     if serve:
         refuse_unless_the_fleet_lock_names(serve, which)
 
-    if run_mode() == USER_MODE:
-        # A door run from an install has no round to pin: the round is the
-        # lab's, and a user's run measures nothing a round compares. The
-        # profile and the live fleet's lock above hold all the same.
-        export("RUN_ROUND", "none")
-        export("RUN_PRODUCT_SHA256", "none")
-        export("RUN_PROFILE", which)
-        export("RUN_CONFIG", source)
-        print(f"gate 1: user mode, no round pinned; profile={which} config={source}")
-        return 0
-
-    # tools/ has no __init__.py, so product.py is reached by path. Loaded here and
-    # not at module scope: a gate that failed to import would refuse with a
-    # traceback instead of a rule.
-    path = root() / "tools" / "bench" / "product.py"
-    if not path.is_file():
-        refuse(f"gate 1: {path} is missing; the round cannot be checked")
-    spec = importlib.util.spec_from_file_location("bench_product", path)
-    assert spec is not None and spec.loader is not None
-    product = importlib.util.module_from_spec(spec)
-    sys.modules["bench_product"] = product
-    spec.loader.exec_module(product)
-
-    try:
-        round_id, digest = product.ensure_open()
-    except product.ProductError as error:
-        # What is left to refuse on is a rounds file that cannot be read or a
-        # surface that cannot be digested — the run has no round to be stamped
-        # with either way, and a run nobody can trace to a revision is the
-        # thing this gate exists to prevent.
-        refuse(f"gate 1: {error}. Nothing is measured against a round it has not got")
-
-    if not round_id or not digest:
-        refuse(
-            f"gate 1: ensure_open() returned round={round_id!r} "
-            f"digest={digest!r}; a round it cannot name is not a round it checked"
-        )
-    export("RUN_ROUND", round_id)
-    export("RUN_PRODUCT_SHA256", digest)
+    export("RUN_ROUND", "none")
+    export("RUN_PRODUCT_SHA256", "none")
     export("RUN_PROFILE", which)
     export("RUN_CONFIG", source)
-    print(
-        f"gate 1: round={round_id} product_sha256={digest[:16]}... "
-        f"profile={which} config={source}"
-    )
+    print(f"gate 1: no round pinned; profile={which} config={source}")
     return 0
 
 

@@ -190,8 +190,6 @@ def _fetch(
             str(listed),
             "--date",
             usermode.RUN_DATE,
-            "--mode",
-            "user",
             *extra,
         ],
         stubs=stubs,

@@ -4,8 +4,8 @@
 RUNS AFTER THE STEP WHATEVER THE STEP DID, including a signal and including a
 hard lock that took the ssh pipe with it. A step that dies before its own
 end_stamp compares nothing, and the run whose end state is unknown is exactly
-the one that ended silently — three of those on srv1 in one campaign, each
-ending mid-log-stream with no OOM, no Xid and no shutdown record.
+the one that ended silently, each ending mid-log-stream with no OOM, no Xid
+and no shutdown record.
 
 A LEFTOVER CONTAINER IS NAMED, NOT KILLED. The set of containers up AFTER the
 step is compared with the set gate 2 read BEFORE it (`containers=` in the
@@ -35,14 +35,13 @@ symlink, a hard link or a path resolving elsewhere is named — with where it
 points — and left unstamped, and the run is not green. The envelope itself
 must be a directory and not a link.
 
-IN USER MODE (a door run from an install, ``--mode user``) the rig may run
-things mcgyvr did not start, which gate 2 reported and admitted: a container
-up before the run is not this run's leftover in any direction, and none is
-touched. The compose file's own units are judged whatever was up before: a
-`serve up` expects every one up, a `serve down` none.
+The rig may run things mcgyvr did not start, which gate 2 reported and
+admitted: a container up before the run is not this run's leftover in any
+direction, and none is touched. The compose file's own units are judged
+whatever was up before: a `serve up` expects every one up, a `serve down` none.
 
 A `serve up --unit` OR `serve down --unit` RUN (RUN_SERVE_ONLY) acts on the
-named units alone, in either mode: those are judged whatever was up before
+named units alone: those are judged whatever was up before
 (an `up` expects each up, a `down` each gone), the file's other units are
 left as they are and judged neither way, and anything else the run left is
 named as on any run. A whole `serve up`, `sleep` or `wake` judges the file's
@@ -65,13 +64,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from mcgyvr.serving.gatelib import (
-    USER_MODE,
     artifact_escape,
     displaced_by_run,
     door_required,
     envelope_escape,
     need,
-    run_mode,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -83,7 +80,7 @@ _rig = SourceFileLoader(
     "_gate02", str(Path(__file__).resolve().parent / "02-rig.py")
 ).load_module()
 
-#: The keys hosts.json declares. `uptime_since` is added because a reboot is
+#: The keys a rig reading reports. `uptime_since` is added because a reboot is
 #: the loudest possible "this is not the machine you measured on".
 COMPARED = (
     "uptime_since",
@@ -142,8 +139,6 @@ def _containers_up() -> dict[str, str] | None:
 
 def main() -> int:
     door_required("gate 7")
-    if run_mode() != USER_MODE:
-        return judge({}, user=False)
     seen: dict[str, object] = {
         "run_id": need("RUN_ID"),
         "step_exit": os.environ.get("RUN_STEP_EXIT") or "unknown",

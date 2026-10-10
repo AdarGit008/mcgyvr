@@ -29,16 +29,12 @@ from __future__ import annotations
 
 import ast
 import collections
-import json
-import math
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parent.parent
-SOURCE_ROOTS = (REPO / "src", REPO / "tools")
-# Corpora and the vendored toolkit are material, not code: their contents are
-# pinned by digest and a sweep there measures the instrument, not the project.
+SOURCE_ROOTS = (REPO / "src",)
+# The vendored resolver engine is material, not code: its contents are pinned
+# by digest and a sweep there measures the instrument, not the project.
 SKIP_PARTS = ("tasks", "baseline", "reserve", "node_modules", ".venv")
 # The semantic gate's resolver engine, copied byte for byte and pinned by digest
 # in ``gate/semantic.py``: skipped by its exact path, not by a folder name.
@@ -84,16 +80,6 @@ def _where(path: Path, lineno: int) -> str:
 # happen to have picked the same word — which this check must not force into
 # agreement.
 DECLARED_DUPLICATES: dict[str, bool] = {
-    # Must agree: tools/runs/campaigns/srv1-cpu-saturation/cpusat.py restates
-    # lock-fleets' rig folder, marker fields and vmstat counters rather than
-    # importing lockfleets.py, because cpusat.py is shipped to the rig as text
-    # (`python3 - rig-agg`, as the harness is) and runs on a python3 with no
-    # mcgyvr to import. The probe tees its markers into the same ~/mcgyvr-relock
-    # and files the same START/END fields and swap counters as a lock-fleets
-    # run, so a reader compares the two artifacts field for field.
-    "RIG_DIR": True,
-    "MARKER_FIELDS": True,
-    "VMSTAT_FIELDS": True,
     # Must agree: ``serving/rigscan.py`` is shipped to the rig as text
     # (``python3 -``) and cannot import mcgyvr, so it restates the scan's
     # measured constants rather than importing them. If a copy drifts, the far
@@ -156,8 +142,8 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # planning-only process), and worker/reply.py carries the same pair.
     "_PY_EXTENSIONS": True,
     # Must agree, and cannot be derived. `mcgyvr.cli` writes this as the `tier`
-    # of every deterministic-floor row; `tools/live/index.py` is what a reviewer
-    # filters the table by, and if the two drifted the query for "how much work
+    # of every deterministic-floor row; a journal indexer filters the table by
+    # it, and if the two drifted the query for "how much work
     # finished without a model" would silently return nothing. The reviewer
     # tool is deliberately not an importer of the CLI — it reads journals other
     # installs and other versions wrote, and importing `mcgyvr.cli` to learn one
@@ -171,13 +157,9 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     "REMOTES": True,
     # Must agree: the two rigs sweep the same ladder.
     "LADDER": True,
-    # Two copies, and they are not the same quantity. The LIVE instruments share
-    # one number: `tools/bench/score.py` declares it and `tools/problems/admit.py`
-    # imports it, so admission rehearses the ceiling that will score it. What is
-    # left here is `tools/bundle/measure.py`'s, which describes a RETIRED
-    # instrument's runs already on disk — it must not move, because moving it
-    # would restate what those rows were measured under. Declared False for that
-    # reason.
+    # Two copies, and they are not the same quantity. Live admission rehearses
+    # the ceiling that will score it, while a retired instrument's rows were
+    # measured under another. Declared False rather than forced equal.
     "ACCEPTANCE_TIMEOUT_S": False,
     # Known to disagree, and filed: `detect` and `availability` hold different values,
     # under the `availability` module docstring calling the two "the same trick ... for
@@ -198,9 +180,9 @@ DECLARED_DUPLICATES: dict[str, bool] = {
     # membership in `identity.RECORDED`, which each rig's declared-set test
     # asserts against the one contract module.
     "IDENTITY_FIELDS": False,
-    # One per serving backend, and duplicated BY CONSTRUCTION: the contract in
-    # `tools/bench/serving/contract.py` requires every backend to declare its
-    # own name and default port, and a backend may not name another backend, so
+    # One per serving backend, and duplicated BY CONSTRUCTION: the serving
+    # backend contract requires every backend to declare its own name and
+    # default port, and a backend may not name another backend, so
     # there is nowhere shared for either to live. They must NOT agree — two
     # backends sharing a name or a port would be one backend — which is the
     # opposite of the usual reason for declaring a duplicate, and is why this is
@@ -366,54 +348,6 @@ def _emitted_check_names(gate: Path | None = None) -> dict[str, list[str]]:
 
 
 # --------------------------------------------------------------------------
-# The underived constant — a shipped number no test recomputes
-# --------------------------------------------------------------------------
-
-TOKEN_UNITS = REPO / "records" / "measurements" / "tokens-2026-08-03" / "units.jsonl"
-TOKEN_VOCABS = (
-    "qwen2.5-coder",
-    "deepseek-coder-v2",
-    "gpt-oss",
-    "qwen3-coder",
-)
-
-
-def _p05(values: list[float]) -> float:
-    ordered = sorted(values)
-    index = max(0, math.ceil(0.05 * len(ordered)) - 1)
-    return ordered[index]
-
-
-def test_estimate_reserve_is_derived() -> None:
-    """The shipped reserve is re-derived from the data it cites, not asserted.
-
-    ``ESTIMATE_RESERVE`` is enforced in ``check_prompt_fits`` and cited as "the
-    worst vocabulary's p05, rounded up". A test asserting a band would be a claim
-    about the number rather than a derivation of it: the units could change and
-    the band would still pass.
-    """
-    from mcgyvr.gate.preflight import ESTIMATE_RESERVE
-
-    if not TOKEN_UNITS.is_file():  # pragma: no cover - the evidence is vendored
-        pytest.skip("the units are not vendored")
-    rows = [
-        json.loads(line)
-        for line in TOKEN_UNITS.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    worst = min(
-        _p05([r[f"error.{v}"] for r in rows if r.get(f"error.{v}") is not None])
-        for v in TOKEN_VOCABS
-    )
-    derived = math.ceil(abs(worst) * 100) / 100
-    assert pytest.approx(derived) == ESTIMATE_RESERVE, (
-        f"ESTIMATE_RESERVE is {ESTIMATE_RESERVE}, but the vendored units give "
-        f"a worst-vocabulary p05 of {worst:.4f}, i.e. {derived}. The constant "
-        "and the measurement it cites have drifted apart."
-    )
-
-
-# --------------------------------------------------------------------------
 # The controls
 # --------------------------------------------------------------------------
 #
@@ -468,33 +402,3 @@ def test_control_a_rung_that_maps_to_no_check_is_rejected(tmp_path: Path) -> Non
     # `adapters` is exactly the shape the real GATE_RUNGS carries: a category
     # name that is not itself a check. Without RUNG_COVERAGE it maps to nothing.
     assert "adapters" not in emitted
-
-
-def test_control_the_reserve_moves_with_its_evidence() -> None:
-    """The reserve check rejects a constant that stopped matching its units."""
-    if not TOKEN_UNITS.is_file():  # pragma: no cover
-        pytest.skip("the units are not vendored")
-    rows = [
-        json.loads(line)
-        for line in TOKEN_UNITS.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    worst = min(
-        _p05([r[f"error.{v}"] for r in rows if r.get(f"error.{v}") is not None])
-        for v in TOKEN_VOCABS
-    )
-    derived = math.ceil(abs(worst) * 100) / 100
-    # Perturb the evidence: one unit far past the current p05 moves the floor,
-    # and the shipped constant does not follow it. That is the drift the band
-    # assertion in test_structured_and_preflight.py cannot see.
-    perturbed = rows + [{"error.deepseek-coder-v2": -0.99, "language": "python"}] * (
-        len(rows) // 10
-    )
-    moved = min(
-        _p05([r[f"error.{v}"] for r in perturbed if r.get(f"error.{v}") is not None])
-        for v in TOKEN_VOCABS
-    )
-    assert math.ceil(abs(moved) * 100) / 100 != derived, (
-        "the derivation did not move when its evidence did — "
-        "test_estimate_reserve_is_derived would pass against any data"
-    )

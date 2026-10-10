@@ -7,10 +7,34 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
-## [Unreleased]
+## [0.4.2] - 2026-10-10
+
+### Changed
+
+- The `relief.busy_answers` doc no longer claims a one-release fallback (docs
+  only): an unset rung names no busy answers, and a sync writes them.
+
+## [0.4.1] - 2026-10-10
+
+### Removed
+
+- The one-release relief fallback. Until now a `relief.yaml` rung that named
+  no `busy_answers` was read as full on a fixed set the runner carried for one
+  release (`RELIEF_UNAVAILABLE`). Past 0.4.0 that fallback is deleted: a rung
+  that names no `busy_answers` names no busy answers, and a sync writes every
+  rung's `busy_answers`, so a current file never relies on the old set.
+
+## [0.4.0] - 2026-10-10
 
 ### Added
 
+- `mcgyvr init` approves a model served on the machine it runs on, not just
+  hosted units (borders plan 2c-2). When it binds a backend detected on this
+  machine, it reads that machine with the door's own readers, run locally and
+  not over ssh, writes its rig file (`$MCGYVR_RIGS/localhost.json`), and
+  approves the fleet with the rig `localhost` laid out and pinned by the rig
+  id the read named. A unit on any other machine is still refused: a remote
+  machine is read over ssh, which `init` does not take.
 - `MCGYVR_RIGS` names the folder that holds the door's rig files (borders plan
   2b-P1b). Unset or empty, a rig file stays at `$MCGYVR_HOME/rigs/<rig>.json`
   exactly as before. `~` is expanded; a relative path is refused, naming the

@@ -41,7 +41,6 @@ import pytest
 import yaml
 
 from mcgyvr.exits import Exit
-from mcgyvr.serving.run import callers_mode
 from tests import onedoor
 
 _IDENTITY = {
@@ -456,9 +455,8 @@ def test_a_plan_to_clean_or_restore_refuses_and_names_the_door_commands_it_does_
     assert code == Exit.REFUSED, err
     assert "restore" in err and UNIT_SECOND in err, err
     assert "clean" in err and "mcgyvr-srv2-stray" in err, err
-    mode = callers_mode()
-    assert f"python -m mcgyvr.serving.run serve up --mode {mode} --host srv1" in err
-    assert f"python -m mcgyvr.serving.run serve down --mode {mode} --host srv2" in err
+    assert "python -m mcgyvr.serving.run serve up --host srv1" in err
+    assert "python -m mcgyvr.serving.run serve down --host srv2" in err
     assert dispatched(events) == []
 
 

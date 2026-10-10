@@ -419,9 +419,10 @@ def catalog() -> Catalog:
     Memoised rather than held in a module variable, so no assignable name can
     replace the catalog under a running process, and for one more reason
     specific to this file: contract digest identity is derived from the catalog, and
-    ``tools/instruments.py`` pins ``sha256(dumps(contract))`` as the evidence
-    that a recorded run was run against a declared instrument. A module variable
-    holding the catalog is therefore an assignable name that silently re-keys
+    the lab's instruments script pins ``sha256(dumps(contract))`` as the
+    evidence that a recorded run was run against a declared instrument. A
+    module variable holding the catalog is therefore an assignable name that
+    silently re-keys
     every contract in the process. Reloading is ``catalog.cache_clear()`` after
     repointing :func:`catalog_path`.
     """

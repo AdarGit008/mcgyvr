@@ -18,8 +18,6 @@ Every machine here is invented and stands behind the door's shims.
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -114,7 +112,6 @@ def test_a_step_from_an_install_runs_under_the_seal_and_is_filed_in_the_door_log
     run_id = f"{usermode.RUN_DATE}-{usermode.CAMPAIGN}-my-step"
     assert seen["RUN_ID"] == run_id
     assert seen["RUN_CAMPAIGN"] == usermode.CAMPAIGN
-    assert seen["RUN_MODE"] == "user"
     assert seen["ARGS"] == "--rounds 3"
     # The step reached the door's host through the shim, and held the lease
     # while it ran; the lease was released when the run ended.
@@ -175,7 +172,7 @@ def test_a_step_run_that_cannot_be_said_is_refused_before_any_gate(
     argv = [str(script) if word == "STEP" else word for word in argv]
 
     done = usermode.door(
-        ["step", "--host", usermode.RIG, "--mode", "user", *argv],
+        ["step", "--host", usermode.RIG, *argv],
         stubs=stubs,
         run_root=usermode.install_root(tmp_path),
         cwd=tmp_path,
@@ -184,41 +181,6 @@ def test_a_step_run_that_cannot_be_said_is_refused_before_any_gate(
     assert done.returncode == 2, done.stdout + done.stderr
     assert onedoor.ssh_log(stubs) == []
     assert usermode.door_logs(usermode.home()) == []
-
-
-def test_a_lab_step_is_held_to_the_labs_declarations_and_filed_by_campaign(
-    tmp_path: Path,
-) -> None:
-    """Lab mode stays as it is: the step verb's lab run is the campaign run's,
-    without the workload and the data scripts."""
-    root = onedoor.fixture_repo(tmp_path)
-    env_file = tmp_path / "step.env"
-    step = onedoor.add_step(
-        root, "probe-camp", "1-probe.sh", onedoor.probe_step(env_file)
-    )
-    argv = [sys.executable, str(root / onedoor.DOOR_REL), "step", "--mode", "lab"]
-    argv += ["--host", "srv1", "--campaign", "probe-camp", "--step", str(step)]
-    argv += ["--date", onedoor.RUN_DATE]
-
-    done = subprocess.run(
-        argv,
-        cwd=root,
-        env=onedoor.door_env(root),
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    )
-
-    said = done.stdout + done.stderr
-    assert done.returncode == 0, said
-    assert "04-workload" not in said and "data-10" not in said
-    envelope = onedoor.envelope(root, "probe-camp")
-    assert (envelope / "probe.tsv").is_file()
-    seen = onedoor.read_env_file(env_file)
-    assert seen["RUN_ROUND"] == onedoor.pinned(root)[0]
-    assert onedoor.read_lease(root) is None
 
 
 def test_the_doors_help_names_step_as_an_advanced_command(
@@ -337,69 +299,6 @@ def test_a_step_exports_a_serving_flag_only_when_it_is_given(
     seen = usermode.recorded(record)
     for name, value in SERVING.values():
         assert seen[name] == (value if given else "UNSET"), name
-
-
-def test_the_campaign_run_keeps_its_own_serving_defaults() -> None:
-    opts, _ = run._parse(
-        ["--host", "h", "--campaign", "c", "--model", "/m.gguf", "--ctx-per-slot", "1"]
-    )
-    assert (opts.parallel, opts.ubatch) == (8, 512)
-
-
-def _lab_step(
-    root: Path, campaign: str, step: Path
-) -> subprocess.CompletedProcess[str]:
-    """A lab-mode ``step`` from the one-door fixture, to completion."""
-    argv = [sys.executable, str(root / onedoor.DOOR_REL), "step", "--mode", "lab"]
-    argv += ["--host", "srv1", "--campaign", campaign, "--step", str(step)]
-    argv += ["--date", onedoor.RUN_DATE]
-    return subprocess.run(
-        argv,
-        cwd=root,
-        env=onedoor.door_env(root),
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    )
-
-
-def test_a_lab_step_naming_a_campaign_the_lab_has_not_declared_is_refused_at_gate_5(
-    tmp_path: Path,
-) -> None:
-    root = onedoor.fixture_repo(tmp_path)
-    step = onedoor.executable(
-        root / "loose-step.sh", onedoor.probe_step(tmp_path / "step.env")
-    )
-
-    done = _lab_step(root, "no-such-campaign", step)
-
-    said = done.stdout + done.stderr
-    assert done.returncode == 2, said
-    assert "no campaign 'no-such-campaign'" in said
-    assert "05-envelope.py" in said
-    assert not (tmp_path / "step.env").exists(), "the step ran"
-    assert onedoor.written_under_records(root) == []
-
-
-def test_a_lab_steps_tsv_is_read_with_the_labs_parser_at_gate_8(
-    tmp_path: Path,
-) -> None:
-    root = onedoor.fixture_repo(tmp_path)
-    step = onedoor.add_step(
-        root,
-        "probe-camp",
-        "1-probe.sh",
-        onedoor.probe_step(tmp_path / "step.env", end_line="### END run_id=elsewhere"),
-    )
-
-    done = _lab_step(root, "probe-camp", step)
-
-    said = done.stdout + done.stderr
-    assert done.returncode == 1, said
-    assert "gate 8: probe.tsv" in said
-    assert "run_id='elsewhere'" in said
 
 
 def test_a_step_refuses_an_inherited_run_variable_before_any_gate(

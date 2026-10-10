@@ -1,17 +1,6 @@
 .env
 .env.local
-# Where a sweep is told which worker to reach. Machine-specific by nature —
-# hostnames, tunnel ports, the name of the variable holding a key. The shape is
-# committed as tools/bundle/worker.example.json.
-tools/bundle/worker.local.json
 *.log
-# ...except under records/evidence/, where a log is the artefact a record
-# cites: a run header's `cost.source` names it.
-!records/evidence/**/*.log
-# ...and one exception back the other way: this log's whole content is
-# reproduced in `mcgyvr-lab/archive/docs/archive/evidence-prose/calibration-2026-08-19/d7-sleep.aborted-run.README.md`,
-# so tracking it would duplicate a record rather than preserve one.
-records/evidence/calibration-2026-08-19/d7-campaign.aborted-run.log
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -21,7 +10,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
-tools/breadth/worker.local.json
 node_modules/
 # A campaign driver's stop sentinel. Nothing in this repository reads or writes
 # it, and one left by an old checkout must never be committed.
@@ -30,8 +18,7 @@ node_modules/
 # graphify's output directory. `graphify-out/` holds a generated knowledge graph
 # of the tree (graph.json, graph.html, GRAPH_REPORT.md) plus its extraction
 # cache. It is rebuilt from the sources it describes, so committing it would put
-# a snapshot in the tree that goes stale the moment anything under src/ or
-# tools/ moves.
+# a snapshot in the tree that goes stale the moment anything under src/ moves.
 graphify-out/
 
 # Per-developer Claude Code settings. `.claude/settings.json` here holds one

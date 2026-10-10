@@ -47,8 +47,8 @@ to ask in. The invariants:
   ``response_schema`` on a :class:`Request` is a JSON Schema the answer should
   conform to. The OpenAI-compatible path sends it as ``response_format``, and a
   server that implements it answers with the object instead of prose — a whole
-  class of parse failure that then never happens
-  (``mcgyvr-lab/archive/docs/port-from-local-ai.md``, D13). A path that cannot carry one
+  class of parse failure that then never happens (the lab's port-from-local-ai
+  note, D13). A path that cannot carry one
   still runs a pinned request and still answers; it answers in prose, and the
   completion says so in a note rather than leaving a caller to infer it from
   the shape of the text.
@@ -80,10 +80,8 @@ unauthenticated-looking credential. No error message here interpolates a key.
 endpoint is a hub relaying to another person's unit, and some of its answers
 say only that it cannot take the request now. Which ones is the rung's to say:
 its endpoint carries them (``busy_answers``, each an HTTP status and an error
-code, written by ``mcgyvr rig rungs sync``), and this module names them only
-as the fallback for an entry written before syncs wrote them
-(:data:`RELIEF_UNAVAILABLE`). None is a verdict on anything: no model was
-asked. So on a relief endpoint, and only there, those answers are
+code, written by ``mcgyvr rig rungs sync``). None is a verdict on anything: no
+model was asked. So on a relief endpoint, and only there, those answers are
 :class:`ReliefUnavailableError`, a
 :class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
 around as a full rung. The rung is asked once and never again for the same
@@ -298,22 +296,6 @@ class ReliefUnavailableError(SlotUnavailableError):
     A full rung, not a failure: no model was asked, so the climb steps aside
     at no cost (see the module docstring).
     """
-
-
-#: The answers a relief rung is full on when its endpoint names none
-#: (``busy_answers``): an entry written before a sync wrote them. The hub
-#: client writes that vocabulary (``mcgyvr.rig.rungs.BUSY``, read from here);
-#: this fallback is the one place the product spells it. Delete it once
-#: release 0.4.0 is out (written 2026-10-08; a test fails past 0.4.0 while it
-#: is here), moving the literal into ``rig/rungs.py``: an entry with no
-#: ``busy_answers`` then has none, until a sync rewrites it.
-RELIEF_UNAVAILABLE: frozenset[tuple[int, str]] = frozenset(
-    {
-        (503, "hitchhike_not_served_yet"),
-        (503, "hitchhike_host_away"),
-        (404, "model_not_found"),
-    }
-)
 
 
 class ModelUnplacedError(SlotUnavailableError):
@@ -561,8 +543,8 @@ class Completion:
     #: How many tokens the unit's speculative draft proposed for this reply and
     #: how many the target accepted -- llama-server's ``timings.draft_n`` and
     #: ``draft_n_accepted``, which it reports only when it drafted. Their ratio
-    #: is the acceptance the MTP lever was measured by
-    #: (``records/evidence/2026-08-28-mtp-ornith/``, ~0.90 on srv2), and it is
+    #: is the acceptance the MTP lever was measured by (the lab's mtp-ornith
+    #: measurement, ~0.90 on srv2), and it is
     #: how the lever's effect is seen in production. ``None`` where the server
     #: reported none; a reported zero is a count and is kept.
     draft_n: int | None = None
@@ -694,9 +676,11 @@ class Runner(ABC):
             )
         except BackendError as exc:
             busy = self.endpoint.busy_answers
-            if busy is None:
-                busy = RELIEF_UNAVAILABLE
-            if self.endpoint.relief and (exc.status, exc.code) in busy:
+            if (
+                self.endpoint.relief
+                and busy is not None
+                and (exc.status, exc.code) in busy
+            ):
                 raise ReliefUnavailableError(
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
@@ -1149,9 +1133,9 @@ def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None
     """The reply's decode rate and where it was read, or ``(None, None)``.
 
     The server's own figure first. Otherwise ``output_tokens / latency_s`` —
-    the formula the vLLM units' lock was measured with
-    (``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py``), so
-    a live figure and a locked one are the same quantity. No count, no rate.
+    the formula the vLLM units' lock was measured with (the lab's fleet
+    measurement on srv2), so a live figure and a locked one are the same
+    quantity. No count, no rate.
     """
     if parsed.decode_tok_s is not None:
         return parsed.decode_tok_s, DECODE_FROM_TIMINGS

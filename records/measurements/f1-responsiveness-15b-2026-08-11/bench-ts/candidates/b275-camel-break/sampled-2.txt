@@ -1,6 +1,0 @@
-```ts
-
-export function camelBreak(name: string): string[] {
-  return name.split(/\B(?=[A-Z])/).map(word => word.toLowerCase());
-}
-```

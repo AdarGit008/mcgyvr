@@ -41,7 +41,7 @@ cpu_max_mhz() {
     fi
     [ -n "${out:-}" ] || out=$(LC_ALL=C lscpu 2>/dev/null | sed -n 's/^CPU max MHz:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1)
     out=$(tok "${out:-}")
-    # srv1's max clock moved 4800 -> 4600 unattended; a row that cannot name it
+    # One rig's max clock moved 4800 -> 4600 unattended; a row that cannot name it
     # is not comparable with one taken before the move.
     [ -n "$out" ] || fail "cannot read cpu_max_mhz (cpufreq/cpuinfo_max_freq, lscpu)"
     printf '%s' "$out"
@@ -186,7 +186,7 @@ gpu_procs() {
 }
 
 # Containers up before the step, by id, one per `;`, or `none`. An uncleaned
-# container held srv1 at zero free RAM for eight minutes; gate 2 refuses a
+# container held a rig at zero free RAM for eight minutes; gate 2 refuses a
 # daemon that is not idle rather than measuring beside a stranger.
 containers() {
     local out
@@ -204,7 +204,7 @@ mem_available_kib() {
 
 # The rig identity (`rig-` = H{ host, hardware, system }) hashes the kernel,
 # MemTotal, swap and swappiness: a kernel update or a swap change mints a new
-# rig on purpose (mcgyvr-lab/records/plans/fleet-identity.md §1).
+# rig on purpose (the lab's fleet-identity plan, §1).
 kernel_version() {
     local out
     out=$(tok "$(uname -r 2>/dev/null)")

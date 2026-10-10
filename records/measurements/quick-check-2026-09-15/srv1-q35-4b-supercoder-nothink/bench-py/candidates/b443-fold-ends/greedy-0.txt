@@ -1,3 +1,0 @@
-The contract does not state whether totals should be returned from the middle outward or from the ends inward. I cannot guess past this.
-
-Blocked.

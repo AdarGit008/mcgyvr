@@ -20,7 +20,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mcgyvr.serving import run
 from tests import onedoor
 
 #: The rig as the user's ssh names it (RFC 6761 reserves ``.invalid``).
@@ -119,26 +118,9 @@ def set_scan(stubs: Path, scan: dict[str, object]) -> None:
 
 
 def install_root(tmp_path: Path) -> Path:
-    """A run root that is not a lab checkout: what an install runs from."""
+    """A run root that is not a checkout: what an install runs from."""
     root = tmp_path / "install-root"
     root.mkdir(exist_ok=True)
-    return root
-
-
-def lab_root(tmp_path: Path) -> Path:
-    """A run root that is a lab checkout: it holds the round's folder
-    (:data:`mcgyvr.serving.run.LAB_MARK`), and a round module in it that
-    admits the tree, as callergates' stand-in does."""
-    root = tmp_path / "lab-root"
-    onedoor.executable(
-        root / run.LAB_MARK / "product.py",
-        "class ProductError(Exception):\n"
-        "    pass\n"
-        "\n"
-        "\n"
-        "def ensure_open():\n"
-        "    return 'round-invented', '0' * 64\n",
-    )
     return root
 
 
@@ -209,13 +191,12 @@ def serve(
     direction: str,
     compose: Path,
     *,
-    mode: str | None = "user",
     extra: tuple[str, ...] = (),
 ) -> list[str]:
-    """``serve <direction>`` of the invented rig, with ``--mode`` when given."""
+    """``serve <direction>`` of the invented rig."""
     argv = ["serve", direction, "--host", RIG, "--compose", str(compose)]
     argv += ["--date", RUN_DATE, *extra]
-    return argv + (["--mode", mode] if mode is not None else [])
+    return argv
 
 
 def door_logs(home: Path) -> list[Path]:
@@ -259,7 +240,7 @@ def step_script(where: Path, record: Path, *, then: str = "") -> Path:
         "# RUN_ARTIFACTS: result.json\n"
         "set -u\n"
         "{\n"
-        "  for k in RUN_ID RUN_OUT_DIR RUN_CAMPAIGN RUN_HOST RUN_MODE RUN_ROOT"
+        "  for k in RUN_ID RUN_OUT_DIR RUN_CAMPAIGN RUN_HOST RUN_ROOT"
         " RUN_MODEL RUN_OUT_ROOT RUN_PARALLEL RUN_UBATCH RUN_CTX_PER_SLOT; do\n"
         '    printf \'%s=%s\\n\' "$k" "$(printenv "$k" || echo UNSET)"\n'
         "  done\n"
@@ -277,14 +258,12 @@ def step(
     script: Path,
     *,
     campaign: str = CAMPAIGN,
-    mode: str | None = "user",
     extra: tuple[str, ...] = (),
     step_args: tuple[str, ...] = (),
 ) -> list[str]:
-    """``step`` of the invented rig running ``script``, with ``--mode`` when given."""
+    """``step`` of the invented rig running ``script``."""
     argv = ["step", "--host", RIG, "--campaign", campaign, "--step", str(script)]
     argv += ["--date", RUN_DATE, *extra]
-    argv += ["--mode", mode] if mode is not None else []
     return argv + (["--", *step_args] if step_args else [])
 
 

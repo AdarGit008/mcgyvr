@@ -24,16 +24,15 @@ The split this module rests on:
     **It steps when the first expert block leaves the card.** llama.cpp's
     op offload copies a host-stored expert tensor into the device compute
     buffer for a large batch, so that buffer grows once any expert is on the
-    host and then stays: deepseek-coder-v2-16b on srv2 reads 76.13 MiB at
+    host and then stays: deepseek-coder-v2-16b on one rig reads 76.13 MiB at
     ``--n-cpu-moe 0`` and 151.51 MiB at 13 and at 26, and ``C`` moves by the
     same 74 MiB. ``--no-op-offload`` removes the step and is banned for what it
     costs prefill, which op offload runs on the card. Nor is the offloaded side
     proven flat for every checkpoint: Qwen3.6's ``C`` read 2 MiB higher at
     ncmoe 20 and 38 MiB higher at 40 than at 7, experts on the host at all
     three, and nobody has attributed that yet.
-    -> ``mcgyvr-lab/records/measurements/measuring-gaps-2026-09-10/README.md``
-    Q4 and Q6,
-    ``mcgyvr-lab/records/measurements/flexibility-2026-09-09/README.md`` Q11
+    -> the lab's measuring-gaps measurement, Q4 and Q6, and its flexibility
+    measurement, Q11
 
 The floor is derived from the header laws below (:func:`kv_bytes`,
 :func:`rs_bytes`) plus :data:`SCRATCH_AND_CONTEXT_MIB`, by
@@ -68,14 +67,14 @@ CACHE_ELEM_BYTES = {"f32": 4.0, "f16": 2.0, "bf16": 2.0, "q8_0": 34.0 / 32.0}
 #: Over-stating it predicts a floor above the true one, which costs throughput
 #: until the walk-down; under-stating it admits a cell that clears every gate
 #: and then OOMs at load.
-#: -> ``records/evidence/2026-09-05-context-decomposition/``
+#: -> the lab's context-decomposition measurement
 SCRATCH_AND_CONTEXT_MIB = 768
 
 #: The same quantity MEASURED, per checkpoint, from the readings the paragraph
 #: above bounds. 768 is a bound over every architecture probed and it is the
 #: right number for a *derivation*, which walks down from it and has no
 #: measurement of the card in hand. It is the wrong number for judging a
-#: placement somebody is holding: on srv1, 2026-09-06, the card hands out 5726
+#: placement somebody is holding: on one rig, 2026-09-06, the card hands out 5726
 #: MiB, the running ``--n-cpu-moe 32`` placement occupies 5306, and this
 #: module's own prediction for it is 5347.2 -- accurate to 41 MiB. Adding 768
 #: to that refuses a placement the rig has been running for hours, and derives
@@ -84,9 +83,8 @@ SCRATCH_AND_CONTEXT_MIB = 768
 #: Each reading names the ``-ub`` it was read at: the compute half of this
 #: quantity grows with ``-ub``, so a reading is used only at its own batch and
 #: a number with no batch beside it cannot be told apart from one taken at 512.
-#: qwen35moe's 512 = 316.57 MiB comes from
-#: ``records/measurements/kv-dtype-2026-09-11/results-s1-scratch.json`` (S1,
-#: the measuring-gaps Q3 method; the 256 control of 304.57 reproduces the
+#: qwen35moe's 512 = 316.57 MiB comes from the lab's kv-dtype measurement
+#: (S1, the measuring-gaps Q3 method; the 256 control of 304.57 reproduces the
 #: pinned 302.7 to 0.6%). S1 read it at ``--n-cpu-moe 30 -c 16384 --parallel 2``,
 #: not the served ``ncmoe 32 / c 32768 / np 8``: the ~3 MiB placement spread is
 #: inside the 62 MiB margin the reading leaves, and it over-states rather than
@@ -95,14 +93,14 @@ SCRATCH_AND_CONTEXT_MIB = 768
 #: Absent an entry, the bound stands: an architecture nobody has probed gets
 #: the conservative number, which is the direction that costs throughput rather
 #: than the one that admits a cell that OOMs at load.
-#: -> ``records/evidence/2026-09-05-context-decomposition/``
+#: -> the lab's context-decomposition measurement
 MEASURED_SCRATCH_MIB = {
     "deepseek2": {256: 259.5},
     "gptoss": {256: 302.1},
     "qwen35moe": {256: 302.7, 512: 316.57},
     "nemotron_h_moe": {256: 521.2},
-    #: Read at -ub 512 (DEFAULT_UBATCH), the batch units run at (Q3,
-    #: mcgyvr-lab/records/measurements/measuring-gaps-2026-09-10/README.md).
+    #: Read at -ub 512 (DEFAULT_UBATCH), the batch units run at (Q3, the
+    #: lab's measuring-gaps measurement).
     "qwen3next": {512: 829.0},
 }
 
@@ -292,7 +290,7 @@ def experts_on_card(geometry: dict[str, Any], n_cpu_moe: int) -> int:
 
     What the positional reading cost, against the engine's own ``CUDA0 model
     buffer size``: at ``--n-cpu-moe 40`` nemotron holds 4110.75 MiB of experts
-    and the positional sum said 0 -- a third of srv2's card. Its floor came out
+    and the positional sum said 0 -- a third of one rig's card. Its floor came out
     9 where the rig loads at 21 and refuses at 20, i.e. a cell that clears the
     gate and then OOMs at load, which is the single outcome the gate exists to
     prevent. On ``deepseek2``, whose block 0 is dense, ``--n-cpu-moe 1`` moves
@@ -318,7 +316,7 @@ def mtp_head_bytes(geometry: dict[str, Any]) -> int:
     exactly, blocks 8..39 with block 40 absent. With the flag the head is
     loaded and run as the draft, and the rig pays for it: the baseline loads at
     ``ncmoe 4`` and MTP is refused there with ``cudaMalloc failed``, loading at
-    8 -- ``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` section 1.
+    8 -- the lab's mtp-ornith measurement, section 1.
 
     The figure is read off the tensor table and nowhere else: the nextn block's
     expert set, ``expert_bytes_by_block`` at each ``nextn_blocks`` index, 816.0
@@ -357,7 +355,7 @@ def constant_from_probe(
     prints -- as one lump, which is all a placement decision needs.
 
     **Pass ``vram_used_bytes`` net of the card's idle baseline.** ``memory.used``
-    is card-wide; srv1 idles at 17 MiB and srv2 at 1 MiB, and letting that ride
+    is card-wide; one rig idles at 17 MiB and another at 1 MiB, and letting that ride
     along puts a 16 MiB rig difference into a number that has nothing to do with
     either rig.
 
@@ -403,7 +401,7 @@ class Placement:
     ``predicted_mib`` is what this module says the card will hold at this
     offload: non-expert weights, cache, recurrent state and the experts that
     stay. It is a claim about the card, checkable against ``nvidia-smi`` — on
-    srv1, 2026-09-06, it reads 5347.2 against a measured 5306.
+    one rig, 2026-09-06, it reads 5347.2 against a measured 5306.
 
     ``allowance_mib`` is the room demanded past that claim, which is policy.
     Reported separately, because one summed figure that misses a measurement
@@ -450,7 +448,7 @@ def explain(
     ``ctx_per_slot`` has no default here for the reason stated at the top of
     :mod:`mcgyvr.serving`: the cache is priced against the window, so a
     prediction made at a window nobody declared is a prediction about a process
-    nobody is running. srv1's figures above are at 4096 per slot across eight
+    nobody is running. The figures above are at 4096 per slot across eight
     slots, which is the ``-c 32768 --parallel 8`` it was measured serving.
 
     ``speculative`` is the unit's ``launch.speculative``: under ``mtp``

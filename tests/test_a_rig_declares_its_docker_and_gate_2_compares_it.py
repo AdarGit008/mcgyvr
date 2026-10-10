@@ -1,18 +1,16 @@
-"""The rig is held to its docker version, by gate 2 and again by gate 3.
+"""Gate 3: the daemon a tag is resolved through must be the machine gate 2 read.
 
 The same image can list ``Vulkan0`` on one rig and bench the CPU on another,
 with identical driver libraries injected, when the dockers differ: a docker
 that routes ``--gpus all`` through the CDI spec mounts the NVIDIA Vulkan ICD
-manifest, and one that routes it through the legacy hook does not. A comparison
-between two rigs is only sound if something states which docker each runs.
+manifest, and one that routes it through the legacy hook does not. A tag
+resolved against one daemon and a container started on another is the hole
+gate 3 closes, so the daemon the door's ``docker`` reaches must answer, and
+must answer as the machine gate 2 read.
 
-``hosts.json[host].rig.docker`` states it. The reader gate 2 ships to the rig
-(``rig-snapshot.sh:docker_version``) prints the daemon's version beside the
-hardware and refuses rather than guesses when it cannot; gate 2 (``02-rig.py``)
-compares it with the declaration like every other key. Gate 3 (``03-image.py``)
-then asks the daemon the door's ``docker`` reaches — the rig's, over ``-H
-ssh://HOST`` — for its name and version: the daemon a tag is resolved through
-must be the machine gate 2 read, on the docker hosts.json declares.
+In user mode (a door run from an install, ``--mode user``) there is no
+``hosts.json`` and no declared docker version: the daemon must answer and be
+the machine gate 2 read, and the version it runs is said, not compared.
 """
 
 from __future__ import annotations
@@ -24,42 +22,12 @@ import pytest
 from tests import onedoor
 from tests.onedoor import Scenario
 
-DOCKER = "29.7.2"
-OLD = "29.1.3"
-
 
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
     repo = onedoor.fixture_repo(tmp_path)
     onedoor.add_step(repo, "alpha", "1-probe.sh", onedoor.probe_step(tmp_path / "e"))
     return repo
-
-
-def test_a_rig_on_the_old_docker_is_refused_at_gate_2(
-    root: Path, tmp_path: Path
-) -> None:
-    onedoor.rig_stub(onedoor.stubs_dir(root), "srv1", docker=OLD)
-    result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    for word in ("docker", DOCKER, OLD):
-        assert word in result.stderr, f"{word!r} is not in the refusal: {result.stderr}"
-    assert onedoor.written_under_records(root) == []
-    assert onedoor.docker_log(root) == [], "gate 3 ran after gate 2 refused"
-    assert not (tmp_path / "e").exists()
-
-
-def test_a_daemon_on_another_docker_than_declared_is_refused_at_gate_3(
-    root: Path, tmp_path: Path
-) -> None:
-    """The rig reads as declared; the daemon ``docker`` reaches does not."""
-    (onedoor.stubs_dir(root) / "docker-version").write_text(OLD, encoding="utf-8")
-    result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "gate 3" in result.stderr, result.stderr
-    for word in (OLD, DOCKER, "hosts.json"):
-        assert word in result.stderr, f"{word!r} is not in the refusal: {result.stderr}"
-    assert onedoor.written_under_records(root) == []
-    assert not (tmp_path / "e").exists()
 
 
 def test_a_daemon_that_is_not_the_machine_gate_2_read_is_refused_at_gate_3(

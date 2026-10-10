@@ -1,9 +1,0 @@
-```python
-def cap_after(passage: str) -> str:
-    if not passage:
-        return ""
-    
-    sentences = passage.split('. ')
-    capitalized_sentences = [sentence.capitalize() for sentence in sentences]
-    return '. '.join(capitalized_sentences)
-```

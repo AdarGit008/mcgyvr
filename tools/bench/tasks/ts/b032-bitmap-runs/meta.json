@@ -1,6 +1,0 @@
-{
-  "file_shape": "multi_symbol",
-  "shape": "numeric",
-  "steering_band": "g4",
-  "target_symbol": {"ts": "findFreeRun", "py": "find_free_run"}
-}

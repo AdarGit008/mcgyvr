@@ -85,8 +85,8 @@ BACKEND_LINE_MAX=400
 
 # The backend a vLLM unit's WHOLE log names, and the line the reader matched.
 # Owner, 2026-09-16: "fix the reader and record the line". The tokens, and
-# searching the whole log for them, are the 09-13 method's
-# (records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py:89-99).
+# searching the whole log for them, are the lab's 09-13 fleet measurement
+# method.
 # Reading the first `attention backend` line alone filed `none` for two units
 # whose log named FLASH_ATTN on another line, and stopped the run. Nothing is
 # guessed (owner, 2026-09-15, B4): a log naming no token anywhere is `none`,

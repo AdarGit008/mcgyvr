@@ -1,7 +1,0 @@
-import re
-
-
-def sentence_split(passage: str) -> list:
-    """A passage broken into its sentences."""
-    pieces = re.split(r"[.!?]", passage)
-    return [piece.strip() for piece in pieces if piece.strip()]

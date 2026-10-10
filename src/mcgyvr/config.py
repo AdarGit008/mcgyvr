@@ -269,8 +269,9 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "lands in the repository a run works on, and nothing on the command "
         "line moves it: it is the one place every run is, which is what makes "
         "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
-        "copy for your own use. Read either back with `tools/live/review.py "
-        "DIR`.",
+        "copy for your own use. Read either copy back from DIR directly: one "
+        "JSONL per writer, prompts and replies under `blobs/`, results under "
+        "`results/`.",
         default=JOURNAL_DIR_DEFAULT,
     ),
 )
@@ -781,7 +782,7 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         "The answers, each an HTTP status and an error code, that say this "
         "rung cannot take a request now: one of them is a full rung, passed "
         "over at no cost, and any other answer is read as on any rung. Unset, "
-        "the answers this build knew before syncs wrote them, for one release.",
+        "the rung names no busy answers; a sync writes them.",
         block=BUSY_ANSWER_FIELDS,
         bind_hint="leave it to `mcgyvr rig rungs sync`, which writes them",
     ),
@@ -2109,7 +2110,7 @@ def _build(
             position=block["position"],
             hosted_by=block["hosted_by"],
             served_model=block["served_model"],
-            # An empty list would fold to unset (the fallback); the schema
+            # An empty list would fold to unset (no busy answers); the schema
             # refuses one, so only an absent field is unset today.
             busy_answers=tuple(
                 (answer["status"], answer["code"]) for answer in block["busy_answers"]

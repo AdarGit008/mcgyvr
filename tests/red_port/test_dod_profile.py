@@ -174,31 +174,6 @@ def test_a_relative_config_path_is_read_where_the_operator_typed_it(
     assert onedoor.read_env_file(env_file).get("RUN_PROFILE") == "dev"
 
 
-def test_a_config_variable_that_is_not_a_path_is_refused_not_traced_back(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    from mcgyvr.serving import run
-
-    monkeypatch.setenv(CONFIG_VAR, "~nosuchuser-mcgyvr/dev.yaml")
-    status = run.main(
-        [
-            "--mode",
-            "lab",
-            "--host",
-            "srv1",
-            "--campaign",
-            CAMPAIGN,
-            "--model",
-            "/models/x.gguf",
-            "--ctx-per-slot",
-            "2048",
-        ]
-    )
-    err = capsys.readouterr().err
-    assert status == 2, err
-    assert CONFIG_VAR in err, err
-
-
 def test_a_list_as_a_key_is_a_config_error_and_not_a_type_error() -> None:
     from mcgyvr.config import ConfigSchemaError
 

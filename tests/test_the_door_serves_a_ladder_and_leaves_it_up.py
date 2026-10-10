@@ -41,15 +41,6 @@ def compose_file(root: Path, names: tuple[str, ...] = UNITS) -> Path:
     return path
 
 
-def busy_rig(root: Path) -> None:
-    onedoor.rig_stub(
-        onedoor.stubs_dir(root),
-        "srv1",
-        containers="c0ffee000011;c0ffee000012",
-        gpu_procs="4242,llama-server,5584MiB",
-    )
-
-
 CONFIG_VAR = "MCGYVR_CONFIG"
 
 #: A setup under development: same rig, its own file, ``profile: dev``.
@@ -149,7 +140,9 @@ def test_serve_up_brings_the_file_up_asks_each_unit_and_leaves_it_running(
     ), asked
 
     record = json.loads(
-        (onedoor.envelope(root, "live-srv1") / "serve-up.json").read_text()
+        (
+            onedoor.serve_envelope(root, "serve-up", "live-srv1") / "serve-up.json"
+        ).read_text()
     )
     assert record["mode"] == "up" and record["host"] == "srv1"
     assert [u["container"] for u in record["units"]] == list(UNITS)
@@ -189,17 +182,6 @@ def test_serve_up_whose_unit_never_came_up_is_exit_1_and_says_which(
     assert UNITS[1] in result.stderr
 
 
-def test_serve_up_still_refuses_a_busy_rig(tmp_path: Path) -> None:
-    root = onedoor.fixture_repo(tmp_path)
-    compose = compose_file(root)
-    dev = dev_config(tmp_path / "dev.yaml")
-    busy_rig(root)
-    result = onedoor.serve_door(root, "up", compose, env_extra={CONFIG_VAR: str(dev)})
-    assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "not idle" in result.stderr
-    assert not any(line.startswith("compose") for line in onedoor.docker_log(root))
-
-
 # --- down ----------------------------------------------------------------------
 
 
@@ -216,7 +198,9 @@ def test_serve_down_opens_on_the_serving_rig_and_requires_nothing_left(
         line.startswith(f"compose -f {compose} -p mcgyvr down") for line in log
     ), log
     record = json.loads(
-        (onedoor.envelope(root, "live-srv1") / "serve-down.json").read_text()
+        (
+            onedoor.serve_envelope(root, "serve-down", "live-srv1") / "serve-down.json"
+        ).read_text()
     )
     assert record["mode"] == "down" and record["remaining"] == []
 
@@ -241,6 +225,9 @@ def test_up_then_down_on_one_day_file_under_one_envelope(tmp_path: Path) -> None
     assert up.returncode == 0, (up.stdout, up.stderr)
     down = onedoor.serve_door(root, "down", compose, env_extra={CONFIG_VAR: str(dev)})
     assert down.returncode == 0, (down.stdout, down.stderr)
-    envelope = onedoor.envelope(root, "live-srv1")
-    assert (envelope / "serve-up.json").is_file()
-    assert (envelope / "serve-down.json").is_file()
+    assert (
+        onedoor.serve_envelope(root, "serve-up", "live-srv1") / "serve-up.json"
+    ).is_file()
+    assert (
+        onedoor.serve_envelope(root, "serve-down", "live-srv1") / "serve-down.json"
+    ).is_file()

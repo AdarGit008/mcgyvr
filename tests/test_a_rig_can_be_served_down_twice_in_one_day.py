@@ -12,7 +12,6 @@ door once a day cannot be switched, slept or measured around.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from tests import onedoor
@@ -52,31 +51,3 @@ def test_a_second_serve_down_on_one_day_is_not_refused_for_the_first_ones_record
         f"serve-down.json: {again.stderr[-1500:]}"
     )
     assert again.returncode == 0, again.stderr[-1500:]
-
-
-def test_the_first_serve_downs_record_is_kept_beside_the_second(
-    tmp_path: Path,
-) -> None:
-    root = onedoor.fixture_repo(tmp_path)
-    compose = compose_file(root)
-    stubs = onedoor.stubs_dir(root)
-
-    onedoor.serving(stubs, UNITS, already_up=True)
-    first = onedoor.serve_door(root, "down", compose, suffix="sleep-1")
-    assert first.returncode == 0, first.stderr[-1500:]
-    envelope = onedoor.envelope(root, "live-srv1")
-    first_record = (envelope / "serve-down.json").read_bytes()
-    first_run_id = json.loads(first_record)["run_id"]
-
-    onedoor.serving(stubs, UNITS, already_up=True)
-    again = onedoor.serve_door(root, "down", compose, suffix="sleep-2")
-    assert again.returncode == 0, again.stderr[-1500:]
-
-    kept = envelope / f"serve-down.superseded-{first_run_id}.json"
-    assert kept.is_file(), sorted(p.name for p in envelope.iterdir())
-    assert kept.read_bytes() == first_record, (
-        "the first record was not kept byte for byte"
-    )
-    assert json.loads((envelope / "serve-down.json").read_text())["run_id"].endswith(
-        "-sleep-2"
-    )

@@ -51,8 +51,8 @@ did not start" (:mod:`mcgyvr.serving.run`), and ``tests/test_one_door.py`` bans
 the way round it. :func:`spawn_door` is therefore the whole of this module's
 contact with a machine, which is what lets a test own all of it.
 
-The design is ``mcgyvr-lab/records/plans/sleep-wake.md``, approved; the budget argument
-is ``mcgyvr-lab/records/plans/wake-timeout.md``.
+The design is the lab's sleep-wake plan, approved; the budget argument is the
+lab's wake-timeout plan.
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 # The module the door is spelled as -- an ``-m`` and never a path, because the
 # door mints its own ``RUN_*`` vocabulary, refuses to start under an inherited
-# one and files write-once evidence under ``records/evidence/``, so a wake that
+# one and files write-once evidence under its own envelope, so a wake that
 # reached a rig any other way would be the second way in that
 # ``src/mcgyvr/serving/run.py`` says the seal is against.
 #
@@ -135,20 +135,13 @@ def door_argv(
 
     ``units`` names the containers a ``sleep`` or ``wake`` acts on alone
     (``--unit``), the rest of the card left as it is; empty is the whole card.
-
-    ``--mode`` is :func:`mcgyvr.serving.run.callers_mode`: ``lab`` inside the
-    lab checkout, ``user`` anywhere else.
     """
-    from mcgyvr.serving.run import callers_mode
-
     return (
         sys.executable,
         "-m",
         DOOR_MODULE,
         "serve",
         direction,
-        "--mode",
-        callers_mode(),
         "--host",
         host,
         "--compose",
@@ -252,8 +245,8 @@ def _safe(host: str) -> str:
 def predicted_wake_s(card: Card) -> float | None:
     """How long this card took to wake last time, or ``None`` the first time.
 
-    **The last actual is the prediction; no curve is fitted** (why:
-    ``mcgyvr-lab/records/plans/wake-timeout.md`` §4).
+    **The last actual is the prediction; no curve is fitted** (why: the lab's
+    wake-timeout plan, §4).
 
     **It never shortens or aborts a wake.** It is recorded on the :class:`Wake`
     and nothing acts on it: the door's own health poll
@@ -497,9 +490,9 @@ def compose_for(card: Card) -> Path | None:
     **One, or none, and never a choice.** A card whose directory holds several
     of mcgyvr's launch specs is a card mcgyvr cannot bring back, because
     ``serve up`` starts one file and nothing in a config says which of them is
-    the current one (D2, ``mcgyvr-lab/records/plans/sleep-wake.md``). Picking is not a
-    tie-break to be got right later; it is the fleet-shape controller's question
-    (``mcgyvr-lab/records/plans/fleet-shape/``) and no line of it is implemented.
+    the current one (D2, the lab's sleep-wake plan). Picking is not a
+    tie-break to be got right later; it is the fleet-shape controller's
+    question (the lab's fleet-shape plan) and no line of it is implemented.
 
     Declining is not conservatism for its own sake. ``emit`` deletes nothing,
     so a leftover ``compose.<host>.yml`` can hold units that do not sum onto

@@ -1,4 +1,0 @@
-def vat_back(gross: int, rate: int) -> int:
-    if rate == 0:
-        return gross
-    return gross * 100 // (100 + rate)

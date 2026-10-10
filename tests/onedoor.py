@@ -19,15 +19,12 @@ The fixture (:func:`fixture_repo`) is a throw-away checkout the door can be
 run FROM — it is invoked as ``python <fixture>/src/mcgyvr/serving/run.py``,
 because the door derives its repo root from its own file — holding:
 
-* a copy of ``src/mcgyvr/serving/`` (the door, its gates and its shims) and of
-  ``tools/bench/product.py``; every other entry of ``product.SURFACE`` exists
-  as a stub so gate 1's digest can be taken; ``rounds.json`` is written LAST,
-  pinning that digest, so gate 1 admits the tree as built;
-* ``tools/runs/`` minus the campaigns (``hosts.json``, ``rows.py``,
-  ``workload.py``, ``_common.sh``, the drivers), so the tests own the campaign
-  list; the tree is ``git init``ed because ``_common.sh`` locates the repo
-  with ``git rev-parse`` when ``RUN_REPO`` is unset — and the door refuses
-  ``RUN_REPO`` from the calling shell like every other ``RUN_*``;
+* a copy of ``src/mcgyvr/serving/`` (the door, its gates and its shims) and
+  nothing else of a checkout: it is no lab checkout, so the door runs in
+  user mode. The rigs are described by user rig files under
+  ``$MCGYVR_RIGS/<rig>.json``, written for this tree from the same
+  ``RIG``/``LIVE`` readings the stubs answer, and a run is filed under
+  ``--out-root out`` (a folder the fixture makes);
 * ``stubs/``, first on the PATH :func:`door_env` builds: the ``ssh`` reads the
   rig-snapshot request off its command line and answers from
   ``snapshot.txt`` (or ``snapshot-moved.txt`` once a flag file the test names
@@ -48,7 +45,6 @@ path.
 
 from __future__ import annotations
 
-import importlib
 import json
 import os
 import shutil
@@ -57,44 +53,19 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from types import ModuleType
 
 REPO = Path(__file__).resolve().parent.parent
-RUNS = REPO / "tools" / "runs"
 #: The door and everything it spawns. Copied whole into a fixture.
 SERVING_SRC = REPO / "src" / "mcgyvr" / "serving"
 #: The door's shim directory — what it exports as ``RUN_BIN``, and where a
 #: step run bare under a fake door is told to find the shims.
 BIN = SERVING_SRC / "gate-scripts" / "bin"
 DOOR_REL = Path("src") / "mcgyvr" / "serving" / "run.py"
-PRODUCT_PY = REPO / "tools" / "bench" / "product.py"
-WORKLOAD_PY = RUNS / "workload.py"
-HOSTS_JSON = RUNS / "hosts.json"
-DRIVERS = RUNS / "drivers"
-CAMPAIGNS = RUNS / "campaigns"
-#: One geometry the door once read on srv1, so the placement the fixture's
-#: run derives is derived from a real tensor table and not from a number
-#: invented to fit.
-GEOMETRY_JSON = (
-    REPO
-    / "records"
-    / "evidence"
-    / "2026-09-05-e2e-srv1-gemma-4-26b-a4b-it-ud-iq3xxs"
-    / "geometry.json"
-)
 MODEL = "/models/moe/gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf"
-
-#: Argument lists that get each driver past ``sys.argv`` and to its first
-#: docker call, and no further: the cell is legal but the container never
-#: comes up, so the driver records a refusal and returns.
-DRIVER_ARGV = {
-    "lcp_sweep.py": ["model.gguf", "/nonexistent/models", "T", "1:2048:0:1"],
-    "vllm_sweep.py": ["T", "org/model", "0.9:2048:8:auto:1"],
-    "vllm_cores.py": ["pair", "0.45", "2048", "128", "auto", "1", "a=org/model"],
-}
+#: Where a step run files its envelope, relative to the throw-away fixture.
+OUT_ROOT = "out"
 
 RUN_DATE = "2026-09-05"
-ROUND_ID = "r9-onedoor"
 #: Digests the docker stub knows. ``vllm/vllm-openai:v0.26.0`` has a registry
 #: digest; ``llamacpp:b10644-L3`` is a local build and has only an image id.
 REPO_DIGEST_HEX = "9d2b5e1c7a4f3b8e6c0d1a2f5b7c9e3d4a6b8c0e2f4a6c8e0b2d4f6a8c0e2b4d"
@@ -118,8 +89,8 @@ RIG_HOME = "/home/x"
 #: touched by a test that runs a driver bare.
 BARE_HOST = "rig.invalid"
 
-#: The declared keys — ``tools/runs/hosts.json[host].rig``, what gate 2
-#: compares. Strings, because that is what a ``k=v`` line carries.
+#: The rig's facts the fixture's snapshot and its rig file carry. Strings,
+#: because that is what a ``k=v`` line carries.
 RIG: dict[str, dict[str, str]] = {
     "srv1": {
         "cpu_max_mhz": "4600",
@@ -156,8 +127,8 @@ RIG_READ_ON = "2026-09-26"
 #: figures a placement spends, the host memory, the thread count, the name
 #: the daemon must answer to (gate 3), and the two idle readings gate 2 holds
 #: to ``none``. srv1's are a recorded scan. The kernel, MemTotal, swap and
-#: swappiness values here are placeholders: hosts.json declares none of them,
-#: so gate 2 does not compare them.
+#: swappiness values here are placeholders: the rig file declares none of them,
+#: so the door does not compare them.
 LIVE: dict[str, dict[str, str]] = {
     "srv1": {
         "gpu_used_mib": "17",
@@ -188,10 +159,6 @@ LIVE: dict[str, dict[str, str]] = {
 }
 
 
-def _product() -> ModuleType:
-    return importlib.import_module("tools.bench.product")
-
-
 def snapshot_lines(host: str, **override: str) -> str:
     """One ``rig-snapshot.sh`` reading for ``host``, as the rig prints it."""
     values = {"uptime_since": UPTIME, **RIG[host], **LIVE[host], **override}
@@ -203,20 +170,6 @@ def executable(path: Path, text: str) -> Path:
     path.write_text(text, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return path
-
-
-#: A stand-in for the door: a file whose path ends in mcgyvr/serving/run.py —
-#: as a copy of the door in a fixture tree does — that runs its arguments as
-#: a child. What the child reads in /proc is exactly what a gate, a step or a
-#: driver reads under the real door: ``gatelib.is_door`` matches the suffix.
-FAKE_DOOR = (
-    "import subprocess, sys\n"
-    "raise SystemExit(subprocess.run(sys.argv[1:]).returncode)\n"
-)
-
-
-def fake_door(tmp_path: Path) -> Path:
-    return executable(tmp_path / "door" / "mcgyvr" / "serving" / "run.py", FAKE_DOOR)
 
 
 # --------------------------------------------------------------------------
@@ -657,112 +610,110 @@ def ssh_log(where: Path) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def hosts_document() -> str:
-    doc: dict[str, object] = {"hosts": ["srv1", "srv2"]}
-    for host, rig in RIG.items():
-        doc[host] = {"rig": dict(rig), "read_on": RIG_READ_ON}
-    return json.dumps(doc, indent=2) + "\n"
-
-
-def pin(root: Path) -> str:
-    """Write ``rounds.json`` for the tree as it stands NOW, and return the digest.
-
-    Called last by :func:`fixture_repo`; a test that changes a file under
-    ``product.SURFACE`` afterwards calls it again, or gate 1 refuses.
-    """
-    digest: str = _product().digest(root)
-    rounds = {
-        "rounds": [
+def scan_payload(host: str) -> dict[str, object]:
+    """What the shipped rig scanner answers for ``host``, matching its rig file."""
+    rig = RIG[host]
+    total = int(rig["gpu_vram_mib"])
+    reserve = int(rig["gpu_reserve_mib"])
+    used = int(LIVE[host]["gpu_used_mib"])
+    return {
+        "machine": {
+            "id": f"machine-{host}",
+            "host": host,
+            "kernel": "6.8.0-invented",
+        },
+        "gpus": [
             {
-                "id": ROUND_ID,
-                "opened": RUN_DATE,
-                "product_sha256": digest,
-                "why": "the one-door fixture, pinned as built",
-                "adopted": [],
+                "index": 0,
+                "name": rig["gpu_name"],
+                "vram": {
+                    "total_mib": total,
+                    "used_mib": used,
+                    "free_mib": total - reserve - used,
+                    "reserved_mib": reserve,
+                },
             }
-        ]
+        ],
+        "memory": {"total_gb": 15.7, "available_gb": 14.2},
+        "cpu": {"cores": 6, "threads": 6},
+        "disk": {"path": "/home/user/.cache/mcgyvr/weights", "free_gb": 400.0},
+        "docker": rig["docker"],
+        "notes": [],
+        "facts": [],
     }
-    (root / "tools" / "bench" / "rounds.json").write_text(
-        json.dumps(rounds, indent=1) + "\n", encoding="utf-8"
-    )
-    return digest
 
 
-def unpin(root: Path) -> None:
-    """Pin a digest this tree does not have: gate 1 must refuse."""
-    pin(root)
-    path = root / "tools" / "bench" / "rounds.json"
-    doc = json.loads(path.read_text(encoding="utf-8"))
-    doc["rounds"][-1]["product_sha256"] = "deadbeef" * 8
-    path.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
+def rig_file(host: str) -> dict[str, object]:
+    """The user's rig file for ``host``, as ``mcgyvr scan --rig`` writes it."""
+    rig = RIG[host]
+    return {
+        "rig": host,
+        "read_at": "2026-09-26T00:00:00Z",
+        "hostname": host,
+        "machine_id": f"machine-{host}",
+        "cards": [
+            {
+                "index": 0,
+                "name": rig["gpu_name"],
+                "total_mib": int(rig["gpu_vram_mib"]),
+            }
+        ],
+        "ram_total_gb": 15.7,
+        "disk": {"path": "/home/user/.cache/mcgyvr/weights", "free_gb": 400.0},
+        "docker": rig["docker"],
+        "private_ipv4": None,
+        "private_ipv4_how": "the scan read no network (an invented rig)",
+        "notes": [],
+    }
 
 
-def pinned(root: Path) -> tuple[str, str]:
-    """The round id and digest the fixture's ``rounds.json`` declares."""
-    doc = json.loads(
-        (root / "tools" / "bench" / "rounds.json").read_text(encoding="utf-8")
-    )
-    last = doc["rounds"][-1]
-    return str(last["id"]), str(last["product_sha256"])
+def rigs_home(root: Path) -> Path:
+    """The folder that holds the fixture's rig files, named by ``MCGYVR_RIGS``."""
+    return root / "mcgyvr-home"
 
 
 def fixture_repo(tmp_path: Path, *, host: str = "srv1") -> Path:
     """A throw-away checkout the door can be run from and write into.
 
     The machine behind the stubs reads as ``host``'s declaration (srv1 unless
-    said otherwise); :func:`rig_stub` changes that.
+    said otherwise); :func:`rig_stub` changes that. The checkout is no lab
+    checkout, so the door runs in user mode against the rig files under
+    :func:`rigs_home`.
     """
     root = tmp_path / "repo"
     (root / "tests").mkdir(parents=True)
     for name in ("pyproject.toml", "uv.lock"):
         shutil.copy(REPO / name, root / name)
     os.symlink(REPO / ".venv", root / ".venv")
-    for name in ("__init__.py", "sweeprows.py"):
+    for name in ("__init__.py",):
         shutil.copy(REPO / "tests" / name, root / "tests" / name)
-    shutil.copytree(
-        RUNS,
-        root / "tools" / "runs",
-        ignore=shutil.ignore_patterns("__pycache__", "campaigns"),
-    )
-    (root / "tools" / "runs" / "campaigns").mkdir()
     shutil.copytree(
         SERVING_SRC,
         root / "src" / "mcgyvr" / "serving",
         ignore=shutil.ignore_patterns("__pycache__"),
     )
-    (root / "tools" / "bench").mkdir(parents=True)
-    shutil.copy2(PRODUCT_PY, root / "tools" / "bench" / "product.py")
-    # Every other entry of the product surface, so the digest can be taken:
-    # a declared entry that is missing is a refusal in surface_files.
-    for entry in _product().SURFACE:
-        target = root / entry
-        if target.exists():
-            continue
-        if (REPO / entry).is_dir():
-            target.mkdir(parents=True, exist_ok=True)
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(f"# {entry}: a stub for the surface digest\n")
-    subprocess.run(
-        ["git", "init", "-q"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        env={**os.environ, "GIT_CONFIG_GLOBAL": os.devnull},
-    )
+    # A step run files under --out-root; the folder must exist, as the door
+    # never makes it.
+    (root / OUT_ROOT).mkdir(parents=True, exist_ok=True)
+    for name in ("srv1", "srv2"):
+        folder = rigs_home(root) / "rigs"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{name}.json").write_text(
+            json.dumps(rig_file(name)) + "\n", encoding="utf-8"
+        )
     stubs = stubs_dir(root)
     stubs.mkdir()
     ssh_stub(stubs)
     docker_stub(stubs)
     rig_stub(stubs, host)
-    geometry = json.loads(GEOMETRY_JSON.read_text(encoding="utf-8"))
-    (stubs / "geometry.json").write_text(json.dumps([geometry]), encoding="utf-8")
-    pin(root)
+    (stubs / "rigscan.json").write_text(
+        json.dumps(scan_payload(host)), encoding="utf-8"
+    )
     return root
 
 
 def add_step(root: Path, campaign: str, filename: str, body: str) -> Path:
-    path = root / "tools" / "runs" / "campaigns" / campaign / filename
+    path = root / "steps" / campaign / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     return executable(path, body)
 
@@ -827,9 +778,9 @@ def probe_step(
 @dataclass(frozen=True)
 class Scenario:
     """What an operator types. ``step`` is a file name under
-    ``tools/runs/campaigns/<campaign>/``, a path relative to the fixture root
-    (or absolute), or ``""`` for the shipped default step. An empty ``host``
-    leaves ``--host`` out, for the test that asks what the door does then."""
+    ``steps/<campaign>/``, a path relative to the fixture root (or absolute),
+    or ``""`` for the shipped default step. An empty ``host`` leaves
+    ``--host`` out, for the test that asks what the door does then."""
 
     campaign: str
     step: str
@@ -848,7 +799,7 @@ def _step_path(root: Path, scenario: Scenario) -> Path:
     if step.is_absolute():
         return step
     if len(step.parts) == 1:
-        return root / "tools" / "runs" / "campaigns" / scenario.campaign / step
+        return root / "steps" / scenario.campaign / step
     return root / step
 
 
@@ -857,17 +808,19 @@ def _command(root: Path, scenario: Scenario | None) -> list[str]:
     argv = [sys.executable, str(root / DOOR_REL)]
     if scenario is None:
         return [*argv, "--help"]
+    argv += ["step"]
     if scenario.host:
         argv += ["--host", scenario.host]
-    # The fixture is a lab checkout, and a lab tool names its mode.
-    argv += ["--mode", "lab"]
-    argv += ["--campaign", scenario.campaign, "--model", scenario.model]
+    # The fixture is no lab checkout, so the door runs in user mode.
+    argv += ["--campaign", scenario.campaign]
+    if scenario.step:
+        argv += ["--step", str(_step_path(root, scenario))]
+    argv += ["--out-root", OUT_ROOT]
+    argv += ["--model", scenario.model]
     argv += ["--date", scenario.date]
     argv += ["--parallel", str(scenario.parallel)]
     argv += ["--ctx-per-slot", str(scenario.ctx_per_slot)]
     argv += ["--ubatch", str(scenario.ubatch)]
-    if scenario.step:
-        argv += ["--step", str(_step_path(root, scenario))]
     if scenario.suffix:
         argv += ["--suffix", scenario.suffix]
     if scenario.step_args:
@@ -879,7 +832,8 @@ def door_env(root: Path) -> dict[str, str]:
     """The environment a door invocation runs under: no ``RUN_*`` or
     ``DOCKER_*`` inherited (the door refuses them by name), no image variable
     from the developer's shell, and the fixture's stubs first on PATH — the
-    door puts its own shims ahead of them."""
+    door puts its own shims ahead of them. ``MCGYVR_RIGS`` names the fixture's
+    rig files, and ``MCGYVR_DATA`` keeps the user-mode door log in the tree."""
     env = {
         k: v
         for k, v in os.environ.items()
@@ -891,6 +845,8 @@ def door_env(root: Path) -> dict[str, str]:
     env["STUB_RIG_HOME"] = RIG_HOME
     env["STUB_FREE"] = LIVE["srv1"]["gpu_free_mib"]
     env["STUB_USED"] = LIVE["srv1"]["gpu_used_mib"]
+    env["MCGYVR_RIGS"] = str(rigs_home(root) / "rigs")
+    env["MCGYVR_DATA"] = str(root / "data")
     return env
 
 
@@ -940,14 +896,27 @@ def door_help(root: Path) -> subprocess.CompletedProcess[str]:
 
 
 def envelope(root: Path, campaign: str, date: str = RUN_DATE) -> Path:
-    return root / "records" / "evidence" / f"{date}-{campaign}"
+    """The envelope a step run's ``--out-root`` names in the fixture."""
+    return root / OUT_ROOT / f"{date}-{campaign}"
+
+
+def serve_envelope(
+    root: Path,
+    step: str,
+    campaign: str,
+    date: str = RUN_DATE,
+    suffix: str = "",
+) -> Path:
+    """The door-log envelope a user-mode serve run files ``step`` under."""
+    run_id = f"{date}-{campaign}-{step}" + (f"-{suffix}" if suffix else "")
+    return root / "data" / "door" / date / run_id
 
 
 def written_under_records(root: Path) -> list[str]:
-    records = root / "records"
-    if not records.exists():
+    out = root / OUT_ROOT
+    if not out.exists():
         return []
-    return sorted(str(p.relative_to(root)) for p in records.rglob("*") if p.is_file())
+    return sorted(str(p.relative_to(root)) for p in out.rglob("*") if p.is_file())
 
 
 def is_claim(name: str) -> bool:
@@ -958,7 +927,7 @@ def is_claim(name: str) -> bool:
 
 
 def claims(root: Path) -> list[str]:
-    """Every claim marker under ``records/`` right now. Empty after any run
+    """Every claim marker under the out root right now. Empty after any run
     the door finished, however it ended."""
     return [p for p in written_under_records(root) if is_claim(Path(p).name)]
 
@@ -969,83 +938,6 @@ def read_env_file(path: Path) -> dict[str, str]:
         key, _, value = line.partition("=")
         out[key] = value
     return out
-
-
-# --------------------------------------------------------------------------
-# the drivers and the emitter, run bare
-# --------------------------------------------------------------------------
-
-
-def driver(
-    name: str,
-    env: dict[str, str],
-    *,
-    argv: list[str] | None = None,
-    door: Path | None = None,
-) -> subprocess.CompletedProcess[str]:
-    """Run ``tools/runs/drivers/<name>`` with the interpreter the tests use.
-
-    The file must exist first: ``python missing.py`` exits 2 on its own, which
-    would read exactly like the refusal these tests are looking for. ``door``
-    is a :func:`fake_door` to run it under; without one the driver's own
-    proof refuses it, which is what a test of that refusal wants.
-    """
-    path = DRIVERS / name
-    assert path.is_file(), f"{path.relative_to(REPO)} does not exist"
-    command = [sys.executable, str(path)]
-    command += argv if argv is not None else DRIVER_ARGV[name]
-    if door is not None:
-        command = [sys.executable, str(door), *command]
-    return subprocess.run(
-        command,
-        cwd=REPO,
-        env=env,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
-
-
-def bare_env(stubs: Path, **extra: str) -> dict[str, str]:
-    """An environment for a driver or the emitter run BARE: no ``RUN_*`` from
-    the shell, the two stubs first on PATH, ``RUN_HOST`` naming a machine that
-    does not exist, plus ``extra``."""
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if not k.startswith(("RUN_", "DOCKER_")) and k not in ("LCP_IMG", "VLLM_IMG")
-    }
-    stubs.mkdir(parents=True, exist_ok=True)
-    docker_stub(stubs)
-    ssh_stub(stubs)
-    env["PATH"] = f"{stubs}{os.pathsep}{env.get('PATH') or os.defpath}"
-    env["RUN_HOST"] = BARE_HOST
-    env["STUB_RIG_HOME"] = RIG_HOME
-    env["STUB_FREE"] = LIVE["srv1"]["gpu_free_mib"]
-    env["STUB_USED"] = LIVE["srv1"]["gpu_used_mib"]
-    env.update(extra)
-    return env
-
-
-def bash(
-    script: str, env: dict[str, str], cwd: Path, *, door: Path | None = None
-) -> subprocess.CompletedProcess[str]:
-    """``bash -c script``; under ``door`` (a :func:`fake_door`) when given."""
-    command = ["bash", "-c", script]
-    if door is not None:
-        command = [sys.executable, str(door), *command]
-    return subprocess.run(
-        command,
-        cwd=cwd,
-        env=env,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
 
 
 # --------------------------------------------------------------------------
@@ -1103,7 +995,7 @@ def serve_door(
     extra: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """One `serve up|down|sleep|wake` invocation from the fixture, to completion."""
-    argv = [sys.executable, str(root / DOOR_REL), "serve", mode, "--mode", "lab"]
+    argv = [sys.executable, str(root / DOOR_REL), "serve", mode]
     argv += ["--host", host, "--compose", str(compose), "--date", date]
     if suffix:
         argv += ["--suffix", suffix]

@@ -4,14 +4,12 @@ Owner ruling F2: every dispatch row keeps its decode, prefill and in-flight
 figures as data, and only a probe judges. The lock is measured at a short
 prompt and 256 tokens out, so a dispatch is not the lock's quantity.
 
-* **The probe repeats the lock's measurement.** A vLLM unit gets
-  ``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py``: one
-  64-token warm-up, five 256-token decodes (``completion_tokens`` over wall
-  seconds) and three 16-token prefills of the long prompt (``prompt_tokens``
-  over wall seconds). A llama.cpp unit gets
-  ``records/measurements/fleet-setup-2026-09-13/srv1/harness_llama.py``:
-  ``/completion`` with ``timings``. Both take the median, as the lock did
-  (``mcgyvr-lab/fleet-setup/REPORT-srv1.md``, ``REPORT-srv2.md``).
+* **The probe repeats the lock's measurement.** A vLLM unit gets the lock's
+  vLLM harness: one 64-token warm-up, five 256-token decodes
+  (``completion_tokens`` over wall seconds) and three 16-token prefills of the
+  long prompt (``prompt_tokens`` over wall seconds). A llama.cpp unit gets the
+  lock's llama.cpp harness: ``/completion`` with ``timings``. Both take the
+  median, as the lock did (the lab's fleet reports for srv1 and srv2).
 * **It probes only an idle unit.** It reads the unit's own count first and
   again after; a unit busy before is not probed, and one busy after is filed
   as contended and not judged.
@@ -25,11 +23,8 @@ prompt and 256 tokens out, so a dispatch is not the lock's quantity.
   llama.cpp figure is the server's own ``timings``, and is judged either way.
 * **The tolerance is one class per unit.** vLLM is ``vllm``; llama.cpp with
   experts on the CPU is ``cpu_experts``; any other llama.cpp is ``llamacpp``.
-  Each judged field has its own measured percents, stated in
-  ``tools/runs/derived.json``: warm decode those of
-  ``records/measurements/fleet-identity-2026-09-11/tolerances.json``, prefill
-  its own, from
-  ``records/measurements/fleet-identity-prefill-2026-09-12/results-prefill.json``
+  Each judged field has its own measured percents: warm decode and prefill are
+  stated apart, and prefill has its own measured class percent
   (``tests/test_prefill_is_judged_by_its_own_measured_class_tolerance.py``).
   The lock's NVMe baseline check reads the same class.
 * **The lock's plain values are judged.** Decode and prefill each fall below by
@@ -51,8 +46,6 @@ from typing import Any
 
 import pytest
 import yaml
-
-REPO = Path(__file__).resolve().parent.parent
 
 UNIT_3B = "unt-" + "5" * 64
 UNIT_DS = "unt-" + "e" * 64
@@ -118,7 +111,7 @@ EVIDENCE: dict[str, Any] = {
             "prefill_tok_s": {"srv2_3b": 11500.0},
             "attention_backend": {"srv2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-13T21:44:00Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/srv2",
+            "envelope": "evidence/srv2",
         },
         {
             "rig": "srv1",
@@ -131,7 +124,7 @@ EVIDENCE: dict[str, Any] = {
             "card_peak_mib": {"srv1_deepseek": 5458},
             "card_steady_mib": {"srv1_deepseek": 5430},
             "validated_at": "2026-09-13T21:48:11Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/srv1",
+            "envelope": "evidence/srv1",
         },
     ],
     "moves": [],
@@ -261,17 +254,6 @@ def test_each_unit_has_one_tolerance_class(unit: dict[str, Any], expected: str) 
     from mcgyvr.fleet.tolerance import tolerance_class
 
     assert tolerance_class(unit) == expected
-
-
-def test_an_absent_class_tolerance_is_refused_by_name(tmp_path: Path) -> None:
-    from mcgyvr import derived
-
-    doc = json.loads((REPO / "tools/runs/derived.json").read_text(encoding="utf-8"))
-    del doc["engine"]["warm_decode_class_pct"]["cpu_experts"]
-    path = tmp_path / "derived.json"
-    path.write_text(json.dumps(doc), encoding="utf-8")
-    with pytest.raises(derived.DerivedNumbersError, match="cpu_experts"):
-        derived.class_tolerances(path=path)
 
 
 def test_the_locks_nvme_check_reads_the_same_class(tmp_path: Path) -> None:

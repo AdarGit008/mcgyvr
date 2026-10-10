@@ -278,17 +278,12 @@ has its options.
 | `data/` | the capability table and task catalog, shipped inside the wheel |
 | `examples/` | an example `fleet.yaml` and `policy.yaml` |
 | `tests/` | the test suite |
-| `tools/` | measurement, benchmark and journal-review scripts for developing mcgyvr; not in the wheel |
-| `records/` | measurements, evidence, corpora and fleet locks that tests and tools read; `records/evidence/ghostcall-2026-08-02/` records where the semantic check's engine came from; the engine the check runs ships in the package, under `src/mcgyvr/gate/_engine/ghostcall/` |
-| `archive/` | the archived files that tests, tools and data still read or cite |
-| `fleet-setup/` | a stamped two-machine setup that tests use as fixtures |
 | `.github/repo-baseline.md` | the checklist this repository is aligned against |
 | [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md), [`LICENSE`](LICENSE) | changes, how to report a vulnerability, MIT license |
 
-Research notes, plans, session logs and superseded code moved to
-[AdarGit008/mcgyvr-lab](https://github.com/AdarGit008/mcgyvr-lab), under
-unchanged paths. A comment here that cites
-`mcgyvr-lab/<path>` points at that file there.
+Research notes, plans, session logs and superseded code live in the lab
+repository, AdarGit008/mcgyvr-lab, under unchanged paths. This product ships
+none of that material.
 
 ## Development
 

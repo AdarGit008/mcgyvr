@@ -1,8 +1,0 @@
-```python
-import os
-
-def crust_slice(name: str) -> str:
-    if '.' not in name:
-        return name
-    return name.rsplit('.', 1)[0]
-```

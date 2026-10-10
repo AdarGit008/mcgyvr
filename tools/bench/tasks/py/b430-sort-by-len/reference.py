@@ -1,2 +1,0 @@
-def sort_by_len(words: list) -> list:
-    return sorted(words, key=lambda word: (len(word), word))

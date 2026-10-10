@@ -1,6 +1,0 @@
-```python
-def case_count(text: str) -> list:
-    capitals = sum(1 for char in text if char.isupper())
-    smalls = sum(1 for char in text if char.islower())
-    return [capitals, smalls]
-```

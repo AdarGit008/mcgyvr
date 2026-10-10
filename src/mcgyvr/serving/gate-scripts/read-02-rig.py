@@ -1,25 +1,19 @@
 #!/usr/bin/env python3
-"""read, rig — one reading of the rig, compared with its declaration, and filed.
+"""read, rig — one reading of the rig, held to the user's rig file, and filed.
 
 One reader goes to the rig on stdin, ``rig-snapshot.sh`` then
 ``rig-units.sh``, over the door's ssh: the rig's facts and machine id,
 every container and its restart count, every card holder by pid and container,
 and each unit's sleep and in-flight page. Nothing lands on the rig's disk.
 
-**Compared, never acted on.** The reading is held to
-``tools/runs/hosts.json[HOST].rig`` by gate 2's own comparison (``02-rig.py``'s
-``_matches``, loaded rather than copied), and a rig that is not its declaration
-is refused with nothing filed. Unlike gate 2 this takes no lease, tears down no
-displaced run and refuses no busy rig: a read is how a serving rig is looked at.
+**Compared, never acted on.** The rig is held to the user's own rig file
+(:mod:`mcgyvr.serving.rigfile`) by gate 2's own user check, and a rig that is
+not its file is refused with nothing filed. Unlike gate 2 this takes no
+lease, tears down no displaced run and refuses no busy rig: a read is how a
+serving rig is looked at.
 
-**In user mode** (a door run from an install, ``--mode user``) there is no
-hosts.json: the rig is held to the user's own rig file instead
-(:mod:`mcgyvr.serving.rigfile`), asked for before anything reaches the rig,
-by gate 2's own user-mode check. A read names no compose file, so every card
-of the rig file is held.
-
-**Filed** under the journal of the fleet read, the live one or with ``--fleet``
-one of the run's setup, by :func:`mcgyvr.fleet.read.record`.
+**Filed** under the journal of the fleet read, the live one or with
+``--fleet`` one of the run's setup, by :func:`mcgyvr.fleet.read.record`.
 With ``--probe``, each idle unit named has the lock's own harness
 (``mcgyvr/fleet/harness.py``) run on the rig as ``python3 -``, at 127.0.0.1
 (:func:`harness_on_rig`).
@@ -32,17 +26,13 @@ import os
 import shlex
 import subprocess
 import sys
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
 from mcgyvr.serving import rigfile
 from mcgyvr.serving.gatelib import (
-    USER_MODE,
     door_required,
     need,
     refuse,
-    root,
-    run_mode,
     ssh,
 )
 
@@ -101,19 +91,7 @@ def main() -> int:
     except read.ReadError as exc:
         refuse(f"read: {exc}. Nothing was read and nothing is filed")
 
-    user = run_mode() == USER_MODE
-    if user:
-        saved = rigfile.required(host, "read")
-    else:
-        hosts_file = root() / "tools" / "runs" / "hosts.json"
-        if not hosts_file.is_file():
-            refuse(
-                f"read: {hosts_file} is missing; there is no declaration to "
-                "compare with"
-            )
-        declared = json.loads(hosts_file.read_text(encoding="utf-8")).get(host, {})
-        if not isinstance(declared.get("rig"), dict):
-            refuse(f"read: tools/runs/hosts.json declares no rig for {host}")
+    saved = rigfile.required(host, "read")
 
     reader = (
         "set -- "
@@ -130,27 +108,11 @@ def main() -> int:
     if done.returncode != 0:
         refuse(f"read: {host} could not be read: {done.stderr.strip()[:500]}")
     try:
-        snapshot = read.parse(done.stdout).snapshot
+        read.parse(done.stdout)
     except read.ReadError as exc:
         refuse(f"read: {exc}")
 
-    if user:
-        rigfile.door_check(host, saved, None, "read")
-        bad: list[str] = []
-    else:
-        gate2 = SourceFileLoader("_gate02", str(HERE / "02-rig.py")).load_module()
-        bad = [
-            f"{key}: declared {value!r}, reads {snapshot.get(key)!r}"
-            for key, value in declared["rig"].items()
-            if not gate2._matches(key, value, snapshot.get(key))
-        ]
-    if bad:
-        refuse(
-            f"read: THIS MACHINE IS NOT THE DECLARED {host} — "
-            + "; ".join(bad)
-            + f". tools/runs/hosts.json[{host}].rig is what the rig was declared "
-            "as; nothing is filed from a machine that is not it"
-        )
+    rigfile.door_check(host, saved, None, "read")
 
     source = Path(harness.__file__).read_text(encoding="utf-8")
 

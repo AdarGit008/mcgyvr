@@ -10,7 +10,7 @@ stopped or leased.
   the rig id its snapshot names (:func:`mcgyvr.fleet.ids.rig_id`), our units and
   their state, and every card holder that is in no container of ours. A
   container is ours when it is in the ``mcgyvr`` compose project or is named
-  ``mcgyvr-`` (``mcgyvr-lab/records/plans/fleet-identity.md`` §2). A unit of the
+  ``mcgyvr-`` (the lab's fleet-identity plan, §2). A unit of the
   fleet is found by the container name the lock records for it.
 * :func:`record` files it under ``<journal.dir>/fleet`` with the usual stamps:
   one rig row per read (``<combination>/rig.jsonl``), and per unit its card MiB
@@ -59,7 +59,7 @@ UNIT_FIELDS = ("card_mib", "restarts")
 #: Where each engine's pace counter is read over a load (owner ruling NB5), and
 #: its name. vLLM publishes ``vllm:prompt_tokens_total`` ("Number of prefill
 #: tokens processed", a counter) on ``/metrics``
-#: (``records/measurements/kv-dtype-2026-09-11``).
+#: (the lab's kv-dtype measurement).
 PACE_COUNTERS: dict[str, tuple[str, str]] = {
     "vllm": ("/metrics", "vllm:prompt_tokens_total"),
 }
@@ -1012,12 +1012,10 @@ def judged(journal: Path, run_id: str) -> list[dict[str, Any]]:
 
 
 def door_read_argv(host: str, run_id: str, probe: Sequence[str] = ()) -> list[str]:
-    """The door's ``read`` of ``host``, in the mode the product's callers name
-    (:func:`mcgyvr.serving.run.callers_mode`)."""
+    """The door's ``read`` of ``host``."""
     from mcgyvr.serving.gatelib import DOOR_MODULE
-    from mcgyvr.serving.run import callers_mode
 
-    argv = [sys.executable, "-m", DOOR_MODULE, "read", "--mode", callers_mode()]
+    argv = [sys.executable, "-m", DOOR_MODULE, "read"]
     argv += ["--host", host]
     argv += ["--run-id", run_id]
     if probe:

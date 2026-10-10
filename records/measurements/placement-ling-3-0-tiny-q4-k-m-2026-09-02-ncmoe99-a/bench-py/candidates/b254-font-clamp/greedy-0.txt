@@ -1,3 +1,0 @@
-```python
-def font_clamp(size: int, smallest: int, largest: int) -> int:
-    """Clamp a font size to the allowed range [
