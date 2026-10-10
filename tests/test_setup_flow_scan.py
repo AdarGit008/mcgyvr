@@ -385,6 +385,46 @@ def test_setup_fetch_and_start_go_through_the_door(
     assert "--compose" in argv and "--suffix" in argv
 
 
+def test_the_serve_step_runs_on_the_doors_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mcgyvr.serving as serving_pkg
+    from tests._helpers import by_path
+
+    gate6 = by_path(
+        "six_step_for_test",
+        Path(serving_pkg.__file__).parent / "gate-scripts" / "06-step.py",
+    )
+    step = tmp_path / "serve-fetch.py"
+    step.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    step.chmod(0o755)
+
+    seen: list[list[str]] = []
+
+    def fake_run(argv: list[str]) -> int:
+        seen.append(list(argv))
+        return 0
+
+    monkeypatch.setattr(gate6, "door_required", lambda what: None)
+    monkeypatch.setattr(gate6, "_run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["06-step.py", "--host", "srv1"])
+    monkeypatch.setenv("RUN_STEP_FILE", str(step))
+    monkeypatch.setenv("RUN_HOST", "srv1")
+    monkeypatch.setenv("RUN_OUT_DIR", "/x")
+    monkeypatch.setenv("RUN_ID", "r1")
+
+    # A serve run's step is mcgyvr code: run it on the door's interpreter.
+    monkeypatch.setenv("RUN_SERVE", "fetch")
+    assert gate6.main() == 0
+    assert seen == [[sys.executable, str(step), "--host", "srv1"]]
+
+    # A caller's own --step keeps its shebang and runs as itself.
+    monkeypatch.delenv("RUN_SERVE")
+    seen.clear()
+    assert gate6.main() == 0
+    assert seen == [[str(step), "--host", "srv1"]]
+
+
 def test_setup_writes_through_the_initialize_engine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
