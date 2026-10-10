@@ -112,6 +112,13 @@ relief:
     api_key_env: HUB_KEY
     width: 1
     position: within
+    busy_answers:
+      - status: 503
+        code: hitchhike_not_served_yet
+      - status: 503
+        code: hitchhike_host_away
+      - status: 404
+        code: model_not_found
 """
 
 

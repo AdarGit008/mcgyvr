@@ -110,12 +110,12 @@ def test_every_busy_answer_a_sync_writes_is_a_published_pair(
 def test_every_hub_refusal_the_runner_reads_is_a_published_pair(
     rider: dict[str, Any],
 ) -> None:
-    """What the runner still names itself: the answers it reads on any rung,
-    and the busy answers it falls back to for a ``relief.yaml`` written
-    before a sync wrote them."""
+    """The answers the runner reads as refusals: the busy answers a sync
+    writes into ``relief.yaml``, and the two the runner still names itself."""
     from mcgyvr import runner
+    from mcgyvr.rig import rungs
 
-    read = set(runner.RELIEF_UNAVAILABLE) | {
+    read = set(rungs.BUSY) | {
         runner.MODEL_UNPLACED,
         runner.UNKNOWN_MODEL,
     }

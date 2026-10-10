@@ -125,7 +125,7 @@ WORDS_NOT_YET_MOVED: dict[str, dict[str, int]] = {
     "initialize.py": {"relief": 4},
     "pool.py": {"hub": 4, "relief": 40, "rider": 2},
     "route.py": {"relief": 3},
-    "runner.py": {"hub": 12, "hitchhik": 3, "relief": 19, "rider": 2, "pooled": 2},
+    "runner.py": {"hub": 11, "hitchhik": 1, "relief": 15, "rider": 2, "pooled": 2},
     "weights.py": {"relief": 1},
     "whole.py": {"hub": 1},
 }
