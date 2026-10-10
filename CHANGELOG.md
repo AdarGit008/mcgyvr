@@ -7,6 +7,15 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.11] - 2026-10-10
+
+### Fixed
+
+- The setup wizard's `serve up` now names the bootstrap config *directory*
+  in `MCGYVR_CONFIG`, not its `fleet.yaml`. The loader reads `fleet.yaml`
+  and `policy.yaml` (the ladder) from the directory; naming the file made it
+  read `fleet.yaml` alone, which has no ladder, and gate 1 refused.
+
 ## [0.4.10] - 2026-10-10
 
 ### Fixed
