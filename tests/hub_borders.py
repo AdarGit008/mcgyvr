@@ -23,7 +23,10 @@ and it fails when a list grew (an entry added, a count raised), when a word
 was dropped from :data:`HUB_WORDS` or its pattern changed, when the core
 lost a place (:data:`NOT_CORE_FILES`, :data:`NOT_CORE_DIRS` gained one), when
 ``hub`` stopped being read in one more file (:data:`HF_HUB_FILES` gained one), or
-when :data:`HUB_CLIENT` moved. The base's copy is read, never run: each value
+when :data:`HUB_CLIENT` moved. A file of the core renamed in a pull request is
+not a file that left the list and another that entered it: :data:`RENAMES` maps
+the old name to the new one, and the growth rule holds the renamed file's
+counts to what the old name held. The base's copy is read, never run: each value
 here is a literal, and the comparison reads the literals out of the syntax
 tree. The growth rule is the one the list of uninvented machines is held to
 (:func:`tests.uninvented_machines.growth`). Standard library only, so the
@@ -130,6 +133,12 @@ WORDS_NOT_YET_MOVED: dict[str, dict[str, int]] = {
     "whole.py": {"hub": 1},
 }
 
+#: Files of the offline core renamed in a pull request, ``{old name: new name}``
+#: under ``src/mcgyvr/``, so a rename is not read as one file leaving the words
+#: list and another entering it. The growth rule still holds the renamed file's
+#: counts to what the old name held. Entries stay once added.
+RENAMES: dict[str, str] = {"pool.py": "local_pool.py"}
+
 
 def in_core(rel: str) -> bool:
     """Whether a path under ``src/mcgyvr/`` is in the offline core."""
@@ -188,6 +197,7 @@ class Borders:
     hub_words: dict[str, str]
     imports: frozenset[tuple[str, str]]
     words: dict[str, dict[str, int]]
+    renames: dict[str, str]
 
 
 def _literal(node: ast.expr) -> Any:
@@ -231,14 +241,19 @@ def read_borders(text: str, *, source: str) -> Borders:
     missing = [name for name in names if name not in values]
     if missing:
         raise ValueError(f"{source}: no literal {', '.join(missing)}")
-    return Borders(*(values[name] for name in names))
+    args = [values[name] for name in names]
+    args.append(values.get("RENAMES", {}))
+    return Borders(*args)
 
 
 def narrowed(old: Borders, new: Borders) -> list[str]:
     """Each way ``new`` lets through what ``old`` did not."""
     from tests.uninvented_machines import growth
 
-    found = [f"words: {line}" for line in growth(old.words, new.words)]
+    renamed = {
+        new.renames.get(name, name): counts for name, counts in old.words.items()
+    }
+    found = [f"words: {line}" for line in growth(renamed, new.words)]
     found += [
         f"imports: {line}"
         for line in growth(as_counts(old.imports), as_counts(new.imports))
