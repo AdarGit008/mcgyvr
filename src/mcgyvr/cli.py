@@ -901,9 +901,38 @@ def _setup_synthetic_detection(
     )
 
 
-def _setup_emit(path: Path) -> None:
+def _setup_context_window(plans: Mapping[str, Mapping[str, Any]]) -> int:
+    """The window ``emit`` sizes the bootstrap config at, across the rigs.
+
+    Each placement was priced at its own ``context_length``; the window handed
+    to ``emit`` is the smallest of them, the one every placed model fits at.
+    A placement without a readable window is refused, never guessed.
+    """
+    windows: list[int] = []
+    for rig, plan in plans.items():
+        placement = plan["placement"]
+        ctx = placement.get("context_length")
+        if not isinstance(ctx, int) or isinstance(ctx, bool) or ctx <= 0:
+            raise _SetupInteractiveError(
+                f"{rig}: its placement declares no context window to size at"
+            )
+        windows.append(ctx)
+    return min(windows)
+
+
+def _setup_emit(path: Path, ctx_per_slot: int) -> None:
     """Step 6a: ``mcgyvr emit`` the launch specs for the bootstrap config."""
-    code = main(["emit", "--config", str(path), "--out", str(path)])
+    code = main(
+        [
+            "emit",
+            "--config",
+            str(path),
+            "--out",
+            str(path),
+            "--ctx-per-slot",
+            str(ctx_per_slot),
+        ]
+    )
     if code != 0:
         raise _SetupInteractiveError(f"mcgyvr emit exited {code}")
 
@@ -950,6 +979,7 @@ def _setup_interactive(path: Path) -> int:
         print(f"Serving on: {', '.join(rigs)}")
         scans = _setup_scan_rigs(rigs)
         plans = _setup_placements(rigs, scans)
+        ctx_per_slot = _setup_context_window(plans)
         downloads = _setup_downloads(plans, scans)
         for rig, record in downloads:
             _setup_fetch(rig, record, path)
@@ -960,7 +990,7 @@ def _setup_interactive(path: Path) -> int:
             raise _SetupInteractiveError("the bootstrap setup was not written")
         print(f"Wrote bootstrap setup at {bootstrap.path}\n")
 
-        _setup_emit(path)
+        _setup_emit(path, ctx_per_slot)
         if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
             _setup_start(rigs, scans, path)
         else:

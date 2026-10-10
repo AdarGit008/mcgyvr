@@ -103,6 +103,9 @@ class Candidate:
 
     ``checkpoint`` is set for a local-store pick; ``model_id``/``quant`` are
     set for a catalog pick. Exactly one of the two shapes is present.
+    ``context_length`` is the window the pick was priced at: the catalog
+    entry's shipped ``context_length`` for a catalog pick, the measured local
+    header's ``n_ctx_train`` for a local-store pick.
     """
 
     name: str
@@ -112,6 +115,7 @@ class Candidate:
     model_id: str | None
     quant: str | None
     size_bytes: int
+    context_length: int
     flags: Mapping[str, str]
     wake: bool
 
@@ -394,6 +398,7 @@ def _local_candidates(
                 model_id=None,
                 quant=None,
                 size_bytes=size_bytes,
+                context_length=int(header["n_ctx_train"]),
                 flags=_llamacpp_flags(checkpoint=checkpoint, mtp=mtp, users=users),
                 wake=wake,
             )
@@ -488,6 +493,7 @@ def _catalog_candidates(
                     model_id=model_id,
                     quant=quant,
                     size_bytes=size_bytes,
+                    context_length=int(entry["context_length"]),
                     flags=flags,
                     wake=wake,
                 )
@@ -575,6 +581,7 @@ def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
         "model_id": candidate.model_id,
         "quant": candidate.quant,
         "size_bytes": candidate.size_bytes,
+        "context_length": candidate.context_length,
         "flags": dict(candidate.flags),
         "wake": candidate.wake,
         "source": source,

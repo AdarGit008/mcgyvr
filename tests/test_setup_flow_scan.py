@@ -385,6 +385,48 @@ def test_setup_fetch_and_start_go_through_the_door(
     assert "--compose" in argv and "--suffix" in argv
 
 
+def test_setup_emit_declares_the_priced_context_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``_setup_emit`` hands ``emit`` the window the placement was priced at."""
+    seen: list[list[str]] = []
+
+    def fake_main(argv: list[str]) -> int:
+        seen.append(list(argv))
+        return 0
+
+    monkeypatch.setattr(cli, "main", fake_main)
+    cli._setup_emit(tmp_path / "setup", 32768)
+    assert seen == [
+        [
+            "emit",
+            "--config",
+            str(tmp_path / "setup"),
+            "--out",
+            str(tmp_path / "setup"),
+            "--ctx-per-slot",
+            "32768",
+        ]
+    ]
+
+
+def test_setup_context_window_collapses_differing_placements_to_the_smallest() -> None:
+    """Differing rig windows collapse to the smallest, never an invention."""
+    plans = {
+        "srv1": {"placement": {"context_length": 32768}},
+        "srv2": {"placement": {"context_length": 4096}},
+        "srv3": {"placement": {"context_length": 65536}},
+    }
+    assert cli._setup_context_window(plans) == 4096
+
+
+def test_setup_context_window_refuses_a_placement_without_a_window() -> None:
+    """A placement with no declared window is refused, not guessed."""
+    plans = {"srv1": {"placement": {"context_length": None}}}
+    with pytest.raises(cli._SetupInteractiveError):
+        cli._setup_context_window(plans)
+
+
 def test_the_serve_step_runs_on_the_doors_interpreter(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
