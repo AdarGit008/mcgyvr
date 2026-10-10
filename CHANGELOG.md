@@ -18,9 +18,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `mcgyvr init` options — `--host`, `--api`, `--use-case`, `--deployment`,
   `--priority` (plus repeatable `--api` for two hosted tiers) — and defaults
   to `hybrid` with a hosted orchestrator. mcorch is never auto-selected.
-- `mcgyvr setup` writes hosted API tiers cheapest first: `deepseek-flash`
-  below `deepseek-v4-pro`, so a coding ladder climbs local rig(s) →
+- `mcgyvr setup` writes hosted API tiers in declaration order, below any
+  detected local units. Declare cheapest first — `deepseek-flash` then
+  `deepseek-v4-pro` — and the coding ladder climbs local rig(s) →
   `deepseek-flash` → `deepseek-v4-pro`.
+- `mcgyvr setup` is interactive when run on a terminal with no flags: it
+  prompts for the rigs, scans them, shows a `mcgyvr recommend` placement,
+  asks before reusing or downloading weights, downloads chosen models, emits
+  the launch specs, asks before starting the containers and before locking
+  the fleet, binds the now-running servers into the config, and locks the
+  fleet. Any flag (or non-terminal stdin) keeps the flag-driven
+  config-writing path with no prompts.
 - `mcgyvr scan` (local and `--rig`) now reports disk total and device where
   available, CPU cores/threads, memory bandwidth on the rig, and a
   models-on-disk inventory of `*.gguf` and `*.safetensors` under the weights

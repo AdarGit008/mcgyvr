@@ -127,6 +127,136 @@ def test_an_on_disk_model_is_reused_by_default(tmp_path: Path) -> None:
 # --- Fix 5: `setup` is the one entry point ----------------------------------
 
 
+def _setup_namespace(**overrides: object) -> argparse.Namespace:
+    defaults: dict[str, object] = {
+        "host": [],
+        "api": [],
+        "force": False,
+        "priority": None,
+        "profile": None,
+        "use_case": None,
+        "deployment": None,
+        "jev": None,
+        "mcorch": None,
+        "window": None,
+    }
+    defaults.update(overrides)
+    return argparse.Namespace(**defaults)
+
+
+def test_setup_is_interactive_only_on_a_tty_without_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    assert cli._setup_is_interactive(_setup_namespace())
+    assert not cli._setup_is_interactive(_setup_namespace(api=["model=m"]))
+    assert not cli._setup_is_interactive(_setup_namespace(force=True))
+    assert not cli._setup_is_interactive(_setup_namespace(use_case="chat"))
+
+    monkeypatch.setattr(cli, "_stdin_isatty", lambda: False)
+    assert not cli._setup_is_interactive(_setup_namespace())
+
+
+def test_setup_routes_to_interactive_only_on_a_tty_without_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    interactive: list[Path] = []
+
+    def fake_interactive(path: Path) -> int:
+        interactive.append(path)
+        return 0
+
+    monkeypatch.setattr(cli, "_setup_interactive", fake_interactive)
+    target = tmp_path / "setup"
+    assert cli.main(["setup", str(target)]) == 0
+    assert interactive == [target]
+
+
+def test_setup_with_a_flag_keeps_the_flag_driven_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    interactive: list[Path] = []
+
+    def fake_interactive(path: Path) -> int:
+        interactive.append(path)
+        return 0
+
+    monkeypatch.setattr(cli, "_setup_interactive", fake_interactive)
+    seen: list[Path] = []
+
+    def fake_initialize(path: Path, **_: object) -> InitResult:
+        seen.append(path)
+        return InitResult(path=path, created=True, written=False)
+
+    monkeypatch.setattr(cli, "initialize", fake_initialize)
+    target = tmp_path / "setup"
+    assert cli.main(["setup", "--api", _api("deepseek-flash"), str(target)]) == 0
+    assert interactive == []
+    assert seen == [target]
+
+
+def test_interactive_download_is_gated_on_an_explicit_yes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import date
+
+    from mcgyvr.knowledge.record import ModelRecord, Number, Weights
+    from mcgyvr.knowledge.store import Knowledge, Known
+
+    def number() -> Number:
+        return Number(
+            value=1024, kind="fact", source="shipped:test", read_at=date(2026, 1, 1)
+        )
+
+    record = ModelRecord(
+        model_id="m",
+        quant="Q4",
+        engines=("llama.cpp",),
+        weights=Weights(
+            repo="org/repo",
+            revision="0" * 40,
+            file="m.gguf",
+            sha256="0" * 64,
+        ),
+        size_bytes=number(),
+        context_length=number(),
+        kv_bytes_per_token=number(),
+        recurrent_bytes_per_slot=number(),
+        scores=(),
+    )
+    monkeypatch.setattr(
+        "mcgyvr.knowledge.store.offline",
+        lambda: Knowledge(known=(Known(record=record, origin="shipped"),), skipped=()),
+    )
+    plans = {
+        "rig": {
+            "placement": {
+                "model_id": "m",
+                "quant": "Q4",
+                "size_bytes": 1024,
+                "engine": "llama.cpp",
+            }
+        }
+    }
+
+    asked: list[str] = []
+
+    def ask_no(question: str) -> str:
+        asked.append(question)
+        return ""
+
+    assert cli._setup_downloads(plans, {}, prompt=ask_no) == ()
+    assert asked, "a download with no disk match is a question, not a default"
+
+    asked.clear()
+    got = cli._setup_downloads(plans, {}, prompt=lambda question: "y")
+    assert len(got) == 1
+    assert got[0][0] == "rig"
+    assert got[0][1].model_id == "m"
+
+
 def test_setup_writes_through_the_initialize_engine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -142,7 +272,7 @@ def test_setup_writes_through_the_initialize_engine(
     assert seen == [target]
 
 
-# --- Fix 7: the two hosted tiers climb cheapest first -----------------------
+# --- Fix 7: the two hosted tiers climb cheapest first in declaration order --
 
 
 def test_deepseek_flash_is_below_deepseek_v4_pro(tmp_path: Path) -> None:
@@ -150,8 +280,8 @@ def test_deepseek_flash_is_below_deepseek_v4_pro(tmp_path: Path) -> None:
         tmp_path / "setup",
         detection=KEYLESS_RIG,
         api_units=(
-            parse_api_unit(_api("deepseek-v4-pro")),
             parse_api_unit(_api("deepseek-flash")),
+            parse_api_unit(_api("deepseek-v4-pro")),
         ),
     )
     from mcgyvr.config import load as load_config

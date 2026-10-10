@@ -103,25 +103,6 @@ LISTED_ORDER_NOTICE = (
 #: maps onto it, and any other text is ignored. Not the config's ``profile``.
 PRIORITIES = ("throughput", "quality", "cost")
 
-#: Hosted API tiers, cheapest first. When two are named, this is the order the
-#: ladder writes them in, so an escalation climbs cheapest first and its ceiling
-#: can climb through both.
-API_TIER_ORDER = ("deepseek-flash", "deepseek-v4-pro")
-
-
-def _api_tier_rank(model: str) -> int:
-    """Where a hosted model sits in :data:`API_TIER_ORDER`, dearest last.
-
-    A model not in the table ranks below the named tiers (it is the cheapest
-    assumption — a known flash tier is dearer than an unknown local-only pick),
-    but among unknowns the operator's order is kept.
-    """
-    try:
-        return API_TIER_ORDER.index(model)
-    except ValueError:
-        return -1
-
-
 # A YAML scalar is safe bare only if it cannot be read as anything else. A
 # model id like `qwen2.5-coder:7b` carries a colon and a URL carries both a
 # colon and slashes, so most values here need quoting.
@@ -674,7 +655,7 @@ def build(
             "api_key_env": api.api_key_env,
             "width": 1,
         }
-    ordered_api_units = sorted(api_units, key=lambda api: _api_tier_rank(api.model))
+    ordered_api_units = tuple(api_units)
     return {
         # Written at its default so the file says which setup it is. The
         # value is the schema's, never spelled here (see `_defaults`).
@@ -687,11 +668,10 @@ def build(
             deployment if deployment is not None else _deployment_default(use_case)
         ),
         "units": units,
-        # Local rungs first, hosted ones last, cheapest hosted tier first. A
-        # ladder is written cheapest-first, and a rung is `api` exactly when
-        # its unit declares a credential (`catalog.Catalog.family_of`) — so the
-        # hosted units are the dear end of this ladder by the same rule that
-        # names the family, and `deepseek-flash` precedes `deepseek-v4-pro`.
+        # Local rungs first, hosted ones last, in the order `--api` named
+        # them. A ladder is climbed cheapest first, so declare the tiers
+        # cheapest first — `deepseek-flash` then `deepseek-v4-pro` — and the
+        # ladder climbs local rungs, flash, pro.
         "ladder": [rung.name for rung in proposal.rungs]
         + [api.name for api in ordered_api_units],
         "fanout": "none",
