@@ -385,6 +385,35 @@ def test_setup_fetch_and_start_go_through_the_door(
     assert "--compose" in argv and "--suffix" in argv
 
 
+def test_setup_start_runs_the_door_against_the_bootstrap_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Step 6b points the door at the bootstrap fleet.yaml via MCGYVR_CONFIG."""
+    from collections.abc import Sequence
+
+    from mcgyvr import config as configlib
+    from mcgyvr.serving import spec_name
+
+    spawns: list[dict[str, object]] = []
+
+    def fake_spawn(argv: Sequence[str], **kwargs: object) -> int:
+        spawns.append(kwargs)
+        return 0
+
+    monkeypatch.setattr("mcgyvr.wake.spawn_door", fake_spawn)
+    scan = scan_module.Scan(
+        machine=scan_module.Machine(id="x", host="localhost", kernel="k")
+    )
+    (tmp_path / spec_name("localhost")).write_text("services: {}", encoding="utf-8")
+
+    cli._setup_start(["srv1"], {"srv1": scan}, tmp_path)
+
+    assert spawns and spawns[-1]["env"] is not None
+    env = spawns[-1]["env"]
+    assert isinstance(env, dict)
+    assert env[configlib.CONFIG_PATH_ENV] == str(tmp_path / configlib.FLEET_FILENAME)
+
+
 def test_setup_emit_declares_the_priced_context_window(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

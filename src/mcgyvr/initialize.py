@@ -609,6 +609,7 @@ def build(
     api_units: Sequence[ApiUnit] = (),
     use_case: str = "coding",
     deployment: str | None = None,
+    profile: str = "live",
 ) -> dict[str, Any]:
     """The fleet data implied by what was detected, proposed and asked for.
 
@@ -657,9 +658,13 @@ def build(
         }
     ordered_api_units = tuple(api_units)
     return {
-        # Written at its default so the file says which setup it is. The
-        # value is the schema's, never spelled here (see `_defaults`).
-        **_defaults(SCHEMA, "profile", "max_escalations", "task_timeout_s", "users"),
+        # Written out so the file says which profile this setup runs under.
+        # The default is the schema's own; the parameter wins when a caller
+        # (the setup wizard's bootstrap phase) names `dev`.
+        "profile": profile,
+        # Written at their defaults so the file says which setup it is. The
+        # values are the schema's, never spelled here (see `_defaults`).
+        **_defaults(SCHEMA, "max_escalations", "task_timeout_s", "users"),
         # The use case and its deployment model are the install's two choices.
         # The deployment is written out (rather than left to the schema's
         # default) so the file states the choice the plan defaults made.
@@ -994,6 +999,7 @@ def initialize(
     decision_model: str | None = None,
     use_case: str = "coding",
     deployment: str | None = None,
+    profile: str = "live",
     jev: str | None = None,
     mcorch: str | None = None,
     window: int | None = None,
@@ -1025,8 +1031,12 @@ def initialize(
     name where the decision runs; when they are omitted they are taken from the
     first detected backend, and when no backend can run it the deterministic
     ladder is written with a note saying so. Without ``priority`` nothing
-    changes. It is not the config's ``profile: live|dev``, which init writes as
-    always.
+    changes.
+
+    ``profile`` is the run profile init writes into ``fleet.yaml`` (``live`` or
+    ``dev``). It defaults to ``live``, so a fresh setup runs under live
+    admission rules; the setup wizard passes ``dev`` for its bootstrap phase
+    and the final lock is what promotes it to ``live``.
 
     ``use_case`` is which of the four use cases the install serves, and
     ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
@@ -1062,7 +1072,12 @@ def initialize(
         deployment = LOCAL_ONLY
     data: dict[str, Any] = dict(
         build(
-            found, proposal, api_units=asked, use_case=use_case, deployment=deployment
+            found,
+            proposal,
+            api_units=asked,
+            use_case=use_case,
+            deployment=deployment,
+            profile=profile,
         )
     )
     composition: tuple[str, ...] = ()
@@ -1096,6 +1111,10 @@ def initialize(
 
     # After the composition, so a composed candidate carries the opt-ins too.
     data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
+    # The requested profile wins in every path: a composed candidate is built
+    # from the schema's default, and the deterministic ladder carries it from
+    # `build`, but both are the caller's parameter to name.
+    data["profile"] = profile
 
     chosen_deployment = (
         deployment if deployment is not None else _deployment_default(use_case)
