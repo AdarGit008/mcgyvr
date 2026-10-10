@@ -1194,10 +1194,10 @@ def units_for(
         if spec is None:
             raise UnitError(
                 f"{name}: no model spec for {unit.model!r} — it is not in "
-                f"the shipped capability table, and nothing declares it under "
-                f"`launch` in fleet.yaml. Sizing a unit needs what the model "
-                f"costs, and mcgyvr will not invent that; state it and this "
-                f"model is served on your numbers"
+                f"the shipped capability table or model catalog, and nothing "
+                f"declares it under `launch` in fleet.yaml. Sizing a unit "
+                f"needs what the model costs, and mcgyvr will not invent "
+                f"that; state it and this model is served on your numbers"
             )
 
         key = UnitKey(

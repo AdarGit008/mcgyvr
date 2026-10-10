@@ -10,10 +10,11 @@ Promises:
 
 * The Hub lookup answers one record per single-file GGUF quantisation of a
   repository: its size and sha256 from the Hub API, its KV width per token and
-  recurrent state from the file's header, its context from the base model's
-  ``config.json`` (the shipped catalog's source for it) or, when that does not
-  answer, from the header. Each number says where it was read, at which
-  revision, and the day.
+  recurrent state from the file's header, its context from the header's
+  ``n_ctx_train`` (the checkpoint's declared context; a repacked GGUF serves
+  this, not the base model's ``config.json``) or, when the header does not
+  state one, from the base model's ``config.json``. Each number says where it
+  was read, at which revision, and the day.
 * The header is read with ``Range`` requests only, slice after slice, each
   starting where the last ended, until the tensor table parses, and never past
   a ceiling or the file's size. No byte of a weight is asked for.
@@ -192,9 +193,9 @@ def test_the_record_takes_size_from_the_hub_and_geometry_from_the_header() -> No
         0, "fact", f"gguf-header-range:{at}", DAY
     )
     assert one.context_length == kr.Number(
-        CONFIG_CONTEXT,
+        HEADER_CONTEXT,
         "fact",
-        f"hub-config:{BASE}@{BASE_SHA}/config.json#max_position_embeddings",
+        f"gguf-header-range:{at}",
         DAY,
     )
 
@@ -204,6 +205,15 @@ def test_with_no_base_config_the_context_is_the_headers() -> None:
     (one,) = lookup(REPO)
     assert one.context_length == kr.Number(
         HEADER_CONTEXT, "fact", f"gguf-header-range:{REPO}@{SHA}/{FILE}", DAY
+    )
+
+
+def test_the_context_is_the_header_when_it_differs_from_the_base_config() -> None:
+    """A repacked GGUF serves the header's ``n_ctx_train``, not ``config.json``."""
+    server = hub(invented_header())
+    at = f"{REPO}@{SHA}/{FILE}"
+    assert online._context(server, BASE, {"n_ctx_train": 131072}, at, DAY) == kr.Number(
+        131072, "fact", f"gguf-header-range:{at}", DAY
     )
 
 
