@@ -7,6 +7,16 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.10] - 2026-10-10
+
+### Fixed
+
+- The interactive `mcgyvr setup` bootstrap phase now runs under
+  `profile: dev` instead of `live`, and starts the containers with the door
+  pointed at the bootstrap config. A live `serve up` is admitted only for
+  units the fleet lock names, which cannot exist before the servers run; the
+  bootstrap is a dev setup, and the final lock promotes it to live.
+
 ## [0.4.9] - 2026-10-10
 
 ### Fixed
