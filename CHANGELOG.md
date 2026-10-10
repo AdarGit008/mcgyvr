@@ -9,6 +9,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-10
+
 ### Added
 
 - `mcgyvr init` approves a model served on the machine it runs on, not just
