@@ -103,6 +103,15 @@ def test_the_generated_file_loads_without_edits(tmp_path: Path, label: str) -> N
     assert "version" not in config.data
 
 
+def test_initialize_writes_the_profile_it_is_asked_for(tmp_path: Path) -> None:
+    """The written profile is the parameter, defaulting to live."""
+    initialize(tmp_path / "live", detection=KEYLESS_RIG)
+    assert load_config(tmp_path / "live").get("profile") == "live"
+
+    initialize(tmp_path / "dev", detection=KEYLESS_RIG, profile="dev")
+    assert load_config(tmp_path / "dev").get("profile") == "dev"
+
+
 def test_init_writes_the_use_case_and_its_deployment_default(tmp_path: Path) -> None:
     """The install's two choices are stated in the file, not left to the schema."""
     initialize(tmp_path / "setup", detection=KEYLESS_RIG)

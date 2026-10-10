@@ -966,7 +966,11 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
         code = wakelib.spawn_door(
             wakelib.door_argv(
                 direction="up", host=rig, compose=compose, suffix=_setup_suffix()
-            )
+            ),
+            env={
+                **os.environ,
+                CONFIG_PATH_ENV: str(path / FLEET_FILENAME),
+            },
         )
         if code != 0:
             raise _SetupInteractiveError(f"{rig}: serve up exited {code}")
@@ -985,7 +989,9 @@ def _setup_interactive(path: Path) -> int:
             _setup_fetch(rig, record, path)
 
         synthetic = _setup_synthetic_detection(plans)
-        bootstrap = initialize(path, force=True, detection=synthetic, use_case="coding")
+        bootstrap = initialize(
+            path, force=True, detection=synthetic, use_case="coding", profile="dev"
+        )
         if not bootstrap.written:
             raise _SetupInteractiveError("the bootstrap setup was not written")
         print(f"Wrote bootstrap setup at {bootstrap.path}\n")
@@ -1001,7 +1007,9 @@ def _setup_interactive(path: Path) -> int:
             )
             return 0
 
-        final = initialize(path, force=True, hosts=tuple(rigs), use_case="coding")
+        final = initialize(
+            path, force=True, hosts=tuple(rigs), use_case="coding", profile="dev"
+        )
         if not final.written:
             raise _SetupInteractiveError("the running setup was not written")
         print(f"Wrote {final.path} bound to the running servers\n")
