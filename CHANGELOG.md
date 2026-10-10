@@ -7,6 +7,16 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Fixed
+
+- The interactive `mcgyvr setup` wizard's download step no longer reads a
+  remote rig's weights path as if it were local (a `PermissionError` on the
+  machine running setup), and matches the recommended repo id by its model
+  basename against the rig's own on-disk inventory, so a model already on the
+  rig is offered for reuse instead of fetched again.
+
 ## [0.4.3] - 2026-10-10
 
 ### Changed
