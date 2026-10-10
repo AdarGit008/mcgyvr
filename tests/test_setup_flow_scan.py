@@ -329,6 +329,26 @@ def test_interactive_reuse_is_found_on_the_rigs_inventory(
     assert got[0][1].model_id == "org/coder-7b"
 
 
+def test_on_disk_match_finds_the_canonical_name() -> None:
+    """A file saved under the canonical name is found by the setup's reuse step."""
+    scan = scan_module.Scan(
+        machine=scan_module.Machine(id="x", host="localhost", kernel="k"),
+        models_on_disk=(
+            scan_module.ModelOnDisk(
+                name="Qwen_Qwen2.5-Coder-7B-Instruct",
+                quant=None,
+                size_bytes=1024,
+                path=Path("/x/Qwen_Qwen2.5-Coder-7B-Instruct.gguf"),
+            ),
+        ),
+    )
+
+    hit = cli._setup_on_disk_match(scan, "Qwen/Qwen2.5-Coder-7B-Instruct", "", 1024)
+
+    assert hit is not None
+    assert hit.name == "Qwen_Qwen2.5-Coder-7B-Instruct"
+
+
 def test_setup_fetch_and_start_go_through_the_door(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
