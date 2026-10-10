@@ -587,31 +587,51 @@ def plan(
     users: int,
     hosts: Sequence[str],
     model_stores: Sequence[str] = (),
+    premeasured: Mapping[str, Scan] | None = None,
 ) -> dict[str, Any]:
     """Compose the one JSON plan ``mcgyvr recommend`` prints.
 
-    ``hosts`` are re-read over ssh at this moment; ``model_stores``, when any
-    is given, are the directories on those rigs to discover ``*.gguf`` in.
+    ``hosts`` are re-read over ssh at this moment, unless ``premeasured``
+    names one of them: then that scan is used and nothing is read again. The
+    wizard passes the scans it just took so the local machine — which has no
+    ssh transport to itself — can be planned from its measured scan.
+    ``model_stores``, when any is given, are the directories on those rigs to
+    discover ``*.gguf`` in.
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
     no_scanner: list[str] = []
     scan_failed: list[str] = []
     scans: dict[str, Scan] = {}
-    for host in dict.fromkeys(hosts):
-        try:
-            found = _scan_host(str(host))
-        except ScannerMissing:
-            no_scanner.append(str(host))
-            continue
-        except ScanFailed:
-            scan_failed.append(str(host))
-            continue
-        except Unreachable:
-            unreachable.append(str(host))
-            continue
-        scans[str(host)] = found
-        rigs.append({"host": str(host), "measured": _measured(found)})
+    provided = (
+        {str(host): found for host, found in premeasured.items()}
+        if premeasured is not None
+        else None
+    )
+    if provided is not None:
+        for host in dict.fromkeys(hosts):
+            found = provided.get(str(host))
+            if found is None:
+                raise RecommendError(
+                    f"{host}: no measured scan was provided for this rig"
+                )
+            scans[str(host)] = found
+            rigs.append({"host": str(host), "measured": _measured(found)})
+    else:
+        for host in dict.fromkeys(hosts):
+            try:
+                found = _scan_host(str(host))
+            except ScannerMissing:
+                no_scanner.append(str(host))
+                continue
+            except ScanFailed:
+                scan_failed.append(str(host))
+                continue
+            except Unreachable:
+                unreachable.append(str(host))
+                continue
+            scans[str(host)] = found
+            rigs.append({"host": str(host), "measured": _measured(found)})
 
     if profile != PLACEMENT_PROFILE:
         return {

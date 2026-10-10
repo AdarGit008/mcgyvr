@@ -14,7 +14,7 @@ import signal
 import sys
 import textwrap
 import threading
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
@@ -105,10 +105,12 @@ SETUP_DOC = "skills/mcgyvr/SETUP.md"
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
+    from mcgyvr.detect import Detection
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
+    from mcgyvr.knowledge.record import ModelRecord
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
     from mcgyvr.result import RunResult
@@ -645,10 +647,326 @@ def _setup_priority(args: argparse.Namespace) -> str | None:
     return None
 
 
+class _SetupInteractiveError(Exception):
+    """The interactive wizard stopped; the message says why."""
+
+
+def _stdin_isatty() -> bool:
+    """Whether setup's stdin is a terminal, as a seam a test can state."""
+    return sys.stdin.isatty()
+
+
+def _setup_is_interactive(args: argparse.Namespace) -> bool:
+    """Whether ``mcgyvr setup`` should prompt rather than write from flags.
+
+    Interactive only with a person at the keyboard and no flag already given:
+    any flag names a decision already made, and a pipe is an agent driving the
+    command.
+    """
+    if not _stdin_isatty():
+        return False
+    return not (
+        bool(args.host)
+        or bool(args.api)
+        or args.force
+        or args.priority is not None
+        or args.profile is not None
+        or args.use_case is not None
+        or args.deployment is not None
+        or args.jev is not None
+        or args.mcorch is not None
+        or args.window is not None
+    )
+
+
+def _parse_setup_rigs(answer: str) -> tuple[str, ...]:
+    """Rigs from one prompt answer: comma/space list, with ``--host`` stripped."""
+    rigs: list[str] = []
+    for token in answer.replace(",", " ").split():
+        if token == "--host":
+            continue
+        if token.startswith("--host="):
+            token = token.split("=", 1)[1]
+        elif token.startswith("--"):
+            continue
+        if token:
+            rigs.append(token)
+    return tuple(dict.fromkeys(rigs))
+
+
+def _ask_setup_rigs(prompt: Callable[[str], str] = input) -> tuple[str, ...]:
+    """Step 1: which rigs serve this setup, defaulting to this machine."""
+    answer = prompt("Which rig(s) should serve this setup? [this machine only] ")
+    return _parse_setup_rigs(answer) or ("localhost",)
+
+
+def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
+    """An explicit yes to one irreversible step; anything else is no."""
+    return str(prompt(question)).strip().lower() in {"y", "yes"}
+
+
+def _setup_scan_rigs(rigs: Sequence[str]) -> dict[str, Scan]:
+    """Step 2: measure each rig and record it, so ``emit`` can size from it."""
+    from mcgyvr.detect import is_local_host
+
+    scans: dict[str, Scan] = {}
+    for rig in dict.fromkeys(rigs):
+        if is_local_host(rig):
+            measured = scan_module.scan()
+        else:
+            try:
+                measured = scan_module.scan_over(scan_module.Reach.ssh(rig))
+            except (
+                scan_module.Unreachable,
+                scan_module.ScannerMissing,
+                scan_module.ScanFailed,
+            ) as exc:
+                raise _SetupInteractiveError(f"{rig}: {exc}") from exc
+        scan_module.write_scan(measured, scan_module.default_root())
+        scans[rig] = measured
+    return scans
+
+
+def _setup_placements(
+    rigs: Sequence[str], scans: Mapping[str, Scan]
+) -> dict[str, Mapping[str, Any]]:
+    """Step 3: one coding/single placement per rig, printed as JSON."""
+    plans: dict[str, Mapping[str, Any]] = {}
+    for rig in dict.fromkeys(rigs):
+        try:
+            plan = recommend_module.plan(
+                profile="coding",
+                users=1,
+                hosts=(rig,),
+                premeasured={rig: scans[rig]},
+            )
+        except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
+            raise _SetupInteractiveError(f"{rig}: {exc}") from exc
+        sys.stdout.write(json.dumps(plan, indent=2, sort_keys=True) + "\n")
+        if not isinstance(plan.get("placement"), Mapping):
+            raise _SetupInteractiveError(
+                f"{rig}: recommend produced no placement to serve"
+            )
+        plans[rig] = plan
+    return plans
+
+
+def _setup_downloads(
+    plans: Mapping[str, Mapping[str, Any]],
+    scans: Mapping[str, Scan],
+    prompt: Callable[[str], str] = input,
+) -> tuple[tuple[str, ModelRecord], ...]:
+    """Step 4: ask reuse or download for every placement, gated on the answer."""
+    from mcgyvr import weights as weights_module
+    from mcgyvr.knowledge import store as knowledge_store
+
+    known = {record.key: record for record in knowledge_store.offline().records}
+    downloads: list[tuple[str, ModelRecord]] = []
+    for rig, plan in plans.items():
+        placement = plan["placement"]
+        model_id = str(placement.get("model_id") or "")
+        if not model_id:
+            # A local-store pick is already on disk; nothing is downloaded.
+            continue
+        quant = str(placement.get("quant") or "")
+        size_bytes = int(placement.get("size_bytes") or 0)
+        scan = scans.get(rig)
+        roots = (scan.disk.path,) if scan is not None and scan.disk is not None else ()
+        hit = weights_module.existing_model(
+            model_id, quant=quant, size_bytes=size_bytes, roots=roots
+        )
+        if hit is not None:
+            if weights_module.reuse_or_download(
+                model_id,
+                quant=quant,
+                size_bytes=size_bytes,
+                roots=roots,
+                prompt=prompt,
+            ):
+                print(f"{rig}: reusing {model_id} {quant} already on disk")
+                continue
+            chosen = True
+        else:
+            answer = prompt(
+                f"Download {model_id}{' ' + quant if quant else ''} for {rig}? [y/N] "
+            )
+            chosen = str(answer).strip().lower() in {"y", "yes"}
+        if not chosen:
+            continue
+        record = known.get((model_id, quant))
+        if record is None or record.weights is None:
+            raise _SetupInteractiveError(
+                f"{model_id} {quant}: no download record is known for this model"
+            )
+        downloads.append((rig, record))
+    return tuple(downloads)
+
+
+def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
+    """Step 5: download one chosen model through the door's ``serve fetch``."""
+    from mcgyvr.serving import fetchlist, safe_host
+    from mcgyvr.serving import run as serving_run
+
+    wants = fetchlist.from_records([record])
+    path.mkdir(parents=True, exist_ok=True)
+    fetch_file = path / f"fetch-{safe_host(rig)}.json"
+    fetch_file.write_text(fetchlist.dump(wants), encoding="utf-8")
+    code = serving_run.main(
+        ["serve", "fetch", "--host", rig, "--weights", str(fetch_file)]
+    )
+    if code != 0:
+        raise _SetupInteractiveError(f"{rig}: serve fetch exited {code}")
+    print(f"{rig}: fetched {record.model_id} {record.quant}")
+
+
+def _setup_synthetic_detection(
+    plans: Mapping[str, Mapping[str, Any]],
+) -> Detection:
+    """The recommended servers as if they were already answering.
+
+    ``initialize`` binds only models a running server lists, so the wizard
+    writes a bootstrap config from this synthetic detection, emits the launch
+    specs for it, starts the containers, and then re-runs ``initialize`` over
+    the real servers.
+    """
+    from mcgyvr.detect import Backend, Detection
+    from mcgyvr.serving import DEFAULT_PORT
+
+    backends: list[Backend] = []
+    for rig, plan in plans.items():
+        placement = plan["placement"]
+        model_id = str(placement.get("model_id") or "")
+        if not model_id:
+            raise _SetupInteractiveError(
+                f"{rig}: its placement is a local checkpoint, and the wizard "
+                "does not bootstrap from a local store yet"
+            )
+        engine = str(placement.get("engine") or "llama.cpp")
+        kind = "vllm" if engine == "vllm" else "llama-server"
+        port = 8000 if engine == "vllm" else DEFAULT_PORT
+        name = f"{rig}_{kind}" if len(plans) > 1 else kind
+        backends.append(
+            Backend(
+                name=name,
+                base_url=f"http://{rig}:{port}/v1",
+                api="openai",
+                models=(model_id,),
+                how="interactive setup",
+                host=rig,
+                kind=kind,
+            )
+        )
+    return Detection(
+        backends=tuple(backends), provenance={"backends": "interactive setup"}
+    )
+
+
+def _setup_emit(path: Path) -> None:
+    """Step 6a: ``mcgyvr emit`` the launch specs for the bootstrap config."""
+    code = main(["emit", "--config", str(path), "--out", str(path)])
+    if code != 0:
+        raise _SetupInteractiveError(f"mcgyvr emit exited {code}")
+
+
+def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> None:
+    """Step 6b: start each emitted launch spec through the door's ``serve up``."""
+    from mcgyvr.serving import run as serving_run
+    from mcgyvr.serving import spec_files, spec_name
+
+    for rig in dict.fromkeys(rigs):
+        scan = scans[rig]
+        host = scan.machine.host
+        try:
+            whole = path / spec_name(host)
+        except UnitError as exc:
+            raise _SetupInteractiveError(f"{rig}: {exc}") from exc
+        if whole.is_file():
+            compose = whole
+        else:
+            files = spec_files(path, host)
+            if not files:
+                raise _SetupInteractiveError(
+                    f"{rig}: mcgyvr emit wrote no compose file for {host}"
+                )
+            if len(files) > 1:
+                raise _SetupInteractiveError(
+                    f"{rig}: mcgyvr emit wrote alternatives for {host}; "
+                    "start one by hand"
+                )
+            compose = files[0]
+        code = serving_run.main(
+            ["serve", "up", "--host", rig, "--compose", str(compose)]
+        )
+        if code != 0:
+            raise _SetupInteractiveError(f"{rig}: serve up exited {code}")
+
+
+def _setup_interactive(path: Path) -> int:
+    """The guided ``mcgyvr setup``: prompt, then perform each step."""
+    try:
+        rigs = _ask_setup_rigs()
+        print(f"Serving on: {', '.join(rigs)}")
+        scans = _setup_scan_rigs(rigs)
+        plans = _setup_placements(rigs, scans)
+        downloads = _setup_downloads(plans, scans)
+        for rig, record in downloads:
+            _setup_fetch(rig, record, path)
+
+        synthetic = _setup_synthetic_detection(plans)
+        bootstrap = initialize(path, force=True, detection=synthetic, use_case="coding")
+        if not bootstrap.written:
+            raise _SetupInteractiveError("the bootstrap setup was not written")
+        print(f"Wrote bootstrap setup at {bootstrap.path}\n")
+
+        _setup_emit(path)
+        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+            _setup_start(rigs, scans, path)
+        else:
+            print(
+                "Containers were not started. The bootstrap setup and launch "
+                "specs are written; start the containers, then re-run "
+                "`mcgyvr setup --force` to bind and lock them."
+            )
+            return 0
+
+        final = initialize(path, force=True, hosts=tuple(rigs), use_case="coding")
+        if not final.written:
+            raise _SetupInteractiveError("the running setup was not written")
+        print(f"Wrote {final.path} bound to the running servers\n")
+
+        if _confirm("Lock the fleet and name it live? [y/N] "):
+            approved, unapproved = _own_fleet_live(path)
+        else:
+            approved, unapproved = (), ("The fleet was not locked or made live.",)
+        decisions = final.decisions + approved
+        if decisions:
+            print("What was decided, and why:")
+            for decision in decisions:
+                print(f"  - {decision}")
+            print()
+        limits = final.limits + unapproved
+        if limits:
+            print("What is NOT configured, and what that costs:")
+            for limit in limits:
+                print(f"  - {limit}")
+        return 0
+    except _SetupInteractiveError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except InitError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except (ConfigError, CapabilityTableError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
 def _setup(args: argparse.Namespace) -> int:
     # Not the config resolution order: with a fleet named live, that ends in a
     # promoted folder, and a promoted folder is never written in place.
     path = Path(args.path) if args.path else (named_config_path() or Path.cwd())
+    if _setup_is_interactive(args):
+        return _setup_interactive(path)
     # Parsed before anything is detected: a mistyped `--api` is the operator's
     # to fix, and making them wait out a network sweep to hear about it is
     # spending their time to tell them something already known.
@@ -665,7 +983,7 @@ def _setup(args: argparse.Namespace) -> int:
             hosts=tuple(args.host or ()),
             api_units=api_units,
             priority=priority,
-            use_case=args.use_case,
+            use_case=args.use_case or "coding",
             deployment=args.deployment,
             jev=args.jev,
             mcorch=args.mcorch,
@@ -4273,7 +4591,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     setup.add_argument(
         "--use-case",
-        default="coding",
+        default=None,
         choices=use_case_names,
         metavar="USE_CASE",
         help=(
