@@ -7,6 +7,16 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.9] - 2026-10-10
+
+### Fixed
+
+- The interactive `mcgyvr setup` wizard now declares the serving context
+  window it priced each placement at, passing `--ctx-per-slot` to `emit`.
+  The recommendation carried the context on the placement; the wizard sizes
+  at the smallest placed window, so `emit` no longer refuses a windowless
+  run.
+
 ## [0.4.8] - 2026-10-10
 
 ### Fixed
