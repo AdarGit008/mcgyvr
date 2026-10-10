@@ -14,7 +14,9 @@ deterministic gate.
   index), not on a model. Model tasks climb a ladder of units that you list
   cheapest first, within ceilings you set.
 - **Local first.** You bind the units. A setup can name only llama.cpp or
-  vLLM servers on your own machines; API models are optional.
+  vLLM servers on your own machines; API models are optional. Which engine
+  runs on which GPU (and what to do on older cards) is in
+  [`docs/GPU-SUPPORT.md`](docs/GPU-SUPPORT.md).
 - **Gated results.** Deterministic checks judge every answer before it
   reaches your tree, and an accepted change stays uncommitted unless you ask
   for a commit.
@@ -29,7 +31,7 @@ deterministic gate.
 | Python 3.12 or newer, and [uv](https://docs.astral.sh/uv/) | `requires-python = ">=3.12"`; the install command below uses uv |
 | git | the repository a task runs against must be a git checkout |
 | The project's own tools on `PATH` | tool task types run them; the quickstart's `format` task ran `ruff format` |
-| At least one unit, for model task types | a local OpenAI-compatible server (llama.cpp or vLLM), or an API model whose key is in an environment variable |
+| At least one unit, for model task types | a local OpenAI-compatible server (llama.cpp or vLLM — see [`docs/GPU-SUPPORT.md`](docs/GPU-SUPPORT.md) for GPU/engine floors), or an API model whose key is in an environment variable |
 | Docker (optional) | task commands run in a throwaway container by default; with no Docker daemon, `mcgyvr run` refuses unless `sandbox.mode: tempdir` (or `--sandbox tempdir`) chooses the weaker mode, or `sandbox.allow_fallback: true` falls back to it and says so |
 
 ## Install
