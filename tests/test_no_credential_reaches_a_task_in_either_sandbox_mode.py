@@ -163,6 +163,32 @@ def test_the_users_home_is_not_where_a_command_looks(
         assert not Path(result.stdout.strip()).is_relative_to(home)
 
 
+def test_docker_run_redirects_tool_caches_out_of_the_workspace(
+    opened: tuple[Sandbox, _Daemon], home: Path
+) -> None:
+    """Tool caches (uv/pip) never land inside the workspace.
+
+    ``HOME`` stays the workspace for isolation, but the XDG directories are
+    redirected to ``/tmp`` so a source-distribution cache holding a ``.git``
+    cannot trip the gate's nested-git check. The redirects point at ``/tmp``,
+    never at the host home or the workspace.
+    """
+    sandbox, daemon = opened
+    if not isinstance(sandbox, DockerSandbox):
+        pytest.skip("the assertion is about the container-mode argv")
+    (run,) = [argv for argv in daemon.argvs if argv[:1] == ["run"]]
+    for token in (
+        "XDG_CACHE_HOME=/tmp/cache",
+        "XDG_CONFIG_HOME=/tmp/config",
+        "XDG_DATA_HOME=/tmp/data",
+    ):
+        assert token in run
+    xdg = [token for token in run if token.startswith("XDG_") and "=" in token]
+    assert xdg, "expected XDG redirect entries in the run argv"
+    assert not any(str(home) in token for token in xdg)
+    assert not any("/workspace" in token for token in xdg)
+
+
 def test_the_container_mounts_the_workspace_and_nothing_else(
     repo: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
