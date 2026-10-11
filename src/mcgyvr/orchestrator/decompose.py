@@ -74,6 +74,7 @@ from mcgyvr.catalog import TaskType, catalog
 from mcgyvr.contract import Contract, ContractError, evidence_for, output_cap
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+from mcgyvr.orchestrator.baseline import BaselineObservation, locate_baseline
 from mcgyvr.orchestrator.index import Index
 from mcgyvr.orchestrator.read import Exploration, estimate_tokens, explore
 from mcgyvr.orchestrator.resolve import Resolution, resolve
@@ -174,6 +175,14 @@ class Evidence:
     exploration: Exploration
     vocabulary: tuple[TaskType, ...]
     """The task types this configuration can actually serve, cheapest first."""
+    baseline: BaselineObservation | None = None
+    """The baseline observation, when the repository declares a test runner.
+
+    The locator's result — the runner and the red/green split read from one run
+    — so a proposer (and, downstream, an emitted ``code`` contract) can derive
+    ``demonstration`` and ``acceptance`` from the run instead of a
+    model-invented command. ``None`` means the repository declared no runner
+    (or the observation could not be read), and the model's own fields stand."""
 
 
 Proposer = Callable[[Evidence], Sequence[Proposal]]
@@ -287,12 +296,14 @@ def decompose(
     )
     vocabulary = _vocabulary(config)
     owners = tuple(adapters) if adapters is not None else _default_adapters()
+    observation = locate_baseline(index.root)
     evidence = Evidence(
         prompt=prompt,
         index=index,
         resolution=resolution,
         exploration=exploration,
         vocabulary=vocabulary,
+        baseline=observation,
     )
 
     proposals = tuple(propose(evidence))
@@ -317,7 +328,14 @@ def decompose(
     seen: dict[str, str] = {}
     for proposal in proposals:
         emitted = _emit(
-            proposal, index, vocabulary, seen, owners, max_input_tokens, located
+            proposal,
+            index,
+            vocabulary,
+            seen,
+            owners,
+            max_input_tokens,
+            located,
+            observation,
         )
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
@@ -362,6 +380,7 @@ def _emit(
     adapters: Sequence[LanguageAdapter],
     ceiling: int,
     located: Mapping[str, Sequence[str]] | None = None,
+    baseline: BaselineObservation | None = None,
 ) -> tuple[Contract, str] | Refusal:
     """One proposal as a validated contract, or the reason it is not one.
 
@@ -393,6 +412,7 @@ def _emit(
     if isinstance(acceptance, Refusal):
         return acceptance
     proposal = replace(proposal, acceptance=acceptance)
+    proposal = _baseline_for(proposal, kind, baseline)
 
     # One entry per file, as the loader requires: two helpers from one module
     # are one dependency whose signature states both.
@@ -565,6 +585,34 @@ def _acceptance_for(
             "repository, or declare the command in the proposal's acceptance",
         )
     return (shlex.join(command),)
+
+
+def _baseline_for(
+    proposal: Proposal,
+    kind: TaskType,
+    baseline: BaselineObservation | None,
+) -> Proposal:
+    """Fill ``demonstration`` / ``acceptance`` from the observed red/green split.
+
+    Only ``code`` (whose evidence is derived from those fields) and only the
+    fields the proposal left empty. A proposal's own command always wins, and
+    an acceptance already filled from the located type checker is never
+    replaced — the repository's red/green split is a fallback for the model
+    that said nothing, in exactly the sense the type-check locator is.
+
+    The mapping is the repository's one red/green split, not a per-proposal
+    fact: a proposal that leaves ``demonstration`` empty receives the red test
+    (or tests) the run found, and one that leaves ``acceptance`` empty receives
+    the passing suite. A proposal whose defect is not that red test must name
+    its own demonstration; the model's explicit field is the override.
+    """
+    if baseline is None or not kind.evidence_derived:
+        return proposal
+    demonstration = proposal.demonstration or baseline.demonstrations()
+    acceptance = proposal.acceptance or baseline.acceptance()
+    if demonstration == proposal.demonstration and acceptance == proposal.acceptance:
+        return proposal
+    return replace(proposal, demonstration=demonstration, acceptance=acceptance)
 
 
 def locate_checkers(
