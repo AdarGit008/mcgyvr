@@ -47,7 +47,7 @@ ladder:
 ORCHESTRATOR = "orchestrator:\n  unit: orch\n  model: example-planner:7b\n"
 JEV = "jev:\n  unit: judge\n"
 
-QUESTION = {"kind": Choice("which kind?", {"docstring": "add a docstring"})}
+QUESTION = {"kind": Choice("which kind?", {"code": "add a docstring"})}
 
 
 def _wire(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:

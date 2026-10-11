@@ -52,7 +52,12 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: makes `limits.max_output_tokens` a whole_file-only key, which the field's
 #: doc and the step-2 prose now state. The growth is the schema's, not prose
 #: bloat.
-MAX_SKILL_BODY_BYTES = 18_900
+#:
+#: 18_900 -> 19_500: the task-type collapse (Stage 1) adds two contract
+#: fields — `no_semantic_change` and `type_check` — to the schema the skill
+#: documents, one table row each, and one clause in step 1 saying `code`
+#: derives its evidence. The growth is the schema's, not prose bloat.
+MAX_SKILL_BODY_BYTES = 19_500
 
 
 def _body(path: Path) -> str:

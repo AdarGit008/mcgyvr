@@ -66,7 +66,7 @@ orchestrator:
 DOCSTRING_REPLY = json.dumps(
     [
         {
-            "task_type": "docstring",
+            "task_type": "code",
             "task": "document listing()",
             "target": "listing.py",
             "stop_conditions": ["the function's behaviour is ambiguous"],
@@ -136,7 +136,7 @@ def test_proposals_from_reply_reads_a_json_array() -> None:
 
     assert proposals == (
         Proposal(
-            task_type="docstring",
+            task_type="code",
             task="document listing()",
             target="listing.py",
             stop_conditions=("the function's behaviour is ambiguous",),
@@ -154,7 +154,7 @@ def test_proposals_from_reply_carries_deps_and_optional_fields() -> None:
     reply = json.dumps(
         [
             {
-                "task_type": "bug_fix",
+                "task_type": "code",
                 "task": "page the items before returning",
                 "target": "listing.py",
                 "interface": "listing(items, size=10) -> list",
@@ -176,7 +176,7 @@ def test_proposals_from_reply_carries_deps_and_optional_fields() -> None:
     )
 
     (proposal,) = proposals_from_reply(reply)
-    assert proposal.task_type == "bug_fix"
+    assert proposal.task_type == "code"
     assert proposal.deps == (
         DepRef("pagination.py", "paginate", "page the items with this"),
     )
@@ -214,7 +214,7 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
 
     assert proposals == (
         Proposal(
-            task_type="docstring",
+            task_type="code",
             task="document listing()",
             target="listing.py",
             stop_conditions=("the function's behaviour is ambiguous",),
@@ -272,7 +272,7 @@ def test_decompose_emits_validated_contracts_through_the_role(
 
     assert result.refusals == ()
     (contract,) = result.contracts
-    assert contract.task_type == "docstring"
+    assert contract.task_type == "code"
     assert contract.target == "listing.py"
     # The emitted document is exactly what direct mode accepts.
     assert contract_module.loads(result.documents[0]) == contract
@@ -347,6 +347,6 @@ def test_the_delegate_command_writes_contracts_from_the_role(
     assert code == 0
     (written,) = out.iterdir()
     document = json.loads(written.read_text(encoding="utf-8"))
-    assert document["task_type"] == "docstring"
+    assert document["task_type"] == "code"
     assert document["target"] == "listing.py"
     assert "contract(s) proposed" in capsys.readouterr().err

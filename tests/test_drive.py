@@ -283,7 +283,7 @@ def test_the_contracts_acceptance_commands_actually_run(repo: Path) -> None:
     contract = load_contract(
         """
 id: checked
-task_type: function_implementation
+task_type: code
 task: Set the value.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
@@ -340,7 +340,7 @@ def test_the_contracts_output_cap_reaches_the_request(
     contract = load_contract(
         """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Add the helper.
 target: src/pkg/messy.py
 stop_conditions: ["The interface is not stated."]
@@ -392,7 +392,7 @@ def test_a_prompt_that_does_not_fit_is_refused_rather_than_truncated() -> None:
     contract = load_contract(
         f"""
 id: huge
-task_type: function_implementation
+task_type: code
 task: {"Add the helper. " * 400}
 target: src/pkg/messy.py
 stop_conditions: ["The interface is not stated."]
@@ -434,7 +434,7 @@ ladder:
 
 MODEL_CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]

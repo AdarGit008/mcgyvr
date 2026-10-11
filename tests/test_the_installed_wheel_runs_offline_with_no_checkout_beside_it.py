@@ -82,7 +82,7 @@ _COMMAND_TIMEOUT_S = 120
 #: A model contract, valid and never dispatched to anything that answers.
 CONTRACT = """\
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]

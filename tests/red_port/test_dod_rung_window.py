@@ -50,7 +50,7 @@ ladder:
 
 BIG_CONTRACT = """
 id: too-wide
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 context:

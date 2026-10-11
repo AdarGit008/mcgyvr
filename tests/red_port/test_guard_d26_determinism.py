@@ -78,7 +78,7 @@ WORKSTATION = Endpoint(
 )
 
 PROPOSAL = Proposal(
-    task_type="docstring",
+    task_type="code",
     task="Document listing() and say how it pages its items.",
     target="listing.py",
     deps=(DepRef(path="pagination.py", symbol="paginate"),),
@@ -176,7 +176,7 @@ def test_the_same_work_in_two_different_repositories_gets_the_same_contract_id(
     (one,) = here.contracts
     (two,) = there.contracts
     assert one.id == two.id, "the contract id depends on where the repository sits"
-    assert one.id.startswith("docstring-"), f"the id does not name its work: {one.id}"
+    assert one.id.startswith("code-"), f"the id does not name its work: {one.id}"
     assert here.documents == there.documents, (
         "the emitted document is not a function of the work"
     )

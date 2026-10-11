@@ -56,7 +56,7 @@ ladder:
 #: written under, declared rather than derived so the number is the operator's.
 CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]

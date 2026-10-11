@@ -39,7 +39,7 @@ scope:
 #: delivery rather than failing a "must fail before" command in the sandbox.
 NO_DEMO_CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]

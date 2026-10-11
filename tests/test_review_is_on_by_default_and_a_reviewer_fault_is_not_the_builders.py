@@ -112,7 +112,7 @@ ladder:
 
 CONTRACT = f"""
 id: value
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: {TARGET}
 stop_conditions: ["The value is not stated."]

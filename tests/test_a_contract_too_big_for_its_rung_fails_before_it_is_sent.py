@@ -57,7 +57,7 @@ ladder:
 #: narrow rung's 2048: question 1 of the rung check.
 CONTRACT = """
 id: oversize
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/value.py
 stop_conditions: ["The value is not stated."]

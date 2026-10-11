@@ -65,7 +65,7 @@ RUN_SHARE = "max_window_fraction: 0.25\n"
 #: prompt beside it the contract claims more than a quarter — and still fits.
 CONTRACT = """
 id: greedy
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/value.py
 stop_conditions: ["The value is not stated."]

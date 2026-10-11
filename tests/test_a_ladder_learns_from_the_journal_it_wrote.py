@@ -62,14 +62,14 @@ def test_a_type_the_cheap_rung_keeps_failing_is_proposed_to_start_one_rung_up(
         _dispatch(
             journal,
             contract=f"fix-{n}",
-            task_type="bug_fix",
+            task_type="code",
             rung="local_small",
             landed="committed",
         )
         _dispatch(
             journal,
             contract=f"impl-{n}",
-            task_type="function_implementation",
+            task_type="code",
             rung="local_small",
             landed="failed",
         )
@@ -79,5 +79,5 @@ def test_a_type_the_cheap_rung_keeps_failing_is_proposed_to_start_one_rung_up(
     proposals = propose(journal)
 
     assert [(p.task_type, p.reason) for p in proposals] == [
-        ("function_implementation", "local_small failed 3 of 3")
+        ("code", "local_small failed 3 of 3")
     ]

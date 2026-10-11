@@ -54,7 +54,7 @@ LADDER = LADDER_FLEET + LADDER_POLICY
 
 MODEL_CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]

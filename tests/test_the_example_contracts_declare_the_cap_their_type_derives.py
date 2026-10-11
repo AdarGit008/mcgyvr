@@ -23,9 +23,9 @@ def test_each_example_declares_the_cap_its_task_type_derives() -> None:
     for task_type, text in examples.items():
         loaded = contract.loads(text)
         assert loaded.task_type == task_type
-        assert loaded.limits.max_output_tokens == contract.output_cap(task_type), (
-            f"the {task_type} example carries a cap its type does not derive"
-        )
+        assert loaded.limits.max_output_tokens == contract.output_cap(
+            task_type, evidence=loaded.evidence
+        ), f"the {task_type} example carries a cap its type does not derive"
         if not loaded.is_deterministic:
             assert loaded.max_output_tokens_declared, (
                 f"the {task_type} example is executed by a model but declares "
@@ -42,7 +42,7 @@ def test_the_examples_follow_the_derivation_when_it_changes(
     # and no two types share one; small enough to fit the default prompt budget.
     invented = {name: 101 + 2 * i for i, name in enumerate(types)}
 
-    def derive(name: str, *, new_file: bool = False) -> int:
+    def derive(name: str, *, new_file: bool = False, evidence: object = None) -> int:
         return invented[name]
 
     monkeypatch.setattr(contract, "output_cap", derive)

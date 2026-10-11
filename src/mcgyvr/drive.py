@@ -1524,7 +1524,7 @@ def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | Non
     :func:`acceptance_for` rather than inside ``Gate`` because the declared
     evidence and the workspace are what this layer holds.
     """
-    declared = {e.name for e in contract.type.required_evidence}
+    declared = set(contract.evidence_names)
     checks = tuple(
         name
         for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER, GROUNDED)

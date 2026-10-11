@@ -353,7 +353,12 @@ class DockerSandbox(Sandbox):
         worker endpoints ride in a benign variable, unless the container has no
         network to reach them on.
         """
-        base: dict[str, str] = {"HOME": "/workspace"}
+        base: dict[str, str] = {
+            "HOME": "/workspace",
+            "XDG_CACHE_HOME": "/tmp/cache",
+            "XDG_CONFIG_HOME": "/tmp/config",
+            "XDG_DATA_HOME": "/tmp/data",
+        }
         reachable = [translate_endpoint(url) for url in self._endpoints]
         if reachable and self._reaches_out:
             base[ENDPOINTS_ENV] = ",".join(reachable)

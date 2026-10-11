@@ -58,7 +58,7 @@ from tests._helpers import git
 
 CONTRACT = """
 id: fetch-strip
-task_type: function_implementation
+task_type: code
 task: Strip the URL before returning it.
 target: src/pkg/fetch.py
 stop_conditions:

@@ -245,6 +245,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.mcorch.transcript",
     "mcgyvr.mcorch.wire",
     "mcgyvr.orchestrator",
+    "mcgyvr.orchestrator.baseline",
     "mcgyvr.orchestrator.cache",
     "mcgyvr.orchestrator.context",
     "mcgyvr.orchestrator.decompose",

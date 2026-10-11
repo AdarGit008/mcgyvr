@@ -61,7 +61,7 @@ scope:
 
 WORK_CONTRACT = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: {target}
 stop_conditions:
@@ -219,7 +219,7 @@ from pathlib import Path
 from mcgyvr.contract import loads
 from mcgyvr.deliver import deliver
 repo, base, target, barrier = sys.argv[1:5]
-body = "id: c\\ntask_type: function_implementation\\ntask: t\\ntarget: %s\\n"
+body = "id: c\\ntask_type: code\\ntask: t\\ntarget: %s\\n"
 body += "stop_conditions: [\\"never\\"]\\nacceptance: [\\"true\\"]\\n"
 body += "scope:\\n  allow: [\\"src/**/*.py\\"]\\n"
 while not Path(barrier).exists():
