@@ -7,6 +7,15 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.16] - 2026-10-11
+
+### Fixed
+
+- `mcgyvr setup` no longer offers to re-download a model that is already on the
+  rig: the on-disk reuse match accepts an untagged canonical GGUF (its name
+  carries no quant) on the strength of name + size, and enforces the quant only
+  when the file name tags one.
+
 ## [0.4.15] - 2026-10-11
 
 ### Fixed
