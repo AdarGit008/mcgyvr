@@ -149,7 +149,7 @@ def test_a_stamped_vllm_unit_renders_as_locked_too() -> None:
 
 def _config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
     """A scanned rig and a directory setup (fleet.yaml + policy.yaml)."""
-    host = "rig"
+    host = "localhost"
     scans = tmp_path / "scans"
     scans.mkdir()
     (scans / f"{host}.json").write_text(
@@ -163,9 +163,9 @@ def _config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
         "profile: dev\n"
         "units:\n"
         "  local_qwen2.5-coder-3b:\n"
-        "    address: http://rig:8080\n"
+        "    address: http://localhost:8080\n"
         "    model: 'qwen2.5-coder:3b'\n"
-        "    rig: rig\n"
+        "    rig: localhost\n"
         "    width: 2\n",
         encoding="utf-8",
     )
@@ -210,7 +210,7 @@ def test_dev_emit_stamps_fleet_yaml_with_the_compose_launch_and_is_idempotent(
 
     # The stamp and the compose file the same call wrote must agree byte for
     # byte on every fact a locked unit states.
-    service = service_of((out / "compose.rig.yml").read_text(encoding="utf-8"))
+    service = service_of((out / "compose.localhost.yml").read_text(encoding="utf-8"))
     assert block["container"] == service["container_name"]
     assert block["image"] == service["image"]
     assert block["launch"]["argv"] == service["command"]
@@ -235,9 +235,9 @@ def test_dev_emit_fills_only_what_a_unit_does_not_state(
         "profile: dev\n"
         "units:\n"
         "  local_qwen2.5-coder-3b:\n"
-        "    address: http://rig:8080\n"
+        "    address: http://localhost:8080\n"
         "    model: 'qwen2.5-coder:3b'\n"
-        "    rig: rig\n"
+        "    rig: localhost\n"
         "    width: 2\n"
         "    image: operator/image:tag\n"
         "    launch:\n"
