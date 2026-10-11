@@ -239,7 +239,7 @@ def test_classify_reads_each_answer_from_its_own_reply(
 
     monkeypatch.setattr(decision_module, "_post_json", fake_post)
     questions: dict[str, Question] = {
-        "kind": Choice(instructions="kind?", options={"a": "docstring", "b": "rename"}),
+        "kind": Choice(instructions="kind?", options={"a": "code", "b": "rename"}),
         "done": Noul("done?"),
     }
     result = classify(LOCAL, "qwen", {"file": "src/x.py"}, questions)

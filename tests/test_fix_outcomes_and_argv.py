@@ -67,7 +67,7 @@ ladder:
 
 WORK = """
 id: alpha
-task_type: docstring
+task_type: code
 task: Document the alpha helper.
 target: src/pkg/fetch.py
 stop_conditions:

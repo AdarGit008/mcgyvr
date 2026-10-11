@@ -52,35 +52,35 @@ def _proposal(task_type: str, **extra: object) -> Proposal:
     return Proposal(**{**base, **extra})  # type: ignore[arg-type]
 
 
-WHOLE_FILE_MODEL_TYPES: dict[str, dict[str, object]] = {
-    "docstring": {},
-    "type_annotation": {},  # the checker arrives through `located`
-    "function_implementation": {"acceptance": ("python -c 'import listing'",)},
-    "test_scaffold": {"acceptance": ("python -c 'import listing'",)},
-    "bug_fix": {"demonstration": ("python -c 'import sys; sys.exit(1)'",)},
+CODE_VARIANTS: dict[str, dict[str, object]] = {
+    "gate_only": {},
+    "acceptance": {"acceptance": ("python -c 'import listing'",)},
+    "demonstration": {"demonstration": ("python -c 'import sys; sys.exit(1)'",)},
+    "no_semantic_change": {"no_semantic_change": True},
+    "type_check": {"type_check": True},  # the checker arrives through `located`
 }
 
 
-@pytest.mark.parametrize("task_type", sorted(WHOLE_FILE_MODEL_TYPES))
-def test_every_whole_file_model_type_is_emitted_with_the_cap_its_evidence_derives(
-    tmp_path: Path, task_type: str
+@pytest.mark.parametrize("variant", sorted(CODE_VARIANTS))
+def test_every_code_shape_is_emitted_with_the_cap_its_evidence_derives(
+    tmp_path: Path, variant: str
 ) -> None:
     result = decompose(
         _repo(tmp_path),
         "do the thing",
-        propose=RecordedProposer(
-            (_proposal(task_type, **WHOLE_FILE_MODEL_TYPES[task_type]),)
-        ),
+        propose=RecordedProposer((_proposal("code", **CODE_VARIANTS[variant]),)),
         located={"python": ["mypy"]},
     )
     assert result.refusals == (), result.refusals
     (built,) = result.contracts
     assert built.max_output_tokens_declared is True
-    assert built.limits.max_output_tokens == contract.output_cap(task_type)
+    assert built.limits.max_output_tokens == contract.output_cap(
+        "code", evidence=built.evidence
+    )
     assert cli._cap_undeclared(built) is None
     (document,) = result.documents
     assert json.loads(document)["limits"]["max_output_tokens"] == contract.output_cap(
-        task_type
+        "code", evidence=built.evidence
     )
 
 
@@ -88,7 +88,7 @@ def test_a_proposal_stating_its_own_cap_wins(tmp_path: Path) -> None:
     (built,) = decompose(
         _repo(tmp_path),
         "document",
-        propose=RecordedProposer((_proposal("docstring", max_output_tokens=777),)),
+        propose=RecordedProposer((_proposal("code", max_output_tokens=777),)),
     ).contracts
     assert built.limits.max_output_tokens == 777
     assert built.max_output_tokens_declared is True
@@ -112,14 +112,14 @@ def test_the_prose_proposer_reads_a_stated_cap_from_the_reply() -> None:
     reply = json.dumps(
         [
             {
-                "task_type": "docstring",
+                "task_type": "code",
                 "task": "Document listing.",
                 "target": "listing.py",
                 "stop_conditions": ["x"],
                 "max_output_tokens": 512,
             },
             {
-                "task_type": "docstring",
+                "task_type": "code",
                 "task": "Document more.",
                 "target": "listing.py",
                 "stop_conditions": ["x"],
@@ -152,7 +152,7 @@ def test_the_mcorch_digest_hands_the_rung_a_contract_run_accepts() -> None:
     proposals = json.dumps(
         [
             {
-                "task_type": "docstring",
+                "task_type": "code",
                 "task": "Document listing.",
                 "target": "listing.py",
                 "stop_conditions": ["the intent is ambiguous"],

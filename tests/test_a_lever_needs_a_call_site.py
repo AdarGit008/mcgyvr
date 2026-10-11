@@ -65,7 +65,7 @@ ladder:
 
 MODEL_CONTRACT = f"""
 id: retry
-task_type: function_implementation
+task_type: code
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
@@ -1012,7 +1012,7 @@ NEW_FILE = "src/pkg/backoff.py"
 
 NEW_FILE_CONTRACT = f"""
 id: backoff
-task_type: function_implementation
+task_type: code
 task: Add a backoff helper in its own module.
 target: {NEW_FILE}
 stop_conditions: ["The backoff curve is not stated."]

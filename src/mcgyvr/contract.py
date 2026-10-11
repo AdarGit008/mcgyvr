@@ -31,8 +31,10 @@ discovered later:
    running something, the contract must carry a command *in the right slot*:
    evidence expecting a pass at baseline needs ``acceptance``, evidence
    expecting a failure at baseline (``failing_test_first``) needs
-   ``demonstration``. A `bug_fix` with nothing to run does not fail — it gets
-   accepted on the gate alone, which is worse.
+   ``demonstration``. The one exception is ``code``, whose evidence is
+   derived from the contract's own fields rather than demanded: a ``code``
+   contract with no ``acceptance``, no ``demonstration`` and no flags is
+   judged on the gate alone, which is its honest floor.
 
 The field layout follows the split #94 arrived at from small-model research:
 worker-facing fields (``id``, ``task_type``, ``task``, ``target``,
@@ -225,7 +227,45 @@ CAP_STEP = 128
 MIN_CAP = 256
 
 
-def output_cap(name: str, *, new_file: bool = False) -> int:
+def evidence_for(
+    kind: CatalogTaskType,
+    *,
+    acceptance: tuple[str, ...] = (),
+    demonstration: tuple[str, ...] = (),
+    no_semantic_change: bool = False,
+    type_check: bool = False,
+) -> tuple[CatalogEvidence, ...]:
+    """The evidence a contract of ``kind`` carries, given its own fields.
+
+    Every type but ``code`` carries its catalog's static ``required_evidence``
+    unchanged. ``code`` derives it: always ``gate``, then the kinds its fields
+    name — ``failing_test_first`` from a non-empty ``demonstration``,
+    ``tests_pass`` from a non-empty ``acceptance``, and ``no_semantic_change``
+    / ``type_check`` from the two flags. This is the one place the derivation
+    is spelled, so the loader, the output cap and the gate all read the same
+    evidence for a contract rather than three copies that can drift.
+    """
+    if not getattr(kind, "evidence_derived", False):
+        return kind.required_evidence
+    book = catalog()
+    names = ["gate"]
+    if demonstration:
+        names.append("failing_test_first")
+    if acceptance:
+        names.append("tests_pass")
+    if no_semantic_change:
+        names.append("no_semantic_change")
+    if type_check:
+        names.append("type_check")
+    return tuple(book.evidence(name) for name in names)
+
+
+def output_cap(
+    name: str,
+    *,
+    new_file: bool = False,
+    evidence: tuple[CatalogEvidence, ...] | None = None,
+) -> int:
     """The output cap a contract of this task type carries when it declares none.
 
     Deterministic in its inputs and in nothing else: same task type, same
@@ -237,16 +277,21 @@ def output_cap(name: str, *, new_file: bool = False) -> int:
     reply to size — a tool writes the change — so any larger number would be a
     reservation against something that never happens.
 
+    ``evidence`` overrides the type's static ``required_evidence``, for the one
+    type whose evidence is derived per contract (``code``): its cap depends on
+    whether it must write behaviour, which only the contract's own fields say.
+
     ``new_file`` adds the new-file step. No caller passes it: the loader, the
     one call site, cannot supply it, because an empty ``target_content`` means
     "the file does not exist yet" *or* "its content is not needed".
     """
     kind = task_type(name)
+    required = kind.required_evidence if evidence is None else tuple(evidence)
     allowance = (
         0
         if kind.deterministic
         else max(
-            (_evidence_allowance(e) for e in kind.required_evidence),
+            (_evidence_allowance(e) for e in required),
             default=STRUCTURAL_ALLOWANCE,
         )
     )
@@ -638,6 +683,24 @@ SCHEMA: tuple[Field, ...] = (
         default=(),
     ),
     Field(
+        "no_semantic_change",
+        "bool",
+        "Whether the change must leave the parsed structure untouched apart "
+        "from the region the task is allowed to touch. A flag rather than a "
+        "task type: for `task_type: code` it derives the `no_semantic_change` "
+        "evidence, and for every other type it is ignored. Defaults to false.",
+        default=False,
+    ),
+    Field(
+        "type_check",
+        "bool",
+        "Whether the project's own type checker must pass on the changed "
+        "target. A flag rather than a task type: for `task_type: code` it "
+        "derives the `type_check` evidence, and for every other type it is "
+        "ignored. Defaults to false.",
+        default=False,
+    ),
+    Field(
         "depends_on",
         "str_list",
         "Ids of the contracts that must complete before this one may run. "
@@ -765,12 +828,35 @@ class Contract:
     verification: Verification = Verification("gate_only")
     limits: Limits = Limits(RUNNING_ALLOWANCE, 2)
     rename: Rename = Rename()
+    no_semantic_change: bool = False
+    type_check: bool = False
     max_output_tokens_declared: bool = True
 
     @property
     def type(self) -> CatalogTaskType:
         """The declared task type, as its catalog entry."""
         return catalog().require(self.task_type)
+
+    @property
+    def evidence(self) -> tuple[CatalogEvidence, ...]:
+        """The evidence this contract carries, derived from its own fields.
+
+        For ``code`` this is computed per contract from ``demonstration``,
+        ``acceptance``, ``no_semantic_change`` and ``type_check``; every other
+        type carries its catalog's static ``required_evidence`` unchanged.
+        """
+        return evidence_for(
+            self.type,
+            acceptance=self.acceptance,
+            demonstration=self.demonstration,
+            no_semantic_change=self.no_semantic_change,
+            type_check=self.type_check,
+        )
+
+    @property
+    def evidence_names(self) -> tuple[str, ...]:
+        """The names of the evidence kinds this contract carries."""
+        return tuple(e.name for e in self.evidence)
 
     @property
     def is_deterministic(self) -> bool:
@@ -883,6 +969,14 @@ class Contract:
             if self.limits.max_window_fraction is not None
             else {}
         )
+        # The two code flags appear exactly when they say something, for the
+        # same reason as ``depends_on`` and the share above: a key carried
+        # whether or not it means anything re-keys every contract ever emitted.
+        flags = {}
+        if self.no_semantic_change:
+            flags["no_semantic_change"] = True
+        if self.type_check:
+            flags["type_check"] = True
         return {
             "version": self.version,
             "id": self.id,
@@ -912,6 +1006,7 @@ class Contract:
             },
             "acceptance": list(self.acceptance),
             "demonstration": list(self.demonstration),
+            **flags,
             **stated,
             "risk": self.risk,
             **renamed,
@@ -976,7 +1071,16 @@ def parse(text: str, path: Path | None = None) -> Contract:
         # prompting issue, not a cap issue — so only a whole_file reply gets a
         # derived number.
         data["limits"]["max_output_tokens"] = (
-            output_cap(data["task_type"])
+            output_cap(
+                data["task_type"],
+                evidence=evidence_for(
+                    task_type(data["task_type"]),
+                    acceptance=data["acceptance"],
+                    demonstration=data["demonstration"],
+                    no_semantic_change=data["no_semantic_change"],
+                    type_check=data["type_check"],
+                ),
+            )
             if data["output_schema"] == "whole_file"
             else None
         )
@@ -1022,6 +1126,8 @@ def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Cont
             max_window_fraction=data["limits"]["max_window_fraction"],
         ),
         rename=Rename(old=data["rename"]["from"], new=data["rename"]["to"]),
+        no_semantic_change=data["no_semantic_change"],
+        type_check=data["type_check"],
         max_output_tokens_declared=max_output_tokens_declared,
     )
 

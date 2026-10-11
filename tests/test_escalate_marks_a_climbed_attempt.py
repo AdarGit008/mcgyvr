@@ -46,7 +46,7 @@ API_TOP = "api_bigger"
 
 CONTRACT = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions:

@@ -58,7 +58,7 @@ OTHER = "model=other-model,address=https://api.other.example/v1,api_key_env=K"
 TARGET = "src/pkg/messy.py"
 CONTRACT = f"""\
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: {TARGET}
 stop_conditions: ["The value is not stated."]

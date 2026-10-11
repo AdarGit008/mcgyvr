@@ -646,7 +646,7 @@ def test_output_checks_for_is_none_for_a_coding_contract() -> None:
     contract = loads(
         """
 id: t
-task_type: function_implementation
+task_type: code
 task: Do the thing.
 target: src/pkg/f.py
 stop_conditions: ["An unknown."]
@@ -676,14 +676,12 @@ def test_output_checks_for_maps_declared_evidence(
     )
     monkeypatch.setattr(
         "mcgyvr.contract.catalog",
-        lambda: SimpleNamespace(
-            names=("function_implementation",), require=lambda _name: fake_type
-        ),
+        lambda: SimpleNamespace(names=("code",), require=lambda _name: fake_type),
     )
     contract = loads(
         """
 id: img
-task_type: function_implementation
+task_type: code
 task: Produce an image.
 target: out.png
 stop_conditions: ["No image model is bound."]

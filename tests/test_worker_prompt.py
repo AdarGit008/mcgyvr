@@ -31,7 +31,7 @@ from mcgyvr.worker.prompt import build_prompt, render_user_message
 
 PY_CONTRACT = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 interface: "def fetch(url: str, retries: int = 3) -> bytes"
@@ -49,7 +49,7 @@ scope:
 
 JS_CONTRACT = """
 id: fetch-retry-js
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.ts
 stop_conditions:
@@ -230,7 +230,7 @@ def test_optional_sections_are_omitted_when_empty() -> None:
 
 FIXABLE = """
 id: factorial-base-case
-task_type: bug_fix
+task_type: code
 task: The base case only stops at 1, so factorial(0) never terminates.
 target: solution.ts
 target_content: |

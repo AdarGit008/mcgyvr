@@ -103,6 +103,14 @@ class TaskType:
     required_evidence: tuple[Evidence, ...]
     warrant: str
     doc: str
+    #: Whether this type's evidence is computed per contract from the
+    #: contract's own fields rather than read off ``required_evidence``. Only
+    #: ``code`` sets it: its evidence is ``gate`` plus the kinds its
+    #: ``demonstration``, ``acceptance``, ``no_semantic_change`` and
+    #: ``type_check`` fields derive. The derivation itself lives in
+    #: :mod:`mcgyvr.contract`, because it reads contract fields this module
+    #: deliberately knows nothing about.
+    evidence_derived: bool = False
 
     @property
     def deterministic(self) -> bool:
@@ -190,6 +198,19 @@ class Catalog:
         if found is None:
             valid = ", ".join(f.name for f in self.families)
             raise CatalogError(f"{name!r} is not a known family. Valid: {valid}")
+        return found
+
+    def evidence(self, name: str) -> Evidence:
+        """The declared evidence kind called ``name``.
+
+        Looked up by name for the one type whose evidence is derived per
+        contract: the derivation names kinds, and the catalog is the only
+        place a name maps to the kind's ``needs_commands`` and ``baseline``.
+        """
+        found = next((e for e in self.evidence_kinds if e.name == name), None)
+        if found is None:
+            valid = ", ".join(e.name for e in self.evidence_kinds)
+            raise CatalogError(f"{name!r} is not a known evidence kind. Valid: {valid}")
         return found
 
     def family_of(self, source: Unit) -> Family:
@@ -374,6 +395,7 @@ def load(path: Path | None = None) -> Catalog:
                 required_evidence=tuple(kinds),
                 warrant=str(entry.get("warrant", "")),
                 doc=str(entry.get("doc", "")),
+                evidence_derived=bool(entry.get("evidence_derived", False)),
             )
         )
 

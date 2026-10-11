@@ -62,16 +62,16 @@ def repo(tmp_path: Path) -> Index:
 
 
 def a_fix(**overrides: object) -> Proposal:
-    """A well-formed proposal: a bug fix on listing.py depending on paginate.
+    """A well-formed proposal: a fix on listing.py depending on paginate.
 
     Carries stop conditions, acceptance commands and a demonstrating command
-    because ``bug_fix`` is a type a model executes and its evidence needs all
-    three of a contract nobody could otherwise judge (#183). The decomposer
-    does not invent any of them — which is why they are here and not in the
-    module.
+    because ``code`` is a type a model executes and its evidence derives from
+    those fields — ``failing_test_first`` from the demonstration, ``tests_pass``
+    from the acceptance. The decomposer does not invent any of them — which is
+    why they are here and not in the module.
     """
     base = {
-        "task_type": "bug_fix",
+        "task_type": "code",
         "task": "listing() ignores the page size; page the items before returning.",
         "target": "listing.py",
         "interface": "listing(items, size=10) -> list",
@@ -104,7 +104,7 @@ def test_the_emitted_contract_carries_what_the_proposal_asked_for(repo: Index) -
         repo, "fix the listing pager", propose=RecordedProposer((a_fix(),))
     ).contracts
 
-    assert built.task_type == "bug_fix"
+    assert built.task_type == "code"
     assert built.target == "listing.py"
     assert built.acceptance == ("pytest -q",)
     # Scope defaults to the target alone — the smallest well-scoped unit.
@@ -187,19 +187,20 @@ def test_a_refused_proposal_leaves_the_others_standing(repo: Index) -> None:
     assert [r.subject for r in result.refusals] == ["gone.py"]
 
 
-def test_a_contract_the_schema_rejects_becomes_a_refusal_with_its_message(
+def test_a_code_proposal_without_commands_emits_a_gate_only_contract(
     repo: Index,
 ) -> None:
-    """bug_fix requires evidence only a command can produce, so this cannot load."""
+    """A `code` contract's evidence is derived, never demanded: with no
+    demonstration and no acceptance it is judged on the gate alone."""
     result = decompose(
-        repo, "fix it", propose=RecordedProposer((a_fix(demonstration=()),))
+        repo,
+        "fix it",
+        propose=RecordedProposer((a_fix(acceptance=(), demonstration=()),)),
     )
 
-    assert result.contracts == ()
-    reason = result.refusals[0].reason
-    assert "does not validate" in reason
-    # The loader's own message, which already names the field and states the fix.
-    assert "demonstration" in reason
+    assert result.refusals == ()
+    (built,) = result.contracts
+    assert built.evidence_names == ("gate",)
 
 
 def test_the_decomposer_invents_neither_stop_conditions_nor_acceptance(
@@ -233,7 +234,7 @@ def test_the_contract_id_is_a_function_of_the_work_not_of_the_clock(
     (again,) = decompose(repo, "fix", propose=RecordedProposer((a_fix(),))).contracts
 
     assert built.id == again.id
-    assert built.id.startswith("bug_fix-")
+    assert built.id.startswith("code-")
 
     changed = a_fix(task="a different directive")
     (other,) = decompose(repo, "fix", propose=RecordedProposer((changed,))).contracts
@@ -277,7 +278,7 @@ def test_a_type_no_configured_rung_serves_is_refused_by_name(repo: Index) -> Non
     """Routing optimistically and failing at dispatch is the alternative."""
     config = tools_only_config()
     servable = {t.name for t in catalog().servable(config)}
-    assert "bug_fix" not in servable, "bug_fix starts on local; nothing is bound"
+    assert "code" not in servable, "code starts on local; nothing is bound"
 
     result = decompose(
         repo, "fix it", propose=RecordedProposer((a_fix(),)), config=config
@@ -300,7 +301,7 @@ def test_the_proposer_is_only_offered_types_the_ladder_can_serve(repo: Index) ->
     assert {t.name for t in evidence.vocabulary} == {
         t.name for t in catalog().servable(tools_only_config())
     }
-    assert "bug_fix" not in {t.name for t in evidence.vocabulary}
+    assert "code" not in {t.name for t in evidence.vocabulary}
 
 
 def test_an_unknown_task_type_names_the_vocabulary(repo: Index) -> None:
@@ -371,7 +372,7 @@ def test_a_contract_whose_worker_view_exceeds_the_default_is_sized_up(
 
 
 def test_an_emitted_contract_carries_its_targets_current_content(repo: Index) -> None:
-    """Acceptance: a bug_fix on an existing target reaches the worker seeing it."""
+    """Acceptance: a `code` fix on an existing target reaches the worker seeing it."""
     (built,) = decompose(
         repo, "fix the listing pager", propose=RecordedProposer((a_fix(),))
     ).contracts
@@ -417,7 +418,7 @@ def test_the_worker_is_shown_the_file_it_is_asked_to_change(repo: Index) -> None
     assert "def listing(items):" in prompt.user
 
 
-@pytest.mark.parametrize("task_type", ["docstring", "format"])
+@pytest.mark.parametrize("task_type", ["code", "format"])
 def test_content_is_filled_for_every_type_not_a_chosen_list(
     repo: Index, task_type: str
 ) -> None:
@@ -428,7 +429,7 @@ def test_content_is_filled_for_every_type_not_a_chosen_list(
     content. But it is not the tier that decides whether a tool runs it: ascent
     climbs from a contract's floor family upward, and a ``format`` contract whose
     floor binds no program for its target reaches a model rung exactly like a
-    ``bug_fix`` does. Content a tool ignores costs it nothing, because that tier
+    ``code`` does. Content a tool ignores costs it nothing, because that tier
     builds no prompt to carry it; content a model needed and lacks is the
     failure this guards.
     """
@@ -552,18 +553,19 @@ def test_a_target_larger_than_the_default_ceiling_is_refused(tmp_path: Path) -> 
 
 
 def an_annotation(**overrides: object) -> Proposal:
-    """A `type_annotation` proposal with no acceptance of its own.
+    """A `type_check: true` `code` proposal with no acceptance of its own.
 
-    The empty `acceptance` is the point. `type_annotation` requires `type_check`
-    evidence, which only a command can produce, so a contract that reaches the
-    loader like this cannot load — which is what the decomposer has to prevent
-    by filling the list in or by refusing.
+    The empty `acceptance` is the point. `type_check` evidence can only be
+    produced by a command, so the decomposer must either locate the repository's
+    checker and fill the acceptance in, or refuse when there is none.
     """
     base = {
-        "task_type": "type_annotation",
+        "task_type": "code",
         "task": "annotate listing() and its return.",
         "target": "listing.py",
         "stop_conditions": ("the intended element type is ambiguous",),
+        "no_semantic_change": True,
+        "type_check": True,
     }
     return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
 
@@ -601,13 +603,14 @@ def test_the_repositorys_own_checker_becomes_the_acceptance_command(
     assert built.acceptance == ("mypy",)
 
 
-def test_a_repository_declaring_no_checker_emits_no_type_annotation(
+def test_a_repository_declaring_no_checker_emits_no_type_checked_code(
     repo: Index,
 ) -> None:
     """The correct outcome arriving at the correct layer.
 
-    The contract would fail to load anyway. Refusing here is what makes the
-    answer a sentence about the repository rather than a complaint about a field.
+    A `type_check: true` `code` contract would have nothing to back the flag.
+    Refusing here is what makes the answer a sentence about the repository
+    rather than a complaint about a field.
     """
     result = decompose(repo, "annotate", propose=RecordedProposer((an_annotation(),)))
 
@@ -712,15 +715,13 @@ def test_a_target_no_language_owns_cannot_be_type_checked(tmp_path: Path) -> Non
     assert "python" in reason and "js/ts" in reason
 
 
-def test_a_test_command_is_not_located_for_a_type_that_needs_one(repo: Index) -> None:
-    """Only `type_check` is filled in — the demonstration still fails at the loader.
+def test_only_the_type_check_flag_triggers_the_locator(repo: Index) -> None:
+    """Only `type_check: true` is filled in from the repository.
 
-    `locate_test_command` answers `pytest` for any repository with a `tests/`
-    directory, which is a guess about the runner rather than a reading of a
-    declaration; and `failing_test_first` needs a *specific* test that fails
-    before the change, which no locator can name. Both stay the proposer's:
-    even with a `tests/` directory sitting right there, a bug_fix proposal
-    with no demonstrating command is refused, not completed.
+    A `code` proposal with no commands and no flags emits a gate-only
+    contract — the demonstrating command stays the proposer's; nothing guesses
+    a test runner. `locate_test_command` would answer `pytest` for any
+    repository with a `tests/` directory, which is a guess, not a declaration.
     """
     (repo.root / "tests").mkdir()
     (repo.root / "tests" / "test_listing.py").write_text(
@@ -728,14 +729,15 @@ def test_a_test_command_is_not_located_for_a_type_that_needs_one(repo: Index) ->
     )
     git(repo.root, "add", "-A")
     git(repo.root, "commit", "-q", "-m", "add tests")
-    result = decompose(
+    (built,) = decompose(
         build_index(repo.root),
         "fix",
         propose=RecordedProposer((a_fix(acceptance=(), demonstration=()),)),
-    )
+    ).contracts
 
-    assert result.contracts == ()
-    assert "does not validate" in result.refusals[0].reason
+    assert built.acceptance == ()
+    assert built.demonstration == ()
+    assert built.evidence_names == ("gate",)
 
 
 def test_the_repository_level_refusal_is_reported_once_per_proposal(

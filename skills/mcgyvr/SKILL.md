@@ -1,6 +1,6 @@
 ---
 name: mcgyvr
-description: "Offload one scoped coding task to mcgyvr, a CLI that runs it on deterministic tools, local models or API models and keeps only what its deterministic gate accepts. Use it when a change has one target and a way to judge it (format, import sort, lint fix, rename, docstring, type annotations, a function, its tests, a bug fix): author a task contract, validate it, run it, read the result file, replan from the findings. It never loads itself; invoke it with /mcgyvr. The schema below is the only contract vocabulary."
+description: "Offload one scoped coding task to mcgyvr, a CLI that runs it on deterministic tools, local models or API models and keeps only what its deterministic gate accepts. Use it when a change has one target and a way to judge it (format, import sort, lint fix, rename, or a scoped code edit whose evidence is derived from the contract): author a task contract, validate it, run it, read the result file, replan from the findings. It never loads itself; invoke it with /mcgyvr. The schema below is the only contract vocabulary."
 disable-model-invocation: true
 ---
 
@@ -19,8 +19,7 @@ repository.
 One YAML file. Every key below is the contract schema in
 `src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,
 and every rejection names the key and what a valid value looks like.
-Pick the `task_type` first: it decides what evidence the contract must
-carry. `mcgyvr catalog <type>` prints the type's guarantee.
+Pick the `task_type` first. For `code`, evidence is derived from the contract's own fields, never chosen. `mcgyvr catalog <type>` prints the type's guarantee.
 `mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft
 validated contracts from a request instead and prints them; `--run` runs
 each one.
@@ -31,7 +30,7 @@ each one.
 | --- | --- | --- | --- | --- |
 | `version` | number (min 1) | no | `1` | Schema version this contract is written against. A contract declaring a version this build does not read is rejected rather than interpreted under the wrong rules. (orchestrator-facing) |
 | `id` | text | **yes** | — | Identity: how this contract is referred to in records, telemetry and branch names. Letters, digits, dot, dash and underscore, up to 64 characters. e.g. fetch-helper-retry. (worker-facing) |
-| `task_type` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol`, `docstring`, `type_annotation`, `function_implementation`, `test_scaffold`, `bug_fix`, `chat`, `agent` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
+| `task_type` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol`, `code`, `chat`, `agent` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
 | `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any task type a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a task type that is executed deterministically. e.g. src/pkg/fetch.py. (worker-facing) |
 | `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
@@ -47,6 +46,8 @@ each one.
 | `scope` | block | **yes** | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
 | `acceptance` | list of text | no | `[]` | Shell commands that must pass for the change to be accepted — the strongest signal the gate has. Each must also pass on the *unchanged* tree (the preflight refuses a suite that is already red), which is exactly why a command meant to demonstrate a defect cannot live here: it goes in `demonstration`. Arbitrary shell from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
 | `demonstration` | list of text | no | `[]` | Shell commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Runs in the same sandbox, under the same read-only rule. (orchestrator-facing) |
+| `no_semantic_change` | boolean | no | `false` | Whether the change must leave the parsed structure untouched apart from the region the task is allowed to touch. A flag rather than a task type: for `task_type: code` it derives the `no_semantic_change` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
+| `type_check` | boolean | no | `false` | Whether the project's own type checker must pass on the changed target. A flag rather than a task type: for `task_type: code` it derives the `type_check` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
 | `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. (orchestrator-facing) |
 | `risk` | one of `low`, `medium`, `high` | no | `medium` | How much a wrong answer costs. Recorded on the contract and printed by `mcgyvr contract`; routing and verification do not read it. (orchestrator-facing) |
 | `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |

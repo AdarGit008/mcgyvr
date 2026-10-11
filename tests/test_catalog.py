@@ -170,14 +170,13 @@ def test_the_media_and_agent_evidence_kinds_are_declared(shipped: Catalog) -> No
 
 
 def test_the_command_needing_properties_split_by_baseline(shipped: Catalog) -> None:
-    bug_fix = shipped.require("bug_fix")
-    assert bug_fix.needs_demonstration_commands  # failing_test_first
-    # Its guarantee promises the demonstration and nothing else, so no
-    # pass-at-baseline command is required of it (#183).
-    assert not bug_fix.needs_acceptance_commands
-    implementation = shipped.require("function_implementation")
-    assert implementation.needs_acceptance_commands  # tests_pass
-    assert not implementation.needs_demonstration_commands
+    """`code` derives command-needing evidence from the contract's own fields,
+    so the type itself forces neither slot: a `code` contract with no commands
+    is judged on the gate alone."""
+    code = shipped.require("code")
+    assert code.evidence_derived
+    assert not code.needs_acceptance_commands
+    assert not code.needs_demonstration_commands
 
 
 def test_deterministic_is_derived_from_the_family_not_declared(
@@ -367,7 +366,7 @@ def test_a_removed_type_is_rejected_with_the_reason_it_was_removed() -> None:
 def test_a_superseded_type_names_its_replacement() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         task_type("complex_bug_fix")
-    assert "'bug_fix'" in str(exc.value)
+    assert "'code'" in str(exc.value)
 
 
 def test_an_unknown_type_lists_the_vocabulary(shipped: Catalog) -> None:
@@ -565,9 +564,10 @@ def test_cli_lists_every_type_with_its_guarantee(
 
 
 def test_cli_shows_one_type_in_full(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["catalog", "bug_fix"]) == 0
+    assert main(["catalog", "code"]) == 0
     out = capsys.readouterr().out
-    assert "failing_test_first" in out
+    assert "gate" in out
+    assert "derived" in out
     assert "guarantee:" in out
     assert "warrant:" in out
 

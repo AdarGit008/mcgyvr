@@ -53,43 +53,11 @@ scope:
   allow: ["src/pkg/**"]
 ```
 
-## `docstring`
-
-```yaml
-id: doc-fetch
-task_type: docstring
-task: Write the docstring for fetch_document, stating what it returns on a 404.
-target: src/pkg/fetch.py
-interface: "def fetch_document(url: str, *, timeout_s: float = 5.0) -> str"
-stop_conditions:
-  - The 404 behaviour cannot be read from the code.
-limits:
-  max_output_tokens: 512
-scope:
-  allow: ["src/pkg/fetch.py"]
-```
-
-## `type_annotation`
-
-```yaml
-id: annotate-fetch
-task_type: type_annotation
-task: Add type annotations to fetch_document and its helpers.
-target: src/pkg/fetch.py
-stop_conditions:
-  - A helper's return type cannot be determined from its callers.
-acceptance: ["mypy src/pkg/fetch.py"]
-limits:
-  max_output_tokens: 1024
-scope:
-  allow: ["src/pkg/fetch.py"]
-```
-
-## `function_implementation`
+## `code`
 
 ```yaml
 id: impl-chunk
-task_type: function_implementation
+task_type: code
 task: >-
   Implement chunk. Split a list into consecutive groups of at most size
   elements, preserving order; the last group is shorter when the length does
@@ -101,44 +69,6 @@ stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
 acceptance: ["pytest -q tests/test_chunk.py"]
 risk: low
-limits:
-  max_output_tokens: 1024
-scope:
-  allow: ["src/pkg/chunk.py"]
-```
-
-## `test_scaffold`
-
-```yaml
-id: test-chunk
-task_type: test_scaffold
-task: Write tests for chunk covering the empty list, an exact division and a remainder.
-target: tests/test_chunk.py
-interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
-deps:
-  - path: src/pkg/chunk.py
-    signature: "def chunk(items: list[T], size: int) -> list[list[T]]"
-stop_conditions:
-  - The expected result for a remainder group is not stated.
-acceptance: ["pytest -q tests/test_chunk.py"]
-limits:
-  max_output_tokens: 1024
-scope:
-  allow: ["tests/test_chunk.py"]
-```
-
-## `bug_fix`
-
-```yaml
-id: fix-chunk-remainder
-task_type: bug_fix
-task: chunk drops the final short group when the length does not divide evenly; keep it.
-target: src/pkg/chunk.py
-interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
-stop_conditions:
-  - The demonstrating test does not fail on the current code.
-demonstration: ["pytest -q tests/test_chunk.py -k remainder"]
-acceptance: ["pytest -q tests/test_chunk.py"]
 limits:
   max_output_tokens: 1024
 scope:

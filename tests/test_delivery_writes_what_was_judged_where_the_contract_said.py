@@ -311,7 +311,7 @@ def test_a_rename_that_substitutes_nothing_the_index_found_is_refused(
 
 BRACKET_TARGET = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: "src/pkg/a]b.py"
 stop_conditions: ["The value is not stated."]
@@ -355,7 +355,7 @@ def test_two_symbols_from_one_file_emit_a_contract_the_loader_takes(
     lj.git(root, "add", "-A")
     lj.git(root, "commit", "-qm", "seed")
     proposal = Proposal(
-        task_type="bug_fix",
+        task_type="code",
         task="main() should use both helpers.",
         target="main.py",
         interface="main() -> int",

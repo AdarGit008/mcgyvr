@@ -71,7 +71,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import TaskType, catalog
-from mcgyvr.contract import Contract, ContractError, output_cap
+from mcgyvr.contract import Contract, ContractError, evidence_for, output_cap
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.orchestrator.index import Index
@@ -96,14 +96,6 @@ _ID_DIGEST_BYTES = 5
 # window is enforced separately by
 # `mcgyvr.gate.preflight.check_contract_against_rung`.
 _DEFAULT_MAX_INPUT_TOKENS = 32768
-
-# The one evidence kind a locator can supply the command for, named as the
-# catalog names it. Keying on the string is the coupling that belongs here: the
-# catalog is the vocabulary, and `data/task-catalog.json` is where "type_check"
-# means "The project's type checker passes on the changed target". The other two
-# command-needing kinds — `tests_pass`, `failing_test_first` — are deliberately
-# absent; see :func:`_acceptance_for`.
-_TYPE_CHECK = "type_check"
 
 
 @dataclass(frozen=True)
@@ -153,8 +145,14 @@ class Proposal:
     demonstration: tuple[str, ...] = ()
     """Commands that must fail at baseline and pass after — `failing_test_first`
     (#183). Only a proposer can name one (#146: no locator can, in principle),
-    which is why the slot exists here: without it a `bug_fix` proposal could
-    never survive the loader."""
+    which is why the slot exists here: without it a `code` proposal could never
+    carry the demonstration that derives `failing_test_first`."""
+    no_semantic_change: bool = False
+    """Whether the change must leave parsed structure untouched apart from the
+    region the task touches — the `code` flag that derives `no_semantic_change`."""
+    type_check: bool = False
+    """Whether the project's own type checker must pass — the `code` flag that
+    derives `type_check`."""
     risk: str = ""
     """Empty means "let the schema's default stand" rather than a fourth level."""
 
@@ -272,9 +270,10 @@ def decompose(
     a caller that ran where the repository is (``mcgyvr read --json``); when
     given it stands in for every read of the disk :func:`_acceptance_for`
     would make, so a server holding an index assembled from a document — whose
-    ``index.root`` is a label, not a repository — emits a ``type_annotation``
-    with the command the repository declared and refuses one it did not, the
-    same answers the disk gives. ``None`` reads the disk as before.
+    ``index.root`` is a label, not a repository — emits a `type_check: true`
+    ``code`` contract with the command the repository declared and refuses one
+    it did not, the same answers the disk gives. ``None`` reads the disk as
+    before.
 
     Never raises for an undecomposable request: a prompt nothing can be made of
     returns a :class:`Decomposition` whose ``contracts`` is empty and whose
@@ -478,9 +477,10 @@ def _acceptance_for(
     where the repository is — and when given replaces the read of ``root``
     entirely: ``root`` is then a label and is not opened.
 
-    The schema demands a type-check command for the one task type whose
-    guarantee requires one. The locator (#114) reads what the repository
-    declared; this puts it where #38's sandboxed runner already looks.
+    A `type_check: true` `code` proposal derives the `type_check` evidence,
+    which only a command can produce. The locator (#114) reads what the
+    repository declared; this puts it where #38's sandboxed runner already
+    looks.
 
     Three rules, in this order:
 
@@ -498,10 +498,10 @@ def _acceptance_for(
       *specific* test that fails before the change and passes after, which no
       locator can name at all.
     * **No checker means no contract.** Where the locator returns ``None``, the
-      decomposer does not emit ``type_annotation`` for that repository — the
-      contract would fail to load anyway. Refusing here rather than letting
-      :func:`_load` reject it is what turns a schema complaint into a sentence
-      about the repository.
+      decomposer does not emit a `type_check: true` `code` contract for that
+      repository — the flag would be unbacked. Refusing here rather than
+      letting :func:`_load` reject it is what turns a schema complaint into a
+      sentence about the repository.
 
     **The command is emitted exactly as located.** Nothing is appended — not
     the target, not a path, not a flag — even for a repository whose
@@ -535,7 +535,7 @@ def _acceptance_for(
     """
     if proposal.acceptance:
         return proposal.acceptance
-    if _TYPE_CHECK not in kind.evidence_names:
+    if not (kind.evidence_derived and proposal.type_check):
         return proposal.acceptance
 
     owner = _owner(proposal.target, adapters)
@@ -544,8 +544,8 @@ def _acceptance_for(
         return Refusal(
             proposal.target,
             f"no language adapter owns {proposal.target!r}, so the checker that "
-            f"would judge {kind.name!r} cannot be located — its guarantee needs "
-            f"evidence only a type checker can produce. Retarget a file in a "
+            f"would back `type_check: true` cannot be located — its evidence "
+            f"needs a type checker. Retarget a file in a "
             f"language this build carries ({languages}), or declare the command "
             f"in the proposal's acceptance",
         )
@@ -558,11 +558,11 @@ def _acceptance_for(
     if command is None:
         return Refusal(
             proposal.target,
-            f"this repository declares no type checker, so {kind.name!r} is not "
-            f"available here — its guarantee needs evidence only a checker can "
-            f"produce, and mcgyvr runs the one the repository configured rather "
-            f"than choosing one. Configure a checker in the "
-            f"repository, or declare the command in the proposal's acceptance",
+            "this repository declares no type checker, so a `type_check: true` "
+            "`code` contract is not available here — its evidence needs a "
+            "checker, and mcgyvr runs the one the repository configured rather "
+            "than choosing one. Configure a checker in the "
+            "repository, or declare the command in the proposal's acceptance",
         )
     return (shlex.join(command),)
 
@@ -643,7 +643,14 @@ def _identify(proposal: Proposal) -> str:
     caught and refused rather than papered over with an ordinal.
     """
     material = json.dumps(
-        [proposal.task_type, proposal.target, proposal.task, proposal.interface]
+        [
+            proposal.task_type,
+            proposal.target,
+            proposal.task,
+            proposal.interface,
+            proposal.no_semantic_change,
+            proposal.type_check,
+        ]
         + [[d.path, d.symbol] for d in proposal.deps],
         sort_keys=True,
     )
@@ -693,6 +700,10 @@ def _document(
         document["acceptance"] = list(proposal.acceptance)
     if proposal.demonstration:
         document["demonstration"] = list(proposal.demonstration)
+    if proposal.no_semantic_change:
+        document["no_semantic_change"] = True
+    if proposal.type_check:
+        document["type_check"] = True
     if proposal.risk:
         document["risk"] = proposal.risk
     if max_input_tokens is not None:
@@ -721,7 +732,17 @@ def _reply_cap(proposal: Proposal, *, new_file: bool) -> int | None:
     kind = catalog().require(proposal.task_type)
     if kind.deterministic or kind.use_case.name != "coding":
         return None
-    return output_cap(proposal.task_type, new_file=new_file)
+    return output_cap(
+        proposal.task_type,
+        new_file=new_file,
+        evidence=evidence_for(
+            kind,
+            acceptance=proposal.acceptance,
+            demonstration=proposal.demonstration,
+            no_semantic_change=proposal.no_semantic_change,
+            type_check=proposal.type_check,
+        ),
+    )
 
 
 def _load(document: dict[str, Any]) -> Contract | Refusal:
@@ -821,6 +842,8 @@ def _proposal_of(built: Contract) -> Proposal:
         stop_conditions=built.stop_conditions,
         acceptance=built.acceptance,
         demonstration=built.demonstration,
+        no_semantic_change=built.no_semantic_change,
+        type_check=built.type_check,
         risk=built.risk,
     )
 

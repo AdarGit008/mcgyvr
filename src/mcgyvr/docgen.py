@@ -441,6 +441,7 @@ _CONTRACT_KIND_LABELS: dict[str, str] = {
     "int": "number",
     "float": "decimal number",
     "str": "text",
+    "bool": "boolean",
     "str_list": "list of text",
     "glob_list": "list of globs",
     "block": "block",
@@ -487,35 +488,9 @@ rename:
 scope:
   allow: ["src/pkg/**"]
 """,
-    "docstring": """\
-id: doc-fetch
-task_type: docstring
-task: Write the docstring for fetch_document, stating what it returns on a 404.
-target: src/pkg/fetch.py
-interface: "def fetch_document(url: str, *, timeout_s: float = 5.0) -> str"
-stop_conditions:
-  - The 404 behaviour cannot be read from the code.
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["src/pkg/fetch.py"]
-""",
-    "type_annotation": """\
-id: annotate-fetch
-task_type: type_annotation
-task: Add type annotations to fetch_document and its helpers.
-target: src/pkg/fetch.py
-stop_conditions:
-  - A helper's return type cannot be determined from its callers.
-acceptance: ["mypy src/pkg/fetch.py"]
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["src/pkg/fetch.py"]
-""",
-    "function_implementation": """\
+    "code": """\
 id: impl-chunk
-task_type: function_implementation
+task_type: code
 task: >-
   Implement chunk. Split a list into consecutive groups of at most size
   elements, preserving order; the last group is shorter when the length does
@@ -532,53 +507,29 @@ limits:
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
-    "test_scaffold": """\
-id: test-chunk
-task_type: test_scaffold
-task: Write tests for chunk covering the empty list, an exact division and a remainder.
-target: tests/test_chunk.py
-interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
-deps:
-  - path: src/pkg/chunk.py
-    signature: "def chunk(items: list[T], size: int) -> list[list[T]]"
-stop_conditions:
-  - The expected result for a remainder group is not stated.
-acceptance: ["pytest -q tests/test_chunk.py"]
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["tests/test_chunk.py"]
-""",
-    "bug_fix": """\
-id: fix-chunk-remainder
-task_type: bug_fix
-task: chunk drops the final short group when the length does not divide evenly; keep it.
-target: src/pkg/chunk.py
-interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
-stop_conditions:
-  - The demonstrating test does not fail on the current code.
-demonstration: ["pytest -q tests/test_chunk.py -k remainder"]
-acceptance: ["pytest -q tests/test_chunk.py"]
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["src/pkg/chunk.py"]
-""",
 }
 
 
 def examples() -> dict[str, str]:
     """One minimal valid contract per task type, in the catalog's order.
 
-    Each model-executed example declares the cap its task type derives, read
-    from :func:`mcgyvr.contract.output_cap` when this is called. Each is loaded
-    by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``; an
-    example that does not validate fails the suite.
+    Each model-executed example declares the cap its own fields derive, read
+    back by loading the example without its cap and taking the number the
+    loader derives — so a `code` example that carries an `acceptance` gets the
+    running allowance, not the structural one its bare type would. Each example
+    is loaded by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``;
+    an example that does not validate fails the suite.
     """
-    return {
-        task_type: template.replace("{cap}", str(contract_schema.output_cap(task_type)))
-        for task_type, template in _EXAMPLE_TEMPLATES.items()
-    }
+    rendered: dict[str, str] = {}
+    for task_type, template in _EXAMPLE_TEMPLATES.items():
+        if "{cap}" not in template:
+            rendered[task_type] = template
+            continue
+        stripped = template.replace("limits:\n  max_output_tokens: {cap}\n", "")
+        derived = contract_schema.loads(stripped).limits.max_output_tokens
+        assert derived is not None, f"{task_type} example must derive a cap"
+        rendered[task_type] = template.replace("{cap}", str(derived))
+    return rendered
 
 
 #: :func:`examples` as built at import, for readers that want a mapping.
@@ -613,6 +564,8 @@ def _contract_default_label(field: contract_schema.Field) -> str:
         return "unset"
     if field.default == "":
         return "empty"
+    if field.kind == "bool":
+        return f"`{str(field.default).lower()}`"
     return f"`{field.default}`"
 
 
@@ -660,10 +613,10 @@ def render_skill() -> str:
         "it on deterministic tools, local models or API models and keeps only "
         "what its deterministic gate accepts. Use it when a change has one "
         "target and a way to judge it (format, import sort, lint fix, rename, "
-        "docstring, type annotations, a function, its tests, a bug fix): author "
-        "a task contract, validate it, run it, read the result file, replan from "
-        "the findings. It never loads itself; invoke it with /mcgyvr. The schema "
-        'below is the only contract vocabulary."',
+        "or a scoped code edit whose evidence is derived from the contract): "
+        "author a task contract, validate it, run it, read the result file, "
+        "replan from the findings. It never loads itself; invoke it with "
+        '/mcgyvr. The schema below is the only contract vocabulary."',
         "disable-model-invocation: true",
         "---",
         "",
@@ -682,8 +635,9 @@ def render_skill() -> str:
         "One YAML file. Every key below is the contract schema in",
         "`src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,",
         "and every rejection names the key and what a valid value looks like.",
-        "Pick the `task_type` first: it decides what evidence the contract must",
-        "carry. `mcgyvr catalog <type>` prints the type's guarantee.",
+        "Pick the `task_type` first. For `code`, evidence is derived from the "
+        "contract's own fields, never chosen. `mcgyvr catalog <type>` prints "
+        "the type's guarantee.",
         "`mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft",
         "validated contracts from a request instead and prints them; `--run` runs",
         "each one.",

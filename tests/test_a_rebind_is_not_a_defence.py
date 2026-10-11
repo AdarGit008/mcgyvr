@@ -321,7 +321,7 @@ PLACEHOLDER = """def tidy(rows):
 # a worker reads both.
 ASKS_IN_PLACE_TASK = """
 id: tidy-rows
-task_type: function_implementation
+task_type: code
 task: Sort the caller's rows in place and return them.
 target: src/pkg/rows.py
 stop_conditions:
@@ -333,7 +333,7 @@ scope:
 
 ASKS_IN_PLACE_INTERFACE = """
 id: tidy-rows
-task_type: function_implementation
+task_type: code
 task: Order the rows.
 interface: tidy(rows) sorts rows in-place and returns it.
 target: src/pkg/rows.py
@@ -347,7 +347,7 @@ scope:
 # The control: the same file, under a contract that ordered the opposite.
 ASKS_FOR_A_NEW_LIST = """
 id: tidy-rows
-task_type: function_implementation
+task_type: code
 task: Return a new list holding the rows in order.
 interface: tidy(rows) returns a sorted copy and leaves rows alone.
 target: src/pkg/rows.py
@@ -361,7 +361,7 @@ scope:
 # The negation case: the prose names mutation and forbids it.
 FORBIDS_MUTATION = """
 id: tidy-rows
-task_type: function_implementation
+task_type: code
 task: Return the rows in order, and do not mutate the caller's list.
 interface: tidy(rows) returns a sorted copy and never mutates rows.
 target: src/pkg/rows.py

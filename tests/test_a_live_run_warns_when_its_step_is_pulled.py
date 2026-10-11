@@ -44,7 +44,7 @@ ACCEPTED = "RETRY = 3\n\n\ndef fetch(url):\n    return url\n"
 
 CONTRACT = f"""
 id: retry
-task_type: function_implementation
+task_type: code
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]

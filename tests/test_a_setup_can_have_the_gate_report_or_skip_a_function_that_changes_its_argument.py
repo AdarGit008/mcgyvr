@@ -51,7 +51,7 @@ PLACEHOLDER = "def placeholder():\n    return None\n"
 #: A contract that asks for the rows back with one more, and does not say how.
 APPENDS = """
 id: merge-rows
-task_type: function_implementation
+task_type: code
 task: Add the extra row to the rows and return them.
 interface: merge_into(rows, extra) returns the rows with extra at the end.
 target: src/pkg/rows.py
@@ -65,7 +65,7 @@ scope:
 #: The same shape of work, ordered in place in the contract's own words.
 SORTS_IN_PLACE = """
 id: sort-rows
-task_type: function_implementation
+task_type: code
 task: Sort the rows in place.
 interface: tidy(rows) sorts rows in place and returns None.
 target: src/pkg/rows.py
