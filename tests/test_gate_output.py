@@ -676,7 +676,12 @@ def test_output_checks_for_maps_declared_evidence(
     )
     monkeypatch.setattr(
         "mcgyvr.contract.catalog",
-        lambda: SimpleNamespace(names=("code",), require=lambda _name: fake_type),
+        lambda: SimpleNamespace(
+            names=("code",),
+            task_types=(SimpleNamespace(name="code"),),
+            operations=(),
+            require=lambda _name: fake_type,
+        ),
     )
     contract = loads(
         """

@@ -94,20 +94,6 @@ def test_a_proposal_stating_its_own_cap_wins(tmp_path: Path) -> None:
     assert built.max_output_tokens_declared is True
 
 
-def test_a_deterministic_type_carries_no_cap_and_is_not_asked_for_one(
-    tmp_path: Path,
-) -> None:
-    (built,) = decompose(
-        _repo(tmp_path),
-        "format",
-        propose=RecordedProposer(
-            (Proposal(task_type="format", task="Format.", target="listing.py"),)
-        ),
-    ).contracts
-    assert built.max_output_tokens_declared is False
-    assert cli._cap_undeclared(built) is None
-
-
 def test_the_prose_proposer_reads_a_stated_cap_from_the_reply() -> None:
     reply = json.dumps(
         [

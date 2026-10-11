@@ -288,8 +288,9 @@ def test_a_type_no_configured_rung_serves_is_refused_by_name(repo: Index) -> Non
     reason = result.refusals[0].reason
     assert "must start on the 'local' family" in reason
     assert "no configured rung serves it" in reason
-    # The refusal names what this ladder *can* run, not just what it cannot.
-    assert sorted(servable)[0] in reason
+    # A tools-only ladder serves no model type after the collapse: the refusal
+    # says so rather than naming a type it cannot run.
+    assert "run: none" in reason
 
 
 def test_the_proposer_is_only_offered_types_the_ladder_can_serve(repo: Index) -> None:
@@ -418,20 +419,17 @@ def test_the_worker_is_shown_the_file_it_is_asked_to_change(repo: Index) -> None
     assert "def listing(items):" in prompt.user
 
 
-@pytest.mark.parametrize("task_type", ["code", "format"])
+@pytest.mark.parametrize("task_type", ["code"])
 def test_content_is_filled_for_every_type_not_a_chosen_list(
     repo: Index, task_type: str
 ) -> None:
     """No task-type branch: the slot is filled from the target, whatever the work.
 
-    ``format`` is the case that matters, because it looks like one to exclude —
-    the deterministic tier reads the file itself, so a tool has no use for the
-    content. But it is not the tier that decides whether a tool runs it: ascent
-    climbs from a contract's floor family upward, and a ``format`` contract whose
-    floor binds no program for its target reaches a model rung exactly like a
-    ``code`` does. Content a tool ignores costs it nothing, because that tier
-    builds no prompt to carry it; content a model needed and lacks is the
-    failure this guards.
+    ``code`` is now the only decomposable type with a file target — the four
+    deterministic types left the model vocabulary in the Stage 2 refactor, so
+    they are never proposed here. The guard stays parametrized rather than a
+    hardcoded ``code`` branch, so a future file-targeting type is not silently
+    excluded from content by a chosen-list check.
     """
     proposal = Proposal(
         task_type=task_type,
