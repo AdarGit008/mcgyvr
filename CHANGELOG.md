@@ -7,6 +7,17 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.15] - 2026-10-11
+
+### Fixed
+
+- `mcgyvr setup` now locks a fleet that can actually run: `mcgyvr emit` stamps
+  the resolved launch (`image`, `container`, `engine`, `launch.argv`/`env`/
+  `volumes`, `hf_cache` for vLLM) back into `fleet.yaml`, byte-identical to the
+  compose file it writes, and the wizard re-emits after its final re-init so
+  the launch survives into the lock. A locked fleet is emittable and live
+  admission admits its rigs.
+
 ## [0.4.14] - 2026-10-10
 
 ### Added
