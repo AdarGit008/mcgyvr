@@ -9,7 +9,7 @@ from __future__ import annotations
 
 BASE = """
 id: x
-task_type: function_implementation
+task_type: code
 task: Add the helper.
 target: src/pkg/fetch.py
 stop_conditions: ["The interface is not stated."]

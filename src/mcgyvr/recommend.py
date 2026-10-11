@@ -50,7 +50,7 @@ from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import KnowledgeError
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
     BYTES_PER_GB,
@@ -103,6 +103,9 @@ class Candidate:
 
     ``checkpoint`` is set for a local-store pick; ``model_id``/``quant`` are
     set for a catalog pick. Exactly one of the two shapes is present.
+    ``context_length`` is the window the pick was priced at: the catalog
+    entry's shipped ``context_length`` for a catalog pick, the measured local
+    header's ``n_ctx_train`` for a local-store pick.
     """
 
     name: str
@@ -112,6 +115,7 @@ class Candidate:
     model_id: str | None
     quant: str | None
     size_bytes: int
+    context_length: int
     flags: Mapping[str, str]
     wake: bool
 
@@ -394,6 +398,7 @@ def _local_candidates(
                 model_id=None,
                 quant=None,
                 size_bytes=size_bytes,
+                context_length=int(header["n_ctx_train"]),
                 flags=_llamacpp_flags(checkpoint=checkpoint, mtp=mtp, users=users),
                 wake=wake,
             )
@@ -488,6 +493,7 @@ def _catalog_candidates(
                     model_id=model_id,
                     quant=quant,
                     size_bytes=size_bytes,
+                    context_length=int(entry["context_length"]),
                     flags=flags,
                     wake=wake,
                 )
@@ -575,6 +581,7 @@ def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
         "model_id": candidate.model_id,
         "quant": candidate.quant,
         "size_bytes": candidate.size_bytes,
+        "context_length": candidate.context_length,
         "flags": dict(candidate.flags),
         "wake": candidate.wake,
         "source": source,
@@ -587,31 +594,51 @@ def plan(
     users: int,
     hosts: Sequence[str],
     model_stores: Sequence[str] = (),
+    premeasured: Mapping[str, Scan] | None = None,
 ) -> dict[str, Any]:
     """Compose the one JSON plan ``mcgyvr recommend`` prints.
 
-    ``hosts`` are re-read over ssh at this moment; ``model_stores``, when any
-    is given, are the directories on those rigs to discover ``*.gguf`` in.
+    ``hosts`` are re-read over ssh at this moment, unless ``premeasured``
+    names one of them: then that scan is used and nothing is read again. The
+    wizard passes the scans it just took so the local machine — which has no
+    ssh transport to itself — can be planned from its measured scan.
+    ``model_stores``, when any is given, are the directories on those rigs to
+    discover ``*.gguf`` in.
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
     no_scanner: list[str] = []
     scan_failed: list[str] = []
     scans: dict[str, Scan] = {}
-    for host in dict.fromkeys(hosts):
-        try:
-            found = _scan_host(str(host))
-        except ScannerMissing:
-            no_scanner.append(str(host))
-            continue
-        except ScanFailed:
-            scan_failed.append(str(host))
-            continue
-        except Unreachable:
-            unreachable.append(str(host))
-            continue
-        scans[str(host)] = found
-        rigs.append({"host": str(host), "measured": _measured(found)})
+    provided = (
+        {str(host): found for host, found in premeasured.items()}
+        if premeasured is not None
+        else None
+    )
+    if provided is not None:
+        for host in dict.fromkeys(hosts):
+            found = provided.get(str(host))
+            if found is None:
+                raise RecommendError(
+                    f"{host}: no measured scan was provided for this rig"
+                )
+            scans[str(host)] = found
+            rigs.append({"host": str(host), "measured": _measured(found)})
+    else:
+        for host in dict.fromkeys(hosts):
+            try:
+                found = _scan_host(str(host))
+            except ScannerMissing:
+                no_scanner.append(str(host))
+                continue
+            except ScanFailed:
+                scan_failed.append(str(host))
+                continue
+            except Unreachable:
+                unreachable.append(str(host))
+                continue
+            scans[str(host)] = found
+            rigs.append({"host": str(host), "measured": _measured(found)})
 
     if profile != PLACEMENT_PROFILE:
         return {

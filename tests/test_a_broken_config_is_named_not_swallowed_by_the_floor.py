@@ -239,7 +239,7 @@ def test_a_named_config_that_is_absent_is_not_told_to_name_one(
 ) -> None:
     """The remedy differs with who chose the path, so the sentence does too.
 
-    Three situations, not two. "Run ``mcgyvr init``, or set
+    Three situations, not two. "Run ``mcgyvr setup``, or set
     ``$MCGYVR_CONFIG`` to point at an existing file" is the answer to "I have
     no config", and it is right only where neither has been done. Said to
     someone who has just set exactly that variable, it is advice to do again
@@ -257,13 +257,13 @@ def test_a_named_config_that_is_absent_is_not_told_to_name_one(
 
     with pytest.raises(ConfigMissingError) as bare:
         load_config()
-    assert "mcgyvr init" in str(bare.value)
+    assert "mcgyvr setup" in str(bare.value)
     assert CONFIG_PATH_ENV in str(bare.value)
 
     monkeypatch.setenv(CONFIG_PATH_ENV, str(absent))
     with pytest.raises(ConfigMissingError) as from_env:
         load_config()
-    assert "mcgyvr init" in str(from_env.value)
+    assert "mcgyvr setup" in str(from_env.value)
     assert CONFIG_PATH_ENV not in str(from_env.value)
     assert str(absent) in str(from_env.value)
 

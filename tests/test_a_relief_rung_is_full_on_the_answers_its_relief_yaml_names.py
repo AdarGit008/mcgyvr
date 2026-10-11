@@ -21,7 +21,7 @@ import yaml
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import ConfigSchemaError, parse
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.runner import (
     BackendError,
     Request,

@@ -1,6 +1,9 @@
-"""Every task type the schema offers has something that can execute it.
+"""Every task type and deterministic operation the schema offers has something
+that can execute it.
 
-``task_type`` is a closed vocabulary: nine values, each with a guarantee in
+``task_type`` is a closed vocabulary: three task types (``chat``, ``agent``,
+``code``) and four deterministic operations (``format``, ``import_sort``,
+``lint_fix``, ``rename_symbol``), each with a guarantee in
 ``data/task-catalog.json``, each rendered into the shipped skill with a minimal
 example a reader is told is "a shape that is known to validate" — rendered
 into ``skills/mcgyvr/references/examples.md``, which the shipped skill points
@@ -33,10 +36,10 @@ scope:
 
 
 def _types() -> tuple[str, ...]:
-    """The types a program executes. A model type is run by the ladder."""
+    """The operations a program executes. A model task type is run by the ladder."""
     from mcgyvr.catalog import catalog
 
-    return tuple(sorted(t.name for t in catalog().task_types if t.deterministic))
+    return tuple(sorted(o.name for o in catalog().operations if o.deterministic))
 
 
 def _runnable(task_type: str, repo: Path) -> bool:

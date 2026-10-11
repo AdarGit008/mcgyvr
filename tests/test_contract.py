@@ -33,7 +33,7 @@ from mcgyvr.contract import (
 
 MINIMAL = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions:
@@ -55,7 +55,7 @@ scope:
 FULL = """
 version: 1
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 target_content: |
@@ -117,7 +117,7 @@ def test_round_trip_preserves_every_field() -> None:
     """Not just equal objects — every declared value survives the emitted form."""
     contract = parse(dumps(loads(FULL)))
     assert contract.id == "fetch-retry"
-    assert contract.task_type == "function_implementation"
+    assert contract.task_type == "code"
     assert contract.interface.startswith("def fetch(")
     assert contract.target_content == (
         "def fetch(url: str) -> Response:\n    return _client.get(url)\n"
@@ -133,6 +133,8 @@ def test_round_trip_preserves_every_field() -> None:
     assert contract.demonstration == (
         "pytest -q tests/test_fetch.py::test_retries_on_timeout",
     )
+    assert contract.no_semantic_change is False
+    assert contract.type_check is False
     assert contract.risk == "high"
     assert contract.verification.policy == "model"
     assert contract.limits.max_output_tokens == 2048
@@ -153,9 +155,13 @@ def test_defaults_are_applied() -> None:
     assert contract.output_schema == "whole_file"
     assert contract.max_input_tokens == 4096
     assert contract.demonstration == ()
+    assert contract.no_semantic_change is False
+    assert contract.type_check is False
     assert contract.risk == "medium"
     assert contract.verification.policy == "gate_only"
-    assert contract.limits.max_output_tokens == output_cap(contract.task_type)
+    assert contract.limits.max_output_tokens == output_cap(
+        contract.task_type, evidence=contract.evidence
+    )
     assert contract.limits.attempts == 2
     assert contract.scope.forbid == ()
 
@@ -178,7 +184,9 @@ def test_raw_text_replies_are_uncapped_but_whole_file_is_not() -> None:
 
     assert prose.limits.max_output_tokens is None
     assert media.limits.max_output_tokens is None
-    assert whole.limits.max_output_tokens == output_cap(whole.task_type)
+    assert whole.limits.max_output_tokens == output_cap(
+        whole.task_type, evidence=whole.evidence
+    )
     assert whole.limits.max_output_tokens is not None
 
 
@@ -217,7 +225,7 @@ def test_literal_target_is_allowed_for_a_model_task_type() -> None:
 # --- acceptance: the target's current content has a slot of its own (#150) --
 
 
-def test_a_bug_fix_states_its_file_without_putting_it_in_the_task() -> None:
+def test_a_code_contract_states_its_file_without_putting_it_in_the_task() -> None:
     """The workaround #150 exists to retire: bytes inside a prose field.
 
     `task` is documented as "what to do, in words". Once the slot exists the
@@ -240,7 +248,7 @@ def test_a_bug_fix_states_its_file_without_putting_it_in_the_task() -> None:
 def test_absent_content_is_empty_and_means_the_target_may_not_exist_yet() -> None:
     """Absence has one documented meaning, not a sentinel and not an error.
 
-    A `function_implementation` writing a new file and one rewriting an existing
+    A `code` contract writing a new file and one rewriting an existing
     file are the same contract shape; what separates them is whether there was
     content to state. Neither is rejected, because the loader cannot know which
     the caller meant and guessing would reject half the legitimate cases.
@@ -278,10 +286,7 @@ def test_a_pattern_target_without_content_is_still_fine() -> None:
     ("document", "field"),
     [
         (MINIMAL.replace("id: fetch-retry", "id: 'not a valid id'"), "id:"),
-        (
-            MINIMAL.replace("task_type: function_implementation", "task_type: nope"),
-            "task_type:",
-        ),
+        (MINIMAL.replace("task_type: code", "task_type: nope"), "task_type:"),
         (
             MINIMAL.replace(
                 "task: Add retry with backoff to the fetch helper.", "task: ''"
@@ -437,7 +442,7 @@ def test_a_duplicated_dependency_is_rejected() -> None:
 
 BUG_FIX = """
 id: fix-pager
-task_type: bug_fix
+task_type: code
 task: The pager drops the last line of every file. Fix it.
 target: src/pkg/pager.py
 stop_conditions:
@@ -449,49 +454,47 @@ scope:
 """
 
 
-def test_a_bug_fix_carrying_both_slots_loads() -> None:
+def test_a_code_contract_carrying_both_slots_loads() -> None:
     """The shape #183 exists to make expressible: demonstration and regression
     commands side by side, distinguishable by slot rather than by guesswork."""
     contract = loads(BUG_FIX)
     assert contract.acceptance == ("pytest -q",)
     assert contract.demonstration == ("pytest -q tests/test_pager.py::test_last_line",)
+    assert "failing_test_first" in contract.evidence_names
+    assert "tests_pass" in contract.evidence_names
 
 
-def test_a_bug_fix_without_a_demonstration_is_rejected() -> None:
-    """Before #183 this loaded — rule 5 was satisfied by the tests_pass command
-    alone, and `failing_test_first` was decorative. Now each command-needing
-    evidence kind is checked against the slot that can satisfy it."""
+def test_a_code_contract_without_a_demonstration_derives_no_failing_test_first() -> (
+    None
+):
+    """A `code` contract with only an acceptance derives `tests_pass`, not
+    `failing_test_first`: evidence follows the fields, never a bundle."""
     demo_line = 'demonstration: ["pytest -q tests/test_pager.py::test_last_line"]\n'
-    with pytest.raises(ContractSchemaError) as exc:
-        loads(BUG_FIX.replace(demo_line, ""))
-    message = str(exc.value)
-    assert message.startswith("demonstration:")
-    assert "failing_test_first" in message
-    assert "fails before the change and passes after" in message
+    contract = loads(BUG_FIX.replace(demo_line, ""))
+    assert contract.demonstration == ()
+    assert "failing_test_first" not in contract.evidence_names
+    assert "tests_pass" in contract.evidence_names
 
 
-def test_a_demonstration_does_not_satisfy_the_regression_requirement() -> None:
-    """The check is per-kind, not \"some command exists\": a type whose evidence
-    is tests_pass has nothing backing it in a demonstration-only contract."""
+def test_a_demonstration_does_not_add_tests_pass() -> None:
+    """Each list derives its own kind: a demonstration-only `code` contract
+    derives `failing_test_first` and no `tests_pass`."""
     demonstration_only = (
         'acceptance: []\ndemonstration: ["pytest -q tests/test_fetch.py::test_retries"]'
     )
-    with pytest.raises(ContractSchemaError) as exc:
-        loads(MINIMAL.replace('acceptance: ["pytest -q"]', demonstration_only))
-    message = str(exc.value)
-    assert message.startswith("acceptance:")
-    assert "tests_pass" in message
+    contract = loads(MINIMAL.replace('acceptance: ["pytest -q"]', demonstration_only))
+    assert "failing_test_first" in contract.evidence_names
+    assert "tests_pass" not in contract.evidence_names
 
 
-def test_a_bug_fix_needs_no_separate_regression_suite() -> None:
-    """The catalog decision #183 settled: bug_fix's guarantee promises the
-    demonstration and nothing else, so a demonstration-only contract loads —
-    requiring more would manufacture a decorative command where no suite
-    exists. A declared suite (BUG_FIX above) is still welcome and still held
-    green at preflight."""
+def test_a_demonstration_only_code_contract_loads() -> None:
+    """A demonstration-only `code` contract is valid: the demonstration is
+    enough to back `failing_test_first`, and nothing manufactures a decorative
+    regression suite where none exists."""
     contract = loads(BUG_FIX.replace('acceptance: ["pytest -q"]', "acceptance: []"))
     assert contract.acceptance == ()
     assert contract.demonstration == ("pytest -q tests/test_pager.py::test_last_line",)
+    assert "failing_test_first" in contract.evidence_names
 
 
 def test_a_command_in_both_lists_is_rejected() -> None:
@@ -683,7 +686,7 @@ def _media_contract(*extra: str) -> str:
     body = "\n".join(extra)
     return f"""
 id: img
-task_type: function_implementation
+task_type: code
 task: Produce an image.
 target: out.png
 stop_conditions: ["No image model is bound."]

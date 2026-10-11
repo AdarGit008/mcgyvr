@@ -39,7 +39,7 @@ from collections.abc import Mapping, Sequence
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
 from mcgyvr.config import parse
-from mcgyvr.pool import Endpoint, source_map
+from mcgyvr.local_pool import Endpoint, source_map
 
 RESIDENT = "qwen3.6-35b-a3b"
 SLEEPING = "deepseek-coder-v2-16b"

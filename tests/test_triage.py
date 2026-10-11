@@ -22,7 +22,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Score, ScoreAnswer
 from mcgyvr.escalate import ascent
-from mcgyvr.pool import Endpoint, Protocol, SourceMap, source_map
+from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, source_map
 from mcgyvr.triage import (
     FLOOR_QUESTION,
     TASK_TYPE_QUESTION,
@@ -85,7 +85,7 @@ ladder:
 
 BUG_FIX = """\
 id: fix-pager
-task_type: bug_fix
+task_type: code
 task: The pager drops the last line of every file. Fix it.
 target: src/pkg/pager.py
 stop_conditions:
@@ -173,13 +173,13 @@ def test_a_hint_is_never_cheaper_than_the_types_own_floor() -> None:
 
 def test_a_hint_cheaper_than_the_types_floor_degrades_to_a_normal_climb() -> None:
     known = catalog()
-    bug_fix = known.require("bug_fix")
+    bug_fix = known.require("code")
     assert floor_for(bug_fix, known.family("deterministic")) == known.family("local")
 
 
 def test_a_hint_dearer_than_the_types_floor_raises_the_entry() -> None:
     known = catalog()
-    bug_fix = known.require("bug_fix")
+    bug_fix = known.require("code")
     assert floor_for(bug_fix, known.family("api")) == known.family("api")
 
 
@@ -188,8 +188,8 @@ def test_a_hint_dearer_than_the_types_floor_raises_the_entry() -> None:
 
 def test_a_triage_reads_the_task_type_and_the_hinted_floor() -> None:
     known = catalog()
-    result = read_triage(known, answered("bug_fix", 2.0))
-    assert result.task_type.name == "bug_fix"
+    result = read_triage(known, answered("code", 2.0))
+    assert result.task_type.name == "code"
     assert result.floor.name == "api"
 
 
@@ -235,7 +235,7 @@ def test_triage_sends_one_logprobs_request_per_question(
     assert len(sent.calls) == 2
     assert isinstance(result, Triage)
     # The first task type in the catalog, and a floor of the dearest family.
-    assert result.task_type.name == "format"
+    assert result.task_type.name == "chat"
     assert result.floor.name == "api"
     assert sent.calls[0]["max_tokens"] == 1
     assert sent.calls[0]["logprobs"] is True
@@ -258,7 +258,7 @@ def test_the_climb_stays_a_suffix_whatever_the_classifier_names(
     config, pool = mapped(THREE_RUNG)
     c = contract(BUG_FIX)
     normal = ascent(config, pool, c)
-    bug_fix = catalog().require("bug_fix")
+    bug_fix = catalog().require("code")
 
     for hinted in catalog().families:
         floor = floor_for(bug_fix, hinted)
@@ -271,7 +271,7 @@ def test_a_bad_hint_degrades_to_the_normal_climb(key: None) -> None:
     """The cheaper-than-the-floor hint is the one that must not move anything."""
     config, pool = mapped(TWO_FAMILIES)
     c = contract(BUG_FIX)
-    bug_fix = catalog().require("bug_fix")
+    bug_fix = catalog().require("code")
     floor = floor_for(bug_fix, catalog().family("deterministic"))
 
     assert floor == catalog().family("local")
@@ -282,7 +282,7 @@ def test_a_dearer_hint_raises_the_entry_and_never_reorders(key: None) -> None:
     """Raising the floor drops cheap families and keeps every surviving rung."""
     config, pool = mapped(THREE_RUNG)
     c = contract(BUG_FIX)
-    floor = floor_for(catalog().require("bug_fix"), catalog().family("api"))
+    floor = floor_for(catalog().require("code"), catalog().family("api"))
 
     raised = ascent(config, pool, c, floor=floor)
     assert raised.families == (catalog().family("api"),)

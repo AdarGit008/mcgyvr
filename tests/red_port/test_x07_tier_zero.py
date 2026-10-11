@@ -44,7 +44,7 @@ from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import plan
 from tests.red_port.conftest import required
 
@@ -66,7 +66,7 @@ ladder:
 - local_qwen-7b
 """
 
-DETERMINISTIC = tuple(t.name for t in catalog().task_types if t.starts_on.rank == 0)
+DETERMINISTIC = tuple(o.name for o in catalog().operations if o.starts_on.rank == 0)
 
 
 def _route() -> Any:
@@ -107,7 +107,7 @@ def test_a_deterministic_task_type_has_something_to_run_on_its_own_floor() -> No
     """
     config, pool = _installed()
     assert DETERMINISTIC, (
-        "no task type starts on the deterministic family, so this test asserts "
+        "no operation starts on the deterministic family, so this test asserts "
         "nothing — check data/task-catalog.json"
     )
 
@@ -118,7 +118,7 @@ def test_a_deterministic_task_type_has_something_to_run_on_its_own_floor() -> No
     empty = {name: found.reason for name, found in planned.items() if not found.steps}
 
     assert not empty, (
-        f"{len(empty)} of {len(DETERMINISTIC)} deterministic task types plan nothing "
+        f"{len(empty)} of {len(DETERMINISTIC)} deterministic operations plan nothing "
         f"to run on their own floor, so each of them is a model call for work a tool "
         f"does for free: "
         + "; ".join(f"{name}: {reason}" for name, reason in empty.items())

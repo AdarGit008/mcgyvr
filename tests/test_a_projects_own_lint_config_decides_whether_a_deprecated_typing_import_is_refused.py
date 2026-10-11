@@ -76,7 +76,7 @@ PROJECT = '[project]\nname = "rows"\nversion = "0"\n'
 
 CONTRACT = f"""
 id: add-rows
-task_type: function_implementation
+task_type: code
 task: Add the rows.
 target: {TARGET}
 stop_conditions:

@@ -46,9 +46,9 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
+from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, source_map
 from mcgyvr.orchestrator.decompose import DepRef, Proposal, RecordedProposer, decompose
 from mcgyvr.orchestrator.index import build_index
-from mcgyvr.pool import Endpoint, Protocol, SourceMap, source_map
 from mcgyvr.route import Try, Verdict, plan
 from tests.red_port.conftest import CONTRACT, git
 
@@ -78,7 +78,7 @@ WORKSTATION = Endpoint(
 )
 
 PROPOSAL = Proposal(
-    task_type="docstring",
+    task_type="code",
     task="Document listing() and say how it pages its items.",
     target="listing.py",
     deps=(DepRef(path="pagination.py", symbol="paginate"),),
@@ -176,7 +176,7 @@ def test_the_same_work_in_two_different_repositories_gets_the_same_contract_id(
     (one,) = here.contracts
     (two,) = there.contracts
     assert one.id == two.id, "the contract id depends on where the repository sits"
-    assert one.id.startswith("docstring-"), f"the id does not name its work: {one.id}"
+    assert one.id.startswith("code-"), f"the id does not name its work: {one.id}"
     assert here.documents == there.documents, (
         "the emitted document is not a function of the work"
     )

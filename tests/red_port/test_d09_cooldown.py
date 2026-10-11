@@ -54,7 +54,7 @@ from typing import Any
 import pytest
 
 from mcgyvr.availability import AvailabilityVerdict
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from tests.red_port.conftest import required
 
 BEHAVIOR = (
@@ -76,8 +76,8 @@ def _tracker() -> Any:
 
     :class:`mcgyvr.cooldown.Cooldown`: a liveness view that also learns from dispatch
     failures — it answers ``unavailable`` the way
-    :class:`~mcgyvr.availability.Availability` does, so :func:`mcgyvr.pool.source_map`
-    needs to learn nothing new.
+    :class:`~mcgyvr.availability.Availability` does, so
+    :func:`mcgyvr.local_pool.source_map` needs to learn nothing new.
     """
     return required(
         BEHAVIOR,

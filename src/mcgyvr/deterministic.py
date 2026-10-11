@@ -59,7 +59,7 @@ from mcgyvr.route import Plan, Planned, Step, attempts_for, plan
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
 
 
 # Which program owns which type, per language, and how it is invoked. Both
@@ -189,10 +189,10 @@ class ToolStep:
     """One step of a deterministic plan: a program, not a rung.
 
     The sibling of :class:`~mcgyvr.route.Step`, and deliberately not the same
-    type. A :class:`~mcgyvr.route.Step` carries a :class:`~mcgyvr.pool.Rung`,
+    type. A :class:`~mcgyvr.route.Step` carries a :class:`~mcgyvr.local_pool.Rung`,
     which resolves to an endpoint a runner dispatches against; a tool has no
     endpoint and never will, so fitting one into that shape would mean
-    inventing a rung name :meth:`~mcgyvr.pool.SourceMap.bind` cannot honour.
+    inventing a rung name :meth:`~mcgyvr.local_pool.SourceMap.bind` cannot honour.
 
     ``attempts`` is one and comes from :func:`~mcgyvr.route.attempts_for`
     rather than from a literal here, so the rule that a tool fails identically

@@ -115,10 +115,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.gate import GateResult
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
 
 #: What the pool calls the reviewer. One name, in one place, because a role that
-#: is spelled differently here than in :mod:`mcgyvr.pool` is a role that is
+#: is spelled differently here than in :mod:`mcgyvr.local_pool` is a role that is
 #: silently never found.
 VERIFIER_ROLE = "verifier"
 
@@ -769,7 +769,7 @@ def reviewer_for(
 ) -> Ask | None:
     """The install's verifier role as something :func:`verify` can ask, or ``None``.
 
-    ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role` and is an ordinary
+    ``None`` mirrors :meth:`~mcgyvr.local_pool.SourceMap.role` and is an ordinary
     answer: an install with no verifier role bound has no verifier, which
     :func:`~mcgyvr.escalate.judge` answers by labelling the acceptance
     ``UNVERIFIED`` rather than by failing it. Callers get that path by passing
@@ -904,7 +904,7 @@ def reviewers_for(
     Three answers, read once. ``verifier.enabled: false`` is no reviewer for
     anyone, said as that. A named ``verifier.unit`` is the one reviewer for
     everyone — asked about its model here, so a role declared on a source that
-    cannot serve raises :class:`~mcgyvr.pool.SourceUnavailableError` now,
+    cannot serve raises :class:`~mcgyvr.local_pool.SourceUnavailableError` now,
     while refusing is still free. Otherwise each builder's reviewer is
     :func:`reviewer_rung`'s pick, and a builder with none gets a
     :class:`NoReviewer` that says why.

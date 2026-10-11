@@ -57,6 +57,8 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
+from mcgyvr.catalog import catalog
+
 from . import contract as contract_schema
 from .config import FLEET_FILENAME, POLICY_FILENAME, RELIEF_FILENAME, SCHEMA, Field
 
@@ -286,7 +288,7 @@ def render_reference() -> str:
 # --- SETUP.md ----------------------------------------------------------------
 
 #: The three lever keys, across `fleet.yaml` and `policy.yaml`, that
-#: `mcgyvr pool` reads back. They are named here rather than described here:
+#: `mcgyvr local_pool` reads back. They are named here rather than described here:
 #: the bullet each one gets carries the
 #: `Field`'s own `doc`, so the levers cannot say one thing in SETUP.md and
 #: another in the schema the loader walks.
@@ -329,11 +331,11 @@ def render_setup() -> str:
         f"and what they can say.",
         "",
         "```",
-        "mcgyvr init",
-        "mcgyvr pool",
+        "mcgyvr setup",
+        "mcgyvr local_pool",
         "```",
         "",
-        "`mcgyvr init` detects what is reachable and writes a config bound to it. It",
+        "`mcgyvr setup` detects what is reachable and writes a config bound to it. It",
         "refuses to overwrite an existing config without `--force`, and prints what",
         "was decided and why, then what is *not* configured and what that costs.",
         "Backends on another machine come in with `--host` (repeatable).",
@@ -365,9 +367,9 @@ def render_setup() -> str:
         "  conversational agent a harness points at (`mcgyvr mcorch serve`);",
         "  it needs `--jev`.",
         "",
-        "`mcgyvr init --help` has each one's full text.",
+        "`mcgyvr setup --help` has each one's full text.",
         "",
-        "Two commands measure and plan before `mcgyvr init` writes a config.",
+        "Two commands measure and plan before `mcgyvr setup` writes a config.",
         "`mcgyvr scan` measures this machine (free and total VRAM, available RAM,",
         "cores, timed memory bandwidth, free disk), records it (by default under",
         "`~/.local/state/mcgyvr/scans`), and exits 4 when a card, total RAM or",
@@ -378,7 +380,7 @@ def render_setup() -> str:
         "otherwise from the shipped model catalog. It writes, wakes and sleeps",
         "nothing.",
         "",
-        "A setup is two files in one directory, and `mcgyvr init` writes both (by",
+        "A setup is two files in one directory, and `mcgyvr setup` writes both (by",
         "default into the working directory):",
         "",
         f"- `{FLEET_FILENAME}` — what runs where: `profile`, `units`, `rigs` and "
@@ -396,14 +398,16 @@ def render_setup() -> str:
         "setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is",
         "checked only as a block. `examples/fleet.yaml` shows all three.",
         "",
-        "`mcgyvr pool` reads that config back: the usable rungs cheapest-first with",
+        "`mcgyvr local_pool` reads that config back: the usable rungs "
+        "cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
         "orchestrator and verifier models. `--probe` also asks each unit whether it",
         "is answering — off by default, because resolving a ladder should not need",
         "a network. Run it whenever a run picks a rung you did not expect.",
         "",
-        "Three keys across the two files are the levers, and `mcgyvr pool` is how",
+        "Three keys across the two files are the levers, and `mcgyvr local_pool` "
+        "is how",
         "you read all three:",
         "",
     ]
@@ -439,6 +443,7 @@ _CONTRACT_KIND_LABELS: dict[str, str] = {
     "int": "number",
     "float": "decimal number",
     "str": "text",
+    "bool": "boolean",
     "str_list": "list of text",
     "glob_list": "list of globs",
     "block": "block",
@@ -485,35 +490,9 @@ rename:
 scope:
   allow: ["src/pkg/**"]
 """,
-    "docstring": """\
-id: doc-fetch
-task_type: docstring
-task: Write the docstring for fetch_document, stating what it returns on a 404.
-target: src/pkg/fetch.py
-interface: "def fetch_document(url: str, *, timeout_s: float = 5.0) -> str"
-stop_conditions:
-  - The 404 behaviour cannot be read from the code.
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["src/pkg/fetch.py"]
-""",
-    "type_annotation": """\
-id: annotate-fetch
-task_type: type_annotation
-task: Add type annotations to fetch_document and its helpers.
-target: src/pkg/fetch.py
-stop_conditions:
-  - A helper's return type cannot be determined from its callers.
-acceptance: ["mypy src/pkg/fetch.py"]
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["src/pkg/fetch.py"]
-""",
-    "function_implementation": """\
+    "code": """\
 id: impl-chunk
-task_type: function_implementation
+task_type: code
 task: >-
   Implement chunk. Split a list into consecutive groups of at most size
   elements, preserving order; the last group is shorter when the length does
@@ -530,53 +509,29 @@ limits:
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
-    "test_scaffold": """\
-id: test-chunk
-task_type: test_scaffold
-task: Write tests for chunk covering the empty list, an exact division and a remainder.
-target: tests/test_chunk.py
-interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
-deps:
-  - path: src/pkg/chunk.py
-    signature: "def chunk(items: list[T], size: int) -> list[list[T]]"
-stop_conditions:
-  - The expected result for a remainder group is not stated.
-acceptance: ["pytest -q tests/test_chunk.py"]
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["tests/test_chunk.py"]
-""",
-    "bug_fix": """\
-id: fix-chunk-remainder
-task_type: bug_fix
-task: chunk drops the final short group when the length does not divide evenly; keep it.
-target: src/pkg/chunk.py
-interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
-stop_conditions:
-  - The demonstrating test does not fail on the current code.
-demonstration: ["pytest -q tests/test_chunk.py -k remainder"]
-acceptance: ["pytest -q tests/test_chunk.py"]
-limits:
-  max_output_tokens: {cap}
-scope:
-  allow: ["src/pkg/chunk.py"]
-""",
 }
 
 
 def examples() -> dict[str, str]:
     """One minimal valid contract per task type, in the catalog's order.
 
-    Each model-executed example declares the cap its task type derives, read
-    from :func:`mcgyvr.contract.output_cap` when this is called. Each is loaded
-    by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``; an
-    example that does not validate fails the suite.
+    Each model-executed example declares the cap its own fields derive, read
+    back by loading the example without its cap and taking the number the
+    loader derives — so a `code` example that carries an `acceptance` gets the
+    running allowance, not the structural one its bare type would. Each example
+    is loaded by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``;
+    an example that does not validate fails the suite.
     """
-    return {
-        task_type: template.replace("{cap}", str(contract_schema.output_cap(task_type)))
-        for task_type, template in _EXAMPLE_TEMPLATES.items()
-    }
+    rendered: dict[str, str] = {}
+    for task_type, template in _EXAMPLE_TEMPLATES.items():
+        if "{cap}" not in template:
+            rendered[task_type] = template
+            continue
+        stripped = template.replace("limits:\n  max_output_tokens: {cap}\n", "")
+        derived = contract_schema.loads(stripped).limits.max_output_tokens
+        assert derived is not None, f"{task_type} example must derive a cap"
+        rendered[task_type] = template.replace("{cap}", str(derived))
+    return rendered
 
 
 #: :func:`examples` as built at import, for readers that want a mapping.
@@ -584,6 +539,15 @@ EXAMPLES: dict[str, str] = examples()
 
 
 def _contract_type_label(field: contract_schema.Field) -> str:
+    # ``task_type`` is the one field whose schema accepts more than a model may
+    # choose: the catalog's deterministic operations are legal ``task_type``
+    # values (the product runs them directly) but are not task types. The skill
+    # lists the model vocabulary here and documents the operations in their own
+    # section.
+    if field.name == "task_type":
+        return "one of " + ", ".join(
+            f"`{n}`" for n in contract_schema.task_type_names()
+        )
     if field.kind == "enum":
         choices = field.choices or (field.choices_from() if field.choices_from else ())
         return "one of " + ", ".join(f"`{c}`" for c in choices)
@@ -611,6 +575,8 @@ def _contract_default_label(field: contract_schema.Field) -> str:
         return "unset"
     if field.default == "":
         return "empty"
+    if field.kind == "bool":
+        return f"`{str(field.default).lower()}`"
     return f"`{field.default}`"
 
 
@@ -658,10 +624,10 @@ def render_skill() -> str:
         "it on deterministic tools, local models or API models and keeps only "
         "what its deterministic gate accepts. Use it when a change has one "
         "target and a way to judge it (format, import sort, lint fix, rename, "
-        "docstring, type annotations, a function, its tests, a bug fix): author "
-        "a task contract, validate it, run it, read the result file, replan from "
-        "the findings. It never loads itself; invoke it with /mcgyvr. The schema "
-        'below is the only contract vocabulary."',
+        "or a scoped code edit whose evidence is derived from the contract): "
+        "author a task contract, validate it, run it, read the result file, "
+        "replan from the findings. It never loads itself; invoke it with "
+        '/mcgyvr. The schema below is the only contract vocabulary."',
         "disable-model-invocation: true",
         "---",
         "",
@@ -680,8 +646,9 @@ def render_skill() -> str:
         "One YAML file. Every key below is the contract schema in",
         "`src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,",
         "and every rejection names the key and what a valid value looks like.",
-        "Pick the `task_type` first: it decides what evidence the contract must",
-        "carry. `mcgyvr catalog <type>` prints the type's guarantee.",
+        "Pick the `task_type` first. For `code`, evidence is derived from the "
+        "contract's own fields, never chosen. `mcgyvr catalog <type>` prints "
+        "the type's guarantee.",
         "`mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft",
         "validated contracts from a request instead and prints them; `--run` runs",
         "each one.",
@@ -694,6 +661,11 @@ def render_skill() -> str:
         if field.block:
             lines += _contract_section(field, field.name)
     lines += [
+        "### Deterministic operations",
+        "",
+        "Not task types — a model never chooses them: `format`, `import_sort`,",
+        "`lint_fix`, `rename_symbol`.",
+        "",
         "### One minimal example per task type",
         "",
         f"`{EXAMPLES_PATH}` carries one per type,",
@@ -816,7 +788,8 @@ def render_skill() -> str:
 
 
 def render_examples() -> str:
-    """The examples file, as text: one minimal contract per task type.
+    """The examples file, as text: one minimal contract per task type, plus one
+    per deterministic operation.
 
     A document that is written and kept, like the skill and ``SETUP.md``, and
     checked the same way: it is a projection of :func:`examples`, which
@@ -825,17 +798,29 @@ def render_examples() -> str:
     build failure. It is one file away from the skill because an agent's
     context is the scarce thing and a file costs nothing until it is opened.
     """
+    operation_names = {op.name for op in catalog().operations}
+    type_examples = {
+        name: text for name, text in examples().items() if name not in operation_names
+    }
+    operation_examples = {
+        name: text for name, text in examples().items() if name in operation_names
+    }
     lines = [
         SKILL_MARKER,
         "",
-        "# One minimal contract per task type",
+        "# One minimal contract per task type, and one per deterministic operation",
         "",
         "Each loads through the contract validator; they are checked by the test",
         "suite, so copying one is copying a shape that is known to validate. The",
         "keys are documented in `SKILL.md`.",
         "",
+        "## Task types",
+        "",
     ]
-    for task_type, text in examples().items():
+    for task_type, text in type_examples.items():
+        lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
+    lines += ["## Deterministic operations", ""]
+    for task_type, text in operation_examples.items():
         lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
     return "\n".join(lines).rstrip("\n") + "\n"
 

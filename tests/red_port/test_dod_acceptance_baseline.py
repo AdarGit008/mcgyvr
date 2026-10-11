@@ -50,7 +50,7 @@ ALSO_FAILS = "python3 -c 'import sys; sys.exit(1)  # regression'"
 
 BUG_FIX = """
 id: fix-fetch
-task_type: bug_fix
+task_type: code
 task: fetch returns the url instead of the document; fix it.
 target: src/pkg/fetch.py
 interface: "def fetch(url: str) -> str"
@@ -74,7 +74,7 @@ def _prompts(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     sends none, a run that reached a rung sends one.
     """
     import mcgyvr.drive as drive
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     sent: list[str] = []

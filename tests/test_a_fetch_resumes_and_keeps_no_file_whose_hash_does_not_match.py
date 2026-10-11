@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.knowledge.record import Number, Weights
+from mcgyvr.knowledge.record import ModelRecord, Number, Weights
 from mcgyvr.scan import Scan
 from mcgyvr.serving import fetchlist, rigfile, rigscan
 from tests import onedoor, usermode
@@ -156,6 +156,7 @@ def _wanted(tmp_path: Path, files: dict[str, bytes] = FILES) -> Path:
                         "file": name,
                         "sha256": _sha(data),
                         "bytes": len(data),
+                        "name": name,
                     }
                     for name, data in files.items()
                 ]
@@ -414,6 +415,7 @@ def test_a_token_variable_named_and_empty_is_refused_before_any_gate(
         {"sha256": "abc"},
         {"revision": "main"},
         {"file": "../escape.gguf"},
+        {"name": "../escape.gguf"},
         {"bytes": 0},
         {"extra": 1},
     ],
@@ -428,6 +430,7 @@ def test_a_list_the_door_cannot_hold_to_a_hash_is_refused_before_any_gate(
         "file": "coder-s-Q4_K_M.gguf",
         "sha256": _sha(SMALL),
         "bytes": len(SMALL),
+        "name": "coder-s-Q4_K_M.gguf",
         **bad,
     }
     wanted = tmp_path / "bad.json"
@@ -476,3 +479,51 @@ def test_the_fetcher_and_the_rig_scan_name_the_same_weights_folder(
     monkeypatch.setenv("MCGYVR_WEIGHTS", str(tmp_path / "w"))
     assert fetcher.weights_dir() == rigscan._default_weights_dir()
     assert os.fspath(tmp_path / "w") == fetcher.weights_dir()
+
+
+def _coder_record() -> ModelRecord:
+    """A record whose model id and Hub file name are two different spellings."""
+
+    def number() -> Number:
+        return Number(
+            value=len(SMALL),
+            kind="fact",
+            source="shipped:test",
+            read_at=date(2026, 10, 7),
+        )
+
+    return ModelRecord(
+        model_id="Qwen/Qwen2.5-Coder-7B-Instruct",
+        quant="Q4_K_M",
+        engines=("llama.cpp",),
+        weights=Weights(
+            repo="Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+            revision=REVISION,
+            file="qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+            sha256=_sha(SMALL),
+        ),
+        size_bytes=number(),
+        context_length=number(),
+        kv_bytes_per_token=number(),
+        recurrent_bytes_per_slot=number(),
+        scores=(),
+    )
+
+
+def test_from_records_lands_under_the_canonical_name() -> None:
+    """The fetch saves under the name ``emit`` serves, not the Hub base name."""
+    [want] = fetchlist.from_records([_coder_record()])
+
+    assert want.file == "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+    assert want.name == "Qwen_Qwen2.5-Coder-7B-Instruct.gguf"
+
+
+def test_the_fetch_list_round_trips_the_explicit_name() -> None:
+    """The explicit local name travels in the JSON and parses back unchanged."""
+    want = fetchlist.from_records([_coder_record()])[0]
+    text = fetchlist.dump([want])
+
+    assert '"name": "Qwen_Qwen2.5-Coder-7B-Instruct.gguf"' in text
+    [again] = fetchlist.parse(text)
+    assert again == want
+    assert again.name == "Qwen_Qwen2.5-Coder-7B-Instruct.gguf"

@@ -55,7 +55,7 @@ BASE = "def fetch(url):\n    return url\n"
 ACCEPTED = "RETRY = 3\n\n\ndef fetch(url):\n    return url\n"
 CONTRACT = f"""
 id: retry
-task_type: function_implementation
+task_type: code
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
@@ -286,7 +286,7 @@ def _git(repo: Path, *args: str) -> None:
 
 
 def _completion(text: str) -> Any:
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(

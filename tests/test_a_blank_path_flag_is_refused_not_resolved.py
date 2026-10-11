@@ -129,7 +129,7 @@ def test_a_blank_orchestrator_is_still_refused_by_its_own_message(
     ("argv", "named"),
     [
         (["config", ""], "path"),
-        (["pool", ""], "path"),
+        (["local_pool", ""], "path"),
         (["catalog", "--against", ""], "--against"),
         (["emit", "--config", ""], "--config"),
     ],

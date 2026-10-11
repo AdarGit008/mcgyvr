@@ -266,7 +266,7 @@ mcgyvr run CONTRACT.yaml --repo DIR [--sandbox tempdir] [--commit]
 
 The run refuses unless it can say who typed it: Claude Code and Pi sessions
 are detected from the environment, otherwise pass `--orchestrator ID`. A
-ladder run needs a config (`mcgyvr init`, or `--config PATH`); the
+ladder run needs a config (`mcgyvr setup`, or `--config PATH`); the
 deterministic floor does not. The last stdout line is `result: <path>`:
 everything above it is scrollback, and everything the run came to is in
 that file, under mcgyvr's own journal directory — never in the repository.

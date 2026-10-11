@@ -2,9 +2,10 @@
 
 A digest of ``dumps(contract)`` names a contract by what it says, so the
 emitted form must not depend on ``data/task-catalog.json``. ``output_cap``
-derives the cap from the task type's required evidence; a derived number written
-into the emitted form would let one flipped ``needs_commands`` boolean change
-the digest of every contract of that type that declares no cap.
+derives the cap from the contract's evidence — for ``code``, from its own
+fields — a derived number written into the emitted form would let one flipped
+``needs_commands`` boolean change the digest of every contract that declares no
+cap.
 
 So, as with ``depends_on``, the *resolved* value lives on the loaded object, the
 *declared* value lives in the serialised form. A contract that declares
@@ -24,9 +25,10 @@ import pytest
 
 from mcgyvr.contract import RUNNING_ALLOWANCE, dumps, loads, output_cap, parse
 
-FUNCTION_IMPL = """
+# A `code` contract whose acceptance derives the running allowance.
+WITH_COMMANDS = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions:
@@ -36,30 +38,32 @@ scope:
   allow: ["src/**/*.py"]
 """
 
-DOCSTRING = """
+# A `code` contract whose `no_semantic_change` flag derives the structural
+# allowance — no command, so behaviour does not have to be written.
+NO_COMMANDS = """
 id: document
-task_type: docstring
+task_type: code
 task: Document the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions:
   - The helper's behaviour is not stated anywhere in the repo.
-acceptance: ["python -c 'import sys; sys.exit(0)'"]
+no_semantic_change: true
 scope:
   allow: ["src/**/*.py"]
 """
 
-DECLARED = FUNCTION_IMPL + "limits:\n  max_output_tokens: 2048\n"
+DECLARED = WITH_COMMANDS + "limits:\n  max_output_tokens: 2048\n"
 
-PROSE = FUNCTION_IMPL + "output_schema: prose\n"
+PROSE = WITH_COMMANDS + "output_schema: prose\n"
 
 
 def test_a_derived_cap_stays_on_the_loaded_object_and_not_in_the_emitted_form() -> None:
     """The runtime budget is derived; the identity carries the declaration only."""
-    contract = loads(FUNCTION_IMPL)
+    contract = loads(WITH_COMMANDS)
 
-    assert contract.limits.max_output_tokens == output_cap("function_implementation"), (
-        "the loaded object must still carry the derived runtime cap"
-    )
+    assert contract.limits.max_output_tokens == output_cap(
+        "code", evidence=contract.evidence
+    ), "the loaded object must still carry the derived runtime cap"
     assert '"max_output_tokens": null' in dumps(contract), (
         "a derived cap leaked into the emitted form, so the catalog still "
         "re-keys the identity"
@@ -76,7 +80,7 @@ def test_a_declared_cap_is_part_of_the_identity() -> None:
 
 def test_the_round_trip_still_holds_for_both_shapes() -> None:
     """``parse(dumps(c)) == c``, derived or declared."""
-    assert parse(dumps(loads(FUNCTION_IMPL))) == loads(FUNCTION_IMPL)
+    assert parse(dumps(loads(WITH_COMMANDS))) == loads(WITH_COMMANDS)
     assert parse(dumps(loads(DECLARED))) == loads(DECLARED)
 
 
@@ -94,16 +98,16 @@ def test_editing_the_catalog_does_not_move_the_identity(
 ) -> None:
     """Flipping ``needs_commands`` changes the runtime cap, not the digest.
 
-    Under the shipped catalog ``docstring`` derives the structural allowance.
-    Flipping its ``no_semantic_change`` evidence to need a command would derive
-    the running allowance — and the emitted form must not move either way,
-    because the cap was never declared.
+    A `code` contract with `no_semantic_change: true` derives the structural
+    allowance. Flipping the ``no_semantic_change`` evidence kind to need a
+    command would derive the running allowance — and the emitted form must not
+    move either way, because the cap was never declared.
     """
     import mcgyvr.catalog as catalog_module
     from mcgyvr.catalog import catalog as catalog_fn
 
-    before = dumps(loads(DOCSTRING))
-    cap_before = loads(DOCSTRING).limits.max_output_tokens
+    before = dumps(loads(NO_COMMANDS))
+    cap_before = loads(NO_COMMANDS).limits.max_output_tokens
 
     raw: dict[str, Any] = json.loads(
         catalog_module.catalog_path().read_text(encoding="utf-8")
@@ -118,12 +122,12 @@ def test_editing_the_catalog_does_not_move_the_identity(
     request.addfinalizer(catalog_fn.cache_clear)
 
     # The runtime cap moved — that is the catalog doing its job.
-    cap_after = loads(DOCSTRING).limits.max_output_tokens
+    cap_after = loads(NO_COMMANDS).limits.max_output_tokens
     assert cap_after != cap_before, "flipping the evidence did not move the cap"
     assert cap_after == RUNNING_ALLOWANCE
     # The emitted form did not — that is identity not reading the catalog.
-    assert dumps(loads(DOCSTRING)) == before
+    assert dumps(loads(NO_COMMANDS)) == before
     assert (
-        hashlib.sha256(dumps(loads(DOCSTRING)).encode()).hexdigest()
+        hashlib.sha256(dumps(loads(NO_COMMANDS)).encode()).hexdigest()
         == hashlib.sha256(before.encode()).hexdigest()
     )

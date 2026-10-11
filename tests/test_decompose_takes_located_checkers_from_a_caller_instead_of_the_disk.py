@@ -58,7 +58,7 @@ def test_an_empty_located_map_refuses_even_where_the_disk_declares_a_checker(
     (refusal,) = result.refusals
     assert refusal.subject == "listing.py"
     assert "declares no type checker" in refusal.reason
-    assert "type_annotation" in refusal.reason
+    assert "type_check: true" in refusal.reason
 
 
 def test_without_the_argument_the_disk_is_read_as_before(tmp_path: Path) -> None:

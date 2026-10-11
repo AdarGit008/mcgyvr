@@ -60,7 +60,7 @@ from mcgyvr.gate.changeset import (
     read_current_text,
 )
 from mcgyvr.gate.findings import Finding
-from mcgyvr.pool import SourceMap
+from mcgyvr.local_pool import SourceMap
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity

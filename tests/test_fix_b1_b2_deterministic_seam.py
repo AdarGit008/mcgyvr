@@ -41,7 +41,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import ToolStep, tool_steps
 from mcgyvr.deterministic import route as floor_route
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import Result, RouteError, Step, Try, Verdict, climb, plan
 
 # A keyless install: one local rung above the floor, no credential anywhere.

@@ -13,9 +13,10 @@ that decides whether a run may proceed belongs in a gate, where the door can
 see it in :data:`~mcgyvr.serving.run.SEQUENCE`.
 
 One narrow exception is named, not hidden: :func:`ssh_read_only` opens a rig
-for a read-only detection command — the remote scan, the ``*.gguf`` discovery
-and the shipped-reader header read ``mcgyvr recommend`` runs — without the
-door. It admits only those three command shapes, so launch, sleep, wake and
+for a read-only detection command — the remote scan, the ``*.gguf`` discovery,
+the shipped-reader header read ``mcgyvr recommend`` runs, and the shipped
+``rig-snapshot.sh`` snapshot read first approval takes — without the
+door. It admits only those four command shapes, so launch, sleep, wake and
 every step still require the door through :func:`ssh`.
 
 Nothing here runs at import. A product module imports this, and a module that
@@ -258,7 +259,8 @@ def ssh(
     The other ssh spawns are the shims' own lease check (:func:`_direct_ssh`),
     which applies the same door rule, and :func:`ssh_read_only`, the one
     sanctioned read-only detection path (the remote scan, the ``*.gguf``
-    discovery and the shipped-reader header read). This function refuses — exit 2,
+    discovery, the shipped-reader header read and the shipped
+    ``rig-snapshot.sh`` snapshot read). This function refuses — exit 2,
     naming the door — unless this process descends from
     ``mcgyvr.serving.run`` and ``host`` is the one it was opened for.
     ``BatchMode=yes`` so a host that wants a password fails in seconds instead
@@ -295,6 +297,9 @@ _SCAN_READ_SUFFIX = " | base64 -d | python3 -"
 #: The fixed middle of the one read-only line that ships the header reader.
 _HEADER_READ_MIDDLE = " | base64 -d | python3 - "
 
+#: The fixed suffix of the one read-only line that ships the rig snapshot reader.
+_RIG_SNAPSHOT_READ_SUFFIX = " | base64 -d | bash -s"
+
 
 def _header_read_blob() -> str:
     """The shipped header reader, base64-encoded, the only payload it ships.
@@ -326,6 +331,21 @@ def _scan_read_blob() -> str:
     return base64.b64encode(source.read_bytes()).decode("ascii")
 
 
+def _rig_snapshot_read_blob() -> str:
+    """The shipped rig snapshot reader, base64-encoded, the only payload it ships.
+
+    Read lazily so importing gatelib still touches nothing. The reader is the
+    door's ``rig-snapshot.sh`` under :data:`mcgyvr.serving.run.GATE_SCRIPTS`,
+    the one copy, read by file — the same single-copy rule as the scanner and
+    the header reader, because the far end measures the machine and two
+    readers would be two opinions about what the same rig reported.
+    """
+    from mcgyvr.serving.run import GATE_SCRIPTS
+
+    source = GATE_SCRIPTS / "rig-snapshot.sh"
+    return base64.b64encode(source.read_bytes()).decode("ascii")
+
+
 def _single_quote(token: str) -> str:
     """``token`` as one single-quoted shell word, refusing an embedded quote.
 
@@ -354,6 +374,17 @@ def scan_read_command() -> str:
     return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX}"
 
 
+def rig_snapshot_read_command() -> str:
+    """The one read-only remote line that reads a rig's snapshot.
+
+    The reader ships as ``bash -s`` and nothing lands on the rig's disk; the
+    blob never comes back. It takes no argument: the reader measures the
+    machine it runs on, so a fresh rig needs only bash plus the tools the
+    reader reads.
+    """
+    return f"echo {_rig_snapshot_read_blob()}{_RIG_SNAPSHOT_READ_SUFFIX}"
+
+
 def header_read_command(path: str) -> str:
     """The one read-only remote line that reads a checkpoint header on the rig.
 
@@ -369,10 +400,14 @@ def header_read_command(path: str) -> str:
 def _read_only_command(command: str) -> bool:
     """Whether ``command`` is a sanctioned read-only detection line.
 
-    Three shapes are admitted, and nothing else:
+    Four shapes are admitted, and nothing else:
 
     * the shipped-scan line ``echo <scanner> | base64 -d | python3 -``, whose
       payload is exactly the shipped rig scanner (base64) and which carries no
+      argument;
+    * the shipped snapshot-read line
+      ``echo <snapshot reader> | base64 -d | bash -s``, whose payload is
+      exactly the shipped ``rig-snapshot.sh`` (base64) and which carries no
       argument;
     * the model-store discovery line ``mcgyvr recommend`` builds,
       ``find '<dir>' -maxdepth 1 -name '*.gguf' -print``, whose directory is
@@ -384,11 +419,16 @@ def _read_only_command(command: str) -> bool:
     The quote is what makes a directory or a path a filename argument on the
     far shell and never a command, so the sanction refuses one it could not
     prove was quoted. The base64 is the lock that keeps an arbitrary script
-    out of the read-only path: only the shipped scanner or reader matches.
+    out of the read-only path: only the shipped scanner, snapshot reader or
+    header reader matches.
     """
     if command.startswith("echo ") and command.endswith(_SCAN_READ_SUFFIX):
         blob = command[len("echo ") : -len(_SCAN_READ_SUFFIX)]
         return blob == _scan_read_blob()
+
+    if command.startswith("echo ") and command.endswith(_RIG_SNAPSHOT_READ_SUFFIX):
+        blob = command[len("echo ") : -len(_RIG_SNAPSHOT_READ_SUFFIX)]
+        return blob == _rig_snapshot_read_blob()
 
     prefix = "find "
     suffix = " -maxdepth 1 -name '*.gguf' -print"
@@ -420,18 +460,18 @@ def ssh_read_only(
     """Open ssh for a sanctioned read-only detection command, outside the door.
 
     The ONE exception to the door rule, and it is narrow: ``command`` must be
-    the shipped-scan line, the ``*.gguf`` discovery shape, or the
-    shipped-reader header-read shape :func:`_read_only_command` admits. Nothing
-    that launches, sleeps, wakes, writes, or runs a step is admitted here;
-    those all still require the door through :func:`ssh`. The door's
-    launch/sleep/wake path is untouched.
+    the shipped-scan line, the shipped snapshot-read line, the ``*.gguf``
+    discovery shape, or the shipped-reader header-read shape
+    :func:`_read_only_command` admits. Nothing that launches, sleeps, wakes,
+    writes, or runs a step is admitted here; those all still require the door
+    through :func:`ssh`. The door's launch/sleep/wake path is untouched.
     """
     if not _read_only_command(command):
         refuse(
             "ssh_read_only refused: the command is not a sanctioned read-only "
-            "detection line (only the shipped scan, the *.gguf discovery and "
-            f"the shipped-reader header read are admitted), not "
-            f"{shlex.quote(command)[:80]}"
+            "detection line (only the shipped scan, the shipped snapshot read, "
+            "the *.gguf discovery and the shipped-reader header read are "
+            f"admitted), not {shlex.quote(command)[:80]}"
         )
     return subprocess.run(
         [

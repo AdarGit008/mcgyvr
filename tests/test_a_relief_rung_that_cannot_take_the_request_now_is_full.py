@@ -36,7 +36,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import parse
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.runner import BackendError, Request, RunnerError, dispatch
 
 RUNG_ID = "0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"

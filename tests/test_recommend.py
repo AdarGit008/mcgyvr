@@ -561,6 +561,44 @@ def test_recommend_prefers_the_local_store_over_the_catalog(
         assert model["model_id"] not in rendered
 
 
+def test_recommend_placement_carries_the_measured_local_context_length(
+    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The placement carries the window the local checkpoint was priced at.
+
+    The plan's ``placement`` must state ``context_length``, the measured local
+    header's ``n_ctx_train``, so the setup wizard can hand ``emit`` the same
+    window it was priced at.
+    """
+    ssh()
+    classify()
+    probe(live=False)
+
+    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    assert code == 0
+    assert plan["source"] == "local-store"
+    assert plan["placement"]["context_length"] == 65536
+
+
+def test_recommend_placement_carries_the_shipped_catalog_context_length(
+    ssh: Any,
+    classify: Any,
+    probe: Any,
+    catalog: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A catalog placement carries its shipped ``context_length``."""
+    ssh()
+    classify()
+    probe(live=False)
+    catalog()
+
+    code, plan = run_and_parse(capsys, "coding", "single")
+    assert code == 0
+    assert plan["source"] == "hf-catalog"
+    assert plan["placement"]["context_length"] == 4096
+
+
 def test_recommend_falls_back_to_the_catalog_when_no_store_is_given(
     ssh: Any,
     classify: Any,

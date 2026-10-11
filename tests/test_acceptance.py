@@ -308,7 +308,7 @@ def test_a_bug_fix_contract_end_to_end_through_both_halves(tmp_path: Path) -> No
     contract = loads(
         """
 id: fix-value
-task_type: bug_fix
+task_type: code
 task: VALUE is 1 but every caller documents it as 2. Fix it.
 target: lib.py
 stop_conditions: ["The documented value is disputed."]
