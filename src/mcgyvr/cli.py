@@ -18,6 +18,8 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
+import yaml
+
 from mcgyvr import __version__
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
@@ -52,6 +54,7 @@ from mcgyvr.emit import (
     is_locked,
     planned_locked_paths,
     planned_paths,
+    resolved_launch,
     unplanned,
     unplanned_locked,
 )
@@ -72,11 +75,14 @@ from mcgyvr.initialize import (
     InitError,
     initialize,
     parse_api_unit,
+    render_fleet,
 )
 from mcgyvr.scan import Mismatch, ModelOnDisk, Scan
 from mcgyvr.serving import (
     ModelSpec,
+    Unit,
     UnitError,
+    declared_models,
     hold_together,
     host_of,
     units_for,
@@ -1025,6 +1031,12 @@ def _setup_interactive(path: Path) -> int:
         if not final.written:
             raise _SetupInteractiveError("the running setup was not written")
         print(f"Wrote {final.path} bound to the running servers\n")
+
+        # The final init rewrote fleet.yaml from the running servers and so
+        # dropped the launch the bootstrap emit stamped. Re-emit here so the
+        # fleet that is about to be locked carries the resolved launch; the
+        # compose rewrite is idempotent and the stamp is what matters.
+        _setup_emit(path, ctx_per_slot)
 
         if _confirm("Lock the fleet and name it live? [y/N] "):
             approved, unapproved = _own_fleet_live(path)
@@ -3527,6 +3539,178 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     return Exit.OK
 
 
+def _merge_resolved(
+    block: Mapping[str, Any], resolved: Mapping[str, Any]
+) -> dict[str, Any]:
+    """``block`` with ``resolved``'s fields filled where the block states none.
+
+    What an operator wrote wins: a key the block already states is left alone,
+    and only what is missing is stamped. The same rule holds inside
+    ``launch``, which is free-form and may already carry sizing keys
+    (``vram_gb``, ``shards``, ...) beside the argv/env/volumes the emit layer
+    resolves.
+    """
+    merged = dict(block)
+    for key in ("engine", "image", "container", "hf_cache"):
+        if key in resolved and not merged.get(key):
+            merged[key] = resolved[key]
+    stated = merged.get("launch")
+    launch = dict(stated) if isinstance(stated, Mapping) else {}
+    for key, value in (resolved.get("launch") or {}).items():
+        if key not in launch or launch[key] is None:
+            launch[key] = value
+    if launch:
+        merged["launch"] = launch
+    return merged
+
+
+def _block_declares(block: Mapping[str, Any]) -> bool:
+    """Whether ``block`` already declares a model spec rather than the table's.
+
+    Mirrors :func:`mcgyvr.serving.declared_models`' own skip condition: a block
+    that states anything under ``launch`` (or ``hf_cache``, ``room_mib``,
+    ``kv_cache_memory_bytes``) is sized from what it declares, so a stamp must
+    not paper over those keys with the shipped table's numbers.
+    """
+    return bool(
+        block.get("launch")
+        or block.get("hf_cache") is not None
+        or block.get("room_mib") is not None
+        or block.get("kv_cache_memory_bytes") is not None
+    )
+
+
+def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
+    """The scalar sizing keys a shipped dense row declares, for re-sizing.
+
+    A dev unit sized from the shipped table declares nothing in ``fleet.yaml``,
+    so once ``launch`` carries the resolved argv/env/volumes,
+    :func:`mcgyvr.serving.declared_models` reads it as a declared spec of all
+    zeros and refuses the next emit. Copying the table's scalar facts keeps the
+    two emits the same bytes. MoE rows and geometries are never copied: those
+    reach emit only through an operator's own declaration, which the stamp
+    already preserves.
+    """
+    keys: dict[str, Any] = {}
+    for key in ("vram_gb", "disk_gb", "ram_gb", "kv_cache_dtype_k", "kv_cache_dtype_v"):
+        value = getattr(spec, key, None)
+        if value:
+            keys[key] = value
+    return keys
+
+
+def _render_launch_block(launch: Mapping[str, Any]) -> str:
+    """The ``launch:`` block of one unit, indented to sit at four spaces."""
+    dumped = yaml.safe_dump(dict(launch), sort_keys=True, width=200)
+    lines = ["    launch:"]
+    lines.extend(
+        f"      {line}" if line else "" for line in dumped.rstrip("\n").splitlines()
+    )
+    return "\n".join(lines)
+
+
+def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
+    """Render a stamped ``fleet.yaml`` with the schema renderer, plus ``launch``.
+
+    :func:`mcgyvr.initialize.render_fleet` renders every unit field but does not
+    know how to spell a free-form ``launch`` mapping, so the launch blocks are
+    rendered here and spliced into its output at the field's own place — the
+    schema comments and the operator's ordering survive.
+    """
+    launches: dict[str, Mapping[str, Any]] = {}
+    render_units: dict[str, Any] = {}
+    for name, block in (fleet.get("units") or {}).items():
+        block = dict(block)
+        launch = block.pop("launch", None)
+        if isinstance(launch, Mapping) and launch:
+            launches[name] = launch
+        render_units[name] = block
+    text = render_fleet({**fleet, "units": render_units})
+
+    current: str | None = None
+    out: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("  ") and not line.startswith("    ") and line.endswith(":"):
+            name = line[2:-1].strip()
+            current = name if name in launches else None
+        elif current is not None and line.startswith("    # launch:  # "):
+            out.append(_render_launch_block(launches[current]))
+            continue
+        out.append(line)
+    return "\n".join(out) + "\n"
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    """Write ``text`` beside ``path`` and move it over atomically."""
+    staged = path.with_name(f".{path.name}.tmp")
+    staged.write_text(text, encoding="utf-8")
+    os.replace(staged, path)
+
+
+def _stamp_launch(
+    config: Config,
+    units: Iterable[Unit],
+    *,
+    sleep_mode: bool,
+    specs: Iterable[ModelSpec],
+) -> Path | None:
+    """Stamp ``resolved_launch`` into each serving unit of ``config``'s fleet.yaml.
+
+    Returns the file written, or ``None`` when there is no fleet.yaml beside the
+    config (a single merged document has none) or nothing changed. The write is
+    atomic and idempotent: a unit that already states a field keeps it.
+
+    A unit that was sized from the shipped table declares no model spec in
+    ``fleet.yaml``; once its ``launch`` carries the resolved argv, the loader
+    would read it as a declared spec of zeros. The table's scalar facts are
+    stamped beside the launch for exactly those units so a re-emit re-sizes to
+    the same argv.
+    """
+    if config.path is None:
+        raise EmitError("the config has no path, so fleet.yaml cannot be stamped")
+    fleet_path = config.path / FLEET_FILENAME
+    if not fleet_path.is_file():
+        return None
+    try:
+        fleet = load_fleet(fleet_path.read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        raise EmitError(f"{fleet_path}: cannot be read to stamp — {exc}") from exc
+
+    catalogue = {spec.name: spec for spec in specs} | declared_models(config)
+    blocks = dict(fleet.get("units") or {})
+    changed = False
+    for unit in units:
+        resolved = resolved_launch(unit, sleep_mode=sleep_mode)
+        spec = catalogue.get(unit.model)
+        for name in unit.rungs:
+            block = blocks.get(name)
+            if not isinstance(block, Mapping):
+                continue
+            declared = _block_declares(block)
+            merged = _merge_resolved(block, resolved)
+            if (
+                not declared
+                and spec is not None
+                and spec.geometry is None
+                and not spec.moe
+            ):
+                launch = dict(merged.get("launch") or {})
+                for key, value in _sizing_keys(spec).items():
+                    launch.setdefault(key, value)
+                merged["launch"] = launch
+            if merged != block:
+                blocks[name] = merged
+                changed = True
+    if not changed:
+        return None
+    fleet["units"] = blocks
+    try:
+        _atomic_write(fleet_path, _render_stamped_fleet(fleet))
+    except OSError as exc:
+        raise EmitError(f"{fleet_path}: cannot be written — {exc}") from exc
+    return fleet_path
+
+
 def _emit(args: argparse.Namespace) -> int:
     """Write one compose file per launch spec for the ladder's serving units.
 
@@ -3583,10 +3767,9 @@ def _emit(args: argparse.Namespace) -> int:
     # broken, mcgyvr is declining to write a launch spec it cannot stand
     # behind. A caller branching on the code should read them the same way it
     # reads an unscanned host. A malformed capability table is a real error.
+    specs = _model_specs()
     try:
-        units = units_for(
-            config, scans, specs=_model_specs(), ctx_per_slot=args.ctx_per_slot
-        )
+        units = units_for(config, scans, specs=specs, ctx_per_slot=args.ctx_per_slot)
         # What each unit's sizing says beside its answer (`Fit.notes`), such as
         # a host memory figure it has not read; a fitting unit's `why` reaches
         # no one else. Before `hold_together`, which may refuse the set.
@@ -3648,6 +3831,16 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
+    # The same launch that was just written to compose is stamped back into
+    # the config's fleet.yaml, so a later lock of this setup is emittable and
+    # admissible. A stamp failure is an error: a compose file and a fleet.yaml
+    # that disagree are the exact drift this command exists to prevent.
+    try:
+        stamped = _stamp_launch(config, units, sleep_mode=asleep, specs=specs)
+    except EmitError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
     for unit in sorted(units, key=lambda u: u.key.slug):
         rungs = ", ".join(unit.rungs) or "no rung"
         print(
@@ -3657,6 +3850,8 @@ def _emit(args: argparse.Namespace) -> int:
     print()
     for compose in written:
         print(f"wrote {compose}")
+    if stamped is not None:
+        print(f"stamped {stamped}")
     print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")
     return Exit.OK
 
