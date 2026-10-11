@@ -7,6 +7,20 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.14] - 2026-10-10
+
+### Added
+
+- `mcgyvr setup` can now make a fleet whose units sit on **remote rigs** live.
+  It reads each rig (the local machine locally, a remote one over a new
+  read-only ssh line that ships the door's `rig-snapshot.sh`), then approves
+  the fleet with all rigs laid out and pinned by their rig ids.
+
+### Fixed
+
+- `is_own` now recognises a fleet approved by the pre-rename `mcgyvr init`
+  approver, so an own fleet approved before the rename is still re-approvable.
+
 ## [0.4.13] - 2026-10-10
 
 ### Fixed
