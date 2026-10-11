@@ -1138,14 +1138,14 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     init's own fleet already live, a new folder is approved and named in its
     place, and the old one is kept. Any other live fleet is never replaced
     (``mcgyvr fleet use`` switches), and a machine of the user's is not
-    approved: it is approved only by a read of it. The one machine ``init`` can
-    read without ssh is the one it runs on; it is read and approved with its
-    rig laid out.
+    approved: it is approved only by a read of it. Every rig the setup lays a
+    unit on is read first — the local machine without ssh, a remote one over
+    ssh — and only then is the fleet approved with each of them laid out.
     """
     from mcgyvr.fleet.promote import (
         PromoteRefusedError,
         approve_own,
-        approve_own_rig,
+        approve_own_rigs,
         is_own,
         use,
     )
@@ -1164,12 +1164,18 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
             f"{current} is live, and stays so: your own fleet was not approved "
             "over it (`mcgyvr fleet use` switches).",
         ), ()
-    rig = _local_rig(setup)
+    rigs = _rigs(setup)
     try:
-        if rig is None:
+        if not rigs:
             folder = approve_own(setup)
         else:
-            folder = approve_own_rig(setup, rig=rig, rig_id=_read_local_rig(rig))
+            rig_ids = {
+                rig: _read_local_rig(rig)
+                if rig == "localhost"
+                else _read_remote_rig(rig)
+                for rig in rigs
+            }
+            folder = approve_own_rigs(setup, rigs=rig_ids)
         switch = use(folder.name)
     except PromoteRefusedError as exc:
         if current is None:
@@ -1179,10 +1185,11 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
             "before, stays live, and a run that dispatches to an unapproved "
             "machine is refused.",
         )
-    if rig is not None:
+    if rigs:
         where = (
-            ". Its rig units sit on the machine mcgyvr runs on, laid out "
-            f"as {rig}, which a read of it approved."
+            ". Its rig units sit on "
+            + ", ".join(rigs)
+            + ", laid out and approved by a read of each."
         )
     else:
         where = (
@@ -1197,13 +1204,12 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     ), ()
 
 
-def _local_rig(setup: Path) -> str | None:
-    """``localhost`` when the setup init wrote lays units on this machine and on
-    no other rig, else ``None``.
+def _rigs(setup: Path) -> tuple[str, ...]:
+    """The rigs the setup init wrote lays units on, in sorted order.
 
-    Only a machine read through the door is approved, and the one machine init
-    can read without ssh is the one it runs on; a unit on any other rig is left
-    to :func:`approve_own`, which refuses it.
+    A machine of the user's is approved only by a read of it: the local machine
+    is read without ssh (:func:`_read_local_rig`), a remote one over ssh
+    (:func:`_read_remote_rig`). A hosted unit lays out no rig, so it names none.
     """
     from mcgyvr.config import FLEET_FILENAME
     from mcgyvr.fleet.files import FleetFileError, load_fleet
@@ -1211,13 +1217,13 @@ def _local_rig(setup: Path) -> str | None:
     try:
         fleet = load_fleet((setup / FLEET_FILENAME).read_text(encoding="utf-8"))
     except (OSError, FleetFileError):
-        return None
+        return ()
     rigs = {
         str(body.get("rig"))
         for body in (fleet.get("units") or {}).values()
         if "rig" in body
     }
-    return "localhost" if rigs == {"localhost"} else None
+    return tuple(sorted(rigs))
 
 
 def _read_local_rig(rig: str) -> str:
@@ -1227,8 +1233,8 @@ def _read_local_rig(rig: str) -> str:
     The machine mcgyvr runs on is reached directly: the door's scanner
     (:mod:`mcgyvr.serving.rigscan`) for the rig file, and the door's snapshot
     reader (``rig-snapshot.sh``) for the rig id (:func:`mcgyvr.fleet.ids.rig_id`).
-    Nothing here ssh's; a remote machine is read over ssh, which ``init`` does
-    not take.
+    Nothing here ssh's; a remote machine is read over ssh by
+    :func:`_read_remote_rig`.
     """
     import json
     import subprocess
@@ -1281,6 +1287,53 @@ def _read_local_rig(rig: str) -> str:
         raise PromoteRefusedError(
             f"{rig}: its rig file could not be written: {exc}"
         ) from exc
+    return rig_id
+
+
+def _read_remote_rig(rig: str) -> str:
+    """Read ``rig``'s snapshot over the sanctioned read-only ssh line and
+    return the rig id the lock pins.
+
+    The wizard runs outside the door, so the door-gated ssh
+    (:func:`mcgyvr.serving.gatelib.ssh`) is not usable here; the one sanctioned
+    read of a remote rig from outside is
+    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the door's own
+    ``rig-snapshot.sh`` as one read-only line
+    (``echo <base64> | base64 -d | bash -s``) and prints the reader's
+    ``key=value`` snapshot. A rig that cannot be read is a refusal, not a
+    traceback, and nothing here writes a rig file: the door's ``serve up``
+    gate 2 already filed the rig file during the wizard.
+    """
+    import subprocess
+
+    from mcgyvr.fleet import ids
+    from mcgyvr.fleet.promote import PromoteRefusedError
+    from mcgyvr.fleet.read import ReadError
+    from mcgyvr.fleet.read import parse as parse_reading
+    from mcgyvr.serving import gatelib
+
+    command = gatelib.rig_snapshot_read_command()
+    try:
+        done = gatelib.ssh_read_only(rig, command)
+    except subprocess.TimeoutExpired as exc:
+        raise PromoteRefusedError(f"{rig}: the remote snapshot timed out") from exc
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise PromoteRefusedError(
+            f"{rig}: the remote snapshot could not start: {exc}"
+        ) from exc
+    if done.returncode != 0:
+        raise PromoteRefusedError(
+            f"{rig}: the remote snapshot could not run: "
+            f"{done.stderr.strip()[:300] or '(no stderr)'}"
+        )
+    try:
+        snapshot = parse_reading(done.stdout).snapshot
+    except ReadError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
+    try:
+        rig_id = ids.rig_id(snapshot)
+    except ValueError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
     return rig_id
 
 

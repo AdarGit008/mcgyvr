@@ -46,8 +46,8 @@ from mcgyvr import cli
 from mcgyvr.detect import Backend, Detection
 from mcgyvr.exits import Exit
 from mcgyvr.fleet import admission
-from mcgyvr.fleet.admit import LiveRefusedError, admit_live
-from mcgyvr.fleet.promote import LOCAL_SUFFIXES, LOCK_DIR
+from mcgyvr.fleet.admit import admit_live
+from mcgyvr.fleet.promote import LOCAL_SUFFIXES, LOCK_DIR, PromoteRefusedError, is_own
 from mcgyvr.fleet.roots import fleets_dir, is_fleet_name, live_file, live_fleet
 
 HOSTED = "model=hosted-model,address=https://api.hosted.example/v1,api_key_env=K"
@@ -250,6 +250,10 @@ def test_an_mcorch_setup_is_not_approved_by_init(
 #: The rig id a substituted local read hands back, shaped as a rig id is.
 RIG_ID = "rig-" + "2" * 64
 
+#: Two invented remote rigs, and the rig ids a substituted remote read hands
+#: back for each, shaped as rig ids are.
+REMOTE_RIG_IDS = {"srv1": "rig-" + "1" * 64, "srv2": "rig-" + "3" * 64}
+
 #: A ``rig-snapshot.sh`` reading for the invented local machine, every declared
 #: key ``mcgyvr.fleet.ids.rig_id`` hashes, printed as the reader prints them.
 SNAPSHOT_SCRIPT = """\
@@ -378,30 +382,232 @@ def test_read_local_rig_runs_the_doors_readers_locally(
     assert saved is not None and saved.rig == "localhost"
 
 
-def test_a_unit_on_a_remote_rig_is_not_approved_by_init(
+def _done(
+    stdout: str, returncode: int = 0, stderr: str = ""
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess([], returncode, stdout, stderr)
+
+
+#: What the shipped ``rig-snapshot.sh`` prints for the invented remote rig:
+#: every key :func:`mcgyvr.fleet.ids.rig_id` hashes.
+SNAPSHOT = """\
+hostname=box.invalid
+cpu_model=FakeCPU
+cpu_max_mhz=100
+ram_mt_s=3200
+pl1_uw=125000000
+pl2_uw=250000000
+gpu_name=FakeGPU
+gpu_vram_mib=8192
+gpu_cc=8.6
+gpu_slot=0
+os_machine_id=0000000000000000
+kernel=6.1.0
+driver=550.54.15
+docker=26.1.4
+"""
+
+
+def test_read_remote_rig_reads_the_snapshot_over_the_read_only_ssh_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The remote reader ships ``rig-snapshot.sh`` over
+    ``ssh_read_only`` — not the door — and returns the rig id the snapshot
+    names."""
+    from mcgyvr.serving import gatelib
+
+    seen: dict[str, str] = {}
+
+    def ssh_read_only(
+        host: str, command: str, timeout: float | None = 120.0
+    ) -> subprocess.CompletedProcess[str]:
+        seen["host"] = host
+        seen["command"] = command
+        return _done(SNAPSHOT)
+
+    monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
+
+    rig_id = cli._read_remote_rig("box.invalid")
+
+    assert rig_id.startswith("rig-") and len(rig_id) == 68, rig_id
+    assert seen["host"] == "box.invalid"
+    assert seen["command"] == gatelib.rig_snapshot_read_command()
+
+
+def test_read_remote_rig_refuses_on_a_nonzero_ssh_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A rig that cannot answer the read is a refusal, not a traceback."""
+
+    def ssh_read_only(
+        host: str, command: str, timeout: float | None = 120.0
+    ) -> subprocess.CompletedProcess[str]:
+        return _done("", returncode=2, stderr="no route to host")
+
+    monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
+
+    with pytest.raises(PromoteRefusedError) as excinfo:
+        cli._read_remote_rig("box.invalid")
+    assert "box.invalid" in str(excinfo.value)
+    assert "no route to host" in str(excinfo.value)
+
+
+def test_read_remote_rig_refuses_when_the_snapshot_names_no_rig_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A snapshot missing the declared keys hashes no rig id: refused."""
+
+    def ssh_read_only(
+        host: str, command: str, timeout: float | None = 120.0
+    ) -> subprocess.CompletedProcess[str]:
+        return _done("hostname=box.invalid\n")
+
+    monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
+
+    with pytest.raises(PromoteRefusedError) as excinfo:
+        cli._read_remote_rig("box.invalid")
+    assert "box.invalid" in str(excinfo.value)
+    assert "does not read" in str(excinfo.value)
+
+
+def _remote(host: str, model: str, *, name: str = "llama.cpp") -> Backend:
+    """A backend answering on ``host``, as init would find it over the network."""
+    return Backend(
+        name=name,
+        kind="llama.cpp",
+        base_url=f"http://{host}:8080/v1",
+        api="openai",
+        models=(model,),
+        how="substituted",
+        host=host,
+    )
+
+
+def test_a_unit_on_a_remote_rig_is_read_then_approved_by_init(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A unit on a machine other than this one is refused: init reads only the
-    local machine, and a remote one is read over ssh, which init does not take."""
+    """A unit on a machine other than this one is approved once init reads that
+    machine over ssh: the fleet lays out the remote rig, pinned by the read's
+    rig id, and a hosted unit beside it stays hosted."""
     setup = tmp_path / "setup"
-    remote = Backend(
-        name="llama.cpp",
-        base_url="http://box.invalid:8080/v1",
-        api="openai",
-        models=("small-model",),
-        how="substituted",
-        host="box.invalid",
-    )
+    monkeypatch.setattr("mcgyvr.cli._read_remote_rig", lambda rig: RIG_ID)
+    remote = _remote("box.invalid", "small-model")
     assert _init(monkeypatch, setup, "--api", HOSTED, found=_found(remote)) == 0
+    said = capsys.readouterr().out
+
+    name = f"own@{_today()}"
+    assert live_fleet() == name, said
+    folder = fleets_dir() / name
+    live = yaml.safe_load((folder / "fleet.yaml").read_text(encoding="utf-8"))
+    assert live["rigs"] == {"box.invalid": {"rig_id": RIG_ID}}
+    assert live["fleets"] == {
+        "own": {"layout": {"box.invalid": [["local_small-model", "awake"]]}}
+    }
+    assert live["units"]["local_small-model"]["rig"] == "box.invalid"
+    assert live["units"]["local_small-model"]["unit_id"]
+    assert live["units"]["api_hosted-model"].get("rig") is None
+    lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))
+    assert lock["approved_by"] == "mcgyvr setup"
+    assert lock["layout_sha256"]
+
+
+def test_a_fleet_on_two_remote_rigs_is_read_then_approved_by_init(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Every remote rig the setup lays a unit on is read before the fleet is
+    approved: the layout lays each out awake, both rig ids are pinned, and the
+    lock holds the multi-rig layout."""
+    setup = tmp_path / "setup"
+    read: list[str] = []
+
+    def read_rig(rig: str) -> str:
+        read.append(rig)
+        return REMOTE_RIG_IDS[rig]
+
+    monkeypatch.setattr("mcgyvr.cli._read_remote_rig", read_rig)
+    assert (
+        _init(
+            monkeypatch,
+            setup,
+            found=_found(
+                _remote("srv1", "small-model", name="llama.cpp"),
+                _remote("srv2", "other-model", name="llama.cpp-2"),
+            ),
+        )
+        == 0
+    )
+    said = capsys.readouterr().out
+
+    name = f"own@{_today()}"
+    assert live_fleet() == name, said
+    folder = fleets_dir() / name
+    live = yaml.safe_load((folder / "fleet.yaml").read_text(encoding="utf-8"))
+    assert read == ["srv1", "srv2"]
+    assert live["rigs"] == {
+        "srv1": {"rig_id": REMOTE_RIG_IDS["srv1"]},
+        "srv2": {"rig_id": REMOTE_RIG_IDS["srv2"]},
+    }
+    assert live["fleets"] == {
+        "own": {
+            "layout": {
+                "srv1": [["local_small-model", "awake"]],
+                "srv2": [["local_other-model", "awake"]],
+            }
+        }
+    }
+    assert live["units"]["local_small-model"]["rig"] == "srv1"
+    assert live["units"]["local_other-model"]["rig"] == "srv2"
+    assert live["units"]["local_small-model"]["unit_id"]
+    assert live["units"]["local_other-model"]["unit_id"]
+    lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))
+    assert lock["approved_by"] == "mcgyvr setup"
+    assert lock["layout_sha256"]
+
+
+def test_a_remote_rig_that_cannot_be_read_is_not_approved(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A rig that cannot be read is a refusal: the fleet is not approved and
+    nothing is written to the fleets folder or named live."""
+    setup = tmp_path / "setup"
+
+    def unreadable(rig: str) -> str:
+        raise PromoteRefusedError(f"{rig}: cannot be read")
+
+    monkeypatch.setattr("mcgyvr.cli._read_remote_rig", unreadable)
+    assert (
+        _init(
+            monkeypatch,
+            setup,
+            "--api",
+            HOSTED,
+            found=_found(_remote("box.invalid", "small-model")),
+        )
+        == 0
+    )
     said = capsys.readouterr().out
 
     assert not live_file().exists()
     assert not fleets_dir().exists()
     assert "No fleet was made live" in said and "box.invalid" in said, said
-    with pytest.raises(LiveRefusedError, match="no fleet is live"):
-        admission.admit(reader=_no_read)
+
+
+def test_is_own_recognises_the_pre_rename_approver() -> None:
+    """A fleet ``mcgyvr init`` approved before the rename is still init's own."""
+    name = "own@2026-01-02"
+    folder = fleets_dir() / name
+    (folder / LOCK_DIR).mkdir(parents=True)
+    (folder / LOCK_DIR / "own.json").write_text(
+        json.dumps({"approved_by": "mcgyvr init"}), encoding="utf-8"
+    )
+
+    assert is_own(name) is True
 
 
 #: A "hosted" unit at a machine of the user's, bound or written after the

@@ -38,7 +38,7 @@ import re
 import shutil
 import socket
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -70,6 +70,10 @@ LOCK_DIR = Path("records") / "fleet"
 #: and who its lock says approved it.
 OWN_FLEET = "own"
 OWN_APPROVER = "mcgyvr setup"
+#: Every approver string a released own-fleet approval has written. ``mcgyvr
+#: init`` is the pre-rename command (v0.4.2 and earlier); a fleet it approved is
+#: the user's own, and is recognised as such when ``mcgyvr setup`` runs again.
+OWN_APPROVERS = frozenset({OWN_APPROVER, "mcgyvr init"})
 #: An IPv4 address in a spelling ``inet_aton`` reads and ``ipaddress`` does not:
 #: one to four parts, each decimal, octal (a leading 0) or hexadecimal (0x).
 _OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")
@@ -350,7 +354,7 @@ def is_own(name: str) -> bool:
         return False
     lock = fleets_dir() / name / LOCK_DIR / f"{OWN_FLEET}.json"
     try:
-        return bool(_read_json(lock).get("approved_by") == OWN_APPROVER)
+        return bool(_read_json(lock).get("approved_by") in OWN_APPROVERS)
     except PromoteRefusedError:
         return False
 
@@ -464,29 +468,35 @@ def _unit_id(unit: dict[str, Any]) -> str:
     )
 
 
-def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
-    """Write ``<config folder>/fleets/own@<today>/`` with ``rig`` laid out; that
+def approve_own_rigs(setup: Path, *, rigs: Mapping[str, str]) -> Path:
+    """Write ``<config folder>/fleets/own@<today>/`` with each rig laid out; that
     folder.
 
-    :func:`approve_own` for a setup whose units sit on the user's own machine,
-    read through the door's own reader before it is approved: the caller hands
-    the rig id that read named, and this writes the fleet ``own`` with ``rig``
-    laid out (each of its units awake) and the lock pinning that layout. The
-    rig is the user's own machine, approved by no dev evidence: a stranger has
-    none. Refused, with no fleet folder written, when the setup cannot be read,
-    lays out no unit on ``rig``, holds a hosted unit at a machine of the user's,
-    or would not load as a setup (the caller's read of ``rig`` may already have
-    filed its rig file; that is the read's record, not this approval's). It
-    names nothing live: :func:`use` does that.
+    :func:`approve_own` for a setup whose units sit on the user's own machines,
+    each read through the door's own reader before it is approved: the caller
+    hands the rig ids those reads named, and this writes the fleet ``own`` with
+    every rig laid out (each of its units awake) and the lock pinning that
+    layout. The rigs are the user's own machines, approved by no dev evidence:
+    a stranger has none. Refused, with no fleet folder written, when the setup
+    cannot be read, lays out no unit on a named rig, holds a hosted unit at a
+    machine of the user's, or would not load as a setup (the caller's read of a
+    rig may already have filed its rig file; that is the read's record, not
+    this approval's). It names nothing live: :func:`use` does that.
     """
     fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
     policy = _read_setup(setup / POLICY_FILENAME, load_policy)
     units = fleet.get("units") or {}
-    on_rig = [name for name, body in units.items() if str(body.get("rig")) == rig]
-    if not on_rig:
-        raise PromoteRefusedError(
-            f"{setup / FLEET_FILENAME} lays out no unit on {rig}; nothing is approved"
-        )
+    layout: dict[str, list[list[str]]] = {}
+    by_rig: dict[str, list[str]] = {}
+    for rig in rigs:
+        on_rig = [name for name, body in units.items() if str(body.get("rig")) == rig]
+        if not on_rig:
+            raise PromoteRefusedError(
+                f"{setup / FLEET_FILENAME} lays out no unit on {rig}; "
+                "nothing is approved"
+            )
+        by_rig[rig] = on_rig
+        layout[rig] = [[name, "awake"] for name in on_rig]
     local = sorted(
         f"{unit} ({why})"
         for unit, body in units.items()
@@ -498,7 +508,6 @@ def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
             f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
             "a machine is not approved for live work until it is read"
         )
-    layout = {rig: [[name, "awake"] for name in on_rig]}
     try:
         mcorch_units(policy, layout, name=OWN_FLEET)
     except FleetError as exc:
@@ -507,10 +516,11 @@ def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
         ) from exc
     own = copy.deepcopy(fleet)
     own["profile"] = "live"
-    own["rigs"] = {rig: {"rig_id": rig_id}}
+    own["rigs"] = {rig: {"rig_id": rigs[rig]} for rig in rigs}
     own["fleets"] = {OWN_FLEET: {"layout": layout}}
-    for name in on_rig:
-        own["units"][name]["unit_id"] = _unit_id(units[name])
+    for on_rig in by_rig.values():
+        for name in on_rig:
+            own["units"][name]["unit_id"] = _unit_id(units[name])
     approved = datetime.now(UTC)
     lock = {
         "layout_sha256": layout_sha256(layout_ids(own, layout)),
@@ -546,6 +556,24 @@ def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
         },
     )
     return folder
+
+
+def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
+    """Write ``<config folder>/fleets/own@<today>/`` with ``rig`` laid out; that
+    folder.
+
+    :func:`approve_own` for a setup whose units sit on the user's own machine,
+    read through the door's own reader before it is approved: the caller hands
+    the rig id that read named, and this writes the fleet ``own`` with ``rig``
+    laid out (each of its units awake) and the lock pinning that layout. The
+    rig is the user's own machine, approved by no dev evidence: a stranger has
+    none. Refused, with no fleet folder written, when the setup cannot be read,
+    lays out no unit on ``rig``, holds a hosted unit at a machine of the user's,
+    or would not load as a setup (the caller's read of ``rig`` may already have
+    filed its rig file; that is the read's record, not this approval's). It
+    names nothing live: :func:`use` does that.
+    """
+    return approve_own_rigs(setup, rigs={rig: rig_id})
 
 
 @dataclass(frozen=True)
