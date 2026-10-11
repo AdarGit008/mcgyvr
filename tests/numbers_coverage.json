@@ -87,6 +87,7 @@
     "mcorch/wire.py": "holds no number that sizes or judges",
     "lines.py": "holds no number that sizes or judges",
     "orchestrator/__init__.py": "holds no number that sizes or judges",
+    "orchestrator/baseline.py": "holds no number that sizes or judges",
     "orchestrator/cache.py": "judging",
     "orchestrator/context.py": "judging",
     "orchestrator/decompose.py": "judging",
