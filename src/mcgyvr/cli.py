@@ -766,7 +766,10 @@ def _setup_on_disk_match(
     (its weights live on the rig, not on the machine running ``setup``). The id
     is matched by its last segment, its canonical local name, or the id itself
     — a GGUF's name carries no org — and the size only when it is known (a size
-    of 0 is not known).
+    of 0 is not known). The quant is enforced only when the file tags one: the
+    canonical local name omits the quant, so an untagged GGUF (quant ``None``)
+    is reused on the strength of its name and size rather than refused for a
+    quant the file name does not state.
     """
     if scan is None:
         return None
@@ -776,7 +779,7 @@ def _setup_on_disk_match(
     for model in scan.models_on_disk:
         if model.name.lower() not in (basename, model_id.lower(), canonical):
             continue
-        if (model.quant or "").lower() != wanted_quant:
+        if model.quant is not None and model.quant.lower() != wanted_quant:
             continue
         if size_bytes and model.size_bytes != size_bytes:
             continue

@@ -349,6 +349,39 @@ def test_on_disk_match_finds_the_canonical_name() -> None:
     assert hit.name == "Qwen_Qwen2.5-Coder-7B-Instruct"
 
 
+def test_on_disk_match_reuses_an_untagged_file_when_the_catalog_names_a_quant() -> None:
+    """A canonical file name omits the quant, so an untagged on-disk GGUF is
+    reused for a catalog placement that names a quant: name + size are the
+    identity, and the quant is enforced only when the file tags one."""
+
+    def _scan(quant: str | None) -> scan_module.Scan:
+        return scan_module.Scan(
+            machine=scan_module.Machine(id="x", host="localhost", kernel="k"),
+            models_on_disk=(
+                scan_module.ModelOnDisk(
+                    name="Qwen_Qwen2.5-Coder-7B-Instruct",
+                    quant=quant,
+                    size_bytes=4683073536,
+                    path=Path("/x/Qwen_Qwen2.5-Coder-7B-Instruct.gguf"),
+                ),
+            ),
+        )
+
+    # The real rig: a canonical name with no quant tag, a catalog quant Q4_K_M.
+    hit = cli._setup_on_disk_match(
+        _scan(None), "Qwen/Qwen2.5-Coder-7B-Instruct", "Q4_K_M", 4683073536
+    )
+    assert hit is not None
+
+    # A file that tags a different quant still refuses.
+    assert (
+        cli._setup_on_disk_match(
+            _scan("Q8_0"), "Qwen/Qwen2.5-Coder-7B-Instruct", "Q4_K_M", 4683073536
+        )
+        is None
+    )
+
+
 def test_setup_fetch_and_start_go_through_the_door(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
