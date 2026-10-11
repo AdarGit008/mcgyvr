@@ -382,6 +382,94 @@ def test_read_local_rig_runs_the_doors_readers_locally(
     assert saved is not None and saved.rig == "localhost"
 
 
+def _done(
+    stdout: str, returncode: int = 0, stderr: str = ""
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess([], returncode, stdout, stderr)
+
+
+#: What the shipped ``rig-snapshot.sh`` prints for the invented remote rig:
+#: every key :func:`mcgyvr.fleet.ids.rig_id` hashes.
+SNAPSHOT = """\
+hostname=box.invalid
+cpu_model=FakeCPU
+cpu_max_mhz=100
+ram_mt_s=3200
+pl1_uw=125000000
+pl2_uw=250000000
+gpu_name=FakeGPU
+gpu_vram_mib=8192
+gpu_cc=8.6
+gpu_slot=0
+os_machine_id=0000000000000000
+kernel=6.1.0
+driver=550.54.15
+docker=26.1.4
+"""
+
+
+def test_read_remote_rig_reads_the_snapshot_over_the_read_only_ssh_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The remote reader ships ``rig-snapshot.sh`` over
+    ``ssh_read_only`` — not the door — and returns the rig id the snapshot
+    names."""
+    from mcgyvr.serving import gatelib
+
+    seen: dict[str, str] = {}
+
+    def ssh_read_only(
+        host: str, command: str, timeout: float | None = 120.0
+    ) -> subprocess.CompletedProcess[str]:
+        seen["host"] = host
+        seen["command"] = command
+        return _done(SNAPSHOT)
+
+    monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
+
+    rig_id = cli._read_remote_rig("box.invalid")
+
+    assert rig_id.startswith("rig-") and len(rig_id) == 68, rig_id
+    assert seen["host"] == "box.invalid"
+    assert seen["command"] == gatelib.rig_snapshot_read_command()
+
+
+def test_read_remote_rig_refuses_on_a_nonzero_ssh_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A rig that cannot answer the read is a refusal, not a traceback."""
+
+    def ssh_read_only(
+        host: str, command: str, timeout: float | None = 120.0
+    ) -> subprocess.CompletedProcess[str]:
+        return _done("", returncode=2, stderr="no route to host")
+
+    monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
+
+    with pytest.raises(PromoteRefusedError) as excinfo:
+        cli._read_remote_rig("box.invalid")
+    assert "box.invalid" in str(excinfo.value)
+    assert "no route to host" in str(excinfo.value)
+
+
+def test_read_remote_rig_refuses_when_the_snapshot_names_no_rig_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A snapshot missing the declared keys hashes no rig id: refused."""
+
+    def ssh_read_only(
+        host: str, command: str, timeout: float | None = 120.0
+    ) -> subprocess.CompletedProcess[str]:
+        return _done("hostname=box.invalid\n")
+
+    monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
+
+    with pytest.raises(PromoteRefusedError) as excinfo:
+        cli._read_remote_rig("box.invalid")
+    assert "box.invalid" in str(excinfo.value)
+    assert "does not read" in str(excinfo.value)
+
+
 def _remote(host: str, model: str, *, name: str = "llama.cpp") -> Backend:
     """A backend answering on ``host``, as init would find it over the network."""
     return Backend(

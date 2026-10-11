@@ -1291,51 +1291,50 @@ def _read_local_rig(rig: str) -> str:
 
 
 def _read_remote_rig(rig: str) -> str:
-    """Read ``rig`` over ssh through the door's ``read`` direction and return
-    the rig id the lock pins.
+    """Read ``rig``'s snapshot over the sanctioned read-only ssh line and
+    return the rig id the lock pins.
 
     The wizard runs outside the door, so the door-gated ssh
     (:func:`mcgyvr.serving.gatelib.ssh`) is not usable here; the one sanctioned
-    read of a remote rig from outside is to spawn the door's read direction
-    (``python -m mcgyvr.serving.run read``), which ships the door's own readers
-    and prints ``rig_id=...``. A rig that cannot be read is a refusal, not a
-    traceback, and nothing here writes a rig file: the read's own filing is its
-    record.
+    read of a remote rig from outside is
+    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the door's own
+    ``rig-snapshot.sh`` as one read-only line
+    (``echo <base64> | base64 -d | bash -s``) and prints the reader's
+    ``key=value`` snapshot. A rig that cannot be read is a refusal, not a
+    traceback, and nothing here writes a rig file: the door's ``serve up``
+    gate 2 already filed the rig file during the wizard.
     """
     import subprocess
 
-    from mcgyvr.fleet import read as read_module
+    from mcgyvr.fleet import ids
     from mcgyvr.fleet.promote import PromoteRefusedError
-    from mcgyvr.serving.run import mint_read_id
+    from mcgyvr.fleet.read import ReadError
+    from mcgyvr.fleet.read import parse as parse_reading
+    from mcgyvr.serving import gatelib
 
-    argv = read_module.door_read_argv(rig, mint_read_id())
+    command = gatelib.rig_snapshot_read_command()
     try:
-        done = subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            stdin=subprocess.DEVNULL,
-            check=False,
-            timeout=300.0,
-        )
+        done = gatelib.ssh_read_only(rig, command)
     except subprocess.TimeoutExpired as exc:
-        raise PromoteRefusedError(f"{rig}: the door's read timed out") from exc
+        raise PromoteRefusedError(f"{rig}: the remote snapshot timed out") from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise PromoteRefusedError(
-            f"{rig}: the door's read could not start: {exc}"
+            f"{rig}: the remote snapshot could not start: {exc}"
         ) from exc
     if done.returncode != 0:
         raise PromoteRefusedError(
-            f"{rig}: the door could not read it (exit {done.returncode}): "
-            f"{done.stderr.strip()[:300] or done.stdout.strip()[:300] or '(no output)'}"
+            f"{rig}: the remote snapshot could not run: "
+            f"{done.stderr.strip()[:300] or '(no stderr)'}"
         )
-    for line in done.stdout.splitlines():
-        if "rig_id=" in line:
-            _, _, value = line.partition("rig_id=")
-            parts = value.strip().split()
-            if parts:
-                return parts[0]
-    raise PromoteRefusedError(f"{rig}: the door's read printed no rig_id")
+    try:
+        snapshot = parse_reading(done.stdout).snapshot
+    except ReadError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
+    try:
+        rig_id = ids.rig_id(snapshot)
+    except ValueError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
+    return rig_id
 
 
 def _attach(args: argparse.Namespace) -> int:
