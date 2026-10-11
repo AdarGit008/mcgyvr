@@ -57,6 +57,8 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
+from mcgyvr.catalog import catalog
+
 from . import contract as contract_schema
 from .config import FLEET_FILENAME, POLICY_FILENAME, RELIEF_FILENAME, SCHEMA, Field
 
@@ -537,6 +539,15 @@ EXAMPLES: dict[str, str] = examples()
 
 
 def _contract_type_label(field: contract_schema.Field) -> str:
+    # ``task_type`` is the one field whose schema accepts more than a model may
+    # choose: the catalog's deterministic operations are legal ``task_type``
+    # values (the product runs them directly) but are not task types. The skill
+    # lists the model vocabulary here and documents the operations in their own
+    # section.
+    if field.name == "task_type":
+        return "one of " + ", ".join(
+            f"`{n}`" for n in contract_schema.task_type_names()
+        )
     if field.kind == "enum":
         choices = field.choices or (field.choices_from() if field.choices_from else ())
         return "one of " + ", ".join(f"`{c}`" for c in choices)
@@ -650,6 +661,11 @@ def render_skill() -> str:
         if field.block:
             lines += _contract_section(field, field.name)
     lines += [
+        "### Deterministic operations",
+        "",
+        "Not task types — a model never chooses them: `format`, `import_sort`,",
+        "`lint_fix`, `rename_symbol`.",
+        "",
         "### One minimal example per task type",
         "",
         f"`{EXAMPLES_PATH}` carries one per type,",
@@ -772,7 +788,8 @@ def render_skill() -> str:
 
 
 def render_examples() -> str:
-    """The examples file, as text: one minimal contract per task type.
+    """The examples file, as text: one minimal contract per task type, plus one
+    per deterministic operation.
 
     A document that is written and kept, like the skill and ``SETUP.md``, and
     checked the same way: it is a projection of :func:`examples`, which
@@ -781,17 +798,29 @@ def render_examples() -> str:
     build failure. It is one file away from the skill because an agent's
     context is the scarce thing and a file costs nothing until it is opened.
     """
+    operation_names = {op.name for op in catalog().operations}
+    type_examples = {
+        name: text for name, text in examples().items() if name not in operation_names
+    }
+    operation_examples = {
+        name: text for name, text in examples().items() if name in operation_names
+    }
     lines = [
         SKILL_MARKER,
         "",
-        "# One minimal contract per task type",
+        "# One minimal contract per task type, and one per deterministic operation",
         "",
         "Each loads through the contract validator; they are checked by the test",
         "suite, so copying one is copying a shape that is known to validate. The",
         "keys are documented in `SKILL.md`.",
         "",
+        "## Task types",
+        "",
     ]
-    for task_type, text in examples().items():
+    for task_type, text in type_examples.items():
+        lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
+    lines += ["## Deterministic operations", ""]
+    for task_type, text in operation_examples.items():
         lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
     return "\n".join(lines).rstrip("\n") + "\n"
 

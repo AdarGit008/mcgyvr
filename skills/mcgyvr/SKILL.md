@@ -30,7 +30,7 @@ each one.
 | --- | --- | --- | --- | --- |
 | `version` | number (min 1) | no | `1` | Schema version this contract is written against. A contract declaring a version this build does not read is rejected rather than interpreted under the wrong rules. (orchestrator-facing) |
 | `id` | text | **yes** | — | Identity: how this contract is referred to in records, telemetry and branch names. Letters, digits, dot, dash and underscore, up to 64 characters. e.g. fetch-helper-retry. (worker-facing) |
-| `task_type` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol`, `code`, `chat`, `agent` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
+| `task_type` | one of `chat`, `agent`, `code` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
 | `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any task type a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a task type that is executed deterministically. e.g. src/pkg/fetch.py. (worker-facing) |
 | `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
@@ -109,6 +109,11 @@ Which symbol becomes which, for `task_type: rename_symbol`. The one task type mc
 | --- | --- | --- | --- | --- |
 | `rename.from` | text | no | empty | The symbol as it is written today. Stated rather than read out of `task`: mcgyvr renames every reference the index resolved across every file that holds one, and a name inferred from prose is a multi-file rewrite resting on a guess about English. A worker asked to guess would guess; a program must be told. e.g. fetch_page. (orchestrator-facing) |
 | `rename.to` | text | no | empty | What the symbol becomes. Must be a legal identifier — the rename rewrites text, and a `to` that is not a name would produce a tree that no longer parses while reporting success. e.g. fetch_document. (orchestrator-facing) |
+
+### Deterministic operations
+
+Not task types — a model never chooses them: `format`, `import_sort`,
+`lint_fix`, `rename_symbol`.
 
 ### One minimal example per task type
 

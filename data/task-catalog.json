@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated and what was removed from it.",
+  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the vocabulary a model may choose; `deterministic_operations` are the operations the product runs directly and a model never names. This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated and what was removed from it.",
   "vendored_from": {
     "repo": "AdarGit008/local-ai",
     "status": "archived",
@@ -107,7 +107,7 @@
 
   "_evidence_note": "`baseline` states what the evidence's commands must do on the unchanged tree — `pass` for a regression signal, `fail` for a demonstration — and is only meaningful where `needs_commands` is true. It is data here rather than a rule in code so that the contract loader can check each command-needing kind against the right contract list (`acceptance` for pass, `demonstration` for fail) without naming any evidence kind (#183).",
 
-  "task_types": [
+  "deterministic_operations": [
     {
       "name": "format",
       "use_case": "coding",
@@ -143,17 +143,10 @@
       "required_evidence": ["gate", "references_resolved", "no_semantic_change"],
       "warrant": "structural — the index (#47) already resolved the references, so this fans across files without a model. It is the only multi-file type in the catalog, and it is deterministic for exactly that reason.",
       "doc": "Rename a symbol across the files that reference it."
-    },
-    {
-      "name": "code",
-      "use_case": "coding",
-      "starts_on": "local",
-      "guarantee": "A scoped change to one target, judged by the deterministic gate. Which checks back the judgement is derived from the contract itself: a `demonstration` adds `failing_test_first`, an `acceptance` adds `tests_pass`, `no_semantic_change: true` adds `no_semantic_change`, and `type_check: true` adds `type_check`; the gate is always the floor.",
-      "required_evidence": ["gate"],
-      "evidence_derived": true,
-      "warrant": "One type for every local coding task. The five types this collapses (`docstring`, `type_annotation`, `function_implementation`, `test_scaffold`, `bug_fix`) differed only in which evidence bundle the contract had to carry, and the model was asked to choose among near-duplicates — a mechanism (type + command) leaking into the model's relevance authority. The model now states relevance and the orthogonal flags; the evidence is derived, not chosen.",
-      "doc": "Make a scoped edit to one named target. The gate judges the change, and the contract's own fields decide which checks back the judgement."
-    },
+    }
+  ],
+
+  "task_types": [
     {
       "name": "chat",
       "use_case": "chat",
@@ -171,6 +164,16 @@
       "required_evidence": ["grounded", "safety_pass"],
       "warrant": "structural — grounded and safety_pass are checks the gate makes itself, and the prose output protocol is the reply's format, so a wrong, unsafe or malformed answer is caught without a contract command.",
       "doc": "Answer a prompt with a grounded, safe reply in plain prose, judged by the gate's output checks."
+    },
+    {
+      "name": "code",
+      "use_case": "coding",
+      "starts_on": "local",
+      "guarantee": "A scoped change to one target, judged by the deterministic gate. Which checks back the judgement is derived from the contract itself: a `demonstration` adds `failing_test_first`, an `acceptance` adds `tests_pass`, `no_semantic_change: true` adds `no_semantic_change`, and `type_check: true` adds `type_check`; the gate is always the floor.",
+      "required_evidence": ["gate"],
+      "evidence_derived": true,
+      "warrant": "One type for every local coding task. The five types this collapses (`docstring`, `type_annotation`, `function_implementation`, `test_scaffold`, `bug_fix`) differed only in which evidence bundle the contract had to carry, and the model was asked to choose among near-duplicates — a mechanism (type + command) leaking into the model's relevance authority. The model now states relevance and the orthogonal flags; the evidence is derived, not chosen.",
+      "doc": "Make a scoped edit to one named target. The gate judges the change, and the contract's own fields decide which checks back the judgement."
     }
   ],
 

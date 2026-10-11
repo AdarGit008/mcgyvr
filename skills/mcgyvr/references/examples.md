@@ -1,10 +1,36 @@
 <!-- Code generated from src/mcgyvr/contract.py and src/mcgyvr/docgen.py by `make docs`. DO NOT EDIT. -->
 
-# One minimal contract per task type
+# One minimal contract per task type, and one per deterministic operation
 
 Each loads through the contract validator; they are checked by the test
 suite, so copying one is copying a shape that is known to validate. The
 keys are documented in `SKILL.md`.
+
+## Task types
+
+## `code`
+
+```yaml
+id: impl-chunk
+task_type: code
+task: >-
+  Implement chunk. Split a list into consecutive groups of at most size
+  elements, preserving order; the last group is shorter when the length does
+  not divide evenly. An empty list yields an empty list. Raise ValueError
+  unless size is a positive integer.
+target: src/pkg/chunk.py
+interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
+stop_conditions:
+  - Whether a size larger than the list is an error or one group is not stated.
+acceptance: ["pytest -q tests/test_chunk.py"]
+risk: low
+limits:
+  max_output_tokens: 1024
+scope:
+  allow: ["src/pkg/chunk.py"]
+```
+
+## Deterministic operations
 
 ## `format`
 
@@ -51,26 +77,4 @@ rename:
   to: fetch_document
 scope:
   allow: ["src/pkg/**"]
-```
-
-## `code`
-
-```yaml
-id: impl-chunk
-task_type: code
-task: >-
-  Implement chunk. Split a list into consecutive groups of at most size
-  elements, preserving order; the last group is shorter when the length does
-  not divide evenly. An empty list yields an empty list. Raise ValueError
-  unless size is a positive integer.
-target: src/pkg/chunk.py
-interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
-stop_conditions:
-  - Whether a size larger than the list is an error or one group is not stated.
-acceptance: ["pytest -q tests/test_chunk.py"]
-risk: low
-limits:
-  max_output_tokens: 1024
-scope:
-  allow: ["src/pkg/chunk.py"]
 ```

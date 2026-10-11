@@ -331,9 +331,9 @@ def _catalog(args: argparse.Namespace) -> int:
                 if gone.superseded_by:
                     print(f"\n  Use `{gone.superseded_by}` instead.", file=sys.stderr)
                 return 1
+            valid = ", ".join(t.name for t in (*book.task_types, *book.operations))
             print(
-                f"error: {args.name!r} is not a known task type. "
-                f"Valid: {', '.join(book.names)}",
+                f"error: {args.name!r} is not a known task type. Valid: {valid}",
                 file=sys.stderr,
             )
             return 1
@@ -358,6 +358,12 @@ def _catalog(args: argparse.Namespace) -> int:
         print(f"  {kind.name:<24} {kind.starts_on.name:<14}{flag}")
         print(f"      {kind.guarantee}")
         print(f"      evidence: {', '.join(kind.evidence_names)}\n")
+
+    print("Deterministic operations (tools, never a model choice):\n")
+    for op in book.operations:
+        print(f"  {op.name:<24} {op.starts_on.name:<14}")
+        print(f"      {op.guarantee}")
+        print(f"      evidence: {', '.join(op.evidence_names)}\n")
 
     if config is not None:
         if unservable:

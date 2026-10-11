@@ -235,7 +235,7 @@ def test_triage_sends_one_logprobs_request_per_question(
     assert len(sent.calls) == 2
     assert isinstance(result, Triage)
     # The first task type in the catalog, and a floor of the dearest family.
-    assert result.task_type.name == "format"
+    assert result.task_type.name == "chat"
     assert result.floor.name == "api"
     assert sent.calls[0]["max_tokens"] == 1
     assert sent.calls[0]["logprobs"] is True

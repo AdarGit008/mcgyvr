@@ -131,12 +131,32 @@ class ContractSchemaError(ContractError):
 
 
 def task_types() -> tuple[CatalogTaskType, ...]:
-    """Every task type the catalog declares."""
+    """Every task type the catalog declares (the model vocabulary)."""
     return catalog().task_types
 
 
+def operations() -> tuple[CatalogTaskType, ...]:
+    """The deterministic operations the catalog declares.
+
+    Executable as ``task_type`` values, but not task types: a model never
+    chooses one, the product runs it directly.
+    """
+    return catalog().operations
+
+
 def task_type_names() -> tuple[str, ...]:
+    """Every task type the catalog declares (the model vocabulary)."""
     return catalog().names
+
+
+def task_type_choices() -> tuple[str, ...]:
+    """Every name a contract may carry as ``task_type``.
+
+    The model vocabulary plus the deterministic operations: a contract names an
+    operation to have the product run it directly, even though no model is asked
+    to choose one.
+    """
+    return tuple(t.name for t in (*catalog().task_types, *catalog().operations))
 
 
 def task_type(name: str) -> CatalogTaskType:
@@ -539,7 +559,7 @@ SCHEMA: tuple[Field, ...] = (
         "decides what evidence the contract must carry, and therefore whether "
         "a glob target is legal.",
         required=True,
-        choices_from=task_type_names,
+        choices_from=task_type_choices,
         worker_facing=True,
     ),
     Field(
@@ -1340,9 +1360,9 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         raise ContractSchemaError(
             f"target: {target!r} is a pattern, but task type "
             f"{kind.name!r} runs on a model, whose output has exactly one "
-            f"destination. Name a single literal path, or use a task type the "
-            f"deterministic tier executes "
-            f"({', '.join(t.name for t in task_types() if t.deterministic)})."
+            f"destination. Name a single literal path, or use a deterministic "
+            f"operation "
+            f"({', '.join(t.name for t in operations() if t.deterministic)})."
         )
 
     if _GLOB_META.search(target) and data["target_content"]:

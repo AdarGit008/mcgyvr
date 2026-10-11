@@ -138,6 +138,39 @@ def test_the_agent_type_judges_by_grounding_and_safety(shipped: Catalog) -> None
     assert agent.evidence_names == ("grounded", "safety_pass")
 
 
+# --- deterministic operations are not task types ---------------------------
+
+
+def test_the_operations_are_not_task_types(shipped: Catalog) -> None:
+    """The deterministic tools leave the model vocabulary but stay runnable."""
+    assert {t.name for t in shipped.task_types} == {"chat", "agent", "code"}
+    assert {o.name for o in shipped.operations} == {
+        "format",
+        "import_sort",
+        "lint_fix",
+        "rename_symbol",
+    }
+    assert not {o.name for o in shipped.operations} & set(shipped.names)
+
+
+def test_require_and_get_resolve_operations(shipped: Catalog) -> None:
+    """Routing/deterministic execution still resolves an operation by name."""
+    for name in ("format", "import_sort", "lint_fix", "rename_symbol"):
+        kind = shipped.require(name)
+        assert kind.name == name
+        assert kind.starts_on.name == "deterministic"
+        assert kind.deterministic
+        assert shipped.get(name) is kind
+        assert shipped.operation(name) is kind
+
+
+def test_servable_and_unservable_are_model_vocabulary_only(shipped: Catalog) -> None:
+    """Operations run on tools, not on a ladder, so they never appear here."""
+    bare = _config()
+    served = {t.name for t in (*shipped.servable(bare), *shipped.unservable(bare))}
+    assert not {o.name for o in shipped.operations} & served
+
+
 def test_every_entry_is_documented_and_warranted(shipped: Catalog) -> None:
     """A type nobody can explain is one nobody can choose correctly."""
     for kind in shipped.task_types:
