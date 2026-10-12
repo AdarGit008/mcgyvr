@@ -19,7 +19,7 @@ from tests.red_port.conftest import git
 
 DEPS_CONTRACT = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 deps:

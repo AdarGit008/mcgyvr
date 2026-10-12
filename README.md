@@ -4,13 +4,14 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 mcgyvr is a command-line tool and an agent skill. Your agent hands it one
-scoped coding task: reformat a file, sort imports, rename a symbol, write a
-docstring, a function, its tests or a bug fix. mcgyvr runs that task on the
-cheapest worker you allow and keeps an answer only if it passes a
-deterministic gate.
+scoped coding task — a `code` contract: write a docstring, a function, its
+tests or a bug fix, or have a tool reformat a file, sort imports, apply lint
+fixes or rename a symbol. mcgyvr runs that task on the cheapest worker you
+allow and keeps an answer only if it passes a deterministic gate. It has
+exactly four task types: `code`, `chat`, `agent` and `media`.
 
-- **Cost.** Format, import sort, lint fix and rename start on deterministic
-  tools (the project's formatter, import sorter and linter, and mcgyvr's own
+- **Cost.** Format, import sort, lint fix and rename (`code` with an
+  `operation:`) start on deterministic tools (the project's formatter, import sorter and linter, and mcgyvr's own
   index), not on a model. Model tasks climb a ladder of units that you list
   cheapest first, within ceilings you set.
 - **Local first.** You bind the units. A setup can name only llama.cpp or
@@ -30,8 +31,8 @@ deterministic gate.
 | --- | --- |
 | Python 3.12 or newer, and [uv](https://docs.astral.sh/uv/) | `requires-python = ">=3.12"`; the install command below uses uv |
 | git | the repository a task runs against must be a git checkout |
-| The project's own tools on `PATH` | tool task types run them; the quickstart's `format` task ran `ruff format` |
-| At least one unit, for model task types | a local OpenAI-compatible server (llama.cpp or vLLM — see [`docs/GPU-SUPPORT.md`](docs/GPU-SUPPORT.md) for GPU/engine floors), or an API model whose key is in an environment variable |
+| The project's own tools on `PATH` | deterministic operations run them; the quickstart's `operation: format` ran `ruff format` |
+| At least one unit, for work a model does | a local OpenAI-compatible server (llama.cpp or vLLM — see [`docs/GPU-SUPPORT.md`](docs/GPU-SUPPORT.md) for GPU/engine floors), or an API model whose key is in an environment variable |
 | Docker (optional) | task commands run in a throwaway container by default; with no Docker daemon, `mcgyvr run` refuses unless `sandbox.mode: tempdir` (or `--sandbox tempdir`) chooses the weaker mode, or `sandbox.allow_fallback: true` falls back to it and says so |
 
 ## Install
@@ -47,7 +48,7 @@ mcgyvr --help
 
 ```text
 usage: mcgyvr [-h] [--version]
-              {capabilities,caps,config,pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,init,attach,index,resolve,read,fleet,rig,mcorch,run,delegate}
+              {capabilities,caps,config,local_pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,setup,attach,index,resolve,read,fleet,rig,mcorch,run,delegate}
               ...
 
 Offload scoped coding work to a configurable worker ladder.
@@ -102,12 +103,12 @@ It copies `SKILL.md` and `references/`, never `SETUP.md`. The skill sets
 Real output from a machine with no local model server. `~` is that run's home
 directory.
 
-**1. Set up the machine.** `mcgyvr init` looks for model servers and writes
+**1. Set up the machine.** `mcgyvr setup` looks for model servers and writes
 `fleet.yaml` and `policy.yaml`. With nothing answering, it refuses (exit 1),
 writes nothing, and lists the fixes:
 
 ```text
-$ mcgyvr init
+$ mcgyvr setup
 error: Refusing to write a config that cannot load.
 
 No model server answered on any endpoint tried (http://localhost:8080, http://localhost:8000, http://localhost:1234, http://localhost:3000), so there is nothing to bind: init binds only a model a running server lists. A config with no unit or no ladder dispatches nowhere.
@@ -120,7 +121,7 @@ no local backend. It writes the same two files any other init writes, here
 into `~/setup`:
 
 ```text
-$ mcgyvr init --api model=claude-opus-5,address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY ~/setup
+$ mcgyvr setup --api model=claude-opus-5,address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY ~/setup
 Wrote ~/setup
 
 What was decided, and why:
@@ -130,10 +131,10 @@ What was decided, and why:
 `api_key_env` is the NAME of the environment variable holding your key; the
 key itself is never written to either file, and init never reads it.
 
-From `~/setup`, `mcgyvr pool` reads the setup back:
+From `~/setup`, `mcgyvr local_pool` reads the setup back:
 
 ```text
-$ mcgyvr pool
+$ mcgyvr local_pool
 ~/setup: 1 usable rung(s), cheapest first:
 
   api_claude-opus-5    api            1 attempt   claude-opus-5
@@ -150,7 +151,8 @@ Every key of both files is documented in
 ```yaml
 # format.yaml
 id: format-pkg
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module with the project's formatter.
 target: src/pkg/messy.py
 scope:
@@ -161,7 +163,7 @@ scope:
 $ mcgyvr contract format.yaml
 format.yaml: valid
 
-  format-pkg  [format] — deterministic tier
+  format-pkg  [code, operation format] — deterministic tier
   target:  src/pkg/messy.py
   allow:   src/pkg/**
   risk:    medium — verified by gate only
@@ -169,9 +171,10 @@ format.yaml: valid
   acceptance: none declared — the gate's own checks decide
 ```
 
-`mcgyvr catalog` lists all nine task types with what each guarantees, and
+`mcgyvr catalog` lists the four task types and the deterministic operations
+with what each guarantees, and
 [`skills/mcgyvr/references/examples.md`](skills/mcgyvr/references/examples.md)
-has one minimal contract per type.
+has one minimal `code` contract and one per operation.
 
 **3. Run it.** Inside Claude Code the session is detected. In a plain shell,
 name the writer with `--orchestrator`:
@@ -190,7 +193,8 @@ result: ~/.local/state/mcgyvr/journal/results/format-pkg-20260915T022555.432380Z
 
 The exit code was 0, the result file says `"outcome": "accepted"` and
 `"committed": false`, and `git diff --stat` shows the one reformatted file.
-This task ran on a tool, so no API key was needed and no model was called.
+This task ran on a tool, so no API key was needed and no model was called;
+the result file's `assurance` is `deterministic`.
 
 The last stdout line always names the result file. Its `outcome` words, what
 to do after each, and the exit codes are in
@@ -204,9 +208,9 @@ flowchart LR
   C --> V["mcgyvr contract<br/>validates"]
   V --> R["mcgyvr run"]
   R --> S["sandbox:<br/>docker or tempdir"]
-  S --> K{"task type"}
-  K -->|format, import_sort,<br/>lint_fix, rename_symbol| T["deterministic tools"]
-  K -->|docstring, annotations,<br/>function, tests, bug fix| M["units in ladder order:<br/>your servers, then API models"]
+  S --> K{"code contract"}
+  K -->|operation: format, import_sort,<br/>lint_fix, rename_symbol| T["deterministic tools"]
+  K -->|no operation| M["units in ladder order:<br/>your servers, then API models"]
   T --> G{"deterministic gate"}
   M --> G
   G -->|rejected: retry or climb,<br/>within the ceilings| M
@@ -225,7 +229,7 @@ has its options.
 | --- | --- |
 | `capabilities` (`caps`) | show the shipped estimates by card class |
 | `config` | validate the configuration file and show what it resolves to |
-| `pool` | show the ladder as it resolves against the declared sources |
+| `local_pool` | show the ladder as it resolves against the declared sources |
 | `catalog` | show the task types mcgyvr can be asked for, and what each guarantees |
 | `contract` | validate a task contract and show what it resolves to |
 | `detect` | show what can run the work, and how each fact was detected |
@@ -235,7 +239,7 @@ has its options.
 | `manage` | let Jev sleep and wake the ladder's units by the queue on it (runs until interrupted) |
 | `emit` | write a compose file per launch spec for the ladder's serving units |
 | `sandbox` | show the sandbox mode and the stack detected for a repository |
-| `init` | detect what is reachable and write a config bound to it |
+| `setup` | scan, plan, download, emit and write a config bound to what is reachable |
 | `attach` | attach a repository (local path or clone URL) and show its state |
 | `index` | build the deterministic index of a repository and show what it cost |
 | `resolve` | resolve a natural-language target to a ranked shortlist of paths |
@@ -262,7 +266,7 @@ has its options.
 | Journal | Every run appends to `<orchestrator>.jsonl` under `journal.dir` (default `~/.local/state/mcgyvr/journal`), with prompts and replies under `blobs/` and result files under `results/`. It never lands in the repository. `--record DIR` adds a second copy. |
 | Data leaving the machine | A model task sends the contract, including the target's current content, to the unit it runs on: a server you bound, or an API model's `address`. A tool task that its tool finishes calls no unit. |
 | API keys | A setup names the environment variable (`api_key_env`), never the key. Task commands run with every credential-shaped variable removed (`src/mcgyvr/sandbox/base.py`). |
-| Network probes | `mcgyvr init` probes default local endpoints, plus machines you name with `--host`. `mcgyvr pool --probe` asks each unit whether it answers; it is off by default, because it spends. |
+| Network probes | `mcgyvr setup` probes default local endpoints, plus machines you name with `--host`. `mcgyvr local_pool --probe` asks each unit whether it answers; it is off by default, because it spends. |
 | Your GPU machines | `serving.enable_sleep_wake` is `false` by default. Set to `true`, it lets `mcgyvr run` stop and start containers on a machine others may share. `mcgyvr serve sleep` and `mcgyvr serve wake` act only when you type them. |
 | The serving door | `mcgyvr serve` and the ladder manager start, stop, sleep and wake containers only through `python -m mcgyvr.serving.run`, which reaches a rig over your own ssh config and keys (`BatchMode`, no stored credentials) and its docker as `docker -H ssh://<rig>`, admitting only the rig named. Run from an install (`--mode user`), it holds the rig to `$MCGYVR_RIGS/<rig>.json` (default `$MCGYVR_HOME/rigs`), which `mcgyvr scan --rig <rig>` writes from a read-only scan, files each serve run under `~/.local/state/mcgyvr/door/`, and reports, never touches, a container it did not start. The advanced `step` verb runs one script of your own on a rig under the same gates; gate lists you add (`--gates`, or `MCGYVR_DOOR_GATES`) can only add refusals. |
 | Weight downloads | `python -m mcgyvr.serving.run serve fetch --host <rig> --weights FILE` downloads the files the list names on the rig itself, from huggingface.co (or `HF_ENDPOINT`), into its weights folder (`$MCGYVR_WEIGHTS`, else `~/.cache/mcgyvr/weights`). It says the total first, and there is no size cap. Each file is pinned to a commit and its sha256: a download resumes from its `.part`, and one whose hash does not match is deleted. A gated model's token is read from the variable you name (`--hf-token-env`, default `HF_TOKEN`), goes to the Hub inside the ssh connection, and is never written to disk. Nothing is downloaded unless this is run. |

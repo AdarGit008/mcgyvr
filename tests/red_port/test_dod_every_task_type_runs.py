@@ -1,6 +1,10 @@
-"""Every task type the schema offers has something that can execute it.
+"""Every task type and deterministic operation the schema offers has something
+that can execute it.
 
-``task_type`` is a closed vocabulary: nine values, each with a guarantee in
+``task_type`` is a closed vocabulary of four task types (``code``, ``chat``,
+``agent``, ``media``), and ``operation`` names one of four deterministic
+operations of ``code`` (``format``, ``import_sort``, ``lint_fix``,
+``rename_symbol``), each with a guarantee in
 ``data/task-catalog.json``, each rendered into the shipped skill with a minimal
 example a reader is told is "a shape that is known to validate" — rendered
 into ``skills/mcgyvr/references/examples.md``, which the shipped skill points
@@ -11,8 +15,8 @@ example, validate it, run it. ``rename_symbol`` is the sole member of
 ``deterministic.IN_PROCESS``: its step carries no argv and ``drive`` executes it
 in process.
 
-What must be observably true: a task type in the vocabulary can be executed, or
-it is not in the vocabulary. Validating a contract and running it agree.
+What must be observably true: an operation in the vocabulary can be executed,
+or it is not in the vocabulary. Validating a contract and running it agree.
 """
 
 from __future__ import annotations
@@ -24,7 +28,8 @@ REPO = Path(__file__).resolve().parents[2]
 
 CONTRACT = """
 id: rename-fetch
-task_type: {task_type}
+task_type: code
+operation: {operation}
 task: Rename fetch_page to fetch_document in the module.
 target: src/pkg/messy.py
 scope:
@@ -33,14 +38,14 @@ scope:
 
 
 def _types() -> tuple[str, ...]:
-    """The types a program executes. A model type is run by the ladder."""
+    """The operations a program executes. A model task type is run by the ladder."""
     from mcgyvr.catalog import catalog
 
-    return tuple(sorted(t.name for t in catalog().task_types if t.deterministic))
+    return tuple(sorted(o.name for o in catalog().operations if o.deterministic))
 
 
-def _runnable(task_type: str, repo: Path) -> bool:
-    """Whether a contract of this type can actually be carried out.
+def _runnable(operation: str, repo: Path) -> bool:
+    """Whether a contract naming this operation can actually be carried out.
 
     Asserted by running it, not by inspecting the step: an in-process step
     legitimately carries an empty ``argv``, so probing the field would say nothing.
@@ -50,10 +55,10 @@ def _runnable(task_type: str, repo: Path) -> bool:
     from mcgyvr.drive import UnrunnableStepError, run_tool_step
     from mcgyvr.sandbox.base import open_sandbox
 
-    contract = loads(CONTRACT.format(task_type=task_type))
+    contract = loads(CONTRACT.format(operation=operation))
     steps: Any = tool_steps(contract)
     if not steps:
-        return False  # the floor is where this type starts and nothing binds
+        return False  # the floor is where this operation starts and nothing binds
     try:
         with open_sandbox(repo, mode="tempdir") as sandbox:
             for step in steps:
@@ -62,7 +67,7 @@ def _runnable(task_type: str, repo: Path) -> bool:
         return False
     except Exception:
         # A tool that is missing on this machine, or that refuses the fixture,
-        # is not the failure under test: the type had an executor to reach.
+        # is not the failure under test: the operation had an executor to reach.
         return True
     return True
 
@@ -85,7 +90,7 @@ def test_the_shipped_skill_offers_no_example_that_cannot_run(repo: Path) -> None
     the committed examples still carry the example.
 
     Read from ``references/examples.md``: ``SKILL.md`` carries no
-    ``task_type: {name}`` line, so a grep of it would match nothing for every name
+    ``operation: {name}`` line, so a grep of it would match nothing for every name
     and pass while checking nothing.
     """
     examples = REPO / "skills" / "mcgyvr" / "references" / "examples.md"
@@ -95,7 +100,7 @@ def test_the_shipped_skill_offers_no_example_that_cannot_run(repo: Path) -> None
     offered = [
         name
         for name in _types()
-        if not _runnable(name, repo) and f"task_type: {name}" in text
+        if not _runnable(name, repo) and f"operation: {name}" in text
     ]
     assert not offered, (
         f"the skill's examples hand an orchestrator a {', '.join(offered)} "

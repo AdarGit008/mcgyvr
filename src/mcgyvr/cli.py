@@ -14,9 +14,11 @@ import signal
 import sys
 import textwrap
 import threading
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
+
+import yaml
 
 from mcgyvr import __version__
 from mcgyvr import recommend as recommend_module
@@ -52,6 +54,7 @@ from mcgyvr.emit import (
     is_locked,
     planned_locked_paths,
     planned_paths,
+    resolved_launch,
     unplanned,
     unplanned_locked,
 )
@@ -72,11 +75,14 @@ from mcgyvr.initialize import (
     InitError,
     initialize,
     parse_api_unit,
+    render_fleet,
 )
-from mcgyvr.scan import Mismatch, Scan
+from mcgyvr.scan import Mismatch, ModelOnDisk, Scan
 from mcgyvr.serving import (
     ModelSpec,
+    Unit,
     UnitError,
+    declared_models,
     hold_together,
     host_of,
     units_for,
@@ -89,7 +95,7 @@ CONFIG_DEFAULT_HELP = (
     f"then the live fleet folder under {FLEETS_SHOWN} that {LIVE_FILE_SHOWN} "
     f"names — a directory holding fleet.yaml and policy.yaml"
 )
-#: Where `mcgyvr init` writes when no path is given. Never a live fleet folder:
+#: Where `mcgyvr setup` writes when no path is given. Never a live fleet folder:
 #: those are written only by `mcgyvr fleet promote`, and never in place.
 INIT_DEFAULT_HELP = (
     f"${CONFIG_PATH_ENV}, else the working directory — never a live fleet "
@@ -105,12 +111,14 @@ SETUP_DOC = "skills/mcgyvr/SETUP.md"
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
+    from mcgyvr.detect import Detection
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
+    from mcgyvr.knowledge.record import ModelRecord
+    from mcgyvr.local_pool import SourceMap
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
-    from mcgyvr.pool import SourceMap
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
@@ -181,10 +189,10 @@ def _config(args: argparse.Namespace) -> int:
     return 0
 
 
-def _pool(args: argparse.Namespace) -> int:
+def _local_pool(args: argparse.Namespace) -> int:
     from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
-    from mcgyvr.pool import SourceUnavailableError, source_map
+    from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import draws_for, family_of
 
     try:
@@ -293,6 +301,7 @@ def _pool(args: argparse.Namespace) -> int:
 
 def _catalog(args: argparse.Namespace) -> int:
     from mcgyvr.catalog import CatalogError, catalog
+    from mcgyvr.escalate import how_judged
 
     try:
         book = catalog()
@@ -314,25 +323,33 @@ def _catalog(args: argparse.Namespace) -> int:
         unservable = {t.name for t in book.unservable(config)}
 
     if args.name:
-        kind = book.get(args.name)
+        kind = book.get(args.name) or book.operation(args.name)
         if kind is None:
-            gone = book.excluded_entry(args.name)
-            if gone is not None:
-                print(f"{args.name}: not in the vocabulary.\n", file=sys.stderr)
-                print(f"  {gone.reason}", file=sys.stderr)
-                if gone.superseded_by:
-                    print(f"\n  Use `{gone.superseded_by}` instead.", file=sys.stderr)
-                return 1
-            print(
-                f"error: {args.name!r} is not a known task type. "
-                f"Valid: {', '.join(book.names)}",
-                file=sys.stderr,
-            )
+            try:
+                book.require(args.name)
+            except CatalogError as exc:
+                operations = ", ".join(op.name for op in book.operations)
+                print(
+                    f"error: {exc} Deterministic operations (`task_type: code` "
+                    f"with `operation:`): {operations}",
+                    file=sys.stderr,
+                )
             return 1
-        print(f"{kind.name}  [starts on {kind.starts_on.name}]\n")
+        if kind.task_type:
+            print(
+                f"{kind.name}  [operation of `{kind.task_type}`, starts on "
+                f"{kind.starts_on.name}]\n"
+            )
+            print(
+                f"  Ask for it with `task_type: {kind.task_type}` and "
+                f"`operation: {kind.name}`.\n"
+            )
+        else:
+            print(f"{kind.name}  [starts on {kind.starts_on.name}]\n")
         print(f"  {kind.doc}\n")
         print(f"  guarantee:  {kind.guarantee}\n")
         print(f"  warrant:    {kind.warrant}\n")
+        print(f"  judged:     {how_judged(kind)}\n")
         print("  evidence required:")
         for evidence in kind.required_evidence:
             mark = "$" if evidence.needs_commands else "-"
@@ -351,6 +368,15 @@ def _catalog(args: argparse.Namespace) -> int:
         print(f"      {kind.guarantee}")
         print(f"      evidence: {', '.join(kind.evidence_names)}\n")
 
+    print(
+        "Deterministic operations (not task types: a tool does the work, never a "
+        "model; ask for one with `task_type: code` and `operation: <name>`):\n"
+    )
+    for op in book.operations:
+        print(f"  {op.name:<24} {op.starts_on.name:<14}")
+        print(f"      {op.guarantee}")
+        print(f"      evidence: {', '.join(op.evidence_names)}\n")
+
     if config is not None:
         if unservable:
             # Naming them is the point: a count would tell a caller there is a
@@ -360,13 +386,6 @@ def _catalog(args: argparse.Namespace) -> int:
                 print(f"  {name}")
         else:
             print(f"Every type is servable by the ladder in {config.path}.")
-
-    if args.excluded:
-        print("\nConsidered and removed:\n")
-        for gone in book.excluded:
-            replacement = f" (use `{gone.superseded_by}`)" if gone.superseded_by else ""
-            print(f"  {gone.name}{replacement}")
-            print(f"      {gone.reason}\n")
     return 0
 
 
@@ -428,7 +447,8 @@ def _contract(args: argparse.Namespace) -> int:
 
     tier = "deterministic tier" if contract.is_deterministic else "model tier"
     print(f"{args.path}: valid\n")
-    print(f"  {contract.id}  [{contract.task_type}] — {tier}")
+    operation = f", operation {contract.operation}" if contract.operation else ""
+    print(f"  {contract.id}  [{contract.task_type}{operation}] — {tier}")
     print(f"  target:  {contract.target}")
     print(f"  allow:   {', '.join(contract.scope.allow)}")
     if contract.scope.forbid:
@@ -608,8 +628,8 @@ _NOT_THE_CONFIG_PROFILE = (
 )
 
 
-def _init_priority(args: argparse.Namespace) -> str | None:
-    """The priority ``init`` composes for, reading the old ``--profile``.
+def _setup_priority(args: argparse.Namespace) -> str | None:
+    """The priority ``setup`` composes for, reading the old ``--profile``.
 
     ``--profile`` is deprecated: a word naming a priority maps onto it, any
     other text is ignored, and ``--priority`` wins when both are given. Each
@@ -619,7 +639,7 @@ def _init_priority(args: argparse.Namespace) -> str | None:
     if args.profile is None:
         return priority
     head = (
-        "warning: `mcgyvr init --profile` is deprecated and will be removed "
+        "warning: `mcgyvr setup --profile` is deprecated and will be removed "
         "in the release after next"
     )
     word = str(args.profile).strip().lower()
@@ -645,10 +665,427 @@ def _init_priority(args: argparse.Namespace) -> str | None:
     return None
 
 
-def _init(args: argparse.Namespace) -> int:
+class _SetupInteractiveError(Exception):
+    """The interactive wizard stopped; the message says why."""
+
+
+def _stdin_isatty() -> bool:
+    """Whether setup's stdin is a terminal, as a seam a test can state."""
+    return sys.stdin.isatty()
+
+
+def _setup_is_interactive(args: argparse.Namespace) -> bool:
+    """Whether ``mcgyvr setup`` should prompt rather than write from flags.
+
+    Interactive only with a person at the keyboard and no flag already given:
+    any flag names a decision already made, and a pipe is an agent driving the
+    command.
+    """
+    if not _stdin_isatty():
+        return False
+    return not (
+        bool(args.host)
+        or bool(args.api)
+        or args.force
+        or args.priority is not None
+        or args.profile is not None
+        or args.use_case is not None
+        or args.deployment is not None
+        or args.jev is not None
+        or args.mcorch is not None
+        or args.window is not None
+    )
+
+
+def _parse_setup_rigs(answer: str) -> tuple[str, ...]:
+    """Rigs from one prompt answer: comma/space list, with ``--host`` stripped."""
+    rigs: list[str] = []
+    for token in answer.replace(",", " ").split():
+        if token == "--host":
+            continue
+        if token.startswith("--host="):
+            token = token.split("=", 1)[1]
+        elif token.startswith("--"):
+            continue
+        if token:
+            rigs.append(token)
+    return tuple(dict.fromkeys(rigs))
+
+
+def _ask_setup_rigs(prompt: Callable[[str], str] = input) -> tuple[str, ...]:
+    """Step 1: which rigs serve this setup, defaulting to this machine."""
+    answer = prompt("Which rig(s) should serve this setup? [this machine only] ")
+    return _parse_setup_rigs(answer) or ("localhost",)
+
+
+def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
+    """An explicit yes to one irreversible step; anything else is no."""
+    return str(prompt(question)).strip().lower() in {"y", "yes"}
+
+
+def _setup_scan_rigs(rigs: Sequence[str]) -> dict[str, Scan]:
+    """Step 2: measure each rig and record it, so ``emit`` can size from it."""
+    from mcgyvr.detect import is_local_host
+
+    scans: dict[str, Scan] = {}
+    for rig in dict.fromkeys(rigs):
+        if is_local_host(rig):
+            measured = scan_module.scan()
+        else:
+            try:
+                measured = scan_module.scan_over(scan_module.Reach.ssh(rig))
+            except (
+                scan_module.Unreachable,
+                scan_module.ScannerMissing,
+                scan_module.ScanFailed,
+            ) as exc:
+                raise _SetupInteractiveError(f"{rig}: {exc}") from exc
+        scan_module.write_scan(measured, scan_module.default_root())
+        scans[rig] = measured
+    return scans
+
+
+def _setup_placements(
+    rigs: Sequence[str], scans: Mapping[str, Scan]
+) -> dict[str, Mapping[str, Any]]:
+    """Step 3: one coding/single placement per rig, printed as JSON."""
+    plans: dict[str, Mapping[str, Any]] = {}
+    for rig in dict.fromkeys(rigs):
+        try:
+            plan = recommend_module.plan(
+                profile="coding",
+                users=1,
+                hosts=(rig,),
+                premeasured={rig: scans[rig]},
+            )
+        except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
+            raise _SetupInteractiveError(f"{rig}: {exc}") from exc
+        sys.stdout.write(json.dumps(plan, indent=2, sort_keys=True) + "\n")
+        if not isinstance(plan.get("placement"), Mapping):
+            raise _SetupInteractiveError(
+                f"{rig}: recommend produced no placement to serve"
+            )
+        plans[rig] = plan
+    return plans
+
+
+def _setup_on_disk_match(
+    scan: Scan | None, model_id: str, quant: str, size_bytes: int
+) -> ModelOnDisk | None:
+    """The first model already on the rig's disk matching id + quant + size.
+
+    The scan collected the rig's own inventory, so this holds for a remote rig
+    (its weights live on the rig, not on the machine running ``setup``). The id
+    is matched by its last segment, its canonical local name, or the id itself
+    — a GGUF's name carries no org — and the size only when it is known (a size
+    of 0 is not known). The quant is enforced only when the file tags one: the
+    canonical local name omits the quant, so an untagged GGUF (quant ``None``)
+    is reused on the strength of its name and size rather than refused for a
+    quant the file name does not state.
+    """
+    if scan is None:
+        return None
+    basename = model_id.lower().rsplit("/", 1)[-1]
+    canonical = model_id.replace("/", "_").lower()
+    wanted_quant = (quant or "").lower()
+    for model in scan.models_on_disk:
+        if model.name.lower() not in (basename, model_id.lower(), canonical):
+            continue
+        if model.quant is not None and model.quant.lower() != wanted_quant:
+            continue
+        if size_bytes and model.size_bytes != size_bytes:
+            continue
+        return model
+    return None
+
+
+def _setup_downloads(
+    plans: Mapping[str, Mapping[str, Any]],
+    scans: Mapping[str, Scan],
+    prompt: Callable[[str], str] = input,
+) -> tuple[tuple[str, ModelRecord], ...]:
+    """Step 4: ask reuse or download for every placement, gated on the answer."""
+    from mcgyvr.knowledge import store as knowledge_store
+
+    known = {record.key: record for record in knowledge_store.offline().records}
+    downloads: list[tuple[str, ModelRecord]] = []
+    for rig, plan in plans.items():
+        placement = plan["placement"]
+        model_id = str(placement.get("model_id") or "")
+        if not model_id:
+            # A local-store pick is already on disk; nothing is downloaded.
+            continue
+        quant = str(placement.get("quant") or "")
+        size_bytes = int(placement.get("size_bytes") or 0)
+        scan = scans.get(rig)
+        hit = _setup_on_disk_match(scan, model_id, quant, size_bytes)
+        if hit is not None:
+            answer = prompt(
+                f"{rig}: {model_id} {quant} ({hit.size_bytes} bytes) is already "
+                f"on disk. Reuse it instead of downloading? [Y/n] "
+            )
+            if str(answer).strip().lower() not in {"n", "no"}:
+                print(f"{rig}: reusing {model_id} {quant} already on disk")
+                continue
+            chosen = True
+        else:
+            answer = prompt(
+                f"Download {model_id}{' ' + quant if quant else ''} for {rig}? [y/N] "
+            )
+            chosen = str(answer).strip().lower() in {"y", "yes"}
+        if not chosen:
+            continue
+        record = known.get((model_id, quant))
+        if record is None or record.weights is None:
+            raise _SetupInteractiveError(
+                f"{model_id} {quant}: no download record is known for this model"
+            )
+        downloads.append((rig, record))
+    return tuple(downloads)
+
+
+def _setup_suffix() -> str:
+    """A RUN_ID suffix unique to this setup step (gate 5 claims the id)."""
+    import os
+    import time
+
+    return f"setup-{os.getpid()}-{int(time.monotonic() * 1000) % 1_000_000}"
+
+
+def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
+    """Step 5: download one chosen model through the door's ``serve fetch``."""
+    from mcgyvr import wake as wakelib
+    from mcgyvr.serving import fetchlist, safe_host
+    from mcgyvr.serving.gatelib import DOOR_MODULE
+
+    wants = fetchlist.from_records([record])
+    path.mkdir(parents=True, exist_ok=True)
+    fetch_file = path / f"fetch-{safe_host(rig)}.json"
+    fetch_file.write_text(fetchlist.dump(wants), encoding="utf-8")
+    code = wakelib.spawn_door(
+        [
+            sys.executable,
+            "-m",
+            DOOR_MODULE,
+            "serve",
+            "fetch",
+            "--host",
+            rig,
+            "--weights",
+            str(fetch_file),
+            "--suffix",
+            _setup_suffix(),
+        ]
+    )
+    if code != 0:
+        raise _SetupInteractiveError(f"{rig}: serve fetch exited {code}")
+    print(f"{rig}: fetched {record.model_id} {record.quant}")
+
+
+def _setup_synthetic_detection(
+    plans: Mapping[str, Mapping[str, Any]],
+) -> Detection:
+    """The recommended servers as if they were already answering.
+
+    ``initialize`` binds only models a running server lists, so the wizard
+    writes a bootstrap config from this synthetic detection, emits the launch
+    specs for it, starts the containers, and then re-runs ``initialize`` over
+    the real servers.
+    """
+    from mcgyvr.detect import Backend, Detection
+    from mcgyvr.serving import DEFAULT_PORT
+
+    backends: list[Backend] = []
+    for rig, plan in plans.items():
+        placement = plan["placement"]
+        model_id = str(placement.get("model_id") or "")
+        if not model_id:
+            raise _SetupInteractiveError(
+                f"{rig}: its placement is a local checkpoint, and the wizard "
+                "does not bootstrap from a local store yet"
+            )
+        engine = str(placement.get("engine") or "llama.cpp")
+        kind = "vllm" if engine == "vllm" else "llama-server"
+        port = 8000 if engine == "vllm" else DEFAULT_PORT
+        name = f"{rig}_{kind}" if len(plans) > 1 else kind
+        backends.append(
+            Backend(
+                name=name,
+                base_url=f"http://{rig}:{port}/v1",
+                api="openai",
+                models=(model_id,),
+                how="interactive setup",
+                host=rig,
+                kind=kind,
+            )
+        )
+    return Detection(
+        backends=tuple(backends), provenance={"backends": "interactive setup"}
+    )
+
+
+def _setup_context_window(plans: Mapping[str, Mapping[str, Any]]) -> int:
+    """The window ``emit`` sizes the bootstrap config at, across the rigs.
+
+    Each placement was priced at its own ``context_length``; the window handed
+    to ``emit`` is the smallest of them, the one every placed model fits at.
+    A placement without a readable window is refused, never guessed.
+    """
+    windows: list[int] = []
+    for rig, plan in plans.items():
+        placement = plan["placement"]
+        ctx = placement.get("context_length")
+        if not isinstance(ctx, int) or isinstance(ctx, bool) or ctx <= 0:
+            raise _SetupInteractiveError(
+                f"{rig}: its placement declares no context window to size at"
+            )
+        windows.append(ctx)
+    return min(windows)
+
+
+def _setup_emit(path: Path, ctx_per_slot: int) -> None:
+    """Step 6a: ``mcgyvr emit`` the launch specs for the bootstrap config."""
+    code = main(
+        [
+            "emit",
+            "--config",
+            str(path),
+            "--out",
+            str(path),
+            "--ctx-per-slot",
+            str(ctx_per_slot),
+        ]
+    )
+    if code != 0:
+        raise _SetupInteractiveError(f"mcgyvr emit exited {code}")
+
+
+def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> None:
+    """Step 6b: start each emitted launch spec through the door's ``serve up``."""
+    from mcgyvr import wake as wakelib
+    from mcgyvr.serving import spec_files, spec_name
+
+    for rig in dict.fromkeys(rigs):
+        scan = scans[rig]
+        host = scan.machine.host
+        try:
+            whole = path / spec_name(host)
+        except UnitError as exc:
+            raise _SetupInteractiveError(f"{rig}: {exc}") from exc
+        if whole.is_file():
+            compose = whole
+        else:
+            files = spec_files(path, host)
+            if not files:
+                # The product holds one unit per model: two rigs asked to
+                # serve the same model collapse to one backend, and the rig
+                # left out gets no launch spec. That is expected, not an
+                # emit failure, so skip it rather than abort the whole
+                # ``serve up``.
+                print(
+                    f"{rig}: no launch spec was emitted for {host} — its model "
+                    "is served from another rig (one unit per model); leaving "
+                    "it idle"
+                )
+                continue
+            if len(files) > 1:
+                raise _SetupInteractiveError(
+                    f"{rig}: mcgyvr emit wrote alternatives for {host}; "
+                    "start one by hand"
+                )
+            compose = files[0]
+        code = wakelib.spawn_door(
+            wakelib.door_argv(
+                direction="up", host=rig, compose=compose, suffix=_setup_suffix()
+            ),
+            env={
+                **os.environ,
+                # The config directory, not its fleet.yaml: the loader reads
+                # both fleet.yaml and policy.yaml (the ladder) from it.
+                CONFIG_PATH_ENV: str(path),
+            },
+        )
+        if code != 0:
+            raise _SetupInteractiveError(f"{rig}: serve up exited {code}")
+
+
+def _setup_interactive(path: Path) -> int:
+    """The guided ``mcgyvr setup``: prompt, then perform each step."""
+    try:
+        rigs = _ask_setup_rigs()
+        print(f"Serving on: {', '.join(rigs)}")
+        scans = _setup_scan_rigs(rigs)
+        plans = _setup_placements(rigs, scans)
+        ctx_per_slot = _setup_context_window(plans)
+        downloads = _setup_downloads(plans, scans)
+        for rig, record in downloads:
+            _setup_fetch(rig, record, path)
+
+        synthetic = _setup_synthetic_detection(plans)
+        bootstrap = initialize(
+            path, force=True, detection=synthetic, use_case="coding", profile="dev"
+        )
+        if not bootstrap.written:
+            raise _SetupInteractiveError("the bootstrap setup was not written")
+        print(f"Wrote bootstrap setup at {bootstrap.path}\n")
+
+        _setup_emit(path, ctx_per_slot)
+        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+            _setup_start(rigs, scans, path)
+        else:
+            print(
+                "Containers were not started. The bootstrap setup and launch "
+                "specs are written; start the containers, then re-run "
+                "`mcgyvr setup --force` to bind and lock them."
+            )
+            return 0
+
+        final = initialize(
+            path, force=True, hosts=tuple(rigs), use_case="coding", profile="dev"
+        )
+        if not final.written:
+            raise _SetupInteractiveError("the running setup was not written")
+        print(f"Wrote {final.path} bound to the running servers\n")
+
+        # The final init rewrote fleet.yaml from the running servers and so
+        # dropped the launch the bootstrap emit stamped. Re-emit here so the
+        # fleet that is about to be locked carries the resolved launch; the
+        # compose rewrite is idempotent and the stamp is what matters.
+        _setup_emit(path, ctx_per_slot)
+
+        if _confirm("Lock the fleet and name it live? [y/N] "):
+            approved, unapproved = _own_fleet_live(path)
+        else:
+            approved, unapproved = (), ("The fleet was not locked or made live.",)
+        decisions = final.decisions + approved
+        if decisions:
+            print("What was decided, and why:")
+            for decision in decisions:
+                print(f"  - {decision}")
+            print()
+        limits = final.limits + unapproved
+        if limits:
+            print("What is NOT configured, and what that costs:")
+            for limit in limits:
+                print(f"  - {limit}")
+        return 0
+    except _SetupInteractiveError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except InitError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except (ConfigError, CapabilityTableError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _setup(args: argparse.Namespace) -> int:
     # Not the config resolution order: with a fleet named live, that ends in a
     # promoted folder, and a promoted folder is never written in place.
     path = Path(args.path) if args.path else (named_config_path() or Path.cwd())
+    if _setup_is_interactive(args):
+        return _setup_interactive(path)
     # Parsed before anything is detected: a mistyped `--api` is the operator's
     # to fix, and making them wait out a network sweep to hear about it is
     # spending their time to tell them something already known.
@@ -657,7 +1094,7 @@ def _init(args: argparse.Namespace) -> int:
     except ApiSpecError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    priority = _init_priority(args)
+    priority = _setup_priority(args)
     try:
         result = initialize(
             path,
@@ -665,7 +1102,7 @@ def _init(args: argparse.Namespace) -> int:
             hosts=tuple(args.host or ()),
             api_units=api_units,
             priority=priority,
-            use_case=args.use_case,
+            use_case=args.use_case or "coding",
             deployment=args.deployment,
             jev=args.jev,
             mcorch=args.mcorch,
@@ -686,8 +1123,8 @@ def _init(args: argparse.Namespace) -> int:
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    # What init wrote is the user's own fleet; approving it is what lets a
-    # fresh `profile: live` setup run. A setup init did not write is not one
+    # What setup wrote is the user's own fleet; approving it is what lets a
+    # fresh `profile: live` setup run. A setup run that did not write is not one
     # it bound, so it approves nothing.
     approved, unapproved = _own_fleet_live(result.path) if result.written else ((), ())
     decisions = result.decisions + approved
@@ -719,7 +1156,7 @@ def _init(args: argparse.Namespace) -> int:
 
 
 def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Approve the setup ``init`` wrote at ``setup`` as the user's own fleet and
+    """Approve the setup ``setup`` wrote at ``setup`` as the user's own fleet and
     name it live; ``(decisions, limits)`` saying what was done, or why not.
 
     Through the path every live fleet takes: a folder under the config folder
@@ -728,14 +1165,14 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     init's own fleet already live, a new folder is approved and named in its
     place, and the old one is kept. Any other live fleet is never replaced
     (``mcgyvr fleet use`` switches), and a machine of the user's is not
-    approved: it is approved only by a read of it. The one machine ``init`` can
-    read without ssh is the one it runs on; it is read and approved with its
-    rig laid out.
+    approved: it is approved only by a read of it. Every rig the setup lays a
+    unit on is read first — the local machine without ssh, a remote one over
+    ssh — and only then is the fleet approved with each of them laid out.
     """
     from mcgyvr.fleet.promote import (
         PromoteRefusedError,
         approve_own,
-        approve_own_rig,
+        approve_own_rigs,
         is_own,
         use,
     )
@@ -754,12 +1191,18 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
             f"{current} is live, and stays so: your own fleet was not approved "
             "over it (`mcgyvr fleet use` switches).",
         ), ()
-    rig = _local_rig(setup)
+    rigs = _rigs(setup)
     try:
-        if rig is None:
+        if not rigs:
             folder = approve_own(setup)
         else:
-            folder = approve_own_rig(setup, rig=rig, rig_id=_read_local_rig(rig))
+            rig_ids = {
+                rig: _read_local_rig(rig)
+                if rig == "localhost"
+                else _read_remote_rig(rig)
+                for rig in rigs
+            }
+            folder = approve_own_rigs(setup, rigs=rig_ids)
         switch = use(folder.name)
     except PromoteRefusedError as exc:
         if current is None:
@@ -769,10 +1212,11 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
             "before, stays live, and a run that dispatches to an unapproved "
             "machine is refused.",
         )
-    if rig is not None:
+    if rigs:
         where = (
-            ". Its rig units sit on the machine mcgyvr runs on, laid out "
-            f"as {rig}, which a read of it approved."
+            ". Its rig units sit on "
+            + ", ".join(rigs)
+            + ", laid out and approved by a read of each."
         )
     else:
         where = (
@@ -787,13 +1231,12 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     ), ()
 
 
-def _local_rig(setup: Path) -> str | None:
-    """``localhost`` when the setup init wrote lays units on this machine and on
-    no other rig, else ``None``.
+def _rigs(setup: Path) -> tuple[str, ...]:
+    """The rigs the setup init wrote lays units on, in sorted order.
 
-    Only a machine read through the door is approved, and the one machine init
-    can read without ssh is the one it runs on; a unit on any other rig is left
-    to :func:`approve_own`, which refuses it.
+    A machine of the user's is approved only by a read of it: the local machine
+    is read without ssh (:func:`_read_local_rig`), a remote one over ssh
+    (:func:`_read_remote_rig`). A hosted unit lays out no rig, so it names none.
     """
     from mcgyvr.config import FLEET_FILENAME
     from mcgyvr.fleet.files import FleetFileError, load_fleet
@@ -801,13 +1244,13 @@ def _local_rig(setup: Path) -> str | None:
     try:
         fleet = load_fleet((setup / FLEET_FILENAME).read_text(encoding="utf-8"))
     except (OSError, FleetFileError):
-        return None
+        return ()
     rigs = {
         str(body.get("rig"))
         for body in (fleet.get("units") or {}).values()
         if "rig" in body
     }
-    return "localhost" if rigs == {"localhost"} else None
+    return tuple(sorted(rigs))
 
 
 def _read_local_rig(rig: str) -> str:
@@ -817,8 +1260,8 @@ def _read_local_rig(rig: str) -> str:
     The machine mcgyvr runs on is reached directly: the door's scanner
     (:mod:`mcgyvr.serving.rigscan`) for the rig file, and the door's snapshot
     reader (``rig-snapshot.sh``) for the rig id (:func:`mcgyvr.fleet.ids.rig_id`).
-    Nothing here ssh's; a remote machine is read over ssh, which ``init`` does
-    not take.
+    Nothing here ssh's; a remote machine is read over ssh by
+    :func:`_read_remote_rig`.
     """
     import json
     import subprocess
@@ -871,6 +1314,53 @@ def _read_local_rig(rig: str) -> str:
         raise PromoteRefusedError(
             f"{rig}: its rig file could not be written: {exc}"
         ) from exc
+    return rig_id
+
+
+def _read_remote_rig(rig: str) -> str:
+    """Read ``rig``'s snapshot over the sanctioned read-only ssh line and
+    return the rig id the lock pins.
+
+    The wizard runs outside the door, so the door-gated ssh
+    (:func:`mcgyvr.serving.gatelib.ssh`) is not usable here; the one sanctioned
+    read of a remote rig from outside is
+    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the door's own
+    ``rig-snapshot.sh`` as one read-only line
+    (``echo <base64> | base64 -d | bash -s``) and prints the reader's
+    ``key=value`` snapshot. A rig that cannot be read is a refusal, not a
+    traceback, and nothing here writes a rig file: the door's ``serve up``
+    gate 2 already filed the rig file during the wizard.
+    """
+    import subprocess
+
+    from mcgyvr.fleet import ids
+    from mcgyvr.fleet.promote import PromoteRefusedError
+    from mcgyvr.fleet.read import ReadError
+    from mcgyvr.fleet.read import parse as parse_reading
+    from mcgyvr.serving import gatelib
+
+    command = gatelib.rig_snapshot_read_command()
+    try:
+        done = gatelib.ssh_read_only(rig, command)
+    except subprocess.TimeoutExpired as exc:
+        raise PromoteRefusedError(f"{rig}: the remote snapshot timed out") from exc
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise PromoteRefusedError(
+            f"{rig}: the remote snapshot could not start: {exc}"
+        ) from exc
+    if done.returncode != 0:
+        raise PromoteRefusedError(
+            f"{rig}: the remote snapshot could not run: "
+            f"{done.stderr.strip()[:300] or '(no stderr)'}"
+        )
+    try:
+        snapshot = parse_reading(done.stdout).snapshot
+    except ReadError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
+    try:
+        rig_id = ids.rig_id(snapshot)
+    except ValueError as exc:
+        raise PromoteRefusedError(f"{rig}: {exc}") from exc
     return rig_id
 
 
@@ -1162,6 +1652,7 @@ def _delegate(args: argparse.Namespace) -> int:
     from mcgyvr.config import ConfigError, ConfigMissingError, named_config_path
     from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
     from mcgyvr.exits import Exit
+    from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.orchestrator import (
         AttachError,
         IndexBuildError,
@@ -1169,7 +1660,6 @@ def _delegate(args: argparse.Namespace) -> int:
         build_index,
         decompose,
     )
-    from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.runner import RunnerError
 
     chosen = Path(args.config) if args.config else None
@@ -1371,8 +1861,9 @@ def _run(args: argparse.Namespace) -> int:
 
     Two paths, chosen by the contract rather than by a flag. A deterministic
     contract names a program and is run here; anything else climbs a ladder and
-    is :func:`_climb`'s. The split is the contract's ``task_type`` because that
-    is where the catalog already records which family work of this kind may
+    is :func:`_climb`'s. The split is the contract's catalog entry (its
+    ``operation``'s, or its ``task_type``'s) because that is where the catalog
+    already records which family work of this kind may
     *begin* on, and a flag that let a caller override it would be a second,
     quieter answer to the question ``starts_on`` exists to settle.
 
@@ -1464,7 +1955,7 @@ def _run(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         config_error = exc
     if config is None and not contract.is_deterministic:
-        # `config_error` says `mcgyvr init` and where the file would go, which
+        # `config_error` says `mcgyvr setup` and where the file would go, which
         # is the whole remedy for an operator who already knows what a config
         # is for. It is not the whole remedy for the reader this line actually
         # has: an agent following the skill, which names no setup verb and no
@@ -1742,7 +2233,7 @@ def _floor(
         # `--record` directory gets this run's row, its verdict and a copy of
         # its result, and so does mcgyvr's own `journal.dir`.
         print(
-            f"note: {contract.id} is a {contract.task_type!r} contract and runs "
+            f"note: {contract.id} is a {contract.kind.name!r} contract and runs "
             f"on the deterministic floor; it dispatches nothing, so the copy in "
             f"{args.record} is a row naming the program that did the work and a "
             f"copy of this run's result, with no prompt or reply beside them"
@@ -1751,7 +2242,7 @@ def _floor(
     if not steps:
         return _error(
             report,
-            f"no program is bound to {contract.task_type!r} for "
+            f"no program is bound to {contract.kind.name!r} for "
             f"{contract.target}. The work is still doable on a dearer "
             f"family, which this command does not climb to.",
         )
@@ -1764,7 +2255,7 @@ def _floor(
     # One row per run, not per step: `tool_steps` returns one step or none —
     # "a tool fails identically on retry" — and a key per step would invent a
     # breadth the floor does not have.
-    rung = steps[0].tool.program or contract.task_type
+    rung = steps[0].tool.program or contract.kind.name
     attempt_id = recording.attempt_id(contract.id, rung, 1)
 
     def work() -> GateResult:
@@ -1811,6 +2302,7 @@ def _floor(
                 orchestrator=recording.orchestrator,
                 rung=rung,
                 task_type=contract.task_type,
+                operation=contract.operation,
                 session_file=recording.session_file,
                 tier=DETERMINISTIC,
                 mirrors=recording.mirrors,
@@ -1922,7 +2414,7 @@ def _climb(
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import ascent, escalate
     from mcgyvr.fleet_manager import hook_for as fleet_hook_for
-    from mcgyvr.pool import SourceUnavailableError, source_map
+    from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.verify import reviewers_for
@@ -1953,7 +2445,7 @@ def _climb(
 
     # Structural resolution, no probe: a live-reachability sweep costs one
     # timeout per source and answers a question the dispatch below is about to
-    # ask for real. `mcgyvr pool --probe` is where an operator asks it in
+    # ask for real. `mcgyvr local_pool --probe` is where an operator asks it in
     # advance, and paying for it here would charge every run for a diagnosis.
     #
     # `Availability.not_serving` — whether the model a rung declares is the one
@@ -1984,7 +2476,7 @@ def _climb(
     # The cooldown learns from dispatch failures, not from a probe, so its
     # liveness half is a stub that always reports live. Probing here would
     # charge every run for a diagnosis the dispatch below is about to make for
-    # real, and `mcgyvr pool --probe` is where an operator asks it in advance.
+    # real, and `mcgyvr local_pool --probe` is where an operator asks it in advance.
     # The probe parameter is typed `object` rather than `Endpoint` because the
     # seam guard forbids importing `Endpoint` above the seam, and `object` is
     # accepted contravariantly.
@@ -2298,18 +2790,20 @@ def _report_climb(
     report.outcome = "accepted"
     report.rung = outcome.rung
     report.assurance = outcome.assurance.value
+    # How the work was judged, in the judgement's own words — verified by whom,
+    # unverified and why, or a reply's checks — into the result file, which is
+    # what a caller is told to read.
+    report.detail = outcome.judgement.detail
     if outcome.assurance is Assurance.UNVERIFIED:
         # Said where it cannot be missed, because nothing else about the run
-        # looks different: the work is accepted on the gate alone. The reason
-        # is the judgement's own — review switched off, no independent
-        # reviewer, a reviewer that produced nothing usable — and it goes
-        # into the result file too, which is what a caller is told to read.
-        report.detail = outcome.judgement.detail
+        # looks different: the change is accepted on the gate alone.
         print(
             f"UNVERIFIED: {contract.id} is accepted with no independent review "
-            f"approving it. {outcome.judgement.detail}",
+            f"approving it — {outcome.judgement.detail}",
             file=sys.stderr,
         )
+    elif outcome.assurance in (Assurance.CHECKED, Assurance.UNCHECKED):
+        print(f"note: {outcome.judgement.detail}", file=sys.stderr)
     bound = outcome.judgement.accepted
     if bound is None:
         # `judge` only reaches PASSED through a gate that accepted, and
@@ -2412,6 +2906,7 @@ def _report_run(
     reports itself and reaches :func:`_commit` directly.
     """
     from mcgyvr.deliver import Accepted, DeliveryError
+    from mcgyvr.escalate import Assurance
     from mcgyvr.gate.changeset import ChangeSet
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
@@ -2454,7 +2949,7 @@ def _report_run(
         # nothing is written or committed. Checked after binding: a target
         # that cannot be read is an error whatever changed.
         detail = (
-            f"{contract.target} already is what {contract.task_type!r} asks for; "
+            f"{contract.target} already is what {contract.kind.name!r} asks for; "
             f"nothing was written"
         )
         print(f"\n{contract.id}: {NOTHING_TO_CHANGE} — {detail}")
@@ -2472,8 +2967,10 @@ def _report_run(
             )
         return 0
     # Only now: `accepted` tells the caller the change is in the target, and
-    # until the bytes are bound there is nothing to put there.
+    # until the bytes are bound there is nothing to put there. A tool's change
+    # on the gate is what `deterministic` labels.
     report.outcome = "accepted"
+    report.assurance = Assurance.DETERMINISTIC.value
     return _commit(
         args,
         contract,
@@ -2669,7 +3166,9 @@ def _scan(args: argparse.Namespace) -> int:
     """
     if args.rig is not None:
         return _scan_rig(args.rig, as_json=args.json)
-    measured = scan_module.scan()
+    measured = scan_module.scan(
+        model_stores=tuple(Path(store) for store in (args.model_store or ()))
+    )
     root = scan_module.default_root()
     prior = scan_module.load_prior(scan_module.os_machine_id(measured), root)
     drift = scan_module.compare(measured, prior)
@@ -2711,7 +3210,22 @@ def _scan(args: argparse.Namespace) -> int:
             f"({measured.bandwidth.how})"
         )
     if measured.disk is not None:
-        print(f"  Disk     {measured.disk.free_gb:.1f} GB free at {measured.disk.path}")
+        device = f" on {measured.disk.device}" if measured.disk.device else ""
+        total = (
+            f" of {measured.disk.total_gb:.1f} GB"
+            if measured.disk.total_gb is not None
+            else ""
+        )
+        print(
+            f"  Disk     {measured.disk.free_gb:.1f} GB free{total} "
+            f"at {measured.disk.path}{device}"
+        )
+    for model in measured.models_on_disk:
+        quant = f" {model.quant}" if model.quant else ""
+        print(
+            f"  Model    {model.name}{quant} "
+            f"({model.size_bytes / 1024 / 1024 / 1024:.1f} GiB)"
+        )
     for note in measured.notes:
         print(f"  - {note}")
     print(f"\nRecorded at {path}")
@@ -2769,8 +3283,31 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
         print(f"  card {card.index}  {card.said()}", file=out)
     if now.ram_total_gb is not None:
         print(f"  RAM     {now.ram_total_gb:.1f} GB", file=out)
+    if now.cpu_cores is not None or now.cpu_threads is not None:
+        print(
+            f"  CPU     {now.cpu_cores or '?'} cores, {now.cpu_threads or '?'} threads",
+            file=out,
+        )
+    if now.bandwidth_gbps is not None:
+        print(
+            f"  Memory  {now.bandwidth_gbps:.1f} GB/s ({now.bandwidth_how})",
+            file=out,
+        )
     if now.disk_path is not None:
-        print(f"  Disk    {now.disk_free_gb} GB free at {now.disk_path}", file=out)
+        device = f" on {now.disk_device}" if now.disk_device else ""
+        print(
+            f"  Disk    {now.disk_free_gb} GB free"
+            f"{f' of {now.disk_total_gb} GB' if now.disk_total_gb is not None else ''}"
+            f" at {now.disk_path}{device}",
+            file=out,
+        )
+    for model in now.models_on_disk:
+        quant = f" {model.quant}" if model.quant else ""
+        print(
+            f"  Model   {model.name}{quant} "
+            f"({model.size_bytes / 1024 / 1024 / 1024:.1f} GiB)",
+            file=out,
+        )
     if now.private_ipv4 is not None:
         print(f"  Address {now.private_ipv4} ({now.private_ipv4_how})", file=out)
     else:
@@ -2967,7 +3504,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     from mcgyvr import wake as wakelib
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.pressure import Board, Gauge, HostCooling, Pressure, RungCooling
 
     pool = source_map(config)
@@ -3022,6 +3559,178 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     except KeyboardInterrupt:
         print("stopped")
     return Exit.OK
+
+
+def _merge_resolved(
+    block: Mapping[str, Any], resolved: Mapping[str, Any]
+) -> dict[str, Any]:
+    """``block`` with ``resolved``'s fields filled where the block states none.
+
+    What an operator wrote wins: a key the block already states is left alone,
+    and only what is missing is stamped. The same rule holds inside
+    ``launch``, which is free-form and may already carry sizing keys
+    (``vram_gb``, ``shards``, ...) beside the argv/env/volumes the emit layer
+    resolves.
+    """
+    merged = dict(block)
+    for key in ("engine", "image", "container", "hf_cache"):
+        if key in resolved and not merged.get(key):
+            merged[key] = resolved[key]
+    stated = merged.get("launch")
+    launch = dict(stated) if isinstance(stated, Mapping) else {}
+    for key, value in (resolved.get("launch") or {}).items():
+        if key not in launch or launch[key] is None:
+            launch[key] = value
+    if launch:
+        merged["launch"] = launch
+    return merged
+
+
+def _block_declares(block: Mapping[str, Any]) -> bool:
+    """Whether ``block`` already declares a model spec rather than the table's.
+
+    Mirrors :func:`mcgyvr.serving.declared_models`' own skip condition: a block
+    that states anything under ``launch`` (or ``hf_cache``, ``room_mib``,
+    ``kv_cache_memory_bytes``) is sized from what it declares, so a stamp must
+    not paper over those keys with the shipped table's numbers.
+    """
+    return bool(
+        block.get("launch")
+        or block.get("hf_cache") is not None
+        or block.get("room_mib") is not None
+        or block.get("kv_cache_memory_bytes") is not None
+    )
+
+
+def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
+    """The scalar sizing keys a shipped dense row declares, for re-sizing.
+
+    A dev unit sized from the shipped table declares nothing in ``fleet.yaml``,
+    so once ``launch`` carries the resolved argv/env/volumes,
+    :func:`mcgyvr.serving.declared_models` reads it as a declared spec of all
+    zeros and refuses the next emit. Copying the table's scalar facts keeps the
+    two emits the same bytes. MoE rows and geometries are never copied: those
+    reach emit only through an operator's own declaration, which the stamp
+    already preserves.
+    """
+    keys: dict[str, Any] = {}
+    for key in ("vram_gb", "disk_gb", "ram_gb", "kv_cache_dtype_k", "kv_cache_dtype_v"):
+        value = getattr(spec, key, None)
+        if value:
+            keys[key] = value
+    return keys
+
+
+def _render_launch_block(launch: Mapping[str, Any]) -> str:
+    """The ``launch:`` block of one unit, indented to sit at four spaces."""
+    dumped = yaml.safe_dump(dict(launch), sort_keys=True, width=200)
+    lines = ["    launch:"]
+    lines.extend(
+        f"      {line}" if line else "" for line in dumped.rstrip("\n").splitlines()
+    )
+    return "\n".join(lines)
+
+
+def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
+    """Render a stamped ``fleet.yaml`` with the schema renderer, plus ``launch``.
+
+    :func:`mcgyvr.initialize.render_fleet` renders every unit field but does not
+    know how to spell a free-form ``launch`` mapping, so the launch blocks are
+    rendered here and spliced into its output at the field's own place — the
+    schema comments and the operator's ordering survive.
+    """
+    launches: dict[str, Mapping[str, Any]] = {}
+    render_units: dict[str, Any] = {}
+    for name, block in (fleet.get("units") or {}).items():
+        block = dict(block)
+        launch = block.pop("launch", None)
+        if isinstance(launch, Mapping) and launch:
+            launches[name] = launch
+        render_units[name] = block
+    text = render_fleet({**fleet, "units": render_units})
+
+    current: str | None = None
+    out: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("  ") and not line.startswith("    ") and line.endswith(":"):
+            name = line[2:-1].strip()
+            current = name if name in launches else None
+        elif current is not None and line.startswith("    # launch:  # "):
+            out.append(_render_launch_block(launches[current]))
+            continue
+        out.append(line)
+    return "\n".join(out) + "\n"
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    """Write ``text`` beside ``path`` and move it over atomically."""
+    staged = path.with_name(f".{path.name}.tmp")
+    staged.write_text(text, encoding="utf-8")
+    os.replace(staged, path)
+
+
+def _stamp_launch(
+    config: Config,
+    units: Iterable[Unit],
+    *,
+    sleep_mode: bool,
+    specs: Iterable[ModelSpec],
+) -> Path | None:
+    """Stamp ``resolved_launch`` into each serving unit of ``config``'s fleet.yaml.
+
+    Returns the file written, or ``None`` when there is no fleet.yaml beside the
+    config (a single merged document has none) or nothing changed. The write is
+    atomic and idempotent: a unit that already states a field keeps it.
+
+    A unit that was sized from the shipped table declares no model spec in
+    ``fleet.yaml``; once its ``launch`` carries the resolved argv, the loader
+    would read it as a declared spec of zeros. The table's scalar facts are
+    stamped beside the launch for exactly those units so a re-emit re-sizes to
+    the same argv.
+    """
+    if config.path is None:
+        raise EmitError("the config has no path, so fleet.yaml cannot be stamped")
+    fleet_path = config.path / FLEET_FILENAME
+    if not fleet_path.is_file():
+        return None
+    try:
+        fleet = load_fleet(fleet_path.read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        raise EmitError(f"{fleet_path}: cannot be read to stamp — {exc}") from exc
+
+    catalogue = {spec.name: spec for spec in specs} | declared_models(config)
+    blocks = dict(fleet.get("units") or {})
+    changed = False
+    for unit in units:
+        resolved = resolved_launch(unit, sleep_mode=sleep_mode)
+        spec = catalogue.get(unit.model)
+        for name in unit.rungs:
+            block = blocks.get(name)
+            if not isinstance(block, Mapping):
+                continue
+            declared = _block_declares(block)
+            merged = _merge_resolved(block, resolved)
+            if (
+                not declared
+                and spec is not None
+                and spec.geometry is None
+                and not spec.moe
+            ):
+                launch = dict(merged.get("launch") or {})
+                for key, value in _sizing_keys(spec).items():
+                    launch.setdefault(key, value)
+                merged["launch"] = launch
+            if merged != block:
+                blocks[name] = merged
+                changed = True
+    if not changed:
+        return None
+    fleet["units"] = blocks
+    try:
+        _atomic_write(fleet_path, _render_stamped_fleet(fleet))
+    except OSError as exc:
+        raise EmitError(f"{fleet_path}: cannot be written — {exc}") from exc
+    return fleet_path
 
 
 def _emit(args: argparse.Namespace) -> int:
@@ -3080,10 +3789,9 @@ def _emit(args: argparse.Namespace) -> int:
     # broken, mcgyvr is declining to write a launch spec it cannot stand
     # behind. A caller branching on the code should read them the same way it
     # reads an unscanned host. A malformed capability table is a real error.
+    specs = _model_specs()
     try:
-        units = units_for(
-            config, scans, specs=_model_specs(), ctx_per_slot=args.ctx_per_slot
-        )
+        units = units_for(config, scans, specs=specs, ctx_per_slot=args.ctx_per_slot)
         # What each unit's sizing says beside its answer (`Fit.notes`), such as
         # a host memory figure it has not read; a fitting unit's `why` reaches
         # no one else. Before `hold_together`, which may refuse the set.
@@ -3145,6 +3853,16 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
+    # The same launch that was just written to compose is stamped back into
+    # the config's fleet.yaml, so a later lock of this setup is emittable and
+    # admissible. A stamp failure is an error: a compose file and a fleet.yaml
+    # that disagree are the exact drift this command exists to prevent.
+    try:
+        stamped = _stamp_launch(config, units, sleep_mode=asleep, specs=specs)
+    except EmitError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
     for unit in sorted(units, key=lambda u: u.key.slug):
         rungs = ", ".join(unit.rungs) or "no rung"
         print(
@@ -3154,6 +3872,8 @@ def _emit(args: argparse.Namespace) -> int:
     print()
     for compose in written:
         print(f"wrote {compose}")
+    if stamped is not None:
+        print(f"stamped {stamped}")
     print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")
     return Exit.OK
 
@@ -3365,7 +4085,7 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     a machine already in it.
 
     Without this, ``emit`` refuses the machine it is running on. A config
-    written by ``mcgyvr init`` says ``address: http://localhost:8080``,
+    written by ``mcgyvr setup`` says ``address: http://localhost:8080``,
     ``mcgyvr scan`` files the record under ``platform.node()``, and the two
     never agree — so the most ordinary setup there is, one rig serving itself,
     reports "localhost has never been scanned" the instant after it was
@@ -3418,10 +4138,16 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
     return matched[0]
 
 
-def _model_spec(model: Model, moe: bool) -> ModelSpec:
-    """One serving spec from one capability row; the table's decimal GB to GiB."""
+def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
+    """One serving spec from one capability row; the table's decimal GB to GiB.
+
+    ``name`` is the key the catalogue files the spec under, which is normally
+    the row's ``id``; a row that also carries a catalog ``model_id`` is filed
+    under that id too (the same measured numbers, so a unit named by its
+    catalog pick resolves to this benchmarked row).
+    """
     return ModelSpec(
-        name=model.id,
+        name=name or model.id,
         vram_gb=model.vram_gb_working / GB_PER_GIB,
         ram_gb=0.0,
         disk_gb=model.weights_gb / GB_PER_GIB,
@@ -3437,6 +4163,14 @@ def _model_spec(model: Model, moe: bool) -> ModelSpec:
 def _model_specs() -> tuple[ModelSpec, ...]:
     """Serving specs for the rows of the shipped capability estimates.
 
+    The shipped model catalog's own facts are folded in first, keyed by each
+    entry's ``model_id``: a catalog pick the capability table does not name is
+    still servable, sized from the file's bytes and its own context and KV
+    figures (:func:`_catalog_specs`). Then the capability table's measured
+    rows are added, keyed by BOTH their ``id`` and (when one is mapped) their
+    ``model_id``, so the measured ``vram_gb_working`` wins over the computed
+    catalog figure wherever the two name one model.
+
     ``vram_gb`` and ``disk_gb`` come off the typed reader. Whether a model has
     experts — and so a knob for *where* its weights sit — is in the table file
     but not in :class:`mcgyvr.capability.Model`, so it is read
@@ -3444,9 +4178,9 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     cosmetic: a dense model that does not fit is a refusal, while an MoE that
     does not fit is a model that fits differently (:mod:`mcgyvr.serving`).
 
-    ``geometry`` is ``None`` for every row because the table carries no GGUF
-    geometry for any model. A dense row is therefore sized on its scalar
-    figures, one slot wide; an MoE row is refused rather than sized
+    ``geometry`` is ``None`` for every row because neither the table nor the
+    catalog carries GGUF geometry. A dense row is therefore sized on its
+    scalar figures, one slot wide; an MoE row is refused rather than sized
     (:func:`mcgyvr.serving.fit`), because ``--n-cpu-moe`` moves whole blocks
     and what each block's experts weigh is in the tensor table and nowhere
     else. An operator who has scanned the file points
@@ -3462,11 +4196,53 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     actually spills depends on the card and is derived per machine by
     :func:`mcgyvr.serving._placement`.
     """
+    specs: list[ModelSpec] = list(_catalog_specs())
     architectures = _architectures()
-    return tuple(
-        _model_spec(model, architectures.get(model.id) == "moe")
-        for model in load().models
-    )
+    for model in load().models:
+        moe = architectures.get(model.id) == "moe"
+        specs.append(_model_spec(model, moe))
+        if model.model_id is not None and model.model_id != model.id:
+            specs.append(_model_spec(model, moe, name=model.model_id))
+    return tuple(specs)
+
+
+def _catalog_specs() -> tuple[ModelSpec, ...]:
+    """Serving specs derived from the shipped model catalog's own facts.
+
+    A catalog pick the capability table does not name is still servable: the
+    file's bytes and the KV cache its own ``context_length`` and
+    ``kv_bytes_per_token`` price give a dense scalar spec, one slot wide, with
+    no GGUF geometry. ``disk_gb`` is the file's bytes in GiB; ``vram_gb`` is
+    the weights plus the full-context KV cache, also in GiB, so the fit check
+    no longer relies on a measured scalar that may not exist. ``moe`` and
+    ``cpu_only`` are false because these rows are dense GGUF checkpoints, and
+    ``geometry`` is ``None``: the catalog carries no tensor table.
+    """
+    from mcgyvr.knowledge import store as knowledge_store
+    from mcgyvr.knowledge.record import KnowledgeError
+
+    try:
+        records = knowledge_store.shipped()
+    except KnowledgeError as exc:
+        raise CapabilityTableError(str(exc)) from exc
+    specs: list[ModelSpec] = []
+    for one in records:
+        size_gib = one.size_bytes.value / (1024**3)
+        kv_gib = one.context_length.value * one.kv_bytes_per_token.value / (1024**3)
+        specs.append(
+            ModelSpec(
+                name=one.model_id,
+                vram_gb=size_gib + kv_gib,
+                ram_gb=0.0,
+                disk_gb=size_gib,
+                moe=False,
+                cpu_only=False,
+                geometry=None,
+                kv_cache_dtype_k="f16",
+                kv_cache_dtype_v="f16",
+            )
+        )
+    return tuple(specs)
 
 
 def _architectures() -> dict[str, str]:
@@ -3572,9 +4348,9 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
     """
     from mcgyvr.config import MCORCH
     from mcgyvr.decision import UnboundRoleError
+    from mcgyvr.local_pool import SourceUnavailableError
     from mcgyvr.mcorch import bind, serve
     from mcgyvr.mcorch.authoring import AuthoringUnavailableError
-    from mcgyvr.pool import SourceUnavailableError
 
     try:
         config = load_config(Path(args.config) if args.config else None)
@@ -3894,18 +4670,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     conf.set_defaults(func=_config)
 
-    pool = sub.add_parser(
-        "pool",
+    local_pool = sub.add_parser(
+        "local_pool",
         help="show the ladder as it resolves against the declared sources",
     )
-    pool.add_argument(
+    local_pool.add_argument(
         "path",
         nargs="?",
         default=None,
         type=_named_path,
         help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
-    pool.add_argument(
+    local_pool.add_argument(
         "--probe",
         action="store_true",
         help=(
@@ -3914,14 +4690,14 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "require a network)"
         ),
     )
-    pool.add_argument(
+    local_pool.add_argument(
         "--probe-timeout",
         type=float,
         default=PROBE_TIMEOUT_S,
         metavar="SECONDS",
         help=f"how long a source has to answer a probe (default: {PROBE_TIMEOUT_S:g})",
     )
-    pool.set_defaults(func=_pool)
+    local_pool.set_defaults(func=_local_pool)
 
     cat = sub.add_parser(
         "catalog",
@@ -3931,7 +4707,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "name",
         nargs="?",
         default=None,
-        help="show one task type in full (default: list them all)",
+        help=(
+            "show one task type or deterministic operation in full "
+            "(default: list them all)"
+        ),
     )
     cat.add_argument(
         "--against",
@@ -3944,11 +4723,6 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "resolve against a configured ladder and name the types it cannot "
             f"start (default config: {CONFIG_DEFAULT_HELP})"
         ),
-    )
-    cat.add_argument(
-        "--excluded",
-        action="store_true",
-        help="also show the types considered and removed, with the reason",
     )
     cat.set_defaults(func=_catalog)
 
@@ -4001,6 +4775,17 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "scan RIG instead, over your own ssh (read-only), and save it as the "
             f"serving door's rig file RIG.json in {RIGS_SHOWN}, which a door run "
             "from an install holds the rig to; says what moved since the last"
+        ),
+    )
+    sca.add_argument(
+        "--model-store",
+        action="append",
+        default=[],
+        metavar="DIR",
+        help=(
+            "a directory holding *.gguf and *.safetensors checkpoints to "
+            "inventory as models-on-disk, in addition to the weights dir "
+            "(repeatable)"
         ),
     )
     sca.set_defaults(func=_scan)
@@ -4159,11 +4944,13 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     sbx.set_defaults(func=_sandbox)
 
-    ini = sub.add_parser(
-        "init",
-        help="detect what is reachable and write a config bound to it",
+    setup = sub.add_parser(
+        "setup",
+        help=(
+            "scan, plan, download, emit and write a config bound to what is reachable"
+        ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--host",
         action="append",
         default=[],
@@ -4173,7 +4960,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "(repeatable; default: localhost only)"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--api",
         action="append",
         default=[],
@@ -4185,18 +4972,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "key, never the key itself"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "path",
         nargs="?",
         default=None,
         help=f"where to write (default: {INIT_DEFAULT_HELP})",
     )
-    ini.add_argument(
+    setup.add_argument(
         "--force",
         action="store_true",
         help="overwrite an existing config, discarding hand edits",
     )
-    ini.add_argument(
+    setup.add_argument(
         "--priority",
         default=None,
         choices=PRIORITIES,
@@ -4208,7 +4995,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "measured or the schema's, never the model's"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--profile",
         default=None,
         metavar="TEXT",
@@ -4218,9 +5005,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "the config's `profile: live|dev`"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--use-case",
-        default="coding",
+        default=None,
         choices=use_case_names,
         metavar="USE_CASE",
         help=(
@@ -4229,7 +5016,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "media-gen (media_valid + safety + ASR-WER); default: coding"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--deployment",
         default=None,
         choices=("hybrid", "local-only"),
@@ -4237,11 +5024,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
             "local-only (mcgyvr is the backend and provisions a local "
-            "orchestrator for a non-chat use case); default: local-only for "
-            "chat, hybrid otherwise"
+            "orchestrator for a non-chat use case); default: hybrid"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--jev",
         default=None,
         metavar="UNIT",
@@ -4250,7 +5036,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "asks, never slept or woken (an opt-in; no model is picked for you)"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--mcorch",
         default=None,
         metavar="UNIT",
@@ -4261,7 +5047,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "local-only"
         ),
     )
-    ini.add_argument(
+    setup.add_argument(
         "--window",
         default=None,
         type=int,
@@ -4271,7 +5057,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "read back off the running process"
         ),
     )
-    ini.set_defaults(func=_init)
+    setup.set_defaults(func=_setup)
 
     att = sub.add_parser(
         "attach",

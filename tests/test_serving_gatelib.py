@@ -471,6 +471,17 @@ def _shipped_scan_blob() -> str:
     return base64.b64encode(Path(rigscan.__file__).read_bytes()).decode("ascii")
 
 
+def _shipped_snapshot_blob() -> str:
+    """The base64 payload the snapshot-read line ships, from the one reader."""
+    import base64
+
+    from mcgyvr.serving.run import GATE_SCRIPTS
+
+    return base64.b64encode((GATE_SCRIPTS / "rig-snapshot.sh").read_bytes()).decode(
+        "ascii"
+    )
+
+
 def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
     assert gatelib._read_only_command(gatelib.scan_read_command())
     assert gatelib._read_only_command(
@@ -497,6 +508,40 @@ def test_scan_read_command_embeds_only_the_shipped_scanner() -> None:
 
 def test_read_only_command_refuses_a_scan_with_another_payload() -> None:
     assert not gatelib._read_only_command("echo ZXZpbA== | base64 -d | python3 -")
+
+
+def test_rig_snapshot_read_command_is_the_sanctioned_shape() -> None:
+    command = gatelib.rig_snapshot_read_command()
+    assert gatelib._read_only_command(command)
+    assert "echo " in command
+    assert command.endswith(" | base64 -d | bash -s")
+
+
+def test_rig_snapshot_read_command_embeds_only_the_shipped_reader() -> None:
+    command = gatelib.rig_snapshot_read_command()
+    expected = f"echo {_shipped_snapshot_blob()} | base64 -d | bash -s"
+    assert command == expected
+
+
+def test_read_only_command_refuses_a_tampered_snapshot_blob() -> None:
+    blob = _shipped_snapshot_blob()
+    flipped = ("A" if blob[0] != "A" else "B") + blob[1:]
+    bad = f"echo {flipped} | base64 -d | bash -s"
+    assert not gatelib._read_only_command(bad)
+
+
+def test_read_only_command_refuses_a_snapshot_read_with_a_bash_c() -> None:
+    bad = f"echo {_shipped_snapshot_blob()} | base64 -d | bash -c 'id'"
+    assert not gatelib._read_only_command(bad)
+
+
+def test_read_only_command_refuses_a_snapshot_read_with_an_appended_argument() -> None:
+    bad = f"echo {_shipped_snapshot_blob()} | base64 -d | bash -s extra"
+    assert not gatelib._read_only_command(bad)
+
+
+def test_read_only_command_refuses_a_snapshot_read_with_another_payload() -> None:
+    assert not gatelib._read_only_command("echo ZXZpbA== | base64 -d | bash -s")
 
 
 def test_header_read_command_is_the_sanctioned_shape() -> None:

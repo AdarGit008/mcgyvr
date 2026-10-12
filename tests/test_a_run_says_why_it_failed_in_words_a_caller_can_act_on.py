@@ -52,7 +52,7 @@ def test_a_rejected_climb_prints_its_findings_and_writes_them_to_the_result(
     assert path.is_relative_to(journal / "results"), path
     result = json.loads(path.read_text())
     assert result["contract"] == "impl"
-    assert result["task_type"] == "function_implementation"
+    assert result["task_type"] == "code"
     assert result["target"] == "src/pkg/messy.py"
     assert result["outcome"] == "ladder_spent"
     assert result["committed"] is False

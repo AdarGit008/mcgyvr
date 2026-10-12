@@ -15,8 +15,8 @@ from typing import Any
 
 from mcgyvr.config import parse
 from mcgyvr.delegate import proposer_by_authoring
+from mcgyvr.local_pool import source_map
 from mcgyvr.orchestrator.decompose import Evidence, Proposal
-from mcgyvr.pool import source_map
 
 SETUP = """\
 units:
@@ -43,7 +43,7 @@ def _evidence() -> Evidence:
 
 
 def _proposal(name: str) -> Proposal:
-    return Proposal(task_type="docstring", task=name, target="a.py")
+    return Proposal(task_type="code", task=name, target="a.py")
 
 
 def test_classifier_asks_the_typed_proposer_first_and_falls_back_to_prose() -> None:

@@ -5,7 +5,7 @@ the parent repository — no commit, no receipt, only the output files the gate
 accepted, left in the working tree — and the journal is a mcgyvr-development
 concern that lives on the machine, not in the user's project. So ``--record``
 is not the only way to journal: every dispatching run journals under
-``journal.dir`` from the config, which ``mcgyvr init`` writes and whose default
+``journal.dir`` from the config, which ``mcgyvr setup`` writes and whose default
 is the XDG state dir, and ``--record DIR`` remains as a per-run override for a
 campaign that wants its evidence envelope instead.
 

@@ -111,3 +111,28 @@ def test_rejects_table_with_no_models(tmp_path: Path) -> None:
     bad = write_table(tmp_path, document)
     with pytest.raises(CapabilityTableError, match="no models"):
         load(bad)
+
+
+def test_a_row_carries_its_catalog_model_id(tmp_path: Path) -> None:
+    model = row("invented-model-a")
+    model["model_id"] = "invented-org/Invented-7B"
+    table = load(write_table(tmp_path, table_document(rows=[model])))
+    assert table.models[0].model_id == "invented-org/Invented-7B"
+
+
+def test_a_model_id_that_is_not_text_is_refused_by_name(tmp_path: Path) -> None:
+    model = row("invented-model-a")
+    model["model_id"] = 123
+    document = table_document(rows=[model])
+    with pytest.raises(CapabilityTableError, match="model_id"):
+        load(write_table(tmp_path, document))
+
+
+def test_a_duplicate_model_id_is_refused(tmp_path: Path) -> None:
+    first = row("invented-model-a")
+    first["model_id"] = "invented-org/Invented-7B"
+    second = row("invented-model-b")
+    second["model_id"] = "invented-org/Invented-7B"
+    document = table_document(rows=[first, second])
+    with pytest.raises(CapabilityTableError, match="twice"):
+        load(write_table(tmp_path, document))

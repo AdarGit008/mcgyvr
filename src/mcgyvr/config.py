@@ -1,6 +1,6 @@
 """The setup's schema, loader and failure behaviour, and the two files it reads.
 
-A setup is two files in one directory, written by ``mcgyvr init``: ``fleet.yaml``
+A setup is two files in one directory, written by ``mcgyvr setup``: ``fleet.yaml``
 holds the units (what runs where, locked) and ``policy.yaml`` holds the ladder
 and how work moves over it (not locked). A third, ``relief.yaml``, is there
 only once ``mcgyvr rig rungs sync`` has written it: the units other people
@@ -303,14 +303,14 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "Hard ceiling on how many attempts one task may spend in total, "
         "across every rung and every family it climbs. Unset means the "
         "ladder's own budget bounds it — the sum of each reachable rung's "
-        "`attempts`, which `mcgyvr pool` prints — so leaving it unset is not "
+        "`attempts`, which `mcgyvr local_pool` prints — so leaving it unset is not "
         "unbounded. Set it when you have raised a rung's `attempts` or "
         "`max_escalations` and want one number that still holds. A decline "
         "costs nothing against it: a rung that stepped aside spent no attempt.",
         min_value=1,
         bind_hint=(
             "set a whole number of attempts, or leave it unset to be bounded "
-            "by the ladder's own budget (`mcgyvr pool` prints that number)"
+            "by the ladder's own budget (`mcgyvr local_pool` prints that number)"
         ),
     ),
     Field(
@@ -1025,7 +1025,7 @@ SCHEMA: tuple[Field, ...] = (
         "`breadth.draws` for the units named; a unit with no entry draws the "
         "breadth. Spelled the way `attempts` is because it is the same kind of "
         "per-unit routing decision, and it is policy rather than a unit fact, "
-        "which is why it is not under `units`. `mcgyvr pool` prints the "
+        "which is why it is not under `units`. `mcgyvr local_pool` prints the "
         "effective number where it exceeds one.",
         default=None,
         min_value=1,
@@ -1861,7 +1861,7 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
 
     Refusing here is what makes the rule cheap everywhere else. An address is
     interpolated into operator-facing strings — runner transport errors,
-    availability verdicts, ``mcgyvr pool``, the init summary — and a credential
+    availability verdicts, ``mcgyvr local_pool``, the init summary — and a credential
     that cannot be in the value cannot be in any of them.
     """
     userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
@@ -1870,7 +1870,7 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
     raise ConfigSchemaError(
         f"{block}.{name}.address: carries credentials in the URL "
         f"({userinfo.split(':')[0]}:...@). A URL is quoted in error messages, "
-        f"probe verdicts and `mcgyvr pool`, so a key written here reaches "
+        f"probe verdicts and `mcgyvr local_pool`, so a key written here reaches "
         f"logs and terminals that a key in the environment never does. Remove "
         f"the `user:password@` part and name the variable holding it with "
         f"`api_key_env`."
@@ -1955,7 +1955,7 @@ def config_path() -> Path:
     ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written by ``mcgyvr fleet
     promote``, named by ``mcgyvr fleet use``. With no override, no
     ``fleet.yaml`` here and no fleet named live, the answer is the working
-    directory: where ``mcgyvr init`` writes and where a missing config is
+    directory: where ``mcgyvr setup`` writes and where a missing config is
     reported. A path that depends on an environment variable only some shells
     export is a config that is found from one terminal and not another, so
     no fourth place is consulted; the two variables that move these places,
@@ -2386,7 +2386,7 @@ def _absent_remedy(path: Path | None) -> str:
     again.
 
     Nobody named one: both remedies are open and both are said. The variable
-    named it: ``mcgyvr init`` writes to exactly that path — ``_init`` resolves
+    named it: ``mcgyvr setup`` writes to exactly that path — ``_init`` resolves
     its destination the same way and its help says so — so a fresh install
     with the documented ``export MCGYVR_CONFIG=...`` already done is one
     command from finished, and answering it with "set the variable" is advice
@@ -2397,11 +2397,11 @@ def _absent_remedy(path: Path | None) -> str:
         return "Name one that is there."
     if named_config_path() is not None:
         return (
-            "`mcgyvr init` writes there: run it to generate one, or "
+            "`mcgyvr setup` writes there: run it to generate one, or "
             "name a file that already exists."
         )
     return (
-        f"Run `mcgyvr init` to generate one, or set {CONFIG_PATH_ENV} "
+        f"Run `mcgyvr setup` to generate one, or set {CONFIG_PATH_ENV} "
         f"to point at an existing file."
     )
 

@@ -46,7 +46,8 @@ UNFORMATTED = "x = {  'a':1,'b':2 }\n"
 
 FORMAT_CONTRACT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:
@@ -55,7 +56,8 @@ scope:
 
 RENAME_CONTRACT = """
 id: rename
-task_type: rename_symbol
+task_type: code
+operation: rename_symbol
 task: Rename the helper.
 target: src/pkg/messy.py
 rename:
@@ -196,7 +198,7 @@ def test_a_step_with_no_program_and_no_executor_is_still_refused(
 
     contract = load_contract(RENAME_CONTRACT)
     (planned,) = tool_steps(contract)
-    step = replace(planned, tool=Tool(task_type="no_such_type"))
+    step = replace(planned, tool=Tool(operation="no_such_type"))
     assert step.argv == ()
 
     with TempDirSandbox(repo) as sandbox, pytest.raises(UnrunnableStepError) as exc:
@@ -222,7 +224,7 @@ def test_a_missing_program_is_an_environment_issue_never_a_failure(
     contract = load_contract(FORMAT_CONTRACT)
     (planned,) = tool_steps(contract)
     step = replace(
-        planned, tool=Tool(task_type="format", command=("mcgyvr-no-such-program-42",))
+        planned, tool=Tool(operation="format", command=("mcgyvr-no-such-program-42",))
     )
 
     with TempDirSandbox(repo) as sandbox:
@@ -283,7 +285,7 @@ def test_the_contracts_acceptance_commands_actually_run(repo: Path) -> None:
     contract = load_contract(
         """
 id: checked
-task_type: function_implementation
+task_type: code
 task: Set the value.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
@@ -333,14 +335,14 @@ def test_the_contracts_output_cap_reaches_the_request(
     """
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
-    from mcgyvr.pool import Protocol, source_map
+    from mcgyvr.local_pool import Protocol, source_map
     from mcgyvr.runner import Completion, Request, StopReason
     from mcgyvr.worker.prompt import build_prompt
 
     contract = load_contract(
         """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Add the helper.
 target: src/pkg/messy.py
 stop_conditions: ["The interface is not stated."]
@@ -383,7 +385,7 @@ def test_a_prompt_that_does_not_fit_is_refused_rather_than_truncated() -> None:
     decorative and send a request whose reply is cut at a boundary nobody chose.
     """
     from mcgyvr.config import parse as parse_config
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
     from mcgyvr.worker.prompt import build_prompt
 
     # The ceiling is the smallest the schema allows beside the output cap, and
@@ -392,7 +394,7 @@ def test_a_prompt_that_does_not_fit_is_refused_rather_than_truncated() -> None:
     contract = load_contract(
         f"""
 id: huge
-task_type: function_implementation
+task_type: code
 task: {"Add the helper. " * 400}
 target: src/pkg/messy.py
 stop_conditions: ["The interface is not stated."]
@@ -434,7 +436,7 @@ ladder:
 
 MODEL_CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
@@ -470,7 +472,7 @@ scope:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -513,7 +515,7 @@ def test_one_attempt_reaches_a_judgement_over_a_real_gate(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
@@ -551,7 +553,7 @@ def test_a_driver_with_no_journal_reports_the_rows_it_did_not_write(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER + "breadth:\n  draws: 2\n")
@@ -584,7 +586,7 @@ def test_a_hand_authored_contract_shows_the_target_file_in_the_prompt(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try
 
     config = parse_config(LADDER)
@@ -617,7 +619,7 @@ def test_a_rejected_attempt_tells_the_next_one_what_failed(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
@@ -651,7 +653,7 @@ def test_the_retry_note_does_not_carry_the_acceptance_command(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try
 
     config = parse_config(LADDER)
@@ -677,7 +679,7 @@ def test_an_unreadable_reply_is_a_failed_attempt_not_an_exception(
     """A worker that answers in prose has failed an attempt, not broken the run."""
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
@@ -708,7 +710,7 @@ def test_the_attempt_function_plugs_into_escalate(
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.escalate import Delivered, escalate
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
 
     config = parse_config(LADDER)
     pool = source_map(config)
@@ -802,7 +804,7 @@ def test_a_prose_contract_reaches_an_accepted_answer_not_a_file(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
@@ -1002,7 +1004,7 @@ def test_an_attempt_is_recorded_under_the_orchestrator_that_made_it(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import Recording, worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try
     from mcgyvr.telemetry import fold
 
@@ -1043,7 +1045,7 @@ def test_two_orchestrators_share_one_stream_and_stay_distinguishable(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import Recording, worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try
     from mcgyvr.telemetry import fold
 
@@ -1116,7 +1118,7 @@ def test_a_cooling_source_is_declined_without_a_dispatch(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
@@ -1148,7 +1150,7 @@ def test_a_dispatch_failure_feeds_the_cooldown(
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.escalate import DispatchRaisedError
-    from mcgyvr.pool import Rung, source_map
+    from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try
     from mcgyvr.runner import RunnerError
 

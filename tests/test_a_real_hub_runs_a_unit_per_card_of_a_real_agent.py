@@ -4,6 +4,12 @@ Opt in: ``MCGYVR_HUB_REPO`` names a hub checkout whose virtualenv is built
 (``uv sync`` in it). Without it every test here skips; a checkout named
 without its ``.venv/bin/mcgyvr-hub`` fails.
 
+The hub's client configuration named here — the ``MCGYVR_HUB_*`` variables and
+the admin endpoints this test drives — is the product's accepted counterparty
+surface, not an owner machine's private detail: the hub is the product's live
+peer, and what stays private is the hub's source and its deployment, never
+this configuration.
+
 The hub is that checkout's own server, a process on loopback with a database
 of its own, placing units per card (``MCGYVR_HUB_PLACEMENT=card``). Each rig
 is this repository's ``mcgyvr rig share`` and ``mcgyvr rig join`` in a process

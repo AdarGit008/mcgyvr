@@ -29,7 +29,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity, CapacityError, Outcome, run_batch
 from mcgyvr.config import parse
-from mcgyvr.pool import Endpoint, Protocol, source_map
+from mcgyvr.local_pool import Endpoint, Protocol, source_map
 
 
 @pytest.fixture(autouse=True)

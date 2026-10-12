@@ -1,10 +1,10 @@
 """The in-process floor: rename a symbol across every file that references it.
 
-The one deterministic task type that is not a program on PATH. Every other
+The one deterministic operation that is not a program on PATH. Every other
 member of the floor hands a file to ``ruff`` or ``prettier`` and reads an exit
 code; ``rename_symbol`` fans across files, which no formatter does, and the
 thing that already knows where a name occurs is mcgyvr's own index. That is the
-whole of the catalog's warrant for calling this type deterministic: the index
+whole of the catalog's warrant for calling this operation deterministic: the index
 already resolved the references, so this fans across files without a model.
 
 **What is rewritten, and what is not.** The index reports each occurrence as a

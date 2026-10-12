@@ -10,9 +10,8 @@ The shape the owner decided on: a proposer over the folded journal that, given
 a config, says which task types should start one rung up because the rung the
 catalog starts them on has been failing them. This test is that claim, a strict
 xfail while ``mcgyvr.feedback`` does not exist: a journal where the cheap rung
-passed every ``bug_fix`` and failed every ``function_implementation`` yields
-exactly one proposal, for ``function_implementation``, and none for the type that
-passes.
+passed every ``chat`` and failed every ``code`` yields exactly one proposal, for
+``code``, and none for the type that passes.
 """
 
 from __future__ import annotations
@@ -61,15 +60,15 @@ def test_a_type_the_cheap_rung_keeps_failing_is_proposed_to_start_one_rung_up(
     for n in range(3):
         _dispatch(
             journal,
-            contract=f"fix-{n}",
-            task_type="bug_fix",
+            contract=f"answer-{n}",
+            task_type="chat",
             rung="local_small",
             landed="committed",
         )
         _dispatch(
             journal,
             contract=f"impl-{n}",
-            task_type="function_implementation",
+            task_type="code",
             rung="local_small",
             landed="failed",
         )
@@ -79,5 +78,5 @@ def test_a_type_the_cheap_rung_keeps_failing_is_proposed_to_start_one_rung_up(
     proposals = propose(journal)
 
     assert [(p.task_type, p.reason) for p in proposals] == [
-        ("function_implementation", "local_small failed 3 of 3")
+        ("code", "local_small failed 3 of 3")
     ]

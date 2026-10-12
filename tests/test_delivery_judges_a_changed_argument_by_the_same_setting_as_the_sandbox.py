@@ -48,7 +48,7 @@ PLACEHOLDER = "def placeholder():\n    return None\n"
 
 APPENDS = """
 id: merge-rows
-task_type: function_implementation
+task_type: code
 task: Add the extra row to the rows and return them.
 interface: merge_into(rows, extra) returns the rows with extra at the end.
 target: src/pkg/rows.py

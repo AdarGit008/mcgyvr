@@ -2,11 +2,11 @@
 
 `tests_pass` is a verdict on a suite, not on a diff. A call to a method that
 does not exist, sitting on a branch no test exercises, leaves the suite green —
-and where a repository declares no runnable check at all, a contract of a type
-needing commands is rejected at load, so `function_implementation`,
-`test_scaffold` and `bug_fix` are not weakly checked but unreachable. This rung
-is what closes the first gap and what makes those task types possible in the
-second case.
+and where a repository declares no runnable check at all, a contract needing
+commands is rejected at load, so a `code` contract that derives command
+evidence is not weakly checked but unreachable without one. This rung is what
+closes the first gap and what makes that evidence possible in the second
+case.
 
 It asks one question per call the worker added: **does this name resolve in the
 environment this code will actually run in?** Answering it means importing the

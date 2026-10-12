@@ -2,14 +2,14 @@
 
 A URL is the project's only structure that can carry a credential inside a
 value that is otherwise fine to print. ``https://user:key@host`` appears in
-transport errors, probe verdicts, telemetry rows and ``mcgyvr pool``, and
+transport errors, probe verdicts, telemetry rows and ``mcgyvr local_pool``, and
 each of those is a sink an operator reads, pastes into an issue, or ships to a
 log collector.
 
 :func:`~mcgyvr.config._refuse_userinfo` stops such a URL entering the config at
 all, which is the fix that scales: a value that cannot exist cannot be printed.
 This module is the second line, for the paths a URL can reach without passing
-through the loader — a caller constructing an :class:`~mcgyvr.pool.Endpoint`
+through the loader — a caller constructing an :class:`~mcgyvr.local_pool.Endpoint`
 directly, a test, a future direct-mode API. Two lines rather than one because
 the first is a validator in another module, and a docstring in *this* one that
 claims "no message interpolates a credential" should be true of the code under

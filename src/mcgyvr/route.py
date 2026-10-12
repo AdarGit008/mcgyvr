@@ -178,7 +178,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.deterministic import ToolStep
-    from mcgyvr.pool import Rung, SourceMap
+    from mcgyvr.local_pool import Rung, SourceMap
 
 
 class RouteError(Exception):
@@ -253,7 +253,7 @@ class Machine:
     """What a rung runs on, as a question rather than as a name.
 
     A plan is a thing that gets printed, and nothing above the execution seam
-    learns where work runs — a :class:`~mcgyvr.pool.Rung` says a name and a
+    learns where work runs — a :class:`~mcgyvr.local_pool.Rung` says a name and a
     model and deliberately nothing else. So the plan carries the *question*
     instead of the answer, which is the same move :func:`climb` makes with
     ``permit`` and with its attempt function: the key stays private, this
@@ -485,7 +485,7 @@ class Plan(Planned):
     deterministic floor, a :class:`~mcgyvr.deterministic.ToolStep`, which is a
     program and has no rung to name. The two are deliberately different types
     rather than one with an optional field: fitting a tool into ``Step`` would
-    mean inventing a rung name :meth:`~mcgyvr.pool.SourceMap.bind` cannot
+    mean inventing a rung name :meth:`~mcgyvr.local_pool.SourceMap.bind` cannot
     honour, and every caller that reads ``rung`` would have to learn that it
     sometimes means nothing.
 
@@ -725,7 +725,7 @@ def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ..
 
     Only rungs the pool is offering appear: a rung skipped for a missing
     credential or an unreachable source is not something to route work to, and
-    :class:`~mcgyvr.pool.SourceMap` has already recorded why it is absent.
+    :class:`~mcgyvr.local_pool.SourceMap` has already recorded why it is absent.
     """
     known = catalog()
     grouped: dict[Family, list[Rung]] = {f: [] for f in known.families}
@@ -777,7 +777,7 @@ def plan(
     is the *mode*, so that a climb can honour ``fanout`` without being handed a
     whole config.
     """
-    chosen = family if family is not None else contract.type.starts_on
+    chosen = family if family is not None else contract.kind.starts_on
     rungs = by_family(config, pool).get(chosen)
     if rungs is None:  # a Family from another catalog than the one loaded here
         raise RouteError(f"{chosen.name!r} is not a family of the loaded catalog")
@@ -851,7 +851,7 @@ def draws_for(config: Config, rung: str) -> int:
     because it is the same kind of per-unit override: a routing decision
     keyed by unit name, cross-checked against the declared units at load. Read
     per attempt by :func:`mcgyvr.drive.worker_attempt` and printed by
-    ``mcgyvr pool``. An unknown rung is not refused here — drive asks for
+    ``mcgyvr local_pool``. An unknown rung is not refused here — drive asks for
     rungs that came from the pool, and a name the pool admitted is a name the
     config declared.
     """
@@ -1184,7 +1184,7 @@ def climb(
     # what a caller asks before handing a plan over, and `mcgyvr.escalate` asks it.
     steps = plan.climbable
     if plan.programs:
-        named = ", ".join(sorted({step.tool.task_type for step in plan.programs}))
+        named = ", ".join(sorted({step.tool.operation for step in plan.programs}))
         raise RouteError(
             f"the {plan.family.name!r} plan is a program, not a rung, so it is "
             f"not climbed: run it through `mcgyvr.deterministic` instead "

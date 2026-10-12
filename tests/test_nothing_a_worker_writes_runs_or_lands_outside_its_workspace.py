@@ -56,7 +56,7 @@ REPLY = "RETRY = 3\n"
 def _contract(target: str, allow: str = "src/**") -> str:
     return f"""
 id: retry
-task_type: function_implementation
+task_type: code
 task: Give the fetch helper a retry budget named RETRY.
 target: {target}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
