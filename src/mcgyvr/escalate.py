@@ -93,7 +93,10 @@ install can then do about it is a capability question, not a policy one, and
 reached by a verifier that ran and agreed, and an install with no verifier
 reaches ``UNVERIFIED`` — accepted on the gate, labelled as exactly that. What
 closes the path here is that no acceptance can be *called* verified without
-one, and that an available verifier is never skipped.
+one, and that an available verifier is never skipped. A reply (``chat``,
+``agent``, ``media``) is not a change, so it is never reviewed and never
+``UNVERIFIED``: it is ``CHECKED`` by the output checks its type declares, or
+``UNCHECKED`` when it declares none.
 
 **Ordering is enforced rather than assumed.** :func:`judge` reads the gate first
 and returns before the verifier is so much as named when the gate rejected, so a
@@ -131,13 +134,13 @@ the config file does not show.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
 
-from mcgyvr.catalog import Family, catalog
+from mcgyvr.catalog import Family, TaskType, catalog
 from mcgyvr.route import (
     Accepted,
     Attempted,
@@ -206,17 +209,63 @@ class Assurance(StrEnum):
     """What an acceptance actually rests on.
 
     Not a quality score — a statement of which bar was cleared, so that a
-    result is never reported as more assured than it is. ``DETERMINISTIC`` is a
-    tool's output through the gate, which is what a ``gate_only`` contract
-    describes. ``VERIFIED`` is reachable only by a verifier that ran and
-    agreed. ``UNVERIFIED`` is a model's output that passed the gate with no
-    verdict to satisfy the upgrade — no independent reviewer, review switched
-    off, or a reviewer that produced nothing usable — accepted, and labelled.
+    result is never reported as more assured than it is. Each label belongs to
+    one flow. ``DETERMINISTIC`` is a tool's output through the gate, which is
+    what a ``gate_only`` contract describes. ``VERIFIED`` is reachable only by a
+    verifier that ran and agreed. ``UNVERIFIED`` is a model's change that passed
+    the gate with no verdict to satisfy the upgrade — no independent reviewer,
+    review switched off, or a reviewer that produced nothing usable — accepted,
+    and labelled. ``CHECKED`` and ``UNCHECKED`` are replies, which no reviewer
+    is ever asked about: ``CHECKED`` passed the output checks its type declares
+    (``agent``, ``media``), ``UNCHECKED`` declares none (``chat``). Neither
+    reads as ``UNVERIFIED``, which would say a review was expected.
     """
 
     DETERMINISTIC = "deterministic"
     VERIFIED = "verified"
     UNVERIFIED = "unverified"
+    CHECKED = "checked"
+    UNCHECKED = "unchecked"
+
+
+#: Why a model's change is unverified when nothing more specific is known: the
+#: install names no reviewer, and this is the setting that names one.
+NO_REVIEWER = "no reviewer is configured — set `verifier.unit`"
+
+
+def reply_judged(name: str, checks: Sequence[str]) -> str:
+    """How a reply of task type ``name`` was judged, in the result's words.
+
+    The one spelling, read by :func:`judge` for the result and by
+    :func:`how_judged` for ``mcgyvr catalog``, so the two cannot disagree.
+    """
+    if not checks:
+        return f"served unchecked: {name} replies are not checked or reviewed."
+    return (
+        f"accepted on its output checks ({', '.join(checks)}); "
+        f"{name} replies are never reviewed."
+    )
+
+
+def how_judged(kind: TaskType) -> str:
+    """How work of ``kind`` is judged and which assurance labels it can carry.
+
+    What ``mcgyvr catalog <type>`` prints, from the same rules :func:`judge`
+    applies.
+    """
+    if kind.deterministic:
+        return (
+            "a tool's output, accepted on the deterministic gate; assurance "
+            f"`{Assurance.DETERMINISTIC}`."
+        )
+    if kind.judges_a_change:
+        return (
+            "the deterministic gate, then a fresh-context reviewer: assurance "
+            f"`{Assurance.VERIFIED}` when one agrees, `{Assurance.UNVERIFIED}` "
+            "when none is configured (set `verifier.unit`) or it cannot be used."
+        )
+    label = Assurance.CHECKED if kind.evidence_names else Assurance.UNCHECKED
+    return f"{reply_judged(kind.name, kind.evidence_names)} (assurance `{label}`)"
 
 
 class Opinion(StrEnum):
@@ -376,6 +425,7 @@ def judge(
     *,
     verifier: Callable[[], Review] | None = None,
     absent: str = "",
+    reviewer: str = "",
 ) -> Judgement:
     """Turn a gate run — and, only if it passed, a verifier — into a judgement.
 
@@ -386,7 +436,13 @@ def judge(
 
     ``absent`` is why there is no ``verifier``, in the caller's words, and it
     goes into the judgement's detail: an unverified acceptance that cannot say
-    why is the silent kind this label exists to end.
+    why is the silent kind this label exists to end. ``reviewer`` names who
+    ``verifier`` asks, for the ``verified by`` sentence.
+
+    A reply — a kind that is not judged as a change
+    (:attr:`~mcgyvr.catalog.TaskType.judges_a_change`) — is judged by its
+    output checks alone: ``verifier`` is never asked, and it is labelled
+    ``CHECKED`` or ``UNCHECKED``, never ``UNVERIFIED``.
     """
     policy = required_policy(contract, family)
     upgraded = policy != contract.verification.policy
@@ -404,6 +460,18 @@ def judge(
             ),
         )
 
+    if not contract.kind.judges_a_change:
+        checks = contract.evidence_names
+        return Judgement(
+            verdict=Verdict.PASSED,
+            assurance=Assurance.CHECKED if checks else Assurance.UNCHECKED,
+            # No review is required of a reply, so none is recorded as the
+            # policy in force: the contract's own declaration stands.
+            policy=contract.verification.policy,
+            upgraded=False,
+            detail=reply_judged(contract.task_type, checks),
+        )
+
     if policy == GATE_ONLY:
         return Judgement(
             verdict=Verdict.PASSED,
@@ -417,17 +485,16 @@ def judge(
         )
 
     if verifier is None:
-        why = absent or "this install has none"
+        why = absent or NO_REVIEWER
         return Judgement(
             verdict=Verdict.PASSED,
             assurance=Assurance.UNVERIFIED,
             policy=policy,
             upgraded=upgraded,
             detail=(
-                f"accepted on the deterministic gate alone: work in the "
-                f"{family.name!r} family requires a fresh-context verifier and "
-                f"{why}, so the acceptance is labelled unverified rather than "
-                f"verified."
+                f"unverified: {why}; accepted on the deterministic gate alone, "
+                f"where work in the {family.name!r} family is reviewed when a "
+                f"reviewer is available."
             ),
         )
 
@@ -438,7 +505,10 @@ def judge(
             assurance=Assurance.VERIFIED,
             policy=policy,
             upgraded=upgraded,
-            detail=review.detail or "the verifier agreed with the applied change.",
+            detail=(
+                f"verified by {reviewer or 'the reviewer'}: "
+                f"{review.detail or 'it agreed with the applied change.'}"
+            ),
         )
     if review.opinion is Opinion.REFUSED:
         return Judgement(
@@ -464,9 +534,8 @@ def judge(
         upgraded=upgraded,
         reviewer_failed=True,
         detail=(
-            f"accepted on the deterministic gate alone: the verifier produced "
-            f"no usable verdict ({review.detail}), so the acceptance is "
-            f"labelled unverified rather than verified."
+            f"unverified: the verifier produced no usable verdict "
+            f"({review.detail}); accepted on the deterministic gate alone."
         ),
     )
 

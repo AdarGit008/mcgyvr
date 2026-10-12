@@ -172,6 +172,18 @@ class TaskType:
     def evidence_names(self) -> tuple[str, ...]:
         return tuple(e.name for e in self.required_evidence)
 
+    @property
+    def judges_a_change(self) -> bool:
+        """Whether the gate judges work of this kind as a change to the tree.
+
+        True where the kind carries the ``gate`` evidence, or derives its
+        evidence per contract (which always starts at the gate): a change to
+        a file, which a reviewer can be asked about. A kind that does neither
+        is a reply — judged by the output checks it declares, if any, and
+        never sent to a reviewer, because there is no change to review.
+        """
+        return self.evidence_derived or "gate" in self.evidence_names
+
 
 @dataclass(frozen=True)
 class Catalog:

@@ -62,7 +62,12 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: field — one table row — that folds the deterministic operations into
 #: `code`, and the operations section says how to name one. The growth is the
 #: schema's, not prose bloat.
-MAX_SKILL_BODY_BYTES = 19_900
+#:
+#: 19_900 -> 20_300: the result file's `assurance` key, which the skill tells a
+#: caller to read, gains `checked` and `unchecked` beside the three labels it
+#: had, and step 3 lists all five once — the growth is the result's schema,
+#: not prose bloat.
+MAX_SKILL_BODY_BYTES = 20_300
 
 
 def _body(path: Path) -> str:

@@ -46,6 +46,7 @@ from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
 from mcgyvr.decision import jev_bound
 from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import (
+    NO_REVIEWER,
     DispatchRaisedError,
     Judgement,
     RetryNotes,
@@ -1067,10 +1068,15 @@ def worker_attempt(
                         decide=reviewing.decide,
                     )
                 ),
+                # Why no reviewer was asked, for a change that wanted one: the
+                # configured reviewer's own reason it cannot be used, or none
+                # configured at all. A reply never reads this — `judge` says
+                # how it was judged without a reviewer in the sentence.
                 absent=(
-                    chosen.reason
-                    if isinstance(chosen, NoReviewer)
-                    else "this install has none"
+                    chosen.reason if isinstance(chosen, NoReviewer) else NO_REVIEWER
+                ),
+                reviewer=(
+                    (reviewing.unit or reviewing.model) if reviewing is not None else ""
                 ),
             )
             # Which draw the verdict is about, how many were asked for, and how

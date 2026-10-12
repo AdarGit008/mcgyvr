@@ -301,6 +301,7 @@ def _local_pool(args: argparse.Namespace) -> int:
 
 def _catalog(args: argparse.Namespace) -> int:
     from mcgyvr.catalog import CatalogError, catalog
+    from mcgyvr.escalate import how_judged
 
     try:
         book = catalog()
@@ -348,6 +349,7 @@ def _catalog(args: argparse.Namespace) -> int:
         print(f"  {kind.doc}\n")
         print(f"  guarantee:  {kind.guarantee}\n")
         print(f"  warrant:    {kind.warrant}\n")
+        print(f"  judged:     {how_judged(kind)}\n")
         print("  evidence required:")
         for evidence in kind.required_evidence:
             mark = "$" if evidence.needs_commands else "-"
@@ -2788,18 +2790,20 @@ def _report_climb(
     report.outcome = "accepted"
     report.rung = outcome.rung
     report.assurance = outcome.assurance.value
+    # How the work was judged, in the judgement's own words — verified by whom,
+    # unverified and why, or a reply's checks — into the result file, which is
+    # what a caller is told to read.
+    report.detail = outcome.judgement.detail
     if outcome.assurance is Assurance.UNVERIFIED:
         # Said where it cannot be missed, because nothing else about the run
-        # looks different: the work is accepted on the gate alone. The reason
-        # is the judgement's own — review switched off, no independent
-        # reviewer, a reviewer that produced nothing usable — and it goes
-        # into the result file too, which is what a caller is told to read.
-        report.detail = outcome.judgement.detail
+        # looks different: the change is accepted on the gate alone.
         print(
             f"UNVERIFIED: {contract.id} is accepted with no independent review "
-            f"approving it. {outcome.judgement.detail}",
+            f"approving it — {outcome.judgement.detail}",
             file=sys.stderr,
         )
+    elif outcome.assurance in (Assurance.CHECKED, Assurance.UNCHECKED):
+        print(f"note: {outcome.judgement.detail}", file=sys.stderr)
     bound = outcome.judgement.accepted
     if bound is None:
         # `judge` only reaches PASSED through a gate that accepted, and
