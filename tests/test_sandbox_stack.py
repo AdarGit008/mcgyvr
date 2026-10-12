@@ -71,6 +71,42 @@ def test_pyproject_with_project_table_installs_itself(tmp_path: Path) -> None:
     assert component.pinned is False
 
 
+def test_an_unlocked_pyproject_installs_its_dev_dependency_group(
+    tmp_path: Path,
+) -> None:
+    """`pip install .` skips PEP 735 groups, and ruff and pytest are in `dev`.
+
+    Without them the image has no linter for the gate and no runner for the
+    baseline, and a command exits 127 (e2e run 1, F3). pip learned `--group`
+    in 25.1, so the install upgrades pip to it first. Still pip, still unpinned.
+    """
+    write(
+        tmp_path,
+        "pyproject.toml",
+        "[project]\nname='x'\nversion='0'\n\n"
+        "[dependency-groups]\ndev = ['ruff', 'pytest']\n",
+    )
+    (component,) = detect_stack(tmp_path).components
+    assert component.install == (
+        "pip install --upgrade 'pip>=25.1'",
+        "pip install . --group dev",
+    )
+    assert component.package_manager == "pip"
+    assert component.pinned is False
+    assert "dev group installed" in component.how
+
+
+def test_an_empty_dev_group_installs_the_project_alone(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "pyproject.toml",
+        "[project]\nname='x'\nversion='0'\n\n"
+        "[dependency-groups]\ndev = []\nlint = ['ruff']\n",
+    )
+    (component,) = detect_stack(tmp_path).components
+    assert component.install == ("pip install .",)
+
+
 # --- node -----------------------------------------------------------------
 
 
