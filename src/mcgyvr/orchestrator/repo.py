@@ -300,6 +300,47 @@ def _revision(root: Path) -> str:
     return revision if proc.returncode == 0 and revision else _EMPTY_TREE
 
 
+def head_only_note(root: Path) -> str | None:
+    """What a sandbox built from ``root`` leaves out, or ``None`` when nothing.
+
+    A sandbox is a ``git archive`` of HEAD (:mod:`mcgyvr.sandbox.base`), and
+    deliberately so: delivery diffs against a concrete source revision. So an
+    uncommitted edit or an untracked file — a test just written, say — is not
+    in it, and a contract command that needs it fails there for a reason the
+    working tree does not show. This is the line that says so, without the
+    ``note:`` prefix, so the terminal and the result file carry one text.
+
+    ``None`` for a clean tree, and for a directory that is not a git checkout
+    of its own (a parent repository's status is not this one's).
+    """
+    if not (root / ".git").exists():
+        return None
+    try:
+        dirty = _dirty_paths(root)
+        if not dirty:
+            return None
+        revision = _revision(root)
+        base = (
+            "no commit (the repository has none yet)"
+            if revision == _EMPTY_TREE
+            else f"commit {_git(root, 'rev-parse', '--short', revision).strip()}"
+        )
+    except AttachError:
+        return None
+    # Three names and a count: enough to recognise the test just written,
+    # short enough to stay one line on a tree with hundreds of edits.
+    shown = 3
+    named = ", ".join(dirty[:shown])
+    more = len(dirty) - shown
+    if more > 0:
+        named += f" (+{more} more)"
+    return (
+        f"the sandbox is built from {base}; {len(dirty)} uncommitted or "
+        f"untracked path(s) are not in it: {named}. Commit them if the "
+        f"contract's commands need them."
+    )
+
+
 def _dirty_paths(root: Path) -> tuple[str, ...]:
     """Paths with uncommitted changes, read from ``status --porcelain -z``.
 

@@ -567,6 +567,7 @@ def _sandbox(args: argparse.Namespace) -> int:
     if not repo.is_dir():
         print(f"error: {repo} is not a directory", file=sys.stderr)
         return 1
+    _say_what_the_sandbox_leaves_out(repo)
 
     # Show what a run here would resolve to: the setup's `sandbox.mode` and
     # `sandbox.allow_fallback`, read as a run reads them. No setup at all is
@@ -615,6 +616,21 @@ def _sandbox(args: argparse.Namespace) -> int:
     for note in stack.notes:
         print(f"  - {note}")
     return 0
+
+
+def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
+    """Say on stderr what a sandbox of ``repo``'s HEAD will not hold.
+
+    Returns the note as a one-item list, or an empty one when there is
+    nothing to say, for a run to carry into its result file as well.
+    """
+    from mcgyvr.orchestrator import head_only_note
+
+    note = head_only_note(repo)
+    if note is None:
+        return []
+    print(f"note: {note}", file=sys.stderr)
+    return [note]
 
 
 def _mib(size_bytes: int) -> str:
@@ -1704,6 +1720,10 @@ def _delegate(args: argparse.Namespace) -> int:
     into = Path(args.into) if args.into else None
     try:
         with attach(args.repo, into=into) as repo:
+            # Before the read: the baseline below is observed in the working
+            # tree, and each drafted contract runs in a sandbox of HEAD, so on
+            # a dirty tree the two can disagree.
+            _say_what_the_sandbox_leaves_out(repo.root)
             index = build_index(repo.root)
             decomposition = decompose(
                 index,
@@ -1932,6 +1952,9 @@ def _run(args: argparse.Namespace) -> int:
     if not (repo / ".git").exists():
         print(f"error: {repo} is not a git repository", file=sys.stderr)
         return 1
+    # Warned, never refused: the sandbox is HEAD by design, and a dirty tree
+    # only blocks delivery where the target itself is dirty.
+    notes = _say_what_the_sandbox_leaves_out(repo)
 
     # The ladder path needs the config; the deterministic floor does not and
     # must keep running without one. Both need the journal dir, which is the
@@ -2047,6 +2070,7 @@ def _run(args: argparse.Namespace) -> int:
         run=stamp,
         session_file=str(session.session_file) if session.session_file else None,
         journal=str(journal_dir),
+        notes=notes,
     )
 
     # Every run, both paths: the floor dispatches nothing and is journaled too.
