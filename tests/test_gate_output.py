@@ -666,6 +666,7 @@ def test_output_checks_for_maps_declared_evidence(
     fake_type = SimpleNamespace(
         name="image_generation",
         deterministic=False,
+        session=False,
         needs_acceptance_commands=False,
         needs_demonstration_commands=False,
         required_evidence=(

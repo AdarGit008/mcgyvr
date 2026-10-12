@@ -573,6 +573,11 @@ class _Dispatches:
             self.rows += 1
 
 
+#: Where a session's reply is staged inside the sandbox workspace, and only
+#: there: the workspace is thrown away and a session delivers nothing.
+SESSION_REPLY = ".mcgyvr-session-reply.txt"
+
+
 def worker_attempt(
     config: Config,
     pool: SourceMap,
@@ -699,7 +704,16 @@ def worker_attempt(
     contract's own ``target_content`` — what ``build_prompt`` falls back to — is
     the orchestrator's copy from when the contract was written and is empty on a
     hand-authored one.
+
+    **A session's reply is staged at :data:`SESSION_REPLY`, never at its
+    target.** A ``chat`` or ``agent`` contract names no target — its reply is
+    the answer, returned in the result file and kept in the session log — but
+    the draws are still written into the throwaway workspace so the output
+    checks and the binding read them as they read a file. One fixed name for
+    every session, so a target given anyway is not used here either.
     """
+    if contract.is_session:
+        contract = replace(contract, target=SESSION_REPLY)
     notes: dict[str, RetryNotes | None] = {}
     if reviewers is None and reviewer is not None:
         # The prose-only seam, as one reviewer for every builder. Its model is

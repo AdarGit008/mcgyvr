@@ -20,7 +20,9 @@ exactly four task types: `code`, `chat`, `agent` and `media`.
   [`docs/GPU-SUPPORT.md`](docs/GPU-SUPPORT.md).
 - **Gated results.** Deterministic checks judge every answer before it
   reaches your tree, and an accepted change stays uncommitted unless you ask
-  for a commit.
+  for a commit. A `chat` or `agent` run is a session: its reply is never
+  written to your tree, it is returned in the result file and kept in
+  mcgyvr's session log (`mcgyvr sessions`).
 - **Who it is for:** people working in Claude Code or pi who want to hand
   bounded edits to cheaper workers, especially if they already serve models on
   their own GPUs.
@@ -48,7 +50,7 @@ mcgyvr --help
 
 ```text
 usage: mcgyvr [-h] [--version]
-              {capabilities,caps,config,local_pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,setup,attach,index,resolve,read,fleet,rig,mcorch,run,delegate}
+              {capabilities,caps,config,local_pool,catalog,contract,detect,scan,recommend,serve,manage,emit,sandbox,setup,attach,index,resolve,read,fleet,rig,mcorch,run,sessions,delegate}
               ...
 
 Offload scoped coding work to a configurable worker ladder.
@@ -265,6 +267,7 @@ has its options.
 | `rig` | publish this machine as a rig of a hub |
 | `mcorch` | serve the orchestrator rung as the agent a harness talks to |
 | `run` | execute a contract — on the deterministic floor or up the ladder |
+| `sessions` | list the chat and agent sessions the journal keeps, or show one |
 | `delegate` | turn a prompt plus a repository into validated contracts |
 
 ## Harnesses
@@ -280,7 +283,7 @@ has its options.
 | What | Behaviour, and how to turn it off |
 | --- | --- |
 | Your repository | `mcgyvr run` writes only the contract's `target` and leaves it uncommitted. `--commit` commits it; with the default `delivery.mode: branch` that is a new local branch, and your checkout, index and working tree stay as they were. Nothing is pushed, and mcgyvr has no forge access. |
-| Journal | Every run appends to `<orchestrator>.jsonl` under `journal.dir` (default `~/.local/state/mcgyvr/journal`), with prompts and replies under `blobs/` and result files under `results/`. It never lands in the repository. `--record DIR` adds a second copy. |
+| Journal | Every run appends to `<orchestrator>.jsonl` under `journal.dir` (default `~/.local/state/mcgyvr/journal`), with prompts and replies under `blobs/`, result files under `results/` and each `chat` or `agent` session under `sessions/`. It never lands in the repository. `--record DIR` adds a second copy. |
 | Data leaving the machine | A model task sends the contract, including the target's current content, to the unit it runs on: a server you bound, or an API model's `address`. A tool task that its tool finishes calls no unit. |
 | API keys | A setup names the environment variable (`api_key_env`), never the key. Task commands run with every credential-shaped variable removed (`src/mcgyvr/sandbox/base.py`). |
 | Network probes | `mcgyvr setup` probes default local endpoints, plus machines you name with `--host`. `mcgyvr local_pool --probe` asks each unit whether it answers; it is off by default, because it spends. |

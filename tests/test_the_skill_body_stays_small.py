@@ -81,7 +81,13 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: that a run works on HEAD and an uncommitted test is not in the sandbox, and
 #: the result file gains a `notes` key, which the skill lists. The growth is an
 #: owner-decided sentence and the result's schema, not prose bloat.
-MAX_SKILL_BODY_BYTES = 21_000
+#:
+#: 21_000 -> 21_600: `chat` and `agent` become sessions (e2e run 1, F7): the
+#: result file gains `session_record` and step 3 now lists `answer`, which
+#: carried every reply undocumented; `target` and `scope` say they are not for
+#: a session, and one sentence up top says where a session's reply goes. The
+#: growth is the result's and the schema's, not prose bloat.
+MAX_SKILL_BODY_BYTES = 21_600
 
 
 def _body(path: Path) -> str:

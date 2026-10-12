@@ -70,7 +70,7 @@ import json
 import re
 import shlex
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -421,6 +421,11 @@ class Field:
     #: For an enum whose values were renamed: the old value and its
     #: replacement, so a contract still naming one is told what to write.
     retired: Mapping[str, str] | None = None
+    #: A required key a session's contract may leave out (a task type the
+    #: catalog marks ``session``: ``chat``, ``agent``). A session writes
+    #: nothing to the tree, so it has no destination to name and no surface to
+    #: scope; asking for one would ask for a file that is never written.
+    session_optional: bool = False
 
     def valid_choices(self) -> tuple[str, ...]:
         """The enum's valid set, resolved now rather than at import."""
@@ -474,6 +479,7 @@ SCOPE_FIELDS: tuple[Field, ...] = (
         "permits nothing (`mcgyvr.scope` fails closed), so a contract that "
         "declares none is rejected rather than silently unable to act.",
         required=True,
+        session_optional=True,
         hint='e.g. ["src/**/*.py"]',
     ),
     Field(
@@ -623,8 +629,10 @@ SCHEMA: tuple[Field, ...] = (
         "Where the result goes. Exactly one literal repo-relative path for "
         "any contract a model executes — a model worker's output has one "
         "destination, and a pattern would leave it guessing. A glob is legal "
-        "only for a contract with a deterministic `operation`.",
+        "only for a contract with a deterministic `operation`. A session "
+        "(`chat`, `agent`) writes nothing and names none.",
         required=True,
+        session_optional=True,
         worker_facing=True,
         hint="e.g. src/pkg/fetch.py",
     ),
@@ -677,7 +685,8 @@ SCHEMA: tuple[Field, ...] = (
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
         "`whole_file` is the single-file output protocol; `prose` is the "
-        "raw-text answer for chat and agent; `media_artifact` is the "
+        "raw-text answer for chat and agent (their default); `media_artifact` "
+        "is the "
         "media-generation request for media, whose artifact the bound media "
         "engine writes to the target. `unified_diff` validates here and is "
         "refused before dispatch.",
@@ -727,6 +736,7 @@ SCHEMA: tuple[Field, ...] = (
         "actually changed.",
         block=SCOPE_FIELDS,
         required=True,
+        session_optional=True,
     ),
     Field(
         "acceptance",
@@ -946,6 +956,16 @@ class Contract:
         return self.kind.deterministic
 
     @property
+    def is_session(self) -> bool:
+        """Whether a run of this contract is a session (``chat``, ``agent``).
+
+        Its reply is the answer: returned in the result file and kept in the
+        journal's session log, never written to the tree. ``target`` and
+        ``scope`` are not used — empty unless the contract gave them anyway.
+        """
+        return self.kind.session
+
+    @property
     def acceptance_commands(self) -> tuple[tuple[str, ...], ...]:
         """``acceptance``, split into argv the acceptance rung can run.
 
@@ -1145,7 +1165,12 @@ def parse(text: str, path: Path | None = None) -> Contract:
             f"This build reads version {SCHEMA_VERSION}."
         )
 
-    data = _block(raw, SCHEMA, "")
+    session = _is_session(raw)
+    data = _block(raw, _for_sessions(SCHEMA) if session else SCHEMA, "")
+    if session and "output_schema" not in raw:
+        # A session's reply is the answer, so prose is its shape; whole_file,
+        # the schema's default, would have a chat reply written over a target.
+        data["output_schema"] = "prose"
     declared_cap = data["limits"]["max_output_tokens"] is not None
     if not declared_cap:
         # The one key the schema cannot default statically: how big a reply may
@@ -1373,6 +1398,32 @@ def _mapping(raw: object, path: str) -> Mapping[str, Any]:
     return raw
 
 
+def _is_session(raw: object) -> bool:
+    """Whether ``raw`` declares a session task type, read before validation.
+
+    Before, because which keys are required turns on it. An unknown or
+    malformed ``task_type`` is not a session; ``_block`` refuses it by name.
+    """
+    if not isinstance(raw, Mapping):
+        return False
+    name = raw.get("task_type")
+    if not isinstance(name, str):
+        return False
+    return name in task_type_names() and task_type(name).session
+
+
+def _for_sessions(fields: tuple[Field, ...]) -> tuple[Field, ...]:
+    """``fields`` with every ``session_optional`` key made optional, nested too."""
+    return tuple(
+        replace(
+            spec,
+            required=spec.required and not spec.session_optional,
+            block=_for_sessions(spec.block),
+        )
+        for spec in fields
+    )
+
+
 def _missing(spec: Field, path: str) -> ContractSchemaError:
     hint = f" {spec.hint}" if spec.hint else ""
     return ContractSchemaError(f"{path}: required key is not set. {spec.doc}{hint}")
@@ -1488,59 +1539,20 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
     allow = data["scope"]["allow"]
     forbid = data["scope"]["forbid"]
 
-    if not allow:
-        raise ContractSchemaError(
-            "scope.allow: is empty, which permits nothing — the contract "
-            "could not change a single file. Name at least one pattern the "
-            "worker may touch."
-        )
-
-    _check_glob(target, "target")
-    if enters_git_dir(target):
-        raise ContractSchemaError(
-            f"target: {target!r} is inside a .git directory. Host git reads it "
-            f"as configuration and hooks, so a worker's bytes there are commands "
-            f"the host runs. Name a file in the tree."
-        )
-    if _GLOB_META.search(target) and not kind.deterministic:
-        raise ContractSchemaError(
-            f"target: {target!r} is a pattern, but task type "
-            f"{kind.name!r} runs on a model, whose output has exactly one "
-            f"destination. Name a single literal path, or name a deterministic "
-            f"operation "
-            f"({', '.join(t.name for t in operations() if t.deterministic)})."
-        )
-
-    if _GLOB_META.search(target) and data["target_content"]:
-        raise ContractSchemaError(
-            f"target_content: is set, but target {target!r} is a pattern — "
-            f"there is no one file whose content this could be. Name a single "
-            f"literal path, or drop target_content: a pattern target runs on "
-            f"the deterministic tier, whose tools read each file themselves."
-        )
-
-    overlap = sorted(set(allow) & set(forbid))
-    if overlap:
-        raise ContractSchemaError(
-            f"scope.forbid: {overlap[0]!r} is both allowed and forbidden. "
-            f"Forbid always wins, so the allow entry can never apply — remove "
-            f"whichever one is wrong."
-        )
-
-    scope = Scope.of(allow, forbid)
-    if not _GLOB_META.search(target):
-        if scope.forbidden(target):
+    if kind.session:
+        # Nothing is written, so there is no destination or surface to check:
+        # a target or scope given anyway is not used, and judging it would
+        # refuse a session for a file it never writes.
+        if data["output_schema"] != "prose":
             raise ContractSchemaError(
-                f"target: {target!r} is forbidden by this contract's own "
-                f"scope.forbid, so nothing it produced could ever be "
-                f"accepted. Remove the forbid pattern or retarget."
+                f"output_schema: {data['output_schema']!r} is a file-shaped "
+                f"reply, but a {kind.name!r} run is a session: its reply is the "
+                f"answer, returned in the result file and kept in the session "
+                f"log, never written. Drop output_schema; 'prose' is the "
+                f"default."
             )
-        if not scope.permits(target):
-            raise ContractSchemaError(
-                f"target: {target!r} is outside scope.allow "
-                f"({', '.join(allow)}), so a change writing it would be "
-                f"rejected by the gate. Add a pattern that covers it."
-            )
+    else:
+        _check_destination(data, kind, target, allow, forbid)
 
     # Required only where a BLOCKED reply is heard: a whole_file reply is
     # parsed, and a refusal in it escalates (worker/reply.py), while a raw-text
@@ -1680,3 +1692,66 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"({data['context']['max_input_tokens']}). A reply larger than the "
             f"whole prompt budget cannot be assembled into a next attempt."
         )
+
+
+def _check_destination(
+    data: Mapping[str, Any],
+    kind: CatalogTaskType,
+    target: str,
+    allow: Sequence[str],
+    forbid: Sequence[str],
+) -> None:
+    """The target and scope of a contract that writes: one file, in its scope."""
+    if not allow:
+        raise ContractSchemaError(
+            "scope.allow: is empty, which permits nothing — the contract "
+            "could not change a single file. Name at least one pattern the "
+            "worker may touch."
+        )
+
+    _check_glob(target, "target")
+    if enters_git_dir(target):
+        raise ContractSchemaError(
+            f"target: {target!r} is inside a .git directory. Host git reads it "
+            f"as configuration and hooks, so a worker's bytes there are commands "
+            f"the host runs. Name a file in the tree."
+        )
+    if _GLOB_META.search(target) and not kind.deterministic:
+        raise ContractSchemaError(
+            f"target: {target!r} is a pattern, but task type "
+            f"{kind.name!r} runs on a model, whose output has exactly one "
+            f"destination. Name a single literal path, or name a deterministic "
+            f"operation "
+            f"({', '.join(t.name for t in operations() if t.deterministic)})."
+        )
+
+    if _GLOB_META.search(target) and data["target_content"]:
+        raise ContractSchemaError(
+            f"target_content: is set, but target {target!r} is a pattern — "
+            f"there is no one file whose content this could be. Name a single "
+            f"literal path, or drop target_content: a pattern target runs on "
+            f"the deterministic tier, whose tools read each file themselves."
+        )
+
+    overlap = sorted(set(allow) & set(forbid))
+    if overlap:
+        raise ContractSchemaError(
+            f"scope.forbid: {overlap[0]!r} is both allowed and forbidden. "
+            f"Forbid always wins, so the allow entry can never apply — remove "
+            f"whichever one is wrong."
+        )
+
+    scope = Scope.of(allow, forbid)
+    if not _GLOB_META.search(target):
+        if scope.forbidden(target):
+            raise ContractSchemaError(
+                f"target: {target!r} is forbidden by this contract's own "
+                f"scope.forbid, so nothing it produced could ever be "
+                f"accepted. Remove the forbid pattern or retarget."
+            )
+        if not scope.permits(target):
+            raise ContractSchemaError(
+                f"target: {target!r} is outside scope.allow "
+                f"({', '.join(allow)}), so a change writing it would be "
+                f"rejected by the gate. Add a pattern that covers it."
+            )

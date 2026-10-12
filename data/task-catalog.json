@@ -164,6 +164,7 @@
     {
       "name": "chat",
       "use_case": "chat",
+      "session": true,
       "starts_on": "local",
       "guarantee": "The reply is the answer. Nothing judges it — chat is a raw prompt-to-response endpoint, and whether the answer is right is the harness's question, not the gate's.",
       "required_evidence": [],
@@ -173,6 +174,7 @@
     {
       "name": "agent",
       "use_case": "agent",
+      "session": true,
       "starts_on": "local",
       "guarantee": "The reply cites the contract's sources and clears the safety classifier, as plain prose — every claim is grounded, nothing unsafe is served, and the reply is raw text, not a file.",
       "required_evidence": ["grounded", "safety_pass"],

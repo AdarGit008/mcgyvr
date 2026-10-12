@@ -592,12 +592,19 @@ def _contract_table(fields: Sequence[contract_schema.Field], prefix: str) -> lis
     for field in fields:
         name = f"{prefix}{field.name}"
         required = "**yes**" if field.required else "no"
+        if field.required and field.session_optional:
+            required = f"**yes**, not for {_session_types()}"
         lines.append(
             f"| `{name}` | {_contract_type_label(field)} | {required} | "
             f"{_contract_default_label(field)} | {_contract_describe(field)} |"
         )
     lines.append("")
     return lines
+
+
+def _session_types() -> str:
+    """The task types whose runs are sessions, as the skill spells them."""
+    return "/".join(f"`{t.name}`" for t in contract_schema.task_types() if t.session)
 
 
 def _contract_section(field: contract_schema.Field, path: str) -> list[str]:
@@ -634,9 +641,12 @@ def render_skill() -> str:
         "",
         "Offload one scoped piece of coding work to mcgyvr. You author a *contract*",
         "(one target, one task, one way to judge it), mcgyvr gates every answer",
-        "deterministically, and leaves the accepted file in the working tree. It",
-        "never commits unless told to, and it never writes anything else into the",
-        "repository.",
+        "deterministically, and leaves an accepted `code` change in the working",
+        "tree. It never commits unless told to, and it never writes anything else",
+        "into the repository.",
+        "",
+        f"A {_session_types()} run is a *session*: no `target`, no `scope`; the",
+        "reply is the result file's `answer`, kept in mcgyvr's session log.",
         "",
         "## Step 1 — author a contract",
         "",
@@ -753,6 +763,9 @@ def render_skill() -> str:
         "  dispatched nothing.",
         "- `committed`, `commit`, `branch`, `handoff` — where the work went. Without",
         "  `--commit` the accepted file is left in the working tree, uncommitted.",
+        "- `answer` — a `chat`, `agent` or `media` reply; never written to the tree.",
+        "- `session_record` — a session's record (question, answer, unit, times,",
+        "  outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.",
         "- `target`, `contract`, `task_type`, `orchestrator`, `run`, `session_file`,",
         "  `journal`, `exit_code`.",
         "- `copy_errors` — a `--record DIR` copy that could not be written, and",
@@ -789,7 +802,8 @@ def render_skill() -> str:
         "answer. Report it to whoever owns the machine; the remedy is in",
         "`skills/mcgyvr/SETUP.md`.",
         "",
-        "When `outcome` is `accepted`, the change is in `target`, uncommitted.",
+        "When `outcome` is `accepted`, the change is in `target`, uncommitted (a",
+        "session changes nothing: its reply is `answer`).",
         "Review it there and commit it yourself. To have mcgyvr commit instead, run",
         "with `--commit` on a tree where `target` is clean: mcgyvr refuses to",
         "overwrite an edited or uncommitted target, so restore it first",
