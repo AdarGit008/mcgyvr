@@ -46,7 +46,7 @@ each one.
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
 | `scope` | block | **yes** | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
 | `acceptance` | list of text | no | `[]` | Commands, one per entry, split like a shell would split them (quotes respected) and executed directly with no shell: no `VAR=x` prefix, `&&`, pipes or redirects (`mcgyvr contract` refuses them; write `env VAR=x cmd`, or commit a script). Each must pass for the change to be accepted — the strongest signal the gate has — and also on the *unchanged* tree (the preflight refuses a suite that is already red), which is why a command meant to demonstrate a defect goes in `demonstration`. Arbitrary code from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
-| `demonstration` | list of text | no | `[]` | Commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Written, run and sandboxed exactly like `acceptance`, under the same read-only rule. (orchestrator-facing) |
+| `demonstration` | list of text | no | `[]` | Commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Written, run and sandboxed exactly like `acceptance`; what it leaves behind is cleaned up. (orchestrator-facing) |
 | `no_semantic_change` | boolean | no | `false` | Whether the change must leave the parsed structure untouched apart from the region the task is allowed to touch. A flag rather than a task type: for `task_type: code` it derives the `no_semantic_change` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
 | `type_check` | boolean | no | `false` | Whether the project's own type checker must pass on the changed target. A flag rather than a task type: for `task_type: code` it derives the `type_check` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
 | `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. (orchestrator-facing) |
@@ -208,7 +208,8 @@ what the run came to. The file's keys:
   is complete whatever this says; a copy is not a sink and its failure
   does not stop a run.
 - `notes` — the uncommitted and untracked paths the sandbox of HEAD
-  left out. Empty on a clean tree.
+  left out, and what the baseline left behind, now cleaned up. Empty
+  on a clean tree.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can

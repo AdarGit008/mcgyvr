@@ -6,9 +6,11 @@ the outcome — without needing a Docker daemon (CI has none), which is the same
 reason the sandbox suite itself uses that mode.
 
 Three properties are pinned directly:
-a missing dependency is an environment issue and never a finding; a
-tree-altering command fails by name; and a failing command's excerpt carries
-the tail, not a head that may be all passes.
+a missing dependency is an environment issue and never a finding; a command
+that rewrites the change fails by name; and a failing command's excerpt carries
+the tail, not a head that may be all passes. What a command only leaves behind
+is cleaned up rather than charged, in
+``test_what_an_acceptance_command_leaves_behind_is_cleaned_not_charged.py``.
 """
 
 from __future__ import annotations
@@ -92,21 +94,25 @@ def test_missing_dependency_is_an_environment_issue_never_a_finding(
 
 
 def test_tree_altering_command_fails_by_name(git_repo: Path) -> None:
-    """Acceptance criterion: a command that changes the tree fails, named."""
+    """Acceptance criterion: a command that rewrites the change fails, named."""
     with TempDirSandbox(git_repo) as sandbox:
-        # Exits 0, but rewrites a tracked file — a formatter masquerading as a
-        # check. It must still fail, because the gate can no longer judge the
-        # worker's diff alone.
+        (sandbox.workspace / "app.py").write_text("VALUE = 2\n")  # the change
+        # Exits 0, but rewrites the changed file — a formatter masquerading as
+        # a check. It must still fail: it passed over bytes the worker did not
+        # write.
         report = Acceptance(sandbox, (("sh", "-c", "echo MUTATED >> app.py"),)).run()
+        assert (sandbox.workspace / "app.py").read_text() == "VALUE = 2\n"
     assert len(report.findings) == 1
     finding = report.findings[0]
     assert finding.code == "tree-altering"
     assert finding.path == "sh -c 'echo MUTATED >> app.py'"  # named by command
+    assert "app.py" in finding.message  # and by the file it rewrote
 
 
 def test_tree_alteration_stops_the_run(git_repo: Path) -> None:
-    """A contaminated tree invalidates everything after it, so the run stops."""
+    """The change is already rejected, so the dearer commands after it do not run."""
     with TempDirSandbox(git_repo) as sandbox:
+        (sandbox.workspace / "app.py").write_text("VALUE = 2\n")  # the change
         report = Acceptance(
             sandbox,
             (
@@ -179,11 +185,12 @@ def test_precondition_flags_a_missing_dependency_as_environment(
     assert issue.reason == "acceptance-unavailable"
 
 
-def test_precondition_flags_a_tree_mutating_command(git_repo: Path) -> None:
+def test_precondition_puts_back_what_a_command_rewrote(git_repo: Path) -> None:
+    """Not refused (e2e run 1, F4): there is no change yet for it to rewrite."""
     with TempDirSandbox(git_repo) as sandbox:
         issue = Acceptance(sandbox, (("sh", "-c", "echo x >> app.py"),)).precondition()
-    assert issue is not None
-    assert issue.reason == "acceptance-mutates-tree"
+        assert (sandbox.workspace / "app.py").read_text() == "VALUE = 1\n"
+    assert issue is None
 
 
 # --- the demonstration list: the opposite baseline expectation -------------
@@ -279,7 +286,7 @@ def test_a_demonstration_that_times_out_at_baseline_has_not_demonstrated(
     assert "nothing" in issue.message and "demonstrated" in issue.message
 
 
-def test_a_tree_mutating_demonstration_is_refused_read_only_rule(
+def test_a_demonstration_that_writes_is_cleaned_up_not_refused(
     git_repo: Path,
 ) -> None:
     with TempDirSandbox(git_repo) as sandbox:
@@ -288,8 +295,8 @@ def test_a_tree_mutating_demonstration_is_refused_read_only_rule(
             (),
             demonstrations=(("sh", "-c", "echo x >> app.py; exit 1"),),
         ).precondition()
-    assert issue is not None
-    assert issue.reason == "acceptance-mutates-tree"
+        assert (sandbox.workspace / "app.py").read_text() == "VALUE = 1\n"
+    assert issue is None
 
 
 def test_a_demonstration_still_failing_after_the_change_is_its_own_finding(

@@ -102,8 +102,10 @@ class RunResult:
     #: What the caller should know about how the run was set up, one line
     #: each, empty on a run with nothing to say. Today: the uncommitted and
     #: untracked paths a sandbox built from HEAD does not hold
-    #: (:func:`mcgyvr.orchestrator.repo.head_only_note`). Here and not only on
-    #: stderr for the reason ``copy_errors`` gives.
+    #: (:func:`mcgyvr.orchestrator.repo.head_only_note`), and what the
+    #: preflight's baseline commands left behind and had cleaned up
+    #: (:meth:`mcgyvr.gate.acceptance.Acceptance.baseline`). Here and not only
+    #: on stderr for the reason ``copy_errors`` gives.
     notes: list[str] = field(default_factory=list)
     started: float = field(default_factory=time.time)
     finished: float | None = None

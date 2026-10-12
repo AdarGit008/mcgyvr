@@ -171,6 +171,44 @@ class CommandResult:
         return self.exit_code == 0 and not self.timed_out
 
 
+@dataclass(frozen=True)
+class Snapshot:
+    """The workspace as a command found it, for :meth:`Sandbox.restore`.
+
+    ``tree`` is the content the gate judges — a ``write-tree`` of the whole
+    working tree staged in a throwaway index, so it honours ``.gitignore`` and
+    holds the change's own untracked files — and ``ignored`` the ignored
+    entries that were already there, one per directory git collapses them to.
+    """
+
+    tree: str
+    ignored: frozenset[str]
+
+
+@dataclass(frozen=True)
+class Restored:
+    """What :meth:`Sandbox.restore` undid after one command.
+
+    ``removed`` is what the command created — a directory it made is one entry
+    ending in ``/`` — and ``reverted`` what was there before and that it
+    rewrote or deleted, put back from the snapshot. Both empty: the command
+    left the tree as it found it.
+    """
+
+    removed: tuple[str, ...] = ()
+    reverted: tuple[str, ...] = ()
+
+    def __bool__(self) -> bool:
+        return bool(self.removed or self.reverted)
+
+    def named(self, limit: int = 5) -> str:
+        """The first ``limit`` paths, sorted, and how many more there are."""
+        paths = sorted({*self.removed, *self.reverted})
+        shown = ", ".join(paths[:limit])
+        more = len(paths) - limit
+        return f"{shown} (+{more} more)" if more > 0 else shown
+
+
 def is_credential_var(name: str) -> bool:
     """Whether an environment variable name looks like it holds a secret."""
     return name in _KNOWN_CREDENTIAL_VARS or bool(_CREDENTIAL_NAME.search(name))
@@ -364,6 +402,80 @@ class Sandbox(ABC):
             raise SandboxError("sandbox is not open")
         refuse_nested_git(self.workspace)
         _git(self.workspace, "reset", "--mixed", self._base_commit)
+
+    def snapshot(self) -> Snapshot:
+        """Record the workspace before a command, to :meth:`restore` it after.
+
+        Refuses a tree that already holds a nested repository, for the reason
+        :func:`nested_git` gives: staging it would run that repository's git.
+        """
+        refuse_nested_git(self.workspace)
+        return Snapshot(
+            tree=_judged_tree(self.workspace),
+            ignored=frozenset(_ignored_entries(self.workspace)),
+        )
+
+    def restore(self, snapshot: Snapshot) -> Restored:
+        """Put the workspace back as :meth:`snapshot` found it, and say what moved.
+
+        What a command leaves behind is its own — a test runner's
+        ``__pycache__`` and ``.pytest_cache``, a tool cache with a ``.git`` of
+        its own — and not part of anything the gate judges. So it is removed,
+        the files the command rewrote or deleted are put back, and the next
+        step starts on the tree the last one was handed.
+
+        Nested repositories go first, by plain file removal, before any host git
+        runs: their config is code (:func:`nested_git`). Then ignored entries
+        that were not there before, then new files git sees, each collapsed to
+        the first directory the command created. An ignored directory that was
+        already there keeps whatever the command added inside it: git cannot
+        see into it, so it is neither judged nor delivered. The mode's own
+        entries (:meth:`_kept`) are never removed.
+        """
+        workspace = self.workspace
+        kept = set(self._kept())
+        removed: list[str] = []
+        while (entry := nested_git(workspace)) is not None:
+            _remove_entry(workspace, entry)
+            removed.append(entry)
+        for entry in sorted(_ignored_entries(workspace) - snapshot.ignored):
+            if entry.split("/", 1)[0] not in kept:
+                _remove_entry(workspace, entry)
+                removed.append(entry)
+        added: list[str] = []
+        reverted: list[str] = []
+        for status, path in _tree_changes(workspace, snapshot.tree):
+            (added if status == "A" else reverted).append(path)
+        if added or removed:
+            existed = _directories_of(
+                [*_tree_paths(workspace, snapshot.tree), *snapshot.ignored]
+            )
+            for entry in sorted({_first_new(path, existed) for path in added}):
+                if entry.split("/", 1)[0] not in kept:
+                    _remove_entry(workspace, entry)
+                    removed.append(entry)
+            # A nested `.git` came out alone; the directory it made is now empty.
+            for entry in removed:
+                _prune_empty_parents(workspace, entry, existed)
+        if reverted:
+            _checkout_from(workspace, snapshot.tree, reverted)
+        return Restored(tuple(removed), tuple(reverted))
+
+    def changed_since_base(self, snapshot: Snapshot) -> frozenset[str]:
+        """The paths where ``snapshot`` differs from the base commit: the change."""
+        if self._base_commit is None:
+            raise SandboxError("sandbox is not open")
+        raw = _git(
+            self.workspace,
+            "diff-tree",
+            "-r",
+            "-z",
+            "--no-renames",
+            "--name-only",
+            self._base_commit,
+            snapshot.tree,
+        )
+        return frozenset(_nul_split(raw))
 
     def base_changeset_ref(self) -> str:
         """The base ref the gate diffs the worker's change against.
@@ -691,6 +803,129 @@ def _git(
         detail = proc.stderr.decode("utf-8", "replace").strip()
         raise SandboxError(f"git {args[0]} failed in {root}: {detail}")
     return proc.stdout
+
+
+# --- snapshot and restore (host-side git, throwaway index) ----------------
+
+
+def _judged_tree(workspace: Path) -> str:
+    """The SHA of the working tree as the gate's change-set sees it.
+
+    Staged in a throwaway index so the workspace's own index is never touched;
+    ``add -A`` honours ``.gitignore``, so this is exactly what is judged.
+    """
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-snap-") as tmp:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        _git(workspace, "add", "-A", env=env)
+        return _git(workspace, "write-tree", env=env).decode("ascii").strip()
+
+
+def _ignored_entries(workspace: Path) -> set[str]:
+    """Ignored paths present, a wholly ignored directory as one ``dir/`` entry."""
+    raw = _git(
+        workspace,
+        "ls-files",
+        "-z",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--directory",
+        "--no-empty-directory",
+    )
+    return set(_nul_split(raw))
+
+
+def _tree_changes(workspace: Path, before: str) -> list[tuple[str, str]]:
+    """``(status, path)`` for each file the working tree changed since ``before``."""
+    after = _judged_tree(workspace)
+    if after == before:
+        return []
+    raw = _git(
+        workspace,
+        "diff-tree",
+        "-r",
+        "-z",
+        "--no-renames",
+        "--name-status",
+        before,
+        after,
+    )
+    tokens = _nul_split(raw)
+    return [(tokens[i][0], tokens[i + 1]) for i in range(0, len(tokens) - 1, 2)]
+
+
+def _tree_paths(workspace: Path, tree: str) -> list[str]:
+    return _nul_split(_git(workspace, "ls-tree", "-r", "-z", "--name-only", tree))
+
+
+def _directories_of(paths: Sequence[str]) -> set[str]:
+    """Every directory holding one of ``paths``; a ``dir/`` entry is one itself."""
+    found: set[str] = set()
+    for path in paths:
+        parts = path.rstrip("/").split("/")
+        depth = len(parts) if path.endswith("/") else len(parts) - 1
+        found.update("/".join(parts[:end]) for end in range(1, depth + 1))
+    return found
+
+
+def _first_new(path: str, existed: set[str]) -> str:
+    """``path``, or the shallowest directory above it that did not exist (``dir/``)."""
+    parts = path.split("/")
+    for end in range(1, len(parts)):
+        directory = "/".join(parts[:end])
+        if directory not in existed:
+            return f"{directory}/"
+    return path
+
+
+def _remove_entry(workspace: Path, entry: str) -> None:
+    """Remove one file, link or directory below ``workspace``; raise if it stays.
+
+    A link is removed, never followed. A directory a command took the
+    permissions off is given them back first, as :func:`_remove_tree` does.
+    """
+    path = workspace / entry.rstrip("/")
+    if path.is_symlink() or path.is_file():
+        with contextlib.suppress(FileNotFoundError):
+            path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path, ignore_errors=True)
+        if path.exists():
+            _unlock(path)
+            shutil.rmtree(path, ignore_errors=True)
+    if path.is_symlink() or path.exists():
+        raise SandboxError(
+            f"{entry} was left in the workspace and could not be removed"
+        )
+
+
+def _prune_empty_parents(workspace: Path, entry: str, existed: set[str]) -> None:
+    """Remove the now-empty directories above ``entry`` that did not exist before."""
+    parts = entry.rstrip("/").split("/")[:-1]
+    while parts and "/".join(parts) not in existed:
+        with contextlib.suppress(OSError):  # not empty, or already gone
+            (workspace.joinpath(*parts)).rmdir()
+        parts.pop()
+
+
+def _checkout_from(workspace: Path, tree: str, paths: Sequence[str]) -> None:
+    """Write ``paths`` back as ``tree`` holds them, through a throwaway index."""
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-snap-") as tmp:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        _git(workspace, "read-tree", tree, env=env)
+        proc = subprocess.run(
+            ["git", "-C", str(workspace), "checkout-index", "-f", "-z", "--stdin"],
+            input=b"".join(p.encode("utf-8", "surrogateescape") + b"\0" for p in paths),
+            capture_output=True,
+            env=env,
+        )
+    if proc.returncode != 0:
+        detail = proc.stderr.decode("utf-8", "replace").strip()
+        raise SandboxError(f"git checkout-index failed in {workspace}: {detail}")
+
+
+def _nul_split(raw: bytes) -> list[str]:
+    return [t.decode("utf-8", "surrogateescape") for t in raw.split(b"\0") if t]
 
 
 def _remove_tree(path: Path | None) -> None:

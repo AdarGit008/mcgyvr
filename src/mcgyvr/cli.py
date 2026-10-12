@@ -2562,15 +2562,20 @@ def _climb(
         with sandbox:
             for note in sandbox.notes:
                 print(f"note: {note}")
-            # The baseline, before the first rung: `Acceptance.precondition`
+            # The baseline, before the first rung: `Acceptance.baseline`
             # runs both lists against the unchanged tree, so a demonstration
             # that already passes or a suite that is already red is refused
             # here rather than charged to a model. The issue's own wording
             # tells the two apart, because the operator's next move differs:
-            # one says fix the contract, the other says fix the tree.
+            # one says fix the contract, the other says fix the tree. What the
+            # commands left behind was cleaned up, and the notes say what.
             acceptance = acceptance_for(contract, sandbox, config=config)
             if acceptance is not None:
-                issue = acceptance.precondition()
+                baseline = acceptance.baseline()
+                for note in baseline.notes:
+                    print(f"note: {note}")
+                report.notes.extend(baseline.notes)
+                issue = baseline.issue
                 if issue is not None:
                     # Filed under `error`, the word the result file
                     # documents for a run that reached no verdict — a
