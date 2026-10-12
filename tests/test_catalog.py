@@ -138,12 +138,19 @@ def test_the_agent_type_judges_by_grounding_and_safety(shipped: Catalog) -> None
     assert agent.evidence_names == ("grounded", "safety_pass")
 
 
+def test_the_media_type_judges_by_media_valid(shipped: Catalog) -> None:
+    media = shipped.require("media")
+    assert media.use_case.name == "media-gen"
+    assert media.starts_on.name == "local"
+    assert media.evidence_names == ("media_valid",)
+
+
 # --- deterministic operations are not task types ---------------------------
 
 
 def test_the_operations_are_not_task_types(shipped: Catalog) -> None:
     """The deterministic tools leave the model vocabulary but stay runnable."""
-    assert {t.name for t in shipped.task_types} == {"chat", "agent", "code"}
+    assert {t.name for t in shipped.task_types} == {"code", "chat", "agent", "media"}
     assert {o.name for o in shipped.operations} == {
         "format",
         "import_sort",
@@ -153,15 +160,25 @@ def test_the_operations_are_not_task_types(shipped: Catalog) -> None:
     assert not {o.name for o in shipped.operations} & set(shipped.names)
 
 
-def test_require_and_get_resolve_operations(shipped: Catalog) -> None:
-    """Routing/deterministic execution still resolves an operation by name."""
+def test_operation_resolves_an_operation_and_get_does_not(shipped: Catalog) -> None:
+    """An operation is resolved as one, never as a task type."""
     for name in ("format", "import_sort", "lint_fix", "rename_symbol"):
-        kind = shipped.require(name)
+        kind = shipped.require_operation(name)
         assert kind.name == name
         assert kind.starts_on.name == "deterministic"
         assert kind.deterministic
-        assert shipped.get(name) is kind
+        assert kind.task_type == "code"
         assert shipped.operation(name) is kind
+        assert shipped.get(name) is None
+
+
+def test_an_operation_must_name_a_declared_task_type(tmp_path: Path) -> None:
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["deterministic_operations"][0]["task_type"] = "nonexistent"
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="not a declared task type"):
+        load(path)
 
 
 def test_servable_and_unservable_are_model_vocabulary_only(shipped: Catalog) -> None:
@@ -346,60 +363,19 @@ def test_the_catalog_file_is_the_only_definition() -> None:
         assert "TASK_TYPES = (" not in text, f"{path} redeclares the vocabulary"
 
 
-# --- excluded entries -------------------------------------------------------
+# --- names that used to be task types -------------------------------------
 
 
-def test_exclusions_are_recorded_with_a_reason(shipped: Catalog) -> None:
-    """Removals are kept, not deleted — the reason is the point of keeping them."""
-    assert shipped.excluded
-    for gone in shipped.excluded:
-        assert len(gone.reason.split()) > 8, f"{gone.name}'s removal is unexplained"
-
-
-def test_the_inherited_vocabulary_was_actually_validated(shipped: Catalog) -> None:
-    """Every inherited name is either carried or explicitly removed.
-
-    The issue's open question was which inherited types survive. An inherited
-    name that is neither in the catalog nor in `excluded` was not answered, just
-    dropped.
-    """
-    inherited = {
-        "formatting": "format",
-        "import sorting": "import_sort",
-        "simple rename": "rename_symbol",
-        "comment addition": "comment_addition",
-        "string literal edit": "string_literal_edit",
-        "function implementation": "function_implementation",
-        "type annotation": "type_annotation",
-        "simple bug fix": "simple_bug_fix",
-        "docstring": "docstring",
-        "test scaffold": "test_scaffold",
-        "config edit": "config_edit",
-        "lint fix": "lint_fix",
-        "bug fix": "bug_fix",
-        "multi-file refactor": "multi_file_refactor",
-        "algorithm implementation": "algorithm_implementation",
-        "complex bug fix": "complex_bug_fix",
-        "interface design": "interface_design",
-    }
-    for prose, name in inherited.items():
-        decided = shipped.get(name) is not None or shipped.excluded_entry(name)
-        assert decided, f"inherited type {prose!r} was neither carried nor removed"
-
-
-def test_a_removed_type_is_rejected_with_the_reason_it_was_removed() -> None:
-    """The next person to reach for it finds out why, not just that."""
+def test_a_retired_type_names_its_replacement() -> None:
     with pytest.raises(ContractSchemaError) as exc:
-        task_type("multi_file_refactor")
-    message = str(exc.value)
-    assert "task_type:" in message
-    assert "single-file" in message or "one file" in message
+        task_type("bug_fix")
+    assert "'bug_fix' is now 'code'" in str(exc.value)
 
 
-def test_a_superseded_type_names_its_replacement() -> None:
+def test_a_retired_operation_type_names_the_operation_spelling() -> None:
     with pytest.raises(ContractSchemaError) as exc:
-        task_type("complex_bug_fix")
-    assert "'code'" in str(exc.value)
+        task_type("format")
+    assert "'format' is now 'code' with operation: format" in str(exc.value)
 
 
 def test_an_unknown_type_lists_the_vocabulary(shipped: Catalog) -> None:
@@ -537,25 +513,6 @@ def test_an_entry_missing_its_guarantee_is_rejected(tmp_path: Path) -> None:
         load(path)
 
 
-def test_a_type_that_is_both_carried_and_excluded_is_rejected(tmp_path: Path) -> None:
-    """A type is in the vocabulary or it is not."""
-    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
-    raw["excluded"].append({"name": raw["task_types"][0]["name"], "reason": "x" * 60})
-    path = tmp_path / "c.json"
-    path.write_text(json.dumps(raw), encoding="utf-8")
-    with pytest.raises(CatalogError, match="also a declared task type"):
-        load(path)
-
-
-def test_superseded_by_must_name_a_carried_type(tmp_path: Path) -> None:
-    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
-    raw["excluded"][0]["superseded_by"] = "nonexistent"
-    path = tmp_path / "c.json"
-    path.write_text(json.dumps(raw), encoding="utf-8")
-    with pytest.raises(CatalogError, match="not a declared task type"):
-        load(path)
-
-
 def test_an_empty_catalog_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(CatalogError, match="no task types"):
         load(_write(tmp_path, task_types=[]))
@@ -605,13 +562,21 @@ def test_cli_shows_one_type_in_full(capsys: pytest.CaptureFixture[str]) -> None:
     assert "warrant:" in out
 
 
-def test_cli_explains_a_removed_type_rather_than_calling_it_unknown(
+def test_cli_names_the_replacement_for_a_retired_type(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert main(["catalog", "interface_design"]) == 1
+    assert main(["catalog", "function_implementation"]) == 1
     err = capsys.readouterr().err
-    assert "not in the vocabulary" in err
-    assert "acceptance evidence" in err
+    assert "'function_implementation' is now 'code'" in err
+
+
+def test_cli_shows_an_operation_as_one_of_code(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["catalog", "format"]) == 0
+    out = capsys.readouterr().out
+    assert "operation of `code`" in out
+    assert "`task_type: code` and `operation: format`" in out
 
 
 def test_cli_rejects_an_unknown_type_by_listing_the_vocabulary(
@@ -630,15 +595,6 @@ def test_cli_resolves_against_a_configured_ladder(
     assert main(["catalog", "--against", str(config)]) == 0
     out = capsys.readouterr().out
     assert "Every type is servable" in out
-
-
-def test_cli_shows_the_removals_and_their_reasons(
-    capsys: pytest.CaptureFixture[str], shipped: Catalog
-) -> None:
-    assert main(["catalog", "--excluded"]) == 0
-    out = capsys.readouterr().out
-    for gone in shipped.excluded:
-        assert gone.name in out
 
 
 def test_cli_reports_a_broken_config_rather_than_ignoring_it(

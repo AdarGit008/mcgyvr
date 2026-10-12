@@ -190,13 +190,27 @@ def _detect_python(repo: Path) -> StackComponent | None:
             how=f"{primary} present",
         )
     if pyproject is not None and _is_python_project(pyproject):
+        how = "pyproject.toml declares a project, no lockfile"
+        if not _has_dev_group(pyproject):
+            return StackComponent(
+                "python",
+                "pip",
+                _present(repo, "pyproject.toml"),
+                ("pip install .",),
+                pinned=False,
+                how=how,
+            )
+        # `pip install .` skips PEP 735 dependency groups, and `dev` is where
+        # a project keeps the linter the gate runs and the test runner its
+        # acceptance commands name — without it they exit 127 (e2e run 1, F3).
+        # pip reads `--group` from 25.1; the slim base may ship an older one.
         return StackComponent(
             "python",
             "pip",
             _present(repo, "pyproject.toml"),
-            ("pip install .",),
+            ("pip install --upgrade 'pip>=25.1'", "pip install . --group dev"),
             pinned=False,
-            how="pyproject.toml declares a project, no lockfile",
+            how=f"{how}; dev group installed",
         )
     if has("setup.py") or has("setup.cfg"):
         return StackComponent(
@@ -460,6 +474,15 @@ def _read_pyproject(repo: Path) -> dict[str, object] | None:
         # An unreadable manifest is not a stack signal; other detectors still
         # run. A malformed pyproject surfaces from the build, not from here.
         return None
+
+
+def _has_dev_group(pyproject: dict[str, object]) -> bool:
+    """Whether the pyproject declares a non-empty ``[dependency-groups].dev``."""
+    groups = pyproject.get("dependency-groups")
+    if not isinstance(groups, dict):
+        return False
+    dev = groups.get("dev")
+    return isinstance(dev, list) and bool(dev)
 
 
 def _is_python_project(pyproject: dict[str, object]) -> bool:

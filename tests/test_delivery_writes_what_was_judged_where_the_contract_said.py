@@ -119,7 +119,8 @@ SLOW_ACCEPTANCE = ("python3", "-c", "import time; time.sleep(30)")
 
 FORMAT_WITH_SLOW_ACCEPTANCE = f"""
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 acceptance: ["{shlex.join(SLOW_ACCEPTANCE)}"]

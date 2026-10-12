@@ -12,10 +12,10 @@ mission loop would not catch it and would abort mid-flight with earlier
 contracts already committed, while contracts with **no** tool worked: the
 successful path and the failing path swapped over.
 
-*Upward*, a step carrying a program's *name* and nothing else — no target, and
-one name (``ruff``) shared by three task types whose invocations differ — could
-not tell a caller what to run, so "the floor is bound" would be true of the plan
-and false of anything downstream of it.
+*Upward*, a step carrying a program's *name* and nothing else — no target, and one
+name (``ruff``) shared by three deterministic operations whose invocations differ —
+could not tell a caller what to run, so "the floor is bound" would be true of the
+plan and false of anything downstream of it.
 
 The two are tested together because fixing either alone leaves the seam broken
 in the other direction. A program the ladder never climbs is not counted among
@@ -62,18 +62,19 @@ ladder:
 # target makes the gate's Python adapter own it, which binds `ruff`.
 FORMAT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
   allow: ["src/**"]
 """
 
-IMPORT_SORT = FORMAT.replace("task_type: format", "task_type: import_sort").replace(
+IMPORT_SORT = FORMAT.replace("operation: format", "operation: import_sort").replace(
     "id: tidy", "id: tidy-imports"
 )
 
-LINT_FIX = FORMAT.replace("task_type: format", "task_type: lint_fix").replace(
+LINT_FIX = FORMAT.replace("operation: format", "operation: lint_fix").replace(
     "id: tidy", "id: tidy-lint"
 )
 
@@ -241,7 +242,7 @@ def test_a_planned_step_names_the_whole_command_that_would_run_it() -> None:
 
 
 def test_three_types_share_one_program_and_are_three_different_commands() -> None:
-    """`ruff` owns three of the four deterministic types, and does three things.
+    """`ruff` owns three of the four deterministic operations, and does three things.
 
     The program name is the same for all three, so a step carrying only the
     name is the same step three times over — and running any one of those
@@ -249,7 +250,7 @@ def test_three_types_share_one_program_and_are_three_different_commands() -> Non
     guarantee for that type does not describe.
     """
     typed = [contract(text) for text in (FORMAT, IMPORT_SORT, LINT_FIX)]
-    commands = {each.task_type: tool_steps(each)[0].argv for each in typed}
+    commands = {each.operation: tool_steps(each)[0].argv for each in typed}
 
     assert commands == {
         "format": ("ruff", "format", "--", "src/pkg/fetch.py"),
@@ -276,7 +277,7 @@ def test_an_in_process_tool_has_no_command_rather_than_a_made_up_one() -> None:
     program's.
     """
     renaming = contract(
-        FORMAT.replace("task_type: format", "task_type: rename_symbol").replace(
+        FORMAT.replace("operation: format", "operation: rename_symbol").replace(
             "id: tidy", "id: rename"
         )
     )

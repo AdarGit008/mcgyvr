@@ -1220,8 +1220,12 @@ class _Without(LanguageAdapter):
             change, repo, contract_text=contract_text
         )
 
-    def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
-        return [] if "lint" in self._rungs else self._adapter.lint(changes, repo)
+    def lint(
+        self, changes: Sequence[FileChange], repo: Path, *, base: str | None = None
+    ) -> list[Finding]:
+        if "lint" in self._rungs:
+            return []
+        return self._adapter.lint(changes, repo, base=base)
 
     def format_check(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
         if "format" in self._rungs:

@@ -151,11 +151,20 @@ class LanguageAdapter(ABC):
         """
 
     @abstractmethod
-    def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
+    def lint(
+        self, changes: Sequence[FileChange], repo: Path, *, base: str | None = None
+    ) -> list[Finding]:
         """Lint every owned file in one invocation; attribute to added lines.
 
         Batched, not per-file, so the subprocess count stays flat as the
-        change grows. Raises :class:`ToolUnavailableError` if the linter is
+        change grows. ``base`` is the tree-ish the change is measured against
+        (:attr:`~mcgyvr.gate.changeset.ChangeSet.base`). A line the change
+        rewrote is an added line whatever it says, so an adapter that can lint
+        the base drops an added-line diagnostic the base file already had; one
+        that cannot, or a caller with no base, gets every added-line
+        diagnostic — the strict reading.
+
+        Raises :class:`ToolUnavailableError` if the linter is
         absent, and :class:`ToolFailedError` if it ran but its output cannot be
         trusted — an empty list means *this change is clean*, and must never be
         the answer to *we could not tell*.
@@ -198,8 +207,8 @@ class LanguageAdapter(ABC):
 
         ``None`` is an ordinary answer meaning *this repository runs no type
         checker*, and it is load-bearing rather than a shrug: where it is
-        returned, a ``type_annotation`` contract is not emitted for that
-        repository, because its guarantee needs evidence only a command can
+        returned, a ``code`` contract with ``type_check: true`` is not emitted
+        for that repository, because its guarantee needs evidence only a command can
         produce.
 
         Implementations must not import, execute or otherwise evaluate the

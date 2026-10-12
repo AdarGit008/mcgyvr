@@ -28,6 +28,14 @@ Each entry states three things the rest of the system needs:
 
 The start is a floor, and it is the *type's* floor only; escalation climbs
 from it, and that is not decided here.
+
+The vocabulary is four task types — ``code``, ``chat``, ``agent`` and ``media``
+— and a set of **deterministic operations** that are not task types. An
+operation is an entry of the same shape that names the task type a contract
+asks for it under: ``task_type: code`` with ``operation: format`` is how a
+contract has a tool do the work. The one place a name that used to be a task
+type survives is :data:`RETIRED_TASK_TYPES`, so a contract that still names one
+is told what replaced it.
 """
 
 from __future__ import annotations
@@ -44,6 +52,22 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 2
+
+#: Names that used to be task types, and the spelling that replaced each. Not
+#: vocabulary: nothing resolves to these. They are kept only so a contract or a
+#: caller that still names one is refused with the replacement rather than with
+#: a bare "unknown" — the one table where an old name survives.
+RETIRED_TASK_TYPES: dict[str, str] = {
+    "format": "'code' with operation: format",
+    "import_sort": "'code' with operation: import_sort",
+    "lint_fix": "'code' with operation: lint_fix",
+    "rename_symbol": "'code' with operation: rename_symbol",
+    "docstring": "'code' with no_semantic_change: true",
+    "type_annotation": "'code' with type_check: true",
+    "function_implementation": "'code'",
+    "test_scaffold": "'code'",
+    "bug_fix": "'code' with a demonstration",
+}
 
 
 class CatalogError(Exception):
@@ -103,6 +127,10 @@ class TaskType:
     required_evidence: tuple[Evidence, ...]
     warrant: str
     doc: str
+    #: For a deterministic operation, the task type a contract names to ask for
+    #: it (``task_type: code`` with ``operation: <name>``); empty on a task
+    #: type itself.
+    task_type: str = ""
     #: Whether this type's evidence is computed per contract from the
     #: contract's own fields rather than read off ``required_evidence``. Only
     #: ``code`` sets it: its evidence is ``gate`` plus the kinds its
@@ -144,20 +172,17 @@ class TaskType:
     def evidence_names(self) -> tuple[str, ...]:
         return tuple(e.name for e in self.required_evidence)
 
+    @property
+    def judges_a_change(self) -> bool:
+        """Whether the gate judges work of this kind as a change to the tree.
 
-@dataclass(frozen=True)
-class Excluded:
-    """An inherited type that did not survive validation, kept with its reason.
-
-    Removals are recorded rather than deleted for the same reason the capability
-    table keeps its harness caveats: the next person to reach for
-    ``multi_file_refactor`` should find out why it is absent instead of
-    rediscovering it.
-    """
-
-    name: str
-    reason: str
-    superseded_by: str | None
+        True where the kind carries the ``gate`` evidence, or derives its
+        evidence per contract (which always starts at the gate): a change to
+        a file, which a reviewer can be asked about. A kind that does neither
+        is a reply — judged by the output checks it declares, if any, and
+        never sent to a reviewer, because there is no change to review.
+        """
+        return self.evidence_derived or "gate" in self.evidence_names
 
 
 @dataclass(frozen=True)
@@ -169,7 +194,6 @@ class Catalog:
     evidence_kinds: tuple[Evidence, ...]
     task_types: tuple[TaskType, ...]
     operations: tuple[TaskType, ...]
-    excluded: tuple[Excluded, ...]
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -177,38 +201,43 @@ class Catalog:
         return tuple(t.name for t in self.task_types)
 
     def get(self, name: str) -> TaskType | None:
-        """Resolve ``name`` as a task type or a deterministic operation.
+        """The task type called ``name``, or ``None``.
 
-        Routing and deterministic execution still resolve the operations by
-        name; they are just not in the model vocabulary.
+        Task types only: an operation is not one, and is resolved by
+        :meth:`operation`.
         """
-        return next(
-            (t for t in (*self.task_types, *self.operations) if t.name == name),
-            None,
-        )
+        return next((t for t in self.task_types if t.name == name), None)
 
     def require(self, name: str) -> TaskType:
-        """The entry called ``name`` (task type or operation), or a rejection.
+        """The task type called ``name``, or a rejection naming what to use.
 
         An unknown task type is exactly the case where a caller needs to see the
-        valid set rather than a boolean.
+        valid set rather than a boolean, and a name that used to be a task type
+        is told what replaced it (:data:`RETIRED_TASK_TYPES`).
         """
         found = self.get(name)
         if found is None:
-            valid = ", ".join(t.name for t in (*self.task_types, *self.operations))
-            raise CatalogError(f"{name!r} is not a known task type. Valid: {valid}")
+            if name in RETIRED_TASK_TYPES:
+                raise CatalogError(f"{name!r} is now {RETIRED_TASK_TYPES[name]}.")
+            raise CatalogError(
+                f"{name!r} is not a known task type. Valid: {', '.join(self.names)}"
+            )
         return found
 
     def operation(self, name: str) -> TaskType | None:
-        """The deterministic operation called ``name``, or ``None``.
-
-        For callers that need the operation list explicitly rather than the
-        model vocabulary.
-        """
+        """The deterministic operation called ``name``, or ``None``."""
         return next((t for t in self.operations if t.name == name), None)
 
-    def excluded_entry(self, name: str) -> Excluded | None:
-        return next((e for e in self.excluded if e.name == name), None)
+    def require_operation(self, name: str) -> TaskType:
+        """The deterministic operation called ``name``, or a rejection naming
+        the valid ones."""
+        found = self.operation(name)
+        if found is None:
+            valid = ", ".join(t.name for t in self.operations)
+            raise CatalogError(
+                f"{name!r} is not a known deterministic operation. Valid: {valid}"
+            )
+        return found
 
     def family(self, name: str) -> Family:
         found = next((f for f in self.families if f.name == name), None)
@@ -371,6 +400,7 @@ def _load_entries(
                 warrant=str(entry.get("warrant", "")),
                 doc=str(entry.get("doc", "")),
                 evidence_derived=bool(entry.get("evidence_derived", False)),
+                task_type=str(entry.get("task_type", "")),
             )
         )
     return tuple(entries)
@@ -442,25 +472,13 @@ def load(path: Path | None = None) -> Catalog:
         raw, "deterministic_operations", by_family, by_use_case, by_evidence, reserved
     )
 
-    excluded = tuple(
-        Excluded(
-            name=str(e["name"]),
-            reason=str(e["reason"]),
-            superseded_by=e.get("superseded_by"),
-        )
-        for e in raw.get("excluded", [])
-    )
     task_type_names = {t.name for t in task_types}
-    for gone in excluded:
-        if gone.name in task_type_names:
+    for op in operations:
+        if op.task_type not in task_type_names:
             raise CatalogError(
-                f"excluded[{gone.name}]: {gone.name!r} is also a declared task "
-                f"type. A type is in the vocabulary or it is not."
-            )
-        if gone.superseded_by and gone.superseded_by not in task_type_names:
-            raise CatalogError(
-                f"excluded[{gone.name}]: superseded_by "
-                f"{gone.superseded_by!r} is not a declared task type"
+                f"deterministic_operations[{op.name}]: task_type "
+                f"{op.task_type!r} is not a declared task type. Valid: "
+                f"{', '.join(sorted(task_type_names))}"
             )
 
     return Catalog(
@@ -469,7 +487,6 @@ def load(path: Path | None = None) -> Catalog:
         evidence_kinds=evidence,
         task_types=task_types,
         operations=operations,
-        excluded=excluded,
     )
 
 

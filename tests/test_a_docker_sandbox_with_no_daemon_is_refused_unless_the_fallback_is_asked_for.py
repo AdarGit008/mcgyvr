@@ -31,7 +31,8 @@ from tests import livejournal as lj
 
 FORMAT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:
@@ -178,7 +179,7 @@ def test_a_run_whose_setup_allows_the_fallback_runs_in_tempdir_and_says_so(
 
 
 def _inspect(repo: Path, capsys: pytest.CaptureFixture[str]) -> str:
-    assert lj.main(["sandbox", str(repo)]) == 0
+    assert lj.main(["sandbox", "--repo", str(repo)]) == 0
     return capsys.readouterr().out
 
 
@@ -231,5 +232,5 @@ def test_the_inspection_reports_a_setup_it_cannot_read(
     config = lj.make_config(tmp_path / "setup")
     lj.append_policy(config, "sandbox:\n  allow_fallback: sometimes\n")
     monkeypatch.setenv("MCGYVR_CONFIG", str(config))
-    assert lj.main(["sandbox", str(repo)]) == 1
+    assert lj.main(["sandbox", "--repo", str(repo)]) == 1
     assert "allow_fallback" in capsys.readouterr().err

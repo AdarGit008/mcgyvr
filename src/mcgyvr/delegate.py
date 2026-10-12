@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
+from mcgyvr.contract import generic_stop_condition
 from mcgyvr.decision import (
     Choice,
     ChoiceAnswer,
@@ -603,19 +604,16 @@ def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
 def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
     """The stop condition a model-executed type must carry, or none for a tool.
 
-    A deterministic type is executed by a tool that cannot guess, so it has no
-    trigger to report BLOCKED. A model-executed type must name one — the loader
-    refuses a model type with none — and the one this proposer writes is the
+    A deterministic operation is executed by a tool that cannot guess, so it has no
+    trigger to report BLOCKED. A model-executed type must name one — every
+    contract this proposer emits replies with a whole file, and the loader
+    refuses one of those with none — and the one this proposer writes is the
     honest default: stop rather than decide anything the typed choices did not
     already settle.
     """
     if kind.deterministic:
         return ()
-    subject = _subject(target, symbol)
-    return (
-        f"{kind.name} on {subject} would require deciding something the "
-        "contract does not state — report BLOCKED rather than guess",
-    )
+    return (generic_stop_condition(kind.name, _subject(target, symbol)),)
 
 
 def _subject(target: str, symbol: str | None) -> str:

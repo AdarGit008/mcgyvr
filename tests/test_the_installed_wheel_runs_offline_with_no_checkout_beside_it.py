@@ -373,7 +373,7 @@ def test_the_installed_wheel_answers_every_offline_command(
         (("setup", "--api", HOSTED_UNIT), "Wrote"),
         (("config",), "valid"),
         (("local_pool",), "usable rung"),
-        (("index", repo), "Indexed"),
+        (("index", "--repo", repo), "Indexed"),
     ]
     failed = []
     for argv, word in expected:

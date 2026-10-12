@@ -76,7 +76,7 @@ from typing import Any, Literal
 
 import yaml
 
-from mcgyvr.catalog import CatalogError, catalog
+from mcgyvr.catalog import RETIRED_TASK_TYPES, CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
 from mcgyvr.scope import Scope, enters_git_dir
@@ -104,6 +104,15 @@ def is_pattern(target: str) -> bool:
 # A contract id: something a record, a log line and a branch name can all carry
 # without quoting. Deliberately narrow — an id is a join key, not prose.
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+# A leading ``NAME=value`` word. A shell reads it as an assignment for the
+# command after it; executed with no shell it is the program's name.
+_ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+# The characters a POSIX shell reads as an operator when unquoted: the list
+# separators, the pipe and the redirects. Executed with no shell, each one is
+# handed to the program as an argument instead.
+_SHELL_OPERATOR_CHARS = frozenset("&|;<>")
 
 
 class ContractError(Exception):
@@ -138,25 +147,21 @@ def task_types() -> tuple[CatalogTaskType, ...]:
 def operations() -> tuple[CatalogTaskType, ...]:
     """The deterministic operations the catalog declares.
 
-    Executable as ``task_type`` values, but not task types: a model never
-    chooses one, the product runs it directly.
+    Not task types: a contract asks for one as ``operation`` beside the task
+    type the operation names (``task_type: code``), and the product runs it
+    with a tool rather than a model.
     """
     return catalog().operations
 
 
 def task_type_names() -> tuple[str, ...]:
-    """Every task type the catalog declares (the model vocabulary)."""
+    """Every task type the catalog declares — the whole vocabulary."""
     return catalog().names
 
 
-def task_type_choices() -> tuple[str, ...]:
-    """Every name a contract may carry as ``task_type``.
-
-    The model vocabulary plus the deterministic operations: a contract names an
-    operation to have the product run it directly, even though no model is asked
-    to choose one.
-    """
-    return tuple(t.name for t in (*catalog().task_types, *catalog().operations))
+def operation_names() -> tuple[str, ...]:
+    """Every name a contract may carry as ``operation``."""
+    return tuple(t.name for t in catalog().operations)
 
 
 def task_type(name: str) -> CatalogTaskType:
@@ -164,20 +169,30 @@ def task_type(name: str) -> CatalogTaskType:
 
     Raises :class:`ContractSchemaError` naming the vocabulary, because an
     unknown task type is exactly the case where a caller needs to see the valid
-    set rather than a boolean. The catalog raises its own error type; it is
-    translated here so that everything a contract can be rejected for is one
-    exception family.
+    set rather than a boolean, and naming the replacement for a name that used
+    to be a task type. The catalog raises its own error type; it is translated
+    here so that everything a contract can be rejected for is one exception
+    family.
     """
     try:
         return catalog().require(name)
     except CatalogError as exc:
-        gone = catalog().excluded_entry(name)
-        if gone is not None:
-            hint = f" Use {gone.superseded_by!r} instead." if gone.superseded_by else ""
-            raise ContractSchemaError(
-                f"task_type: {name!r} is not in the vocabulary. {gone.reason}{hint}"
-            ) from exc
         raise ContractSchemaError(f"task_type: {exc}") from exc
+
+
+def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
+    """The catalog entry that governs a contract: its operation's, or its type's.
+
+    A contract that names an ``operation`` is run, routed, capped and judged by
+    that operation's entry — its starting family, its guarantee, its evidence —
+    and one that names none by its task type's.
+    """
+    if not operation:
+        return task_type(task_type_name)
+    try:
+        return catalog().require_operation(operation)
+    except CatalogError as exc:
+        raise ContractSchemaError(f"operation: {exc}") from exc
 
 
 # --- the output cap -------------------------------------------------------
@@ -242,7 +257,7 @@ RUNNING_ALLOWANCE = 1024
 NEW_FILE_STEP = 512
 
 # Caps come out as whole steps, never below the floor. The floor is what a
-# deterministic type gets; the allowances above are already whole steps.
+# deterministic operation gets; the allowances above are already whole steps.
 CAP_STEP = 128
 MIN_CAP = 256
 
@@ -285,6 +300,7 @@ def output_cap(
     *,
     new_file: bool = False,
     evidence: tuple[CatalogEvidence, ...] | None = None,
+    operation: str = "",
 ) -> int:
     """The output cap a contract of this task type carries when it declares none.
 
@@ -304,8 +320,11 @@ def output_cap(
     ``new_file`` adds the new-file step. No caller passes it: the loader, the
     one call site, cannot supply it, because an empty ``target_content`` means
     "the file does not exist yet" *or* "its content is not needed".
+
+    ``operation`` names the deterministic operation a ``code`` contract asks
+    for, whose entry then decides: a tool writes the change, so the floor.
     """
-    kind = task_type(name)
+    kind = kind_of(name, operation)
     required = kind.required_evidence if evidence is None else tuple(evidence)
     allowance = (
         0
@@ -332,6 +351,20 @@ def _evidence_allowance(evidence: CatalogEvidence) -> int:
     name would put the evidence vocabulary in this file too.
     """
     return RUNNING_ALLOWANCE if evidence.needs_commands else STRUCTURAL_ALLOWANCE
+
+
+def generic_stop_condition(task_type_name: str, subject: str) -> str:
+    """The stop condition to start from: decide nothing the contract left open.
+
+    One spelling, because three places say it — the proposer writes it into
+    the contracts it emits, the field doc shows it, and the loader's refusal
+    hands it to an author who named none — and a condition that read
+    differently in each would be three conditions.
+    """
+    return (
+        f"{task_type_name} on {subject} would require deciding something the "
+        "contract does not state — report BLOCKED rather than guess"
+    )
 
 
 # --- the declared schema --------------------------------------------------
@@ -385,6 +418,9 @@ class Field:
     worker_facing: bool = False
     hint: str = ""
     choices_from: Callable[[], tuple[str, ...]] | None = None
+    #: For an enum whose values were renamed: the old value and its
+    #: replacement, so a contract still naming one is told what to write.
+    retired: Mapping[str, str] | None = None
 
     def valid_choices(self) -> tuple[str, ...]:
         """The enum's valid set, resolved now rather than at import."""
@@ -556,11 +592,21 @@ SCHEMA: tuple[Field, ...] = (
         "task_type",
         "enum",
         "What kind of work this is, from the declared vocabulary. The type "
-        "decides what evidence the contract must carry, and therefore whether "
-        "a glob target is legal.",
+        "decides what evidence the contract must carry and how its result is "
+        "judged.",
         required=True,
-        choices_from=task_type_choices,
+        choices_from=task_type_names,
+        retired=RETIRED_TASK_TYPES,
         worker_facing=True,
+    ),
+    Field(
+        "operation",
+        "enum",
+        "A deterministic operation a tool performs instead of a model, for "
+        "`task_type: code`; its own guarantee and evidence apply, and the "
+        "target may be a glob.",
+        default="",
+        choices_from=operation_names,
     ),
     Field(
         "task",
@@ -575,9 +621,9 @@ SCHEMA: tuple[Field, ...] = (
         "target",
         "str",
         "Where the result goes. Exactly one literal repo-relative path for "
-        "any task type a model executes — a model worker's output has one "
+        "any contract a model executes — a model worker's output has one "
         "destination, and a pattern would leave it guessing. A glob is legal "
-        "only for a task type that is executed deterministically.",
+        "only for a contract with a deterministic `operation`.",
         required=True,
         worker_facing=True,
         hint="e.g. src/pkg/fetch.py",
@@ -616,10 +662,12 @@ SCHEMA: tuple[Field, ...] = (
         "str_list",
         "Explicit triggers on which the worker must stop and report BLOCKED "
         "instead of guessing — scope creep, an unknown API, an ambiguous "
-        "directive. Required for any task type a model executes: guessing is "
-        "the documented small-model failure mode these exist to prevent, "
-        "and a worker with no stated stop condition has no licence to "
-        "refuse.",
+        "directive. Required when a model writes a `whole_file` reply, the "
+        "one whose refusal is caught and escalated: guessing is the documented "
+        "small-model failure mode these exist to prevent. A `prose` or "
+        "`media_artifact` reply is served whatever it says, so none is "
+        "required there. Start from "
+        f"`{generic_stop_condition('<task_type>', '<target>')}`.",
         default=(),
         worker_facing=True,
     ),
@@ -630,7 +678,7 @@ SCHEMA: tuple[Field, ...] = (
         "the model format instructions rather than hoping for a convention. "
         "`whole_file` is the single-file output protocol; `prose` is the "
         "raw-text answer for chat and agent; `media_artifact` is the "
-        "media-generation request for media-gen, whose artifact the bound media "
+        "media-generation request for media, whose artifact the bound media "
         "engine writes to the target. `unified_diff` validates here and is "
         "refused before dispatch.",
         default="whole_file",
@@ -683,23 +731,26 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "acceptance",
         "str_list",
-        "Shell commands that must pass for the change to be accepted — the "
-        "strongest signal the gate has. Each must also pass on the *unchanged* "
-        "tree (the preflight refuses a suite that is already red), which is "
-        "exactly why a command meant to demonstrate a defect cannot live here: "
-        "it goes in `demonstration`. Arbitrary shell from a contract: they "
-        "run inside the per-task sandbox — a container in `docker` mode, a "
-        "throwaway workspace on your own machine in `tempdir` mode.",
+        "Commands, one per entry, split like a shell would split them (quotes "
+        "respected) and executed directly with no shell: no `VAR=x` prefix, "
+        "`&&`, pipes or redirects (`mcgyvr contract` refuses them; write "
+        "`env VAR=x cmd`, or commit a script). Each must pass for the change "
+        "to be accepted — the strongest signal the gate has — and also on the "
+        "*unchanged* tree (the preflight refuses a suite that is already red), "
+        "which is why a command meant to demonstrate a defect goes in "
+        "`demonstration`. Arbitrary code from a contract: they run inside the "
+        "per-task sandbox — a container in `docker` mode, a throwaway "
+        "workspace on your own machine in `tempdir` mode.",
         default=(),
     ),
     Field(
         "demonstration",
         "str_list",
-        "Shell commands that demonstrate the defect: each must FAIL on the "
+        "Commands that demonstrate the defect: each must FAIL on the "
         "unchanged tree and pass after the change — the `failing_test_first` "
         "evidence, as a slot of its own because its baseline expectation is "
-        "the opposite of `acceptance`'s. Runs in "
-        "the same sandbox, under the same read-only rule.",
+        "the opposite of `acceptance`'s. Written, run and sandboxed exactly "
+        "like `acceptance`; what it leaves behind is cleaned up.",
         default=(),
     ),
     Field(
@@ -757,12 +808,12 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "rename",
         "block",
-        "Which symbol becomes which, for `task_type: rename_symbol`. The one "
-        "task type mcgyvr executes in-process rather than by running a "
+        "Which symbol becomes which, for `operation: rename_symbol`. The one "
+        "operation mcgyvr executes in-process rather than by running a "
         "program, and the only one whose input is not fully determined by "
         "`target`: a rename fans across every file that references the "
-        "symbol, so the pair has to be said. Meaningless on any other type "
-        "and ignored there.",
+        "symbol, so the pair has to be said. Meaningless on any other "
+        "contract and ignored there.",
         block=RENAME_FIELDS,
     ),
 )
@@ -782,7 +833,7 @@ class Dependency:
 
 @dataclass(frozen=True)
 class Rename:
-    """The symbol a ``rename_symbol`` contract renames, and what it becomes.
+    """The symbol a ``rename_symbol`` operation renames, and what it becomes.
 
     Both empty is the ordinary state of every contract that is not a rename,
     and :attr:`stated` is how a caller asks whether this one said anything.
@@ -831,6 +882,7 @@ class Contract:
     target: str
     scope: Scope
     version: int = SCHEMA_VERSION
+    operation: str = ""
     target_content: str = ""
     interface: str = ""
     deps: tuple[Dependency, ...] = ()
@@ -858,6 +910,16 @@ class Contract:
         return catalog().require(self.task_type)
 
     @property
+    def kind(self) -> CatalogTaskType:
+        """The catalog entry that governs this contract.
+
+        Its ``operation``'s entry when it names one — the operation decides the
+        starting family, the guarantee and the evidence — and its task type's
+        when it does not.
+        """
+        return kind_of(self.task_type, self.operation)
+
+    @property
     def evidence(self) -> tuple[CatalogEvidence, ...]:
         """The evidence this contract carries, derived from its own fields.
 
@@ -866,7 +928,7 @@ class Contract:
         type carries its catalog's static ``required_evidence`` unchanged.
         """
         return evidence_for(
-            self.type,
+            self.kind,
             acceptance=self.acceptance,
             demonstration=self.demonstration,
             no_semantic_change=self.no_semantic_change,
@@ -881,7 +943,7 @@ class Contract:
     @property
     def is_deterministic(self) -> bool:
         """Whether the deterministic tier can execute this contract outright."""
-        return self.type.deterministic
+        return self.kind.deterministic
 
     @property
     def acceptance_commands(self) -> tuple[tuple[str, ...], ...]:
@@ -992,7 +1054,7 @@ class Contract:
         # The two code flags appear exactly when they say something, for the
         # same reason as ``depends_on`` and the share above: a key carried
         # whether or not it means anything re-keys every contract ever emitted.
-        flags = {}
+        flags: dict[str, bool] = {}
         if self.no_semantic_change:
             flags["no_semantic_change"] = True
         if self.type_check:
@@ -1001,6 +1063,9 @@ class Contract:
             "version": self.version,
             "id": self.id,
             "task_type": self.task_type,
+            # Emitted exactly when one is named, for the reason ``depends_on``
+            # is: a key every contract carried would re-key every contract.
+            **({"operation": self.operation} if self.operation else {}),
             "task": self.task,
             "target": self.target,
             "target_content": self.target_content,
@@ -1093,8 +1158,9 @@ def parse(text: str, path: Path | None = None) -> Contract:
         data["limits"]["max_output_tokens"] = (
             output_cap(
                 data["task_type"],
+                operation=data["operation"],
                 evidence=evidence_for(
-                    task_type(data["task_type"]),
+                    kind_of(data["task_type"], data["operation"]),
                     acceptance=data["acceptance"],
                     demonstration=data["demonstration"],
                     no_semantic_change=data["no_semantic_change"],
@@ -1122,6 +1188,7 @@ def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Cont
         target=data["target"],
         scope=Scope.of(data["scope"]["allow"], data["scope"]["forbid"]),
         version=data["version"],
+        operation=data["operation"],
         target_content=data["target_content"],
         interface=data["interface"],
         deps=tuple(
@@ -1199,6 +1266,11 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     if spec.kind == "enum":
         text = _str(raw, path)
         valid = spec.valid_choices()
+        if text not in valid and spec.retired and text in spec.retired:
+            raise ContractSchemaError(
+                f"{path}: {text!r} is now {spec.retired[text]}. "
+                f"Valid: {', '.join(valid)}"
+            )
         if text not in valid:
             raise ContractSchemaError(
                 f"{path}: {text!r} is not valid here. Valid: {', '.join(valid)}"
@@ -1323,6 +1395,70 @@ def _join(path: str, name: str) -> str:
 # --- self-contradiction ---------------------------------------------------
 
 
+def _check_command(command: str, path: str) -> None:
+    """Refuse shell syntax in a command that will be executed with no shell.
+
+    ``acceptance`` and ``demonstration`` are split like a shell would split
+    them and executed directly (:attr:`Contract.acceptance_commands`). Syntax
+    only a shell gives meaning to would otherwise fail at run time and read
+    as something else — a ``VAR=x`` prefix as exit 127, "a missing
+    dependency", and an unclosed quote as a ``ValueError`` out of the split —
+    so it is named here, before a sandbox is built.
+    """
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        raise ContractSchemaError(
+            f"{path}: {command!r} cannot be split into arguments ({exc}); "
+            f"commands run without a shell but are split like one, so every "
+            f"quote must close."
+        ) from None
+    if argv and _ENV_ASSIGNMENT.match(argv[0]):
+        raise ContractSchemaError(
+            f"{path}: starts with the environment assignment {argv[0]!r}, but "
+            f"commands run without a shell, so it would be executed as a "
+            f"program of that name. Write `env {command}`, or use the tool's "
+            f"own flag (`python -B` rather than PYTHONDONTWRITEBYTECODE=1)."
+        )
+    operator = _unquoted_operator(command)
+    if operator is not None:
+        raise ContractSchemaError(
+            f"{path}: {command!r} contains the shell operator `{operator}`, "
+            f"but commands run without a shell, so the program would receive "
+            f"it as an argument. Put one command in each entry, or put the "
+            f"pipeline in a committed script and run that."
+        )
+
+
+def _unquoted_operator(command: str) -> str | None:
+    """The first run of shell-operator characters outside quotes, or ``None``.
+
+    Read with POSIX quoting — single quotes, double quotes and the backslash —
+    so ``grep -q '|' f`` passes and ``pytest 2>/dev/null`` does not. Only
+    called on a command ``shlex.split`` accepted, so every quote closes.
+    """
+    run = ""
+    quote = ""
+    escaped = False
+    for char in command:
+        if escaped:
+            escaped = False
+        elif quote == "'":
+            quote = "" if char == "'" else quote
+        elif char == "\\":
+            escaped = True
+        elif quote:
+            quote = "" if char == quote else quote
+        elif char in "'\"":
+            quote = char
+        elif char in _SHELL_OPERATOR_CHARS:
+            run += char
+            continue
+        if run:
+            return run
+    return run or None
+
+
 def _cross_validate(data: Mapping[str, Any]) -> None:
     """Reject contracts that satisfy the schema but contradict themselves.
 
@@ -1337,7 +1473,17 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"64 characters."
         )
 
-    kind = task_type(data["task_type"])
+    declared = task_type(data["task_type"])
+    if data["operation"]:
+        operation = kind_of(data["task_type"], data["operation"])
+        if operation.task_type != declared.name:
+            raise ContractSchemaError(
+                f"operation: {operation.name!r} is an operation of task type "
+                f"{operation.task_type!r}, not of {declared.name!r}. Write "
+                f"`task_type: {operation.task_type}` beside it, or drop the "
+                f"operation."
+            )
+    kind = kind_of(data["task_type"], data["operation"])
     target = data["target"]
     allow = data["scope"]["allow"]
     forbid = data["scope"]["forbid"]
@@ -1360,7 +1506,7 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         raise ContractSchemaError(
             f"target: {target!r} is a pattern, but task type "
             f"{kind.name!r} runs on a model, whose output has exactly one "
-            f"destination. Name a single literal path, or use a deterministic "
+            f"destination. Name a single literal path, or name a deterministic "
             f"operation "
             f"({', '.join(t.name for t in operations() if t.deterministic)})."
         )
@@ -1396,12 +1542,26 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"rejected by the gate. Add a pattern that covers it."
             )
 
-    if not kind.deterministic and not data["stop_conditions"]:
+    # Required only where a BLOCKED reply is heard: a whole_file reply is
+    # parsed, and a refusal in it escalates (worker/reply.py), while a raw-text
+    # reply is served as the answer whatever it says — a condition there would
+    # be filler nothing reads.
+    if (
+        not kind.deterministic
+        and data["output_schema"] == "whole_file"
+        and not data["stop_conditions"]
+    ):
         raise ContractSchemaError(
             f"stop_conditions: is empty, but task type {kind.name!r} runs on "
-            f"a model. Without a stated trigger to report BLOCKED, a worker "
-            f"that meets an unknown will guess. Name at least one condition."
+            f"a model that replies with a whole_file. Without a stated trigger "
+            f"to report BLOCKED, a worker that meets an unknown will guess. "
+            f"Name at least one condition; start from "
+            f'"{generic_stop_condition(kind.name, target)}".'
         )
+
+    for field in ("acceptance", "demonstration"):
+        for index, command in enumerate(data[field]):
+            _check_command(command, f"{field}.{index}")
 
     if kind.needs_acceptance_commands and not data["acceptance"]:
         needed = ", ".join(

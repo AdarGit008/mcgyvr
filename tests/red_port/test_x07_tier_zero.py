@@ -1,17 +1,18 @@
-"""X07 — a deterministic task type plans a tool on its own floor, and a missing tool
+"""X07 — a deterministic operation plans a tool on its own floor, and a missing tool
 costs something visible rather than nothing at all.
 
 The deterministic family binds no rung — a rung's family is derived from whether its
 *source* needs a credential, and a program has no source — so
 :func:`~mcgyvr.route.plan` fills it from :func:`mcgyvr.deterministic.tool_steps`.
-``format``, ``import_sort``, ``lint_fix`` and ``rename_symbol`` are types a tool does
-perfectly, for free, deterministically.
+``format``, ``import_sort``, ``lint_fix`` and ``rename_symbol`` are operations a
+tool does perfectly, for free, deterministically; a contract names one as
+``task_type: code`` with ``operation:``.
 
 Three statements:
 
 * **There is something to run.** Asserted through :func:`~mcgyvr.route.plan`,
-  against the real catalog, for every type whose ``starts_on`` is the deterministic
-  family — read from the catalog rather than listed here, so a type added to
+  against the real catalog, for every operation whose ``starts_on`` is the deterministic
+  family — read from the catalog rather than listed here, so an operation added to
   the data file is covered on the day it is added. Asserted as a plan and not as an
   execution because a plan is the thing mcgyvr can inspect before a token is spent,
   and "the ladder's cheapest family is empty" is exactly the fact a plan is supposed
@@ -27,7 +28,7 @@ Three statements:
 * **The degradation is recorded.** A silent fallback is the failure mode that makes
   a missing dependency invisible: the contract still completes, the operator sees no
   error, and the only evidence is a model bill that is quietly larger than it should
-  be. So the reason is asserted to name three things — the task type, the family it
+  be. So the reason is asserted to name three things — the operation, the family it
   left and the family it landed in. A constant sentence can satisfy any one of them
   and not all three, which is the point of asserting all three.
 
@@ -81,16 +82,17 @@ def _installed() -> tuple[Config, SourceMap]:
     return config, source_map(config)
 
 
-def _contract_of(task_type: str) -> Contract:
-    """The smallest valid contract of ``task_type``.
+def _contract_of(operation: str) -> Contract:
+    """The smallest valid contract naming ``operation``.
 
-    Every deterministic type's required evidence is structural, so none of them
+    Every deterministic operation's required evidence is structural, so none of them
     needs an acceptance command — which is itself part of why they belong on the
     cheapest family.
     """
     return load_contract(
-        f"id: tidy-{task_type.replace('_', '-')}\n"
-        f"task_type: {task_type}\n"
+        f"id: tidy-{operation.replace('_', '-')}\n"
+        f"task_type: code\n"
+        f"operation: {operation}\n"
         f"task: Tidy the package.\n"
         f"target: src/pkg/fetch.py\n"
         f"scope:\n"
@@ -98,10 +100,10 @@ def _contract_of(task_type: str) -> Contract:
     )
 
 
-def test_a_deterministic_task_type_has_something_to_run_on_its_own_floor() -> None:
+def test_a_deterministic_operation_has_something_to_run_on_its_own_floor() -> None:
     """The catalog's cheapest floor is a floor, not a label.
 
-    Every type is checked rather than one, because the emptiness is structural: a
+    Every operation is checked rather than one, because the emptiness is structural: a
     fix that special-cased ``format`` would leave the other three routed to nothing,
     and the catalog is data, so the set is read from it.
     """
@@ -112,8 +114,8 @@ def test_a_deterministic_task_type_has_something_to_run_on_its_own_floor() -> No
     )
 
     planned = {
-        task_type: plan(config, pool, _contract_of(task_type))
-        for task_type in DETERMINISTIC
+        operation: plan(config, pool, _contract_of(operation))
+        for operation in DETERMINISTIC
     }
     empty = {name: found.reason for name, found in planned.items() if not found.steps}
 
@@ -162,11 +164,11 @@ def test_the_cost_of_the_missing_dependency_is_recorded_rather_than_silent() -> 
 
     recorded = getattr(landed, "degradations", ())
     assert recorded, (
-        f"a {contract.type.name!r} contract fell off its own floor and nothing was "
+        f"a {contract.kind.name!r} contract fell off its own floor and nothing was "
         f"recorded: the only trace of the missing tool is a larger model bill"
     )
     said = " ".join(str(entry) for entry in recorded)
-    for expected in (contract.type.name, "deterministic", landed.family.name):
+    for expected in (contract.kind.name, "deterministic", landed.family.name):
         assert expected in said, (
             f"the degradation does not name {expected!r}, so a reader cannot tell "
             f"what degraded, where it should have run, or what is paying for it "

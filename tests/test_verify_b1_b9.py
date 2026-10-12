@@ -52,7 +52,8 @@ ladder:
 
 FORMAT_CONTRACT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
@@ -168,13 +169,13 @@ def test_b2_the_three_python_types_run_and_do_only_what_they_guarantee(
     target = tmp_path / "src" / "pkg" / "fetch.py"
     target.parent.mkdir(parents=True)
 
-    def run(task_type: str) -> str:
+    def run(operation: str) -> str:
         target.write_text(messy)
         contract = load_contract(
-            FORMAT_CONTRACT.replace("task_type: format", f"task_type: {task_type}")
+            FORMAT_CONTRACT.replace("operation: format", f"operation: {operation}")
         )
         argv = list(tool_steps(contract)[0].argv)
-        assert argv, f"{task_type} planned no command"
+        assert argv, f"{operation} planned no command"
         argv[0] = ruff
         subprocess.run(argv, cwd=tmp_path, capture_output=True, check=False)
         return target.read_text()

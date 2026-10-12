@@ -21,7 +21,7 @@ def test_sandbox_reports_a_detected_stack(
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     (tmp_path / "uv.lock").write_text("# lock\n", encoding="utf-8")
 
-    code = main(["sandbox", str(tmp_path)])
+    code = main(["sandbox", "--repo", str(tmp_path)])
     out = capsys.readouterr().out
 
     assert code == 0
@@ -29,12 +29,28 @@ def test_sandbox_reports_a_detected_stack(
     assert "pip install uv && uv sync --frozen" in out
 
 
+def test_sandbox_says_an_unlocked_project_gets_its_dev_group(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='x'\n\n[dependency-groups]\ndev = ['ruff']\n",
+        encoding="utf-8",
+    )
+
+    assert main(["sandbox", "--repo", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+
+    install = next(line for line in out.splitlines() if "install:" in line)
+    assert "pip install . --group dev" in install, out
+    assert "dev group installed" in out
+
+
 def test_sandbox_reports_an_undetected_stack_with_the_override(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     (tmp_path / "README.md").write_text("# docs\n", encoding="utf-8")
 
-    code = main(["sandbox", str(tmp_path)])
+    code = main(["sandbox", "--repo", str(tmp_path)])
     out = capsys.readouterr().out
 
     assert code == 0
@@ -46,6 +62,6 @@ def test_sandbox_rejects_a_path_that_is_not_a_directory(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     missing = tmp_path / "nope"
-    code = main(["sandbox", str(missing)])
+    code = main(["sandbox", "--repo", str(missing)])
     assert code == 1
     assert "not a directory" in capsys.readouterr().err

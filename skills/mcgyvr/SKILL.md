@@ -1,6 +1,6 @@
 ---
 name: mcgyvr
-description: "Offload one scoped coding task to mcgyvr, a CLI that runs it on deterministic tools, local models or API models and keeps only what its deterministic gate accepts. Use it when a change has one target and a way to judge it (format, import sort, lint fix, rename, or a scoped code edit whose evidence is derived from the contract): author a task contract, validate it, run it, read the result file, replan from the findings. It never loads itself; invoke it with /mcgyvr. The schema below is the only contract vocabulary."
+description: "Offload one scoped coding task to mcgyvr, a CLI that runs it on deterministic tools, local models or API models and keeps only what its deterministic gate accepts. Use it when a change has one target and a way to judge it (a scoped code edit whose evidence is derived from the contract, or a deterministic operation: format, import sort, lint fix, rename): author a task contract, validate it, run it, read the result file, replan from the findings. It never loads itself; invoke it with /mcgyvr. The schema below is the only contract vocabulary."
 disable-model-invocation: true
 ---
 
@@ -19,8 +19,8 @@ repository.
 One YAML file. Every key below is the contract schema in
 `src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,
 and every rejection names the key and what a valid value looks like.
-Pick the `task_type` first. For `code`, evidence is derived from the contract's own fields, never chosen. `mcgyvr catalog <type>` prints the type's guarantee.
-`mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft
+Pick the `task_type` first. For `code`, evidence is derived from the contract's own fields, never chosen; `operation:` has a tool make the change instead. `mcgyvr catalog <type>` prints the type's guarantee.
+`mcgyvr delegate PROMPT [--repo DIR]` has the config's `orchestrator` draft
 validated contracts from a request instead and prints them; `--run` runs
 each one.
 
@@ -30,29 +30,30 @@ each one.
 | --- | --- | --- | --- | --- |
 | `version` | number (min 1) | no | `1` | Schema version this contract is written against. A contract declaring a version this build does not read is rejected rather than interpreted under the wrong rules. (orchestrator-facing) |
 | `id` | text | **yes** | — | Identity: how this contract is referred to in records, telemetry and branch names. Letters, digits, dot, dash and underscore, up to 64 characters. e.g. fetch-helper-retry. (worker-facing) |
-| `task_type` | one of `chat`, `agent`, `code` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry, and therefore whether a glob target is legal. (worker-facing) |
+| `task_type` | one of `code`, `chat`, `agent`, `media` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry and how its result is judged. (worker-facing) |
+| `operation` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol` | no | empty | A deterministic operation a tool performs instead of a model, for `task_type: code`; its own guarantee and evidence apply, and the target may be a glob. (orchestrator-facing) |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
-| `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any task type a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a task type that is executed deterministically. e.g. src/pkg/fetch.py. (worker-facing) |
+| `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any contract a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a contract with a deterministic `operation`. e.g. src/pkg/fetch.py. (worker-facing) |
 | `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
 | `interface` | text | no | empty | What the result must expose — the signature, the name, the shape a caller depends on. Stated separately from `task` because it is the machine-checkable half of done. (worker-facing) |
 | `deps` | list of blocks | no | — | Dependencies the target needs, as signatures rather than source. (worker-facing) |
-| `stop_conditions` | list of text | no | `[]` | Explicit triggers on which the worker must stop and report BLOCKED instead of guessing — scope creep, an unknown API, an ambiguous directive. Required for any task type a model executes: guessing is the documented small-model failure mode these exist to prevent, and a worker with no stated stop condition has no licence to refuse. (worker-facing) |
-| `output_schema` | one of `whole_file`, `prose`, `media_artifact`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol; `prose` is the raw-text answer for chat and agent; `media_artifact` is the media-generation request for media-gen, whose artifact the bound media engine writes to the target. `unified_diff` validates here and is refused before dispatch. (worker-facing) |
+| `stop_conditions` | list of text | no | `[]` | Explicit triggers on which the worker must stop and report BLOCKED instead of guessing — scope creep, an unknown API, an ambiguous directive. Required when a model writes a `whole_file` reply, the one whose refusal is caught and escalated: guessing is the documented small-model failure mode these exist to prevent. A `prose` or `media_artifact` reply is served whatever it says, so none is required there. Start from `<task_type> on <target> would require deciding something the contract does not state — report BLOCKED rather than guess`. (worker-facing) |
+| `output_schema` | one of `whole_file`, `prose`, `media_artifact`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol; `prose` is the raw-text answer for chat and agent; `media_artifact` is the media-generation request for media, whose artifact the bound media engine writes to the target. `unified_diff` validates here and is refused before dispatch. (worker-facing) |
 | `media_kind` | one of `image`, `audio`, `video` | no | empty | The media kind of the artifact, for `media_valid`: image, audio or video. (orchestrator-facing) |
 | `transcript` | text | no | empty | The text the audio output must say, for `asr_wer`. (orchestrator-facing) |
 | `wer_threshold` | decimal number (min 0.0, max 1.0) | no | unset | The word-error-rate ceiling for `asr_wer`, a share from 0 to 1. (orchestrator-facing) |
 | `sources` | list of text | no | `[]` | The corpus the reply may cite, for `grounded`. (orchestrator-facing) |
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
 | `scope` | block | **yes** | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
-| `acceptance` | list of text | no | `[]` | Shell commands that must pass for the change to be accepted — the strongest signal the gate has. Each must also pass on the *unchanged* tree (the preflight refuses a suite that is already red), which is exactly why a command meant to demonstrate a defect cannot live here: it goes in `demonstration`. Arbitrary shell from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
-| `demonstration` | list of text | no | `[]` | Shell commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Runs in the same sandbox, under the same read-only rule. (orchestrator-facing) |
+| `acceptance` | list of text | no | `[]` | Commands, one per entry, split like a shell would split them (quotes respected) and executed directly with no shell: no `VAR=x` prefix, `&&`, pipes or redirects (`mcgyvr contract` refuses them; write `env VAR=x cmd`, or commit a script). Each must pass for the change to be accepted — the strongest signal the gate has — and also on the *unchanged* tree (the preflight refuses a suite that is already red), which is why a command meant to demonstrate a defect goes in `demonstration`. Arbitrary code from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
+| `demonstration` | list of text | no | `[]` | Commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Written, run and sandboxed exactly like `acceptance`; what it leaves behind is cleaned up. (orchestrator-facing) |
 | `no_semantic_change` | boolean | no | `false` | Whether the change must leave the parsed structure untouched apart from the region the task is allowed to touch. A flag rather than a task type: for `task_type: code` it derives the `no_semantic_change` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
 | `type_check` | boolean | no | `false` | Whether the project's own type checker must pass on the changed target. A flag rather than a task type: for `task_type: code` it derives the `type_check` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
 | `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. (orchestrator-facing) |
 | `risk` | one of `low`, `medium`, `high` | no | `medium` | How much a wrong answer costs. Recorded on the contract and printed by `mcgyvr contract`; routing and verification do not read it. (orchestrator-facing) |
 | `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |
 | `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
-| `rename` | block | no | — | Which symbol becomes which, for `task_type: rename_symbol`. The one task type mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other type and ignored there. (orchestrator-facing) |
+| `rename` | block | no | — | Which symbol becomes which, for `operation: rename_symbol`. The one operation mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other contract and ignored there. (orchestrator-facing) |
 
 #### `deps`
 
@@ -103,7 +104,7 @@ Hard ceilings on what one execution of this contract may spend.
 
 #### `rename`
 
-Which symbol becomes which, for `task_type: rename_symbol`. The one task type mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other type and ignored there.
+Which symbol becomes which, for `operation: rename_symbol`. The one operation mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other contract and ignored there.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -112,12 +113,11 @@ Which symbol becomes which, for `task_type: rename_symbol`. The one task type mc
 
 ### Deterministic operations
 
-Not task types — a model never chooses them: `format`, `import_sort`,
-`lint_fix`, `rename_symbol`.
+Not task types: `task_type: code` with `operation:` `format`, `import_sort`, `lint_fix`, `rename_symbol` has a tool make the change, never a model.
 
-### One minimal example per task type
+### Minimal examples
 
-`skills/mcgyvr/references/examples.md` carries one per type,
+`skills/mcgyvr/references/examples.md` carries one `code` contract and one per operation,
 each loaded through the contract validator by the test suite, so copying
 one is copying a shape that is known to validate. One file away, and it
 costs nothing until it is opened.
@@ -140,6 +140,10 @@ declares nothing.
 ```
 mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] [--sandbox tempdir] [--commit]
 ```
+
+The run works on the repository as committed at HEAD: uncommitted edits
+and untracked files, including a test you just wrote, are not in the
+sandbox.
 
 The run refuses unless it can say who typed it: Claude Code and Pi sessions
 are detected from the environment, otherwise pass `--orchestrator ID`.
@@ -187,6 +191,12 @@ what the run came to. The file's keys:
   `null` — with `attempt_id` `null` beside it — on an `error` no single
   dispatch caused: `rows: 0` means it raised before dispatching at all,
   and anything more means it raised past draw `rows - 1`.
+- `assurance` — what an `accepted` result rests on, and `detail` says it
+  in a sentence: `deterministic` (a tool's change, on the gate),
+  `verified` (a reviewer agreed), `unverified` (no reviewer could be
+  asked; `detail` says why), `checked` (an `agent` or `media` reply that
+  passed its output checks) or `unchecked` (a `chat` reply: no checks,
+  no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
 - `committed`, `commit`, `branch`, `handoff` — where the work went. Without
@@ -197,6 +207,9 @@ what the run came to. The file's keys:
   why. Empty on almost every run. mcgyvr's own record under `journal`
   is complete whatever this says; a copy is not a sink and its failure
   does not stop a run.
+- `notes` — the uncommitted and untracked paths the sandbox of HEAD
+  left out, and what the baseline left behind, now cleaned up. Empty
+  on a clean tree.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can

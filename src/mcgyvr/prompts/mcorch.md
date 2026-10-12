@@ -44,11 +44,6 @@ refusals and what each means:
   before the change and pass after belongs in `demonstration`, not
   `acceptance`; a suite that is simply red is not a signal — pick a command
   that is green today, or none.
-- `acceptance-mutates-tree`: an acceptance command changed the working tree
-  with no change applied (a test run that writes `__pycache__`, a formatter
-  that rewrites). Make it read-only: run the interpreter with `-B` or set
-  `PYTHONDONTWRITEBYTECODE=1`, or make sure `__pycache__` is in `.gitignore`,
-  or use a command that checks instead of writes (`--check`, `--diff`).
 - `acceptance-baseline-timeout`: the command did not finish on the unchanged
   tree; name a narrower one.
 - `acceptance-unavailable`: the command cannot run here; name one that can.

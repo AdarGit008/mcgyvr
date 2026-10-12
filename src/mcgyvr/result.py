@@ -99,6 +99,14 @@ class RunResult:
     #: never learn. mcgyvr's own record under ``journal`` is complete whatever
     #: this says: a copy is not a sink, and its failure does not stop a run.
     copy_errors: dict[str, str] = field(default_factory=dict)
+    #: What the caller should know about how the run was set up, one line
+    #: each, empty on a run with nothing to say. Today: the uncommitted and
+    #: untracked paths a sandbox built from HEAD does not hold
+    #: (:func:`mcgyvr.orchestrator.repo.head_only_note`), and what the
+    #: preflight's baseline commands left behind and had cleaned up
+    #: (:meth:`mcgyvr.gate.acceptance.Acceptance.baseline`). Here and not only
+    #: on stderr for the reason ``copy_errors`` gives.
+    notes: list[str] = field(default_factory=list)
     started: float = field(default_factory=time.time)
     finished: float | None = None
 

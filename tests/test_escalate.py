@@ -136,19 +136,21 @@ limits:
 
 DETERMINISTIC_CONTRACT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
   allow: ["src/**"]
 """
 
-# A deterministic type whose floor binds no program, which is the only way a
+# A deterministic operation whose floor binds no program, which is the only way a
 # floor family is still empty: this project's eslint config is `recommended`,
 # which has no import-order rule, so nothing sorts js/ts imports.
 UNBOUND_DETERMINISTIC_CONTRACT = """
 id: tidy-imports
-task_type: import_sort
+task_type: code
+operation: import_sort
 task: Sort the imports.
 target: src/pkg/fetch.ts
 scope:
@@ -276,7 +278,7 @@ def test_the_ascent_starts_at_the_contracts_floor_and_climbs_in_rank_order(
 
     route = ascent(config, pool, contract())
 
-    assert route.floor == LOCAL  # function_implementation starts on local
+    assert route.floor == LOCAL  # code starts on local
     assert [f.name for f in route.families] == ["local", "api"]
     assert route.rungs == ("local_qwen-7b", "local_qwen-14b", "api_big")
 
@@ -626,7 +628,7 @@ def test_a_keyless_install_is_labelled_unverified_rather_than_accepted_quietly()
     assert verdict.verdict is Verdict.PASSED
     assert verdict.assurance is Assurance.UNVERIFIED
     assert verdict.upgraded is True
-    assert "unverified rather than verified" in verdict.detail
+    assert verdict.detail.startswith("unverified: no reviewer is configured")
 
 
 def test_an_available_verifier_is_never_skipped() -> None:

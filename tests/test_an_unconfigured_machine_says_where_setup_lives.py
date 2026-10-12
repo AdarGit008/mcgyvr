@@ -51,7 +51,9 @@ INSTALL_SH = SKILL_DIR / "install.sh"
 
 # `skills/mcgyvr/SKILL.md` as it stood when it carried Step 0 — the file a
 # machine that installed the skill before `install.sh` kept a record holds.
-# Frozen verbatim; no ref on main names it.
+# Frozen; no ref on main names it. Its contract keys and examples are cut,
+# because they named a task vocabulary that no longer exists; the upgrade
+# below reads only that it is a real, Step-0-carrying SKILL.md.
 OLD_SKILL_MD = Path(__file__).parent / "fixtures" / "skill_md_carrying_step_0.md"
 
 # `skills/mcgyvr/SETUP.md`, beside the skill it is not
@@ -429,9 +431,10 @@ def test_a_machine_carrying_the_old_skill_with_no_record_upgrades_unforced(
     of the upgrade. If that is refused, the hand-edit refusal blocks the
     upgrade on every machine that has the skill.
 
-    The old file is the real one those machines carry, kept verbatim beside
-    this test rather than fabricated or read back out of git: no ref on main
-    names it. A frozen copy is what an old machine has.
+    The old file is the real one those machines carry, kept beside this test
+    rather than fabricated or read back out of git (no ref on main names it),
+    with only its retired contract vocabulary cut. A frozen copy is what an
+    old machine has.
     """
     old = OLD_SKILL_MD.read_bytes()
     assert b"mcgyvr setup" in old, (

@@ -79,7 +79,8 @@ scope:
 
 FORMAT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
@@ -97,11 +98,11 @@ def work() -> Contract:
     return load_contract(WORK)
 
 
-def formatting(target: str = "src/pkg/fetch.py", task_type: str = "format") -> Contract:
+def formatting(target: str = "src/pkg/fetch.py", operation: str = "format") -> Contract:
     """A deterministic contract on ``target``, scoped widely enough to hold it."""
     return load_contract(
         FORMAT.replace("target: src/pkg/fetch.py", f"target: {target}")
-        .replace("task_type: format", f"task_type: {task_type}")
+        .replace("operation: format", f"operation: {operation}")
         .replace('allow: ["src/**"]', 'allow: ["**"]')
     )
 
@@ -202,9 +203,9 @@ DASHED = (
 )
 
 
-@pytest.mark.parametrize(("target", "task_type", "command"), DASHED)
+@pytest.mark.parametrize(("target", "operation", "command"), DASHED)
 def test_the_target_is_separated_from_the_flags(
-    target: str, task_type: str, command: tuple[str, ...]
+    target: str, operation: str, command: tuple[str, ...]
 ) -> None:
     """Every program in the floor's table takes its path after ``--``.
 
@@ -212,7 +213,7 @@ def test_the_target_is_separated_from_the_flags(
     is what a decomposer emitted, and ``target: -h.py`` is a legal string in one.
     Without the separator it is an option to every one of these three programs.
     """
-    (step,) = tool_steps(formatting(target, task_type))
+    (step,) = tool_steps(formatting(target, operation))
 
     assert step.argv == (*command, "--", target), (
         f"the target is not separated from the flags: {step.argv}"

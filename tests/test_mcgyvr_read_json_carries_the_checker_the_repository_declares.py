@@ -35,7 +35,7 @@ def test_a_declared_checker_is_carried_as_the_adapters_argv(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _repo(tmp_path, mypy=True)
-    assert lj.main(["read", "annotate listing", str(root), "--json"]) == 0
+    assert lj.main(["read", "annotate listing", "--repo", str(root), "--json"]) == 0
     document = json.loads(capsys.readouterr().out)
     assert document["located"] == {"python": ["mypy"]}
 
@@ -44,6 +44,6 @@ def test_an_undeclared_checker_is_absent_never_guessed(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _repo(tmp_path, mypy=False)
-    assert lj.main(["read", "annotate listing", str(root), "--json"]) == 0
+    assert lj.main(["read", "annotate listing", "--repo", str(root), "--json"]) == 0
     document = json.loads(capsys.readouterr().out)
     assert document["located"] == {}
