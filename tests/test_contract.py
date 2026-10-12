@@ -468,13 +468,13 @@ def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_doe
         "contract does not state — report BLOCKED rather than guess"
     ) in message, message
 
-    # A chat contract left on the default whole_file reply is parsed as a
-    # file, so a refusal there is heard and the condition is required.
-    with pytest.raises(ContractSchemaError, match=r"^stop_conditions:"):
-        loads(
-            "id: t\ntask_type: chat\ntask: Answer.\ntarget: out.txt\n"
-            'scope:\n  allow: ["out.txt"]\n'
-        )
+    # A chat contract that names no output_schema is a session (F7): its reply
+    # is prose, where no refusal is heard, so it needs no condition; and it
+    # cannot ask for a whole_file reply at all.
+    chat = loads("id: t\ntask_type: chat\ntask: Answer.\n")
+    assert (chat.output_schema, chat.stop_conditions) == ("prose", ())
+    with pytest.raises(ContractSchemaError, match=r"^output_schema:"):
+        loads("id: t\ntask_type: chat\ntask: Answer.\noutput_schema: whole_file\n")
 
 
 def test_a_deterministic_task_type_needs_no_stop_conditions() -> None:
@@ -804,6 +804,7 @@ def _media_type(*evidence: str) -> SimpleNamespace:
     return SimpleNamespace(
         name="image_generation",
         deterministic=False,
+        session=False,
         needs_acceptance_commands=False,
         needs_demonstration_commands=False,
         required_evidence=kinds,

@@ -169,9 +169,14 @@ def render_user_message(view: dict[str, Any], retry: RetryNotes | None = None) -
     wrong, which no contract can know.
     """
     sections: list[str] = [f"TASK ({view['task_type']}): {view['task']}"]
-    sections.append(f"TARGET: {view['target']}")
-    if view["target_content"]:
-        sections.append(_render_target_content(view["target"], view["target_content"]))
+    # A prose reply is the answer and is never written, so there is no file to
+    # name or show: a TARGET line would tell the worker the opposite.
+    if view["output_schema"] != PROSE:
+        sections.append(f"TARGET: {view['target']}")
+        if view["target_content"]:
+            sections.append(
+                _render_target_content(view["target"], view["target_content"])
+            )
     if view["interface"]:
         sections.append(
             f"INTERFACE (the result must expose exactly this):\n{view['interface']}"

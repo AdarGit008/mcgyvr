@@ -10,9 +10,12 @@ disable-model-invocation: true
 
 Offload one scoped piece of coding work to mcgyvr. You author a *contract*
 (one target, one task, one way to judge it), mcgyvr gates every answer
-deterministically, and leaves the accepted file in the working tree. It
-never commits unless told to, and it never writes anything else into the
-repository.
+deterministically, and leaves an accepted `code` change in the working
+tree. It never commits unless told to, and it never writes anything else
+into the repository.
+
+A `chat`/`agent` run is a *session*: no `target`, no `scope`; the
+reply is the result file's `answer`, kept in mcgyvr's session log.
 
 ## Step 1 — author a contract
 
@@ -33,18 +36,18 @@ each one.
 | `task_type` | one of `code`, `chat`, `agent`, `media` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry and how its result is judged. (worker-facing) |
 | `operation` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol` | no | empty | A deterministic operation a tool performs instead of a model, for `task_type: code`; its own guarantee and evidence apply, and the target may be a glob. (orchestrator-facing) |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
-| `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any contract a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a contract with a deterministic `operation`. e.g. src/pkg/fetch.py. (worker-facing) |
+| `target` | text | **yes**, not for `chat`/`agent` | — | Where the result goes. Exactly one literal repo-relative path for any contract a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a contract with a deterministic `operation`. A session (`chat`, `agent`) writes nothing and names none. e.g. src/pkg/fetch.py. (worker-facing) |
 | `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
 | `interface` | text | no | empty | What the result must expose — the signature, the name, the shape a caller depends on. Stated separately from `task` because it is the machine-checkable half of done. (worker-facing) |
 | `deps` | list of blocks | no | — | Dependencies the target needs, as signatures rather than source. (worker-facing) |
 | `stop_conditions` | list of text | no | `[]` | Explicit triggers on which the worker must stop and report BLOCKED instead of guessing — scope creep, an unknown API, an ambiguous directive. Required when a model writes a `whole_file` reply, the one whose refusal is caught and escalated: guessing is the documented small-model failure mode these exist to prevent. A `prose` or `media_artifact` reply is served whatever it says, so none is required there. Start from `<task_type> on <target> would require deciding something the contract does not state — report BLOCKED rather than guess`. (worker-facing) |
-| `output_schema` | one of `whole_file`, `prose`, `media_artifact`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol; `prose` is the raw-text answer for chat and agent; `media_artifact` is the media-generation request for media, whose artifact the bound media engine writes to the target. `unified_diff` validates here and is refused before dispatch. (worker-facing) |
+| `output_schema` | one of `whole_file`, `prose`, `media_artifact`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol; `prose` is the raw-text answer for chat and agent (their default); `media_artifact` is the media-generation request for media, whose artifact the bound media engine writes to the target. `unified_diff` validates here and is refused before dispatch. (worker-facing) |
 | `media_kind` | one of `image`, `audio`, `video` | no | empty | The media kind of the artifact, for `media_valid`: image, audio or video. (orchestrator-facing) |
 | `transcript` | text | no | empty | The text the audio output must say, for `asr_wer`. (orchestrator-facing) |
 | `wer_threshold` | decimal number (min 0.0, max 1.0) | no | unset | The word-error-rate ceiling for `asr_wer`, a share from 0 to 1. (orchestrator-facing) |
 | `sources` | list of text | no | `[]` | The corpus the reply may cite, for `grounded`. (orchestrator-facing) |
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
-| `scope` | block | **yes** | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
+| `scope` | block | **yes**, not for `chat`/`agent` | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
 | `acceptance` | list of text | no | `[]` | Commands, one per entry, split like a shell would split them (quotes respected) and executed directly with no shell: no `VAR=x` prefix, `&&`, pipes or redirects (`mcgyvr contract` refuses them; write `env VAR=x cmd`, or commit a script). Each must pass for the change to be accepted — the strongest signal the gate has — and also on the *unchanged* tree (the preflight refuses a suite that is already red), which is why a command meant to demonstrate a defect goes in `demonstration`. Arbitrary code from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
 | `demonstration` | list of text | no | `[]` | Commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Written, run and sandboxed exactly like `acceptance`; what it leaves behind is cleaned up. (orchestrator-facing) |
 | `no_semantic_change` | boolean | no | `false` | Whether the change must leave the parsed structure untouched apart from the region the task is allowed to touch. A flag rather than a task type: for `task_type: code` it derives the `no_semantic_change` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
@@ -81,7 +84,7 @@ The writable surface the gate enforces. Not worker-facing: the worker is told it
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `scope.allow` | list of globs | **yes** | — | Glob patterns the worker's change may touch. An empty allow list permits nothing (`mcgyvr.scope` fails closed), so a contract that declares none is rejected rather than silently unable to act. e.g. ["src/**/*.py"]. (orchestrator-facing) |
+| `scope.allow` | list of globs | **yes**, not for `chat`/`agent` | — | Glob patterns the worker's change may touch. An empty allow list permits nothing (`mcgyvr.scope` fails closed), so a contract that declares none is rejected rather than silently unable to act. e.g. ["src/**/*.py"]. (orchestrator-facing) |
 | `scope.forbid` | list of globs | no | `[]` | Glob patterns that override `allow`. Forbid wins ties, which is the safe direction for an autonomous gate. (orchestrator-facing) |
 
 #### `verification`
@@ -201,6 +204,9 @@ what the run came to. The file's keys:
   dispatched nothing.
 - `committed`, `commit`, `branch`, `handoff` — where the work went. Without
   `--commit` the accepted file is left in the working tree, uncommitted.
+- `answer` — a `chat`, `agent` or `media` reply; never written to the tree.
+- `session_record` — a session's record (question, answer, unit, times,
+  outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.
 - `target`, `contract`, `task_type`, `orchestrator`, `run`, `session_file`,
   `journal`, `exit_code`.
 - `copy_errors` — a `--record DIR` copy that could not be written, and
@@ -237,7 +243,8 @@ offered nothing that would do the work. Rewriting only relocates the same
 answer. Report it to whoever owns the machine; the remedy is in
 `skills/mcgyvr/SETUP.md`.
 
-When `outcome` is `accepted`, the change is in `target`, uncommitted.
+When `outcome` is `accepted`, the change is in `target`, uncommitted (a
+session changes nothing: its reply is `answer`).
 Review it there and commit it yourself. To have mcgyvr commit instead, run
 with `--commit` on a tree where `target` is clean: mcgyvr refuses to
 overwrite an edited or uncommitted target, so restore it first

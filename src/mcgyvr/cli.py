@@ -350,6 +350,12 @@ def _catalog(args: argparse.Namespace) -> int:
         print(f"  guarantee:  {kind.guarantee}\n")
         print(f"  warrant:    {kind.warrant}\n")
         print(f"  judged:     {how_judged(kind)}\n")
+        if kind.session:
+            print(
+                "  session:    no target and no scope; the reply is returned in "
+                "the result file's `answer` and kept in the session log "
+                "(`mcgyvr sessions`), never written to the tree.\n"
+            )
         print("  evidence required:")
         for evidence in kind.required_evidence:
             mark = "$" if evidence.needs_commands else "-"
@@ -428,6 +434,7 @@ def _contract(args: argparse.Namespace) -> int:
     import json
 
     from mcgyvr.contract import ContractError, load
+    from mcgyvr.escalate import how_judged
 
     try:
         contract = load(Path(args.path))
@@ -449,18 +456,38 @@ def _contract(args: argparse.Namespace) -> int:
     print(f"{args.path}: valid\n")
     operation = f", operation {contract.operation}" if contract.operation else ""
     print(f"  {contract.id}  [{contract.task_type}{operation}] — {tier}")
-    print(f"  target:  {contract.target}")
-    print(f"  allow:   {', '.join(contract.scope.allow)}")
-    if contract.scope.forbid:
-        print(f"  forbid:  {', '.join(contract.scope.forbid)}")
+    if contract.is_session:
+        # A session writes nothing, so there is no file to name: a target or
+        # scope line here would say the opposite of what the run does.
+        print(
+            "  session: the reply is returned in the result file's `answer` and "
+            "kept in the session log (<journal.dir>/sessions/); nothing is "
+            "written to the repository"
+        )
+        if contract.target or contract.scope.allow:
+            given = contract.target or ", ".join(contract.scope.allow)
+            print(f"  note:    {given} is not written: target and scope are not used")
+    else:
+        print(f"  target:  {contract.target}")
+        print(f"  allow:   {', '.join(contract.scope.allow)}")
+        if contract.scope.forbid:
+            print(f"  forbid:  {', '.join(contract.scope.forbid)}")
     if contract.deps:
         print(f"  deps:    {', '.join(d.path for d in contract.deps)}")
     if contract.stop_conditions:
         print(f"  stops:   {len(contract.stop_conditions)} condition(s)")
-    print(
-        f"  risk:    {contract.risk} — verified by "
-        f"{contract.verification.policy.replace('_', ' ')}"
-    )
+    # A reply (chat, agent, media) is never gated as a change or reviewed:
+    # it is judged by its output checks or by nothing, in the words its result
+    # will use (`how_judged`), and its acceptance commands never judge it.
+    reply = not contract.is_deterministic and not contract.kind.judges_a_change
+    if reply:
+        print(f"  risk:    {contract.risk}")
+        print(f"  judged:  {how_judged(contract.kind)}")
+    else:
+        print(
+            f"  risk:    {contract.risk} — verified by "
+            f"{contract.verification.policy.replace('_', ' ')}"
+        )
     if contract.limits.max_output_tokens is None:
         output_budget = "uncapped (raw text)"
     else:
@@ -470,7 +497,13 @@ def _contract(args: argparse.Namespace) -> int:
         f"<={contract.max_input_tokens} prompt tokens, "
         f"{contract.limits.attempts} attempt(s)"
     )
-    if contract.acceptance:
+    if reply:
+        if contract.acceptance:
+            print(
+                "  acceptance: not run on the reply — a reply is judged by its "
+                "output checks alone"
+            )
+    elif contract.acceptance:
         print("  acceptance:")
         for command in contract.acceptance:
             print(f"    $ {command}")
@@ -1904,8 +1937,9 @@ def _run(args: argparse.Namespace) -> int:
 
     **Every run is journaled, in one place, and nothing a caller passes moves
     it.** The journal is mcgyvr's own record — ``<journal.dir>/<orchestrator>.jsonl``
-    with the prompts and replies content-addressed under ``blobs/`` and each
-    run's result under ``results/``. It exists to be *compounded*: how often the
+    with the prompts and replies content-addressed under ``blobs/``, each
+    run's result under ``results/`` and each ``chat`` or ``agent`` session
+    under ``sessions/``. It exists to be *compounded*: how often the
     floor finishes a task type on its own, what a rung costs per accepted
     change, whether escalating paid are all questions about every run there has
     been, and they can only be asked where every run is. ``--record DIR`` is a
@@ -1930,7 +1964,15 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.drive import Recording, gate_adapters
-    from mcgyvr.result import RunResult, result_path, run_stamp, write
+    from mcgyvr.result import (
+        RunResult,
+        result_path,
+        run_stamp,
+        session_path,
+        session_record,
+        write,
+        write_session,
+    )
     from mcgyvr.session import with_mcorch_transcript
     from mcgyvr.telemetry import run_tags
 
@@ -2065,7 +2107,8 @@ def _run(args: argparse.Namespace) -> int:
     report = RunResult(
         contract=contract.id,
         task_type=contract.task_type,
-        target=contract.target,
+        # A session writes nothing, so it has no target, whatever it gave.
+        target="" if contract.is_session else contract.target,
         orchestrator=session.orchestrator,
         run=stamp,
         session_file=str(session.session_file) if session.session_file else None,
@@ -2143,6 +2186,43 @@ def _run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
+    # A chat or agent run is a session, and its answer is kept (owner, e2e run
+    # 1 F7: "answers are not throwaway nowhere"): a record of its own under
+    # the journal, written before the result file so the result never names a
+    # record that is not there. Not fatal when it cannot be written: the answer
+    # is in the result file all the same, and the line says where it is not.
+    if contract.is_session:
+        logged = session_path(journal_dir, contract.id, stamp)
+        try:
+            write_session(
+                logged,
+                session_record(
+                    report,
+                    contract_path=Path(args.contract).absolute(),
+                    question=contract.task,
+                    result=keep,
+                    journal=recording.path,
+                ),
+            )
+        except OSError as exc:
+            print(
+                f"error: this session could not be logged at {logged}: {exc}. "
+                f"Its answer is in the result file.",
+                file=sys.stderr,
+            )
+        else:
+            report.session_record = str(logged)
+            print(f"session: {logged}", file=sys.stderr)
+            for mirror in mirrors:
+                try:
+                    _copy(logged, session_path(mirror, contract.id, stamp))
+                except OSError as exc:
+                    print(
+                        f"error: this session could not be copied into {mirror}: "
+                        f"{exc}. It is at {logged}.",
+                        file=sys.stderr,
+                    )
+
     # Serialised once and copied, never written twice. `write` stamps
     # ``finished`` from the clock on each call, so a second call would produce
     # a file that differs from the first in the one field a reader would use to
@@ -2202,6 +2282,78 @@ def _copy(source: Path, target: Path) -> None:
     except OSError:
         staging.unlink(missing_ok=True)
         raise
+
+
+def _sessions(args: argparse.Namespace) -> int:
+    """List the session log, newest first, or show one session whole.
+
+    The log is the journal's ``sessions/``: ``--journal DIR`` (a ``--record``
+    copy, say), else the config's ``journal.dir``, else the schema default — a
+    bare install has a journal too. One line per session in the listing, and
+    the question and the answer in full when one is named.
+    """
+    from mcgyvr.config import JOURNAL_DIR_DEFAULT
+    from mcgyvr.result import SESSIONS_DIR, sessions
+
+    if args.journal is not None:
+        journal_dir = Path(args.journal).expanduser()
+    else:
+        chosen = Path(args.config) if args.config else None
+        try:
+            configured = load_config(chosen).get("journal.dir")
+        except ConfigError as exc:
+            # No config where nobody named one is the bare install, whose
+            # journal is the default; a config someone named is theirs to fix.
+            bare = isinstance(exc, ConfigMissingError) and (
+                chosen is None and named_config_path() is None
+            )
+            if not bare:
+                print(f"error: {exc}", file=sys.stderr)
+                return 1
+            configured = None
+        journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+
+    found = sessions(journal_dir)
+    if args.id is None:
+        if not found:
+            print(f"no sessions in {journal_dir / SESSIONS_DIR}")
+            return 0
+        for path in found[: args.limit]:
+            record = json.loads(path.read_text(encoding="utf-8"))
+            asked = " ".join(str(record.get("question", "")).split())
+            print(
+                f"{path.stem}  [{record.get('task_type')}] "
+                f"{record.get('outcome')}  {_clip(asked, 60)}"
+            )
+        return 0
+
+    path = journal_dir / SESSIONS_DIR / f"{args.id}.json"
+    # An id is a file name in the log, never a path out of it.
+    if Path(args.id).name != args.id or not path.is_file():
+        print(
+            f"error: no session {args.id!r} in {journal_dir / SESSIONS_DIR}; "
+            f"`mcgyvr sessions` lists them.",
+            file=sys.stderr,
+        )
+        return 1
+    record = json.loads(path.read_text(encoding="utf-8"))
+    contract = record.get("contract") or {}
+    print(f"{record.get('session')}  [{record.get('task_type')}]")
+    print(f"  outcome:   {record.get('outcome')} ({record.get('assurance')})")
+    print(f"  unit:      {record.get('unit')}")
+    print(f"  started:   {record.get('started')}")
+    print(f"  finished:  {record.get('finished')}")
+    print(f"  contract:  {contract.get('path')} (sha256 {contract.get('sha256')})")
+    print(f"  result:    {record.get('result')}")
+    print(f"  record:    {path}")
+    print(f"\nasked:\n{record.get('question')}")
+    answer = record.get("answer") or f"(none: {record.get('detail')})"
+    print(f"\nanswer:\n{answer}")
+    return 0
+
+
+def _clip(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: width - 1] + "…"
 
 
 class FloorStoppedError(Exception):
@@ -5477,7 +5629,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="DIR",
         help=(
             "also journal this run under DIR, as a complete second copy for "
-            "your own reading: DIR/<ID>.jsonl, DIR/blobs/, DIR/results/, read "
+            "your own reading: DIR/<ID>.jsonl, DIR/blobs/, DIR/results/ and "
+            "DIR/sessions/, read "
             "back from DIR directly. This does not move mcgyvr's "
             "own record, which is always written under the config's "
             "`journal.dir` so that every run there has ever been can be counted "
@@ -5510,6 +5663,40 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         ),
     )
     run.set_defaults(func=_run)
+
+    ses = sub.add_parser(
+        "sessions",
+        help="list the chat and agent sessions the journal keeps, or show one",
+    )
+    ses.add_argument(
+        "id",
+        nargs="?",
+        default=None,
+        help="show this session whole: question, answer, unit, outcome "
+        "(default: list them, newest first)",
+    )
+    ses.add_argument(
+        "--config",
+        default=None,
+        type=_named_path,
+        metavar="PATH",
+        help=f"whose `journal.dir` to read (default: {CONFIG_DEFAULT_HELP})",
+    )
+    ses.add_argument(
+        "--journal",
+        default=None,
+        type=_named_path,
+        metavar="DIR",
+        help="read the sessions of this journal instead, e.g. a --record copy",
+    )
+    ses.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        metavar="N",
+        help="list at most N sessions (default: 20)",
+    )
+    ses.set_defaults(func=_sessions)
 
     delegate = sub.add_parser(
         "delegate",

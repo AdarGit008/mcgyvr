@@ -139,6 +139,13 @@ class TaskType:
     #: :mod:`mcgyvr.contract`, because it reads contract fields this module
     #: deliberately knows nothing about.
     evidence_derived: bool = False
+    #: Whether a run of this type is a session: its reply is the answer,
+    #: returned in the result file and kept in the journal's session log, and
+    #: nothing is written to the tree — so a contract of it names no
+    #: ``target`` and no ``scope``. ``chat`` and ``agent`` set it (owner
+    #: decision, e2e run 1 F7: "chat and agent are sessions and should be
+    #: logged as such").
+    session: bool = False
 
     @property
     def deterministic(self) -> bool:
@@ -400,6 +407,7 @@ def _load_entries(
                 warrant=str(entry.get("warrant", "")),
                 doc=str(entry.get("doc", "")),
                 evidence_derived=bool(entry.get("evidence_derived", False)),
+                session=bool(entry.get("session", False)),
                 task_type=str(entry.get("task_type", "")),
             )
         )

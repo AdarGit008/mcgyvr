@@ -263,8 +263,10 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "str",
         "Where every run journals what it asked, what came back and how it "
         "landed: one `<orchestrator>.jsonl` per writer, the prompts and replies "
-        "content-addressed under `blobs/`, and each run's result file under "
-        "`results/`. Deterministic runs are here too, with a row naming the "
+        "content-addressed under `blobs/`, each run's result file under "
+        "`results/`, and each `chat` or `agent` session (its question and "
+        "answer) under `sessions/`. Deterministic runs are here too, with a "
+        "row naming the "
         "program instead of a model. This is mcgyvr's own record, it never "
         "lands in the repository a run works on, and nothing on the command "
         "line moves it: it is the one place every run is, which is what makes "
