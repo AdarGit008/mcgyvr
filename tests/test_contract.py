@@ -425,6 +425,56 @@ def test_a_model_task_type_without_stop_conditions_is_rejected() -> None:
     assert "will guess" in message
 
 
+def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_does() -> (
+    None
+):
+    """Stop conditions are required only where a BLOCKED reply can be heard (F10).
+
+    A whole_file reply is parsed, and a refusal in it is a named outcome that
+    escalates; a prose or media_artifact reply is served as the answer, so a
+    condition there is filler nothing reads. The prompt says nothing about
+    stopping when none is given, and the refusal for a whole_file contract
+    hands the author the generic condition to start from.
+    """
+    from mcgyvr.worker.prompt import render_user_message
+
+    for task_type, schema, extra in (
+        ("chat", "prose", ""),
+        ("agent", "prose", 'sources: ["src/report.txt"]\n'),
+        ("media", "media_artifact", "media_kind: image\n"),
+    ):
+        contract = loads(
+            f"id: t\ntask_type: {task_type}\ntask: Do it.\ntarget: out.txt\n"
+            f"output_schema: {schema}\n{extra}"
+            'scope:\n  allow: ["out.txt"]\n'
+        )
+        assert contract.stop_conditions == (), task_type
+        prompt = render_user_message(contract.worker_view())
+        assert "STOP AND REPORT BLOCKED" not in prompt, task_type
+
+    without = MINIMAL.replace(
+        "stop_conditions:\n  - The retry policy is not stated anywhere in the repo.\n",
+        "",
+    )
+    with pytest.raises(ContractSchemaError) as exc:
+        loads(without)
+    message = str(exc.value)
+    assert message.startswith("stop_conditions:"), message
+    assert "whole_file" in message, message
+    assert (
+        "code on src/pkg/fetch.py would require deciding something the "
+        "contract does not state — report BLOCKED rather than guess"
+    ) in message, message
+
+    # A chat contract left on the default whole_file reply is parsed as a
+    # file, so a refusal there is heard and the condition is required.
+    with pytest.raises(ContractSchemaError, match=r"^stop_conditions:"):
+        loads(
+            "id: t\ntask_type: chat\ntask: Answer.\ntarget: out.txt\n"
+            'scope:\n  allow: ["out.txt"]\n'
+        )
+
+
 def test_a_deterministic_task_type_needs_no_stop_conditions() -> None:
     """A tool cannot guess, so the requirement would be ceremony."""
     assert loads(DETERMINISTIC).stop_conditions == ()

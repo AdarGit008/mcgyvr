@@ -344,6 +344,20 @@ def _evidence_allowance(evidence: CatalogEvidence) -> int:
     return RUNNING_ALLOWANCE if evidence.needs_commands else STRUCTURAL_ALLOWANCE
 
 
+def generic_stop_condition(task_type_name: str, subject: str) -> str:
+    """The stop condition to start from: decide nothing the contract left open.
+
+    One spelling, because three places say it — the proposer writes it into
+    the contracts it emits, the field doc shows it, and the loader's refusal
+    hands it to an author who named none — and a condition that read
+    differently in each would be three conditions.
+    """
+    return (
+        f"{task_type_name} on {subject} would require deciding something the "
+        "contract does not state — report BLOCKED rather than guess"
+    )
+
+
 # --- the declared schema --------------------------------------------------
 
 Kind = Literal[
@@ -639,10 +653,12 @@ SCHEMA: tuple[Field, ...] = (
         "str_list",
         "Explicit triggers on which the worker must stop and report BLOCKED "
         "instead of guessing — scope creep, an unknown API, an ambiguous "
-        "directive. Required for any task type a model executes: guessing is "
-        "the documented small-model failure mode these exist to prevent, "
-        "and a worker with no stated stop condition has no licence to "
-        "refuse.",
+        "directive. Required when a model writes a `whole_file` reply, the "
+        "one whose refusal is caught and escalated: guessing is the documented "
+        "small-model failure mode these exist to prevent. A `prose` or "
+        "`media_artifact` reply is served whatever it says, so none is "
+        "required there. Start from "
+        f"`{generic_stop_condition('<task_type>', '<target>')}`.",
         default=(),
         worker_facing=True,
     ),
@@ -1450,11 +1466,21 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"rejected by the gate. Add a pattern that covers it."
             )
 
-    if not kind.deterministic and not data["stop_conditions"]:
+    # Required only where a BLOCKED reply is heard: a whole_file reply is
+    # parsed, and a refusal in it escalates (worker/reply.py), while a raw-text
+    # reply is served as the answer whatever it says — a condition there would
+    # be filler nothing reads.
+    if (
+        not kind.deterministic
+        and data["output_schema"] == "whole_file"
+        and not data["stop_conditions"]
+    ):
         raise ContractSchemaError(
             f"stop_conditions: is empty, but task type {kind.name!r} runs on "
-            f"a model. Without a stated trigger to report BLOCKED, a worker "
-            f"that meets an unknown will guess. Name at least one condition."
+            f"a model that replies with a whole_file. Without a stated trigger "
+            f"to report BLOCKED, a worker that meets an unknown will guess. "
+            f"Name at least one condition; start from "
+            f'"{generic_stop_condition(kind.name, target)}".'
         )
 
     if kind.needs_acceptance_commands and not data["acceptance"]:
