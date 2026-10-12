@@ -369,7 +369,7 @@ def test_a_floor_tool_step_is_held_to_the_task_ceiling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     contract = load_contract(
-        "id: tidy\ntask_type: format\ntask: Reformat the module.\n"
+        "id: tidy\ntask_type: code\noperation: format\ntask: Reformat the module.\n"
         'target: src/pkg/messy.py\nscope:\n  allow: ["src/**"]\n'
     )
     (step,) = tool_steps(contract)

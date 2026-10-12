@@ -1,4 +1,4 @@
-"""`mcgyvr init` never writes a value that contradicts the schema's own default.
+"""`mcgyvr setup` never writes a value that contradicts the schema's own default.
 
 ``initialize.build`` writes a starting config. Where a key has no machine to be
 detected from, the value it writes is a second copy of the number in
@@ -46,7 +46,7 @@ def _has_default(block: str, leaf: str) -> bool:
 
 
 def _built() -> dict[str, Any]:
-    """What `mcgyvr init` would write on a machine with nothing detected."""
+    """What `mcgyvr setup` would write on a machine with nothing detected."""
     from mcgyvr.detect import Detection
     from mcgyvr.initialize import build
 

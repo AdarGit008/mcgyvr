@@ -380,8 +380,8 @@ class TypeCheck:
         ``def fetch(url):`` annotated to ``def fetch(url: int) -> str:`` changes
         line 1; mypy's complaint lands on line 2, ``return url``, which the
         worker did not touch. That error is not pre-existing — line 2 checked
-        clean before the change — and dropping it is how a ``type_annotation``
-        contract could be annotated wrong and accepted.
+        clean before the change — and dropping it is how a `code` contract
+        with `type_check: true` could be annotated wrong and accepted.
 
         So "pre-existing" is measured rather than inferred: the same checker
         runs over the base tree, and a diagnostic absent there is the worker's

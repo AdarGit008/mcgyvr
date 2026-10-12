@@ -1,4 +1,4 @@
-"""`mcgyvr init` binds every model a running server lists, and nothing else.
+"""`mcgyvr setup` binds every model a running server lists, and nothing else.
 
 Promise: every unit init writes from what it found serves a model that the
 server at that unit's address lists, and every model a server lists is bound

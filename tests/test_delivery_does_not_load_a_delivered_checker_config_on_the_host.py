@@ -51,7 +51,7 @@ class _Recorder(ToolRunner):
 
 _CONTRACT = """
 id: cfg
-task_type: function_implementation
+task_type: code
 task: Export the config.
 target: {target}
 stop_conditions: ["The config is not stated."]

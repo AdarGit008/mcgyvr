@@ -1,6 +1,6 @@
 """What can actually run the work, detected without benchmarking it.
 
-``mcgyvr init`` binds the models that running servers list; this module finds
+``mcgyvr setup`` binds the models that running servers list; this module finds
 those servers and what each one lists, and the cards this machine has. It
 measures nothing: benchmarking would turn a 30-second install into an hour.
 
@@ -79,7 +79,7 @@ class ProbeTarget:
 
     A *candidate* address, not a resolved one: nothing is known to be here
     until :func:`probe` gets an answer. Distinct from
-    :class:`mcgyvr.pool.Endpoint`, which is somewhere a rung is configured to
+    :class:`mcgyvr.local_pool.Endpoint`, which is somewhere a rung is configured to
     run and exists only once there is a config to resolve.
 
     ``host`` is carried alongside ``base_url`` rather than parsed back out of

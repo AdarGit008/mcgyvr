@@ -1,9 +1,9 @@
 """Dispatch — one wire protocol behind one runner interface.
 
-This is the first code *below* the seam :mod:`mcgyvr.pool` draws. A caller above
-it holds a :class:`~mcgyvr.pool.Rung` — a name and a model — and cannot say
+This is the first code *below* the seam :mod:`mcgyvr.local_pool` draws. A caller above
+it holds a :class:`~mcgyvr.local_pool.Rung` — a name and a model — and cannot say
 where work runs. Here a rung has already been resolved to an
-:class:`~mcgyvr.pool.Endpoint`, and the only remaining question is which shape
+:class:`~mcgyvr.local_pool.Endpoint`, and the only remaining question is which shape
 to ask in. The invariants:
 
 * **The same contract executes identically wherever it runs.** The runner
@@ -70,7 +70,7 @@ outright with :class:`QualityCaveatError`. A caveated dependency is allowed,
 the *silence* is not. No path in this build is caveated.
 
 **On credentials.** The key is resolved from the environment at the moment of
-dispatch through :meth:`~mcgyvr.pool.Endpoint.credential` and lives only in the
+dispatch through :meth:`~mcgyvr.local_pool.Endpoint.credential` and lives only in the
 ``Authorization`` header of one request. A keyless endpoint — the ordinary case
 for a local backend — gets no header at all rather than an empty one, so a
 local OpenAI-compatible server needs no API key and is never sent an
@@ -145,7 +145,7 @@ from mcgyvr.fleet.harness import (
     prometheus_totals,
     slots_in_flight,
 )
-from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
+from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
 
@@ -1017,11 +1017,11 @@ def dispatch(
     """Send a request to a rung of the ladder, whatever is serving it.
 
     The intended way in, and the reason nothing above the seam needs to touch
-    :meth:`~mcgyvr.pool.SourceMap.bind`: the model comes from the rung and the
+    :meth:`~mcgyvr.local_pool.SourceMap.bind`: the model comes from the rung and the
     protocol from its endpoint, so a caller names a step of the ladder and
     nothing about a machine. Propagates
-    :class:`~mcgyvr.pool.UnknownRungError` and
-    :class:`~mcgyvr.pool.SourceUnavailableError` from the binding unchanged —
+    :class:`~mcgyvr.local_pool.UnknownRungError` and
+    :class:`~mcgyvr.local_pool.SourceUnavailableError` from the binding unchanged —
     asking for a rung that does not exist and asking for one whose source
     cannot serve it stay different mistakes.
 
@@ -1063,7 +1063,7 @@ def dispatch_role(
 ) -> Completion | None:
     """Send a request to a non-ladder role, or ``None`` when it has none.
 
-    ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role`: an install that binds
+    ``None`` mirrors :meth:`~mcgyvr.local_pool.SourceMap.role`: an install that binds
     no verifier runs with none, and that is an ordinary state rather than a
     failure. A role whose source is declared but unusable still raises.
 
@@ -1207,7 +1207,7 @@ def unit_in_flight(
     The same reading a dispatch takes beside itself (:func:`_status`), for a
     caller that wants the count without dispatching: a live probe
     (:mod:`mcgyvr.fleet.probe`) measures a unit only when this is 0. Taken by
-    address and engine rather than as an :class:`~mcgyvr.pool.Endpoint`, so
+    address and engine rather than as an :class:`~mcgyvr.local_pool.Endpoint`, so
     the caller needs nothing from below the seam but this function.
     """
     endpoint = Endpoint(
@@ -1546,7 +1546,7 @@ def _url_for(base_url: str, path: str) -> str:
     ``/v1``; without this the second spelling is sent to
     ``/v1/v1/chat/completions``. Both spellings are accepted here rather than
     in the loader, because appending the path is this module's business and
-    :class:`~mcgyvr.pool.Endpoint` is shared with callers that append nothing.
+    :class:`~mcgyvr.local_pool.Endpoint` is shared with callers that append nothing.
     """
     base = base_url.rstrip("/")
     if path.startswith("/v1/") and base.endswith("/v1"):

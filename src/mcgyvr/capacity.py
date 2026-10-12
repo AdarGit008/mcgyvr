@@ -2,7 +2,7 @@
 
 A source is one declared unit, and a unit has a finite number of requests it
 can serve at a time. That number is declared in the config (``units.*.width``),
-carried on every :class:`~mcgyvr.pool.Endpoint` as ``max_parallel``, and
+carried on every :class:`~mcgyvr.local_pool.Endpoint` as ``max_parallel``, and
 enforced here: each permit is a host-wide file lock rather than a count in
 process memory.
 
@@ -96,7 +96,7 @@ pool, not a second one: role and ladder share the slot files, so together they
 still never exceed the width the unit was actually served at.
 
 The probe is a *parameter*. Nothing here opens a socket, for the same reason
-:mod:`mcgyvr.pool` names :class:`~mcgyvr.pool.SourceProbe` structurally and
+:mod:`mcgyvr.local_pool` names :class:`~mcgyvr.local_pool.SourceProbe` structurally and
 builds nothing: this module's job is to know what to do with the answer.
 
 **A capacity keeps two numbers per source, not one.** The **declared** width is
@@ -234,7 +234,7 @@ from typing import Protocol as TypingProtocol
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
-    from mcgyvr.pool import Endpoint
+    from mcgyvr.local_pool import Endpoint
     from mcgyvr.pressure import Gauge
 
 # How often a waiter re-tries the slot files while blocked. Coarse enough to
@@ -341,11 +341,11 @@ class WidthProbe(TypingProtocol):
     The whole of a width probe as this module sees it, and a
     structural type rather than an import so that building a capacity never
     drags in a network stack — the same idiom, for the same reason, as
-    :class:`~mcgyvr.pool.SourceProbe`.
+    :class:`~mcgyvr.local_pool.SourceProbe`.
 
     Implementations must not raise. ``None`` is the answer for a backend that
     does not report its parallelism, which is an ordinary state of affairs and
-    not a failure; a source that is *down* is :class:`~mcgyvr.pool.SourceProbe`'s
+    not a failure; a source that is *down* is :class:`~mcgyvr.local_pool.SourceProbe`'s
     question and is answered there, in words, as a skipped rung.
 
     ``rung`` is optional on both sides: it defaults to ``None`` so that a probe
@@ -737,7 +737,7 @@ class Capacity:
 
         Either way the config's own number is kept as the source's declaration,
         which is what makes a widened bound dispatchable: the endpoints a
-        :class:`~mcgyvr.pool.SourceMap` built from this same config carry that
+        :class:`~mcgyvr.local_pool.SourceMap` built from this same config carry that
         number, and :meth:`hold` checks them against it. Rebuilding the source
         map from the confirmed widths would work too, and would be one more
         thing every caller who probes has to remember to do.
@@ -859,7 +859,7 @@ class Capacity:
         Enforced, not declared, because every caller reads this to find out how
         much of a source it may use — how many slots there are to take, how wide
         a rung is. The config's own number, which is the one an
-        :class:`~mcgyvr.pool.Endpoint` carries, is :meth:`declared`'s.
+        :class:`~mcgyvr.local_pool.Endpoint` carries, is :meth:`declared`'s.
         """
         return dict(self._limits)
 
@@ -956,7 +956,7 @@ class Capacity:
     def declared(self, source: str) -> int:
         """What ``source``'s config declared, whatever is now enforced for it.
 
-        The number an :class:`~mcgyvr.pool.Endpoint` carries, which is why
+        The number an :class:`~mcgyvr.local_pool.Endpoint` carries, which is why
         :meth:`hold` checks an endpoint against this one rather than against the
         bound: an endpoint built from the same config as this capacity states
         the declaration whether or not a probe has since widened the bound, and
@@ -1291,7 +1291,7 @@ class Capacity:
     ) -> Iterator[None]:
         """Hold one of that source's — or that rung's — slots for the block's body.
 
-        ``source`` is an :class:`~mcgyvr.pool.Endpoint` where the caller has one,
+        ``source`` is an :class:`~mcgyvr.local_pool.Endpoint` where the caller has one,
         which is the dispatch path: the endpoint carries the declared width, so
         the two configs can be checked against each other at the one moment both
         are in hand. A bare source name is for a caller that has resolved no

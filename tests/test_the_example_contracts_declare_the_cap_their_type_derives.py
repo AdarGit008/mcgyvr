@@ -16,19 +16,19 @@ import pytest
 from mcgyvr import contract, docgen
 
 
-def test_each_example_declares_the_cap_its_task_type_derives() -> None:
+def test_each_example_declares_the_cap_its_kind_derives() -> None:
     """A model example states the derived cap; a deterministic one needs none."""
     examples = docgen.examples()
     assert examples, "the product generates no example contracts"
-    for task_type, text in examples.items():
+    for name, text in examples.items():
         loaded = contract.loads(text)
-        assert loaded.task_type == task_type
-        assert loaded.limits.max_output_tokens == contract.output_cap(task_type), (
-            f"the {task_type} example carries a cap its type does not derive"
-        )
+        assert loaded.kind.name == name
+        assert loaded.limits.max_output_tokens == contract.output_cap(
+            loaded.task_type, operation=loaded.operation, evidence=loaded.evidence
+        ), f"the {name} example carries a cap its kind does not derive"
         if not loaded.is_deterministic:
             assert loaded.max_output_tokens_declared, (
-                f"the {task_type} example is executed by a model but declares "
+                f"the {name} example is executed by a model but declares "
                 "no cap, so copying it gives a contract the CLI refuses"
             )
 
@@ -42,27 +42,32 @@ def test_the_examples_follow_the_derivation_when_it_changes(
     # and no two types share one; small enough to fit the default prompt budget.
     invented = {name: 101 + 2 * i for i, name in enumerate(types)}
 
-    def derive(name: str, *, new_file: bool = False) -> int:
-        return invented[name]
+    def derive(
+        name: str,
+        *,
+        new_file: bool = False,
+        evidence: object = None,
+        operation: str = "",
+    ) -> int:
+        return invented[operation or name]
 
     monkeypatch.setattr(contract, "output_cap", derive)
 
-    for task_type, text in docgen.examples().items():
+    for name, text in docgen.examples().items():
         loaded = contract.loads(text)
-        assert loaded.limits.max_output_tokens == invented[task_type], (
-            f"the {task_type} example did not follow the derivation it is "
-            "generated from"
+        assert loaded.limits.max_output_tokens == invented[name], (
+            f"the {name} example did not follow the derivation it is generated from"
         )
 
     # The rendered examples file is built from the same derivation, so it
     # carries the invented figures too: under each model type's heading, the
     # cap line states that type's number.
     rendered = docgen.render_examples()
-    for task_type, text in docgen.examples().items():
+    for name, text in docgen.examples().items():
         if not contract.loads(text).max_output_tokens_declared:
             continue
-        section = rendered.split(f"## `{task_type}`", 1)[1].split("\n## `", 1)[0]
-        assert f"max_output_tokens: {invented[task_type]}\n" in section, (
-            f"the rendered {task_type} example did not follow the derivation it "
+        section = rendered.split(f"### `{name}`", 1)[1].split("\n### `", 1)[0]
+        assert f"max_output_tokens: {invented[name]}\n" in section, (
+            f"the rendered {name} example did not follow the derivation it "
             "is generated from"
         )

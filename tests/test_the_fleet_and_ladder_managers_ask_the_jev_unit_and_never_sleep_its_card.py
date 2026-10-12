@@ -20,7 +20,7 @@ import pytest
 import mcgyvr.decision as decision
 from mcgyvr import cli, fleet_manager, ladder_manager
 from mcgyvr.config import Config, parse
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 
 FAST = "http://localhost:18001/v1/chat/completions"
 JUDGE = "http://localhost:18009/v1/chat/completions"

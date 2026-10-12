@@ -46,7 +46,7 @@ import mcgyvr.pressure as pressure
 from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict
 from mcgyvr.capacity import Capacity, _slot_stem
 from mcgyvr.config import parse
-from mcgyvr.pool import Endpoint, UnknownRungError, source_map
+from mcgyvr.local_pool import Endpoint, UnknownRungError, source_map
 from mcgyvr.pressure import Board, Gauge, Pressure, Reading, _stem, climbed_key
 
 FAST = "local_fast"

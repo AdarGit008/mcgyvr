@@ -40,7 +40,7 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
-from mcgyvr.pool import Rung, source_map
+from mcgyvr.local_pool import Rung, source_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 
@@ -73,7 +73,7 @@ verifier:
 
 CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
@@ -118,7 +118,7 @@ def repo(tmp_path: Path) -> Path:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(

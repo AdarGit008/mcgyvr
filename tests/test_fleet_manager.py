@@ -41,7 +41,7 @@ from mcgyvr.config import parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Halted, Judgement, escalate
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.route import Try, Verdict
 
 FAST = "local_fast"
@@ -52,7 +52,7 @@ SMART_HOST = "smart-box"
 
 CONTRACT = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions:
@@ -275,7 +275,7 @@ def test_the_judgement_is_one_bounded_question_over_the_task(
 
 def test_the_state_carries_the_task_and_what_the_fast_rung_said() -> None:
     state = fleet_manager.state_for(contract(), detail="the gate rejected it")
-    assert state["task_type"] == "function_implementation"
+    assert state["task_type"] == "code"
     assert "retry with backoff" in state["task"]
     assert state["target"] == "src/pkg/fetch.py"
     assert state["detail"] == "the gate rejected it"

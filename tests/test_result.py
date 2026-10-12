@@ -25,7 +25,7 @@ def test_run_result_serializes_the_answer_field() -> None:
 def test_run_result_answer_defaults_to_empty_for_a_whole_file_run() -> None:
     report = RunResult(
         contract="impl",
-        task_type="function_implementation",
+        task_type="code",
         target="src/pkg/messy.py",
         orchestrator="t",
     )

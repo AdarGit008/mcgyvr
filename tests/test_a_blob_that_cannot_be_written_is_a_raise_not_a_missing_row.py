@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
-from mcgyvr.pool import Protocol
+from mcgyvr.local_pool import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import ATTEMPT_KIND, fold, observe
 

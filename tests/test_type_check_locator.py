@@ -297,7 +297,7 @@ def test_a_contract_keeps_the_acceptance_commands_it_declared() -> None:
     """
     declared = """
 id: annotate-fetch
-task_type: function_implementation
+task_type: code
 task: Annotate the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions:

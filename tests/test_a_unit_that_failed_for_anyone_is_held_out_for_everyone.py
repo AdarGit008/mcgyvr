@@ -25,7 +25,7 @@ import pytest
 from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.config import parse
 from mcgyvr.cooldown import Cooldown
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.pressure import Gauge, HostCooling, RungCooling
 
 FAST = "local_fast"

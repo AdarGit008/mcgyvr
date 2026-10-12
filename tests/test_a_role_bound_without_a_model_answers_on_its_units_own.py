@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from mcgyvr.config import parse
-from mcgyvr.pool import _ROLES, source_map
+from mcgyvr.local_pool import _ROLES, source_map
 
 SETUP = """\
 units:

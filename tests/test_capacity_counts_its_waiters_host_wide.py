@@ -29,7 +29,7 @@ import pytest
 
 import mcgyvr.pressure as pressure
 from mcgyvr.capacity import Capacity, CapacityError, SlotUnavailableError
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.pressure import Gauge
 
 URL = "http://fast-box.example:8000"

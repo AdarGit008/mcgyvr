@@ -225,6 +225,7 @@ def observe[T](
     session_file: Path | None = None,
     tier: str | None = None,
     temperature: float | None = None,
+    operation: str | None = None,
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
 ) -> T:
@@ -259,7 +260,8 @@ def observe[T](
     feedback loop that wants to say "this rung fails implementations" needs
     the type beside the verdict, and a reviewer who wants the conversation
     behind an attempt needs the path beside the row. Absent, not null, when
-    the caller has neither.
+    the caller has neither. ``operation`` is the deterministic operation a
+    ``code`` contract named, on the same terms: identity, absent when none.
 
     ``temperature`` is what the dispatch sampled at, and it is identity too:
     decided before the request goes out and the same fact on the answering row
@@ -329,6 +331,7 @@ def observe[T](
             session_file=session_file,
             tier=tier,
             temperature=temperature,
+            operation=operation,
         )
     except BaseException as failure:
         append(unlanded(failure))
@@ -469,6 +472,7 @@ def _identity(
     session_file: Path | None,
     tier: str | None = None,
     temperature: float | None = None,
+    operation: str | None = None,
 ) -> None:
     """What the attempt is, known before it runs and shared by both rows it can write.
 
@@ -507,6 +511,8 @@ def _identity(
         fields["endpoint"] = endpoint
     if task_type is not None:
         fields["task_type"] = task_type
+    if operation:
+        fields["operation"] = operation
     if session_file is not None:
         fields["session_file"] = str(session_file)
     if tier is not None:

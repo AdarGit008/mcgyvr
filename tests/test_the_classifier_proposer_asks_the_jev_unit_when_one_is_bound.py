@@ -21,7 +21,7 @@ import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decision import Choice
 from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 
 ORCH = "http://localhost:18003/v1/chat/completions"
 JUDGE = "http://localhost:18009/v1/chat/completions"
@@ -47,7 +47,7 @@ ladder:
 ORCHESTRATOR = "orchestrator:\n  unit: orch\n  model: example-planner:7b\n"
 JEV = "jev:\n  unit: judge\n"
 
-QUESTION = {"kind": Choice("which kind?", {"docstring": "add a docstring"})}
+QUESTION = {"kind": Choice("which kind?", {"code": "add a docstring"})}
 
 
 def _wire(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:

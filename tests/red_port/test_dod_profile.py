@@ -15,7 +15,7 @@ What must be observably true:
 * a value that is neither is refused by the loader naming both;
 * the schema version does not move: a version-1 file without the key still
   loads, and a version-1 file with it is still version 1;
-* ``mcgyvr init`` writes the key at the schema's default, so the file says
+* ``mcgyvr setup`` writes the key at the schema's default, so the file says
   what it is rather than leaving the reader to know the default;
 * the door hands every gate and the step the profile the config declares
   (``RUN_PROFILE``), settled at gate 1 before any rig is read; with no config

@@ -17,7 +17,7 @@ from mcgyvr.worker.prompt import UnsupportedSchemaError, build_prompt
 
 UNIFIED_DIFF = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 output_schema: unified_diff

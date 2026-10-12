@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -167,13 +168,13 @@ def test_uninstall_removes_both_and_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_skill_body_no_longer_documents_first_run_onboarding() -> None:
-    # An agent authoring a contract does not read `mcgyvr init` or
-    # `mcgyvr pool` here — that onboarding path is SETUP.md, beside the skill
+    # An agent authoring a contract does not read `mcgyvr setup` or
+    # `mcgyvr local_pool` here — that onboarding path is SETUP.md, beside the skill
     # it is not part of.
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     body = _body(SKILL_MD)
-    assert "mcgyvr init" not in body
-    assert "mcgyvr pool" not in body
+    assert "mcgyvr setup" not in body
+    assert "mcgyvr local_pool" not in body
 
 
 def test_skill_body_no_longer_documents_the_levers() -> None:
@@ -205,7 +206,7 @@ def test_cli_exposes_the_onboarding_verbs(
         main(["--help"])
     assert exc.value.code == 0
     help_text = capsys.readouterr().out
-    for verb in ("init", "pool", "config", "detect", "capabilities", "catalog"):
+    for verb in ("setup", "local_pool", "config", "detect", "capabilities", "catalog"):
         assert verb in help_text
 
 
@@ -328,11 +329,12 @@ def test_no_mcgyvr_on_path_warns_and_still_installs(tmp_path: Path) -> None:
     "reported",
     [
         "0.0.9",
-        # The previous release tag: the floor is now v0.3.0, the latest.
-        "0.1.0",
-        # A dev build made between v0.1.0 and v0.3.0 (the shape hatch-vcs
-        # gives one): above the old floor, below the current one.
-        "0.1.1.dev376+ga624cdc2",
+        # The release before the floor: v0.5.0 renames the task types, and
+        # v0.4.16 refuses the `code` the skill teaches.
+        "0.4.16",
+        # A dev build made between v0.4.16 and v0.5.0 (the shape hatch-vcs
+        # gives one): above the last tag, below the floor.
+        "0.4.17.dev18+g89eec3d3",
     ],
 )
 def test_an_older_mcgyvr_warns_and_still_installs(
@@ -384,13 +386,13 @@ def test_an_mcgyvr_that_cannot_state_its_version_warns_and_still_installs(
 @pytest.mark.parametrize(
     "reported",
     [
-        "0.3.0",
+        "0.5.0",
         # The shape a real dev build has: a PEP 440 pre-release plus local
         # build metadata. Naive string comparison reads this as older than
-        # `0.3.0` on the `+g...` tail; stripping the local part and comparing
+        # `0.5.0` on the `+g...` tail; stripping the local part and comparing
         # with `sort -V` reads it as newer, which it is.
-        "0.3.1.dev376+ga624cdc2",
-        "0.4.0",
+        "0.5.1.dev376+ga624cdc2",
+        "0.6.0",
     ],
 )
 def test_a_new_enough_mcgyvr_is_not_warned_about(tmp_path: Path, reported: str) -> None:
@@ -402,3 +404,125 @@ def test_a_new_enough_mcgyvr_is_not_warned_about(tmp_path: Path, reported: str) 
 
     assert result.returncode == 0, result.stderr
     assert result.stderr == "", result.stderr
+
+
+# --- the skill and the CLI are from the same revision ----------------------
+
+EXAMPLES_MD = SKILL_DIR / "references" / "examples.md"
+
+
+def _example_count() -> int:
+    """How many fenced ``yaml`` contracts the skill ships beside SKILL.md."""
+    text = EXAMPLES_MD.read_text(encoding="utf-8")
+    return len(re.findall(r"^```yaml$", text, re.MULTILINE))
+
+
+def _judging(bin_dir: Path, reported: str, *, accepts: bool) -> str:
+    """A stand-in that reports ``reported`` and accepts or rejects every
+    contract, logging each file ``contract`` was asked about to ``seen``."""
+    seen = bin_dir / "seen"
+    verdict = (
+        'echo "$2: valid"; exit 0'
+        if accepts
+        else "echo \"error: task_type: 'code' is not a known task type\" >&2; exit 1"
+    )
+    return _shim(
+        bin_dir,
+        "#!/usr/bin/env bash\n"
+        'if [[ "$1" == "--version" ]]; then\n'
+        f'  echo "mcgyvr {reported}"; echo "config: none"; exit 0\n'
+        "fi\n"
+        'if [[ "$1" == "contract" ]]; then\n'
+        f'  cat -- "$2" >>"{seen}"; echo "---" >>"{seen}"\n'
+        f"  {verdict}\n"
+        "fi\n"
+        "exit 2\n",
+    )
+
+
+@pytest.mark.parametrize(
+    ("reported", "fix"),
+    [
+        # A release has a tag, and cloning it is the fix that needs no new CLI.
+        ("0.5.0", "--branch v0.5.0"),
+        # A dev build has no tag of its own: the fix is the CLI from the
+        # skill's revision, and no tag is invented.
+        ("0.5.1.dev3+gabc1234", "same revision"),
+    ],
+)
+def test_install_warns_when_the_cli_on_path_rejects_the_skills_examples(
+    tmp_path: Path, reported: str, fix: str
+) -> None:
+    """The e2e run's F1: a skill cloned from `main` taught `task_type: code`
+    to a released CLI that refused it, and install.sh said nothing, because
+    the CLI was above the floor. The floor cannot catch a skill newer than
+    every release; asking the CLI to validate the skill's own examples does."""
+    home = tmp_path / "home"
+    home.mkdir()
+    path = _judging(tmp_path / "bin", reported, accepts=False)
+
+    result = _run_install_with_path(home, path)
+
+    assert result.returncode == 0, result.stderr
+    assert (home / CLAUDE_SKILL).exists(), "a warning must not stop the install"
+    assert f"mcgyvr {reported} rejects" in result.stderr, result.stderr
+    assert "is not a known task type" in result.stderr, result.stderr
+    assert fix in result.stderr, result.stderr
+    if "dev" in reported:
+        assert "--branch" not in result.stderr, result.stderr
+    # The warning is stderr's; stdout stays the list of paths and two lines.
+    assert "rejects" not in result.stdout, result.stdout
+
+
+def test_install_is_quiet_when_the_cli_on_path_accepts_the_skills_examples(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    path = _judging(tmp_path / "bin", "0.5.0", accepts=True)
+
+    result = _run_install_with_path(home, path)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == "", result.stderr
+    seen = (tmp_path / "bin" / "seen").read_text(encoding="utf-8")
+    asked = [doc for doc in seen.split("---\n") if doc.strip()]
+    assert len(asked) == _example_count() > 0, seen
+    assert all(yaml.safe_load(doc)["task_type"] for doc in asked), seen
+
+
+def test_the_real_cli_accepts_the_skills_examples(tmp_path: Path) -> None:
+    """The probe against the CLI built from this checkout: the skill and the
+    CLI of one revision always agree, so the install says nothing."""
+    home = tmp_path / "home"
+    home.mkdir()
+    venv_bin = Path(sys.executable).parent
+    assert (venv_bin / "mcgyvr").exists(), venv_bin
+    path = f"{venv_bin}{os.pathsep}{_path_without_mcgyvr()}"
+
+    result = _run_install_with_path(home, path)
+
+    assert result.returncode == 0, result.stderr
+    assert "rejects" not in result.stderr, result.stderr
+
+
+def _release(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.lstrip("v").split("."))
+
+
+def test_min_version_is_not_older_than_the_latest_release_tag() -> None:
+    """MIN_VERSION sat at 0.3.0 through sixteen releases. The release being
+    cut raises it; this fails the suite the moment a tag passes it."""
+    try:
+        latest = subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("no v* tag reachable from HEAD (a shallow clone has none)")
+    floor = _install_constant("MIN_VERSION")
+    assert _release(floor) >= _release(latest), (floor, latest)

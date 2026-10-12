@@ -44,7 +44,7 @@ import shlex
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
@@ -811,6 +811,40 @@ def _service_name(unit: Unit) -> str:
     # A worker is a process of the same model on a port of its own, and on a
     # machine that also serves the model the role is what tells them apart.
     return name if unit.role == ROLE_SERVE else f"{name}-{unit.role}"
+
+
+def resolved_launch(unit: Unit, *, sleep_mode: bool = False) -> dict[str, Any]:
+    """The launch facts a locked unit states, exactly as :func:`_service` renders them.
+
+    One rendering of a unit is the compose service :func:`emit_all` writes, and
+    another is the ``fleet.yaml`` block a locked unit carries. They must agree
+    to the byte, because a locked fleet is emitted from what it states and live
+    admission matches a running container by the ``container`` name the unit
+    states. This is the one place both are read from the same helpers
+    (:func:`_service`, :func:`argv`, :func:`_image`, :func:`_environment`), so
+    the stamped unit and the compose file it was written beside cannot drift.
+
+    ``engine`` is the unit's own string. For vLLM the weights directory is
+    stated as ``hf_cache`` (what :func:`_locked_service` mounts) rather than as
+    ``launch.volumes``; a llama.cpp unit states the mount list instead.
+    """
+    service = _service(unit, sleep_mode=sleep_mode)
+    launch: dict[str, Any] = {
+        "engine": unit.engine,
+        "image": service["image"],
+        "container": service["container_name"],
+        "launch": {
+            "argv": list(cast(list[str], service["command"])),
+            "env": dict(cast(dict[str, str], service.get("environment") or {})),
+        },
+    }
+    if unit.engine == "vllm":
+        launch["hf_cache"] = str(unit.weights_dir)
+    else:
+        launch["launch"]["volumes"] = list(
+            cast(list[str], service.get("volumes") or ())
+        )
+    return launch
 
 
 class LockedLaunchError(EmitError):

@@ -10,7 +10,7 @@ loader directly cannot see that: no command calls it the way that test did. So
 these drive the commands.
 
 There are three situations here, not two, and the third is why "name one that
-is there" is not the whole answer. ``mcgyvr init`` writes to
+is there" is not the whole answer. ``mcgyvr setup`` writes to
 ``$MCGYVR_CONFIG`` — its own help says so — so ``export
 MCGYVR_CONFIG=~/mcgyvr.yaml`` followed by a command on a fresh install is a
 documented setup one step from finished, and the remedy is to run ``init``, not
@@ -35,7 +35,7 @@ from tests import livejournal as lj
 #: is the shape that shipped the circular advice.
 COMMANDS: list[tuple[str, list[str], list[str]]] = [
     ("config", ["config"], ["config", "{path}"]),
-    ("pool", ["pool"], ["pool", "{path}"]),
+    ("local_pool", ["local_pool"], ["local_pool", "{path}"]),
     ("catalog", ["catalog", "--against"], ["catalog", "--against", "{path}"]),
     # `emit` also requires the window the run serves, which is not a config
     # question: the run declares it (test_dod_one_context_number.py).
@@ -78,7 +78,7 @@ def test_a_command_pointed_by_the_environment_is_not_told_to_point_again(
     assert code != 0, err
     assert str(nowhere) in err, err
     assert CONFIG_PATH_ENV not in err, err
-    assert "mcgyvr init" in err, err
+    assert "mcgyvr setup" in err, err
 
 
 @pytest.mark.parametrize(("name", "bare", "flagged"), COMMANDS, ids=lambda v: str(v))
@@ -111,5 +111,5 @@ def test_a_command_with_no_config_anywhere_is_told_how_to_get_one(
 
     err = capsys.readouterr().err
     assert code != 0, err
-    assert "mcgyvr init" in err, err
+    assert "mcgyvr setup" in err, err
     assert CONFIG_PATH_ENV in err, err

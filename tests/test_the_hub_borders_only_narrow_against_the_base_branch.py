@@ -54,6 +54,7 @@ def test_the_copy_read_from_the_syntax_tree_is_the_module() -> None:
     assert read.hub_words == borders.HUB_WORDS
     assert read.imports == borders.IMPORTS_NOT_YET_MOVED
     assert read.words == borders.WORDS_NOT_YET_MOVED
+    assert read.renames == borders.RENAMES
     assert _narrowed(TEXT) == []
 
 
@@ -128,6 +129,37 @@ def test_every_way_of_widening_is_refused(old: str, new: str, said: str) -> None
 )
 def test_every_way_of_narrowing_passes(old: str, new: str) -> None:
     assert _narrowed(_with(old, new)) == []
+
+
+def _renamed_base() -> str:
+    """``TEXT`` with the rename undone: ``pool.py``, and no ``RENAMES``."""
+    return TEXT.replace(
+        '    "local_pool.py": {"hub": 4, "relief": 40, "rider": 2},\n',
+        '    "pool.py": {"hub": 4, "relief": 40, "rider": 2},\n',
+    ).replace(
+        'RENAMES: dict[str, str] = {"pool.py": "local_pool.py"}',
+        "RENAMES: dict[str, str] = {}",
+    )
+
+
+def test_a_rename_keeps_the_counts_and_passes() -> None:
+    base = read_borders(_renamed_base(), source="base")
+    head = read_borders(TEXT, source="head")
+    assert base.words["pool.py"] == head.words["local_pool.py"]
+    assert narrowed(base, head) == []
+
+
+def test_a_rename_that_raises_a_count_is_refused() -> None:
+    head = read_borders(
+        TEXT.replace(
+            '    "local_pool.py": {"hub": 4, "relief": 40, "rider": 2},\n',
+            '    "local_pool.py": {"hub": 5, "relief": 40, "rider": 2},\n',
+        ),
+        source="head",
+    )
+    assert narrowed(read_borders(_renamed_base(), source="base"), head) == [
+        "words: local_pool.py: hub 4 -> 5"
+    ]
 
 
 def test_emptying_the_imports_not_yet_moved_passes() -> None:

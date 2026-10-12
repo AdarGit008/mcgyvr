@@ -13,7 +13,8 @@ the orchestrator role's prompt from the deterministic pass
 The shape of the reply is the :class:`~mcgyvr.orchestrator.decompose.Proposal`
 type, spelled as JSON — ``task_type``, ``task``, ``target``, and the optional
 ``interface``, ``deps``, ``allow``, ``forbid``, ``stop_conditions``,
-``acceptance``, ``demonstration`` and ``risk``. A proposal names references;
+``acceptance``, ``demonstration``, ``no_semantic_change``, ``type_check`` and
+``risk``. A proposal names references;
 the repository supplies the facts, exactly as the decompose module's seam
 draws the line. The role is *not* shown a contract document and is
 not asked to author one: the proposal→document→contract round trip
@@ -51,10 +52,10 @@ from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
-    from mcgyvr.pool import SourceMap
+    from mcgyvr.local_pool import SourceMap
 
 #: What the pool calls the orchestrator. One name, in one place, because a role
-#: spelled differently here than in :mod:`mcgyvr.pool` is a role that is
+#: spelled differently here than in :mod:`mcgyvr.local_pool` is a role that is
 #: silently never found.
 ORCHESTRATOR_ROLE = "orchestrator"
 
@@ -143,17 +144,25 @@ def _vocabulary(vocabulary: Sequence[Any]) -> str:
     """
     blocks: list[str] = []
     for task in vocabulary:
-        evidence = ", ".join(e.name for e in task.required_evidence)
         lines = [f"- {task.name}: {task.doc}"]
         lines.append(f"    guarantee: {task.guarantee}")
-        lines.append(f"    evidence: {evidence}")
-        if task.needs_acceptance_commands:
-            lines.append("    REQUIRES acceptance commands (pass at baseline).")
-        if task.needs_demonstration_commands:
-            lines.append(
-                "    REQUIRES demonstration commands (fail before the change, "
-                "pass after)."
-            )
+        if getattr(task, "evidence_derived", False):
+            lines.append("    evidence is DERIVED from the contract, never chosen:")
+            lines.append("        always: gate")
+            lines.append("        demonstration non-empty -> failing_test_first")
+            lines.append("        acceptance non-empty -> tests_pass")
+            lines.append("        no_semantic_change: true -> no_semantic_change")
+            lines.append("        type_check: true -> type_check")
+        else:
+            evidence = ", ".join(e.name for e in task.required_evidence)
+            lines.append(f"    evidence: {evidence}")
+            if task.needs_acceptance_commands:
+                lines.append("    REQUIRES acceptance commands (pass at baseline).")
+            if task.needs_demonstration_commands:
+                lines.append(
+                    "    REQUIRES demonstration commands (fail before the change, "
+                    "pass after)."
+                )
         blocks.append("\n".join(lines))
     return "\n".join(blocks) or "(none)"
 
@@ -180,12 +189,18 @@ def _reply_format() -> str:
         '- "stop_conditions" (array of strings): things that, if true, mean the '
         "worker must stop rather than guess. Required for every model-executed "
         "type.\n"
-        '- "acceptance" (array of command strings): commands that must pass '
-        "after the change. Required when the type says REQUIRES acceptance "
-        "commands.\n"
-        '- "demonstration" (array of command strings): a command that must fail '
-        "before the change and pass after. Required when the type says "
-        "REQUIRES demonstration commands.\n"
+        '- "acceptance" (array of command strings, optional): commands that must '
+        "pass after the change. For task_type code a non-empty list derives "
+        "tests_pass evidence.\n"
+        '- "demonstration" (array of command strings, optional): a command that '
+        "must fail before the change and pass after. For task_type code a "
+        "non-empty list derives failing_test_first evidence.\n"
+        '- "no_semantic_change" (boolean, optional): true when the change must '
+        "leave the parsed structure untouched apart from the region touched; "
+        "derives no_semantic_change evidence for task_type code.\n"
+        '- "type_check" (boolean, optional): true when the project\'s own type '
+        "checker must pass; derives type_check evidence for task_type code, "
+        "and the located checker command is filled in as acceptance.\n"
         '- "risk" (string, optional): "low", "medium" or "high"; omit to take '
         "the default.\n"
         '- "max_output_tokens" (whole number, optional): the reply cap; omit '
@@ -266,6 +281,8 @@ def _proposal_of(item: object) -> Proposal:
         stop_conditions=_strings(item, "stop_conditions"),
         acceptance=_strings(item, "acceptance"),
         demonstration=_strings(item, "demonstration"),
+        no_semantic_change=_optional_bool(item, "no_semantic_change"),
+        type_check=_optional_bool(item, "type_check"),
         risk=_optional_str(item, "risk"),
     )
 
@@ -297,6 +314,16 @@ def _optional_str(item: dict[str, object], key: str) -> str:
         return ""
     if not isinstance(value, str):
         raise UnreadableProposalError(f"{key!r} must be a string, when present")
+    return value
+
+
+def _optional_bool(item: dict[str, object], key: str) -> bool:
+    """``key`` as a boolean, defaulting to false when absent."""
+    value = item.get(key)
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise UnreadableProposalError(f"{key!r} must be a boolean, when present")
     return value
 
 
@@ -340,7 +367,7 @@ def proposer_for(
 ) -> Proposer | None:
     """The install's orchestrator role as a :class:`Proposer`, or ``None``.
 
-    ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role_model` and is an
+    ``None`` mirrors :meth:`~mcgyvr.local_pool.SourceMap.role_model` and is an
     ordinary answer: a keyless install has no orchestrator, which the CLI
     answers with :data:`NO_ORCHESTRATOR_ROLE` rather than by failing. The
     request is not marked ``quality_sensitive`` for the same reason the
@@ -576,7 +603,7 @@ def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
 def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
     """The stop condition a model-executed type must carry, or none for a tool.
 
-    A deterministic type is executed by a tool that cannot guess, so it has no
+    A deterministic operation is executed by a tool that cannot guess, so it has no
     trigger to report BLOCKED. A model-executed type must name one — the loader
     refuses a model type with none — and the one this proposer writes is the
     honest default: stop rather than decide anything the typed choices did not

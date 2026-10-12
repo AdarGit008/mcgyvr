@@ -46,7 +46,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate import ChangeSet, Finding, Gate, GateResult
 from mcgyvr.gate.adapter import ToolFailedError
 from mcgyvr.gate.adapters import PythonAdapter
-from mcgyvr.pool import Protocol
+from mcgyvr.local_pool import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.sandbox import Sandbox
 from mcgyvr.worker.reply import ParsedFile, parse_reply
@@ -55,7 +55,7 @@ TARGET = "src/pkg/fetch.py"
 
 CONTRACT = f"""
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: {TARGET}
 stop_conditions:
