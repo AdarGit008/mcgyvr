@@ -37,7 +37,7 @@ def test_the_document_holds_the_shortlist_the_reads_and_every_files_text(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _repo(tmp_path)
-    code = lj.main(["read", "document paginate", str(root), "--json"])
+    code = lj.main(["read", "document paginate", "--repo", str(root), "--json"])
     assert code == 0
     out = capsys.readouterr().out
     document = json.loads(out)  # the whole of stdout is one JSON object
@@ -62,7 +62,7 @@ def test_the_text_form_is_unchanged_without_the_flag(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _repo(tmp_path)
-    assert lj.main(["read", "document paginate", str(root)]) == 0
+    assert lj.main(["read", "document paginate", "--repo", str(root)]) == 0
     out = capsys.readouterr().out
     assert out.startswith('"document paginate" — read')
     with pytest.raises(ValueError):

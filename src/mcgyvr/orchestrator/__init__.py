@@ -52,7 +52,7 @@ from mcgyvr.orchestrator.read import (
     TargetedRead,
     explore,
 )
-from mcgyvr.orchestrator.repo import AttachedRepo, AttachError, attach
+from mcgyvr.orchestrator.repo import AttachedRepo, AttachError, attach, head_only_note
 from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
@@ -96,6 +96,7 @@ __all__ = [
     "clear_cache",
     "decompose",
     "explore",
+    "head_only_note",
     "prune_cache",
     "resolve",
     "verify",

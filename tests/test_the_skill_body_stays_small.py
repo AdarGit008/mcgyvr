@@ -76,7 +76,12 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: 20_500 -> 20_700: e2e run 1 (F12). `acceptance` says its commands run with
 #: no shell and what that rules out, which the loader now refuses. The
 #: contract's own rule, newly enforced and stated, not prose bloat.
-MAX_SKILL_BODY_BYTES = 20_700
+#:
+#: 20_700 -> 21_000: e2e run 1, F11. Step 3 states, in the owner's sentence,
+#: that a run works on HEAD and an uncommitted test is not in the sandbox, and
+#: the result file gains a `notes` key, which the skill lists. The growth is an
+#: owner-decided sentence and the result's schema, not prose bloat.
+MAX_SKILL_BODY_BYTES = 21_000
 
 
 def _body(path: Path) -> str:

@@ -20,7 +20,7 @@ One YAML file. Every key below is the contract schema in
 `src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,
 and every rejection names the key and what a valid value looks like.
 Pick the `task_type` first. For `code`, evidence is derived from the contract's own fields, never chosen; `operation:` has a tool make the change instead. `mcgyvr catalog <type>` prints the type's guarantee.
-`mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft
+`mcgyvr delegate PROMPT [--repo DIR]` has the config's `orchestrator` draft
 validated contracts from a request instead and prints them; `--run` runs
 each one.
 
@@ -141,6 +141,10 @@ declares nothing.
 mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] [--sandbox tempdir] [--commit]
 ```
 
+The run works on the repository as committed at HEAD: uncommitted edits
+and untracked files, including a test you just wrote, are not in the
+sandbox.
+
 The run refuses unless it can say who typed it: Claude Code and Pi sessions
 are detected from the environment, otherwise pass `--orchestrator ID`.
 The last stdout line is `result: <path>`:
@@ -203,6 +207,8 @@ what the run came to. The file's keys:
   why. Empty on almost every run. mcgyvr's own record under `journal`
   is complete whatever this says; a copy is not a sink and its failure
   does not stop a run.
+- `notes` — the uncommitted and untracked paths the sandbox of HEAD
+  left out. Empty on a clean tree.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can
