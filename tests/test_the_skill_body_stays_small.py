@@ -72,7 +72,11 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: required — a whole_file reply, whose refusal is caught — and shows the
 #: generic condition to start from. The contract's own rule, newly stated,
 #: not prose bloat.
-MAX_SKILL_BODY_BYTES = 20_500
+#:
+#: 20_500 -> 20_700: e2e run 1 (F12). `acceptance` says its commands run with
+#: no shell and what that rules out, which the loader now refuses. The
+#: contract's own rule, newly enforced and stated, not prose bloat.
+MAX_SKILL_BODY_BYTES = 20_700
 
 
 def _body(path: Path) -> str:

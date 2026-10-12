@@ -12,6 +12,8 @@ worker prompt" is only true if there is no other accessor that leaks them.
 
 from __future__ import annotations
 
+import json
+import shlex
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -556,6 +558,79 @@ def test_a_command_in_both_lists_is_rejected() -> None:
     message = str(exc.value)
     assert message.startswith("demonstration:")
     assert "both pass and fail" in message
+
+
+def _with_commands(acceptance: list[str], demonstration: list[str]) -> str:
+    """MINIMAL with these command lists, as JSON flow sequences (valid YAML)."""
+    return MINIMAL.replace(
+        'acceptance: ["pytest -q"]',
+        f"acceptance: {json.dumps(acceptance)}\n"
+        f"demonstration: {json.dumps(demonstration)}",
+    )
+
+
+@pytest.mark.parametrize(
+    ("command", "said"),
+    [
+        ("pytest -k 'retry", "quote"),
+        ("PYTHONDONTWRITEBYTECODE=1 pytest -q", "env PYTHONDONTWRITEBYTECODE=1"),
+        ("_X=1 pytest", "env _X=1"),
+        ("pytest -q && ruff check", "&&"),
+        ("pytest -q || true", "||"),
+        ("pytest -q | tail -5", "|"),
+        ("pytest -q ; ruff check", ";"),
+        ("pytest -q; ruff check", ";"),
+        ("pytest -q > out.txt", ">"),
+        ("pytest -q >> out.txt", ">>"),
+        ("pytest -q < in.txt", "<"),
+        ("pytest -q 2> err.txt", ">"),
+        ("pytest -q 2>&1", ">&"),
+        ("pytest -q &", "&"),
+        ("pytest -q >out.txt", ">"),
+        ("pytest -q 2>/dev/null", ">"),
+    ],
+)
+def test_an_acceptance_command_with_an_env_prefix_or_shell_operator_is_refused_at_load(
+    command: str, said: str
+) -> None:
+    """Contract commands are split and executed with no shell (F12).
+
+    Shell syntax is refused when the contract loads, naming the list and the
+    entry, rather than surfacing at run time as exit 127 "missing dependency"
+    or a ValueError out of ``shlex.split``. Each list is checked on its own.
+    """
+    for document, field in (
+        (_with_commands(["pytest -q", command], []), "acceptance.1:"),
+        (_with_commands(["pytest -q"], ["pytest -q tests/a.py", command]), None),
+    ):
+        with pytest.raises(ContractSchemaError) as exc:
+            loads(document)
+        message = str(exc.value)
+        assert message.startswith(field or "demonstration.1:"), message
+        assert said in message, message
+        assert "commands run without a shell" in message, message
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "env PYTHONDONTWRITEBYTECODE=1 python -m pytest -q",
+        "python -B -m pytest -q",
+        "pytest -k 'retry and not slow'",
+        'pytest -k "retry and not slow"',
+        "python -c 'import sys; sys.exit(1 > 0)'",
+        "grep -q '|' src/pkg/fetch.py",
+        r"grep -q \> src/pkg/fetch.py",
+        "pytest --opt=a=b",
+        "sh -c 'pytest -q && ruff check'",
+    ],
+)
+def test_a_command_with_quoted_shell_characters_or_env_is_accepted(
+    command: str,
+) -> None:
+    """Quoting keeps a character an argument; ``env`` is a program, not syntax."""
+    contract = loads(_with_commands(["pytest -q", command], []))
+    assert contract.acceptance_commands[1] == tuple(shlex.split(command))
 
 
 def test_a_demonstration_is_permitted_where_not_required() -> None:
