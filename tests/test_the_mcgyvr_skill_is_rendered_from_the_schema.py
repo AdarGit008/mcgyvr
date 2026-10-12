@@ -41,11 +41,11 @@ def test_every_schema_field_is_named_in_the_skill() -> None:
 
 def test_every_example_in_the_skill_loads_as_a_contract(tmp_path: Path) -> None:
     assert docgen.EXAMPLES, "the skill carries no examples"
-    for task_type, text in docgen.EXAMPLES.items():
-        path = tmp_path / f"{task_type}.yaml"
+    for name, text in docgen.EXAMPLES.items():
+        path = tmp_path / f"{name}.yaml"
         path.write_text(text, encoding="utf-8")
         contract = load(path)
-        assert contract.task_type == task_type
+        assert contract.kind.name == name
 
 
 def test_the_skill_walks_the_run_and_the_replan(tmp_path: Path) -> None:

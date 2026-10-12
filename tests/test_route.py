@@ -255,7 +255,8 @@ ladder:
 
 DETERMINISTIC_CONTRACT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
@@ -268,7 +269,8 @@ scope:
 # the floor binds tools for the types that have them.
 UNBOUND_DETERMINISTIC_CONTRACT = """
 id: tidy-imports
-task_type: import_sort
+task_type: code
+operation: import_sort
 task: Sort the imports.
 target: src/pkg/fetch.ts
 scope:

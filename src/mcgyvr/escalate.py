@@ -938,7 +938,7 @@ def ascent(
     seam that documents accepting one and doing nothing with it.
     """
     known = catalog()
-    start = floor if floor is not None else contract.type.starts_on
+    start = floor if floor is not None else contract.kind.starts_on
     if start not in known.families:
         raise RouteError(f"{start.name!r} is not a family of the loaded catalog")
     return Ascent(

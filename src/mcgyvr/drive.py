@@ -151,7 +151,7 @@ class ToolOutcome:
 
     The middle state has two halves and :attr:`ok` cannot tell them apart,
     which is what :attr:`performed` is for: a fixer that exits non-zero because
-    a diagnostic remains after fixing has carried out a ``lint_fix`` contract,
+    a diagnostic remains after fixing has carried out a ``lint_fix`` operation,
     and a caller reading ``not ok`` as fatal never reaches the gate that judges
     the result.
     """
@@ -227,12 +227,12 @@ def run_tool_step(
     things in one process.
 
     A step with no ``argv`` is not a step with nothing to do: the floor's one
-    in-process type, ``rename_symbol``, is executed here against the sandbox's
-    own tree by :func:`mcgyvr.rename.apply`, because what performs it is
-    mcgyvr's index rather than a program on PATH. Its refusals are the type's
-    own — an unstated pair, a symbol the index does not know — and they arrive
-    as a failed :class:`ToolOutcome`, never as an environment issue: nothing is
-    missing from the machine.
+    in-process operation, ``rename_symbol``, is executed here against the
+    sandbox's own tree by :func:`mcgyvr.rename.apply`, because what performs it
+    is mcgyvr's index rather than a program on PATH. Its refusals are the
+    operation's own — an unstated pair, a symbol the index does not know — and
+    they arrive as a failed :class:`ToolOutcome`, never as an environment issue:
+    nothing is missing from the machine.
 
     Raises :class:`UnrunnableStepError` for a step that names neither a command
     nor an in-process executor.
@@ -251,7 +251,7 @@ def run_tool_step(
             step=step,
             environment_issue=(
                 f"{program} could not run (exit {result.exit_code}) — the "
-                f"deterministic floor for {step.tool.task_type!r} needs it on "
+                f"deterministic floor for {step.tool.operation!r} needs it on "
                 f"PATH. This is a missing dependency, not a rejected change: "
                 f"the work is still doable, on a dearer family."
             ),
@@ -260,12 +260,12 @@ def run_tool_step(
 
 
 def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
-    """The floor's in-process executors, keyed by the type they perform.
+    """The floor's in-process executors, keyed by the operation they perform.
 
     The outcome is shaped as a :class:`~mcgyvr.sandbox.base.CommandResult` with
     a command of ``()`` so that every reader downstream — the journal, the
     escalation ladder, the CLI's own reporting — handles one kind of thing. A
-    second outcome shape for the one type with no program would have every one
+    second outcome shape for the one operation with no program would have every one
     of those readers grow a branch for it.
     """
     from mcgyvr.deterministic import IN_PROCESS
@@ -273,9 +273,9 @@ def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
     from mcgyvr.rename import apply as rename_apply
     from mcgyvr.sandbox.base import CommandResult
 
-    if step.tool.task_type not in IN_PROCESS:
+    if step.tool.operation not in IN_PROCESS:
         raise UnrunnableStepError(
-            f"task type {step.tool.task_type!r} names no command to run and "
+            f"operation {step.tool.operation!r} names no command to run and "
             f"mcgyvr has no in-process executor for it. Reporting it complete "
             f"would report a file changed that nothing opened."
         )

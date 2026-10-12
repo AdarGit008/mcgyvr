@@ -1,8 +1,6 @@
 """A ``code`` contract's evidence is derived from its own fields, not chosen.
 
-Stage 1 of the task-type collapse: the five local coding types
-(``docstring``, ``type_annotation``, ``function_implementation``,
-``test_scaffold``, ``bug_fix``) collapse into one ``code`` type whose evidence
+Every change a model makes to a repository is one ``code`` type whose evidence
 is computed from what the contract says, never from a type-selected bundle.
 
 The rule, from the spec:
@@ -19,10 +17,8 @@ default to false.
 
 from __future__ import annotations
 
-import pytest
-
 from mcgyvr.catalog import catalog
-from mcgyvr.contract import ContractSchemaError, dumps, loads, parse, task_type
+from mcgyvr.contract import dumps, loads, parse
 
 
 def _code(**extra: str) -> str:
@@ -119,21 +115,6 @@ def test_a_false_flag_is_not_emitted() -> None:
     assert "type_check" not in dumps(loads(_code()))
 
 
-def test_the_five_local_types_moved_to_excluded_with_superseded_by_code() -> None:
-    book = catalog()
-    for name in (
-        "docstring",
-        "type_annotation",
-        "function_implementation",
-        "test_scaffold",
-        "bug_fix",
-    ):
-        assert book.get(name) is None, f"{name} should no longer be carried"
-        gone = book.excluded_entry(name)
-        assert gone is not None, f"{name} should be recorded as excluded"
-        assert gone.superseded_by == "code", f"{name} should name code"
-
-
 def test_code_is_the_only_local_coding_type() -> None:
     book = catalog()
     local_coding = [
@@ -142,12 +123,6 @@ def test_code_is_the_only_local_coding_type() -> None:
         if t.starts_on.name == "local" and t.use_case.name == "coding"
     ]
     assert local_coding == ["code"]
-
-
-def test_a_removed_local_type_points_at_code() -> None:
-    with pytest.raises(ContractSchemaError) as exc:
-        task_type("bug_fix")
-    assert "Use 'code' instead" in str(exc.value)
 
 
 def test_the_code_type_marks_evidence_as_derived() -> None:

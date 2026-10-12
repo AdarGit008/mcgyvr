@@ -310,7 +310,7 @@ def test_an_unknown_task_type_names_the_vocabulary(repo: Index) -> None:
     result = decompose(repo, "do it", propose=RecordedProposer((proposal,)))
 
     assert result.contracts == ()
-    assert "is not a task type" in result.refusals[0].reason
+    assert "is not a known task type" in result.refusals[0].reason
 
 
 # --- the deterministic pass always runs first -------------------------------

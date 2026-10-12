@@ -46,7 +46,8 @@ UNFORMATTED = "x = {  'a':1,'b':2 }\n"
 
 FORMAT_CONTRACT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:
@@ -55,7 +56,8 @@ scope:
 
 RENAME_CONTRACT = """
 id: rename
-task_type: rename_symbol
+task_type: code
+operation: rename_symbol
 task: Rename the helper.
 target: src/pkg/messy.py
 rename:
@@ -196,7 +198,7 @@ def test_a_step_with_no_program_and_no_executor_is_still_refused(
 
     contract = load_contract(RENAME_CONTRACT)
     (planned,) = tool_steps(contract)
-    step = replace(planned, tool=Tool(task_type="no_such_type"))
+    step = replace(planned, tool=Tool(operation="no_such_type"))
     assert step.argv == ()
 
     with TempDirSandbox(repo) as sandbox, pytest.raises(UnrunnableStepError) as exc:
@@ -222,7 +224,7 @@ def test_a_missing_program_is_an_environment_issue_never_a_failure(
     contract = load_contract(FORMAT_CONTRACT)
     (planned,) = tool_steps(contract)
     step = replace(
-        planned, tool=Tool(task_type="format", command=("mcgyvr-no-such-program-42",))
+        planned, tool=Tool(operation="format", command=("mcgyvr-no-such-program-42",))
     )
 
     with TempDirSandbox(repo) as sandbox:

@@ -225,7 +225,7 @@ def build_prompt(
             f"{MEDIA_ARTIFACT!r} are implemented. Refused before dispatch "
             f"rather than after it."
         )
-    bundle = bundle_for(contract.type.use_case.name, contract.target, adapters)
+    bundle = bundle_for(contract.kind.use_case.name, contract.target, adapters)
     system = bundle.text if bundle is not None else ""
     user = render_user_message(contract.worker_view(), retry)
     tokens = estimate(_measured(system, user))

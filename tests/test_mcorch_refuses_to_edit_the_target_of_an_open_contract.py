@@ -25,7 +25,7 @@ from mcgyvr.mcorch.anthropic import MessagesRequest
 from tests.mcorch_fakes import ScriptedJev, ScriptedRung, calls, text
 
 CONTRACT = (
-    "id: fmt-a\ntask_type: format\ntask: Format.\ntarget: src/a.py\n"
+    "id: fmt-a\ntask_type: code\noperation: format\ntask: Format.\ntarget: src/a.py\n"
     "scope:\n  allow: ['src/a.py']\n"
 )
 

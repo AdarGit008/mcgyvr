@@ -57,7 +57,12 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: fields — `no_semantic_change` and `type_check` — to the schema the skill
 #: documents, one table row each, and one clause in step 1 saying `code`
 #: derives its evidence. The growth is the schema's, not prose bloat.
-MAX_SKILL_BODY_BYTES = 19_500
+#:
+#: 19_500 -> 19_900: the four-type vocabulary adds the `operation` contract
+#: field — one table row — that folds the deterministic operations into
+#: `code`, and the operations section says how to name one. The growth is the
+#: schema's, not prose bloat.
+MAX_SKILL_BODY_BYTES = 19_900
 
 
 def _body(path: Path) -> str:
@@ -81,8 +86,8 @@ def test_the_examples_leave_skill_md_for_a_references_file(tmp_path: Path) -> No
     assert pointer in skill_text, f"SKILL.md names no pointer to {pointer}"
     assert EXAMPLES_MD.is_file(), f"{EXAMPLES_MD} does not exist"
     examples_text = EXAMPLES_MD.read_text(encoding="utf-8")
-    for task_type in docgen.EXAMPLES:
-        assert f"task_type: {task_type}" in examples_text, task_type
+    for name in docgen.EXAMPLES:
+        assert f": {name}\n" in examples_text, name
     blocks = YAML_FENCE.findall(examples_text)
     assert len(blocks) == len(docgen.EXAMPLES), (
         f"expected {len(docgen.EXAMPLES)} fenced yaml examples in "
@@ -92,7 +97,7 @@ def test_the_examples_leave_skill_md_for_a_references_file(tmp_path: Path) -> No
         path = tmp_path / "example.yaml"
         path.write_text(block, encoding="utf-8")
         contract = load(path)
-        assert contract.task_type in docgen.EXAMPLES
+        assert contract.kind.name in docgen.EXAMPLES
 
 
 def test_the_dod_guard_cannot_pass_while_checking_nothing() -> None:
@@ -116,9 +121,9 @@ def test_the_dod_guard_cannot_pass_while_checking_nothing() -> None:
         "repointed at it would still be checking nothing"
     )
     examples_text = EXAMPLES_MD.read_text(encoding="utf-8")
-    for task_type in docgen.EXAMPLES:
-        assert f"task_type: {task_type}" in examples_text, (
-            f"{EXAMPLES_MD} is missing the {task_type} example; a guard "
+    for name in docgen.EXAMPLES:
+        assert f": {name}\n" in examples_text, (
+            f"{EXAMPLES_MD} is missing the {name} example; a guard "
             "reading this file would pass without having checked it"
         )
 

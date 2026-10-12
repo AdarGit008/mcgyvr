@@ -148,7 +148,7 @@ def test_a_run_reads_the_setting_from_its_setup(
     lj.append_policy(config, "sandbox:\n  allow_fallback: true\n  network: none\n")
     contract = lj.make_contract(
         tmp_path / "tidy.yaml",
-        "id: tidy\ntask_type: format\ntask: Reformat the module.\n"
+        "id: tidy\ntask_type: code\noperation: format\ntask: Reformat the module.\n"
         'target: src/pkg/messy.py\nscope:\n  allow: ["src/**"]\n',
     )
 
