@@ -26,7 +26,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.pool import Protocol, source_map
+from mcgyvr.local_pool import Protocol, source_map
 from tests import livejournal as lj
 
 #: Two rungs on one rig that serves a 4096-token window. The dear rung declares
@@ -56,7 +56,7 @@ ladder:
 #: written under, declared rather than derived so the number is the operator's.
 CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]

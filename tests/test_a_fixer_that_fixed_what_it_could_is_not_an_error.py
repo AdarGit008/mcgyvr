@@ -87,7 +87,8 @@ BROKEN_CONFIG = "[tool.ruff]\nnot-a-real-ruff-key = 3\n"
 
 LINT_FIX = """
 id: tidy-lint
-task_type: lint_fix
+task_type: code
+operation: lint_fix
 task: Apply the linter's own autofixes.
 target: src/pkg/messy.py
 scope:
@@ -96,7 +97,8 @@ scope:
 
 FORMAT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:
@@ -342,7 +344,7 @@ def test_a_missing_program_is_still_an_environment_issue(tmp_path: Path) -> None
     (planned,) = tool_steps(load_contract(LINT_FIX))
     step = replace(
         planned,
-        tool=Tool(task_type="lint_fix", command=("mcgyvr-no-such-program-42",)),
+        tool=Tool(operation="lint_fix", command=("mcgyvr-no-such-program-42",)),
     )
 
     with TempDirSandbox(repo) as sandbox:
@@ -367,7 +369,7 @@ def test_import_sort_carries_the_same_exposure_and_the_same_answer() -> None:
 
     lint_fix = tool_for(load_contract(LINT_FIX))
     import_sort = tool_for(
-        load_contract(LINT_FIX.replace("task_type: lint_fix", "task_type: import_sort"))
+        load_contract(LINT_FIX.replace("operation: lint_fix", "operation: import_sort"))
     )
     formatting = tool_for(load_contract(FORMAT))
     assert lint_fix is not None and import_sort is not None

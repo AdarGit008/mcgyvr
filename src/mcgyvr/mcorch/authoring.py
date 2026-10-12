@@ -161,6 +161,7 @@ def _summary(authored: contract.Contract) -> dict[str, Any]:
     return {
         "id": authored.id,
         "task_type": authored.task_type,
+        "operation": authored.operation,
         "task": authored.task,
         "target": authored.target,
         "interface": authored.interface,

@@ -4,7 +4,7 @@
 operator copies into a setup directory and edits. A template that does not
 load through :mod:`mcgyvr.fleet.files` is a shape nobody checked, and the one
 thing a first run must not do is hand a stranger a file that refuses to parse
-— so both are read through the real loader here, exactly as ``mcgyvr init``
+— so both are read through the real loader here, exactly as ``mcgyvr setup``
 reads the file it wrote. The contract examples hold the same contract in
 ``tests/test_an_unconfigured_machine_says_where_setup_lives.py``: examples are
 validated, never merely shipped.

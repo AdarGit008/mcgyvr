@@ -65,7 +65,7 @@ ladder:
 
 MODEL_CONTRACT = f"""
 id: retry
-task_type: function_implementation
+task_type: code
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
@@ -122,7 +122,7 @@ def _config(tmp_path: Path, text: str = LADDER) -> Path:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -216,7 +216,7 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
 ) -> None:
     """No flag at all still climbs, because the config has its own resolution order.
 
-    ``mcgyvr config`` and ``mcgyvr pool`` already resolve a path from
+    ``mcgyvr config`` and ``mcgyvr local_pool`` already resolve a path from
     ``$MCGYVR_CONFIG``, then the working directory, then the user config dir. A
     ``run`` that could only be pointed at a ladder by flag would be a second
     answer to a question the project has already settled once, and an install
@@ -1012,7 +1012,7 @@ NEW_FILE = "src/pkg/backoff.py"
 
 NEW_FILE_CONTRACT = f"""
 id: backoff
-task_type: function_implementation
+task_type: code
 task: Add a backoff helper in its own module.
 target: {NEW_FILE}
 stop_conditions: ["The backoff curve is not stated."]

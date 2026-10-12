@@ -1,6 +1,6 @@
 """A machine with a key and no GPU gets a written setup, not a refusal.
 
-`mcgyvr init --api` writes it. Telling the operator to hand-write the file
+`mcgyvr setup --api` writes it. Telling the operator to hand-write the file
 instead would be work the product can do itself, and a pasteable merged
 document would be a shape the loader does not take: a setup on disk is two
 files.
@@ -10,7 +10,7 @@ What is pinned here is the whole of that claim:
 * the hosted path writes the **same two files** any other init writes, through
   the same renderer and past the same self-parse, so it cannot emit a config
   the loader rejects;
-* `mcgyvr pool` reads them back as a usable rung of the `api` family;
+* `mcgyvr local_pool` reads them back as a usable rung of the `api` family;
 * a machine that asked for **nothing** still refuses, because a config that
   dispatches nowhere is not a head start;
 * the key's **value** is never written, and is never even read — only the name
@@ -30,7 +30,7 @@ from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import PORT_CONVENTIONS
 from mcgyvr.initialize import ApiSpecError, InitError, initialize, parse_api_unit
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.route import family_of
 from tests.machine_shapes import detection, shape, with_server
 
@@ -267,7 +267,7 @@ def test_a_key_pasted_where_its_name_belongs_is_refused(
     assert SECRET not in str(exc.value), "the refusal must not echo the secret back"
 
 
-# --- `mcgyvr pool` reads it back ------------------------------------------
+# --- `mcgyvr local_pool` reads it back ------------------------------------------
 
 
 def test_pool_reads_the_written_setup_back_as_a_usable_api_rung(
@@ -294,7 +294,7 @@ def test_a_rung_whose_variable_is_unset_is_skipped_with_the_reason(
 
     Asserted beside the usable case because the difference between "this rung
     is missing" and "this rung is missing *because* the variable is unset" is
-    the whole value of what `mcgyvr pool` prints.
+    the whole value of what `mcgyvr local_pool` prints.
     """
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     path = tmp_path / "setup"

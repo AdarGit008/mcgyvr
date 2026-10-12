@@ -46,7 +46,7 @@ def _config() -> Any:
 
 SLOW = """
 id: hangs
-task_type: function_implementation
+task_type: code
 task: Anything; the acceptance command is the subject.
 target: src/pkg/fetch.py
 stop_conditions:

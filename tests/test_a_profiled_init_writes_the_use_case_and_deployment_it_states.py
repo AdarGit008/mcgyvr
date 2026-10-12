@@ -1,6 +1,6 @@
 """A composed init writes the use case and deployment it says it chose.
 
-``mcgyvr init --priority X`` (formerly ``--profile X``) writes the candidate
+``mcgyvr setup --priority X`` (formerly ``--profile X``) writes the candidate
 the Jev decision selected, not the deterministic ladder. The decisions it
 prints name the use case and deployment from the command line; the file it
 writes must say the same, or the printed decision and the setup on disk
@@ -22,7 +22,7 @@ from mcgyvr import compose as compose_module
 from mcgyvr.config import load as load_config
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision
 from mcgyvr.initialize import initialize, parse_api_unit
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from tests.machine_shapes import detection, shape, with_server
 
 LOCAL = Endpoint(
@@ -62,7 +62,7 @@ def _choose(monkeypatch: pytest.MonkeyPatch, choice: str) -> None:
     ("use_case", "deployment", "hosted", "choice", "written_deployment"),
     [
         # One candidate: no model is consulted, the only one is written.
-        ("chat", None, False, None, "local-only"),
+        ("chat", None, False, None, "hybrid"),
         ("chat", "hybrid", False, None, "hybrid"),
         # Several candidates: the stubbed decision picks one.
         ("agent", None, True, "escalate", "hybrid"),

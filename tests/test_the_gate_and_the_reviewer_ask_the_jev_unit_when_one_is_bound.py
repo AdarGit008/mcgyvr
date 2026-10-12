@@ -27,7 +27,7 @@ import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decision import Noul, UnboundRoleError, classify_for, jev_bound
 from mcgyvr.gate.jev import jev_check_for
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.verify import Reviewer, decider_for, reviewers_for
 
 SMALL = "http://localhost:18001/v1/chat/completions"

@@ -47,7 +47,8 @@ units:
 
 FORMAT = """
 id: tidy-rows
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/rows.py
 scope:

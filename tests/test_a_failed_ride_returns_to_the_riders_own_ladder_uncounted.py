@@ -21,7 +21,7 @@ import pytest
 
 from mcgyvr.config import parse
 from mcgyvr.escalate import Delivered, Judgement, escalate
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.route import Try, Verdict
 from tests.test_a_relief_rung_takes_work_only_when_the_riders_own_rung_is_full import (
     API,

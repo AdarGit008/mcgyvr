@@ -28,6 +28,14 @@ Each entry states three things the rest of the system needs:
 
 The start is a floor, and it is the *type's* floor only; escalation climbs
 from it, and that is not decided here.
+
+The vocabulary is four task types — ``code``, ``chat``, ``agent`` and ``media``
+— and a set of **deterministic operations** that are not task types. An
+operation is an entry of the same shape that names the task type a contract
+asks for it under: ``task_type: code`` with ``operation: format`` is how a
+contract has a tool do the work. The one place a name that used to be a task
+type survives is :data:`RETIRED_TASK_TYPES`, so a contract that still names one
+is told what replaced it.
 """
 
 from __future__ import annotations
@@ -44,6 +52,22 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 2
+
+#: Names that used to be task types, and the spelling that replaced each. Not
+#: vocabulary: nothing resolves to these. They are kept only so a contract or a
+#: caller that still names one is refused with the replacement rather than with
+#: a bare "unknown" — the one table where an old name survives.
+RETIRED_TASK_TYPES: dict[str, str] = {
+    "format": "'code' with operation: format",
+    "import_sort": "'code' with operation: import_sort",
+    "lint_fix": "'code' with operation: lint_fix",
+    "rename_symbol": "'code' with operation: rename_symbol",
+    "docstring": "'code' with no_semantic_change: true",
+    "type_annotation": "'code' with type_check: true",
+    "function_implementation": "'code'",
+    "test_scaffold": "'code'",
+    "bug_fix": "'code' with a demonstration",
+}
 
 
 class CatalogError(Exception):
@@ -103,6 +127,18 @@ class TaskType:
     required_evidence: tuple[Evidence, ...]
     warrant: str
     doc: str
+    #: For a deterministic operation, the task type a contract names to ask for
+    #: it (``task_type: code`` with ``operation: <name>``); empty on a task
+    #: type itself.
+    task_type: str = ""
+    #: Whether this type's evidence is computed per contract from the
+    #: contract's own fields rather than read off ``required_evidence``. Only
+    #: ``code`` sets it: its evidence is ``gate`` plus the kinds its
+    #: ``demonstration``, ``acceptance``, ``no_semantic_change`` and
+    #: ``type_check`` fields derive. The derivation itself lives in
+    #: :mod:`mcgyvr.contract`, because it reads contract fields this module
+    #: deliberately knows nothing about.
+    evidence_derived: bool = False
 
     @property
     def deterministic(self) -> bool:
@@ -136,20 +172,17 @@ class TaskType:
     def evidence_names(self) -> tuple[str, ...]:
         return tuple(e.name for e in self.required_evidence)
 
+    @property
+    def judges_a_change(self) -> bool:
+        """Whether the gate judges work of this kind as a change to the tree.
 
-@dataclass(frozen=True)
-class Excluded:
-    """An inherited type that did not survive validation, kept with its reason.
-
-    Removals are recorded rather than deleted for the same reason the capability
-    table keeps its harness caveats: the next person to reach for
-    ``multi_file_refactor`` should find out why it is absent instead of
-    rediscovering it.
-    """
-
-    name: str
-    reason: str
-    superseded_by: str | None
+        True where the kind carries the ``gate`` evidence, or derives its
+        evidence per contract (which always starts at the gate): a change to
+        a file, which a reviewer can be asked about. A kind that does neither
+        is a reply — judged by the output checks it declares, if any, and
+        never sent to a reviewer, because there is no change to review.
+        """
+        return self.evidence_derived or "gate" in self.evidence_names
 
 
 @dataclass(frozen=True)
@@ -160,36 +193,70 @@ class Catalog:
     use_cases: tuple[UseCase, ...]
     evidence_kinds: tuple[Evidence, ...]
     task_types: tuple[TaskType, ...]
-    excluded: tuple[Excluded, ...]
+    operations: tuple[TaskType, ...]
 
     @property
     def names(self) -> tuple[str, ...]:
+        """The model vocabulary: the task types a model may choose."""
         return tuple(t.name for t in self.task_types)
 
     def get(self, name: str) -> TaskType | None:
+        """The task type called ``name``, or ``None``.
+
+        Task types only: an operation is not one, and is resolved by
+        :meth:`operation`.
+        """
         return next((t for t in self.task_types if t.name == name), None)
 
     def require(self, name: str) -> TaskType:
-        """The type called ``name``, or a rejection naming the vocabulary.
+        """The task type called ``name``, or a rejection naming what to use.
 
         An unknown task type is exactly the case where a caller needs to see the
-        valid set rather than a boolean.
+        valid set rather than a boolean, and a name that used to be a task type
+        is told what replaced it (:data:`RETIRED_TASK_TYPES`).
         """
         found = self.get(name)
         if found is None:
+            if name in RETIRED_TASK_TYPES:
+                raise CatalogError(f"{name!r} is now {RETIRED_TASK_TYPES[name]}.")
             raise CatalogError(
                 f"{name!r} is not a known task type. Valid: {', '.join(self.names)}"
             )
         return found
 
-    def excluded_entry(self, name: str) -> Excluded | None:
-        return next((e for e in self.excluded if e.name == name), None)
+    def operation(self, name: str) -> TaskType | None:
+        """The deterministic operation called ``name``, or ``None``."""
+        return next((t for t in self.operations if t.name == name), None)
+
+    def require_operation(self, name: str) -> TaskType:
+        """The deterministic operation called ``name``, or a rejection naming
+        the valid ones."""
+        found = self.operation(name)
+        if found is None:
+            valid = ", ".join(t.name for t in self.operations)
+            raise CatalogError(
+                f"{name!r} is not a known deterministic operation. Valid: {valid}"
+            )
+        return found
 
     def family(self, name: str) -> Family:
         found = next((f for f in self.families if f.name == name), None)
         if found is None:
             valid = ", ".join(f.name for f in self.families)
             raise CatalogError(f"{name!r} is not a known family. Valid: {valid}")
+        return found
+
+    def evidence(self, name: str) -> Evidence:
+        """The declared evidence kind called ``name``.
+
+        Looked up by name for the one type whose evidence is derived per
+        contract: the derivation names kinds, and the catalog is the only
+        place a name maps to the kind's ``needs_commands`` and ``baseline``.
+        """
+        found = next((e for e in self.evidence_kinds if e.name == name), None)
+        if found is None:
+            valid = ", ".join(e.name for e in self.evidence_kinds)
+            raise CatalogError(f"{name!r} is not a known evidence kind. Valid: {valid}")
         return found
 
     def family_of(self, source: Unit) -> Family:
@@ -272,6 +339,73 @@ def _require_keys(entry: dict[str, Any], keys: tuple[str, ...], where: str) -> N
         raise CatalogError(f"{where}: missing or empty {', '.join(missing)}")
 
 
+def _load_entries(
+    raw: dict[str, Any],
+    key: str,
+    by_family: dict[str, Family],
+    by_use_case: dict[str, UseCase],
+    by_evidence: dict[str, Evidence],
+    reserved: set[str],
+) -> tuple[TaskType, ...]:
+    """Load and validate one catalog entry list (``task_types`` or operations).
+
+    An operation is a task type in every respect except that it is not in the
+    model vocabulary: same fields, same guarantee/starts_on/use_case/evidence
+    rules, so the same walk loads both lists.
+    """
+    entries: list[TaskType] = []
+    for entry in raw.get(key, []):
+        name = str(entry.get("name", ""))
+        where = f"{key}[{name or len(entries)}]"
+        _require_keys(entry, ("name", "starts_on", "use_case", "guarantee"), where)
+        if "required_evidence" not in entry:
+            raise CatalogError(f"{where}: missing required_evidence")
+        if not isinstance(entry["required_evidence"], list):
+            raise CatalogError(f"{where}: required_evidence must be a list")
+        if name in reserved:
+            raise CatalogError(f"{where}: {name!r} is declared more than once")
+        reserved.add(name)
+
+        family = by_family.get(str(entry["starts_on"]))
+        if family is None:
+            raise CatalogError(
+                f"{where}: starts_on {entry['starts_on']!r} is not a declared "
+                f"family. Valid: {', '.join(by_family)}"
+            )
+        use_case = by_use_case.get(str(entry["use_case"]))
+        if use_case is None:
+            raise CatalogError(
+                f"{where}: use_case {entry['use_case']!r} is not a declared "
+                f"use case. Valid: {', '.join(by_use_case)}"
+            )
+        kinds: list[Evidence] = []
+        for kind in entry["required_evidence"]:
+            found = by_evidence.get(str(kind))
+            if found is None:
+                raise CatalogError(
+                    f"{where}: required_evidence {kind!r} is not a declared "
+                    f"evidence kind. Valid: {', '.join(by_evidence)}"
+                )
+            if found in kinds:
+                raise CatalogError(f"{where}: required_evidence {kind!r} is repeated")
+            kinds.append(found)
+
+        entries.append(
+            TaskType(
+                name=name,
+                starts_on=family,
+                use_case=use_case,
+                guarantee=str(entry["guarantee"]),
+                required_evidence=tuple(kinds),
+                warrant=str(entry.get("warrant", "")),
+                doc=str(entry.get("doc", "")),
+                evidence_derived=bool(entry.get("evidence_derived", False)),
+                task_type=str(entry.get("task_type", "")),
+            )
+        )
+    return tuple(entries)
+
+
 def load(path: Path | None = None) -> Catalog:
     """Load and validate the catalog."""
     path = path or catalog_path()
@@ -327,85 +461,32 @@ def load(path: Path | None = None) -> Catalog:
     by_family = {f.name: f for f in families}
     by_use_case = {u.name: u for u in use_cases}
 
-    task_types: list[TaskType] = []
-    seen: set[str] = set()
-    for entry in raw.get("task_types", []):
-        name = str(entry.get("name", ""))
-        where = f"task_types[{name or len(task_types)}]"
-        _require_keys(entry, ("name", "starts_on", "use_case", "guarantee"), where)
-        if "required_evidence" not in entry:
-            raise CatalogError(f"{where}: missing required_evidence")
-        if not isinstance(entry["required_evidence"], list):
-            raise CatalogError(f"{where}: required_evidence must be a list")
-        if name in seen:
-            raise CatalogError(f"{where}: {name!r} is declared more than once")
-        seen.add(name)
-
-        family = by_family.get(str(entry["starts_on"]))
-        if family is None:
-            raise CatalogError(
-                f"{where}: starts_on {entry['starts_on']!r} is not a declared "
-                f"family. Valid: {', '.join(by_family)}"
-            )
-        use_case = by_use_case.get(str(entry["use_case"]))
-        if use_case is None:
-            raise CatalogError(
-                f"{where}: use_case {entry['use_case']!r} is not a declared "
-                f"use case. Valid: {', '.join(by_use_case)}"
-            )
-        kinds: list[Evidence] = []
-        for kind in entry["required_evidence"]:
-            found = by_evidence.get(str(kind))
-            if found is None:
-                raise CatalogError(
-                    f"{where}: required_evidence {kind!r} is not a declared "
-                    f"evidence kind. Valid: {', '.join(by_evidence)}"
-                )
-            if found in kinds:
-                raise CatalogError(f"{where}: required_evidence {kind!r} is repeated")
-            kinds.append(found)
-
-        task_types.append(
-            TaskType(
-                name=name,
-                starts_on=family,
-                use_case=use_case,
-                guarantee=str(entry["guarantee"]),
-                required_evidence=tuple(kinds),
-                warrant=str(entry.get("warrant", "")),
-                doc=str(entry.get("doc", "")),
-            )
-        )
-
+    reserved: set[str] = set()
+    task_types = _load_entries(
+        raw, "task_types", by_family, by_use_case, by_evidence, reserved
+    )
     if not task_types:
         raise CatalogError(f"{path} declares no task types")
 
-    excluded = tuple(
-        Excluded(
-            name=str(e["name"]),
-            reason=str(e["reason"]),
-            superseded_by=e.get("superseded_by"),
-        )
-        for e in raw.get("excluded", [])
+    operations = _load_entries(
+        raw, "deterministic_operations", by_family, by_use_case, by_evidence, reserved
     )
-    for gone in excluded:
-        if gone.name in seen:
+
+    task_type_names = {t.name for t in task_types}
+    for op in operations:
+        if op.task_type not in task_type_names:
             raise CatalogError(
-                f"excluded[{gone.name}]: {gone.name!r} is also a declared task "
-                f"type. A type is in the vocabulary or it is not."
-            )
-        if gone.superseded_by and gone.superseded_by not in seen:
-            raise CatalogError(
-                f"excluded[{gone.name}]: superseded_by "
-                f"{gone.superseded_by!r} is not a declared task type"
+                f"deterministic_operations[{op.name}]: task_type "
+                f"{op.task_type!r} is not a declared task type. Valid: "
+                f"{', '.join(sorted(task_type_names))}"
             )
 
     return Catalog(
         families=families,
         use_cases=use_cases,
         evidence_kinds=evidence,
-        task_types=tuple(task_types),
-        excluded=excluded,
+        task_types=task_types,
+        operations=operations,
     )
 
 

@@ -27,12 +27,12 @@ from mcgyvr.decision import (
     classify_role,
 )
 from mcgyvr.delegate import ORCHESTRATOR_ROLE
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.mcorch import loop, prompt, serve
 from mcgyvr.mcorch.anthropic import MessagesRequest
 from mcgyvr.mcorch.authoring import Authoring, authoring_for
 from mcgyvr.mcorch.transcript import Transcript, writer_id
 from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungReply, RungToolCall
-from mcgyvr.pool import SourceMap, source_map
 from mcgyvr.runner import GENERATE_TIMEOUT_S, Request, dispatch_role
 
 

@@ -1,4 +1,4 @@
-"""`mcgyvr init` dedicates a Jev unit and enables mcorch, each on request.
+"""`mcgyvr setup` dedicates a Jev unit and enables mcorch, each on request.
 
 Two opt-ins, in init's own non-interactive idiom (a flag, a printed account):
 `--jev UNIT` names a written unit as the one every typed decision asks — it is
@@ -109,7 +109,7 @@ def test_the_flags_reach_the_command(
     (unit,) = _unit_names(tmp_path)
     code = lj.main(
         [
-            "init",
+            "setup",
             str(tmp_path / "setup"),
             "--jev",
             unit,

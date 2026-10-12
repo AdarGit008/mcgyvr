@@ -1,6 +1,6 @@
 """A run holds the width its config declares, so two runs cannot exceed it.
 
-``mcgyvr pool`` prints ``max_parallel`` as a ceiling and :mod:`mcgyvr.capacity`
+``mcgyvr local_pool`` prints ``max_parallel`` as a ceiling and :mod:`mcgyvr.capacity`
 enforces one — a host-wide ``flock`` on one of that many slot files, which
 :meth:`~mcgyvr.capacity.Capacity.hold` blocks on rather than raising, so a
 queue is a wait and not a failure. Every layer between the command and the
@@ -87,7 +87,7 @@ def test_a_dispatch_is_made_under_the_capacity_the_config_declares(
     assert seen, "no dispatch was made"
     capacity = seen[0]
     assert isinstance(capacity, Capacity), (
-        "the run dispatched with capacity=None: the ceiling `mcgyvr pool` "
+        "the run dispatched with capacity=None: the ceiling `mcgyvr local_pool` "
         "prints was never applied to the request"
     )
     assert capacity.limits["local_qwen-7b"] == 1

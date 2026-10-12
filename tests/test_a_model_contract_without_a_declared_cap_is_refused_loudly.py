@@ -20,7 +20,7 @@ from tests import livejournal as lj
 
 UNCAPPED = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
@@ -32,7 +32,8 @@ scope:
 CAPPED = UNCAPPED + "limits:\n  max_output_tokens: 256\n"
 FORMAT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:

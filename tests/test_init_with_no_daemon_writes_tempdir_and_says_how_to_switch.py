@@ -1,4 +1,4 @@
-"""``mcgyvr init`` with no Docker daemon writes the weaker mode, and says so.
+"""``mcgyvr setup`` with no Docker daemon writes the weaker mode, and says so.
 
 A setup that names ``docker`` on a machine with no daemon is refused at its
 first run. So init, which already asked whether a daemon answers, makes the

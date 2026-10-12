@@ -2,41 +2,42 @@
 unspent.
 
 ``limits.max_output_tokens`` has no static default (``contract.py``'s
-``LIMITS_FIELDS``): an undeclared cap is derived per task type by
-:func:`mcgyvr.contract.output_cap`. One number for a one-line docstring and for a
-function written from nothing is wrong for one of them: too small truncates a reply
-into a named failure that costs an attempt, too large steals context from the prompt
-that would have made the reply right.
+``LIMITS_FIELDS``): an undeclared cap is derived from the contract's own
+evidence by :func:`mcgyvr.contract.output_cap`. One number for a gate-only edit
+and for a function written from nothing is wrong for one of them: too small
+truncates a reply into a named failure that costs an attempt, too large steals
+context from the prompt that would have made the reply right.
 
 Three statements, and the second exists to make the first honest.
 
-*A small task type is capped lower than a large one* is asserted on two contracts
-that differ in exactly one byte of YAML — the task type — so the only explanation
-for a difference is the task type. Asserting a specific number for a specific type
-would freeze a table that is free to be measured and re-measured; the
-ordering is the requirement, the numbers are not.
+*A small task is capped lower than a large one* is asserted on two `code`
+contracts that differ only in whether they carry an acceptance command — so the
+only explanation for a difference is the evidence the fields derive. Asserting a
+specific number would freeze a table that is free to be measured and
+re-measured; the ordering is the requirement, the numbers are not.
 
-*The cap is deterministic* would be satisfied by a flat constant, which is why it
-is not asserted alone. Stability is asserted across repeated loads **and across
-separate processes with different hash seeds** — dict iteration order is exactly how
-a table-driven cap acquires a per-process wobble, and an in-process loop would never
-see it — and then, in the same test, that the caps are not all one value. Together
-they say what is actually required: the cap varies with its inputs and with nothing
-else. Apart, each is passed by a bug the other catches.
+*The cap is deterministic* would be satisfied by a flat constant, which is why
+it is not asserted alone. Stability is asserted across repeated loads **and
+across separate processes with different hash seeds** — dict iteration order is
+exactly how a table-driven cap acquires a per-process wobble, and an in-process
+loop would never see it — and then, in the same test, that the caps are not all
+one value. Together they say what is actually required: the cap varies with its
+inputs and with nothing else. Apart, each is passed by a bug the other catches.
 
-*A contract that cannot fit is refused before dispatch* is asserted on a returned
-refusal rather than a raised one, and on a value produced from the contract and a
-window alone: nothing here has a backend to reach, so a refusal that arrives at all
-arrives at zero spend. The refusal must name the budget it enforced — a caller
-handed a bare falsy result cannot tell "your prompt is too big for this rung" from
-"this rung is fine" and cannot tell either from "the check was not run", and the
-first of those is repairable by re-decomposing while the others are not.
+*A contract that cannot fit is refused before dispatch* is asserted on a
+returned refusal rather than a raised one, and on a value produced from the
+contract and a window alone: nothing here has a backend to reach, so a refusal
+that arrives at all arrives at zero spend. The refusal must name the budget it
+enforced — a caller handed a bare falsy result cannot tell "your prompt is too
+big for this rung" from "this rung is fine" and cannot tell either from "the
+check was not run", and the first of those is repairable by re-decomposing
+while the others are not.
 
 That test also pins :data:`~mcgyvr.gate.preflight.ESTIMATE_RESERVE`, the reserve
 charged against the model-free estimator's under-counting tail: the prompt it is
-given fits comfortably on a raw count and only fails once the reserve is applied. A
-budget check written against the raw estimate would pass every other assertion in
-this file.
+given fits comfortably on a raw count and only fails once the reserve is
+applied. A budget check written against the raw estimate would pass every other
+assertion in this file.
 """
 
 from __future__ import annotations
@@ -56,36 +57,41 @@ BEHAVIOR = (
     "context window, before anything is dispatched"
 )
 
-# Identical in every field a cap could plausibly depend on except the task type,
-# so a difference between two loads of it has exactly one available cause.
+# Identical in every field a cap could plausibly depend on except the evidence
+# the fields derive, so a difference between two loads of it has exactly one
+# available cause.
 CONTRACT = """
 id: cap-probe
-task_type: {task_type}
+task_type: code
 task: Do the one thing this contract describes.
 target: src/pkg/fetch.py
 stop_conditions:
   - The intended behaviour is not stated anywhere in the repo.
-acceptance: ["python -c 'import sys; sys.exit(0)'"]
+{extra}
 scope:
   allow: ["src/**/*.py"]
 """
 
-SMALL = "docstring"
-LARGE = "function_implementation"
+#: A gate-only edit: no command to run, so behaviour does not have to be written.
+SMALL = ""
+#: A change backed by an acceptance command: behaviour has to be written.
+LARGE = "acceptance: [\"python -c 'import sys; sys.exit(0)'\"]"
+#: A change backed by the type-check flag: the checker has to run.
+TYPE_CHECK = "type_check: true\nno_semantic_change: true"
 
 
-def _cap(task_type: str) -> int:
-    """The output cap a contract of this task type carries when it declares none."""
-    cap = loads(CONTRACT.format(task_type=task_type)).limits.max_output_tokens
+def _cap(extra: str) -> int:
+    """The output cap a contract with this evidence carries when it declares none."""
+    cap = loads(CONTRACT.format(extra=extra)).limits.max_output_tokens
     assert cap is not None, "a whole_file contract must still derive a cap"
     return cap
 
 
-def _cap_in_a_fresh_process(task_type: str, hash_seed: str) -> int:
+def _cap_in_a_fresh_process(extra: str, hash_seed: str) -> int:
     """The same cap, read by a process that ordered its dicts differently."""
     program = (
         "from mcgyvr.contract import loads;"
-        f"print(loads({CONTRACT.format(task_type=task_type)!r}).limits.max_output_tokens)"
+        f"print(loads({CONTRACT.format(extra=extra)!r}).limits.max_output_tokens)"
     )
     env = {**os.environ, "PYTHONHASHSEED": hash_seed}
     done = subprocess.run(
@@ -109,17 +115,18 @@ def _budget_check() -> Any:
     )
 
 
-def test_a_small_task_type_is_capped_lower_than_a_large_one() -> None:
-    """A docstring needs fewer output tokens than a function written from nothing.
+def test_a_gate_only_edit_is_capped_lower_than_one_that_must_run_a_command() -> None:
+    """A gate-only edit needs fewer output tokens than a change backed by a command.
 
-    The two contracts differ only in ``task_type``, so an equal cap is not a
-    coincidence to be explained — it is a cap that ignores what it is capping.
+    The two contracts differ only in the `acceptance` list, so an equal cap is
+    not a coincidence to be explained — it is a cap that ignores what it is
+    capping.
     """
     small, large = _cap(SMALL), _cap(LARGE)
 
     assert small < large, (
-        f"{SMALL} is capped at {small} tokens and {LARGE} at {large}: "
-        f"the cap does not vary with the task it is capping"
+        f"a gate-only code edit is capped at {small} tokens and a command-backed "
+        f"one at {large}: the cap does not vary with the evidence it is capping"
     )
 
 
@@ -129,28 +136,26 @@ def test_the_cap_is_the_same_every_time_and_is_not_the_same_for_everything() -> 
 
     Both halves are here on purpose. Stability alone is passed by a flat
     constant; variation alone is passed by a cap that reshuffles with dict order
-    between processes. A cap is a budget, and a budget that moves between two runs
-    of the same contract makes every refusal downstream unreproducible.
+    between processes. A cap is a budget, and a budget that moves between two
+    runs of the same contract makes every refusal downstream unreproducible.
     """
-    caps = {
-        task_type: _cap(task_type) for task_type in (SMALL, LARGE, "type_annotation")
-    }
+    caps = {extra: _cap(extra) for extra in (SMALL, LARGE, TYPE_CHECK)}
 
-    for task_type, first in caps.items():
-        repeated = {_cap(task_type) for _ in range(20)}
+    for extra, first in caps.items():
+        repeated = {_cap(extra) for _ in range(20)}
         assert repeated == {first}, (
-            f"{task_type} cap wandered within one process: {repeated}"
+            f"cap for {extra!r} wandered within one process: {repeated}"
         )
         for seed in ("0", "1", "12345"):
-            fresh = _cap_in_a_fresh_process(task_type, seed)
+            fresh = _cap_in_a_fresh_process(extra, seed)
             assert fresh == first, (
-                f"{task_type} cap is {first} here and {fresh} under "
+                f"cap for {extra!r} is {first} here and {fresh} under "
                 f"PYTHONHASHSEED={seed}: "
                 f"the cap depends on something other than the contract"
             )
 
     assert len(set(caps.values())) > 1, (
-        f"every task type is capped at the same number ({caps}): the cap is stable "
+        f"every shape is capped at the same number ({caps}): the cap is stable "
         f"only because it is a constant"
     )
 
@@ -167,7 +172,7 @@ def test_a_contract_that_cannot_fit_its_window_is_refused_at_zero_spend() -> Non
     that refuses everything satisfies a refusal assertion perfectly.
     """
     check = _budget_check()
-    contract = loads(CONTRACT.format(task_type=LARGE))
+    contract = loads(CONTRACT.format(extra=LARGE))
     cap = contract.limits.max_output_tokens
     assert cap is not None, "a whole_file contract must still derive a cap"
 

@@ -41,7 +41,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import runner as runner_module
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import (
     BackendError,
     Hangup,

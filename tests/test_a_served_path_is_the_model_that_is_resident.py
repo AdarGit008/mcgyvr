@@ -17,7 +17,7 @@ argument, which is the repository id the config names.
 
 **2. ``mcgyvr run`` never asks.**
 ``cli._climb`` builds its pool with no probe ("Structural resolution, no
-probe"), and only ``mcgyvr pool --probe`` passes one. The run-path section
+probe"), and only ``mcgyvr local_pool --probe`` passes one. The run-path section
 below pins that property — a run resolves its ladder without touching the
 network.
 
@@ -37,7 +37,7 @@ import pytest
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
 from mcgyvr.config import parse
-from mcgyvr.pool import Endpoint, source_map
+from mcgyvr.local_pool import Endpoint, source_map
 from tests import livejournal as lj
 
 #: The name the live config declares for srv1's ceiling rung.

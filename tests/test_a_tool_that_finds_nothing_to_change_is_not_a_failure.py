@@ -28,7 +28,8 @@ from tests import livejournal as lj
 
 FORMAT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:
@@ -39,7 +40,7 @@ scope:
 #: delivery rather than failing a "must fail before" command in the sandbox.
 NO_DEMO_CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]

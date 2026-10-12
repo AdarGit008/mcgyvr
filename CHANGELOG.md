@@ -7,6 +7,182 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.4.16] - 2026-10-11
+
+### Fixed
+
+- `mcgyvr setup` no longer offers to re-download a model that is already on the
+  rig: the on-disk reuse match accepts an untagged canonical GGUF (its name
+  carries no quant) on the strength of name + size, and enforces the quant only
+  when the file name tags one.
+
+## [0.4.15] - 2026-10-11
+
+### Fixed
+
+- `mcgyvr setup` now locks a fleet that can actually run: `mcgyvr emit` stamps
+  the resolved launch (`image`, `container`, `engine`, `launch.argv`/`env`/
+  `volumes`, `hf_cache` for vLLM) back into `fleet.yaml`, byte-identical to the
+  compose file it writes, and the wizard re-emits after its final re-init so
+  the launch survives into the lock. A locked fleet is emittable and live
+  admission admits its rigs.
+
+## [0.4.14] - 2026-10-10
+
+### Added
+
+- `mcgyvr setup` can now make a fleet whose units sit on **remote rigs** live.
+  It reads each rig (the local machine locally, a remote one over a new
+  read-only ssh line that ships the door's `rig-snapshot.sh`), then approves
+  the fleet with all rigs laid out and pinned by their rig ids.
+
+### Fixed
+
+- `is_own` now recognises a fleet approved by the pre-rename `mcgyvr init`
+  approver, so an own fleet approved before the rename is still re-approvable.
+
+## [0.4.13] - 2026-10-10
+
+### Fixed
+
+- Two rigs asked to serve the same model collapse to one unit (one unit per
+  model); the rig left out gets no launch spec. The setup wizard's
+  `serve up` treated that as an emit failure and aborted; it now skips the
+  redundant rig with a note, so a multi-rig setup with one model completes.
+
+## [0.4.12] - 2026-10-10
+
+### Fixed
+
+- The fetch saved each downloaded GGUF under its Hub base name
+  (`qwen2.5-coder-7b-instruct-q4_k_m.gguf`), but `emit` serves it from
+  the model id flattened (`Qwen_Qwen2.5-Coder-7B-Instruct.gguf`). The
+  container then crashed with `failed to open GGUF file`. The fetch list
+  now carries an explicit local `name`, and `from_records` names it
+  canonically; the setup wizard's on-disk reuse match finds it too.
+
+## [0.4.11] - 2026-10-10
+
+### Fixed
+
+- The setup wizard's `serve up` now names the bootstrap config *directory*
+  in `MCGYVR_CONFIG`, not its `fleet.yaml`. The loader reads `fleet.yaml`
+  and `policy.yaml` (the ladder) from the directory; naming the file made it
+  read `fleet.yaml` alone, which has no ladder, and gate 1 refused.
+
+## [0.4.10] - 2026-10-10
+
+### Fixed
+
+- The interactive `mcgyvr setup` bootstrap phase now runs under
+  `profile: dev` instead of `live`, and starts the containers with the door
+  pointed at the bootstrap config. A live `serve up` is admitted only for
+  units the fleet lock names, which cannot exist before the servers run; the
+  bootstrap is a dev setup, and the final lock promotes it to live.
+
+## [0.4.9] - 2026-10-10
+
+### Fixed
+
+- The interactive `mcgyvr setup` wizard now declares the serving context
+  window it priced each placement at, passing `--ctx-per-slot` to `emit`.
+  The recommendation carried the context on the placement; the wizard sizes
+  at the smallest placed window, so `emit` no longer refuses a windowless
+  run.
+
+## [0.4.8] - 2026-10-10
+
+### Fixed
+
+- A catalog pick is again priced at the base model's ``config.json``
+  context (its native window), not the GGUF header's ``n_ctx_train``.
+  0.4.7 priced the shipped Qwen GGUFs at their repacked 128K window, which
+  made the 7B (weights plus a 128K KV cache) no longer fit a 12 GB card, so
+  ``mcgyvr recommend`` refused it. The native 32K window is the window the
+  model fits and is priced at; the serve pins its own window.
+
+## [0.4.7] - 2026-10-10
+
+### Fixed
+
+- A catalog pick is now priced at the GGUF header's declared context
+  (`n_ctx_train`), not the base model's `config.json`. The shipped
+  Qwen 7B/14B GGUFs are repacked to 128K, so the old figure under-counted
+  the KV cache fourfold in `mcgyvr recommend`'s fit check.
+
+### Added
+
+- The capability table's rows may name the catalog model whose weights they
+  match (a `model_id`), linking the two tables.
+- `mcgyvr emit` sizes any catalog model from the file's bytes and its own
+  context and KV figures, so a `recommend` pick is servable even when the
+  capability table has no row for it; a mapped measured row and an operator's
+  `launch` declaration still win in that order.
+
+## [0.4.6] - 2026-10-10
+
+### Fixed
+
+- The door's own serve steps (`serve fetch`, `serve up`, `serve down`, `serve
+  sleep`, `serve wake`) now run on the door's interpreter, not on whatever
+  ``python3`` a cleared PATH finds. Under `uv tool` / `pipx` the package lives
+  in an isolated venv the system interpreter cannot see, so `serve fetch` and
+  `serve up` failed with `ModuleNotFoundError: No module named 'mcgyvr'`.
+
+## [0.4.5] - 2026-10-10
+
+### Fixed
+
+- The interactive `mcgyvr setup` wizard's download and start steps now run the
+  door (`python -m mcgyvr.serving.run serve fetch|up`) as a subprocess through
+  ``mcgyvr.wake.spawn_door`` instead of calling the door's ``main`` in-process,
+  which the door's gate 1 refused because the process was not started by the
+  door.
+
+## [0.4.4] - 2026-10-10
+
+### Fixed
+
+- The interactive `mcgyvr setup` wizard's download step no longer reads a
+  remote rig's weights path as if it were local (a `PermissionError` on the
+  machine running setup), and matches the recommended repo id by its model
+  basename against the rig's own on-disk inventory, so a model already on the
+  rig is offered for reuse instead of fetched again.
+
+## [0.4.3] - 2026-10-10
+
+### Changed
+
+- `mcgyvr pool` is renamed `mcgyvr local_pool` (module `mcgyvr.pool` →
+  `mcgyvr.local_pool`); the hub's pooled-inference rig side
+  (`mcgyvr.rig.pooled`) is a different "pool" and stays.
+- `mcgyvr setup` is the single setup entry point and absorbs the old
+  `mcgyvr init` options — `--host`, `--api`, `--use-case`, `--deployment`,
+  `--priority` (plus repeatable `--api` for two hosted tiers) — and defaults
+  to `hybrid` with a hosted orchestrator. mcorch is never auto-selected.
+- `mcgyvr setup` writes hosted API tiers in declaration order, below any
+  detected local units. Declare cheapest first — `deepseek-flash` then
+  `deepseek-v4-pro` — and the coding ladder climbs local rig(s) →
+  `deepseek-flash` → `deepseek-v4-pro`.
+- `mcgyvr setup` is interactive when run on a terminal with no flags: it
+  prompts for the rigs, scans them, shows a `mcgyvr recommend` placement,
+  asks before reusing or downloading weights, downloads chosen models, emits
+  the launch specs, asks before starting the containers and before locking
+  the fleet, binds the now-running servers into the config, and locks the
+  fleet. Any flag (or non-terminal stdin) keeps the flag-driven
+  config-writing path with no prompts.
+- `mcgyvr scan` (local and `--rig`) now reports disk total and device where
+  available, CPU cores/threads, memory bandwidth on the rig, and a
+  models-on-disk inventory of `*.gguf` and `*.safetensors` under the weights
+  dir and any `--model-store` dirs.
+- Before downloading a model, the download path checks for an existing model
+  with the same id + quant + size and asks whether to reuse it, defaulting to
+  reuse.
+
+### Removed
+
+- `mcgyvr init` (use `mcgyvr setup`).
+
 ## [0.4.2] - 2026-10-10
 
 ### Changed

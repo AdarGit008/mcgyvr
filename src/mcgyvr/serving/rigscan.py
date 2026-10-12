@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import time
@@ -35,6 +36,12 @@ TIGHT_RAM_GB = 2.0
 
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
 MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
+
+#: A GGUF quantisation as file names spell it, at the end of the name.
+GGUF_QUANT = re.compile(
+    r"[-_.]((?:I?Q\d+(?:_[A-Z0-9]+)*)|BF16|FP16|F16|F32|MXFP4(?:_MOE)?)\.gguf$",
+    re.IGNORECASE,
+)
 
 #: What the rig's own docker CLI is asked: the daemon's version, one line.
 DOCKER_VERSION_FORMAT = "{{.Server.Version}}"
@@ -72,19 +79,6 @@ def _read_meminfo() -> str | None:
             return fh.read()
     except OSError:
         return None
-
-
-def _free_bytes(path: str) -> int:
-    """Free bytes on the filesystem holding ``path``, or the nearest ancestor."""
-    probe = path
-    while True:
-        try:
-            return shutil.disk_usage(probe).free
-        except OSError:
-            parent = os.path.dirname(probe)
-            if parent == probe:
-                return 0
-            probe = parent
 
 
 def _field(text: str, key: str) -> str | None:
@@ -336,13 +330,103 @@ def _default_weights_dir() -> str:
     return os.path.expanduser("~/.cache/mcgyvr/weights")
 
 
+def _disk_device(path: str) -> str | None:
+    """The device/type of the filesystem holding ``path``, when /proc names one."""
+    try:
+        with open("/proc/self/mounts", encoding="utf-8") as fh:
+            mounts = fh.read()
+    except OSError:
+        return None
+    resolved = os.path.realpath(path)
+    best = None
+    best_len = -1
+    for line in mounts.splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        source, mount = parts[0], parts[1].replace("\\040", " ")
+        if (resolved == mount or resolved.startswith(mount.rstrip("/") + "/")) and len(
+            mount
+        ) > best_len:
+            best, best_len = source, len(mount)
+    return best
+
+
+def _model_name_and_quant(path: str) -> tuple[str, str | None]:
+    name = os.path.basename(path)
+    match = GGUF_QUANT.search(name)
+    if match is None:
+        return name[: -len(".gguf")], None
+    return name[: match.start()], match.group(1).upper()
+
+
+def _scan_models_on_disk(
+    weights_dir: str,
+) -> tuple[list[dict[str, Any]], tuple[dict[str, str], ...]]:
+    """Inventory ``*.gguf`` and ``*.safetensors`` under ``weights_dir``."""
+    found: list[dict[str, Any]] = []
+    facts: list[dict[str, str]] = []
+    if not os.path.isdir(weights_dir):
+        return found, tuple(facts)
+    for root, dirs, files in os.walk(weights_dir, followlinks=False):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        for name in sorted(files):
+            if name.startswith("."):
+                continue
+            lower = name.lower()
+            path = os.path.join(root, name)
+            if lower.endswith(".gguf"):
+                model, quant = _model_name_and_quant(path)
+            elif lower.endswith(".safetensors"):
+                model, quant = os.path.splitext(name)[0], None
+            else:
+                continue
+            try:
+                size = os.path.getsize(path)
+            except OSError:
+                continue
+            found.append(
+                {
+                    "name": model,
+                    "quant": quant,
+                    "size_bytes": size,
+                    "path": path,
+                }
+            )
+            facts.append({"field": f"models_on_disk[{path}]", "how": "filesystem"})
+    return found, tuple(facts)
+
+
 def _scan_disk(
     weights_dir: str | None = None,
 ) -> tuple[dict[str, Any], tuple[dict[str, str], ...]]:
     path = weights_dir if weights_dir is not None else _default_weights_dir()
-    free = _free_bytes(path)
-    disk = {"path": path, "free_gb": round(free / BYTES_PER_GB, 1)}
-    return disk, ({"field": "disk.free_gb", "how": f"free space on {path}"},)
+    free, total = 0, 0
+    probe = path
+    while True:
+        try:
+            usage = shutil.disk_usage(probe)
+            free, total = usage.free, usage.total
+            break
+        except OSError:
+            parent = os.path.dirname(probe)
+            if parent == probe:
+                break
+            probe = parent
+    disk: dict[str, Any] = {"path": path, "free_gb": round(free / BYTES_PER_GB, 1)}
+    if total:
+        disk["total_gb"] = round(total / BYTES_PER_GB, 1)
+    device = _disk_device(path)
+    if device is not None:
+        disk["device"] = device
+    facts = [{"field": "disk.free_gb", "how": f"free space on {path}"}]
+    if total:
+        facts.append({"field": "disk.total_gb", "how": f"total space on {path}"})
+    if device is not None:
+        facts.append(
+            {"field": "disk.device", "how": f"/proc/self/mounts source for {path}"}
+        )
+    return disk, tuple(facts)
 
 
 def _scan_docker() -> tuple[str | None, tuple[str, ...]]:
@@ -424,6 +508,10 @@ def scan() -> dict[str, Any]:
     cpu, cpu_facts, cpu_notes = _scan_cpu()
     bandwidth, bandwidth_facts, bandwidth_notes = _scan_bandwidth()
     disk, disk_facts = _scan_disk()
+    weights_path = disk.get("path")
+    models, model_facts = _scan_models_on_disk(
+        weights_path if isinstance(weights_path, str) else _default_weights_dir()
+    )
     docker, docker_notes = _scan_docker()
     network, network_facts, network_notes = _scan_network()
     return {
@@ -433,6 +521,7 @@ def scan() -> dict[str, Any]:
         "cpu": cpu,
         "bandwidth": bandwidth,
         "disk": disk,
+        "models_on_disk": models,
         "docker": docker,
         "network": network,
         "notes": [
@@ -451,6 +540,7 @@ def scan() -> dict[str, Any]:
             *cpu_facts,
             *bandwidth_facts,
             *disk_facts,
+            *model_facts,
             *network_facts,
         ],
     }

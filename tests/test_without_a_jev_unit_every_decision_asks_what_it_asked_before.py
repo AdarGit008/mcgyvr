@@ -1,7 +1,7 @@
 """Without a Jev unit, every typed decision asks what it asked before.
 
 The `jev:` block is backward compatible by construction: with no block, or
-with the block `mcgyvr init` writes (`unit` and `model` unset), each typed
+with the block `mcgyvr setup` writes (`unit` and `model` unset), each typed
 decision goes to exactly the unit it went to before the block existed —
 
 * the gate's Jev rung and the named reviewer's verdict to `verifier.unit`;
@@ -28,7 +28,7 @@ from mcgyvr.config import Config, parse
 from mcgyvr.decision import Choice
 from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
 from mcgyvr.gate.jev import jev_check_for
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.verify import Reviewer, decider_for, reviewers_for
 
 SMALL = ("http://localhost:18001/v1/chat/completions", "example-coder:3b")

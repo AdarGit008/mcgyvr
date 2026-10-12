@@ -23,7 +23,7 @@ import hashlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from mcgyvr.pool import Protocol
+from mcgyvr.local_pool import Protocol
 from mcgyvr.redact import REDACTED
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import fold, observe

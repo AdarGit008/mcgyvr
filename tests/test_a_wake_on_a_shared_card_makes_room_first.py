@@ -414,7 +414,7 @@ def test_resting_is_kept_per_unit_and_read_per_unit(
 ) -> None:
     import mcgyvr.pressure as pressure
     from mcgyvr.capacity import Capacity
-    from mcgyvr.pool import source_map
+    from mcgyvr.local_pool import source_map
 
     config = parse(ladder_text(write_spec(tmp_path)))
     door(monkeypatch)

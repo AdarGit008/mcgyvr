@@ -110,7 +110,8 @@ def test_a_zero_window_is_refused_rather_than_divided_by() -> None:
 
 CONTRACT = """
 id: c1
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:

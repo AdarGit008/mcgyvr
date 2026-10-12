@@ -23,7 +23,7 @@ runtime", with a pointer file choosing which fleet is live.
 * The live lock root is the folder ``live.json`` names; with none there is no
   live lock. Dev reads the run root. No reader reads the working directory.
 * The config is ``$MCGYVR_CONFIG``, then ``./fleet.yaml``, then the live fleet
-  folder — never ``~/.mcgyvr/config``. ``mcgyvr init`` with no path writes the
+  folder — never ``~/.mcgyvr/config``. ``mcgyvr setup`` with no path writes the
   override, else the working directory.
 """
 
@@ -511,15 +511,15 @@ def test_init_with_no_path_writes_the_override_or_the_working_directory(
     small_setup(fleets() / "flt-05", "live_unit")
     name_live("flt-05")
 
-    assert lj.main(["init"]) == 0
-    assert seen == [work], "init with no path must write the working directory"
+    assert lj.main(["setup"]) == 0
+    assert seen == [work], "setup with no path must write the working directory"
 
     monkeypatch.setenv("MCGYVR_CONFIG", str(tmp_path / "named"))
-    assert lj.main(["init"]) == 0
+    assert lj.main(["setup"]) == 0
     assert seen[-1] == tmp_path / "named"
 
 
-@pytest.mark.parametrize("command", ["config", "pool", "emit", "run"])
+@pytest.mark.parametrize("command", ["config", "local_pool", "emit", "run"])
 def test_every_config_help_line_names_the_live_fleet_and_not_the_retired_dir(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -529,10 +529,10 @@ def test_every_config_help_line_names_the_live_fleet_and_not_the_retired_dir(
     assert "~/.mcgyvr/config" not in out, out
 
 
-def test_init_help_names_the_working_directory(
+def test_setup_help_names_the_working_directory(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert lj.main(["init", "--help"]) == 0
+    assert lj.main(["setup", "--help"]) == 0
     out = " ".join(capsys.readouterr().out.split())
     assert "working directory" in out, out
     assert "~/.mcgyvr/config" not in out, out

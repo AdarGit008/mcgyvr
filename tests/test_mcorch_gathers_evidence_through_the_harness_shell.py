@@ -195,7 +195,7 @@ def test_prose_proposes_from_the_document_and_the_rung_sees_a_digest() -> None:
     proposals = json.dumps(
         [
             {
-                "task_type": "docstring",
+                "task_type": "code",
                 "task": "Document paginate.",
                 "target": "pkg/listing.py",
                 "stop_conditions": ["The behaviour is unclear."],
@@ -217,7 +217,7 @@ def test_prose_proposes_from_the_document_and_the_rung_sees_a_digest() -> None:
     assert tool_turn["tool_call_id"] == "toolu_read"
     assert '"files"' not in tool_turn["content"]
     assert "ready:" in tool_turn["content"]
-    assert "docstring" in tool_turn["content"]
+    assert "code" in tool_turn["content"]
     assert "pkg/listing.py" in tool_turn["content"]
     assert turn.reply.text == "Writing the contract now."
     assert turn.trace.evidence == "used"
@@ -228,7 +228,7 @@ def test_prose_proposes_from_the_document_and_the_rung_sees_a_digest() -> None:
 def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() -> None:
     rung = ScriptedRung(text("ok"))
     jev = ScriptedJev(
-        kind="docstring", target="pkg/listing.py", symbol="paginate", ready_to_run=True
+        kind="code", target="pkg/listing.py", symbol="paginate", ready_to_run=True
     )
     turn = _respond(_after_read(_tools("Write", "Bash")), rung, jev, "classifier")
     assert [name for name, _ in jev.asked] == [
@@ -245,7 +245,7 @@ def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() ->
     proposals = json.dumps(
         [
             {
-                "task_type": "docstring",
+                "task_type": "code",
                 "task": "Doc.",
                 "target": "pkg/listing.py",
                 "stop_conditions": ["x"],
@@ -254,7 +254,7 @@ def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() ->
     )
     rung = ScriptedRung(text(proposals), text("ok"))
     scripted = ScriptedJev(
-        kind="docstring", target="pkg/listing.py", symbol="", ready_to_run=True
+        kind="code", target="pkg/listing.py", symbol="", ready_to_run=True
     )
 
     def unsure(state: object, questions: Mapping[str, Question]) -> Decision:

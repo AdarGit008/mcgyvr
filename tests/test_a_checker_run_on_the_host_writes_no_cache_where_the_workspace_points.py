@@ -34,7 +34,7 @@ needs_tools = pytest.mark.skipif(
 
 CONTRACT = """
 id: tidy
-task_type: function_implementation
+task_type: code
 task: Give the module a value.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]

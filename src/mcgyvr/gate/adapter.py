@@ -198,8 +198,8 @@ class LanguageAdapter(ABC):
 
         ``None`` is an ordinary answer meaning *this repository runs no type
         checker*, and it is load-bearing rather than a shrug: where it is
-        returned, a ``type_annotation`` contract is not emitted for that
-        repository, because its guarantee needs evidence only a command can
+        returned, a ``code`` contract with ``type_check: true`` is not emitted
+        for that repository, because its guarantee needs evidence only a command can
         produce.
 
         Implementations must not import, execute or otherwise evaluate the
