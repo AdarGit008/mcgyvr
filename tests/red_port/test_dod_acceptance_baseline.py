@@ -7,7 +7,7 @@ preflight refuses a suite that is already red)". ``demonstration`` commands are
 pass after the change".
 
 ``Acceptance.precondition`` is the method that establishes both, and ``mcgyvr run``
-calls it before the first dispatch. Without that baseline a ``bug_fix`` whose
+calls it before the first dispatch. Without that baseline a fix whose
 demonstration was already passing — a wrong ``-k`` filter, a test that was never
 red — would be judged by running it after the change, seeing green, and reporting
 the bug fixed; and a contract whose acceptance suite was already broken would charge
@@ -146,7 +146,7 @@ def _run(
 def test_a_demonstration_that_already_passes_refuses_before_a_rung_is_spent(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The `bug_fix` that proves nothing.
+    """The fix that proves nothing.
 
     A demonstration is the one command whose *failure* is the evidence. One that
     passes on the unchanged tree cannot distinguish a fix from a no-op, and a run

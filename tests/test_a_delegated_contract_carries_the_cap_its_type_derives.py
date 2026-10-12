@@ -8,7 +8,7 @@ prose (P) contract in the campaign validated and then was refused by `run`
 written on the document from the one derivation the loader and `mcgyvr
 contract` already use — :func:`mcgyvr.contract.output_cap`, the type's own
 evidence — so nothing invents a number, and `run`'s refusal no longer fires. A
-proposal that states its own cap wins; a deterministic type carries none,
+proposal that states its own cap wins; a deterministic operation carries none,
 having no reply to cap; a raw-text type (prose) carries none either.
 """
 

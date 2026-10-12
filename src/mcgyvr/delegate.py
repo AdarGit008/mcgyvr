@@ -603,7 +603,7 @@ def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
 def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
     """The stop condition a model-executed type must carry, or none for a tool.
 
-    A deterministic type is executed by a tool that cannot guess, so it has no
+    A deterministic operation is executed by a tool that cannot guess, so it has no
     trigger to report BLOCKED. A model-executed type must name one — the loader
     refuses a model type with none — and the one this proposer writes is the
     honest default: stop rather than decide anything the typed choices did not

@@ -248,7 +248,7 @@ RUNNING_ALLOWANCE = 1024
 NEW_FILE_STEP = 512
 
 # Caps come out as whole steps, never below the floor. The floor is what a
-# deterministic type gets; the allowances above are already whole steps.
+# deterministic operation gets; the allowances above are already whole steps.
 CAP_STEP = 128
 MIN_CAP = 256
 

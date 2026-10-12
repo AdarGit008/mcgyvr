@@ -763,7 +763,7 @@ def _reply_cap(proposal: Proposal, *, new_file: bool) -> int | None:
     one derivation the loader and ``mcgyvr contract`` already make,
     :func:`mcgyvr.contract.output_cap`, from the type's own evidence — nothing
     here invents a number — with the new-file step the loader cannot know and
-    this module can. A deterministic type has no reply to cap and a raw-text
+    this module can. A deterministic operation has no reply to cap and a raw-text
     type (``prose``, ``media_artifact``) carries none, so both get ``None``.
     """
     if proposal.max_output_tokens is not None:

@@ -425,9 +425,9 @@ def test_content_is_filled_for_every_type_not_a_chosen_list(
 ) -> None:
     """No task-type branch: the slot is filled from the target, whatever the work.
 
-    ``code`` is now the only decomposable type with a file target — the four
-    deterministic types left the model vocabulary in the Stage 2 refactor, so
-    they are never proposed here. The guard stays parametrized rather than a
+    ``code`` is the only decomposable type with a file target — the four
+    deterministic operations are not task types, so they are never proposed
+    here. The guard stays parametrized rather than a
     hardcoded ``code`` branch, so a future file-targeting type is not silently
     excluded from content by a chosen-list check.
     """

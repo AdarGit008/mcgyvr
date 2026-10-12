@@ -12,10 +12,10 @@ mission loop would not catch it and would abort mid-flight with earlier
 contracts already committed, while contracts with **no** tool worked: the
 successful path and the failing path swapped over.
 
-*Upward*, a step carrying a program's *name* and nothing else — no target, and
-one name (``ruff``) shared by three task types whose invocations differ — could
-not tell a caller what to run, so "the floor is bound" would be true of the plan
-and false of anything downstream of it.
+*Upward*, a step carrying a program's *name* and nothing else — no target, and one
+name (``ruff``) shared by three deterministic operations whose invocations differ —
+could not tell a caller what to run, so "the floor is bound" would be true of the
+plan and false of anything downstream of it.
 
 The two are tested together because fixing either alone leaves the seam broken
 in the other direction. A program the ladder never climbs is not counted among
@@ -242,7 +242,7 @@ def test_a_planned_step_names_the_whole_command_that_would_run_it() -> None:
 
 
 def test_three_types_share_one_program_and_are_three_different_commands() -> None:
-    """`ruff` owns three of the four deterministic types, and does three things.
+    """`ruff` owns three of the four deterministic operations, and does three things.
 
     The program name is the same for all three, so a step carrying only the
     name is the same step three times over — and running any one of those

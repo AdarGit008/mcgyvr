@@ -1,6 +1,6 @@
 """The decomposer takes located checkers from a caller instead of reading the disk.
 
-`type_annotation` needs the checker the repository declared, and
+A `code` proposal with `type_check: true` needs the checker the repository declared, and
 :func:`~mcgyvr.orchestrator.decompose._acceptance_for` finds it by asking the
 owning adapter to read the repository's configuration. A server that holds an
 index assembled from a document (mcorch) has no repository under

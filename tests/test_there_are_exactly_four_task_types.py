@@ -199,7 +199,7 @@ def test_a_name_that_never_was_a_type_lists_the_four() -> None:
         loads(
             """
 id: c
-task_type: multi_file_refactor
+task_type: teleportation
 task: Do the thing.
 target: src/pkg/fetch.py
 stop_conditions: ["The intent is ambiguous."]
