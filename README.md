@@ -64,12 +64,25 @@ uv tool install git+https://github.com/AdarGit008/mcgyvr
 
 ### 2. The skill
 
-`install.sh` copies the skill out of a checkout, into both harnesses at once:
+`install.sh` copies the skill out of a checkout, into both harnesses at once.
+The skill is generated from the contract schema of the revision it is cloned
+from, so clone the release tag of the CLI you installed — `mcgyvr --version`
+names it on its first line:
+
+```sh
+git clone --depth 1 --branch "v$(mcgyvr --version | awk 'NR==1 {print $2}')" https://github.com/AdarGit008/mcgyvr
+bash mcgyvr/skills/mcgyvr/install.sh
+```
+
+If you installed the CLI from `main` instead (`uv tool install git+https://github.com/AdarGit008/mcgyvr`),
+clone `main` to match it:
 
 ```sh
 git clone --depth 1 https://github.com/AdarGit008/mcgyvr
 bash mcgyvr/skills/mcgyvr/install.sh
 ```
+
+Either way it prints:
 
 ```text
 installed: ~/.claude/skills/mcgyvr/SKILL.md
@@ -81,11 +94,15 @@ cli: uv tool install mcgyvr
 Invoke it with /mcgyvr; it does not load itself.
 ```
 
-It also checks the `mcgyvr` on `PATH` against the oldest release the skill is
-known to drive, and warns on stderr — never refuses — when there is no binary,
-when it is older, or when it reports `0.0.0+uninstalled`. Installing the
-instructions on a machine that does not have the CLI yet is the ordinary first
-case, and the `cli:` line above is how it is closed.
+It also checks the skill against the `mcgyvr` on `PATH`: it runs
+`mcgyvr contract` on every example contract the skill ships, and compares the
+version with the oldest release the skill is known to drive. It warns on
+stderr — never refuses — when the CLI rejects an example (the skill and the
+CLI are from different revisions; the warning names the tag to clone, or the
+checkout to install the CLI from), when there is no binary, when it is older,
+or when it reports `0.0.0+uninstalled`. Installing the instructions on a
+machine that does not have the CLI yet is the ordinary first case, and the
+`cli:` line above is how it is closed.
 
 | Flag | Effect |
 | --- | --- |
