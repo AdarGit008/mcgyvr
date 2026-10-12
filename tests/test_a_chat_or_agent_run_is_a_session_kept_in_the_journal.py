@@ -399,3 +399,67 @@ def test_the_catalog_says_a_chat_or_agent_run_is_a_session(
     out = capsys.readouterr().out
     assert "session log" in out, out
     assert "never written" in out, out
+
+
+MEDIA = """\
+id: picture
+task_type: media
+task: Draw a red square.
+target: out/square.png
+stop_conditions: ["The size is not stated."]
+output_schema: media_artifact
+media_kind: image
+scope:
+  allow: ["out/**"]
+"""
+
+
+@pytest.mark.parametrize(
+    ("document", "said"),
+    [
+        (CHAT, "served unchecked: chat replies are not checked or reviewed."),
+        (
+            AGENT,
+            "accepted on its output checks (grounded, safety_pass); "
+            "agent replies are never reviewed.",
+        ),
+        (
+            MEDIA,
+            "accepted on its output checks (media_valid); "
+            "media replies are never reviewed.",
+        ),
+    ],
+)
+def test_mcgyvr_contract_says_how_a_reply_is_judged_as_the_result_does(
+    document: str, said: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No gate or reviewer is claimed for a reply: the result's own sentence."""
+    path = tmp_path / "reply.yaml"
+    path.write_text(document + 'acceptance: ["true"]\n', encoding="utf-8")
+
+    assert _main(["contract", str(path)]) == 0
+
+    out = capsys.readouterr().out
+    assert said in out, out
+    assert "verified by" not in out, out
+    assert "the gate's own checks decide" not in out, out
+    assert "$ true" not in out, out
+    assert "acceptance: not run" in out, out
+
+
+def test_mcgyvr_contract_for_code_still_names_its_gate(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "code.yaml"
+    path.write_text(
+        "id: c\ntask_type: code\ntask: Set VALUE.\ntarget: src/a.py\n"
+        "stop_conditions: [x]\nlimits:\n  max_output_tokens: 256\n"
+        "scope:\n  allow: ['src/**']\n",
+        encoding="utf-8",
+    )
+
+    assert _main(["contract", str(path)]) == 0
+
+    out = capsys.readouterr().out
+    assert "risk:    medium — verified by gate only" in out, out
+    assert "acceptance: none declared — the gate's own checks decide" in out, out

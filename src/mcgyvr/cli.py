@@ -434,6 +434,7 @@ def _contract(args: argparse.Namespace) -> int:
     import json
 
     from mcgyvr.contract import ContractError, load
+    from mcgyvr.escalate import how_judged
 
     try:
         contract = load(Path(args.path))
@@ -475,10 +476,18 @@ def _contract(args: argparse.Namespace) -> int:
         print(f"  deps:    {', '.join(d.path for d in contract.deps)}")
     if contract.stop_conditions:
         print(f"  stops:   {len(contract.stop_conditions)} condition(s)")
-    print(
-        f"  risk:    {contract.risk} — verified by "
-        f"{contract.verification.policy.replace('_', ' ')}"
-    )
+    # A reply (chat, agent, media) is never gated as a change or reviewed:
+    # it is judged by its output checks or by nothing, in the words its result
+    # will use (`how_judged`), and its acceptance commands never judge it.
+    reply = not contract.is_deterministic and not contract.kind.judges_a_change
+    if reply:
+        print(f"  risk:    {contract.risk}")
+        print(f"  judged:  {how_judged(contract.kind)}")
+    else:
+        print(
+            f"  risk:    {contract.risk} — verified by "
+            f"{contract.verification.policy.replace('_', ' ')}"
+        )
     if contract.limits.max_output_tokens is None:
         output_budget = "uncapped (raw text)"
     else:
@@ -488,7 +497,13 @@ def _contract(args: argparse.Namespace) -> int:
         f"<={contract.max_input_tokens} prompt tokens, "
         f"{contract.limits.attempts} attempt(s)"
     )
-    if contract.acceptance:
+    if reply:
+        if contract.acceptance:
+            print(
+                "  acceptance: not run on the reply — a reply is judged by its "
+                "output checks alone"
+            )
+    elif contract.acceptance:
         print("  acceptance:")
         for command in contract.acceptance:
             print(f"    $ {command}")
