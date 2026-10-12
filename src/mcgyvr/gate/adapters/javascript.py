@@ -160,7 +160,11 @@ class JavaScriptAdapter(LanguageAdapter):
         findings.sort(key=lambda f: (f.line or 0, f.code or ""))
         return findings
 
-    def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
+    def lint(
+        self, changes: Sequence[FileChange], repo: Path, *, base: str | None = None
+    ) -> list[Finding]:
+        # ``base`` is not read: eslint's diagnostics on a rewritten line are all
+        # charged to the change, the strict reading the interface allows.
         files = self.owned(changes)
         if not files:
             return []

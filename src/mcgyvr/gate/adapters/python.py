@@ -14,6 +14,7 @@ import ast
 import json
 import subprocess
 import tomllib
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -24,7 +25,7 @@ from mcgyvr.gate.adapter import (
     require_tool,
     trusted_stdout,
 )
-from mcgyvr.gate.changeset import FileChange
+from mcgyvr.gate.changeset import FileChange, read_text_at
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.typecheck import (
     STYLE,
@@ -228,7 +229,9 @@ class PythonAdapter(LanguageAdapter):
             param_mutation=self._param_mutation,
         )
 
-    def lint(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
+    def lint(
+        self, changes: Sequence[FileChange], repo: Path, *, base: str | None = None
+    ) -> list[Finding]:
         files = self.owned(changes)
         if not files:
             return []
@@ -267,6 +270,10 @@ class PythonAdapter(LanguageAdapter):
                 RUFF, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
         added = _added_by_resolved_path(files, repo)
+        if base is not None:
+            diagnostics = _without_pre_existing(
+                diagnostics, added, repo, base, [ruff, "check", *config_args]
+            )
         # The demotion below is the product's, so it holds only where the
         # product's selection does. A repository that states its own ruff
         # configuration is judged as that configuration says: a UP006, UP035
@@ -587,6 +594,93 @@ def _added_by_resolved_path(
     right file's added-line set.
     """
     return {(repo / c.path).resolve(): (c.path, c.added_lines) for c in changes}
+
+
+def _diagnostic_key(diag: dict[str, object]) -> tuple[object, str]:
+    """What makes two ruff diagnostics the same fault: its code and its words.
+
+    Not the row — the row is exactly what a rewrite moves."""
+    return diag.get("code"), str(diag.get("message") or "").strip()
+
+
+def _without_pre_existing(
+    diagnostics: list[dict[str, object]],
+    added: dict[Path, tuple[str, frozenset[int]]],
+    repo: Path,
+    base: str,
+    check: list[str],
+) -> list[dict[str, object]]:
+    """``diagnostics`` less those on added lines that the base file already had.
+
+    A line counts as added when the change rewrote it, whatever it says now, so
+    a formatter's ``import os, sys`` over ``import os,sys`` carries the base's
+    E401, I001 and both F401s onto an added line — faults the change did not
+    bring and could not have removed without editing outside its brief (e2e
+    run 1, F2). The base file is linted once, from git, under the same command,
+    and its diagnostics are a multiset keyed by :func:`_diagnostic_key`. Each
+    fault the changed file still carries on an untouched line spends its own
+    base copy first; what is left excuses added-line diagnostics, one apiece,
+    top to bottom. So a second copy of a fault the base had once is the
+    change's, and so is any fault the base did not have.
+
+    One ruff run per changed file that both existed at the base and has a
+    diagnostic on an added line; a new file has nothing to excuse. A base that
+    cannot be read or linted excuses nothing: the strict reading, never a
+    clean pass on a check that did not run.
+    """
+    by_file: dict[Path, list[dict[str, object]]] = {}
+    for diag in diagnostics:
+        by_file.setdefault(Path(str(diag["filename"])).resolve(), []).append(diag)
+    kept: list[dict[str, object]] = []
+    for resolved, diags in by_file.items():
+        rel = added.get(resolved)
+        if rel is None:
+            kept.extend(diags)
+            continue
+        path, added_lines = rel
+        if not any(_row(d) in added_lines for d in diags):
+            kept.extend(diags)
+            continue
+        excused = _base_diagnostics(repo, base, path, check)
+        excused.subtract(
+            _diagnostic_key(d) for d in diags if _row(d) not in added_lines
+        )
+        for diag in diags:  # ruff reports in row order
+            key = _diagnostic_key(diag)
+            if _row(diag) in added_lines and excused[key] > 0:
+                excused[key] -= 1
+                continue
+            kept.append(diag)
+    return kept
+
+
+def _row(diag: dict[str, object]) -> object:
+    location = diag.get("location")
+    return location.get("row") if isinstance(location, dict) else None
+
+
+def _base_diagnostics(
+    repo: Path, base: str, path: str, check: list[str]
+) -> Counter[tuple[object, str]]:
+    """The base file's ruff diagnostics as a multiset; empty where it has none."""
+    text = read_text_at(repo, base, path)
+    if text is None:
+        return Counter()
+    proc = subprocess.run(
+        [*check, "--output-format=json", "--stdin-filename", path, "-"],
+        cwd=repo,
+        input=text,
+        capture_output=True,
+        text=True,
+        env=plain_env(),
+    )
+    if proc.returncode not in (0, 1):
+        return Counter()
+    try:
+        found = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError:
+        return Counter()
+    return Counter(_diagnostic_key(d) for d in found)
 
 
 def _format_touched_lines(diff: str) -> dict[str, set[int]]:
