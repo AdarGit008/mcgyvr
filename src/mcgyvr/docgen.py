@@ -646,7 +646,7 @@ def render_skill() -> str:
         "Pick the `task_type` first. For `code`, evidence is derived from the "
         "contract's own fields, never chosen; `operation:` has a tool make the "
         "change instead. `mcgyvr catalog <type>` prints the type's guarantee.",
-        "`mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft",
+        "`mcgyvr delegate PROMPT [--repo DIR]` has the config's `orchestrator` draft",
         "validated contracts from a request instead and prints them; `--run` runs",
         "each one.",
         "",

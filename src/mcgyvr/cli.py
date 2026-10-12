@@ -1369,7 +1369,7 @@ def _attach(args: argparse.Namespace) -> int:
 
     into = Path(args.into) if args.into else None
     try:
-        with attach(args.source, into=into) as repo:
+        with attach(args.repo, into=into) as repo:
             # Print inside the context: for an ephemeral clone the working
             # location only exists here, and the point is to show it resolved.
             print(f"Repository attached ({repo.origin}):")
@@ -1701,10 +1701,9 @@ def _delegate(args: argparse.Namespace) -> int:
         print(NO_ORCHESTRATOR_ROLE, file=sys.stderr)
         return Exit.REFUSED
 
-    source = args.repo or "."
     into = Path(args.into) if args.into else None
     try:
-        with attach(source, into=into) as repo:
+        with attach(args.repo, into=into) as repo:
             index = build_index(repo.root)
             decomposition = decompose(
                 index,
@@ -4294,6 +4293,53 @@ def _named_path(value: str) -> str:
     return value
 
 
+class _RepoByPosition(argparse.Action):
+    """The old spelling, a repository typed by position, refused by name.
+
+    Hidden from the usage: it is not an argument, only the catch for one that
+    is no longer taken. Without it the old form meets argparse's bare
+    "unrecognized arguments", which says nothing about ``--repo``. Absent, it
+    is never called (its default is ``SUPPRESS``) and leaves nothing behind.
+    """
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        raise argparse.ArgumentError(
+            None,
+            f"the repository is named with --repo, not by position: --repo {values}",
+        )
+
+
+def _add_repo(parser: argparse.ArgumentParser, what: str) -> None:
+    """``--repo PATH``, the one way every verb is told its repository.
+
+    ``run`` named it with this flag and five other verbs by position, so the
+    flag a user learned on ``run`` was refused everywhere else. Every verb now
+    takes the flag, defaulting to the current directory and refusing a blank
+    the way ``run`` always has (:func:`_named_path`); a repository typed by
+    position is refused by :class:`_RepoByPosition`.
+    """
+    parser.add_argument(
+        "--repo",
+        default=".",
+        type=_named_path,
+        metavar="PATH",
+        help=f"{what} (default: .)",
+    )
+    parser.add_argument(
+        "_repo_by_position",
+        nargs="?",
+        default=argparse.SUPPRESS,
+        action=_RepoByPosition,
+        help=argparse.SUPPRESS,
+    )
+
+
 def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """Resolve who is writing the journal, or refuse at parse time.
 
@@ -4926,12 +4972,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "sandbox",
         help="show the sandbox mode and the stack detected for a repository",
     )
-    sbx.add_argument(
-        "repo",
-        nargs="?",
-        default=".",
-        help="repository to inspect (default: current directory)",
-    )
+    _add_repo(sbx, "the repository to inspect")
     sbx.add_argument(
         "--cache",
         action="store_true",
@@ -5063,9 +5104,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "attach",
         help="attach a repository (local path or clone URL) and show its state",
     )
-    att.add_argument(
-        "source",
-        help="a local git checkout, or a URL to clone (https/ssh/git/file)",
+    _add_repo(
+        att,
+        "the repository to attach: a local git checkout, or a URL to clone "
+        "(https/ssh/git/file)",
     )
     att.add_argument(
         "--into",
@@ -5079,12 +5121,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "index",
         help="build the deterministic index of a repository and show what it cost",
     )
-    idx.add_argument(
-        "repo",
-        nargs="?",
-        default=".",
-        help="repository to index (default: current directory)",
-    )
+    _add_repo(idx, "the repository to index")
     idx.add_argument(
         "--search",
         default=None,
@@ -5129,12 +5166,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "query",
         help='what to find, in words — e.g. "the fetch helper" or a symbol name',
     )
-    res.add_argument(
-        "repo",
-        nargs="?",
-        default=".",
-        help="repository to resolve against (default: current directory)",
-    )
+    _add_repo(res, "the repository to resolve against")
     res.add_argument(
         "--limit",
         type=int,
@@ -5152,12 +5184,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "query",
         help='what to find, in words — e.g. "the fetch helper" or a symbol name',
     )
-    rd.add_argument(
-        "repo",
-        nargs="?",
-        default=".",
-        help="repository to read from (default: current directory)",
-    )
+    _add_repo(rd, "the repository to read from")
     rd.add_argument(
         "--budget",
         type=int,
@@ -5390,13 +5417,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             f"(default: {CONFIG_DEFAULT_HELP})"
         ),
     )
-    run.add_argument(
-        "--repo",
-        default=".",
-        type=_named_path,
-        metavar="PATH",
-        help="the git repository the work is done against (default: .)",
-    )
+    _add_repo(run, "the git repository the work is done against")
     run.add_argument(
         "--sandbox",
         # No default. `sandbox.mode` in the config is declared as where this
@@ -5469,14 +5490,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "prompt",
         help="the natural-language request to decompose into contracts",
     )
-    delegate.add_argument(
-        "repo",
-        nargs="?",
-        default=None,
-        help=(
-            "repository to work against: a local git checkout, or a URL to "
-            "clone (https/git/file). Default: the current directory"
-        ),
+    _add_repo(
+        delegate,
+        "the repository to work against: a local git checkout, or a URL to "
+        "clone (https/git/file)",
     )
     delegate.add_argument(
         "--config",

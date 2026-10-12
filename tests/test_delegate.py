@@ -336,6 +336,7 @@ def test_the_delegate_command_writes_contracts_from_the_role(
         [
             "delegate",
             "document listing",
+            "--repo",
             str(repo),
             "--config",
             str(config),
