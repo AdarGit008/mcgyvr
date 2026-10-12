@@ -55,10 +55,11 @@ def test_the_prompt_leaves_a_run_result_to_the_rung_with_no_jev_note_promised() 
 def test_the_prompt_explains_preflight_refusals_and_forbids_target_edits() -> None:
     """The pilot rung read a refusal as a broken tool and edited the target itself."""
     rendered = prompt.render(writer="mcorch-2026", authoring="direct")
-    assert "acceptance-mutates-tree" in rendered
     assert "acceptance-baseline-failing" in rendered
     assert "demonstration" in rendered
-    assert "__pycache__" in rendered
+    # Not a refusal any more (e2e run 1, F4): the preflight cleans up what a
+    # baseline run leaves behind, so the prompt does not teach a remedy for it.
+    assert "acceptance-mutates-tree" not in rendered
     assert "never edit" in rendered.lower() or "do not edit" in rendered.lower()
 
 

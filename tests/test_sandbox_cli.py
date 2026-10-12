@@ -29,6 +29,22 @@ def test_sandbox_reports_a_detected_stack(
     assert "pip install uv && uv sync --frozen" in out
 
 
+def test_sandbox_says_an_unlocked_project_gets_its_dev_group(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='x'\n\n[dependency-groups]\ndev = ['ruff']\n",
+        encoding="utf-8",
+    )
+
+    assert main(["sandbox", "--repo", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+
+    install = next(line for line in out.splitlines() if "install:" in line)
+    assert "pip install . --group dev" in install, out
+    assert "dev group installed" in out
+
+
 def test_sandbox_reports_an_undetected_stack_with_the_override(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

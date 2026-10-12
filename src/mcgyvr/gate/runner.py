@@ -52,6 +52,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from functools import partial
 
 from mcgyvr.gate.acceptance import Acceptance
 from mcgyvr.gate.adapter import (
@@ -335,7 +336,10 @@ class Gate:
         # per file prettier says differs). Each rung is tried even when the
         # one before it faulted: an operator fixing a broken environment wants
         # both complaints, not one per run.
-        for label, check in (("lint", adapter.lint), ("format", adapter.format_check)):
+        # Lint is handed the base so a line the change only rewrote is not
+        # charged with the faults it already had (see `LanguageAdapter.lint`).
+        lint = partial(adapter.lint, base=changeset.base)
+        for label, check in (("lint", lint), ("format", adapter.format_check)):
             try:
                 findings.extend(check(syntax_clean, repo))
             except ToolFailedError as exc:

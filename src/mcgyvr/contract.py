@@ -750,7 +750,7 @@ SCHEMA: tuple[Field, ...] = (
         "unchanged tree and pass after the change — the `failing_test_first` "
         "evidence, as a slot of its own because its baseline expectation is "
         "the opposite of `acceptance`'s. Written, run and sandboxed exactly "
-        "like `acceptance`, under the same read-only rule.",
+        "like `acceptance`; what it leaves behind is cleaned up.",
         default=(),
     ),
     Field(

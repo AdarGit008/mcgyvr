@@ -16,12 +16,19 @@ pass":
    would reject a good change for a reason it could never fix. We read the
    shell's own verdict: exit ``127`` (not found) or ``126`` (not executable)
    is "did not run", distinct from any exit code a program chooses for itself.
-3. **The command changed the working tree** — a formatter listed as a check,
-   say, that rewrites files. That *invalidates the run*: the gate must judge
-   the worker's diff, not the diff plus the command's opinion. We snapshot the
-   tree (a git ``write-tree`` that honours ``.gitignore``, so it sees exactly
-   what the gate judges) before and after each command and fail the offending
-   command **by name** when the two differ.
+3. **The command rewrote the change** — a formatter listed as a check, say,
+   that rewrites the very file the worker wrote. Its verdict is then about
+   bytes the worker did not write, so it cannot accept them: the command fails
+   **by name**, with the paths it rewrote.
+
+What a command merely leaves behind is not a fourth outcome. A test runner
+writes ``__pycache__`` and ``.pytest_cache``, a tool writes its cache, and none
+of it is the change. The workspace is snapshotted before each command and
+restored after it (:meth:`~mcgyvr.sandbox.base.Sandbox.restore`): what the
+command created is removed, nested repositories first, and what it rewrote is
+put back. Each command, and the first attempt after the preflight, starts on
+the tree it was handed, and what was cleaned is said in a note naming the
+paths (e2e run 1, F4).
 
 Two command lists with opposite baseline expectations (#183):
 
@@ -38,8 +45,8 @@ Two entry points, one classifier:
 
 - :meth:`Acceptance.precondition` runs both lists once against the *unchanged*
   tree, before the first worker attempt. A regression suite that is already
-  red, a demonstration that already passes, a command that cannot run or that
-  mutates the tree: none is a usable acceptance signal — and catching that
+  red, a demonstration that already passes, a command that cannot run: none
+  is a usable acceptance signal — and catching that
   here, as a :class:`~mcgyvr.gate.preflight.PreflightIssue`, spends no attempt
   and names the fault as the orchestration error it is. It also earns the
   interpretation :meth:`run` relies on: once the baseline behaviour of both
@@ -55,18 +62,14 @@ summary last, so a head could be all green while the change is red.
 
 from __future__ import annotations
 
-import os
 import shlex
-import subprocess
-import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from pathlib import Path
 
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.preflight import PreflightIssue
-from mcgyvr.sandbox.base import CommandResult, Sandbox, nested_git, refuse_nested_git
+from mcgyvr.sandbox.base import CommandResult, Restored, Sandbox
 
 # The check name every acceptance finding carries, so a caller can group by it.
 CHECK = "acceptance"
@@ -92,10 +95,6 @@ _MAX_EXCERPT_LINES = 40
 _MAX_EXCERPT_CHARS = 4000
 
 
-class AcceptanceError(Exception):
-    """The acceptance rung could not read the sandbox tree it needs to judge."""
-
-
 class _Outcome(Enum):
     """How one acceptance command turned out. The five cases #38 must separate."""
 
@@ -103,8 +102,16 @@ class _Outcome(Enum):
     FAILED = auto()  # ran and returned non-zero — the worker's change is red
     DID_NOT_RUN = auto()  # 126/127 — an environment fault, not a rejection
     TIMED_OUT = auto()  # killed at the wall-clock ceiling
-    ALTERED_TREE = auto()  # mutated the change-set — the run is invalidated
-    NESTED_GIT = auto()  # left a .git below the root — host git must not enter it
+    ALTERED_TREE = auto()  # rewrote a file of the change — the run is invalidated
+
+
+@dataclass(frozen=True)
+class _Ran:
+    """One command's outcome, its result, and what it rewrote of the change."""
+
+    outcome: _Outcome
+    result: CommandResult
+    altered: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -119,6 +126,23 @@ class AcceptanceReport:
 
     findings: tuple[Finding, ...] = ()
     environment_issues: tuple[str, ...] = ()
+    #: What the commands left behind and the rung cleaned up, one sentence per
+    #: command that left anything. Never a verdict: none of it was the change,
+    #: which is also why the gate does not fold it into its result.
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class Baseline:
+    """What :meth:`Acceptance.baseline` found on the unchanged tree.
+
+    ``issue`` is the reason the run should not start, or ``None``; ``notes``
+    name what the baseline commands left behind and the preflight removed, so
+    the first attempt starts on a clean copy.
+    """
+
+    issue: PreflightIssue | None = None
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -138,7 +162,7 @@ class Acceptance:
     timeout: float | None = None
     demonstrations: tuple[tuple[str, ...], ...] = ()
 
-    def precondition(self) -> PreflightIssue | None:
+    def baseline(self) -> Baseline:
         """Verify both lists are a usable signal on the unchanged tree.
 
         Runs each command against the base, before any worker change. The
@@ -146,30 +170,35 @@ class Acceptance:
         real at all is cheaper than a whole suite, and a demonstration that
         passes at baseline means no fix could ever be evidenced, whatever the
         suite says. Each must *fail*; anything else — passing, not running,
-        timing out, mutating the tree — is reported. Then the regression
-        commands, each of which must pass cleanly and read-only. The first
-        problem either way is a
+        timing out — is reported. Then the regression commands, each of which
+        must pass. The first problem either way is a
         :class:`~mcgyvr.gate.preflight.PreflightIssue` — an orchestration
         error distinct from a rejected change — and stops the check: a suite
         that cannot establish a clean baseline tells us nothing about a
-        worker's diff. ``None`` is what lets :meth:`run` read a later failure
+        worker's diff. No issue is what lets :meth:`run` read a later failure
         as the worker's.
+
+        What a command writes is never an issue here (owner ruling, e2e run 1
+        F4). There is no change yet for it to have rewritten, so all of it —
+        caches, files it rewrote, a nested repository — is cleaned up after the
+        command, and each command that left anything gets a note naming it.
         """
+        notes: list[str] = []
         for command in self.demonstrations:
-            outcome, result = self._run_one(command)
-            if outcome is _Outcome.NESTED_GIT:
-                return self._nested_git_issue(command)
-            issue = _demonstration_preflight(command, outcome, result)
+            ran = self._run_one(command, notes, when=_AT_BASELINE)
+            issue = _demonstration_preflight(command, ran.outcome, ran.result)
             if issue is not None:
-                return issue
+                return Baseline(issue, tuple(notes))
         for command in self.commands:
-            outcome, result = self._run_one(command)
-            if outcome is _Outcome.NESTED_GIT:
-                return self._nested_git_issue(command)
-            issue = _as_preflight(command, outcome, result)
+            ran = self._run_one(command, notes, when=_AT_BASELINE)
+            issue = _as_preflight(command, ran.outcome, ran.result)
             if issue is not None:
-                return issue
-        return None
+                return Baseline(issue, tuple(notes))
+        return Baseline(None, tuple(notes))
+
+    def precondition(self) -> PreflightIssue | None:
+        """:meth:`baseline`'s issue alone, for a caller with no use for its notes."""
+        return self.baseline().issue
 
     def run(self) -> AcceptanceReport:
         """Run both lists over the applied change and judge them — all must pass.
@@ -178,93 +207,84 @@ class Acceptance:
         :meth:`precondition`: they failed at baseline, so one still failing is
         the headline — the defect the contract names is not fixed. A command
         that could not run becomes an environment issue, never a finding. A
-        command that altered the working tree fails by name and stops the run —
-        everything after it would judge a contaminated tree. Other failures and
-        timeouts accumulate as findings carrying the tail of the command's
-        output.
+        command that rewrote a file of the change fails by name and stops the
+        run: the change is already rejected, and a suite is the dearest thing
+        the gate runs. Other failures and timeouts accumulate as findings
+        carrying the tail of the command's output. What a command only left
+        behind is cleaned up and noted, never charged.
         """
         findings: list[Finding] = []
         env_issues: list[str] = []
+        notes: list[str] = []
         judged = [(c, True) for c in self.demonstrations]
         judged += [(c, False) for c in self.commands]
         for command, demonstrates in judged:
-            outcome, result = self._run_one(command)
-            if outcome is _Outcome.PASSED:
+            ran = self._run_one(command, notes, when=_AT_GATE)
+            if ran.outcome is _Outcome.PASSED:
                 continue
-            if outcome is _Outcome.DID_NOT_RUN:
-                env_issues.append(_did_not_run_note(command, result))
+            if ran.outcome is _Outcome.DID_NOT_RUN:
+                env_issues.append(_did_not_run_note(command, ran.result))
                 continue
-            if outcome is _Outcome.NESTED_GIT:
-                # Like a tree alteration, and nothing after it may run host git.
-                findings.append(self._nested_git_finding(command))
+            findings.append(_as_finding(command, ran, demonstrates))
+            if ran.outcome is _Outcome.ALTERED_TREE:
                 break
-            findings.append(_as_finding(command, outcome, result, demonstrates))
-            if outcome is _Outcome.ALTERED_TREE:
-                # The tree is no longer the worker's; nothing run after this
-                # would be judging the change under test.
-                break
-        return AcceptanceReport(tuple(findings), tuple(env_issues))
+        return AcceptanceReport(tuple(findings), tuple(env_issues), tuple(notes))
 
-    def _run_one(self, command: Sequence[str]) -> tuple[_Outcome, CommandResult]:
-        """Run one command and classify it by deterministic signals only.
+    def _run_one(self, command: Sequence[str], notes: list[str], *, when: str) -> _Ran:
+        """Run one command, put the workspace back, and classify the run.
 
-        Tree alteration is checked first because it invalidates the run whatever
-        the exit code; then the wall-clock kill, then the shell's did-not-run
-        codes, then any other non-zero exit.
+        Classified by deterministic signals only. A rewrite of the change is
+        checked first, because it invalidates the run whatever the exit code;
+        then the wall-clock kill, then the shell's did-not-run codes, then any
+        other non-zero exit. At the baseline there is no change to rewrite.
         """
-        workspace = self.sandbox.workspace
-        before = _worktree_tree(workspace)
+        before = self.sandbox.snapshot()
         result = self.sandbox.run(command, timeout=self.timeout)
-        # Before any host git reads the tree: a nested repository's config is
-        # run by the child git host git starts in it.
-        if nested_git(workspace) is not None:
-            return _Outcome.NESTED_GIT, result
-        after = _worktree_tree(workspace)
-        if after != before:
-            return _Outcome.ALTERED_TREE, result
-        if result.timed_out:
-            return _Outcome.TIMED_OUT, result
-        if result.exit_code in DID_NOT_RUN:
-            return _Outcome.DID_NOT_RUN, result
-        if result.exit_code != 0:
-            return _Outcome.FAILED, result
-        return _Outcome.PASSED, result
+        restored = self.sandbox.restore(before)
+        if not restored:
+            return _Ran(_classify(result), result)
+        notes.append(_cleanup_note(command, restored, when))
+        if when == _AT_GATE and restored.reverted:
+            change = self.sandbox.changed_since_base(before)
+            altered = tuple(path for path in restored.reverted if path in change)
+            if altered:
+                return _Ran(_Outcome.ALTERED_TREE, result, altered)
+        return _Ran(_classify(result), result)
 
-    def _nested_git_entry(self) -> str:
-        return nested_git(self.sandbox.workspace) or ".git"
 
-    def _nested_git_finding(self, command: Sequence[str]) -> Finding:
-        return Finding(
-            check=CHECK,
-            path=_label(command),
-            names_a_file=False,
-            code="nested-git",
-            message=(
-                f"acceptance command left the git entry {self._nested_git_entry()} "
-                "inside the workspace; host git would run that repository's "
-                "config, so the tree is not read and the change is not accepted"
-            ),
-        )
+#: When a command ran, for the note on what it left: on the unchanged tree
+#: before the first attempt, or over a change at the gate.
+_AT_BASELINE = "baseline"
+_AT_GATE = "gate"
 
-    def _nested_git_issue(self, command: Sequence[str]) -> PreflightIssue:
-        return PreflightIssue(
-            "acceptance-mutates-tree",
-            f"acceptance command leaves the git entry {self._nested_git_entry()} "
-            f"inside the workspace with no change applied: {_label(command)}. "
-            "Host git would run that repository's config, so an acceptance "
-            "command must not create one.",
-        )
+
+def _classify(result: CommandResult) -> _Outcome:
+    if result.timed_out:
+        return _Outcome.TIMED_OUT
+    if result.exit_code in DID_NOT_RUN:
+        return _Outcome.DID_NOT_RUN
+    if result.exit_code != 0:
+        return _Outcome.FAILED
+    return _Outcome.PASSED
+
+
+def _cleanup_note(command: Sequence[str], restored: Restored, when: str) -> str:
+    """The sentence naming what one command left behind and what became of it."""
+    after = (
+        "so the first attempt starts on a clean copy"
+        if when == _AT_BASELINE
+        else "none of it is part of the change"
+    )
+    return (
+        f"acceptance: {_label(command)} left {restored.named()} in the workspace; "
+        f"cleaned up after it ran, {after}"
+    )
 
 
 # --- outcome → report mapping --------------------------------------------
 
 
-def _as_finding(
-    command: Sequence[str],
-    outcome: _Outcome,
-    result: CommandResult,
-    demonstrates: bool = False,
-) -> Finding:
+def _as_finding(command: Sequence[str], ran: _Ran, demonstrates: bool) -> Finding:
     """Turn a rejecting outcome into a finding that names the command.
 
     ``demonstrates`` marks a command from the demonstration list, whose
@@ -272,16 +292,19 @@ def _as_finding(
     timeout can honestly be blamed on, so their wording differs.
     """
     label = _label(command)
+    outcome, result = ran.outcome, ran.result
     if outcome is _Outcome.ALTERED_TREE:
+        rewrote = Restored(reverted=ran.altered).named()
         return Finding(
             check=CHECK,
             path=label,
             names_a_file=False,
             code="tree-altering",
             message=(
-                "acceptance command modified the working tree — an acceptance "
-                "command must judge the change, not add to it; the gate can only "
-                "score the worker's diff if the command leaves it untouched"
+                f"acceptance command rewrote {rewrote}, part of the change — its "
+                "verdict is about bytes the worker did not write, so it cannot "
+                "accept them. The files are put back; an acceptance command "
+                "must check the change, not edit it (`--check`, `--diff`)"
             ),
         )
     if outcome is _Outcome.TIMED_OUT:
@@ -377,13 +400,6 @@ def _as_preflight(
             f"unchanged tree: {label}. Raise the limit or fix the suite before "
             "spending an attempt against it.",
         )
-    if outcome is _Outcome.ALTERED_TREE:
-        return PreflightIssue(
-            "acceptance-mutates-tree",
-            f"acceptance command modifies the working tree with no change applied: "
-            f"{label}. An acceptance command must be read-only, or the gate would "
-            "judge the worker's diff plus the command's edits.",
-        )
     return PreflightIssue(
         "acceptance-baseline-failing",
         f"acceptance command already fails before any change is made: {label}. "
@@ -423,13 +439,6 @@ def _demonstration_preflight(
             "was demonstrated — if the defect itself is a hang, the "
             "demonstrating test must bound the wait and fail by its own "
             "verdict rather than the runner's kill.",
-        )
-    if outcome is _Outcome.ALTERED_TREE:
-        return PreflightIssue(
-            "acceptance-mutates-tree",
-            f"demonstrating command modifies the working tree with no change "
-            f"applied: {label}. An acceptance command must be read-only, or the "
-            "gate would judge the worker's diff plus the command's edits.",
         )
     return PreflightIssue(
         "demonstration-passes-at-baseline",
@@ -478,33 +487,3 @@ def _tail(text: str) -> str:
         tail = tail[-_MAX_EXCERPT_CHARS:]
         truncated = True
     return f"…(earlier output omitted)…\n{tail}" if truncated else tail
-
-
-def _worktree_tree(workspace: Path) -> str:
-    """A content hash of the workspace tree, honouring ``.gitignore``.
-
-    Written into a *throwaway* index so the sandbox's own index and working
-    tree are never touched. ``add -A`` then ``write-tree`` yields the SHA of
-    exactly the content the gate's change-set sees — ignored paths (a test
-    runner's caches) are excluded, so a run that only writes those is correctly
-    not counted as altering the tree. Comparing the SHA before and after a
-    command is how tree alteration is detected.
-    """
-    refuse_nested_git(workspace)
-    with tempfile.TemporaryDirectory(prefix="mcgyvr-accept-") as tmp:
-        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
-        _git(workspace, "add", "-A", env=env)
-        return _git(workspace, "write-tree", env=env).decode("ascii").strip()
-
-
-def _git(root: Path, *args: str, env: dict[str, str]) -> bytes:
-    """Run git in ``root`` with the throwaway index; raise on failure."""
-    proc = subprocess.run(
-        ["git", "-C", str(root), *args],
-        capture_output=True,
-        env=env,
-    )
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        raise AcceptanceError(f"git {args[0]} failed in {root}: {detail}")
-    return proc.stdout

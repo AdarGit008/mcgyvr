@@ -365,8 +365,17 @@ def read_base_text(change: FileChange, changeset: ChangeSet) -> str:
     """
     if change.is_binary or change.is_link:
         return ""
+    return read_text_at(changeset.repo, changeset.base, change.path) or ""
+
+
+def read_text_at(repo: Path, base: str, path: str) -> str | None:
+    """The file at ``path`` as tree-ish ``base`` holds it, or ``None``.
+
+    ``None`` where git cannot answer — the base has no such file, or there is
+    no repository — so a caller can tell a new file from an empty one.
+    """
     try:
-        raw = _git(changeset.repo, "show", f"{changeset.base}:{change.path}")
+        raw = _git(repo, "show", f"{base}:{path}")
     except (ChangeSetError, OSError):
-        return ""
+        return None
     return raw.decode("utf-8", "surrogateescape")

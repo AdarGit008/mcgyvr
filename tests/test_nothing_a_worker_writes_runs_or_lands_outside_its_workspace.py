@@ -210,8 +210,10 @@ def test_a_target_inside_a_git_directory_is_refused_at_load(target: str) -> None
 # nested repo, and that child runs the nested repo's own `core.fsmonitor` and
 # filter drivers. The read-only mount above protects only the top-level `.git`;
 # a command can create `sub/.git` anywhere else it can write. So a `.git` entry
-# below the root, directory or file, fails the attempt by name before host git
-# is run over it, and reset removes it.
+# below the root, directory or file, is never run over by host git: one the
+# change holds fails the attempt by name, one an acceptance command left behind
+# is removed by plain file removal before host git looks (e2e run 1, F4), and
+# reset removes either.
 
 NESTED = "git init -q sub"
 GITFILE = "mkdir -p d && echo 'gitdir: /nowhere' > d/.git"
@@ -229,7 +231,7 @@ def _base_repo(root: Path) -> Path:
 @pytest.mark.parametrize(
     ("script", "entry"), [(NESTED, "sub/.git"), (GITFILE, "d/.git")]
 )
-def test_an_acceptance_command_that_leaves_a_git_entry_fails_the_attempt_by_name(
+def test_an_acceptance_command_that_leaves_a_git_entry_has_it_removed_by_name(
     tmp_path: Path, script: str, entry: str
 ) -> None:
     """Checked on the host after ``Sandbox.run`` returns, so one code path for
@@ -240,21 +242,22 @@ def test_an_acceptance_command_that_leaves_a_git_entry_fails_the_attempt_by_name
         report = Acceptance(
             sandbox, (("sh", "-c", script), ("sh", "-c", "exit 0"))
         ).run()
+        assert not (sandbox.workspace / entry).exists()
 
-    (finding,) = report.findings
-    assert finding.code == "nested-git", finding
-    assert entry in finding.message
+    assert report.findings == ()
+    assert entry in report.notes[0]
 
 
-def test_a_baseline_command_that_leaves_a_git_entry_is_refused_by_name(
+def test_a_baseline_command_that_leaves_a_git_entry_has_it_removed_by_name(
     tmp_path: Path,
 ) -> None:
     repo = _base_repo(tmp_path / "repo")
     with TempDirSandbox(repo) as sandbox:
-        issue = Acceptance(sandbox, (("sh", "-c", NESTED),)).precondition()
+        baseline = Acceptance(sandbox, (("sh", "-c", NESTED),)).baseline()
+        assert not (sandbox.workspace / "sub").exists()
 
-    assert issue is not None
-    assert "sub/.git" in str(issue)
+    assert baseline.issue is None
+    assert "sub/.git" in baseline.notes[0]
 
 
 def test_the_gate_fails_a_workspace_holding_a_nested_git_entry(tmp_path: Path) -> None:
