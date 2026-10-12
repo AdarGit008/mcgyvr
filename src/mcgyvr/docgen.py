@@ -507,7 +507,7 @@ target: src/pkg/chunk.py
 interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
 stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
-acceptance: ["pytest -q tests/test_chunk.py"]
+demonstration: ["pytest -q tests/test_chunk.py"]
 risk: low
 limits:
   max_output_tokens: {cap}
@@ -522,7 +522,7 @@ def examples() -> dict[str, str]:
 
     Each model-executed example declares the cap its own fields derive, read
     back by loading the example without its cap and taking the number the
-    loader derives — so a `code` example that carries an `acceptance` gets the
+    loader derives — so a `code` example that carries a `demonstration` gets the
     running allowance, not the structural one its bare type would. Each example
     is loaded by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``;
     an example that does not validate fails the suite.

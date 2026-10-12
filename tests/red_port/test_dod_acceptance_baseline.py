@@ -179,8 +179,10 @@ def test_an_acceptance_suite_already_red_refuses_and_says_so_differently(
 
     An acceptance command failing before the model touched anything charges the
     model for the tree. The operator fixes the tree; they do not rewrite the
-    contract, which is what the other refusal asks for — so one message that
-    named both lists would leave them unable to tell which.
+    contract, which is what the other refusal asks for — so the refusal names
+    the acceptance command as the one that failed, never a demonstration. Its
+    one mention of `demonstration` is the hint for the case where the command
+    was meant to fail first, and it names that slot as where the command goes.
     """
     code, sent, err = _run(
         repo,
@@ -193,8 +195,14 @@ def test_an_acceptance_suite_already_red_refuses_and_says_so_differently(
         "an acceptance command already failing must refuse before a rung is spent"
     )
     assert not sent, "and must refuse before dispatching"
-    assert "acceptance" in err.lower() and "demonstration" not in err.lower(), (
+    assert "acceptance command already fails" in err, (
+        f"this refusal is about the acceptance suite: {err}"
+    )
+    assert "demonstrating command" not in err.lower(), (
         f"this refusal is about the acceptance suite alone: {err}"
+    )
+    assert "it belongs in `demonstration`, not `acceptance`" in err, (
+        f"the refusal names the slot a fail-first command goes in: {err}"
     )
 
 
