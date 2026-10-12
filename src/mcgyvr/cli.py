@@ -2906,6 +2906,7 @@ def _report_run(
     reports itself and reaches :func:`_commit` directly.
     """
     from mcgyvr.deliver import Accepted, DeliveryError
+    from mcgyvr.escalate import Assurance
     from mcgyvr.gate.changeset import ChangeSet
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
@@ -2966,8 +2967,10 @@ def _report_run(
             )
         return 0
     # Only now: `accepted` tells the caller the change is in the target, and
-    # until the bytes are bound there is nothing to put there.
+    # until the bytes are bound there is nothing to put there. A tool's change
+    # on the gate is what `deterministic` labels.
     report.outcome = "accepted"
+    report.assurance = Assurance.DETERMINISTIC.value
     return _commit(
         args,
         contract,

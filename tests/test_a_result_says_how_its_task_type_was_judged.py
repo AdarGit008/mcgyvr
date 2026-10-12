@@ -311,3 +311,26 @@ def test_the_catalog_names_each_reply_types_label(
         assert main(["catalog", name]) == 0
         out = capsys.readouterr().out
         assert f"assurance `{label}`" in out, out
+
+
+def test_a_floor_run_result_is_labelled_deterministic(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A `code` contract a tool ran on the floor says so in its result file."""
+    import json
+
+    from tests import livejournal as lj
+
+    lj.scripted(monkeypatch)  # nothing scripted: the floor dispatches nothing
+    ours = tmp_path / "corpus"
+    repo = lj.make_repo(tmp_path / "repo")
+    (repo / "src" / "pkg" / "messy.py").write_text("x = {  'a':1 }\n", encoding="utf-8")
+    lj.git(repo, "commit", "-qam", "unformatted")
+    config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=ours)
+    contract = lj.make_contract(tmp_path / "tidy.yaml", OPERATION)
+
+    assert lj.main(lj.run_args(contract, repo, config)) == 0
+    (result,) = lj.results(ours)
+    written = json.loads(result.read_text(encoding="utf-8"))
+    assert written["outcome"] == "accepted"
+    assert written["assurance"] == "deterministic"
