@@ -105,6 +105,15 @@ def is_pattern(target: str) -> bool:
 # without quoting. Deliberately narrow — an id is a join key, not prose.
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
+# A leading ``NAME=value`` word. A shell reads it as an assignment for the
+# command after it; executed with no shell it is the program's name.
+_ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+# The characters a POSIX shell reads as an operator when unquoted: the list
+# separators, the pipe and the redirects. Executed with no shell, each one is
+# handed to the program as an argument instead.
+_SHELL_OPERATOR_CHARS = frozenset("&|;<>")
+
 
 class ContractError(Exception):
     """Base class for every contract failure."""
@@ -342,6 +351,20 @@ def _evidence_allowance(evidence: CatalogEvidence) -> int:
     name would put the evidence vocabulary in this file too.
     """
     return RUNNING_ALLOWANCE if evidence.needs_commands else STRUCTURAL_ALLOWANCE
+
+
+def generic_stop_condition(task_type_name: str, subject: str) -> str:
+    """The stop condition to start from: decide nothing the contract left open.
+
+    One spelling, because three places say it — the proposer writes it into
+    the contracts it emits, the field doc shows it, and the loader's refusal
+    hands it to an author who named none — and a condition that read
+    differently in each would be three conditions.
+    """
+    return (
+        f"{task_type_name} on {subject} would require deciding something the "
+        "contract does not state — report BLOCKED rather than guess"
+    )
 
 
 # --- the declared schema --------------------------------------------------
@@ -639,10 +662,12 @@ SCHEMA: tuple[Field, ...] = (
         "str_list",
         "Explicit triggers on which the worker must stop and report BLOCKED "
         "instead of guessing — scope creep, an unknown API, an ambiguous "
-        "directive. Required for any task type a model executes: guessing is "
-        "the documented small-model failure mode these exist to prevent, "
-        "and a worker with no stated stop condition has no licence to "
-        "refuse.",
+        "directive. Required when a model writes a `whole_file` reply, the "
+        "one whose refusal is caught and escalated: guessing is the documented "
+        "small-model failure mode these exist to prevent. A `prose` or "
+        "`media_artifact` reply is served whatever it says, so none is "
+        "required there. Start from "
+        f"`{generic_stop_condition('<task_type>', '<target>')}`.",
         default=(),
         worker_facing=True,
     ),
@@ -706,23 +731,26 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "acceptance",
         "str_list",
-        "Shell commands that must pass for the change to be accepted — the "
-        "strongest signal the gate has. Each must also pass on the *unchanged* "
-        "tree (the preflight refuses a suite that is already red), which is "
-        "exactly why a command meant to demonstrate a defect cannot live here: "
-        "it goes in `demonstration`. Arbitrary shell from a contract: they "
-        "run inside the per-task sandbox — a container in `docker` mode, a "
-        "throwaway workspace on your own machine in `tempdir` mode.",
+        "Commands, one per entry, split like a shell would split them (quotes "
+        "respected) and executed directly with no shell: no `VAR=x` prefix, "
+        "`&&`, pipes or redirects (`mcgyvr contract` refuses them; write "
+        "`env VAR=x cmd`, or commit a script). Each must pass for the change "
+        "to be accepted — the strongest signal the gate has — and also on the "
+        "*unchanged* tree (the preflight refuses a suite that is already red), "
+        "which is why a command meant to demonstrate a defect goes in "
+        "`demonstration`. Arbitrary code from a contract: they run inside the "
+        "per-task sandbox — a container in `docker` mode, a throwaway "
+        "workspace on your own machine in `tempdir` mode.",
         default=(),
     ),
     Field(
         "demonstration",
         "str_list",
-        "Shell commands that demonstrate the defect: each must FAIL on the "
+        "Commands that demonstrate the defect: each must FAIL on the "
         "unchanged tree and pass after the change — the `failing_test_first` "
         "evidence, as a slot of its own because its baseline expectation is "
-        "the opposite of `acceptance`'s. Runs in "
-        "the same sandbox, under the same read-only rule.",
+        "the opposite of `acceptance`'s. Written, run and sandboxed exactly "
+        "like `acceptance`, under the same read-only rule.",
         default=(),
     ),
     Field(
@@ -1367,6 +1395,70 @@ def _join(path: str, name: str) -> str:
 # --- self-contradiction ---------------------------------------------------
 
 
+def _check_command(command: str, path: str) -> None:
+    """Refuse shell syntax in a command that will be executed with no shell.
+
+    ``acceptance`` and ``demonstration`` are split like a shell would split
+    them and executed directly (:attr:`Contract.acceptance_commands`). Syntax
+    only a shell gives meaning to would otherwise fail at run time and read
+    as something else — a ``VAR=x`` prefix as exit 127, "a missing
+    dependency", and an unclosed quote as a ``ValueError`` out of the split —
+    so it is named here, before a sandbox is built.
+    """
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        raise ContractSchemaError(
+            f"{path}: {command!r} cannot be split into arguments ({exc}); "
+            f"commands run without a shell but are split like one, so every "
+            f"quote must close."
+        ) from None
+    if argv and _ENV_ASSIGNMENT.match(argv[0]):
+        raise ContractSchemaError(
+            f"{path}: starts with the environment assignment {argv[0]!r}, but "
+            f"commands run without a shell, so it would be executed as a "
+            f"program of that name. Write `env {command}`, or use the tool's "
+            f"own flag (`python -B` rather than PYTHONDONTWRITEBYTECODE=1)."
+        )
+    operator = _unquoted_operator(command)
+    if operator is not None:
+        raise ContractSchemaError(
+            f"{path}: {command!r} contains the shell operator `{operator}`, "
+            f"but commands run without a shell, so the program would receive "
+            f"it as an argument. Put one command in each entry, or put the "
+            f"pipeline in a committed script and run that."
+        )
+
+
+def _unquoted_operator(command: str) -> str | None:
+    """The first run of shell-operator characters outside quotes, or ``None``.
+
+    Read with POSIX quoting — single quotes, double quotes and the backslash —
+    so ``grep -q '|' f`` passes and ``pytest 2>/dev/null`` does not. Only
+    called on a command ``shlex.split`` accepted, so every quote closes.
+    """
+    run = ""
+    quote = ""
+    escaped = False
+    for char in command:
+        if escaped:
+            escaped = False
+        elif quote == "'":
+            quote = "" if char == "'" else quote
+        elif char == "\\":
+            escaped = True
+        elif quote:
+            quote = "" if char == quote else quote
+        elif char in "'\"":
+            quote = char
+        elif char in _SHELL_OPERATOR_CHARS:
+            run += char
+            continue
+        if run:
+            return run
+    return run or None
+
+
 def _cross_validate(data: Mapping[str, Any]) -> None:
     """Reject contracts that satisfy the schema but contradict themselves.
 
@@ -1450,12 +1542,26 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"rejected by the gate. Add a pattern that covers it."
             )
 
-    if not kind.deterministic and not data["stop_conditions"]:
+    # Required only where a BLOCKED reply is heard: a whole_file reply is
+    # parsed, and a refusal in it escalates (worker/reply.py), while a raw-text
+    # reply is served as the answer whatever it says — a condition there would
+    # be filler nothing reads.
+    if (
+        not kind.deterministic
+        and data["output_schema"] == "whole_file"
+        and not data["stop_conditions"]
+    ):
         raise ContractSchemaError(
             f"stop_conditions: is empty, but task type {kind.name!r} runs on "
-            f"a model. Without a stated trigger to report BLOCKED, a worker "
-            f"that meets an unknown will guess. Name at least one condition."
+            f"a model that replies with a whole_file. Without a stated trigger "
+            f"to report BLOCKED, a worker that meets an unknown will guess. "
+            f"Name at least one condition; start from "
+            f'"{generic_stop_condition(kind.name, target)}".'
         )
+
+    for field in ("acceptance", "demonstration"):
+        for index, command in enumerate(data[field]):
+            _check_command(command, f"{field}.{index}")
 
     if kind.needs_acceptance_commands and not data["acceptance"]:
         needed = ", ".join(

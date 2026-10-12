@@ -237,6 +237,35 @@ def test_a_demonstration_that_cannot_run_is_an_environment_fault(
     assert issue.reason == "acceptance-unavailable"
 
 
+def test_a_command_that_was_not_found_says_commands_run_without_a_shell(
+    git_repo: Path,
+) -> None:
+    """F12: a ``VAR=x`` prefix is executed as the program, exit 127.
+
+    The loader refuses that spelling; a caller that hands the gate argv
+    directly still gets the reason beside "missing dependency", on every
+    path a command that never ran is reported on. A command found but not
+    executable (126) is not about the shell, and does not say so.
+    """
+    prefixed = ("PYTHONDONTWRITEBYTECODE=1", "python", "-c", "pass")
+    with TempDirSandbox(git_repo) as sandbox:
+        report = Acceptance(sandbox, (prefixed,)).run()
+        regression = Acceptance(sandbox, (("no-such-tool-99",),)).precondition()
+        demonstration = Acceptance(
+            sandbox, (), demonstrations=(prefixed,)
+        ).precondition()
+        not_executable = Acceptance(sandbox, (("./app.py",),)).precondition()
+    assert len(report.environment_issues) == 1
+    assert "(commands run without a shell)" in report.environment_issues[0]
+    for issue in (regression, demonstration):
+        assert issue is not None
+        assert issue.reason == "acceptance-unavailable"
+        assert "(commands run without a shell)" in issue.message, issue.message
+    assert not_executable is not None
+    assert not_executable.reason == "acceptance-unavailable"
+    assert "without a shell" not in not_executable.message, not_executable.message
+
+
 def test_a_demonstration_that_times_out_at_baseline_has_not_demonstrated(
     git_repo: Path,
 ) -> None:

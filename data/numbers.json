@@ -444,6 +444,11 @@
       "says": "How many lines of a failing command's output are carried, taken from its end.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     },
+    "gate/acceptance.py:_NOT_FOUND": {
+      "kind": "fact",
+      "says": "The shell status that means a command's program was not found.",
+      "reason": "the specification of a format, protocol or tool"
+    },
     "gate/adapter.py:_DETAIL_LIMIT": {
       "kind": "choice",
       "says": "How many characters of a failed tool's own words a finding carries.",

@@ -67,7 +67,16 @@ YAML_FENCE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
 #: caller to read, gains `checked` and `unchecked` beside the three labels it
 #: had, and step 3 lists all five once — the growth is the result's schema,
 #: not prose bloat.
-MAX_SKILL_BODY_BYTES = 20_300
+#:
+#: 20_300 -> 20_500: e2e run 1 (F10). `stop_conditions` says where it is
+#: required — a whole_file reply, whose refusal is caught — and shows the
+#: generic condition to start from. The contract's own rule, newly stated,
+#: not prose bloat.
+#:
+#: 20_500 -> 20_700: e2e run 1 (F12). `acceptance` says its commands run with
+#: no shell and what that rules out, which the loader now refuses. The
+#: contract's own rule, newly enforced and stated, not prose bloat.
+MAX_SKILL_BODY_BYTES = 20_700
 
 
 def _body(path: Path) -> str:

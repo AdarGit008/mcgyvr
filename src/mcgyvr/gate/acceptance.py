@@ -82,6 +82,10 @@ CHECK = "acceptance"
 #: environment-issue channel is defined, and read there.
 DID_NOT_RUN = frozenset({126, 127})
 
+# Of the two, the one that says the program was not found — which is also what
+# a ``VAR=x cmd`` prefix or a shell keyword comes to when executed directly.
+_NOT_FOUND = 127
+
 # How much of a failing command's output to carry. Kept from the tail, so the
 # failing part survives even when the passes before it are voluminous.
 _MAX_EXCERPT_LINES = 40
@@ -320,9 +324,32 @@ def _as_finding(
     )
 
 
+def _not_run_detail(command: Sequence[str], result: CommandResult) -> str:
+    """Why a command never ran, noting the missing shell where it may be why.
+
+    Commands are executed with no shell, so a ``VAR=x`` prefix is run as a
+    program of that name, and ``&&`` or a pipe reaches the first program as an
+    argument; both read as a missing dependency unless something says so.
+    The loader refuses that syntax in a contract, so this is for argv that
+    reached the gate another way, and for a program that really is missing.
+
+    "Not found" is read from the exit code *or* from a bare program name:
+    a name looked up on ``PATH`` that never ran is a not-found in practice
+    even when it surfaces as 126, because Python's lookup reports an
+    unreadable ``PATH`` entry's ``EACCES`` in preference to ``ENOENT``. Only a
+    program named by its path and refused (126) is certainly not about the
+    shell.
+    """
+    detail = result.stderr.strip() or f"exit {result.exit_code}"
+    program = command[0] if command else ""
+    if result.exit_code == _NOT_FOUND or "=" in program or "/" not in program:
+        detail += " (commands run without a shell)"
+    return detail
+
+
 def _did_not_run_note(command: Sequence[str], result: CommandResult) -> str:
     """The environment-issue line for a command that never ran."""
-    detail = result.stderr.strip() or f"exit {result.exit_code}"
+    detail = _not_run_detail(command, result)
     return (
         f"acceptance: {_label(command)} could not run — {detail}; this is a "
         "missing dependency, an environment fault, not a rejected change"
@@ -337,7 +364,7 @@ def _as_preflight(
         return None
     label = _label(command)
     if outcome is _Outcome.DID_NOT_RUN:
-        detail = result.stderr.strip() or f"exit {result.exit_code}"
+        detail = _not_run_detail(command, result)
         return PreflightIssue(
             "acceptance-unavailable",
             f"acceptance command cannot run on this machine: {label} — {detail}. "
@@ -381,7 +408,7 @@ def _demonstration_preflight(
         return None
     label = _label(command)
     if outcome is _Outcome.DID_NOT_RUN:
-        detail = result.stderr.strip() or f"exit {result.exit_code}"
+        detail = _not_run_detail(command, result)
         return PreflightIssue(
             "acceptance-unavailable",
             f"demonstrating command cannot run on this machine: {label} — "

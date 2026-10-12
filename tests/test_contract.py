@@ -12,6 +12,8 @@ worker prompt" is only true if there is no other accessor that leaks them.
 
 from __future__ import annotations
 
+import json
+import shlex
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -425,6 +427,56 @@ def test_a_model_task_type_without_stop_conditions_is_rejected() -> None:
     assert "will guess" in message
 
 
+def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_does() -> (
+    None
+):
+    """Stop conditions are required only where a BLOCKED reply can be heard (F10).
+
+    A whole_file reply is parsed, and a refusal in it is a named outcome that
+    escalates; a prose or media_artifact reply is served as the answer, so a
+    condition there is filler nothing reads. The prompt says nothing about
+    stopping when none is given, and the refusal for a whole_file contract
+    hands the author the generic condition to start from.
+    """
+    from mcgyvr.worker.prompt import render_user_message
+
+    for task_type, schema, extra in (
+        ("chat", "prose", ""),
+        ("agent", "prose", 'sources: ["src/report.txt"]\n'),
+        ("media", "media_artifact", "media_kind: image\n"),
+    ):
+        contract = loads(
+            f"id: t\ntask_type: {task_type}\ntask: Do it.\ntarget: out.txt\n"
+            f"output_schema: {schema}\n{extra}"
+            'scope:\n  allow: ["out.txt"]\n'
+        )
+        assert contract.stop_conditions == (), task_type
+        prompt = render_user_message(contract.worker_view())
+        assert "STOP AND REPORT BLOCKED" not in prompt, task_type
+
+    without = MINIMAL.replace(
+        "stop_conditions:\n  - The retry policy is not stated anywhere in the repo.\n",
+        "",
+    )
+    with pytest.raises(ContractSchemaError) as exc:
+        loads(without)
+    message = str(exc.value)
+    assert message.startswith("stop_conditions:"), message
+    assert "whole_file" in message, message
+    assert (
+        "code on src/pkg/fetch.py would require deciding something the "
+        "contract does not state — report BLOCKED rather than guess"
+    ) in message, message
+
+    # A chat contract left on the default whole_file reply is parsed as a
+    # file, so a refusal there is heard and the condition is required.
+    with pytest.raises(ContractSchemaError, match=r"^stop_conditions:"):
+        loads(
+            "id: t\ntask_type: chat\ntask: Answer.\ntarget: out.txt\n"
+            'scope:\n  allow: ["out.txt"]\n'
+        )
+
+
 def test_a_deterministic_task_type_needs_no_stop_conditions() -> None:
     """A tool cannot guess, so the requirement would be ceremony."""
     assert loads(DETERMINISTIC).stop_conditions == ()
@@ -506,6 +558,79 @@ def test_a_command_in_both_lists_is_rejected() -> None:
     message = str(exc.value)
     assert message.startswith("demonstration:")
     assert "both pass and fail" in message
+
+
+def _with_commands(acceptance: list[str], demonstration: list[str]) -> str:
+    """MINIMAL with these command lists, as JSON flow sequences (valid YAML)."""
+    return MINIMAL.replace(
+        'acceptance: ["pytest -q"]',
+        f"acceptance: {json.dumps(acceptance)}\n"
+        f"demonstration: {json.dumps(demonstration)}",
+    )
+
+
+@pytest.mark.parametrize(
+    ("command", "said"),
+    [
+        ("pytest -k 'retry", "quote"),
+        ("PYTHONDONTWRITEBYTECODE=1 pytest -q", "env PYTHONDONTWRITEBYTECODE=1"),
+        ("_X=1 pytest", "env _X=1"),
+        ("pytest -q && ruff check", "&&"),
+        ("pytest -q || true", "||"),
+        ("pytest -q | tail -5", "|"),
+        ("pytest -q ; ruff check", ";"),
+        ("pytest -q; ruff check", ";"),
+        ("pytest -q > out.txt", ">"),
+        ("pytest -q >> out.txt", ">>"),
+        ("pytest -q < in.txt", "<"),
+        ("pytest -q 2> err.txt", ">"),
+        ("pytest -q 2>&1", ">&"),
+        ("pytest -q &", "&"),
+        ("pytest -q >out.txt", ">"),
+        ("pytest -q 2>/dev/null", ">"),
+    ],
+)
+def test_an_acceptance_command_with_an_env_prefix_or_shell_operator_is_refused_at_load(
+    command: str, said: str
+) -> None:
+    """Contract commands are split and executed with no shell (F12).
+
+    Shell syntax is refused when the contract loads, naming the list and the
+    entry, rather than surfacing at run time as exit 127 "missing dependency"
+    or a ValueError out of ``shlex.split``. Each list is checked on its own.
+    """
+    for document, field in (
+        (_with_commands(["pytest -q", command], []), "acceptance.1:"),
+        (_with_commands(["pytest -q"], ["pytest -q tests/a.py", command]), None),
+    ):
+        with pytest.raises(ContractSchemaError) as exc:
+            loads(document)
+        message = str(exc.value)
+        assert message.startswith(field or "demonstration.1:"), message
+        assert said in message, message
+        assert "commands run without a shell" in message, message
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "env PYTHONDONTWRITEBYTECODE=1 python -m pytest -q",
+        "python -B -m pytest -q",
+        "pytest -k 'retry and not slow'",
+        'pytest -k "retry and not slow"',
+        "python -c 'import sys; sys.exit(1 > 0)'",
+        "grep -q '|' src/pkg/fetch.py",
+        r"grep -q \> src/pkg/fetch.py",
+        "pytest --opt=a=b",
+        "sh -c 'pytest -q && ruff check'",
+    ],
+)
+def test_a_command_with_quoted_shell_characters_or_env_is_accepted(
+    command: str,
+) -> None:
+    """Quoting keeps a character an argument; ``env`` is a program, not syntax."""
+    contract = loads(_with_commands(["pytest -q", command], []))
+    assert contract.acceptance_commands[1] == tuple(shlex.split(command))
 
 
 def test_a_demonstration_is_permitted_where_not_required() -> None:
