@@ -32,7 +32,8 @@ from tests import livejournal as lj
 
 FORMAT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module.
 target: src/pkg/messy.py
 scope:
@@ -67,7 +68,8 @@ def test_the_floor_writes_a_row_the_corpus_can_be_asked_about(
 
     row = floor_row(ours)
     assert row["orchestrator"] == "claude-s1"
-    assert row["task_type"] == "format"
+    assert row["task_type"] == "code"
+    assert row["operation"] == "format"
     assert row["tier"] == "deterministic"
     assert "tidy" in str(row["attempt_id"])
 

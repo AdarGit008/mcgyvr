@@ -98,61 +98,37 @@ never the reverse.
 The start is the *type's* floor only; escalation climbs from it (#24), and
 that is not decided here.
 
-## How the inherited vocabulary was validated
+## Four task types, and the operations of `code`
+
+The vocabulary is exactly four task types, one per use case: `code` (a scoped
+change to a repository), `chat` (a raw reply, unjudged), `agent` (a reply
+judged by `grounded` and `safety_pass`) and `media` (an artifact judged by
+`media_valid`). Nothing else is a task type.
+
+`code` covers every coding change. Kinds of coding work that differed only in
+which evidence a contract had to carry are one type whose evidence is derived
+from the contract's own fields (`demonstration`, `acceptance`,
+`no_semantic_change`, `type_check`), so a model states relevance and the
+orthogonal flags rather than choosing among near-duplicates. Work a tool does
+outright is `code` too, with an `operation:` — `format`, `import_sort`,
+`lint_fix`, `rename_symbol`, the `deterministic_operations` of this file. Each
+operation names the task type it belongs to and carries its own guarantee,
+evidence (a tool's output, or the index's own resolution) and `deterministic`
+starting family, so it runs with no model.
 
 The starting list came from local-ai's triage map and was inherited, not
-validated. The evidence available to judge it was coding-benchmark scores,
-and their limits decide most of the answers: such a benchmark scores short,
-self-contained function synthesis against a stated signature, and says nothing
-about multi-hunk edits or about behaviour on a repository the model can see.
-The product ships no such score.
+validated; it was narrowed to this by dropping what had no acceptance evidence
+a gate could produce, no single-file shape a model worker can emit, or no
+guarantee distinct from another entry's (difficulty is what escalation, #24,
+climbs over, not a type). A contract that still names a former task type is
+refused with the spelling that replaced it; that one table,
+`RETIRED_TASK_TYPES` in `src/mcgyvr/catalog.py`, is the only place a former
+name is kept.
 
-So `function_implementation` is the one entry such scores bear on directly
-— it is that shape exactly — and `docstring` is warranted by measurement only
-weakly, leaning on `no_semantic_change`, a structural comparison the gate makes
-without running anything. Every other entry is carried on a *structural*
-argument, recorded per entry in its `warrant` field: the evidence is a tool's
-output (`format`, `import_sort`, `lint_fix`), the index's own resolution
-(`rename_symbol`), a checker's verdict (`type_annotation`), or a scope boundary
-that removes the failure mode (`test_scaffold` cannot make a test pass by
-editing what it tests).
-
-`bug_fix` is the honest weak spot, and its `warrant` says so: nothing measured
-covers diagnosis. What makes a cheap attempt safe to make anyway is
-`failing_test_first` — with a demonstration required up front, a worker that did
-not understand the defect produces a change that visibly fails rather than a
-plausible one that lands.
-
-## What was removed, and why
-
-Removals live in the `excluded` block rather than being deleted, for the same
-reason the capability table keeps its harness caveats: the next person to
-reach for `multi_file_refactor` should find out why it is absent instead of
-rediscovering it. Both the loader and `mcgyvr catalog <name>` surface the reason
-rather than reporting "unknown type".
-
-They fall into three groups:
-
-- **Structurally unservable.** `multi_file_refactor` — the worker output
-  protocol is one file's complete content in one fenced block (#25), so no model
-  rung can emit a coordinated multi-file change at all. `rename_symbol` is the
-  one multi-file operation the catalog carries, and it is deterministic
-  precisely because the index resolves the references instead of a model
-  guessing them.
-- **No acceptance evidence exists.** `interface_design` has no command that can
-  fail, so the gate cannot accept it and a model verifier would be the only
-  judge — spending expensive tokens to decide whether expensive tokens were well
-  spent. `comment_addition` has nothing the gate can distinguish from no change
-  at all. `config_edit` has no language adapter (the gate's adapters are
-  Python and JavaScript/TypeScript only), so acceptance would rest on the file
-  still parsing.
-- **Not a distinct guarantee.** `algorithm_implementation` differs from
-  `function_implementation` only in how hard the prompt is.
-  `simple_bug_fix`/`complex_bug_fix` encode difficulty in the type name, and
-  difficulty is already what escalation (#24) climbs over — a second copy in
-  the vocabulary is a copy that can disagree with the first.
-  `string_literal_edit` is an exact edit at a known location — a tool's job,
-  not a kind of work to route.
+`code`'s honest weak spot is diagnosis: nothing measured covers it. What makes
+a cheap attempt at a fix safe anyway is `failing_test_first` — with a
+`demonstration` up front, a worker that did not understand the defect produces
+a change that visibly fails rather than a plausible one that lands.
 
 
 # The numbers that size and judge a machine

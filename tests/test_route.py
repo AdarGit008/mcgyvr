@@ -255,20 +255,22 @@ ladder:
 
 DETERMINISTIC_CONTRACT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
   allow: ["src/**"]
 """
 
-# A deterministic type whose floor binds no program: this project's eslint
+# A deterministic operation whose floor binds no program: this project's eslint
 # config is `recommended`, which has no import-order rule, so nothing sorts
 # imports in js/ts. This is the contract that reaches the empty-plan path, since
 # the floor binds tools for the types that have them.
 UNBOUND_DETERMINISTIC_CONTRACT = """
 id: tidy-imports
-task_type: import_sort
+task_type: code
+operation: import_sort
 task: Sort the imports.
 target: src/pkg/fetch.ts
 scope:
@@ -573,7 +575,7 @@ def test_a_plan_is_the_contracts_floor_family_cheapest_rung_first(key: None) -> 
 
     made = plan(config, pool, contract())
 
-    assert made.family == LOCAL  # function_implementation starts on local
+    assert made.family == LOCAL  # code starts on local
     assert made.rungs == ("local_qwen-7b", "local_qwen-14b")
     assert made.budget == 2
 
@@ -596,7 +598,7 @@ def test_a_plan_never_contains_a_rung_of_another_family(key: None) -> None:
 def test_the_deterministic_family_plans_the_tool_that_does_the_work() -> None:
     """The floor binds a program, so a `format` contract plans one.
 
-    A family that planned nothing would make every deterministic type a model
+    A family that planned nothing would make every deterministic operation a model
     call for work `ruff` does for free. The structural reason string for an
     empty plan is still reachable, and the test below is what reaches it.
     """

@@ -70,7 +70,7 @@ from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr import contract as contract_module
-from mcgyvr.catalog import TaskType, catalog
+from mcgyvr.catalog import CatalogError, TaskType, catalog
 from mcgyvr.contract import Contract, ContractError, evidence_for, output_cap
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
@@ -464,19 +464,10 @@ def _emit(
 def _unservable_reason(task_type: str, servable: set[str]) -> str:
     """Why a type is not on offer: unknown, or known but unreachable here."""
     known = catalog()
-    if known.get(task_type) is None:
-        excluded = known.excluded_entry(task_type)
-        if excluded is not None:
-            return (
-                f"{task_type!r} was removed from the vocabulary: {excluded.reason}"
-                + (
-                    f" — use {excluded.superseded_by!r} instead"
-                    if excluded.superseded_by
-                    else ""
-                )
-            )
-        return f"{task_type!r} is not a task type. Valid: {', '.join(known.names)}"
-    family = known.require(task_type).starts_on.name
+    try:
+        family = known.require(task_type).starts_on.name
+    except CatalogError as exc:
+        return str(exc)
     return (
         f"{task_type!r} must start on the {family!r} family and no configured "
         f"rung serves it — bind one, or ask for work of a type this ladder can "
@@ -772,7 +763,7 @@ def _reply_cap(proposal: Proposal, *, new_file: bool) -> int | None:
     one derivation the loader and ``mcgyvr contract`` already make,
     :func:`mcgyvr.contract.output_cap`, from the type's own evidence — nothing
     here invents a number — with the new-file step the loader cannot know and
-    this module can. A deterministic type has no reply to cap and a raw-text
+    this module can. A deterministic operation has no reply to cap and a raw-text
     type (``prose``, ``media_artifact``) carries none, so both get ``None``.
     """
     if proposal.max_output_tokens is not None:

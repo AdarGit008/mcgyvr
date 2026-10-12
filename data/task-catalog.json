@@ -1,11 +1,11 @@
 {
   "schema_version": 2,
-  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the vocabulary a model may choose; `deterministic_operations` are the operations the product runs directly and a model never names. This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated and what was removed from it.",
+  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`, `chat`, `agent` and `media`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated.",
   "vendored_from": {
     "repo": "AdarGit008/local-ai",
     "status": "archived",
     "date": "2026-08-01",
-    "_note": "The starting vocabulary was inherited from local-ai's triage map. It was inherited, not validated. `excluded` below records what did not survive validation and why."
+    "_note": "The starting vocabulary was inherited from local-ai's triage map. It was inherited, not validated; data/README.md says how it was narrowed to the four types here."
   },
 
   "families": [
@@ -47,7 +47,7 @@
   "evidence_kinds": [
     {
       "name": "gate",
-      "doc": "The deterministic acceptance gate. The floor under every coding type; chat is ungated, and agent and media-gen are judged by their own structural evidence through the gate's output-checks rung.",
+      "doc": "The deterministic acceptance gate. The floor under every `code` contract; chat is ungated, and agent and media are judged by their own structural evidence through the gate's output-checks rung.",
       "needs_commands": false
     },
     {
@@ -110,6 +110,7 @@
   "deterministic_operations": [
     {
       "name": "format",
+      "task_type": "code",
       "use_case": "coding",
       "starts_on": "deterministic",
       "guarantee": "The target is byte-identical to what the project's own formatter produces. No semantic change, and nothing is decided that the formatter's configuration did not already decide.",
@@ -119,6 +120,7 @@
     },
     {
       "name": "import_sort",
+      "task_type": "code",
       "use_case": "coding",
       "starts_on": "deterministic",
       "guarantee": "Imports are ordered as the project's own tool orders them, with no other change to the file.",
@@ -128,25 +130,37 @@
     },
     {
       "name": "lint_fix",
+      "task_type": "code",
       "use_case": "coding",
       "starts_on": "deterministic",
-      "guarantee": "Every autofix the project's linter applies is applied, and nothing else is. A diagnostic the linter will not fix itself is explicitly out of scope for this type rather than handed to a model under the same name.",
+      "guarantee": "Every autofix the project's linter applies is applied, and nothing else is. A diagnostic the linter will not fix itself is explicitly out of scope for this operation rather than handed to a model under the same name.",
       "required_evidence": ["gate", "tool_idempotent"],
       "warrant": "structural — the linter decides both what is wrong and what the fix is.",
       "doc": "Apply the project linter's own autofixes."
     },
     {
       "name": "rename_symbol",
+      "task_type": "code",
       "use_case": "coding",
       "starts_on": "deterministic",
       "guarantee": "Every reference the index resolved is renamed, across every file that holds one. References the index could not resolve are reported, not silently left behind.",
       "required_evidence": ["gate", "references_resolved", "no_semantic_change"],
-      "warrant": "structural — the index (#47) already resolved the references, so this fans across files without a model. It is the only multi-file type in the catalog, and it is deterministic for exactly that reason.",
+      "warrant": "structural — the index (#47) already resolved the references, so this fans across files without a model. It is the only multi-file operation in the catalog, and it is deterministic for exactly that reason.",
       "doc": "Rename a symbol across the files that reference it."
     }
   ],
 
   "task_types": [
+    {
+      "name": "code",
+      "use_case": "coding",
+      "starts_on": "local",
+      "guarantee": "A scoped change to one target, judged by the deterministic gate. Which checks back the judgement is derived from the contract itself: a `demonstration` adds `failing_test_first`, an `acceptance` adds `tests_pass`, `no_semantic_change: true` adds `no_semantic_change`, and `type_check: true` adds `type_check`; the gate is always the floor. With `operation:` set, the named deterministic operation does the work with a tool, and its own guarantee and evidence apply instead.",
+      "required_evidence": ["gate"],
+      "evidence_derived": true,
+      "warrant": "One type for every coding task. Kinds of coding work that differed only in which evidence the contract had to carry are one type whose evidence is derived from the contract's fields, so the model states relevance and the orthogonal flags rather than choosing among near-duplicates. Work a tool does outright is the same type with an `operation`, because what differs is who does the work, not what kind of work it is.",
+      "doc": "Make a scoped edit to one named target. The gate judges the change, and the contract's own fields decide which checks back the judgement; with `operation:` a tool makes the change instead of a model."
+    },
     {
       "name": "chat",
       "use_case": "chat",
@@ -166,78 +180,13 @@
       "doc": "Answer a prompt with a grounded, safe reply in plain prose, judged by the gate's output checks."
     },
     {
-      "name": "code",
-      "use_case": "coding",
+      "name": "media",
+      "use_case": "media-gen",
       "starts_on": "local",
-      "guarantee": "A scoped change to one target, judged by the deterministic gate. Which checks back the judgement is derived from the contract itself: a `demonstration` adds `failing_test_first`, an `acceptance` adds `tests_pass`, `no_semantic_change: true` adds `no_semantic_change`, and `type_check: true` adds `type_check`; the gate is always the floor.",
-      "required_evidence": ["gate"],
-      "evidence_derived": true,
-      "warrant": "One type for every local coding task. The five types this collapses (`docstring`, `type_annotation`, `function_implementation`, `test_scaffold`, `bug_fix`) differed only in which evidence bundle the contract had to carry, and the model was asked to choose among near-duplicates — a mechanism (type + command) leaking into the model's relevance authority. The model now states relevance and the orthogonal flags; the evidence is derived, not chosen.",
-      "doc": "Make a scoped edit to one named target. The gate judges the change, and the contract's own fields decide which checks back the judgement."
-    }
-  ],
-
-  "excluded": [
-    {
-      "name": "comment_addition",
-      "reason": "No acceptance evidence distinguishes a good comment from a bad one, or from no change at all. Where the comment is a docstring the gate can at least assert nothing else moved — that shape is now `code` with `no_semantic_change: true`; a bare comment leaves the gate with nothing to judge.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "string_literal_edit",
-      "reason": "An exact edit at a known location is an operation the deterministic tier should perform outright, not a kind of work to route; as a task type it would spend a model rung on something no model is needed for."
-    },
-    {
-      "name": "config_edit",
-      "reason": "The gate's structural checks are Python and JS/TS only. A YAML or TOML change has no adapter, so acceptance would rest on nothing but the file still parsing — too thin a bar for a file that decides how everything else runs. Revisit when an adapter covers the format."
-    },
-    {
-      "name": "multi_file_refactor",
-      "reason": "Structurally unservable, not merely hard: the worker output protocol is one file's complete content in one fenced block (#25), so no model rung can emit a coordinated multi-file change at all. Routing it optimistically would guarantee a failure at the parse step rather than at the gate. `rename_symbol` is the one multi-file operation the catalog carries, and it is deterministic precisely because the index resolves the references instead of a model guessing them."
-    },
-    {
-      "name": "algorithm_implementation",
-      "reason": "Not a distinct guarantee. The contract already carries the interface and the acceptance commands, so this differs from a `code` contract that states both only in how hard the prompt is — and difficulty is what the ladder escalates over, not a name in the vocabulary.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "simple_bug_fix",
-      "reason": "Encodes difficulty in the type name. Difficulty is already routing state, resolved by escalation; a second copy in the vocabulary is a copy that can disagree with the first.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "complex_bug_fix",
-      "reason": "Same as `simple_bug_fix` — difficulty is not a type.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "docstring",
-      "reason": "Folded into `code`. A docstring change is `code` with `no_semantic_change: true` — the gate compares the parsed structure and rejects an edit that changed code while claiming only to document it.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "type_annotation",
-      "reason": "Folded into `code`. Annotation is `code` with `no_semantic_change: true` and `type_check: true` — the project's own type checker is the judge of whether the inference was right.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "function_implementation",
-      "reason": "Folded into `code`. Implementing one function against a stated interface is `code` with `interface` and an `acceptance` command.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "test_scaffold",
-      "reason": "Folded into `code`. Writing tests for one named target is `code` whose `target` is the test file, so the scope stays inverted and a worker cannot make a test pass by changing what it tests.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "bug_fix",
-      "reason": "Folded into `code`. A fix is `code` with a `demonstration` that fails before the change and passes after, plus an optional `acceptance` suite.",
-      "superseded_by": "code"
-    },
-    {
-      "name": "interface_design",
-      "reason": "No acceptance evidence exists for it. A designed interface has no command that can fail, so the deterministic gate cannot accept it and a model verifier would be the only judge — which spends expensive tokens to decide whether expensive tokens were well spent, and inverts the north star. Design is the calling agent's work; mcgyvr owns what is below the contract."
+      "guarantee": "The artifact at the target is a valid file of the contract's `media_kind` — the right format, with dimensions or a duration that can be read and are positive. Nothing else judges it.",
+      "required_evidence": ["media_valid"],
+      "warrant": "structural — media_valid reads the artifact's own header and structure, so a wrong-kind, empty or truncated output is caught without a contract command.",
+      "doc": "Generate one image, audio or video artifact, judged by the gate's media_valid check."
     }
   ]
 }

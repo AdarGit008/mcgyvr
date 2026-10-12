@@ -173,14 +173,14 @@ def test_a_hint_is_never_cheaper_than_the_types_own_floor() -> None:
 
 def test_a_hint_cheaper_than_the_types_floor_degrades_to_a_normal_climb() -> None:
     known = catalog()
-    bug_fix = known.require("code")
-    assert floor_for(bug_fix, known.family("deterministic")) == known.family("local")
+    code = known.require("code")
+    assert floor_for(code, known.family("deterministic")) == known.family("local")
 
 
 def test_a_hint_dearer_than_the_types_floor_raises_the_entry() -> None:
     known = catalog()
-    bug_fix = known.require("code")
-    assert floor_for(bug_fix, known.family("api")) == known.family("api")
+    code = known.require("code")
+    assert floor_for(code, known.family("api")) == known.family("api")
 
 
 # --- the reader ------------------------------------------------------------
@@ -235,7 +235,7 @@ def test_triage_sends_one_logprobs_request_per_question(
     assert len(sent.calls) == 2
     assert isinstance(result, Triage)
     # The first task type in the catalog, and a floor of the dearest family.
-    assert result.task_type.name == "chat"
+    assert result.task_type.name == "code"
     assert result.floor.name == "api"
     assert sent.calls[0]["max_tokens"] == 1
     assert sent.calls[0]["logprobs"] is True
@@ -258,10 +258,10 @@ def test_the_climb_stays_a_suffix_whatever_the_classifier_names(
     config, pool = mapped(THREE_RUNG)
     c = contract(BUG_FIX)
     normal = ascent(config, pool, c)
-    bug_fix = catalog().require("code")
+    code = catalog().require("code")
 
     for hinted in catalog().families:
-        floor = floor_for(bug_fix, hinted)
+        floor = floor_for(code, hinted)
         raised = ascent(config, pool, c, floor=floor)
         assert raised.plans == normal.plans[len(normal.plans) - len(raised.plans) :]
         assert raised.rungs == normal.rungs[len(normal.rungs) - len(raised.rungs) :]
@@ -271,8 +271,8 @@ def test_a_bad_hint_degrades_to_the_normal_climb(key: None) -> None:
     """The cheaper-than-the-floor hint is the one that must not move anything."""
     config, pool = mapped(TWO_FAMILIES)
     c = contract(BUG_FIX)
-    bug_fix = catalog().require("code")
-    floor = floor_for(bug_fix, catalog().family("deterministic"))
+    code = catalog().require("code")
+    floor = floor_for(code, catalog().family("deterministic"))
 
     assert floor == catalog().family("local")
     assert ascent(config, pool, c, floor=floor).plans == ascent(config, pool, c).plans

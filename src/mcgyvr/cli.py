@@ -301,6 +301,7 @@ def _local_pool(args: argparse.Namespace) -> int:
 
 def _catalog(args: argparse.Namespace) -> int:
     from mcgyvr.catalog import CatalogError, catalog
+    from mcgyvr.escalate import how_judged
 
     try:
         book = catalog()
@@ -322,25 +323,33 @@ def _catalog(args: argparse.Namespace) -> int:
         unservable = {t.name for t in book.unservable(config)}
 
     if args.name:
-        kind = book.get(args.name)
+        kind = book.get(args.name) or book.operation(args.name)
         if kind is None:
-            gone = book.excluded_entry(args.name)
-            if gone is not None:
-                print(f"{args.name}: not in the vocabulary.\n", file=sys.stderr)
-                print(f"  {gone.reason}", file=sys.stderr)
-                if gone.superseded_by:
-                    print(f"\n  Use `{gone.superseded_by}` instead.", file=sys.stderr)
-                return 1
-            valid = ", ".join(t.name for t in (*book.task_types, *book.operations))
-            print(
-                f"error: {args.name!r} is not a known task type. Valid: {valid}",
-                file=sys.stderr,
-            )
+            try:
+                book.require(args.name)
+            except CatalogError as exc:
+                operations = ", ".join(op.name for op in book.operations)
+                print(
+                    f"error: {exc} Deterministic operations (`task_type: code` "
+                    f"with `operation:`): {operations}",
+                    file=sys.stderr,
+                )
             return 1
-        print(f"{kind.name}  [starts on {kind.starts_on.name}]\n")
+        if kind.task_type:
+            print(
+                f"{kind.name}  [operation of `{kind.task_type}`, starts on "
+                f"{kind.starts_on.name}]\n"
+            )
+            print(
+                f"  Ask for it with `task_type: {kind.task_type}` and "
+                f"`operation: {kind.name}`.\n"
+            )
+        else:
+            print(f"{kind.name}  [starts on {kind.starts_on.name}]\n")
         print(f"  {kind.doc}\n")
         print(f"  guarantee:  {kind.guarantee}\n")
         print(f"  warrant:    {kind.warrant}\n")
+        print(f"  judged:     {how_judged(kind)}\n")
         print("  evidence required:")
         for evidence in kind.required_evidence:
             mark = "$" if evidence.needs_commands else "-"
@@ -359,7 +368,10 @@ def _catalog(args: argparse.Namespace) -> int:
         print(f"      {kind.guarantee}")
         print(f"      evidence: {', '.join(kind.evidence_names)}\n")
 
-    print("Deterministic operations (tools, never a model choice):\n")
+    print(
+        "Deterministic operations (not task types: a tool does the work, never a "
+        "model; ask for one with `task_type: code` and `operation: <name>`):\n"
+    )
     for op in book.operations:
         print(f"  {op.name:<24} {op.starts_on.name:<14}")
         print(f"      {op.guarantee}")
@@ -374,13 +386,6 @@ def _catalog(args: argparse.Namespace) -> int:
                 print(f"  {name}")
         else:
             print(f"Every type is servable by the ladder in {config.path}.")
-
-    if args.excluded:
-        print("\nConsidered and removed:\n")
-        for gone in book.excluded:
-            replacement = f" (use `{gone.superseded_by}`)" if gone.superseded_by else ""
-            print(f"  {gone.name}{replacement}")
-            print(f"      {gone.reason}\n")
     return 0
 
 
@@ -442,7 +447,8 @@ def _contract(args: argparse.Namespace) -> int:
 
     tier = "deterministic tier" if contract.is_deterministic else "model tier"
     print(f"{args.path}: valid\n")
-    print(f"  {contract.id}  [{contract.task_type}] — {tier}")
+    operation = f", operation {contract.operation}" if contract.operation else ""
+    print(f"  {contract.id}  [{contract.task_type}{operation}] — {tier}")
     print(f"  target:  {contract.target}")
     print(f"  allow:   {', '.join(contract.scope.allow)}")
     if contract.scope.forbid:
@@ -1855,8 +1861,9 @@ def _run(args: argparse.Namespace) -> int:
 
     Two paths, chosen by the contract rather than by a flag. A deterministic
     contract names a program and is run here; anything else climbs a ladder and
-    is :func:`_climb`'s. The split is the contract's ``task_type`` because that
-    is where the catalog already records which family work of this kind may
+    is :func:`_climb`'s. The split is the contract's catalog entry (its
+    ``operation``'s, or its ``task_type``'s) because that is where the catalog
+    already records which family work of this kind may
     *begin* on, and a flag that let a caller override it would be a second,
     quieter answer to the question ``starts_on`` exists to settle.
 
@@ -2226,7 +2233,7 @@ def _floor(
         # `--record` directory gets this run's row, its verdict and a copy of
         # its result, and so does mcgyvr's own `journal.dir`.
         print(
-            f"note: {contract.id} is a {contract.task_type!r} contract and runs "
+            f"note: {contract.id} is a {contract.kind.name!r} contract and runs "
             f"on the deterministic floor; it dispatches nothing, so the copy in "
             f"{args.record} is a row naming the program that did the work and a "
             f"copy of this run's result, with no prompt or reply beside them"
@@ -2235,7 +2242,7 @@ def _floor(
     if not steps:
         return _error(
             report,
-            f"no program is bound to {contract.task_type!r} for "
+            f"no program is bound to {contract.kind.name!r} for "
             f"{contract.target}. The work is still doable on a dearer "
             f"family, which this command does not climb to.",
         )
@@ -2248,7 +2255,7 @@ def _floor(
     # One row per run, not per step: `tool_steps` returns one step or none —
     # "a tool fails identically on retry" — and a key per step would invent a
     # breadth the floor does not have.
-    rung = steps[0].tool.program or contract.task_type
+    rung = steps[0].tool.program or contract.kind.name
     attempt_id = recording.attempt_id(contract.id, rung, 1)
 
     def work() -> GateResult:
@@ -2295,6 +2302,7 @@ def _floor(
                 orchestrator=recording.orchestrator,
                 rung=rung,
                 task_type=contract.task_type,
+                operation=contract.operation,
                 session_file=recording.session_file,
                 tier=DETERMINISTIC,
                 mirrors=recording.mirrors,
@@ -2782,18 +2790,20 @@ def _report_climb(
     report.outcome = "accepted"
     report.rung = outcome.rung
     report.assurance = outcome.assurance.value
+    # How the work was judged, in the judgement's own words — verified by whom,
+    # unverified and why, or a reply's checks — into the result file, which is
+    # what a caller is told to read.
+    report.detail = outcome.judgement.detail
     if outcome.assurance is Assurance.UNVERIFIED:
         # Said where it cannot be missed, because nothing else about the run
-        # looks different: the work is accepted on the gate alone. The reason
-        # is the judgement's own — review switched off, no independent
-        # reviewer, a reviewer that produced nothing usable — and it goes
-        # into the result file too, which is what a caller is told to read.
-        report.detail = outcome.judgement.detail
+        # looks different: the change is accepted on the gate alone.
         print(
             f"UNVERIFIED: {contract.id} is accepted with no independent review "
-            f"approving it. {outcome.judgement.detail}",
+            f"approving it — {outcome.judgement.detail}",
             file=sys.stderr,
         )
+    elif outcome.assurance in (Assurance.CHECKED, Assurance.UNCHECKED):
+        print(f"note: {outcome.judgement.detail}", file=sys.stderr)
     bound = outcome.judgement.accepted
     if bound is None:
         # `judge` only reaches PASSED through a gate that accepted, and
@@ -2896,6 +2906,7 @@ def _report_run(
     reports itself and reaches :func:`_commit` directly.
     """
     from mcgyvr.deliver import Accepted, DeliveryError
+    from mcgyvr.escalate import Assurance
     from mcgyvr.gate.changeset import ChangeSet
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
@@ -2938,7 +2949,7 @@ def _report_run(
         # nothing is written or committed. Checked after binding: a target
         # that cannot be read is an error whatever changed.
         detail = (
-            f"{contract.target} already is what {contract.task_type!r} asks for; "
+            f"{contract.target} already is what {contract.kind.name!r} asks for; "
             f"nothing was written"
         )
         print(f"\n{contract.id}: {NOTHING_TO_CHANGE} — {detail}")
@@ -2956,8 +2967,10 @@ def _report_run(
             )
         return 0
     # Only now: `accepted` tells the caller the change is in the target, and
-    # until the bytes are bound there is nothing to put there.
+    # until the bytes are bound there is nothing to put there. A tool's change
+    # on the gate is what `deterministic` labels.
     report.outcome = "accepted"
+    report.assurance = Assurance.DETERMINISTIC.value
     return _commit(
         args,
         contract,
@@ -4694,7 +4707,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "name",
         nargs="?",
         default=None,
-        help="show one task type in full (default: list them all)",
+        help=(
+            "show one task type or deterministic operation in full "
+            "(default: list them all)"
+        ),
     )
     cat.add_argument(
         "--against",
@@ -4707,11 +4723,6 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "resolve against a configured ladder and name the types it cannot "
             f"start (default config: {CONFIG_DEFAULT_HELP})"
         ),
-    )
-    cat.add_argument(
-        "--excluded",
-        action="store_true",
-        help="also show the types considered and removed, with the reason",
     )
     cat.set_defaults(func=_catalog)
 

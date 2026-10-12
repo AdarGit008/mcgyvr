@@ -450,14 +450,16 @@ _CONTRACT_KIND_LABELS: dict[str, str] = {
     "block_list": "list of blocks",
 }
 
-# One minimal contract per task type, in the catalog's order, with the cap of
-# a model-executed type left as ``{cap}``: :func:`examples` fills it from
+# One minimal contract per deterministic operation and one model-executed
+# ``code`` contract, keyed by the catalog entry each runs under, with the cap of
+# a model-executed contract left as ``{cap}``: :func:`examples` fills it from
 # :func:`mcgyvr.contract.output_cap`, so an example states the product's own
 # default and follows it when it changes.
 _EXAMPLE_TEMPLATES: dict[str, str] = {
     "format": """\
 id: format-pkg
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module with the project's formatter.
 target: src/pkg/messy.py
 scope:
@@ -465,7 +467,8 @@ scope:
 """,
     "import_sort": """\
 id: sort-imports
-task_type: import_sort
+task_type: code
+operation: import_sort
 task: Order the module's imports with the project's import sorter.
 target: src/pkg/messy.py
 scope:
@@ -473,7 +476,8 @@ scope:
 """,
     "lint_fix": """\
 id: lint-pkg
-task_type: lint_fix
+task_type: code
+operation: lint_fix
 task: Apply the linter's own autofixes to the module.
 target: src/pkg/messy.py
 scope:
@@ -481,7 +485,8 @@ scope:
 """,
     "rename_symbol": """\
 id: rename-fetch
-task_type: rename_symbol
+task_type: code
+operation: rename_symbol
 task: Rename fetch_page to fetch_document in the module.
 target: src/pkg/messy.py
 rename:
@@ -502,7 +507,7 @@ target: src/pkg/chunk.py
 interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
 stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
-acceptance: ["pytest -q tests/test_chunk.py"]
+demonstration: ["pytest -q tests/test_chunk.py"]
 risk: low
 limits:
   max_output_tokens: {cap}
@@ -513,24 +518,24 @@ scope:
 
 
 def examples() -> dict[str, str]:
-    """One minimal valid contract per task type, in the catalog's order.
+    """One minimal valid contract per deterministic operation, and one `code`.
 
     Each model-executed example declares the cap its own fields derive, read
     back by loading the example without its cap and taking the number the
-    loader derives — so a `code` example that carries an `acceptance` gets the
+    loader derives — so a `code` example that carries a `demonstration` gets the
     running allowance, not the structural one its bare type would. Each example
     is loaded by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``;
     an example that does not validate fails the suite.
     """
     rendered: dict[str, str] = {}
-    for task_type, template in _EXAMPLE_TEMPLATES.items():
+    for name, template in _EXAMPLE_TEMPLATES.items():
         if "{cap}" not in template:
-            rendered[task_type] = template
+            rendered[name] = template
             continue
         stripped = template.replace("limits:\n  max_output_tokens: {cap}\n", "")
         derived = contract_schema.loads(stripped).limits.max_output_tokens
-        assert derived is not None, f"{task_type} example must derive a cap"
-        rendered[task_type] = template.replace("{cap}", str(derived))
+        assert derived is not None, f"{name} example must derive a cap"
+        rendered[name] = template.replace("{cap}", str(derived))
     return rendered
 
 
@@ -539,15 +544,6 @@ EXAMPLES: dict[str, str] = examples()
 
 
 def _contract_type_label(field: contract_schema.Field) -> str:
-    # ``task_type`` is the one field whose schema accepts more than a model may
-    # choose: the catalog's deterministic operations are legal ``task_type``
-    # values (the product runs them directly) but are not task types. The skill
-    # lists the model vocabulary here and documents the operations in their own
-    # section.
-    if field.name == "task_type":
-        return "one of " + ", ".join(
-            f"`{n}`" for n in contract_schema.task_type_names()
-        )
     if field.kind == "enum":
         choices = field.choices or (field.choices_from() if field.choices_from else ())
         return "one of " + ", ".join(f"`{c}`" for c in choices)
@@ -623,8 +619,9 @@ def render_skill() -> str:
         'description: "Offload one scoped coding task to mcgyvr, a CLI that runs '
         "it on deterministic tools, local models or API models and keeps only "
         "what its deterministic gate accepts. Use it when a change has one "
-        "target and a way to judge it (format, import sort, lint fix, rename, "
-        "or a scoped code edit whose evidence is derived from the contract): "
+        "target and a way to judge it (a scoped code edit whose evidence is "
+        "derived from the contract, or a deterministic operation: format, "
+        "import sort, lint fix, rename): "
         "author a task contract, validate it, run it, read the result file, "
         "replan from the findings. It never loads itself; invoke it with "
         '/mcgyvr. The schema below is the only contract vocabulary."',
@@ -647,8 +644,8 @@ def render_skill() -> str:
         "`src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,",
         "and every rejection names the key and what a valid value looks like.",
         "Pick the `task_type` first. For `code`, evidence is derived from the "
-        "contract's own fields, never chosen. `mcgyvr catalog <type>` prints "
-        "the type's guarantee.",
+        "contract's own fields, never chosen; `operation:` has a tool make the "
+        "change instead. `mcgyvr catalog <type>` prints the type's guarantee.",
         "`mcgyvr delegate PROMPT [REPO]` has the config's `orchestrator` draft",
         "validated contracts from a request instead and prints them; `--run` runs",
         "each one.",
@@ -663,12 +660,13 @@ def render_skill() -> str:
     lines += [
         "### Deterministic operations",
         "",
-        "Not task types — a model never chooses them: `format`, `import_sort`,",
-        "`lint_fix`, `rename_symbol`.",
+        "Not task types: `task_type: code` with `operation:` "
+        + ", ".join(f"`{op.name}`" for op in contract_schema.operations())
+        + " has a tool make the change, never a model.",
         "",
-        "### One minimal example per task type",
+        "### Minimal examples",
         "",
-        f"`{EXAMPLES_PATH}` carries one per type,",
+        f"`{EXAMPLES_PATH}` carries one `code` contract and one per operation,",
         "each loaded through the contract validator by the test suite, so copying",
         "one is copying a shape that is known to validate. One file away, and it",
         "costs nothing until it is opened.",
@@ -741,6 +739,12 @@ def render_skill() -> str:
         "  `null` — with `attempt_id` `null` beside it — on an `error` no single",
         "  dispatch caused: `rows: 0` means it raised before dispatching at all,",
         "  and anything more means it raised past draw `rows - 1`.",
+        "- `assurance` — what an `accepted` result rests on, and `detail` says it",
+        "  in a sentence: `deterministic` (a tool's change, on the gate),",
+        "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
+        "  asked; `detail` says why), `checked` (an `agent` or `media` reply that",
+        "  passed its output checks) or `unchecked` (a `chat` reply: no checks,",
+        "  no review). A reply is never reviewed.",
         "- `findings` — the deterministic gate's findings for a contract that",
         "  dispatched nothing.",
         "- `committed`, `commit`, `branch`, `handoff` — where the work went. Without",
@@ -788,8 +792,8 @@ def render_skill() -> str:
 
 
 def render_examples() -> str:
-    """The examples file, as text: one minimal contract per task type, plus one
-    per deterministic operation.
+    """The examples file, as text: one minimal ``code`` contract, plus one per
+    deterministic operation.
 
     A document that is written and kept, like the skill and ``SETUP.md``, and
     checked the same way: it is a projection of :func:`examples`, which
@@ -808,20 +812,23 @@ def render_examples() -> str:
     lines = [
         SKILL_MARKER,
         "",
-        "# One minimal contract per task type, and one per deterministic operation",
+        "# One minimal `code` contract, and one per deterministic operation",
         "",
         "Each loads through the contract validator; they are checked by the test",
         "suite, so copying one is copying a shape that is known to validate. The",
         "keys are documented in `SKILL.md`.",
         "",
-        "## Task types",
+        "## A change a model makes",
         "",
     ]
-    for task_type, text in type_examples.items():
-        lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
-    lines += ["## Deterministic operations", ""]
-    for task_type, text in operation_examples.items():
-        lines += [f"## `{task_type}`", "", "```yaml", text.rstrip("\n"), "```", ""]
+    for name, text in type_examples.items():
+        lines += [f"### `{name}`", "", "```yaml", text.rstrip("\n"), "```", ""]
+    lines += [
+        "## Deterministic operations (`task_type: code` with `operation:`)",
+        "",
+    ]
+    for name, text in operation_examples.items():
+        lines += [f"### `{name}`", "", "```yaml", text.rstrip("\n"), "```", ""]
     return "\n".join(lines).rstrip("\n") + "\n"
 
 

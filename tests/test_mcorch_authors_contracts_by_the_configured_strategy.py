@@ -29,7 +29,8 @@ from tests.mcorch_fakes import ScriptedJev, ScriptedRung, calls, text
 
 CONTRACT = """
 id: fmt-a
-task_type: format
+task_type: code
+operation: format
 task: Format the file.
 target: src/a.py
 scope:
@@ -114,7 +115,8 @@ def test_a_document_jev_doubts_comes_back_with_the_doubt() -> None:
     assert "not ready" in result["content"]
     state = jev.asked[1][1]
     assert state["id"] == "fmt-a"
-    assert state["task_type"] == "format"
+    assert state["task_type"] == "code"
+    assert state["operation"] == "format"
 
 
 def test_internal_and_harness_calls_in_one_reply_run_the_internal_ones_first() -> None:

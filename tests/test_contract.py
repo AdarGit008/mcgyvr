@@ -45,7 +45,8 @@ scope:
 
 DETERMINISTIC = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
@@ -618,6 +619,9 @@ def test_every_declared_task_type_loads() -> None:
             if "grounded" in kind.evidence_names
             else ""
         )
+        # Likewise a type that requires media_valid names the media kind.
+        if "media_valid" in kind.evidence_names:
+            sources += "\nmedia_kind: image"
         document = f"""
 id: t
 task_type: {kind.name}

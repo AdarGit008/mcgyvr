@@ -4,13 +4,14 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 mcgyvr is a command-line tool and an agent skill. Your agent hands it one
-scoped coding task: reformat a file, sort imports, rename a symbol, write a
-docstring, a function, its tests or a bug fix. mcgyvr runs that task on the
-cheapest worker you allow and keeps an answer only if it passes a
-deterministic gate.
+scoped coding task — a `code` contract: write a docstring, a function, its
+tests or a bug fix, or have a tool reformat a file, sort imports, apply lint
+fixes or rename a symbol. mcgyvr runs that task on the cheapest worker you
+allow and keeps an answer only if it passes a deterministic gate. It has
+exactly four task types: `code`, `chat`, `agent` and `media`.
 
-- **Cost.** Format, import sort, lint fix and rename start on deterministic
-  tools (the project's formatter, import sorter and linter, and mcgyvr's own
+- **Cost.** Format, import sort, lint fix and rename (`code` with an
+  `operation:`) start on deterministic tools (the project's formatter, import sorter and linter, and mcgyvr's own
   index), not on a model. Model tasks climb a ladder of units that you list
   cheapest first, within ceilings you set.
 - **Local first.** You bind the units. A setup can name only llama.cpp or
@@ -30,8 +31,8 @@ deterministic gate.
 | --- | --- |
 | Python 3.12 or newer, and [uv](https://docs.astral.sh/uv/) | `requires-python = ">=3.12"`; the install command below uses uv |
 | git | the repository a task runs against must be a git checkout |
-| The project's own tools on `PATH` | tool task types run them; the quickstart's `format` task ran `ruff format` |
-| At least one unit, for model task types | a local OpenAI-compatible server (llama.cpp or vLLM — see [`docs/GPU-SUPPORT.md`](docs/GPU-SUPPORT.md) for GPU/engine floors), or an API model whose key is in an environment variable |
+| The project's own tools on `PATH` | deterministic operations run them; the quickstart's `operation: format` ran `ruff format` |
+| At least one unit, for work a model does | a local OpenAI-compatible server (llama.cpp or vLLM — see [`docs/GPU-SUPPORT.md`](docs/GPU-SUPPORT.md) for GPU/engine floors), or an API model whose key is in an environment variable |
 | Docker (optional) | task commands run in a throwaway container by default; with no Docker daemon, `mcgyvr run` refuses unless `sandbox.mode: tempdir` (or `--sandbox tempdir`) chooses the weaker mode, or `sandbox.allow_fallback: true` falls back to it and says so |
 
 ## Install
@@ -150,7 +151,8 @@ Every key of both files is documented in
 ```yaml
 # format.yaml
 id: format-pkg
-task_type: format
+task_type: code
+operation: format
 task: Reformat the module with the project's formatter.
 target: src/pkg/messy.py
 scope:
@@ -161,7 +163,7 @@ scope:
 $ mcgyvr contract format.yaml
 format.yaml: valid
 
-  format-pkg  [format] — deterministic tier
+  format-pkg  [code, operation format] — deterministic tier
   target:  src/pkg/messy.py
   allow:   src/pkg/**
   risk:    medium — verified by gate only
@@ -169,9 +171,10 @@ format.yaml: valid
   acceptance: none declared — the gate's own checks decide
 ```
 
-`mcgyvr catalog` lists all nine task types with what each guarantees, and
+`mcgyvr catalog` lists the four task types and the deterministic operations
+with what each guarantees, and
 [`skills/mcgyvr/references/examples.md`](skills/mcgyvr/references/examples.md)
-has one minimal contract per type.
+has one minimal `code` contract and one per operation.
 
 **3. Run it.** Inside Claude Code the session is detected. In a plain shell,
 name the writer with `--orchestrator`:
@@ -190,7 +193,8 @@ result: ~/.local/state/mcgyvr/journal/results/format-pkg-20260915T022555.432380Z
 
 The exit code was 0, the result file says `"outcome": "accepted"` and
 `"committed": false`, and `git diff --stat` shows the one reformatted file.
-This task ran on a tool, so no API key was needed and no model was called.
+This task ran on a tool, so no API key was needed and no model was called;
+the result file's `assurance` is `deterministic`.
 
 The last stdout line always names the result file. Its `outcome` words, what
 to do after each, and the exit codes are in
@@ -204,9 +208,9 @@ flowchart LR
   C --> V["mcgyvr contract<br/>validates"]
   V --> R["mcgyvr run"]
   R --> S["sandbox:<br/>docker or tempdir"]
-  S --> K{"task type"}
-  K -->|format, import_sort,<br/>lint_fix, rename_symbol| T["deterministic tools"]
-  K -->|docstring, annotations,<br/>function, tests, bug fix| M["units in ladder order:<br/>your servers, then API models"]
+  S --> K{"code contract"}
+  K -->|operation: format, import_sort,<br/>lint_fix, rename_symbol| T["deterministic tools"]
+  K -->|no operation| M["units in ladder order:<br/>your servers, then API models"]
   T --> G{"deterministic gate"}
   M --> G
   G -->|rejected: retry or climb,<br/>within the ceilings| M

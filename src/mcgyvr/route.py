@@ -777,7 +777,7 @@ def plan(
     is the *mode*, so that a climb can honour ``fanout`` without being handed a
     whole config.
     """
-    chosen = family if family is not None else contract.type.starts_on
+    chosen = family if family is not None else contract.kind.starts_on
     rungs = by_family(config, pool).get(chosen)
     if rungs is None:  # a Family from another catalog than the one loaded here
         raise RouteError(f"{chosen.name!r} is not a family of the loaded catalog")
@@ -1184,7 +1184,7 @@ def climb(
     # what a caller asks before handing a plan over, and `mcgyvr.escalate` asks it.
     steps = plan.climbable
     if plan.programs:
-        named = ", ".join(sorted({step.tool.task_type for step in plan.programs}))
+        named = ", ".join(sorted({step.tool.operation for step in plan.programs}))
         raise RouteError(
             f"the {plan.family.name!r} plan is a program, not a rung, so it is "
             f"not climbed: run it through `mcgyvr.deterministic` instead "
