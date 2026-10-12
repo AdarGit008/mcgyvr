@@ -1,4 +1,4 @@
-"""`mcgyvr init` takes a priority, and reads the old `--profile` with a warning.
+"""`mcgyvr setup` takes a priority, and reads the old `--profile` with a warning.
 
 What init's composed ladder optimises for is one of three things: throughput,
 quality or cost. It used to be free text under `--profile`, a word the config
@@ -42,7 +42,7 @@ def handed(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 
 
 def _run(tmp_path: Path, *flags: str) -> int:
-    return cli.main(["init", *flags, str(tmp_path / "setup")])
+    return cli.main(["setup", *flags, str(tmp_path / "setup")])
 
 
 @pytest.mark.parametrize("priority", PRIORITIES)

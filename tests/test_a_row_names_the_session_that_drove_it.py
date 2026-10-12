@@ -60,7 +60,7 @@ def test_a_claude_session_names_the_row_and_its_transcript(
     (row,) = fold(path=sink)
     assert row["orchestrator"] == "claude-f438133f-0000-4c33-92f0-31f43d9dd3b6"
     assert row["session_file"] == str(transcript)
-    assert row["task_type"] == "function_implementation"
+    assert row["task_type"] == "code"
     assert row["attempt_id"].startswith("claude-f438133f-0000-4c33-92f0-31f43d9dd3b6:")
     assert ":impl:local_qwen-7b:1" in row["attempt_id"]
 

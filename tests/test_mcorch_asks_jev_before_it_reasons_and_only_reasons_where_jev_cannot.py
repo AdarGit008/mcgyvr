@@ -87,7 +87,7 @@ def test_chat_is_still_answered_but_told_it_is_chat() -> None:
 
 RUN_RESULT = {
     "contract": "format-a",
-    "task_type": "format",
+    "task_type": "code",
     "target": "src/a.py",
     "orchestrator": "mcorch-x",
     "outcome": "rejected",

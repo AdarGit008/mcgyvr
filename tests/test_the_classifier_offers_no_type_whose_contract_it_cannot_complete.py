@@ -1,13 +1,12 @@
-"""The classifier offers no task type whose contract it cannot complete.
+"""The classifier offers only the types whose contract it can complete.
 
-A `type_annotation`, `function_implementation` or `test_scaffold` contract must
-carry `acceptance` commands and a `bug_fix` must carry `demonstration` ones;
-the loader refuses one without. The classifier proposer writes neither — its
-contribution is relevance, three single-token choices — so a contract of those
-types from it is a contract the loader refuses, and in the pilot every one
-was. It therefore offers the model only the types whose contract it can
-complete, and refuses (returns nothing, so the caller falls back) when the
-vocabulary leaves it none. The state it sends names only what it offers.
+No task type's contract forces commands: `code` derives evidence from the
+contract's own fields and is judged on the gate alone when the proposal states
+no commands, so the classifier — whose contribution is relevance, three
+single-token choices — can complete it. This holds what remains true: the
+classifier still refuses (returns nothing, so the caller falls back) when the
+vocabulary leaves it nothing to choose, and its state names only what it
+offers.
 """
 
 from __future__ import annotations
@@ -74,24 +73,21 @@ def _answering(
     return seen, classify
 
 
-def test_types_needing_commands_are_not_offered(tmp_path: Path) -> None:
-    seen, classify = _answering({"kind": "docstring", "symbol": ""})
-    evidence = _evidence(
-        tmp_path,
-        _types("docstring", "type_annotation", "function_implementation", "bug_fix"),
-    )
+def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
+    """`code` needs no forced commands, so it is offered with the rest."""
+    seen, classify = _answering({"kind": "code", "symbol": ""})
+    evidence = _evidence(tmp_path, _types("chat", "code"))
     proposals = ClassifierProposer(classify=classify)(evidence)
     kind = seen[0]["kind"]
     assert isinstance(kind, Choice)
-    assert list(kind.options) == ["docstring"]
-    assert proposals[0].task_type == "docstring"
+    assert list(kind.options) == ["chat", "code"]
+    assert proposals[0].task_type == "code"
 
 
-def test_a_vocabulary_of_only_such_types_is_a_refusal_not_a_contract(
-    tmp_path: Path,
-) -> None:
+def test_an_empty_vocabulary_is_a_refusal_not_a_contract(tmp_path: Path) -> None:
+    """No types on offer means nothing to ask; no token is spent."""
     seen, classify = _answering({})
-    evidence = _evidence(tmp_path, _types("type_annotation", "bug_fix"))
+    evidence = _evidence(tmp_path, ())
     assert ClassifierProposer(classify=classify)(evidence) == ()
     assert seen == []  # nothing to ask; no token spent
 
@@ -101,9 +97,9 @@ def test_the_state_names_only_what_is_offered(tmp_path: Path) -> None:
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         captured.append(state)
-        _, inner = _answering({"kind": "format", "symbol": ""})
+        _, inner = _answering({"kind": "code", "symbol": ""})
         return inner(state, questions)
 
-    evidence = _evidence(tmp_path, _types("format", "test_scaffold"))
+    evidence = _evidence(tmp_path, _types("code"))
     ClassifierProposer(classify=classify)(evidence)
-    assert captured[0]["task_types"] == ["format"]
+    assert captured[0]["task_types"] == ["code"]

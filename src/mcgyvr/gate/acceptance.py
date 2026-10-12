@@ -360,8 +360,9 @@ def _as_preflight(
     return PreflightIssue(
         "acceptance-baseline-failing",
         f"acceptance command already fails before any change is made: {label}. "
-        "The suite is not a usable acceptance signal until it is green.\n"
-        + _excerpt(result),
+        "The suite is not a usable acceptance signal until it is green. If "
+        "this command is meant to fail until the change lands, it belongs in "
+        "`demonstration`, not `acceptance`.\n" + _excerpt(result),
     )
 
 

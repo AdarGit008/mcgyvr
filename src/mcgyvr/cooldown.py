@@ -12,7 +12,7 @@ dispatch and is never asked again.
 
 This module revises it. A :class:`Cooldown` is an availability view that also
 *learns*: it wraps a probe exactly as :class:`~mcgyvr.availability.Availability`
-does, answers the same one-method question :func:`mcgyvr.pool.source_map` asks,
+does, answers the same one-method question :func:`mcgyvr.local_pool.source_map` asks,
 and additionally accepts the one fact a probe cannot produce — that a dispatch
 against this source failed.
 
@@ -40,16 +40,16 @@ design from either side, and both are worse than doing nothing:
   served cooldown is not evidence about the dispatch after it.
 
 **Below the seam.** Like :mod:`mcgyvr.availability`, whose place on the ladder
-this takes, the module reads :class:`mcgyvr.pool.Endpoint` — one field of it,
+this takes, the module reads :class:`mcgyvr.local_pool.Endpoint` — one field of it,
 ``source`` — and so belongs with ``pool``, ``runner``, ``availability`` and
 ``capacity`` on the below-the-seam list ``tests/test_pool.py`` keeps. It binds
 nothing, dispatches nothing, and never sees a URL or a protocol, so re-pointing a
 rung remains a config edit.
 
 **What it is keyed on.** A source name, which is a unit name
-(:func:`mcgyvr.pool._endpoint` names each endpoint after its unit), so a cooldown
+(:func:`mcgyvr.local_pool._endpoint` names each endpoint after its unit), so a cooldown
 takes out exactly one unit. The seam that consumes this
-(:class:`mcgyvr.pool.SourceProbe`) answers per source name.
+(:class:`mcgyvr.local_pool.SourceProbe`) answers per source name.
 
 **What this is not.** It is not a retry policy: it says which sources are worth
 offering, never how many attempts a contract gets, which is escalation's. It is not
@@ -76,7 +76,7 @@ from mcgyvr.availability import (
     AvailabilityVerdict,
     ProbeFn,
 )
-from mcgyvr.pool import Endpoint
+from mcgyvr.local_pool import Endpoint
 
 # How many failures in a row before a source is taken out. Three, ported from
 # local-ai's pool. Not one, for the reason in the module docstring; not so many
@@ -121,8 +121,8 @@ class _Record:
 class Cooldown:
     """Liveness for one run, revised by what dispatches against it did.
 
-    Satisfies :class:`mcgyvr.pool.SourceProbe` structurally, so it goes wherever
-    an :class:`~mcgyvr.availability.Availability` goes and :mod:`mcgyvr.pool`
+    Satisfies :class:`mcgyvr.local_pool.SourceProbe` structurally, so it goes wherever
+    an :class:`~mcgyvr.availability.Availability` goes and :mod:`mcgyvr.local_pool`
     learns nothing new. Construct one per run and hold it for exactly as long —
     the failure record and the wrapped liveness cache have the same lifetime and
     the same reason for it.

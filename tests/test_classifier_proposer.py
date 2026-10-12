@@ -31,11 +31,11 @@ from mcgyvr.delegate import (
     ClassifierProposer,
     classifier_proposer_for,
 )
+from mcgyvr.local_pool import Protocol, source_map
 from mcgyvr.orchestrator.decompose import Evidence, Proposal, decompose
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
-from mcgyvr.pool import Protocol, source_map
 from mcgyvr.runner import Completion, StopReason
 
 #: A keyless local ladder with no orchestrator block.
@@ -128,7 +128,7 @@ def answer(choice: str, confidence: float) -> ChoiceAnswer:
     )
 
 
-DOCSTRING = catalog().require("docstring")
+CODE = catalog().require("code")
 
 
 # --- the typed-decision path ----------------------------------------------
@@ -147,22 +147,21 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
             return decision_of({"symbol": answer("listing", 0.9)})
         return decision_of(
             {
-                "kind": answer("docstring", 0.9),
+                "kind": answer("code", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    proposals = propose(evidence_for(repo, "document listing", (DOCSTRING,)))
+    proposals = propose(evidence_for(repo, "document listing", (CODE,)))
 
     (proposal,) = proposals
     assert proposal == Proposal(
-        task_type="docstring",
-        task="Write or correct a docstring for one named target: "
-        "listing in listing.py.",
+        task_type="code",
+        task="Make a scoped edit to one named target: listing in listing.py.",
         target="listing.py",
         stop_conditions=(
-            "docstring on listing in listing.py would require deciding "
+            "code on listing in listing.py would require deciding "
             "something the contract does not state — report BLOCKED rather "
             "than guess",
         ),
@@ -173,7 +172,7 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
 
     kind = first["kind"]
     assert isinstance(kind, Choice)
-    assert kind.options == {"docstring": DOCSTRING.doc}
+    assert kind.options == {"code": CODE.doc}
 
     target = first["target"]
     assert isinstance(target, Choice)
@@ -197,20 +196,18 @@ def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
             return decision_of({"symbol": answer("", 0.9)})
         return decision_of(
             {
-                "kind": answer("docstring", 0.9),
+                "kind": answer("code", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    proposals = propose(
-        evidence_for(repo, "document the pagination helper", (DOCSTRING,))
-    )
+    proposals = propose(evidence_for(repo, "document the pagination helper", (CODE,)))
 
     assert len(proposals) == 1
     state, _ = seen[0]
     assert state["request"] == "document the pagination helper"
-    assert state["task_types"] == ["docstring"]
+    assert state["task_types"] == ["code"]
     assert "listing.py" in state["candidates"] or "pagination.py" in state["candidates"]
 
 
@@ -223,13 +220,13 @@ def test_a_classifier_proposer_refuses_when_the_kind_is_uncertain(
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return decision_of(
             {
-                "kind": answer("docstring", MIN_CONFIDENCE - 0.1),
+                "kind": answer("code", MIN_CONFIDENCE - 0.1),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (DOCSTRING,))) == ()
+    assert propose(evidence_for(repo, "document listing", (CODE,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
@@ -238,13 +235,13 @@ def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return decision_of(
             {
-                "kind": answer("docstring", 0.9),
+                "kind": answer("code", 0.9),
                 "target": answer("listing.py", MIN_CONFIDENCE - 0.1),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (DOCSTRING,))) == ()
+    assert propose(evidence_for(repo, "document listing", (CODE,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_the_symbol_is_uncertain(
@@ -255,13 +252,13 @@ def test_a_classifier_proposer_refuses_when_the_symbol_is_uncertain(
             return decision_of({"symbol": answer("listing", MIN_CONFIDENCE - 0.1)})
         return decision_of(
             {
-                "kind": answer("docstring", 0.9),
+                "kind": answer("code", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (DOCSTRING,))) == ()
+    assert propose(evidence_for(repo, "document listing", (CODE,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_nothing_matched(
@@ -319,7 +316,7 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
             return decision_of({"symbol": answer("listing", 0.9)})
         return decision_of(
             {
-                "kind": answer("docstring", 0.9),
+                "kind": answer("code", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
@@ -328,7 +325,7 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
 
     propose = classifier_proposer_for(pool)
     assert propose is not None
-    (proposal,) = propose(evidence_for(repo, "document listing", (DOCSTRING,)))
+    (proposal,) = propose(evidence_for(repo, "document listing", (CODE,)))
 
     assert proposal.target == "listing.py"
     assert len(sent) == 2
@@ -356,7 +353,7 @@ def test_decompose_emits_a_validated_contract_through_the_classifier_proposer(
             return decision_of({"symbol": answer("listing", 0.9)})
         return decision_of(
             {
-                "kind": answer("docstring", 0.9),
+                "kind": answer("code", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
@@ -369,6 +366,6 @@ def test_decompose_emits_a_validated_contract_through_the_classifier_proposer(
 
     assert result.refusals == ()
     (contract,) = result.contracts
-    assert contract.task_type == "docstring"
+    assert contract.task_type == "code"
     assert contract.target == "listing.py"
     assert contract_module.loads(result.documents[0]) == contract

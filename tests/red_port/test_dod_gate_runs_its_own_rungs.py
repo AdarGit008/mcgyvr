@@ -2,9 +2,9 @@
 
 ``Gate.run`` takes four judging inputs: the adapters, ``acceptance``,
 ``semantic`` and ``typecheck``. ``drive.gate_workspace`` — the one function both
-tiers reach acceptance through — passes all four. ``data/task-catalog.json`` states
-that a ``type_annotation`` contract means "the project's type checker accepts" the
-result, and that guarantee holds only if the gate that accepts it runs the checker.
+tiers reach acceptance through — passes all four. A `type_check: true` `code`
+contract means "the project's type checker accepts" the result, and that
+guarantee holds only if the gate that accepts it runs the checker.
 
 **Asserted through ``gate_workspace``.** The verdict is taken from the function the
 run actually reaches.
@@ -26,12 +26,13 @@ from tests.red_port.conftest import required
 
 ANNOTATE = """
 id: annotate-fetch
-task_type: type_annotation
+task_type: code
 task: Add type annotations to fetch.
 target: src/pkg/fetch.py
 stop_conditions:
   - A helper's return type cannot be determined from its callers.
-acceptance: ["python3 -c 'import sys; sys.exit(0)'"]
+no_semantic_change: true
+type_check: true
 limits:
   max_output_tokens: 1024
 scope:
@@ -80,12 +81,12 @@ def test_an_annotation_the_declared_checker_rejects_is_not_accepted(
     """The guarantee the catalog states, asserted as the run's own verdict.
 
     ``def fetch(url: int) -> str: return url`` is annotated, parses, formats and
-    lints clean. It is also wrong, and this type is *defined* by the checker
-    accepting.
+    lints clean. It is also wrong, and a `type_check: true` `code` contract is
+    *defined* by the checker accepting.
     """
     result = _verdict(repo, WRONG)
     assert not result.accepted, (
-        "a type_annotation change returning `int` where it declares `str` was "
+        "a type_check change returning `int` where it declares `str` was "
         "accepted; the catalog guarantees the project's type checker accepts it"
     )
     assert any("fetch" in str(f) for f in result.findings), (
@@ -96,8 +97,8 @@ def test_an_annotation_the_declared_checker_rejects_is_not_accepted(
 def test_an_annotation_the_declared_checker_accepts_is_accepted(repo: Path) -> None:
     """The direction that stops the fix from being "always refuse".
 
-    Without this, a gate rung that rejected every ``type_annotation`` change
-    would satisfy the test above and pass for a fix.
+    Without this, a gate rung that rejected every type_check change would
+    satisfy the test above and pass for a fix.
     """
     result = _verdict(repo, RIGHT)
     assert result.accepted, (

@@ -54,7 +54,7 @@ LADDER = LADDER_FLEET + LADDER_POLICY
 
 MODEL_CONTRACT = """
 id: impl
-task_type: function_implementation
+task_type: code
 task: Set VALUE to 1.
 target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
@@ -143,7 +143,7 @@ def pi_transcript(home: Path, session_id: str) -> Path:
 
 def completion(text: str, request: Any) -> Any:
     """The reply a stubbed dispatch hands back, shaped as the runner's own."""
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(

@@ -64,7 +64,7 @@ ESTIMATE_RESERVE = 0.32
 class ServingWindow(Protocol):
     """What this module needs of the thing a rung resolves to, and no more.
 
-    Structural rather than :class:`mcgyvr.pool.Endpoint` itself, because
+    Structural rather than :class:`mcgyvr.local_pool.Endpoint` itself, because
     ``tests/test_pool.py`` makes importing that type the definition of reaching
     below the seam and this module is above it. The argument the guard asks for
     is that the dependency is real, not that the spelling is clever: what a
@@ -417,7 +417,7 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     spend.
 
     **A ceiling is the one place the lower of two numbers is sent.** A rung may
-    carry an ``output_ceiling`` (:attr:`mcgyvr.pool.Endpoint.output_ceiling`):
+    carry an ``output_ceiling`` (:attr:`mcgyvr.local_pool.Endpoint.output_ceiling`):
     the room another unit's replies are given, on a rung that stands in for
     that unit and declares nothing of its own. It was not measured on the
     model that answers here, so it cannot say what that model needs and does

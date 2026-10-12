@@ -1,4 +1,4 @@
-"""`mcgyvr init` writes no memory bound for a unit.
+"""`mcgyvr setup` writes no memory bound for a unit.
 
 Promise: no unit init writes carries `room_mib`, the card room a unit needs.
 That figure is the user's to state, from a reading of their own machine; one

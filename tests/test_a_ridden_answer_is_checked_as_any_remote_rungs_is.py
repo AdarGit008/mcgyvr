@@ -25,7 +25,7 @@ import pytest
 from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.escalate import required_policy
-from mcgyvr.pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import family_of
 from mcgyvr.verify import NoReviewer, Reviewer, reviewers_for
 from tests.test_a_relief_rung_takes_work_only_when_the_riders_own_rung_is_full import (

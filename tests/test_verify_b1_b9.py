@@ -35,7 +35,7 @@ from mcgyvr.deterministic import tool_steps
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
 from mcgyvr.gate import ChangeSet, Gate, GateResult
 from mcgyvr.lines import parser_lines
-from mcgyvr.pool import source_map
+from mcgyvr.local_pool import source_map
 from mcgyvr.repair import _insert_imports, repair
 from mcgyvr.route import Verdict
 
@@ -52,7 +52,8 @@ ladder:
 
 FORMAT_CONTRACT = """
 id: tidy
-task_type: format
+task_type: code
+operation: format
 task: Reformat the package.
 target: src/pkg/fetch.py
 scope:
@@ -61,7 +62,7 @@ scope:
 
 WORK_CONTRACT = """
 id: fetch-retry
-task_type: function_implementation
+task_type: code
 task: Add retry with backoff to the fetch helper.
 target: {target}
 stop_conditions:
@@ -168,13 +169,13 @@ def test_b2_the_three_python_types_run_and_do_only_what_they_guarantee(
     target = tmp_path / "src" / "pkg" / "fetch.py"
     target.parent.mkdir(parents=True)
 
-    def run(task_type: str) -> str:
+    def run(operation: str) -> str:
         target.write_text(messy)
         contract = load_contract(
-            FORMAT_CONTRACT.replace("task_type: format", f"task_type: {task_type}")
+            FORMAT_CONTRACT.replace("operation: format", f"operation: {operation}")
         )
         argv = list(tool_steps(contract)[0].argv)
-        assert argv, f"{task_type} planned no command"
+        assert argv, f"{operation} planned no command"
         argv[0] = ruff
         subprocess.run(argv, cwd=tmp_path, capture_output=True, check=False)
         return target.read_text()
@@ -219,7 +220,7 @@ from pathlib import Path
 from mcgyvr.contract import loads
 from mcgyvr.deliver import deliver
 repo, base, target, barrier = sys.argv[1:5]
-body = "id: c\\ntask_type: function_implementation\\ntask: t\\ntarget: %s\\n"
+body = "id: c\\ntask_type: code\\ntask: t\\ntarget: %s\\n"
 body += "stop_conditions: [\\"never\\"]\\nacceptance: [\\"true\\"]\\n"
 body += "scope:\\n  allow: [\\"src/**/*.py\\"]\\n"
 while not Path(barrier).exists():
@@ -444,7 +445,7 @@ def test_pattern_a_consensus_reports_content_it_cannot_write_as_its_own_error(
     strict=True,
     reason=(
         "2026-08-29: "
-        "The `Ceiling` mcgyvr pool prints sums the configured attempts of every "
+        "The `Ceiling` mcgyvr local_pool prints sums the configured attempts of every "
         "rung; the one escalate enforces is attempts_for(), which also clamps "
         "by contract.limits.attempts. The two do not agree."
     ),
@@ -478,7 +479,7 @@ attempts:
     enforced = ascent(config, pool, work_contract("src/pkg/fetch.py")).ladder_budget
 
     assert printed == enforced, (
-        f"`mcgyvr pool` prints {printed} attempt(s) per task and the climb "
+        f"`mcgyvr local_pool` prints {printed} attempt(s) per task and the climb "
         f"enforces {enforced}"
     )
 

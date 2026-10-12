@@ -26,7 +26,7 @@ from mcgyvr.config import load as load_config
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, DecisionError
 from mcgyvr.detect import Detection
 from mcgyvr.initialize import ApiUnit, _sources_for, initialize, parse_api_unit
-from mcgyvr.pool import Endpoint, Protocol
+from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.propose import Proposal, propose
 from tests.machine_shapes import detection, shape, with_server
 

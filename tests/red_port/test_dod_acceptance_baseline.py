@@ -7,7 +7,7 @@ preflight refuses a suite that is already red)". ``demonstration`` commands are
 pass after the change".
 
 ``Acceptance.precondition`` is the method that establishes both, and ``mcgyvr run``
-calls it before the first dispatch. Without that baseline a ``bug_fix`` whose
+calls it before the first dispatch. Without that baseline a fix whose
 demonstration was already passing — a wrong ``-k`` filter, a test that was never
 red — would be judged by running it after the change, seeing green, and reporting
 the bug fixed; and a contract whose acceptance suite was already broken would charge
@@ -50,7 +50,7 @@ ALSO_FAILS = "python3 -c 'import sys; sys.exit(1)  # regression'"
 
 BUG_FIX = """
 id: fix-fetch
-task_type: bug_fix
+task_type: code
 task: fetch returns the url instead of the document; fix it.
 target: src/pkg/fetch.py
 interface: "def fetch(url: str) -> str"
@@ -74,7 +74,7 @@ def _prompts(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     sends none, a run that reached a rung sends one.
     """
     import mcgyvr.drive as drive
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     sent: list[str] = []
@@ -146,7 +146,7 @@ def _run(
 def test_a_demonstration_that_already_passes_refuses_before_a_rung_is_spent(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The `bug_fix` that proves nothing.
+    """The fix that proves nothing.
 
     A demonstration is the one command whose *failure* is the evidence. One that
     passes on the unchanged tree cannot distinguish a fix from a no-op, and a run
@@ -179,8 +179,10 @@ def test_an_acceptance_suite_already_red_refuses_and_says_so_differently(
 
     An acceptance command failing before the model touched anything charges the
     model for the tree. The operator fixes the tree; they do not rewrite the
-    contract, which is what the other refusal asks for — so one message that
-    named both lists would leave them unable to tell which.
+    contract, which is what the other refusal asks for — so the refusal names
+    the acceptance command as the one that failed, never a demonstration. Its
+    one mention of `demonstration` is the hint for the case where the command
+    was meant to fail first, and it names that slot as where the command goes.
     """
     code, sent, err = _run(
         repo,
@@ -193,8 +195,14 @@ def test_an_acceptance_suite_already_red_refuses_and_says_so_differently(
         "an acceptance command already failing must refuse before a rung is spent"
     )
     assert not sent, "and must refuse before dispatching"
-    assert "acceptance" in err.lower() and "demonstration" not in err.lower(), (
+    assert "acceptance command already fails" in err, (
+        f"this refusal is about the acceptance suite: {err}"
+    )
+    assert "demonstrating command" not in err.lower(), (
         f"this refusal is about the acceptance suite alone: {err}"
+    )
+    assert "it belongs in `demonstration`, not `acceptance`" in err, (
+        f"the refusal names the slot a fail-first command goes in: {err}"
     )
 
 

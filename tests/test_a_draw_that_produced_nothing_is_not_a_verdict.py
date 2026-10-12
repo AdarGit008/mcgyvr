@@ -60,7 +60,7 @@ POOR = "TIMEOUT = 5\n\n\ndef fetch(url):\n    return url\n"
 
 CONTRACT = f"""
 id: retry
-task_type: function_implementation
+task_type: code
 task: Give the fetch helper a retry budget named RETRY.
 target: {TARGET}
 stop_conditions: ["The retry policy is not stated anywhere in the repo."]
@@ -218,7 +218,7 @@ breadth:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.pool import Protocol
+    from mcgyvr.local_pool import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
