@@ -1,7 +1,9 @@
 """Closing a finding without fixing it is a dated, strict xfail.
 
-The rule is a property of this suite rather than of a record: every ``xfail`` under
-``tests/`` is ``pytest.mark.xfail(strict=True, reason="YYYY-MM-DD: ...")``. ``strict``
+The rule is a property of this suite rather than of a record: every ``xfail``
+anywhere under ``tests/`` -- the scan recurses, so subdirectories such as
+``red_port/`` are covered -- is
+``pytest.mark.xfail(strict=True, reason="YYYY-MM-DD: ...")``. ``strict``
 keeps the check live -- an accidental fix turns XPASS and fails the suite until the
 marker comes off -- and the dated reason is the record of why. The canaries below are
 the proof it can refuse.
@@ -20,6 +22,12 @@ _CHECK_REF = re.compile(r"tests/(test_[a-z0-9_]+\.py)::(test_[a-z0-9_]+)")
 _DATED = re.compile(r"^\d{4}-\d{2}-\d{2}: ")
 
 
+def _name(module: Path, tests: Path) -> str:
+    """The module's path relative to ``tests/``, so two files that share a
+    basename in different subdirectories are told apart in a failure."""
+    return str(module.relative_to(tests))
+
+
 def _xfail_markers(tests: Path) -> list[tuple[str, int, dict[str, ast.expr]]]:
     """Every xfail under ``tests/`` — decorator, bare decorator, or call — with
     its file, line and keyword arguments (empty for a bare decorator)."""
@@ -29,16 +37,16 @@ def _xfail_markers(tests: Path) -> list[tuple[str, int, dict[str, ast.expr]]]:
         name = node.attr if isinstance(node, ast.Attribute) else getattr(node, "id", "")
         return name == "xfail"
 
-    for module in sorted(tests.glob("test_*.py")):
+    for module in sorted(tests.rglob("test_*.py")):
         tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and _is_xfail(node.func):
                 kw = {k.arg: k.value for k in node.keywords if k.arg}
-                markers.append((module.name, node.lineno, kw))
+                markers.append((_name(module, tests), node.lineno, kw))
             elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 for deco in node.decorator_list:
                     if not isinstance(deco, ast.Call) and _is_xfail(deco):
-                        markers.append((module.name, deco.lineno, {}))
+                        markers.append((_name(module, tests), deco.lineno, {}))
     return markers
 
 
