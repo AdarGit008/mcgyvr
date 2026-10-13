@@ -7,6 +7,85 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.5.0] - 2026-10-13
+
+Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
+`records/evidence/2026-10-12-e2e-run1/`.
+
+### Changed (breaking)
+
+- **There are exactly four task types: `code`, `chat`, `agent` and `media`**
+  (#686, #690).
+  - The former coding types (`function_implementation`, `bug_fix`,
+    `docstring`, `type_annotation`, `test_scaffold`) are now `code`. Its
+    evidence is derived from the contract's own fields (`demonstration`,
+    `acceptance`, `no_semantic_change`, `type_check`).
+  - The deterministic operations are now
+    `task_type: code` + `operation: format|import_sort|lint_fix|rename_symbol`.
+    They run with no model.
+  - A former name is refused with a pointer to its new spelling.
+  - The `excluded` block and `mcgyvr catalog --excluded` are gone.
+- **Every verb names the repository with `--repo PATH` only** (#694, F14):
+  `sandbox`, `index`, `resolve`, `read`, `delegate`, `attach` and `run`. A
+  repository given by position is refused with a message that says to use
+  `--repo`.
+- **`chat` and `agent` runs are sessions** (#693, F7).
+  - They need no `target` or `scope`, and their reply defaults to `prose`.
+  - Each run is recorded under `<journal.dir>/sessions/`: question, answer,
+    unit, timings and outcome.
+  - The result file gains `session_record`.
+  - New verb: `mcgyvr sessions [ID]` lists sessions, or shows one.
+- **`acceptance` and `demonstration` commands run without a shell, and
+  `mcgyvr contract` now enforces it** (#692, F12).
+  - A `VAR=x` prefix, `&&`, `||`, pipes, redirects, `;`, `&` and unclosed
+    quotes are refused when the contract is loaded. The message suggests
+    `env VAR=x cmd` or a committed script.
+  - The documentation says "no shell".
+
+### Fixed
+
+- The shipped `code` example passes preflight against the stub it describes:
+  its fail-first test is a `demonstration`. A command refused as
+  `acceptance-baseline-failing` is now told it belongs in `demonstration`
+  (#690, F5).
+- Each task type's result says how it was judged, using the label for its own
+  path (#690, #693, F9):
+  - `code` written by a model: `verified` or `unverified`;
+  - `code` with an `operation`: `deterministic`;
+  - `chat`: `unchecked`;
+  - `agent` and `media`: `checked`.
+
+  `mcgyvr contract` prints the same `judged:` line. The false "this install
+  has none" is gone.
+- `stop_conditions` are required only where a BLOCKED reply can be heard, a
+  `whole_file` reply (#692, F10).
+- The Python gate no longer charges a change with lint the base file already
+  had on a line the change only rewrote, as `ruff format` does (#695, F2).
+- The docker sandbox image of a pyproject with no lockfile installs its
+  `[dependency-groups].dev` (`pip install . --group dev`) (#695, F3).
+- Whatever an acceptance or demonstration command leaves behind, such as
+  `__pycache__`, `.pytest_cache` or a tool cache's nested `.git`, is cleaned up
+  and named in a note. It is not refused at preflight or charged to the change
+  at the gate. A command that rewrites a file of the change itself is still
+  rejected (#695, F4).
+- The docker sandbox points `XDG_CACHE_HOME`, `XDG_CONFIG_HOME` and
+  `XDG_DATA_HOME` at `/tmp`, so `uv run` no longer writes its cache into the
+  workspace (#686, F13).
+- A run on a tree with uncommitted or untracked files says that the sandbox is
+  built from HEAD, and names what it leaves out. The note goes to stderr and
+  to the result file's new `notes`. `run`, `sandbox` and `delegate` all print
+  it (#694, F11).
+- The README clones the skill at the tag of the installed CLI.
+  `skills/mcgyvr/install.sh` passes the skill's example contracts to the CLI
+  on `PATH` and warns when it refuses them. `MIN_VERSION` is 0.5.0 (#691, F1).
+
+### Added
+
+- `mcgyvr.orchestrator.baseline` detects the project's test runner from what
+  the project declares, observes the baseline once, and fills an empty
+  `demonstration` or `acceptance` on a `code` proposal from that observation
+  (#686).
+
 ## [0.4.16] - 2026-10-11
 
 ### Fixed
