@@ -219,11 +219,6 @@
       "says": "How many options one typed Choice may carry — the decision primitive's 62 single-token labels — so candidate and symbol lists are capped at it and a classification cannot overrun the label scheme.",
       "reason": "the specification of a format, protocol or tool"
     },
-    "deliver.py:_BRANCH_ATTEMPTS": {
-      "kind": "choice",
-      "says": "How many suffixed branch names a delivery tries when its branch name is taken, before it refuses and says what to clear.",
-      "reason": "how often or how many times the product tries its own step again"
-    },
     "derived.py:CHECKOUT_DATA": {
       "kind": "fact",
       "says": "A checkout keeps the shipped data folder two folders above this module's own folder.",
