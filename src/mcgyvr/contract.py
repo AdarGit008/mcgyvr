@@ -224,18 +224,15 @@ def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
 # a whole attempt; a reply that overflows a generous cap is a task too big for
 # one contract, which is a re-decomposition and not a larger number.
 #
-# They are defaults in the loader's sense: what it fills in for a contract that
-# states no cap, and the figure the generated examples and the command line's
-# refusal offer as the value to start from. Omitting the cap is not accepted
-# there for a whole_file contract: `mcgyvr contract` and `mcgyvr run` refuse a
-# whole_file model contract that declares none
-# (`mcgyvr.cli._cap_undeclared`); a raw-text reply (prose / media_artifact)
-# carries no cap and is not refused.
+# They are the floor of the automatic cap (`auto_reply_cap`, below): what the
+# loader fills in for a whole_file contract that states no cap, the visible
+# reply a task type needs before the target's own size is counted. A raw-text
+# reply (prose / media_artifact) carries no cap and gets no floor.
 #
 # Nor are they the last word. A contract states its own cap with
 # `limits.max_output_tokens`, and a unit that declares
-# `units.<name>.output_tokens` sends that number for every contract it serves,
-# in place of the contract's (`mcgyvr.gate.preflight.reply_cap`). A relief rung
+# `units.<name>.output_tokens` sends that number in place of a stated cap, and
+# bounds the automatic one (`mcgyvr.gate.preflight.reply_cap`). A relief rung
 # (another person's unit, ridden when the rider's own is full) is sent the
 # smaller of the contract's cap and the local unit's, and the local unit's
 # where the contract has none.
@@ -260,6 +257,92 @@ NEW_FILE_STEP = 512
 # deterministic operation gets; the allowances above are already whole steps.
 CAP_STEP = 128
 MIN_CAP = 256
+
+# --- the automatic cap ----------------------------------------------------
+#
+# A contract that states no cap is sized per attempt, once the target's
+# content is in hand, by `auto_reply_cap`. Two terms, because a reply now holds
+# two things and only one of them is ever seen.
+#
+# The visible reply re-emits the whole file (`whole_file`), so it grows with
+# the target: the floor above for what the change adds, plus REWRITE_FACTOR
+# times the target's estimated tokens (`mcgyvr.orchestrator.read.
+# estimate_tokens`, the one proxy every budget spends against). Two, not one:
+# the file once, the proxy's measured under-count on top
+# (`mcgyvr.gate.preflight.ESTIMATE_RESERVE`, 0.32), and room for the file to
+# grow. A target that does not exist yet has no size and takes NEW_FILE_STEP
+# instead, for the declarations a new file arrives with.
+#
+# The hidden reply is the reasoning a hosted reasoning model spends before it
+# writes. It is billed against the same `max_tokens` and never read, so a cap
+# sized for the visible reply alone comes back empty. The e2e run of
+# 2026-10-13 measured it on DeepSeek: a 1024 cap returned an empty reply on
+# both rungs for a small new module, 4096 returned an empty reply on both for a
+# duration parser, and the dearer rung finished that parser in 16216 output
+# tokens of a 16384 cap, almost all of it reasoning (the cheaper rung finished
+# the small module in 599). REASONING_ALLOWANCE is that 16216 with half again on
+# top, in whole steps: the worst case seen, with room for a harder one. A model
+# that does not reason stops when its file is written, and an unspent cap costs
+# nothing on the wire; where it would cost window, the dispatch trims this term
+# (and only this one) to what the window leaves
+# (`mcgyvr.gate.preflight.reply_cap`).
+REWRITE_FACTOR = 2
+REASONING_ALLOWANCE = 24576
+
+
+@dataclass(frozen=True)
+class AutoCap:
+    """The two halves of an automatic cap, and how they were reached.
+
+    ``visible`` is the room the written file needs; ``reasoning`` the hidden
+    allowance on top. Kept apart because only ``reasoning`` may be trimmed to
+    fit a window: a visible reply that does not fit is a contract too big for
+    the rung, which a fit check refuses by name rather than a cap that
+    truncates it.
+    """
+
+    floor: int
+    target_tokens: int
+    visible: int
+    reasoning: int = REASONING_ALLOWANCE
+
+    @property
+    def tokens(self) -> int:
+        """The cap asked for before any unit, window or ceiling bounds it."""
+        return self.visible + self.reasoning
+
+    @property
+    def basis(self) -> str:
+        """How the number was reached, in the words a journal row carries."""
+        if self.target_tokens:
+            reply = (
+                f"{self.floor} for the task type + {REWRITE_FACTOR} x "
+                f"{self.target_tokens} target tokens"
+            )
+        else:
+            reply = f"{self.floor} for the task type + {NEW_FILE_STEP} for a new file"
+        return f"auto: {reply} + {self.reasoning} reasoning allowance = {self.tokens}"
+
+
+def auto_reply_cap(floor: int, target: str) -> AutoCap:
+    """The automatic cap of a contract that states none, sized from its target.
+
+    ``floor`` is the cap the loader derived for the task type
+    (:func:`output_cap`); ``target`` the target's content as the attempt reads
+    it, empty for a file that does not exist yet. Deterministic in the two,
+    for the reason :func:`output_cap` is: a budget that moved between two runs
+    of the same contract on the same file would make every refusal downstream
+    unreproducible. The constants and the measurements behind them are above.
+    """
+    # Imported here for the reason `mcgyvr.gate.preflight` does: the
+    # orchestrator package imports this module, so at module scope this would
+    # be a cycle to reach one arithmetic helper.
+    from mcgyvr.orchestrator.read import estimate_tokens
+
+    tokens = estimate_tokens(target) if target else 0
+    grown = REWRITE_FACTOR * tokens if tokens else NEW_FILE_STEP
+    visible = ((floor + grown + CAP_STEP - 1) // CAP_STEP) * CAP_STEP
+    return AutoCap(floor=floor, target_tokens=tokens, visible=visible)
 
 
 def evidence_for(
@@ -531,18 +614,18 @@ LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
         "int",
-        "The cap this contract declares on the worker's reply. A reply cut "
-        "off at the cap is a named failure and is never applied to a file. "
-        "Declare it for any whole_file task type a model executes: "
-        "`mcgyvr contract` and "
-        "`mcgyvr run` refuse a whole_file model contract that leaves it out "
-        "(exit 2) and "
-        "print the figure the type's own evidence would derive (`output_cap`) "
-        "as the value to start from. A raw-text reply (`prose` / "
-        "`media_artifact`) carries no cap and declares nothing. It is the one "
-        "key in the schema with no "
-        "static default: a single number for every type is wrong for at least "
-        "one of them. What this states is what the *work* is worth.",
+        "The cap on the worker's reply, in output tokens, hidden reasoning "
+        "included: a hosted reasoning model spends its cap thinking before it "
+        "writes. A reply cut off at the cap is a named failure and is never "
+        "applied to a file. Leave it out and each attempt sizes the cap from "
+        "the target it changes: the task type's own allowance, twice the "
+        "target's estimated tokens (a new file gets a fixed step instead), "
+        "and a reasoning allowance on top, bounded by the unit's "
+        "`output_tokens` and by the room the rung's window leaves; the journal "
+        "row records the number sent and how it was reached. State a number "
+        "to pin it. It is not bounded by `context.max_input_tokens`: the "
+        "reasoning is never read back. A raw-text reply (`prose` / "
+        "`media_artifact`) carries no cap and declares nothing.",
         default=None,
         min_value=1,
     ),
@@ -1174,12 +1257,13 @@ def parse(text: str, path: Path | None = None) -> Contract:
     declared_cap = data["limits"]["max_output_tokens"] is not None
     if not declared_cap:
         # The one key the schema cannot default statically: how big a reply may
-        # be depends on what the reply has to be. Filled before
-        # `_cross_validate`, so the cap is checked against the prompt budget on
-        # the same terms whether it was declared or derived. A raw-text reply
-        # (prose / media_artifact) carries no cap at all — a chatty model is a
-        # prompting issue, not a cap issue — so only a whole_file reply gets a
-        # derived number.
+        # be depends on what the reply has to be. What is filled here is the
+        # floor of the automatic cap — the task type's visible allowance — and
+        # each attempt sizes the cap it sends from the target it reads
+        # (`auto_reply_cap`, through `mcgyvr.gate.preflight.reply_cap`). A
+        # raw-text reply (prose / media_artifact) carries no cap at all — a
+        # chatty model is a prompting issue, not a cap issue — so only a
+        # whole_file reply gets a derived number.
         data["limits"]["max_output_tokens"] = (
             output_cap(
                 data["task_type"],
@@ -1682,16 +1766,15 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             )
         seen.add(dep["path"])
 
-    if (
-        data["limits"]["max_output_tokens"] is not None
-        and data["limits"]["max_output_tokens"] > data["context"]["max_input_tokens"]
-    ):
-        raise ContractSchemaError(
-            f"limits.max_output_tokens: {data['limits']['max_output_tokens']} "
-            f"exceeds context.max_input_tokens "
-            f"({data['context']['max_input_tokens']}). A reply larger than the "
-            f"whole prompt budget cannot be assembled into a next attempt."
-        )
+    # No bound of `limits.max_output_tokens` by `context.max_input_tokens`.
+    # There was one, on the ground that a reply larger than the prompt budget
+    # could not be assembled into a next attempt — but the cap counts the
+    # hidden reasoning a hosted reasoning model spends before it writes, which
+    # is never read back into anything, and the visible reply is bounded where
+    # it competes for room: against the window of the rung it is sent to
+    # (`mcgyvr.gate.preflight.check_contract_against_rung`). The rule only
+    # forced a reasoning model's cap to drag the prompt budget up with it (the
+    # e2e run of 2026-10-13).
 
 
 def _check_destination(

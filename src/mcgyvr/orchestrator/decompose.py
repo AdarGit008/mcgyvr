@@ -71,7 +71,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import CatalogError, TaskType, catalog
-from mcgyvr.contract import Contract, ContractError, evidence_for, output_cap
+from mcgyvr.contract import Contract, ContractError
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.orchestrator.baseline import BaselineObservation, locate_baseline
@@ -138,9 +138,9 @@ class Proposal:
     allow: tuple[str, ...] = ()
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
-    #: The reply cap the proposal states, or ``None`` for the type's own
-    #: derivation (:func:`mcgyvr.contract.output_cap`), written on the
-    #: document so ``mcgyvr run`` meets a cap somebody chose.
+    #: The reply cap the proposal states, written on the document, or
+    #: ``None`` to leave it unset so each attempt sizes it from the target
+    #: (:func:`mcgyvr.contract.auto_reply_cap`).
     max_output_tokens: int | None = None
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
@@ -747,41 +747,23 @@ def _document(
         document["risk"] = proposal.risk
     if max_input_tokens is not None:
         document["context"] = {"max_input_tokens": max_input_tokens}
-    cap = _reply_cap(proposal, new_file=not target_content)
+    cap = _reply_cap(proposal)
     if cap is not None:
         document["limits"] = {"max_output_tokens": cap}
     return document
 
 
-def _reply_cap(proposal: Proposal, *, new_file: bool) -> int | None:
+def _reply_cap(proposal: Proposal) -> int | None:
     """The ``limits.max_output_tokens`` a delegated contract is written with.
 
-    ``mcgyvr run`` refuses a whole-file model contract that declares no cap
-    (``cli._cap_undeclared``): a reply cut at a cap nobody chose is spent
-    silently. The loader fills the number in only to load, so an emitted
-    document has to carry it. The proposal's own figure wins; otherwise the
-    one derivation the loader and ``mcgyvr contract`` already make,
-    :func:`mcgyvr.contract.output_cap`, from the type's own evidence — nothing
-    here invents a number — with the new-file step the loader cannot know and
-    this module can. A deterministic operation has no reply to cap and a raw-text
-    type (``prose``, ``media_artifact``) carries none, so both get ``None``.
+    The proposal's own figure, or none. A whole-file contract that states no
+    cap is sized at each attempt from the target the run reads
+    (:func:`mcgyvr.contract.auto_reply_cap`, through
+    :func:`mcgyvr.gate.preflight.reply_cap`) — a number this module could only
+    have fixed at the size the type alone suggests, which a reasoning model
+    spends before it writes a line (the e2e run of 2026-10-13).
     """
-    if proposal.max_output_tokens is not None:
-        return proposal.max_output_tokens
-    kind = catalog().require(proposal.task_type)
-    if kind.deterministic or kind.use_case.name != "coding":
-        return None
-    return output_cap(
-        proposal.task_type,
-        new_file=new_file,
-        evidence=evidence_for(
-            kind,
-            acceptance=proposal.acceptance,
-            demonstration=proposal.demonstration,
-            no_semantic_change=proposal.no_semantic_change,
-            type_check=proposal.type_check,
-        ),
-    )
+    return proposal.max_output_tokens
 
 
 def _load(document: dict[str, Any]) -> Contract | Refusal:

@@ -451,6 +451,11 @@ class Request:
     ``tools`` are the OpenAI function tools on offer, sent with
     ``tool_choice: "auto"``; empty sends neither key. Both default empty, so a
     single-turn request is unchanged.
+
+    ``cap_basis`` says how ``max_output_tokens`` was reached
+    (:func:`mcgyvr.gate.preflight.sized_reply_cap`). It is never sent; it
+    rides to the completion and the journal row, so a reply cut at its cap
+    names the term that sized it.
     """
 
     prompt: str
@@ -462,6 +467,7 @@ class Request:
     response_schema: dict[str, Any] | None = None
     turns: tuple[Mapping[str, Any], ...] = ()
     tools: tuple[Mapping[str, Any], ...] = ()
+    cap_basis: str = ""
 
     def __post_init__(self) -> None:
         if self.max_output_tokens is not None and self.max_output_tokens < 1:
@@ -552,6 +558,12 @@ class Completion:
     #: The function calls the reply asked for, in the order the server listed
     #: them; empty for a reply in text alone.
     tool_calls: tuple[ToolCall, ...] = ()
+    #: How many of ``output_tokens`` the backend reports as hidden reasoning
+    #: (``usage.completion_tokens_details.reasoning_tokens``), or ``None``
+    #: where it reported none. A reasoning model bills them against the cap.
+    reasoning_tokens: int | None = None
+    #: How ``max_output_tokens`` was reached, copied from the request.
+    cap_basis: str = ""
 
     @property
     def complete(self) -> bool:
@@ -612,6 +624,8 @@ class _Parsed:
     draft_n_accepted: int | None = None
     #: The function calls the answer asked for; empty when it asked for none.
     tool_calls: tuple[ToolCall, ...] = ()
+    #: The reasoning share of ``output_tokens``, where the backend reports it.
+    reasoning_tokens: int | None = None
 
 
 class Runner(ABC):
@@ -735,6 +749,8 @@ class Runner(ABC):
             draft_n=parsed.draft_n,
             draft_n_accepted=parsed.draft_n_accepted,
             tool_calls=parsed.tool_calls,
+            reasoning_tokens=parsed.reasoning_tokens,
+            cap_basis=request.cap_basis,
         )
 
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
@@ -803,6 +819,11 @@ class Runner(ABC):
                 notes.append(
                     "the backend reported it stopped at its own length limit "
                     "(the request was uncapped)."
+                )
+            elif not parsed.text.strip():
+                notes.append(
+                    f"the reply hit the {request.max_output_tokens}-token cap "
+                    f"with no visible text: the cap went to hidden reasoning."
                 )
             else:
                 notes.append(
@@ -951,6 +972,7 @@ class OpenAIRunner(Runner):
             draft_n=_as_int(timings.get("draft_n")),
             draft_n_accepted=_as_int(timings.get("draft_n_accepted")),
             tool_calls=tool_calls,
+            reasoning_tokens=_reasoning_tokens(usage),
         )
 
     def _tool_calls(self, entries: object) -> tuple[ToolCall, ...]:
@@ -1127,6 +1149,22 @@ class _Status:
     source: str
     #: vLLM's time-to-first-token totals ``(sum_s, count)``, or ``None``.
     ttft: tuple[float, int] | None = None
+
+
+def _reasoning_tokens(usage: Mapping[str, Any]) -> int | None:
+    """The reasoning share of a reply's output tokens, where the usage reports it.
+
+    ``usage.completion_tokens_details.reasoning_tokens`` is where OpenAI and
+    the OpenAI-compatible reasoning providers put it; a bare
+    ``usage.reasoning_tokens`` is read where that is absent. ``None`` where
+    neither is a count, never an estimate from the reasoning text.
+    """
+    details = usage.get("completion_tokens_details")
+    if isinstance(details, Mapping):
+        nested = _as_int(details.get("reasoning_tokens"))
+        if nested is not None:
+            return nested
+    return _as_int(usage.get("reasoning_tokens"))
 
 
 def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None]:

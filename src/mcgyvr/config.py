@@ -494,6 +494,18 @@ ROLE_ALWAYS_ON = "always-on"
 ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
+#: The ``output_tokens`` a hosted unit is written with when ``setup --api``
+#: names none: the room its replies are given, and the ceiling of the cap a
+#: contract that states none is sized to (`mcgyvr.gate.preflight.reply_cap`).
+#: A hosted unit is the one most likely to serve a reasoning model, which bills
+#: hidden reasoning against the same number: the e2e run of 2026-10-13 saw
+#: DeepSeek's dearer rung spend 16216 tokens on a duration parser, and empty
+#: replies at 1024 and 4096. Twice that worst case, in a power of two the
+#: hosted reasoning APIs accept (DeepSeek's reasoner takes up to 64K); a model
+#: that serves less is stated as `--api ...,output_tokens=N`, because a
+#: provider refuses a `max_tokens` above its model's own limit.
+API_OUTPUT_TOKENS = 32768
+
 UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "address",
@@ -563,9 +575,12 @@ UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "output_tokens",
         "int",
-        "Room a reply on this unit is given, the `max_tokens` its backend is \
-"
-        "actually sent.",
+        "Room a reply on this unit is given, the `max_tokens` its backend is "
+        "actually sent, hidden reasoning included. It replaces a cap a "
+        "contract states, and bounds the cap of one that states none, which "
+        "is sized from its target. A hosted reasoning model needs tens of "
+        "thousands; `setup --api` writes "
+        f"{API_OUTPUT_TOKENS}.",
         min_value=1,
         bind_hint="e.g. 2048 -- the reply length this unit needs",
     ),

@@ -33,6 +33,7 @@ from mcgyvr.capability import (
     table_path,
 )
 from mcgyvr.config import (
+    API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
     Config,
@@ -395,45 +396,15 @@ def _catalog(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cap_undeclared(contract: Contract) -> str | None:
-    """Why a whole-file model contract with no declared reply cap is refused, or None.
-
-    The loader derives ``limits.max_output_tokens`` from the task type's own
-    evidence, silently, because the bench and the corpus need a number. A
-    person's run does not get that silence: a contract whose reply cap nobody
-    chose is refused before anything is spent. The derived figure is printed as
-    the value to start from. A deterministic contract has no reply to cap and
-    is not asked, and neither is a raw-text reply (``prose`` /
-    ``media_artifact``): it carries no cap, so there is nothing to declare.
-
-    A ladder unit that declares ``units.*.output_tokens`` does not lift this.
-    The two numbers answer different questions — what this unit of work is
-    worth, and what a particular backend needs to finish a reply (see
-    :func:`mcgyvr.gate.preflight.reply_cap`) — so a rig owner answering the
-    second has not answered the first, and the same contract may be run against
-    a ladder whose rungs declare nothing, where its own number is the only one
-    there is. A refusal lifted by a config the contract never mentions would
-    also make this command's answer depend on which machine it was typed on.
-    """
-    if (
-        contract.is_deterministic
-        or contract.max_output_tokens_declared
-        or contract.output_schema != "whole_file"
-    ):
-        return None
-    return (
-        f"limits.max_output_tokens is not declared, and {contract.task_type} is "
-        f"executed by a model: a reply cut at a cap nobody chose is spent "
-        f"silently. State the cap in the contract — the type's own evidence "
-        f"would size it at {contract.limits.max_output_tokens} tokens, which is "
-        f"a starting value, not a measurement."
-    )
-
-
 def _contract(args: argparse.Namespace) -> int:
     import json
 
-    from mcgyvr.contract import ContractError, load
+    from mcgyvr.contract import (
+        REASONING_ALLOWANCE,
+        REWRITE_FACTOR,
+        ContractError,
+        load,
+    )
     from mcgyvr.escalate import how_judged
 
     try:
@@ -443,10 +414,6 @@ def _contract(args: argparse.Namespace) -> int:
         # it names the field and what a valid value looks like.
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    undeclared = _cap_undeclared(contract)
-    if undeclared is not None:
-        print(f"error: {undeclared}", file=sys.stderr)
-        return Exit.USAGE
 
     if args.worker_view:
         print(json.dumps(contract.worker_view(), indent=2))
@@ -490,6 +457,15 @@ def _contract(args: argparse.Namespace) -> int:
         )
     if contract.limits.max_output_tokens is None:
         output_budget = "uncapped (raw text)"
+    elif not contract.max_output_tokens_declared and not contract.is_deterministic:
+        # Sized per attempt from the target the run reads, so the number is
+        # not known here; the floor is, and so is what is added to it.
+        output_budget = (
+            f"output cap sized from the target each attempt (from "
+            f"{contract.limits.max_output_tokens} for the type, plus "
+            f"{REWRITE_FACTOR}x the target and {REASONING_ALLOWANCE} for "
+            f"reasoning, within the unit's output_tokens)"
+        )
     else:
         output_budget = f"<={contract.limits.max_output_tokens} output tokens"
     print(
@@ -1983,12 +1959,6 @@ def _run(args: argparse.Namespace) -> int:
     except ContractError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    undeclared = _cap_undeclared(contract)
-    if undeclared is not None:
-        # Before the repo, the config, the session and the journal: nothing is
-        # filed for a run that was refused for what its contract left out.
-        print(f"error: {undeclared}", file=sys.stderr)
-        return Exit.USAGE
 
     repo = Path(args.repo).resolve()
     if not (repo / ".git").exists():
@@ -5189,9 +5159,11 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="SPEC",
         help=(
             "bind a hosted API unit, which needs no GPU and no local backend, "
-            "as `model=<id>,address=<url>,api_key_env=<VAR>` (repeatable). "
-            "api_key_env is the NAME of the environment variable holding your "
-            "key, never the key itself"
+            "as `model=<id>,address=<url>,api_key_env=<VAR>` (repeatable), "
+            "optionally `,output_tokens=<N>` for the room its replies are "
+            f"given (default {API_OUTPUT_TOKENS}: a reasoning model spends it "
+            "thinking before it writes). api_key_env is the NAME of the environment "
+            "variable holding your key, never the key itself"
         ),
     )
     setup.add_argument(

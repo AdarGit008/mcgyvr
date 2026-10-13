@@ -333,7 +333,49 @@ def test_a_value_that_is_not_key_equals_value_is_refused() -> None:
 def test_the_spec_keys_are_the_units_own_schema_keys() -> None:
     """One vocabulary, so the flag and the file cannot drift apart."""
     from mcgyvr.config import UNIT_FIELDS
-    from mcgyvr.initialize import API_SPEC_KEYS
+    from mcgyvr.initialize import API_SPEC_KEYS, API_SPEC_OPTIONAL_KEYS
 
     names = {field.name for field in UNIT_FIELDS}
     assert set(API_SPEC_KEYS) <= names
+    assert set(API_SPEC_OPTIONAL_KEYS) <= names
+
+
+# --- the room a hosted unit's replies are given ----------------------------
+
+
+def test_a_hosted_unit_is_written_with_room_for_a_reasoning_model(
+    tmp_path: Path,
+) -> None:
+    """`setup --api` writes the unit's `output_tokens`, not a commented key.
+
+    A hosted reasoning model bills hidden reasoning against the cap, and the
+    e2e run of 2026-10-13 got empty replies from DeepSeek at 1024 and 4096
+    because nothing on the unit said otherwise. The unit's number replaces a
+    contract's stated cap and bounds an unstated one.
+    """
+    from mcgyvr.config import API_OUTPUT_TOKENS
+
+    path = tmp_path / "setup"
+    initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
+
+    assert load_config(path).units["api_claude-opus-5"].output_tokens == (
+        API_OUTPUT_TOKENS
+    )
+    assert f"output_tokens: {API_OUTPUT_TOKENS}\n" in _written(path)
+
+
+def test_the_room_may_be_stated_on_the_flag(tmp_path: Path) -> None:
+    """A model that serves less is stated, because a provider refuses more."""
+    path = tmp_path / "setup"
+    unit = parse_api_unit(f"{SPEC},output_tokens=8192")
+    initialize(path, detection=BARE, api_units=(unit,))
+
+    assert unit.output_tokens == 8192
+    assert load_config(path).units["api_claude-opus-5"].output_tokens == 8192
+
+
+@pytest.mark.parametrize("room", ["0", "-5", "lots", "1.5"])
+def test_a_room_that_is_not_a_whole_number_is_refused(room: str) -> None:
+    with pytest.raises(ApiSpecError) as exc:
+        parse_api_unit(f"{SPEC},output_tokens={room}")
+    assert "output_tokens" in str(exc.value)

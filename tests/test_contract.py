@@ -645,16 +645,21 @@ def test_a_demonstration_is_permitted_where_not_required() -> None:
     assert contract.demonstration == ("pytest -q tests/test_fetch.py::test_retries",)
 
 
-def test_an_output_cap_larger_than_the_prompt_budget_is_rejected() -> None:
-    with pytest.raises(ContractSchemaError) as exc:
-        loads(
-            MINIMAL
-            + "\ncontext:\n  max_input_tokens: 1000\n"
-            + "\nlimits:\n  max_output_tokens: 4000\n"
-        )
-    message = str(exc.value)
-    assert message.startswith("limits.max_output_tokens:")
-    assert "exceeds context.max_input_tokens" in message
+def test_an_output_cap_larger_than_the_prompt_budget_is_accepted() -> None:
+    """The cap counts hidden reasoning, which is never read back into a prompt.
+
+    The loader used to refuse a cap above ``context.max_input_tokens``, so a
+    reasoning model's cap dragged the prompt budget up with it (the e2e run of
+    2026-10-13). The visible reply is bounded against the rung's window at
+    dispatch instead.
+    """
+    contract = loads(
+        MINIMAL
+        + "\ncontext:\n  max_input_tokens: 1000\n"
+        + "\nlimits:\n  max_output_tokens: 16384\n"
+    )
+    assert contract.limits.max_output_tokens == 16384
+    assert contract.max_input_tokens == 1000
 
 
 # --- the worker / orchestrator split (#94) ---------------------------------
