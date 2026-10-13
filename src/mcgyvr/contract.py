@@ -614,18 +614,14 @@ LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
         "int",
-        "The cap on the worker's reply, in output tokens, hidden reasoning "
-        "included: a hosted reasoning model spends its cap thinking before it "
-        "writes. A reply cut off at the cap is a named failure and is never "
-        "applied to a file. Leave it out and each attempt sizes the cap from "
-        "the target it changes: the task type's own allowance, twice the "
-        "target's estimated tokens (a new file gets a fixed step instead), "
-        "and a reasoning allowance on top, bounded by the unit's "
-        "`output_tokens` and by the room the rung's window leaves; the journal "
-        "row records the number sent and how it was reached. State a number "
-        "to pin it. It is not bounded by `context.max_input_tokens`: the "
-        "reasoning is never read back. A raw-text reply (`prose` / "
-        "`media_artifact`) carries no cap and declares nothing.",
+        "What the worker's reply may spend, in output tokens: what the *work* "
+        "is worth, counting any reasoning a model does before it writes. "
+        "Leave it out and each attempt sizes it from the target: the type's "
+        "allowance, twice the target's estimated tokens, and a reasoning "
+        "allowance; the journal records the number and how. A reply cut off "
+        "at the cap is a named failure, never applied to a file. Not bounded "
+        "by `context.max_input_tokens`. A raw-text reply (`prose` / "
+        "`media_artifact`) carries no cap.",
         default=None,
         min_value=1,
     ),

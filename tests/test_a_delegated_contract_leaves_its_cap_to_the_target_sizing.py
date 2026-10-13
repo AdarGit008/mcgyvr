@@ -77,7 +77,8 @@ def test_every_code_shape_is_emitted_with_its_cap_left_to_the_sizing(
         "code", evidence=built.evidence
     )
     (document,) = result.documents
-    assert "limits" not in json.loads(document)
+    # Emitted as `null`, the form `dumps` writes for a cap nobody stated.
+    assert json.loads(document)["limits"]["max_output_tokens"] is None
 
 
 def test_a_proposal_stating_its_own_cap_wins(tmp_path: Path) -> None:

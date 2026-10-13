@@ -101,7 +101,7 @@ Hard ceilings on what one execution of this contract may spend.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `limits.max_output_tokens` | number (min 1) | no | unset | The cap on the worker's reply, in output tokens, hidden reasoning included: a hosted reasoning model spends its cap thinking before it writes. A reply cut off at the cap is a named failure and is never applied to a file. Leave it out and each attempt sizes the cap from the target it changes: the task type's own allowance, twice the target's estimated tokens (a new file gets a fixed step instead), and a reasoning allowance on top, bounded by the unit's `output_tokens` and by the room the rung's window leaves; the journal row records the number sent and how it was reached. State a number to pin it. It is not bounded by `context.max_input_tokens`: the reasoning is never read back. A raw-text reply (`prose` / `media_artifact`) carries no cap and declares nothing. (orchestrator-facing) |
+| `limits.max_output_tokens` | number (min 1) | no | unset | What the worker's reply may spend, in output tokens: what the *work* is worth, counting any reasoning a model does before it writes. Leave it out and each attempt sizes it from the target: the type's allowance, twice the target's estimated tokens, and a reasoning allowance; the journal records the number and how. A reply cut off at the cap is a named failure, never applied to a file. Not bounded by `context.max_input_tokens`. A raw-text reply (`prose` / `media_artifact`) carries no cap. (orchestrator-facing) |
 | `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract may claim: its assembled prompt and `max_output_tokens` together, over the whole window. A different question from whether the two fit, which `context.max_input_tokens` already bounds — a contract that fits with nothing to spare leaves nothing to hold anything beside it and nothing to absorb an estimate that ran long. Declared here because it is a statement about this unit of work, and checked before the work is sent. The run's `max_window_fraction` caps it: the stricter of the two applies. Unset is not 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave a quarter of the window clear. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times the work may be retried before escalating. Retrying forever is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
@@ -133,11 +133,7 @@ mcgyvr contract CONTRACT.yaml
 
 Prints what the contract resolves to, or names the key that is wrong. Fix
 the contract; never guess a field. Leave `limits.max_output_tokens` out
-unless you have a reason to pin it: each attempt sizes the cap from the
-target file, with room for a reasoning model to think before it writes,
-within the unit's `output_tokens`. A reply that comes back empty at the
-cap is named as reasoning that used it up. A prose or media_artifact
-reply is uncapped and declares nothing.
+unless you must pin it: each attempt sizes it from the target file.
 
 ## Step 3 — run it, then read the result file
 
