@@ -39,7 +39,7 @@ discovered later:
 The field layout follows the split #94 arrived at from small-model research:
 worker-facing fields (``id``, ``task_type``, ``task``, ``target``,
 ``target_content``, ``interface``, ``deps``, ``stop_conditions``,
-``output_schema``, ``context``) are separated from orchestrator-only ones
+``output_schema``, ``sources``, ``context``) are separated from orchestrator-only ones
 (``scope``, ``acceptance``, ``demonstration``, ``depends_on``, ``risk``,
 ``verification``, ``limits``, ``rename``), and :meth:`Contract.worker_view` is
 the only way to reach the former.
@@ -718,8 +718,10 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "sources",
         "str_list",
-        "The corpus the reply may cite, for `grounded`.",
+        "Repo files given whole to the worker as `[1]`, `[2]`, …; a missing, "
+        "binary or secret one is refused.",
         default=(),
+        worker_facing=True,
     ),
     Field(
         "context",
@@ -913,6 +915,12 @@ class Contract:
     no_semantic_change: bool = False
     type_check: bool = False
     max_output_tokens_declared: bool = True
+    #: The content of each of ``sources``, in order, once the attempt has read
+    #: them off the tree the run started from (:func:`mcgyvr.drive.worker_attempt`,
+    #: :mod:`mcgyvr.worker.sources`). Not a schema key: a contract names its
+    #: sources, and the run reads them — so a contract on disk never carries a
+    #: copy that could disagree with the tree. Empty until read.
+    source_content: tuple[str, ...] = ()
 
     @property
     def type(self) -> CatalogTaskType:
@@ -1020,6 +1028,10 @@ class Contract:
         ``acceptance``, ``demonstration`` and ``limits`` are how the
         *orchestrator* decides where to run the work and whether to believe
         the result, and a worker that could read them could argue with them.
+
+        ``sources`` carries each path with its content once the attempt has
+        read it (:attr:`source_content`), and ``None`` before — what
+        ``mcgyvr contract --worker-view`` shows, since no tree has been read.
         """
         return {
             "id": self.id,
@@ -1034,6 +1046,17 @@ class Contract:
             ],
             "stop_conditions": list(self.stop_conditions),
             "output_schema": self.output_schema,
+            "sources": [
+                {
+                    "path": path,
+                    "content": (
+                        self.source_content[index]
+                        if len(self.source_content) == len(self.sources)
+                        else None
+                    ),
+                }
+                for index, path in enumerate(self.sources)
+            ],
             "context": {"max_input_tokens": self.max_input_tokens},
         }
 
@@ -1619,7 +1642,7 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
     # gate/output.py — imported lazily because the gate package's __init__
     # imports gate.preflight, which imports this module, so a top-level import
     # here would be circular.
-    from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID
+    from mcgyvr.gate.output import ASR_WER, MEDIA_VALID
 
     evidence_names = {e.name for e in kind.required_evidence}
     if MEDIA_VALID in evidence_names and not data["media_kind"]:
@@ -1639,11 +1662,7 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"wer_threshold: is not set, but task type {kind.name!r} requires "
             f"asr_wer evidence — name the word-error-rate ceiling (0 to 1)."
         )
-    if GROUNDED in evidence_names and not data["sources"]:
-        raise ContractSchemaError(
-            f"sources: is empty, but task type {kind.name!r} requires grounded "
-            f"evidence — name the corpus the reply may cite."
-        )
+    _check_sources(data["sources"])
 
     # A dependency is a join key onto another contract's id, and every way of
     # writing one that no contract could ever match is a plan that deadlocks
@@ -1692,6 +1711,49 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"({data['context']['max_input_tokens']}). A reply larger than the "
             f"whole prompt budget cannot be assembled into a next attempt."
         )
+
+
+def _check_sources(sources: Sequence[str]) -> None:
+    """Each source names one file in the tree, once.
+
+    Checked here, where it costs nothing, for the shape a path must have to be
+    read at all; whether the file is there, and may be given to a worker, is
+    the attempt's question (:mod:`mcgyvr.worker.sources`), asked of the tree
+    the run starts from.
+    """
+    seen: set[str] = set()
+    for index, source in enumerate(sources):
+        where = f"sources.{index}: {source!r}"
+        if not source.strip():
+            raise ContractSchemaError(
+                f"{where} is empty. Name a repo-relative file, or drop the entry."
+            )
+        if source.startswith("/"):
+            raise ContractSchemaError(
+                f"{where} is absolute. A source is a file in the repository, "
+                f"named relative to its root — drop the leading '/'."
+            )
+        if ".." in source.split("/"):
+            raise ContractSchemaError(
+                f"{where} escapes the repository with '..'. A source is a file "
+                f"in the repository."
+            )
+        if enters_git_dir(source):
+            raise ContractSchemaError(
+                f"{where} is inside a .git directory, which is git's own state "
+                f"and not a file in the tree. Name a file in the tree."
+            )
+        if _GLOB_META.search(source):
+            raise ContractSchemaError(
+                f"{where} is a pattern. Each source is one literal file, read "
+                f"whole and numbered in the prompt — list the files."
+            )
+        if source in seen:
+            raise ContractSchemaError(
+                f"{where} is named twice. Each source is given to the worker "
+                f"once, under one number — remove the repeat."
+            )
+        seen.add(source)
 
 
 def _check_destination(

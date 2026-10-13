@@ -266,6 +266,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.worker.bundle",
     "mcgyvr.worker.prompt",
     "mcgyvr.worker.reply",
+    "mcgyvr.worker.sources",
 )
 
 #: The modules both halves import, written down. Each is read from above the

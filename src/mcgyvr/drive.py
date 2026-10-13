@@ -59,7 +59,7 @@ from mcgyvr.gate.adapter import SandboxRunner
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
-from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID, SAFETY_PASS, OutputChecks
+from mcgyvr.gate.output import ASR_WER, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.preflight import (
     ServingWindow,
     check_contract_against_rung,
@@ -76,6 +76,7 @@ from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, independent, veri
 from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, ReplyError, parse_reply
+from mcgyvr.worker.sources import read_sources
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable, Sequence
@@ -778,9 +779,15 @@ def worker_attempt(
         # Who reviews this rung's work, read before anything is dispatched.
         # Its dispatches go through the waker, as the builder's do below: a
         # reviewer on a card that is asleep refuses the connection, and
-        # without the wake every review on such an install is unusable.
+        # without the wake every review on such an install is unusable. A
+        # reply (`chat`, `agent`, `media`) has no reviewer at all — not the
+        # prose verifier and not the gate's typed Jev questions either: there
+        # is no change to review (owner, e2e run 2 R11: "agent and chat have
+        # no gates").
         chosen: Reviewer | NoReviewer | None = (
-            reviewers(this.rung.name) if reviewers is not None else None
+            reviewers(this.rung.name)
+            if reviewers is not None and contract.kind.judges_a_change
+            else None
         )
         reviewing = (
             _through(waker, chosen, jev_resident=jev_bound(pool))
@@ -842,9 +849,15 @@ def worker_attempt(
         original = _base_content(sandbox, contract)
         # The worker prompt needs the file it is changing. A decomposed
         # contract carries it as `target_content`; a hand-authored one does
-        # not, so fall back to the workspace's own copy.
+        # not, so fall back to the workspace's own copy. Its `sources` are read
+        # off the same tree, in the same moment (`mcgyvr.worker.sources`): a
+        # source that cannot be given raises here, before the first dispatch.
         prompt = build_prompt(
-            replace(contract, target_content=contract.target_content or original),
+            replace(
+                contract,
+                target_content=contract.target_content or original,
+                source_content=read_sources(sandbox.workspace, contract.sources),
+            ),
             adapters=adapters,
             retry=notes.get(this.rung.name),
         )
@@ -1539,16 +1552,14 @@ def acceptance_for(
 def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | None:
     """The gate's output-checks rung, or ``None`` when the contract declares none.
 
-    Only the four structural evidence kinds the gate makes itself are mapped
+    Only the three structural evidence kinds the gate makes itself are mapped
     here; the command-producing kinds have their own rungs. Built beside
     :func:`acceptance_for` rather than inside ``Gate`` because the declared
     evidence and the workspace are what this layer holds.
     """
     declared = set(contract.evidence_names)
     checks = tuple(
-        name
-        for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER, GROUNDED)
-        if name in declared
+        name for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER) if name in declared
     )
     if not checks:
         return None
@@ -1559,7 +1570,6 @@ def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | Non
         media_kind=contract.media_kind,
         transcript=contract.transcript,
         wer_threshold=contract.wer_threshold,
-        sources=contract.sources,
     )
 
 
@@ -1568,8 +1578,9 @@ def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
 
     A raw-text reply is the answer itself, not a file to be tidied, repaired or
     verifier-reviewed. The only bar it must clear is the structural output
-    evidence the contract declares — grounded citations, a safety pass, and so
-    on — and a chat contract that declares none is accepted with no gate at all.
+    evidence the contract declares — a media artifact's ``media_valid`` — and a
+    ``chat`` or ``agent`` session, which declares none, is accepted with no gate
+    at all (owner, e2e run 2 R11: "agent and chat have no gates").
     """
     rung = output_checks_for(contract, sandbox.workspace)
     if rung is None:

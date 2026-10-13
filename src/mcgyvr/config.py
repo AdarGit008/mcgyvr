@@ -971,7 +971,8 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Which of the four use cases this install serves: `coding` (scoped "
         "edits judged by the deterministic gate), `chat` (a raw un-gated "
-        "endpoint), `agent` (grounded + safety output checks) or "
+        "endpoint), `agent` (an un-gated session over the files a contract "
+        "names as its sources) or "
         "`media-gen` (media_valid, safety and ASR-WER).",
         choices=("coding", "chat", "agent", "media-gen"),
         default="coding",

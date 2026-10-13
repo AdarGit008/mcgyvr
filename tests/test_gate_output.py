@@ -10,8 +10,8 @@ fits), and page structure only for OGG, whose duration is deferred — and
 video is checked past the header too — duration must be determinable and
 positive for MP4, WEBM and AVI, and the file must be structurally complete.
 
-The three other kinds (``safety_pass``, ``asr_wer``, ``grounded``) name
-validators that land with P2; this file pins their check names and their
+The two other kinds (``safety_pass``, ``asr_wer``) name validators that land
+with P2; this file pins their check names and their
 "not yet wired" behaviour. A check whose validator is missing is inconclusive
 — a rejection — never a clean pass, so a contract declaring one never reads
 as clean.
@@ -31,7 +31,6 @@ from mcgyvr.drive import output_checks_for
 from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.output import (
     ASR_WER,
-    GROUNDED,
     MEDIA_AUDIO,
     MEDIA_IMAGE,
     MEDIA_VALID,
@@ -40,7 +39,6 @@ from mcgyvr.gate.output import (
     OutputChecks,
     _word_error_rate,
     asr_wer,
-    grounded,
     media_valid,
     safety_pass,
 )
@@ -726,30 +724,6 @@ def test_word_error_rate_handles_a_longer_hypothesis() -> None:
 
 def test_word_error_rate_guards_an_empty_reference() -> None:
     assert _word_error_rate("", "") == 0.0
-
-
-def test_grounded_accepts_a_text_whose_sentences_all_cite(tmp_path: Path) -> None:
-    path = _file(tmp_path, "out.txt", b"See [1] for the plan. source-alpha agrees!")
-    assert grounded(path, ("source-alpha",)) == []
-
-
-def test_grounded_accepts_a_text_citing_by_source_id(tmp_path: Path) -> None:
-    path = _file(tmp_path, "out.txt", b"source-alpha says it works.\nsource-beta too.")
-    assert grounded(path, ("source-alpha", "source-beta")) == []
-
-
-def test_grounded_reports_one_finding_per_uncited_sentence(tmp_path: Path) -> None:
-    path = _file(tmp_path, "out.txt", b"This cites [1]. This one does not. Nor this.")
-    findings = grounded(path, ("source-alpha",))
-    assert [f.code for f in findings] == ["ungrounded", "ungrounded"]
-    assert all(f.check == GROUNDED for f in findings)
-
-
-def test_grounded_reports_unreadable_when_the_output_cannot_be_read(
-    tmp_path: Path,
-) -> None:
-    findings = grounded(tmp_path, ("source-alpha",))
-    assert [f.code for f in findings] == ["unreadable"]
 
 
 def test_safety_pass_reports_clean_when_the_classifier_returns_zero(

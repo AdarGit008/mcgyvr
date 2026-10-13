@@ -25,6 +25,13 @@ hand the worker a truncated target. No language tag is attached — the header
 already names the file, extension included, and a tag inferred here would be a
 second statement of the same fact with its own way of being wrong.
 
+**A contract's ``sources`` are rendered numbered, whole and fenced,** in the
+contract's order, so ``[n]`` names one file (e2e run 2, R11: an ``agent`` was
+asked to cite sources it was never given). The attempt reads their content off
+the tree (:mod:`mcgyvr.worker.sources`) and hands it in through the view like
+every other field; it counts against ``max_input_tokens`` like everything else
+here, and is never cut to fit.
+
 **``max_input_tokens`` is used, not shown.** It is worker-facing on the schema,
 but it is a budget the orchestrator enforces rather than an instruction a model
 can act on — telling a worker its own input ceiling spends tokens to say
@@ -151,6 +158,28 @@ def _render_target_content(target: str, content: str) -> str:
     )
 
 
+def _render_sources(sources: Sequence[dict[str, Any]]) -> str:
+    """Each source under its number, ``[1]`` first, its content fenced.
+
+    Numbered in the contract's order, so ``[n]`` in a reply names one file and
+    always the same one. Fenced as the target is, for the same reason: a source
+    that holds a fence must not close its own block. A source whose content has
+    not been read — ``mcgyvr contract --worker-view``, before any tree is —
+    is listed by path alone.
+    """
+    blocks = []
+    for number, source in enumerate(sources, start=1):
+        header = f"[{number}] {source['path']}"
+        content = source["content"]
+        if content is None:
+            blocks.append(f"{header} (read from the tree when the prompt is sent)")
+            continue
+        body = content if content.endswith("\n") or not content else content + "\n"
+        fence = _fence_for(content)
+        blocks.append(f"{header}\n{fence}\n{body}{fence}")
+    return "\n\n".join(blocks)
+
+
 def _render_deps(deps: Sequence[dict[str, Any]]) -> list[str]:
     lines = []
     for dep in deps:
@@ -186,6 +215,11 @@ def render_user_message(view: dict[str, Any], retry: RetryNotes | None = None) -
         sections.append(
             f"DEPENDENCIES (signatures only — call them, do not reimplement "
             f"them):\n{body}"
+        )
+    if view["sources"]:
+        sections.append(
+            "SOURCES (the files to work from, numbered — cite one as [n] where "
+            "a statement rests on it):\n" + _render_sources(view["sources"])
         )
     if view["stop_conditions"]:
         body = "\n".join(f"- {c}" for c in view["stop_conditions"])

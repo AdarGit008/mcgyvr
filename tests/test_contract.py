@@ -736,17 +736,9 @@ def test_every_declared_task_type_loads() -> None:
             if kind.needs_demonstration_commands
             else "[]"
         )
-        # A type that requires grounded evidence must name the corpus the
-        # reply may cite, so the fixture supplies one rather than working
-        # around the rule (#agent).
-        sources = (
-            'sources: ["src/pkg/corpus.md"]'
-            if "grounded" in kind.evidence_names
-            else ""
-        )
-        # Likewise a type that requires media_valid names the media kind.
-        if "media_valid" in kind.evidence_names:
-            sources += "\nmedia_kind: image"
+        # A type that requires media_valid names the media kind, so the
+        # fixture supplies one rather than working around the rule.
+        sources = "media_kind: image" if "media_valid" in kind.evidence_names else ""
         document = f"""
 id: t
 task_type: {kind.name}
@@ -854,16 +846,10 @@ def test_asr_wer_evidence_requires_a_transcript_and_threshold(
     assert contract.wer_threshold == 0.2
 
 
-def test_grounded_evidence_requires_sources(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "mcgyvr.contract.task_type",
-        lambda _name: _media_type("gate", "grounded"),
-    )
-    with pytest.raises(ContractSchemaError, match="sources"):
-        loads(_media_contract())
+def test_no_task_type_requires_sources() -> None:
+    """`grounded`, the one check that needed a corpus, is retired (R11)."""
     assert loads(_media_contract('sources: ["doc/a.md"]')).sources == ("doc/a.md",)
+    assert loads(_media_contract()).sources == ()
 
 
 # --- loading from a file ---------------------------------------------------
