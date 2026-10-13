@@ -705,7 +705,10 @@ def build(
             "image": None,
             "setup": [],
         },
-        "delivery": _defaults(DELIVERY_FIELDS, "mode"),
+        # Commit written at its default — off — so the file says the run
+        # leaves its change uncommitted; the branch commented, under the doc
+        # that says what naming one does.
+        "delivery": {**_defaults(DELIVERY_FIELDS, "commit"), "branch": None},
         # Written out at its default rather than left for the renderer to show
         # commented. An omitted key renders as `# draws:  # unset`, which is
         # true of the file and false of the behaviour: the loader fills 1 in.

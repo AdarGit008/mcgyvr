@@ -88,15 +88,17 @@ with no reason cannot tell "refused" from "nothing to do":
   the rung, the tool and its exit code, and :attr:`Delivery.inconclusive`
   carries them structurally.
 
-**Two modes, and a mode named after something this build cannot do is refused
-where it is written.** ``none`` commits onto the branch the operator
-has checked out. ``branch`` commits onto a new local branch and leaves ``HEAD``,
-the index and the working tree exactly as it found them, and hands back the
-``git push`` that moves the work off this machine — the honest form of "give it
-to me rather than land it" in a repository this codebase reaches only through
-``subprocess``. ``pull_request`` is refused (:data:`RETIRED_MODES`): opening one
-needs a forge, a remote and a credential, and there is no place in this codebase
-to put any of the three.
+**Where the commit lands is the caller's ``branch``.** Empty, the commit goes
+onto the branch the operator has checked out. Named, it goes onto that branch
+and leaves ``HEAD``, the index and the working tree exactly as it found them,
+and hands back the ``git push`` that moves the work off this machine — the
+honest form of "give it to me rather than land it" in a repository this
+codebase reaches only through ``subprocess``. A named branch that does not
+exist is created from ``HEAD``; one that does takes the commit on its tip, when
+its copy of the target is still the one the change was judged against
+(:func:`_branch_refusal`). *Whether* to commit at all is not decided here: the
+run's policy (``delivery.commit``) and its flags answer that before delivery is
+called, and :func:`place` is what a run that does not commit calls instead.
 
 *The rejected alternative is a client.* Delivery could push and open the pull
 request — a remote, a forge token, an HTTP call. It is rejected because the seam
@@ -152,7 +154,6 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from mcgyvr.config import Config
 from mcgyvr.contract import Contract, is_pattern
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
@@ -167,49 +168,6 @@ from mcgyvr.scope import OutsideTreeError, inside
 # repository with no commit yet has no base to diff against, and the empty tree
 # makes a first-ever delivery one code path with every other.
 _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-
-#: ``config.delivery.mode``: commit onto the branch the operator has checked
-#: out. Also the answer when no config is supplied at all — see :func:`_mode`.
-COMMIT_ONLY = "none"
-
-#: ``config.delivery.mode``: commit onto a new local branch and leave the
-#: checkout alone. The shipped default, and the only mode that returns a
-#: handoff.
-ON_A_BRANCH = "branch"
-
-#: Every mode this build can carry out, cheapest description first. A mode
-#: outside this set is refused by :func:`_mode` rather than softened into a
-#: commit.
-MODES = (ON_A_BRANCH, COMMIT_ONLY)
-
-#: The mode a config that does not choose one resolves to. ``branch``, because
-#: a config file is policy and the policy that does not move the operator's
-#: branch is the one to hold in the absence of an instruction.
-DEFAULT_MODE = ON_A_BRANCH
-
-#: Modes this build recognises and cannot carry out, each with what to set in
-#: its place. Recognised rather than merely unknown, because the message for
-#: ``pull_request`` has to say why it is refused, and "not a valid value" would
-#: not tell an operator that.
-RETIRED_MODES = {
-    "pull_request": (
-        "opening one needs a forge, a remote and a credential, none of which "
-        "this build has anywhere to put. It committed straight to your "
-        "checked-out branch instead and recorded the pull request as owed to a "
-        "discharger that does not exist. Set `branch` to commit onto a new "
-        "local branch and be told the push to run, or `none` to commit onto "
-        "the branch you have checked out"
-    ),
-}
-
-#: Where a ``branch`` delivery's ref goes. Namespaced so an operator can see at
-#: a glance which branches a program made, and delete them as a set.
-_BRANCH_PREFIX = "mcgyvr"
-
-#: How many suffixed names a colliding branch is offered before delivery gives
-#: up. A repository holding a hundred undelivered branches for one contract has
-#: a problem a hundred-and-first will not fix.
-_BRANCH_ATTEMPTS = 100
 
 #: The exclusion one delivery holds against another into the same repository,
 #: kept inside the git directory rather than beside the target. The working
@@ -403,25 +361,22 @@ class Delivery:
     revision in the source repository that workspace was populated from, which
     is a revision delivery can diff against."""
 
-    mode: str = COMMIT_ONLY
-    """The ``config.delivery.mode`` this ran under."""
-
     branch: str = ""
     """The branch the commit landed on, when it is not the one checked out.
 
-    Empty under ``none``, where the commit is on whatever branch the operator
-    has in hand and naming it would be telling them something they can see.
-    Populated under ``branch``, and it is the *structural* half of the handback:
-    a caller wanting to push, diff, or name the work in a report has a ref to
-    resolve rather than a sentence to parse."""
+    Empty for a commit onto the checked-out branch, where naming it would be
+    telling the operator something they can see. Populated for a named branch,
+    and it is the *structural* half of the handback: a caller wanting to push,
+    diff, or name the work in a report has a ref to resolve rather than a
+    sentence to parse."""
 
     handoff: str = ""
     """The next step the commit needs from a person, or empty when it needs none.
 
-    One command line: under ``branch``, the ``git push`` that moves the work off
-    this machine, with the repository's own remote in it so it can be pasted.
-    Under ``none`` it is empty, and so it is on every refusal — nothing was
-    committed, so nothing is owed."""
+    One command line: for a named branch, the ``git push`` that moves the work
+    off this machine, with the repository's own remote in it so it can be
+    pasted. For the checked-out branch it is empty, and so it is on every
+    refusal — nothing was committed, so nothing is owed."""
 
     findings: tuple[Finding, ...] = field(default=())
     """Why a re-check refused, when one did — carried structurally so a caller
@@ -459,7 +414,7 @@ def deliver(
     content: str | Accepted,
     base: str = "HEAD",
     accepted: bool | None = None,
-    config: Config | None = None,
+    branch: str = "",
     identity: Identity = IDENTITY,
     adapters: Sequence[LanguageAdapter] | None = None,
 ) -> Delivery:
@@ -486,12 +441,13 @@ def deliver(
     can check — a caller asserting a verdict about bytes no gate ever read.
     Contradicting a bound verdict raises for the same reason.
 
-    ``config`` supplies ``delivery.mode``, which decides *where* the commit
-    lands: ``branch`` onto a new local branch, leaving the checkout untouched and
-    returning the push to run; ``none`` onto the branch in hand. A config naming
-    a mode this build cannot carry out raises before anything is written, rather
-    than falling back to a commit. No config at all is a local commit — a caller
-    that stated no delivery policy has not asked for a branch.
+    ``branch`` decides *where* the commit lands. Empty — or the name of the
+    branch checked out — commits onto the branch in hand. Any other name
+    commits onto that branch, leaving the checkout untouched and returning the
+    push to run: created from ``HEAD`` when absent, onto its tip when present
+    and its copy of the target is the one at ``base``, refused when that copy
+    moved or the branch is checked out in another worktree. A name git will not
+    take as a branch raises before anything is written.
 
     ``adapters`` are the language adapters the commit-time gate run uses; the
     gate's own pair is the default. Nothing is shared between calls; the one
@@ -511,15 +467,18 @@ def deliver(
     root = _root(repo)
     _refuse_pattern_target(contract)
     rel = _target(root, contract)
-    mode = _mode(config)
+    branch = _branch_named(root, branch)
     text, refused, bound = _verdict(content, accepted)
     _named_base(base)
 
     with _exclusive(root):
         resolved = _resolve(root, base)
-        call = _Call(root=root, path=rel, base=resolved, mode=mode)
+        call = _Call(root=root, path=rel, base=resolved)
+        onto = _elsewhere(root, branch)
 
-        hazard = _checkout_hazard(root)
+        hazard = _checkout_hazard(root, detached_ok=bool(onto))
+        if hazard is None and onto:
+            hazard = _branch_refusal(root, onto, resolved, rel)
         if hazard is not None:
             return call.refuse(hazard)
 
@@ -540,12 +499,12 @@ def deliver(
         before = _snapshot(target)
         created = _missing_dirs(target)
         staged = False
-        # Not "did it commit" — "is the tree where the commit landed". Under
-        # ``none`` the two are the same thing. Under ``branch`` the commit is in
-        # a ref and the checkout is left as it was found, so the undo below runs
-        # over a successful delivery, which is exactly right: the work is
-        # durable somewhere else and a copy of it in the operator's tree would
-        # be uncommitted edits they did not make.
+        # Not "did it commit" — "is the tree where the commit landed". Onto the
+        # checked-out branch the two are the same thing. Onto a named branch the
+        # commit is in a ref and the checkout is left as it was found, so the
+        # undo below runs over a successful delivery, which is exactly right:
+        # the work is durable somewhere else and a copy of it in the operator's
+        # tree would be uncommitted edits they did not make.
         landed_here = False
         try:
             _write(target, payload)
@@ -555,10 +514,9 @@ def deliver(
                 return refusal
 
             message = _message(contract, resolved)
-            if mode == ON_A_BRANCH:
-                branch = _free_branch(root, contract.id)
+            if onto:
                 return call.delivered(
-                    _commit_onto(root, rel, message, identity, branch), branch
+                    _commit_onto(root, rel, message, identity, onto), onto
                 )
 
             _git(root, "add", "--", rel)
@@ -569,7 +527,7 @@ def deliver(
         finally:
             # No attempt may poison the next one, so every exit that did not
             # leave the change in this tree — a refusal, a raised error, or a
-            # ``branch`` delivery that put it in a ref instead — leaves the tree
+            # delivery that put it on a named branch instead — leaves the tree
             # byte-for-byte as it was found. Narrowed to what this call wrote,
             # because a workspace-wide reset would delete work delivery was
             # never given. An undo that itself fails raises out of here, over
@@ -597,7 +555,6 @@ class _Call:
     root: Path
     path: str
     base: str
-    mode: str
 
     def refuse(
         self,
@@ -621,7 +578,6 @@ class _Call:
             reason=reason,
             path=self.path,
             base=self.base,
-            mode=self.mode,
             findings=tuple(findings),
             inconclusive=tuple(inconclusive),
         )
@@ -632,7 +588,6 @@ class _Call:
             commit=sha,
             path=self.path,
             base=self.base,
-            mode=self.mode,
             branch=branch,
             handoff=_push_step(self.root, branch) if branch else "",
         )
@@ -742,84 +697,97 @@ def _git_dir(root: Path) -> Path:
     return Path(_git(root, "rev-parse", "--absolute-git-dir").strip())
 
 
-def _mode(config: Config | None) -> str:
-    """``config.delivery.mode``, refused rather than softened when it is not one.
+def _branch_named(root: Path, branch: str) -> str:
+    """``branch`` stripped, refused before anything is written when git will not
+    take it as a branch name.
 
-    **No config means a local commit**, and that is deliberately *not* the same
-    answer as :data:`DEFAULT_MODE`. A caller handing over no config has stated no
-    delivery policy at all, and inventing the conservative one for it would put
-    a branch in a repository nobody asked to branch — ``mcgyvr run --commit`` is
-    a person saying "commit this", in the tree they are looking at. A config file
-    that omits the key is a different thing: policy exists, this key is silent
-    within it, and the value to fill the silence with is the one that does not
-    move a branch out from under them.
-
-    **An unrecognised mode raises** rather than softening into a local commit.
-    :class:`Config` validation refuses these at the line that sets them; this is
-    the same refusal for a config assembled in code rather than parsed from a
-    file, and it happens before anything is written.
+    Git is asked rather than its rules restated: ``a..b`` and ``a.lock`` look
+    like names and are not refs.
     """
-    if config is None:
-        return COMMIT_ONLY
-    named = str(config.get("delivery.mode", DEFAULT_MODE) or DEFAULT_MODE)
-    if named in MODES:
-        return named
-    retired = RETIRED_MODES.get(named)
-    if retired is not None:
-        raise DeliveryError(f"delivery.mode is {named!r}, and {retired}")
-    raise DeliveryError(
-        f"delivery.mode is {named!r}, which is not a mode this build carries "
-        f"out. Set one of: {', '.join(MODES)}"
-    )
+    named = branch.strip()
+    if named and _refuses_ref(root, named):
+        raise DeliveryError(
+            f"{named!r} is not a name git takes for a branch, so nothing can be "
+            f"committed onto it. Name another branch, or none to commit onto "
+            f"the branch you have checked out"
+        )
+    return named
 
 
-def _free_branch(root: Path, identity: str) -> str:
-    """A branch name for this delivery that no ref in ``root`` already holds.
+def _elsewhere(root: Path, branch: str) -> str:
+    """``branch``, or empty when it is the branch checked out here.
 
-    Named after the contract, because the contract's own schema says its ``id``
-    is "how this contract is referred to in records, telemetry and branch
-    names", and a delivery an operator cannot match to the task that produced it
-    is a branch they will not dare delete.
-
-    Two runs of one contract collide by construction, so the second takes a
-    suffix. Force-updating the first ref instead would throw away a commit an
-    operator has already been told to push — the one thing this mode exists to
-    hand them. Refusing outright was the other option and is worse: a re-run
-    after a failed push is the ordinary case, not an error.
-
-    The existence check is advisory; :func:`_commit_onto` passes the empty old
-    value to ``git update-ref``, which makes creation atomic against anything
-    the repository lock does not cover. Git is also asked whether the name is
-    usable at all rather than the rules being restated here — a contract id may
-    contain dots, and ``a..b`` or ``a.lock`` are legal ids and illegal refs.
+    Naming the branch in hand is the same request as naming none, and has to
+    be carried out as one: moving the checked-out ref without the index and
+    tree would leave the operator's checkout reading as a revert of the commit
+    just made.
     """
-    stem = f"{_BRANCH_PREFIX}/{identity}"
-    for attempt in range(1, _BRANCH_ATTEMPTS + 1):
-        name = stem if attempt == 1 else f"{stem}-{attempt}"
-        if _refuses_ref(root, name):
-            raise DeliveryError(
-                f"{identity!r} does not make a git branch name ({name!r} is one "
-                f"git will not take), so this contract cannot be delivered onto "
-                f"a branch of its own. Rename the contract, or set "
-                f"`delivery.mode: {COMMIT_ONLY}` to commit onto the branch you "
-                f"have checked out"
-            )
-        if not _ref_exists(root, name):
-            return name
-    raise DeliveryError(
-        f"{root.name} already holds {_BRANCH_ATTEMPTS} undelivered branches for "
-        f"{identity!r}. Push or delete them before delivering another"
-    )
-
-
-def _ref_exists(root: Path, branch: str) -> bool:
-    """Whether ``refs/heads/<branch>`` is already there."""
-    done = subprocess.run(
-        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+    if not branch:
+        return ""
+    current = subprocess.run(
+        ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
         cwd=root,
         capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return "" if branch == current else branch
+
+
+def _branch_refusal(root: Path, branch: str, base: str, rel: str) -> str | None:
+    """Why a commit onto ``branch`` (not the checked-out one) is refused, or ``None``.
+
+    **Checked out in another worktree.** Moving that ref would change the files
+    under somebody else's checkout without touching them — the clobber a named
+    branch exists to avoid.
+
+    **Its copy of the target moved.** The change was judged against ``rel`` at
+    ``base``. A branch that holds a different copy holds work the accepted bytes
+    were never judged against, and committing them onto its tip would revert it
+    — the refusal :func:`_moved_since` makes for the checked-out branch, made
+    for this one. A branch that does not exist has no copy and is created from
+    ``HEAD``, which that refusal already covers.
+    """
+    where = ""
+    for line in _git(root, "worktree", "list", "--porcelain").splitlines():
+        if line.startswith("worktree "):
+            where = line.removeprefix("worktree ")
+        elif line == f"branch refs/heads/{branch}":
+            return (
+                f"{branch} is checked out in the worktree at {where}: committing "
+                f"onto it would change the files under that checkout. Name "
+                f"another branch, or deliver from that worktree"
+            )
+    tip = _branch_tip(root, branch)
+    if tip and _blob(root, tip, rel) != _blob(root, base, rel):
+        return (
+            f"{branch} holds a different {rel} from the one at {_shown(base)} the "
+            f"change was judged against: committing it onto {branch} would "
+            f"overwrite that copy unjudged. Name another branch, or bring "
+            f"{branch}'s {rel} level with the base first"
+        )
+    return None
+
+
+def _branch_tip(root: Path, branch: str) -> str:
+    """The commit ``refs/heads/<branch>`` names, or empty when there is none."""
+    done = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}^{{commit}}"],
+        cwd=root,
+        capture_output=True,
+        text=True,
     )
-    return done.returncode == 0
+    return done.stdout.strip() if done.returncode == 0 else ""
+
+
+def _blob(root: Path, rev: str, rel: str) -> str:
+    """The object ``rel`` names at ``rev``, or empty when it is not there."""
+    done = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{rev}:{rel}"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    return done.stdout.strip() if done.returncode == 0 else ""
 
 
 def _refuses_ref(root: Path, branch: str) -> bool:
@@ -835,41 +803,43 @@ def _refuses_ref(root: Path, branch: str) -> bool:
 def _commit_onto(
     root: Path, rel: str, message: str, identity: Identity, branch: str
 ) -> str:
-    """Commit ``rel`` onto a new ``branch``, touching neither HEAD nor the index.
+    """Commit ``rel`` onto ``branch``, touching neither HEAD nor the index.
 
-    This is what makes ``branch`` a different mode rather than a different word
-    for ``none``. ``git checkout -b`` then ``git commit`` then ``git checkout -``
-    would also produce the ref, and would do it by moving the operator's HEAD
-    twice through states they never asked to be in — with their unfinished work
-    in the tree the whole time, and no way back if the second checkout fails.
-    Instead the commit is built as objects: a scratch index (``GIT_INDEX_FILE``,
-    outside the repository) seeded from ``HEAD``, this one path added into it,
-    a tree written, a commit written over that tree, and a ref created pointing
-    at it. The repository's own index, ``HEAD`` and working tree are read and
-    never written; :func:`deliver`'s undo then puts the file back.
+    This is what makes a named branch a different place rather than a different
+    word for the checked-out one. ``git checkout`` then ``git commit`` then
+    ``git checkout -`` would also produce the ref, and would do it by moving the
+    operator's HEAD twice through states they never asked to be in — with their
+    unfinished work in the tree the whole time, and no way back if the second
+    checkout fails. Instead the commit is built as objects: a scratch index
+    (``GIT_INDEX_FILE``, outside the repository) seeded from the parent, this
+    one path added into it, a tree written, a commit written over that tree, and
+    the ref pointed at it. The repository's own index, ``HEAD`` and working tree
+    are read and never written; :func:`deliver`'s undo then puts the file back.
 
-    **The parent is ``HEAD``, not the base.** The tree being committed is
-    ``HEAD``'s tree with one path replaced, so ``HEAD`` is the only parent under
-    which the commit's diff is this task's change. Parenting it on the base while
-    committing ``HEAD``'s tree would attribute everything that landed in between
-    to this contract.
+    **The parent is the branch's tip, or ``HEAD`` for a branch not yet made —
+    never the base.** The tree being committed is the parent's tree with one
+    path replaced, so the parent is the only commit under which the commit's
+    diff is this task's change; the branch's own history and its other files
+    are kept. :func:`_branch_refusal` has already refused a tip whose copy of
+    ``rel`` is not the one the change was judged against.
 
-    ``update-ref`` is given ``""`` as the expected old value, which tells git the
-    ref must not already exist and makes the create atomic — the lock excludes
-    another delivery, and this excludes everything else. ``core.hooksPath`` is
-    still pointed at nothing for the reason :func:`_commit` gives: ``update-ref``
-    fires ``reference-transaction``, which is the repository's code and not ours
-    to run. ``commit-tree`` runs no hooks at all, which is a second reason to
-    prefer it, and it does honour ``commit.gpgsign`` — so that is turned off here
-    for the same reason it is there.
+    ``update-ref`` is given the tip it read as the expected old value — ``""``
+    for a branch that must not exist yet — which makes the move atomic: the lock
+    excludes another delivery, and this excludes everything else. ``core.hooksPath``
+    is still pointed at nothing for the reason :func:`_commit` gives:
+    ``update-ref`` fires ``reference-transaction``, which is the repository's
+    code and not ours to run. ``commit-tree`` runs no hooks at all, which is a
+    second reason to prefer it, and it does honour ``commit.gpgsign`` — so that
+    is turned off here for the same reason it is there.
     """
-    head = _head(root)
+    tip = _branch_tip(root, branch)
+    parent = tip or _head(root)
     with _scratch_index() as index:
-        if head:
-            _git(root, "read-tree", head, env=index)
+        if parent:
+            _git(root, "read-tree", parent, env=index)
         _git(root, "update-index", "--add", "--", rel, env=index)
         tree = _git(root, "write-tree", env=index).strip()
-    parents = ["-p", head] if head else []
+    parents = ["-p", parent] if parent else []
     sha = _git(
         root,
         "-c",
@@ -893,7 +863,7 @@ def _commit_onto(
         "update-ref",
         f"refs/heads/{branch}",
         sha,
-        "",
+        tip,
     )
     return sha
 
@@ -990,24 +960,26 @@ def _resolve(root: Path, base: str) -> str:
     return _head(root) or _EMPTY_TREE
 
 
-def _checkout_hazard(root: Path) -> str | None:
+def _checkout_hazard(root: Path, *, detached_ok: bool = False) -> str | None:
     """A checkout state a commit would be silently lost in, or ``None``.
 
-    ``none`` mode commits onto whatever ``HEAD`` names. A detached ``HEAD``
-    names a commit no branch ref points at, and a rebase, merge, cherry-pick or
-    bisect left partway through means the commit would land on a half-built or
-    moving state. Both are states the operator can fix — check out a branch, or
+    A commit onto the checked-out branch lands on whatever ``HEAD`` names. A
+    detached ``HEAD`` names a commit no branch ref points at — unless the commit
+    goes onto a named branch instead (``detached_ok``), which then starts from
+    it. A rebase, merge, cherry-pick or bisect left partway through means the
+    commit would start from a half-built or moving state, whichever branch it
+    goes onto. Both are states the operator can fix — check out a branch, or
     finish the operation — so this returns a reason to refuse rather than
     raising.
     """
     branch = _git(root, "rev-parse", "--abbrev-ref", "HEAD").strip()
-    if branch == "HEAD":
+    if branch == "HEAD" and not detached_ok:
         return (
             "HEAD is detached in "
             f"{root.name}: a commit here would have no branch to hold it. "
-            "Check out a branch before delivering, or set `delivery.mode: "
-            f"{ON_A_BRANCH}` to commit onto a new branch and leave the "
-            "checkout alone."
+            "Check out a branch before delivering, or name one to commit onto "
+            "(`--branch NAME`, or `delivery.branch`) and leave the checkout "
+            "alone."
         )
     git_dir = _git_dir(root)
     labels = {
@@ -1435,7 +1407,7 @@ def place(
     _named_base(base)
     with _exclusive(root):
         resolved = _resolve(root, base)
-        call = _Call(root=root, path=rel, base=resolved, mode=_mode(None))
+        call = _Call(root=root, path=rel, base=resolved)
         unwritable = _unwritable(
             call, contract, content.content, not content.accepted, content
         )

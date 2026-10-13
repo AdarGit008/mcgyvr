@@ -1888,6 +1888,7 @@ def _run_delegated(
                 repo=str(repo),
                 sandbox=args.sandbox,
                 commit=args.commit,
+                branch=args.branch,
                 record=args.record,
                 result=None,
                 orchestrator=args.orchestrator,
@@ -2164,6 +2165,9 @@ def _run(args: argparse.Namespace) -> int:
     # where the change lands what the setup asked it to accept where it was
     # written (`gate.param_mutation`).
     args.gate_adapters = gate_adapters(config)
+    # And whether, and onto which branch, an accepted change is committed: the
+    # same precedence (`_settle_delivery`).
+    _settle_delivery(args, config)
 
     if contract.is_deterministic:
         code = _floor(args, contract, repo, report, config, recording=recording)
@@ -3163,6 +3167,53 @@ def _report_run(
     )
 
 
+def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
+    """Settle ``args.commit`` to a bool and ``args.branch`` to a name or ``""``.
+
+    The precedence ``--sandbox`` has: a flag typed at the terminal is a person
+    overriding their own file for one run and wins; with no flag the policy
+    answers (``delivery.commit``, ``delivery.branch``); with neither, nothing is
+    committed. ``--branch NAME`` implies ``--commit`` — naming where to commit
+    is asking for a commit — while ``delivery.branch`` does not: it is where
+    commits go once something turns them on. ``--branch`` with ``--no-commit``
+    is refused at parse time (:func:`_one_delivery_answer`) and never reaches
+    here. A run with no usable config commits only when a flag says so.
+    """
+    typed = (getattr(args, "branch", None) or "").strip()
+    policy_commit = bool(config.get("delivery.commit")) if config is not None else False
+    policy_branch = (
+        config.get("delivery.branch") if config is not None else None
+    ) or ""
+    commit = getattr(args, "commit", None)
+    args.commit = True if typed else (policy_commit if commit is None else commit)
+    args.branch = typed or policy_branch
+
+
+def _one_delivery_answer(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    """Refuse ``--branch`` that is blank, or typed beside ``--no-commit``.
+
+    At parse time, through the parser's own ``error``, so it exits 2 like every
+    other usage error and before a config is read or a sandbox opened. The two
+    flags ask for opposite things; picking one would be guessing which the
+    person meant.
+    """
+    branch = getattr(args, "branch", None)
+    if branch is None:
+        return
+    if not branch.strip():
+        parser.error(
+            "--branch was given an empty name. Name the branch to commit onto, "
+            "or leave the flag off to commit onto the one you have checked out."
+        )
+    if getattr(args, "commit", None) is False:
+        parser.error(
+            f"--branch {branch} asks for a commit onto {branch}, and --no-commit "
+            f"asks for none. Pass one of them."
+        )
+
+
 #: The words :func:`_commit` appends to the accepted attempt's row. The
 #: vocabulary is this caller's, as ``telemetry.correct`` says it must be.
 COMMITTED = "committed"
@@ -3205,13 +3256,11 @@ def _commit(
     read, the ladder path carries the one its attempt minted there, and delivery
     re-judges either in the repository the commit lands in.
 
-    No ``config`` is passed to :func:`~mcgyvr.deliver.deliver`, on either path
-    and deliberately. ``deliver`` reads a config's ``delivery.mode`` to decide
-    whether the commit lands on a branch of its own, and reads *no* config as a
-    commit onto the checked-out branch — which is what ``mcgyvr run --commit``
-    is: a person at a terminal saying "commit this", in the tree they are looking
-    at. Handing over the ladder's config because the ladder path happens to have
-    one would make the same flag mean two things depending on the contract.
+    Whether to commit and onto which branch are ``args.commit`` and
+    ``args.branch`` as :func:`_settle_delivery` left them — the flags typed,
+    else ``delivery.commit`` and ``delivery.branch``, else no commit — the same
+    on both paths, whether or not the contract climbed a ladder. An empty
+    branch is the one checked out.
 
     What *is* handed over is the gate's adapters as the run's setup built them
     (``args.gate_adapters``, settled in :func:`_run`), so delivery judges by the
@@ -3219,9 +3268,9 @@ def _commit(
     refused by name rather than delivered under the strict default it did not
     choose.
 
-    **The default is the working tree, and that is not a lack.** Without
-    ``--commit`` the accepted change is left in the target and the repository
-    is otherwise untouched — no commit, no branch, no receipt. The journal row
+    **The default is the working tree, and that is not a lack.** Not committing
+    — the shipped policy — leaves the accepted change in the target and the
+    repository otherwise untouched: no commit, no branch, no receipt. The journal row
     of the accepted attempt is told so (``not_committed``), and told
     ``committed <sha> on <branch>`` or ``delivery_refused`` otherwise, so the
     folded outcome is how the work finally landed.
@@ -3269,13 +3318,18 @@ def _commit(
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
         print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
         _say_not_rerun(adapters, contract.target)
-        landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
+        landed(NOT_COMMITTED, f"not committed; change left in {contract.target}")
         report.detail = f"change left in {contract.target}"
         return 0
 
     try:
         delivery = deliver(
-            repo=repo, contract=contract, content=bound, base=base, adapters=adapters
+            repo=repo,
+            contract=contract,
+            content=bound,
+            base=base,
+            branch=getattr(args, "branch", None) or "",
+            adapters=adapters,
         )
     except DeliveryError as exc:
         landed(DELIVERY_REFUSED, str(exc))
@@ -5615,11 +5669,26 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     run.add_argument(
         "--commit",
-        action="store_true",
+        # No default, as for `--sandbox`: `delivery.commit` answers when no flag
+        # is typed (`_settle_delivery`).
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help=(
-            "commit the change into the repository when the gate accepts it. "
-            "Without this the accepted change is left in the working tree and "
-            "the repository is otherwise untouched: no commit, no branch"
+            "commit the change when the gate accepts it, or not (--no-commit), "
+            "whatever `delivery.commit` says. Not committed — the default — the "
+            "accepted change is left in the working tree and the repository is "
+            "otherwise untouched: no commit, no branch. Committed, it goes onto "
+            "the branch you have checked out, or onto `delivery.branch`"
+        ),
+    )
+    run.add_argument(
+        "--branch",
+        default=None,
+        metavar="NAME",
+        help=(
+            "commit onto branch NAME instead of the one you have checked out, "
+            "which is left exactly as it was; implies --commit and overrides "
+            "`delivery.branch`. Created from HEAD when absent"
         ),
     )
     run.add_argument(
@@ -5759,8 +5828,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     delegate.add_argument(
         "--commit",
-        action="store_true",
-        help="commit each accepted change (with --run)",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "commit each accepted change, or not (--no-commit), whatever "
+            "`delivery.commit` says (with --run)"
+        ),
+    )
+    delegate.add_argument(
+        "--branch",
+        default=None,
+        metavar="NAME",
+        help="commit each accepted change onto branch NAME; implies --commit",
     )
     delegate.add_argument(
         "--record",
@@ -5861,6 +5940,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.func is _run:
         _name_the_writer(run, args)
+        _one_delivery_answer(run, args)
+    elif args.func is _delegate:
+        _one_delivery_answer(parser, args)
     try:
         with hanging_up_on_interrupt():
             result: int = args.func(args)

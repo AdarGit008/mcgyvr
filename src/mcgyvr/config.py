@@ -225,31 +225,47 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
 
 DELIVERY_FIELDS: tuple[Field, ...] = (
     Field(
-        "mode",
-        "enum",
-        "Where an accepted change is committed. `branch` puts it on a new "
-        "local branch named after the contract and leaves the branch you have "
-        "checked out, your index and your working tree exactly as they were — "
-        "the delivery tells you the `git push` to run. `none` commits onto the "
-        "branch you have checked out. Nothing here pushes or opens a pull "
-        "request: mcgyvr reaches your repository through `git` and has no "
-        "forge, so the last step off this machine is yours.",
-        default="branch",
-        choices=("branch", "none"),
-        retired=(
-            (
-                "pull_request",
-                "is no longer a mode. It never opened one — every mode "
-                "committed straight to your checked-out branch, and the pull "
-                "request was recorded as owed to something that does not "
-                "exist. Opening one needs a forge and a credential this build "
-                "has nowhere to put. Set `branch` for a commit on a branch of "
-                "its own plus the push to run, or `none` to commit onto the "
-                "branch you have checked out.",
-            ),
-        ),
+        "commit",
+        "bool",
+        "Whether `mcgyvr run` commits an accepted change. Off, the change is "
+        "left in your working tree, uncommitted, for you to review and commit. "
+        "On, it is committed onto the branch you have checked out, or onto "
+        "`branch` when that is set. `run --commit` and `run --no-commit` "
+        "decide for one run instead. Nothing here pushes or opens a pull "
+        "request: the last step off this machine is yours.",
+        default=False,
+    ),
+    Field(
+        "branch",
+        "str",
+        "The branch an accepted change is committed onto, instead of the one "
+        "you have checked out. It says where, not whether: nothing is "
+        "committed while `commit` is off. A branch that does not exist is "
+        "created from the commit you have checked out; one that does gets the "
+        "commit on its tip, refused when its copy of the target differs from "
+        "the one the change was judged against. Either way the branch you "
+        "have checked out, your index and your working tree are left exactly "
+        "as they were, and the run prints the `git push` to run. A branch "
+        "checked out in another worktree is refused. `run --branch NAME` "
+        "names one for one run and implies `--commit`.",
+        bind_hint="name a branch, or leave unset to commit onto the branch you "
+        "have checked out",
     ),
 )
+
+#: Keys this build recognises and refuses, by dotted path, each with what to
+#: set instead. Recognised rather than merely unknown, because a policy.yaml
+#: written by an older setup still carries them, and "unknown key" would not
+#: say what replaced them.
+_RETIRED_KEYS: dict[str, str] = {
+    "delivery.mode": (
+        "is retired: no shipped command read it, and `run --commit` committed "
+        "onto the checked-out branch whatever it said. Remove it; set "
+        "`delivery.commit: true` to commit accepted work onto the branch you "
+        "have checked out, and `delivery.branch: NAME` to commit onto another "
+        "branch instead."
+    ),
+}
 
 #: Where the live journal goes when `journal.dir` is left out. A literal with
 #: `~` rather than an expanded path so the reference reads the same on every
@@ -1834,6 +1850,9 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
 
     for key in given:
         _reject_credential_key(key, path)
+        retired = _RETIRED_KEYS.get(_join(path, str(key)))
+        if retired is not None:
+            raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
         if key not in known:
             where = f"{path}: " if path else "config: "
             raise ConfigSchemaError(

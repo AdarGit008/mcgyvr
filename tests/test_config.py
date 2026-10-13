@@ -69,9 +69,9 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     """Every default must be usable as-is, not a placeholder to be edited."""
     config = parse(LOCAL_ONLY)
     assert config.data["sandbox"]["mode"] == "docker"
-    # `branch` and not `pull_request`: the old default named a handback nothing
-    # here performs, and every mode committed to the checked-out branch instead.
-    assert config.data["delivery"]["mode"] == "branch"
+    # Off: a run leaves an accepted change in the working tree unless the
+    # policy or `--commit` says to commit it (owner's ruling, e2e run 2 R4).
+    assert config.data["delivery"]["commit"] is False
     assert config.get("task_timeout_s") > 0
     # Review is on unless the config switches it off, and on with no unit named
     # still loads: the reviewer is picked from the ladder at run time.

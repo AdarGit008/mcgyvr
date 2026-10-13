@@ -214,7 +214,8 @@ How accepted work gets back to you.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `delivery.mode` | one of `branch`, `none` | no | `branch` | Where an accepted change is committed. `branch` puts it on a new local branch named after the contract and leaves the branch you have checked out, your index and your working tree exactly as they were — the delivery tells you the `git push` to run. `none` commits onto the branch you have checked out. Nothing here pushes or opens a pull request: mcgyvr reaches your repository through `git` and has no forge, so the last step off this machine is yours. |
+| `delivery.commit` | boolean | no | `false` | Whether `mcgyvr run` commits an accepted change. Off, the change is left in your working tree, uncommitted, for you to review and commit. On, it is committed onto the branch you have checked out, or onto `branch` when that is set. `run --commit` and `run --no-commit` decide for one run instead. Nothing here pushes or opens a pull request: the last step off this machine is yours. |
+| `delivery.branch` | text | no | unset | The branch an accepted change is committed onto, instead of the one you have checked out. It says where, not whether: nothing is committed while `commit` is off. A branch that does not exist is created from the commit you have checked out; one that does gets the commit on its tip, refused when its copy of the target differs from the one the change was judged against. Either way the branch you have checked out, your index and your working tree are left exactly as they were, and the run prints the `git push` to run. A branch checked out in another worktree is refused. `run --branch NAME` names one for one run and implies `--commit`. To bind it: name a branch, or leave unset to commit onto the branch you have checked out. |
 
 ## `breadth`
 

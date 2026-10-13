@@ -141,7 +141,7 @@ declares nothing.
 ## Step 3 — run it, then read the result file
 
 ```
-mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] [--sandbox tempdir] [--commit]
+mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] [--sandbox tempdir] [--[no-]commit] [--branch NAME]
 ```
 
 The run works on the repository as committed at HEAD: uncommitted edits
@@ -202,8 +202,8 @@ what the run came to. The file's keys:
   no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
-- `committed`, `commit`, `branch`, `handoff` — where the work went. Without
-  `--commit` the accepted file is left in the working tree, uncommitted.
+- `committed`, `commit`, `branch`, `handoff` — where the work went. Not
+  committed (the default), the accepted file is left in the working tree.
 - `answer` — a `chat`, `agent` or `media` reply; never written to the tree.
 - `session_record` — a session's record (question, answer, unit, times,
   outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.
@@ -246,6 +246,7 @@ answer. Report it to whoever owns the machine; the remedy is in
 When `outcome` is `accepted`, the change is in `target`, uncommitted (a
 session changes nothing: its reply is `answer`).
 Review it there and commit it yourself. To have mcgyvr commit instead, run
-with `--commit` on a tree where `target` is clean: mcgyvr refuses to
-overwrite an edited or uncommitted target, so restore it first
-(`git checkout -- <target>`) rather than rerunning on top of the last run.
+with `--commit` or `--branch NAME` on a tree where `target` is clean:
+mcgyvr refuses to overwrite an edited or uncommitted target, so restore
+it first (`git checkout -- <target>`) rather than rerunning on top of the
+last run.
