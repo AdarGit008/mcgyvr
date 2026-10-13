@@ -27,6 +27,7 @@ from typing import Any
 
 import pytest
 
+from tests._paths import TESTS
 from tests.test_rig_rungs_sync_writes_only_the_relief_rungs import (
     FIRST,
     KEY,
@@ -36,7 +37,7 @@ from tests.test_rig_rungs_sync_writes_only_the_relief_rungs import (
     serving,
 )
 
-FIXTURE = Path(__file__).parent / "fixtures" / "gguf_geometry.json"
+FIXTURE = TESTS / "fixtures" / "gguf_geometry.json"
 SCANNED = "4b-Q4_K_M.gguf"
 
 FLEET = """\

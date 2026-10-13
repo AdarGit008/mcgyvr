@@ -31,8 +31,8 @@ import pytest
 
 import mcgyvr.gate.semantic as semantic
 from mcgyvr.gate.semantic import ENGINE_DIGESTS, engine_dir, verify_engine
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parents[1]
 ENGINE_ROOT = Path(semantic.__file__).resolve().parent / "_engine"
 PACKAGED = ENGINE_ROOT / "ghostcall"
 

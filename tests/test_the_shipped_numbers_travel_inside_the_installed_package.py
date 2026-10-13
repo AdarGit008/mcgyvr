@@ -17,8 +17,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr import derived
-
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 
 def _packaged_at(monkeypatch: pytest.MonkeyPatch, package_dir: Path) -> None:

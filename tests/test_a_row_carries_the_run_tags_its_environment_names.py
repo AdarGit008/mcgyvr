@@ -42,11 +42,11 @@ from mcgyvr.local_pool import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import ATTEMPT_KIND, fold, observe
 from tests import livejournal as lj
+from tests._paths import REPO
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
 
-REPO = Path(__file__).resolve().parent.parent
 
 # ``observe`` called through an untyped alias.
 _observe = cast("Callable[..., Any]", observe)

@@ -33,8 +33,7 @@ from mcgyvr.catalog import (
 from mcgyvr.cli import main
 from mcgyvr.config import Config, Ladder, Unit
 from mcgyvr.contract import ContractSchemaError, loads, task_type
-
-SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src" / "mcgyvr"
+from tests._paths import SRC as SOURCE_ROOT
 
 
 @pytest.fixture

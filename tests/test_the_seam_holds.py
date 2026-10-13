@@ -78,8 +78,9 @@ import ast
 from collections.abc import Callable
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
-RED_PORT = Path(__file__).resolve().parent / "red_port"
+from tests._paths import SRC, TESTS
+
+RED_PORT = TESTS / "red_port"
 
 #: ``mcgyvr.runner``'s own words: "the first code below the seam
 #: ``mcgyvr.local_pool`` draws". This is it, and everything else that resolves a

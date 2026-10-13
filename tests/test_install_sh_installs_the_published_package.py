@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 INSTALL_SH = REPO / "skills" / "mcgyvr" / "install.sh"
 
 

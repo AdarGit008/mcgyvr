@@ -27,6 +27,7 @@ from typing import Any
 
 from mcgyvr.capability import table_path
 from mcgyvr.catalog import catalog_path
+from tests._paths import SRC
 
 #: A key that names a quality figure or a benchmark score.
 QUALITY_KEY = re.compile(
@@ -50,8 +51,6 @@ SCORE = re.compile(
 
 #: A caveat id as the product's code cites one.
 CAVEAT_ID = re.compile(r"\bCAV-\d+\b")
-
-SRC = Path(__file__).resolve().parents[1] / "src" / "mcgyvr"
 
 
 def _walk(node: Any, where: str = "") -> Iterator[tuple[str, str | None, Any]]:

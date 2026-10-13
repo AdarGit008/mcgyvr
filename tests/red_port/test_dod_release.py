@@ -39,7 +39,8 @@ from typing import Any
 import pytest
 import yaml
 
-REPO = Path(__file__).resolve().parents[2]
+from tests._paths import REPO
+
 WORKFLOWS = REPO / ".github" / "workflows"
 RELEASE = WORKFLOWS / "release.yml"
 

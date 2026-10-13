@@ -28,8 +28,7 @@ import pytest
 
 from mcgyvr import cli, derived
 from mcgyvr.fleet import roots
-
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 #: The variables that move the two folders, and the convention's own.
 MOVED = ("MCGYVR_HOME", "MCGYVR_DATA")

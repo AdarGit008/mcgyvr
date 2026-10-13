@@ -10,9 +10,8 @@ machine and wrong on the runner that is supposed to hold the property.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 
 def test_ci_installs_the_js_toolchain_so_the_skip_cannot_become_permanent() -> None:

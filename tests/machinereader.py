@@ -50,9 +50,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from tests._paths import REPO as REPO
 from tests.machine_shapes import Card, Shape, card_reader_text
 
-REPO = Path(__file__).resolve().parent.parent
 READER = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "machine-read.sh"
 
 #: The environment variables the reader takes, for tests only.

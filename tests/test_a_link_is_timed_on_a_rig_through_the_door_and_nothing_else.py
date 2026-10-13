@@ -30,8 +30,8 @@ import pytest
 
 from mcgyvr.serving import linktime, run
 from tests import onedoor
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 TIMER = REPO / "src" / "mcgyvr" / "serving" / "linktime.py"
 
 

@@ -60,6 +60,7 @@ from pathlib import Path
 
 import pytest
 
+from tests._paths import REPO
 from tests.test_a_row_carries_the_run_tags_its_environment_names import (
     _OUTSIDE,
     TAGS,
@@ -72,8 +73,6 @@ from tests.test_the_engine_the_gate_runs_is_packaged_and_matches_its_pin_from_th
     _product_alone,
     _uv,
 )
-
-REPO = Path(__file__).resolve().parents[1]
 
 #: The longest one command may take. Nothing here waits on a network; ``init``
 #: probes the local ports a backend would answer on, each with a short timeout.

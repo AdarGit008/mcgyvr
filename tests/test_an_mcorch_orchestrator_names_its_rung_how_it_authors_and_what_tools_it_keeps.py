@@ -22,14 +22,14 @@ own default, and ``SETUP.md`` documents all three keys.
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
 
 import pytest
 
 from mcgyvr import docgen
 from mcgyvr.config import Config, ConfigSchemaError, parse
+from tests._paths import REPO
 
-SETUP_PATH = Path(__file__).resolve().parent.parent / "skills" / "mcgyvr" / "SETUP.md"
+SETUP_PATH = REPO / "skills" / "mcgyvr" / "SETUP.md"
 
 #: The harness tools kept when the file names none: Claude Code's and pi's.
 KEPT = [

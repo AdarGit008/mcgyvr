@@ -12,11 +12,8 @@ validated, never merely shipped.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from mcgyvr.fleet.files import load_fleet, load_policy
-
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 
 def test_the_example_fleet_loads() -> None:

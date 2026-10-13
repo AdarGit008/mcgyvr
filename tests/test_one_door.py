@@ -46,8 +46,8 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.serving.run import EXPORTED
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 DOOR = "python -m mcgyvr.serving.run"
 
 #: Directories never scanned. ``.git``, ``.venv``, ``node_modules`` and

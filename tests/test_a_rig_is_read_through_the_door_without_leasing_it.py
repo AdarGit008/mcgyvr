@@ -44,8 +44,8 @@ import yaml
 
 from mcgyvr.serving import run
 from tests import onedoor
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
 HARNESS_PY = REPO / "src" / "mcgyvr" / "fleet" / "harness.py"
 

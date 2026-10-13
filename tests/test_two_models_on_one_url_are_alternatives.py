@@ -55,11 +55,10 @@ from mcgyvr.config import parse
 from mcgyvr.emit import emit_all
 from mcgyvr.scan import Scan
 from mcgyvr.serving import UnitError, hold_together, units_for
+from tests._paths import TESTS
 
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
-    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text(
-        encoding="utf-8"
-    )
+    (TESTS / "fixtures" / "gguf_geometry.json").read_text(encoding="utf-8")
 )
 BIG = "Qwen3.6-35B-A3B-UD-IQ3_XXS"
 LITE = "deepseek-coder-v2-16b"

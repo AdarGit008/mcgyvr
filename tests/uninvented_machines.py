@@ -175,8 +175,9 @@ Rewrite the list after cleaning::
 
 It refuses to add a file or a kind, or to raise a count, unless it is given
 ``--allow-growth``; a new file goes to the first section, and no entry moves
-between sections: a person moves it. A renamed file is a new file to it, so
-a person renames the entry by hand. It builds the whole list first and
+between sections: a person moves it. A file that only moved is followed
+(:func:`moved_paths`), so reorganising a folder is not growth. It builds the
+whole list first and
 replaces the file in one step. A file name the list cannot hold (a byte that
 is not UTF-8, a tab, a line break, a leading ``#``) is refused by name.
 ``--compare OLD`` reads only two list files (no scan, no dependency outside
@@ -757,8 +758,9 @@ HEADER = """\
 #     uv run --no-sync python -m tests.uninvented_machines --write
 # It refuses to add a file or a kind, or to raise a count, unless given
 # --allow-growth; it puts a new file in the first section and never moves an
-# entry between sections, which a person does. A renamed file is a new file
-# to it: rename the entry by hand, in its section and in order.
+# entry between sections, which a person does. A file that only moved is
+# followed: one path gone and one arrived under the same file name is that
+# file renamed, kept in its section and held to the counts it had.
 # On a merge conflict in this file: take the base branch's list, then run the
 # command above without a flag.
 # Any other comment line, and any line not in this form, is refused.
@@ -900,23 +902,75 @@ def write_list(listed: Listed, path: Path | None = None) -> None:
         raise
 
 
+def _file_name(path: str) -> str:
+    return path.rpartition("/")[2]
+
+
+def moved_paths(old: Counts, new: Counts) -> dict[str, str]:
+    """Which path of ``new`` is a path of ``old`` under another directory.
+
+    Two lists of paths are all there is to go on, so a move is read the one
+    way they allow: a path new here, whose file name belonged to exactly one
+    path gone from there, and which is the only arrival under that name.
+
+    Without it, moving a folder of tests is every file added and every file
+    removed, and :func:`growth` calls each arrival growth -- which makes this
+    list the thing that forbids reorganising the suite it mostly lists. 102
+    of the list's entries are ``tests/test_*.py``.
+
+    What it cannot see, said rather than hidden: a file genuinely added at a
+    new place, whose name is the name of a file genuinely deleted elsewhere
+    in the same change, reads as that file moved. Its counts are still held
+    to the deleted file's, so the blind spot admits a new place and no new
+    hit.
+    """
+    arrived: dict[str, list[str]] = {}
+    for path in new:
+        if path not in old:
+            arrived.setdefault(_file_name(path), []).append(path)
+    departed: dict[str, list[str]] = {}
+    for path in old:
+        if path not in new:
+            departed.setdefault(_file_name(path), []).append(path)
+    return {
+        paths[0]: departed[name][0]
+        for name, paths in arrived.items()
+        if len(paths) == 1 and len(departed.get(name, ())) == 1
+    }
+
+
 def rewritten(old: Listed, found: Counts) -> Listed:
-    """The list with the counts found: each file stays in its section, a new
-    file goes to the first."""
+    """The list with the counts found: each file stays in its section, a file
+    that only moved stays in the section it moved from, a new file goes to
+    the first."""
+
+    def was_kept(path: str) -> bool:
+        return moved.get(path, path) in old.kept
+
+    moved = moved_paths(old.all(), found)
     return Listed(
-        cleaning={p: k for p, k in found.items() if p not in old.kept},
-        kept={p: k for p, k in found.items() if p in old.kept},
+        cleaning={p: k for p, k in found.items() if not was_kept(p)},
+        kept={p: k for p, k in found.items() if was_kept(p)},
     )
 
 
 def growth(old: Counts, new: Counts) -> list[str]:
-    """Where ``new`` holds a file, a kind or a count that ``old`` does not."""
+    """Where ``new`` holds a file, a kind or a count that ``old`` does not.
+
+    A file that only moved is held to the counts it had where it was, and
+    names both places when it grew.
+    """
+    moved = moved_paths(old, new)
     grown = []
     for path, kinds in sorted(new.items()):
+        was = moved.get(path, path)
         for kind, n in sorted(kinds.items()):
-            before = old.get(path, {}).get(kind, 0)
+            before = old.get(was, {}).get(kind, 0)
             if n > before:
-                grown.append(f"{shown(path)}: {kind} {before} -> {n}")
+                where = (
+                    shown(path) if was == path else f"{shown(path)} (was {shown(was)})"
+                )
+                grown.append(f"{where}: {kind} {before} -> {n}")
     return grown
 
 
@@ -955,8 +1009,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         grown = growth(old.all(), listed.all())
         for line in grown:
             print(f"grew: {line}")
-        moved = sorted(set(old.cleaning) & set(listed.kept))
-        for path in moved:
+        renamed = moved_paths(old.all(), listed.all())
+        crossed = sorted(
+            path for path in listed.kept if renamed.get(path, path) in old.cleaning
+        )
+        for path in crossed:
             print(f"moved to kept on purpose: {path}")
         print(
             f"{LIST_NAME}: {len(listed.all())} files listed, {len(old.all())} in "

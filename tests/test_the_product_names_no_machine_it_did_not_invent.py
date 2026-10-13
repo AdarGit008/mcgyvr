@@ -303,6 +303,85 @@ def test_the_list_only_shrinks_against_an_older_one() -> None:
     assert um.growth(old, {"c": {"host": 1}}) == ["c: host 0 -> 1"]
 
 
+def test_a_file_that_only_moved_is_not_growth() -> None:
+    """The shape the suite's reorganisation is made of: the same file name
+    under a new directory, carrying the counts it had."""
+    old = {"tests/test_x.py": {"host": 2}, "tests/test_y.py": {"address": 1}}
+    moved = {
+        "tests/unit/test_x.py": {"host": 2},
+        "tests/e2e/test_y.py": {"address": 1},
+    }
+    assert um.moved_paths(old, moved) == {
+        "tests/unit/test_x.py": "tests/test_x.py",
+        "tests/e2e/test_y.py": "tests/test_y.py",
+    }
+    assert um.growth(old, moved) == []
+
+
+def test_a_moved_file_is_still_held_to_the_counts_it_had() -> None:
+    """Following a rename is not forgiving one: a count that rose on the way
+    is growth, and names both places."""
+    old = {"tests/test_x.py": {"host": 2}}
+    assert um.growth(old, {"tests/unit/test_x.py": {"host": 3}}) == [
+        "tests/unit/test_x.py (was tests/test_x.py): host 2 -> 3"
+    ]
+    assert um.growth(old, {"tests/unit/test_x.py": {"address": 1, "host": 2}}) == [
+        "tests/unit/test_x.py (was tests/test_x.py): address 0 -> 1"
+    ]
+
+
+def test_a_rename_is_read_only_where_it_is_unambiguous() -> None:
+    """Two files of one name gone, or two arrived, is not a move anybody can
+    read from two lists of paths, so neither is read as one."""
+    two_gone = {"a/test_x.py": {"host": 1}, "b/test_x.py": {"host": 1}}
+    assert um.moved_paths(two_gone, {"c/test_x.py": {"host": 1}}) == {}
+    assert um.growth(two_gone, {"c/test_x.py": {"host": 1}}) == [
+        "c/test_x.py: host 0 -> 1"
+    ]
+    one_gone = {"a/test_x.py": {"host": 1}}
+    two_arrived = {"c/test_x.py": {"host": 1}, "d/test_x.py": {"host": 1}}
+    assert um.moved_paths(one_gone, two_arrived) == {}
+
+
+def test_the_writer_keeps_a_moved_file_in_the_section_it_moved_from() -> None:
+    old = um.Listed(
+        cleaning={"tests/test_a.py": {"host": 2}},
+        kept={"tests/test_k.py": {"address": 3}},
+    )
+    found = {
+        "tests/unit/test_a.py": {"host": 2},
+        "tests/e2e/test_k.py": {"address": 3},
+    }
+    assert um.rewritten(old, found) == um.Listed(
+        cleaning={"tests/unit/test_a.py": {"host": 2}},
+        kept={"tests/e2e/test_k.py": {"address": 3}},
+    )
+
+
+def test_the_comparison_ci_runs_passes_when_a_folder_of_tests_moved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Through the command itself: the list's files one directory down, in
+    both sections, is not growth and exits 0."""
+    base = um.Listed(
+        cleaning={"tests/test_a.py": {"host": 1}, "tests/test_b.py": {"address": 2}},
+        kept={"tests/test_k.py": {"card-model": 1}},
+    )
+    after = um.Listed(
+        cleaning={
+            "tests/e2e/test_b.py": {"address": 2},
+            "tests/unit/test_a.py": {"host": 1},
+        },
+        kept={"tests/unit/test_k.py": {"card-model": 1}},
+    )
+    now = tmp_path / "list.txt"
+    now.write_text(um.render(after), encoding="utf-8")
+    old = tmp_path / "base.txt"
+    old.write_text(um.render(base), encoding="utf-8")
+    monkeypatch.setattr(um, "LIST_PATH", now)
+    assert um.main(["--compare", str(old)]) == 0
+
+
 @pytest.mark.parametrize(
     ("base", "grew"),
     [

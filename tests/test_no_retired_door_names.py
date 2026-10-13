@@ -25,7 +25,7 @@ import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 #: Walked recursively, relative to the repo root.
 ROOTS: tuple[str, ...] = ("src", "tools", "tests")
