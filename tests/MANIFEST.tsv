@@ -105,6 +105,7 @@ tests/test_a_correction_says_how_the_work_landed.py	integration|e2e	functional	d
 tests/test_a_corrupt_wake_cache_does_not_shorten_a_wake.py	unit	functional	agreed	agreed	
 tests/test_a_daemon_that_does_not_answer_is_refused_before_the_envelope.py	integration|e2e	logic|operational	disputed	disputed	
 tests/test_a_delegated_contract_leaves_its_cap_to_the_target_sizing.py			unreviewed	unreviewed	
+tests/test_a_delete_is_proved_not_agreed.py	integration	infra	derived	derived	reads tests/DELETES.tsv and the files it names, and runs git to recover one from the history: a guard over the repository, not a run of it
 tests/test_a_derived_cap_is_not_identity.py	unit	functional	agreed	agreed	
 tests/test_a_dev_round_may_serve_any_launch_spec.py	integration|e2e	logic	disputed	agreed	
 tests/test_a_docker_sandbox_with_no_daemon_is_refused_unless_the_fallback_is_asked_for.py	integration	logic|behavior	agreed	disputed	

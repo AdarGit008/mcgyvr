@@ -1,0 +1,29 @@
+# Tests claimed to be deletable, and what each claim was put to.
+#
+# A test marked for deletion because a reader found a sentence persuasive is
+# a test deleted on agreement. Two passes read all 933 test files and each
+# wrote such a sentence; where they agreed, they agreed with each other, not
+# with a measurement. So each claim is recorded here with a verdict, and the
+# verdict comes from tests/prove_delete.py, which measures it:
+#
+#   dead       the thing the test names is in no source file, and running
+#              the test produces no passing assertion about behaviour
+#   redundant  every line of the product the candidate runs is also run by
+#              the keeper, and every assertion it makes is also asked by the
+#              keeper (normalised through the syntax tree)
+#
+# Nothing here is deleted while its verdict is `unproved`, and
+# tests/test_a_delete_is_proved_not_agreed.py holds that: it re-measures the
+# cheap half of every claim on each run (the absent name, the assertions)
+# and fails if a candidate has gone without being proved, or a proved
+# candidate's keeper has gone with it.
+#
+# For a `dead` claim the keeper column names the absent thing, not a file.
+#
+#   uv run --no-sync python tests/prove_delete.py           # show verdicts
+#   uv run --no-sync python tests/prove_delete.py --write   # record them
+#
+path	kind	keeper	verdict	evidence
+tests/test_a_run_that_leaves_a_container_or_moves_the_rig_is_not_green.py	gone-redundant	tests/test_a_leftover_container_is_named_and_left_for_the_operator.py	unproved	recovered from 4c0853066^: 1 of 3 assertions are the deleted test's alone, e.g. ["any((line.startswith('ps') for line in onedoor.docker_log(root)))"]
+tests/test_a_card_can_be_woken_twice_in_one_day.py	redundant	tests/test_a_rig_can_be_served_down_twice_in_one_day.py	unproved	1 assertions are the candidate's alone, e.g. ['down.returncode == 0']
+tests/test_a_ladder_learns_from_the_journal_it_wrote.py	dead	mcgyvr.feedback.propose	proved	mcgyvr.feedback.propose resolves to no module or declaration under src; pytest said 1 xfailed in 0.26s
