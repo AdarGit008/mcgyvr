@@ -61,15 +61,11 @@ from pathlib import Path
 import pytest
 
 from tests._paths import REPO
-from tests.test_a_row_carries_the_run_tags_its_environment_names import (
-    _OUTSIDE,
-    TAGS,
-)
-from tests.test_every_module_of_the_package_imports_under_every_supported_python import (  # noqa: E501
+from tests.wheels import (
     _IMPORT_ALL,
+    _OUTSIDE,
     _WALK_ENDED,
-)
-from tests.test_the_engine_the_gate_runs_is_packaged_and_matches_its_pin_from_the_package_alone import (  # noqa: E501
+    TAGS,
     _product_alone,
     _uv,
 )

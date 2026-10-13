@@ -43,6 +43,7 @@ from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import ATTEMPT_KIND, fold, observe
 from tests import livejournal as lj
 from tests._paths import REPO
+from tests.wheels import _OUTSIDE, TAGS
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable
@@ -50,8 +51,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 # ``observe`` called through an untyped alias.
 _observe = cast("Callable[..., Any]", observe)
-
-TAGS = {"round": "r7", "product_sha256": "ab" * 32, "draws": 3, "warm": True}
 
 
 def _completion() -> Completion:
@@ -243,29 +242,6 @@ def test_mcgyvr_run_journals_the_tags(
 
     (row,) = lj.rows(ours)
     assert row[telemetry.RUN_TAGS_KEY] == TAGS
-
-
-_OUTSIDE = """
-import json
-from pathlib import Path
-import mcgyvr
-from mcgyvr.local_pool import Protocol
-from mcgyvr.runner import Completion, StopReason
-from mcgyvr.telemetry import fold, observe
-
-completion = Completion(
-    text="x", stop_reason=StopReason.COMPLETE, raw_stop_reason="stop",
-    model="m", source="workstation", protocol=Protocol.OPENAI,
-    max_output_tokens=8, latency_s=0.0,
-)
-sink = Path(SINK)
-observe(
-    lambda: completion, path=sink, attempt_id="a:1", orchestrator="a", rung="r",
-    messages=[{"role": "user", "content": "u"}],
-)
-(row,) = fold(path=sink)
-print(json.dumps({"file": mcgyvr.__file__, "row": row}))
-"""
 
 
 @pytest.mark.parametrize("tagged", [False, True], ids=["no-env", "env"])

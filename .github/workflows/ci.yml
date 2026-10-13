@@ -76,9 +76,10 @@ jobs:
   # The list of files that still name a machine the product did not invent
   # may only shrink. The test holds every entry true against the tree; what a
   # tree cannot show is the list as it was, so on a pull request this job
-  # compares the list with the one on the base branch and fails when it
-  # gained a file or a kind, or a count rose. Standard library only, so it
-  # needs no install. It runs beside `test` and is not a required check.
+  # compares the list with the one on the base branch and fails when the
+  # product holds more hits of a kind than the base recorded; a hit that only
+  # moved between files is a move, not growth. Standard library only, so it
+  # needs no install. It runs beside `test` and the ruleset requires both.
   list-only-shrinks:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

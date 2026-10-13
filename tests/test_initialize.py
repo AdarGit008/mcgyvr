@@ -18,7 +18,6 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr import detect
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import Detection
 from mcgyvr.initialize import (
@@ -30,24 +29,11 @@ from mcgyvr.initialize import (
     render,
 )
 from mcgyvr.propose import binding_name, propose
+from tests.inits import KEYLESS_RIG, KINDS, _serving
 from tests.machine_shapes import Shape, detection, shape, shapes, with_server
-
-KINDS = tuple(kind for kind, _, _ in detect.PORT_CONVENTIONS)
 
 #: A machine with nothing: no card tool, no server.
 BARE = detection(shape("bare"))
-
-
-def _serving(label: str, *models: str) -> Detection:
-    """The invented machine of ``label`` with one more server listing ``models``."""
-    machine = shape(label)
-    taken = {server.kind for server in machine.servers}
-    kind = next(kind for kind in KINDS if kind not in taken)
-    return detection(with_server(machine, kind=kind, models=models))
-
-
-#: A machine with a card and a server that lists a model, and no docker.
-KEYLESS_RIG = _serving("one-card", "example-model:small")
 
 
 def _far() -> tuple[Shape, Shape]:

@@ -45,14 +45,7 @@ from pathlib import Path
 import pytest
 
 from tests import livejournal as lj
-from tests.test_a_sleeping_rung_is_woken_rather_than_declined import (
-    HOST,
-    RUNG_3B,
-    RUNG_7B,
-    compose_dir,
-    config_file,
-    door_log,
-)
+from tests.doors import HOST, RUNG_3B, RUNG_7B, compose_dir, config_file, door_log
 
 
 @pytest.fixture

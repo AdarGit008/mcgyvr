@@ -30,9 +30,12 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_dev_and_live_locks_flow_one_way import (
+from tests.fleetlocks import (
+    EVIDENCE,
     LOCK_DATE,
     MODELLED,
+    POLICY,
+    TOLERANCES,
     cli,
     dev_setup,
     fleets,
@@ -41,11 +44,6 @@ from tests.test_dev_and_live_locks_flow_one_way import (
     live_json,
     name_live,
     tree,
-)
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
-    EVIDENCE,
-    POLICY,
-    TOLERANCES,
 )
 
 #: flt-05 at the fixture lock's date: the latest validated_at among its records.

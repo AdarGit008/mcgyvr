@@ -31,13 +31,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.caches import _cached, _put, _stop, _worker
 from tests.rig_pool_fakes import Pool, hash_in_this_thread, make_pool
-from tests.test_no_worker_session_mounts_a_torn_tensor_cache_file import (
-    _cached,
-    _put,
-    _stop,
-    _worker,
-)
 
 
 @pytest.fixture(autouse=True)

@@ -17,9 +17,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from tests.rig_fake_hub import Peer, Server
-from tests.test_a_rig_agent_says_hello_keeps_beating_and_backs_off_when_the_hub_drops import (  # noqa: E501
-    Report,
-)
+from tests.rigagents import Report
 
 if TYPE_CHECKING:
     from mcgyvr.rig.agent import Channel

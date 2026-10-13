@@ -24,11 +24,6 @@ Every server here is a loopback one this test starts.
 
 from __future__ import annotations
 
-import contextlib
-import json
-import threading
-from collections.abc import Iterator
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -38,62 +33,13 @@ from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import parse
 from mcgyvr.local_pool import source_map
 from mcgyvr.runner import BackendError, Request, RunnerError, dispatch
-
-RUNG_ID = "0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
-RIDE = f"hitchhike-{RUNG_ID}"
-KEY = "mhu_" + "1" * 16
-
-
-def error(status: int, code: str) -> tuple[int, bytes]:
-    body = {
-        "error": {
-            "message": "the hub cannot serve this now",
-            "type": "pool_unavailable",
-            "code": code,
-            "param": None,
-        }
-    }
-    return status, json.dumps(body).encode()
-
+from tests.rungs import KEY, RIDE, RUNG_ID, answering, error
 
 NOT_SERVED_YET = error(503, "hitchhike_not_served_yet")
 HOST_AWAY = error(503, "hitchhike_host_away")
 STALE = error(404, "model_not_found")
 UNAVAILABLE = [NOT_SERVED_YET, HOST_AWAY, STALE]
 IDS = ["503", "503-host-away", "404"]
-
-
-@contextlib.contextmanager
-def answering(status: int, body: bytes, seen: list[dict[str, Any]]) -> Iterator[str]:
-    """A loopback hub that answers every POST with ``status`` and ``body``."""
-
-    class _Hub(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:
-            length = int(self.headers.get("Content-Length") or 0)
-            seen.append(
-                {
-                    "path": self.path,
-                    "authorization": self.headers.get("Authorization"),
-                    "body": json.loads(self.rfile.read(length)),
-                }
-            )
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, *_: Any) -> None:
-            return
-
-    server = HTTPServer(("127.0.0.1", 0), _Hub)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_address[1]}/v1"
-    finally:
-        server.shutdown()
-        server.server_close()
 
 
 def setup(address: str) -> str:

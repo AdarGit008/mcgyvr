@@ -26,147 +26,30 @@ Every machine here is invented and no server is started: the runner's
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.local_pool import source_map
+from tests.drives import (  # noqa: F401 - fixtures
+    RUN_SHARE,
+    _run,
+    _sent,
+    _sharing,
+    _Waker,
+    a_git_repo,
+)
+from tests.drives import SHARE_CONTRACT as CONTRACT
+from tests.drives import SHARE_LADDER as LADDER
 
-#: Two units on an invented rig. The narrow one serves 4096 tokens, which the
-#: contract's own ceiling (the schema's 4096) fits, so only the share can
-#: refuse it; the wide one is there so "not climbed" can be asserted.
-LADDER = """\
-units:
-  local_narrow:
-    address: http://rig-b.invalid:8080
-    model: narrow-coder
-    rig: rig-b
-    width: 1
-    window: 4096
-  local_wide:
-    address: http://rig-b.invalid:8081
-    model: wide-coder
-    rig: rig-b
-    width: 1
-    window: 32768
-ladder:
-- local_narrow
-- local_wide
-"""
-
-#: The run's share: a quarter of any rung's window.
-RUN_SHARE = "max_window_fraction: 0.25\n"
-
-#: A reply of 1024 tokens alone is a quarter of the narrow window, so with any
-#: prompt beside it the contract claims more than a quarter — and still fits.
-CONTRACT = """
-id: greedy
-task_type: code
-task: Set VALUE to 1.
-target: src/pkg/value.py
-stop_conditions: ["The value is not stated."]
-acceptance: ["sh -c 'grep -q VALUE src/pkg/value.py'"]
-limits:
-  max_output_tokens: 1024
-scope:
-  allow: ["src/**"]
-"""
-
-
-def _sharing(share: float) -> str:
-    """The same contract, declaring its own share of the window."""
-    return CONTRACT.replace(
-        "max_output_tokens: 1024\n",
-        f"max_output_tokens: 1024\n  max_window_fraction: {share}\n",
-    )
+# --- through a whole run: the run's share is read and enforced ---------------
 
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    root = tmp_path / "repo"
-    (root / "src" / "pkg").mkdir(parents=True)
-    (root / "src" / "pkg" / "value.py").write_text("VALUE = 0\n", encoding="utf-8")
-    identity = ("-c", "user.name=t", "-c", "user.email=t@example.invalid")
-    for args in (("init", "-q"), ("add", "-A"), (*identity, "commit", "-qm", "base")):
-        subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
-    return root
-
-
-def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Record every rung a request reaches; answer with a valid file."""
-    from mcgyvr import drive
-    from mcgyvr.local_pool import Protocol
-    from mcgyvr.runner import Completion, StopReason
-
-    seen: list[str] = []
-
-    def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
-    ) -> Completion:
-        seen.append(rung)
-        return Completion(
-            text="```python\nVALUE = 1\n```",
-            stop_reason=StopReason.COMPLETE,
-            raw_stop_reason="stop",
-            model="narrow-coder",
-            source=rung,
-            protocol=Protocol.OPENAI,
-            max_output_tokens=request.max_output_tokens,
-            latency_s=0.0,
-        )
-
-    monkeypatch.setattr(drive, "dispatch", fake_dispatch)
-    return seen
-
-
-class _Waker:
-    """A waker that records every rung it was asked to wake, then sends."""
-
-    def __init__(self) -> None:
-        self.woken: list[str] = []
-
-    def dispatching(self, rung: str, send: Any) -> Any:
-        self.woken.append(rung)
-        return send()
-
-
-def _run(
-    repo: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    policy: str,
-    contract_text: str = CONTRACT,
-) -> tuple[Any, list[str], _Waker, Path]:
-    from mcgyvr import drive
-    from mcgyvr.drive import Recording, worker_attempt
-    from mcgyvr.escalate import escalate
-    from mcgyvr.sandbox.tempdir import TempDirSandbox
-
-    sent = _sent(monkeypatch)
-    waker = _Waker()
-    monkeypatch.setattr(drive, "wake_for_config", lambda config: waker)
-    config = parse_config(LADDER + policy)
-    pool = source_map(config)
-    contract = load_contract(contract_text)
-    journal = tmp_path / "journal" / "orch.jsonl"
-    journal.parent.mkdir()
-    recording = Recording(path=journal, orchestrator="orch")
-    with TempDirSandbox(repo) as sandbox:
-        outcome = escalate(
-            config,
-            pool,
-            contract,
-            worker_attempt(config, pool, contract, sandbox, recording=recording),
-        )
-    return outcome, sent, waker, journal
-
-
-# --- through a whole run: the run's share is read and enforced ---------------
+    return a_git_repo(tmp_path)
 
 
 def test_a_run_whose_config_caps_the_share_fails_the_greedy_contract_unsent(

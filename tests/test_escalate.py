@@ -61,7 +61,7 @@ import pytest
 from mcgyvr.capacity import Capacity, run_batch
 from mcgyvr.catalog import Family, catalog
 from mcgyvr.cli import main
-from mcgyvr.config import CONFIG_PATH_ENV, Config, parse
+from mcgyvr.config import CONFIG_PATH_ENV, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import (
@@ -82,9 +82,10 @@ from mcgyvr.escalate import (
     required_policy,
 )
 from mcgyvr.gate import Finding, GateResult
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.local_pool import SourceMap
 from mcgyvr.route import RouteError, Try, Verdict
 from mcgyvr.worker.prompt import build_prompt
+from tests.drives import CONTRACT, KEYLESS, contract, halted, mapped
 
 MIXED = """\
 units:
@@ -109,30 +110,6 @@ ladder:
 - api_big
 """
 
-KEYLESS = """\
-units:
-  local_qwen-7b:
-    address: http://localhost:11434
-    model: qwen2.5-coder:7b
-    rig: workstation
-    width: 2
-ladder:
-- local_qwen-7b
-"""
-
-CONTRACT = """
-id: fetch-retry
-task_type: code
-task: Add retry with backoff to the fetch helper.
-target: src/pkg/fetch.py
-stop_conditions:
-  - The retry policy is not stated anywhere in the repo.
-acceptance: ["pytest -q"]
-scope:
-  allow: ["src/**/*.py"]
-limits:
-  attempts: 5
-"""
 
 DETERMINISTIC_CONTRACT = """
 id: tidy
@@ -176,20 +153,11 @@ def locks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def mapped(text: str) -> tuple[Config, SourceMap]:
-    config = parse(text)
-    return config, source_map(config)
-
-
 def with_budgets(text: str, **values: int) -> str:
     """The same config with the named policy ceilings set."""
     lines = [text]
     lines.extend(f"{name}: {value}" for name, value in values.items())
     return "\n".join(lines)
-
-
-def contract(text: str = CONTRACT) -> Contract:
-    return load_contract(text)
 
 
 def verifying(text: str = CONTRACT) -> Contract:
@@ -260,11 +228,6 @@ def clean() -> GateResult:
 
 def delivered(result: Delivered | Halted) -> Delivered:
     assert isinstance(result, Delivered), f"expected an accepted task, got {result}"
-    return result
-
-
-def halted(result: Delivered | Halted) -> Halted:
-    assert isinstance(result, Halted), f"expected a halted task, got {result}"
     return result
 
 

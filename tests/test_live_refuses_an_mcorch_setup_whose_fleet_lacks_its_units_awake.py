@@ -22,21 +22,8 @@ from typing import Any
 import pytest
 import yaml
 
-from tests.test_a_live_run_is_admitted_only_by_a_read_of_its_rigs import (
-    FIRST,
-    FakeDoor,
-    go_live,
-)
-from tests.test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it import (
-    locked,
-    observed,
-)
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
-    FLEET,
-    POLICY,
-    U3B,
-    U7B,
-)
+from tests.fleetlocks import FLEET, POLICY, U3B, U7B, locked, observed
+from tests.liveruns import FIRST, FakeDoor, go_live
 
 AGENT, JEV = "srv2_7b", "srv2_3b"
 

@@ -158,7 +158,7 @@ def _attempt(repo: Path, document: str, monkeypatch: pytest.MonkeyPatch, *replie
     from mcgyvr.local_pool import Rung, source_map
     from mcgyvr.route import Try
     from mcgyvr.sandbox.tempdir import TempDirSandbox
-    from tests.test_drive import LADDER, _driven
+    from tests.drives import LADDER, _driven
 
     config = parse_config(LADDER)
     sent = _driven(monkeypatch, *replies)

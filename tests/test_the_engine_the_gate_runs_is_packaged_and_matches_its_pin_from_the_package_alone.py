@@ -21,17 +21,14 @@ What must be observably true:
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
 
-import pytest
-
 import mcgyvr.gate.semantic as semantic
 from mcgyvr.gate.semantic import ENGINE_DIGESTS, engine_dir, verify_engine
-from tests._paths import REPO
+from tests.wheels import _product_alone, _uv
 
 ENGINE_ROOT = Path(semantic.__file__).resolve().parent / "_engine"
 PACKAGED = ENGINE_ROOT / "ghostcall"
@@ -41,10 +38,6 @@ PACKAGED = ENGINE_ROOT / "ghostcall"
 SHIPPED = frozenset(
     {*(f"ghostcall/{name}" for name in ENGINE_DIGESTS), "ghostcall/LICENSE"}
 )
-
-#: The only inputs a wheel build is given: the package's sources, the data it
-#: ships, and the project metadata.
-PRODUCT_ALONE = ("pyproject.toml", "LICENSE", "src", "data")
 
 
 def test_a_checkout_reads_the_engine_from_inside_the_package() -> None:
@@ -61,46 +54,6 @@ def test_the_package_holds_exactly_the_pinned_engine_files() -> None:
         if p.is_file() and "__pycache__" not in p.parts
     }
     assert held == SHIPPED, sorted(held ^ SHIPPED)
-
-
-def _uv() -> str:
-    found = shutil.which("uv")
-    if found is None:
-        pytest.fail("uv is not on PATH; the release builds with `uv build`")
-    return found
-
-
-def _git(where: Path, *args: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(where), *args],
-        check=True,
-        capture_output=True,
-        env={
-            **os.environ,
-            "GIT_AUTHOR_NAME": "t",
-            "GIT_AUTHOR_EMAIL": "t@t.invalid",
-            "GIT_COMMITTER_NAME": "t",
-            "GIT_COMMITTER_EMAIL": "t@t.invalid",
-            "GIT_CONFIG_GLOBAL": os.devnull,
-        },
-    )
-
-
-def _product_alone(tmp_path: Path) -> Path:
-    tree = tmp_path / "tree"
-    for entry in PRODUCT_ALONE:
-        source, target = REPO / entry, tree / entry
-        if source.is_dir():
-            shutil.copytree(
-                source, target, ignore=shutil.ignore_patterns("__pycache__")
-            )
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-    _git(tree, "init", "-q")
-    _git(tree, "add", "-A")
-    _git(tree, "commit", "-qm", "the product alone")
-    return tree
 
 
 _PROBE = """

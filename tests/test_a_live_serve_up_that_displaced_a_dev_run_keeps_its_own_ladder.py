@@ -18,15 +18,9 @@ import importlib
 from pathlib import Path
 
 from tests import onedoor
+from tests.doors import DEV_SERVE_LEASE, UNITS, compose_file
+from tests.fleetlocks import SRV1_EVIDENCE, SRV1_FLEET
 from tests.red_port.conftest import required
-from tests.test_a_live_run_tears_down_the_serve_units_of_the_dev_run_it_displaced import (  # noqa: E501
-    DEV_SERVE_LEASE,
-)
-from tests.test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock import (
-    SRV1_EVIDENCE,
-    SRV1_FLEET,
-)
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_file
 
 
 def _live_lock() -> None:

@@ -14,40 +14,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from tests.test_a_rig_agent_says_hello_keeps_beating_and_backs_off_when_the_hub_drops import (  # noqa: E501
-    Channel,
-    Clock,
-    Hub,
-    Report,
-)
-
-
-def _made(plan: list[Hub], clock: Clock, **hooks: Any) -> tuple[Any, list[Channel]]:
-    from mcgyvr.rig import agent, websocket
-
-    channels: list[Channel] = []
-    steps = iter(plan)
-
-    def connect() -> Channel:
-        step = next(steps, None)
-        if step is None:
-            raise websocket.HandshakeError("the plan is over", status=401)
-        channel = Channel(step, clock)
-        channels.append(channel)
-        return channel
-
-    made = agent.Agent(
-        connect=connect,
-        read_hardware=Report(),
-        agent_version="0.1.0",
-        clock=clock,
-        wall=clock,
-        wait=clock.wait,
-        draw=lambda: 1.0,
-        say=lambda line: None,
-        **hooks,
-    )
-    return made, channels
+from tests.rigagents import Clock, Hub, _made
 
 
 def _offer() -> Any:

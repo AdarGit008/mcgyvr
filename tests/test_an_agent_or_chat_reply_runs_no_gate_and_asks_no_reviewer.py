@@ -114,7 +114,7 @@ def test_a_configured_reviewer_is_never_asked_about_a_session_reply(
     from mcgyvr.route import Try
     from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import Reviewer
-    from tests.test_drive import LADDER, _driven, _git
+    from tests.drives import LADDER, _driven, _git
 
     repo = tmp_path / "repo"
     (repo / "src").mkdir(parents=True)
@@ -190,7 +190,7 @@ def _scripted(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    from tests.test_drive import _git
+    from tests.drives import _git
 
     root = tmp_path / "repo"
     (root / "src").mkdir(parents=True)

@@ -30,10 +30,8 @@ import yaml
 
 from mcgyvr import docgen
 from mcgyvr.config import Config, ConfigSchemaError, parse
-from tests.test_fleet_lock_reads_fleet_and_policy_as_yaml import (
-    EVIDENCE,
-    FLEET_YAML,
-)
+from tests.fleetlocks import FLEET_YAML
+from tests.fleetlocks import YAML_EVIDENCE as EVIDENCE
 
 FLEET = (
     "units:\n"

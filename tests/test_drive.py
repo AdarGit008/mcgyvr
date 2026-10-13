@@ -32,13 +32,7 @@ from mcgyvr.drive import (
     run_tool_step,
 )
 from mcgyvr.sandbox.tempdir import TempDirSandbox
-
-_IDENTITY = {
-    "GIT_AUTHOR_NAME": "t",
-    "GIT_AUTHOR_EMAIL": "t@t.invalid",
-    "GIT_COMMITTER_NAME": "t",
-    "GIT_COMMITTER_EMAIL": "t@t.invalid",
-}
+from tests.drives import LADDER, _driven, _git
 
 # Valid Python that ruff format will rewrite: the double-quoted string stays,
 # the spacing does not.
@@ -76,17 +70,6 @@ RENAME_TREE = {
         "from pkg.helper import fetch_page\n\ndef go():\n    return fetch_page(1)\n"
     ),
 }
-
-
-def _git(repo: Path, *args: str) -> None:
-    import os
-
-    subprocess.run(
-        ["git", "-C", str(repo), *args],
-        check=True,
-        capture_output=True,
-        env={**os.environ, **_IDENTITY},
-    )
 
 
 @pytest.fixture
@@ -420,22 +403,6 @@ scope:
 
 # --- the composition: one attempt is prompt, dispatch, parse, apply, gate ----
 
-LADDER = """\
-units:
-  local_qwen-7b:
-    address: http://localhost:11434
-    model: qwen2.5-coder:7b
-    rig: workstation
-    width: 2
-  local_qwen-14b:
-    address: http://localhost:11434
-    model: qwen2.5-coder:14b
-    rig: workstation
-    width: 2
-ladder:
-- local_qwen-7b
-- local_qwen-14b
-"""
 
 MODEL_CONTRACT = """
 id: impl
@@ -472,39 +439,6 @@ sources: ["src/report.txt"]
 scope:
   allow: ["brief.txt"]
 """
-
-
-def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.local_pool import Protocol
-    from mcgyvr.runner import Completion, StopReason
-
-    return Completion(
-        text=text,
-        stop_reason=StopReason.COMPLETE,
-        raw_stop_reason="stop",
-        model="qwen2.5-coder:7b",
-        source="workstation",
-        protocol=Protocol.OPENAI,
-        max_output_tokens=1024,
-        latency_s=0.0,
-    )
-
-
-def _driven(monkeypatch: pytest.MonkeyPatch, *replies: str):  # type: ignore[no-untyped-def]
-    """Answer each dispatch from a script, and record the prompts that were sent."""
-    import mcgyvr.drive as drive
-
-    sent: list[str] = []
-    scripted = list(replies)
-
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
-        sent.append(request.prompt)
-        if not scripted:
-            raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
-        return _completion(scripted.pop(0))
-
-    monkeypatch.setattr(drive, "dispatch", fake_dispatch)
-    return sent
 
 
 def test_one_attempt_reaches_a_judgement_over_a_real_gate(

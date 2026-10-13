@@ -22,11 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 from mcgyvr.rig import rungs
-from tests.test_a_rig_agent_says_hello_keeps_beating_and_backs_off_when_the_hub_drops import (  # noqa: E501
-    Clock,
-    Hub,
-    _agent,
-)
+from tests.rigagents import Clock, Hub, _agent
 
 
 def test_the_agent_tells_its_tick_after_each_heartbeat_and_not_for_the_hello() -> None:

@@ -18,7 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from tests import onedoor
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_file
+from tests.doors import UNITS, compose_file
 
 #: A unit of ours a dev run left up under a service name this file does not have.
 PLANTED = "mcgyvr-srv1-old-8009"

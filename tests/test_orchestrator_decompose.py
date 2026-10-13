@@ -13,7 +13,6 @@ judgement, not a model's temperature.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -31,15 +30,7 @@ from mcgyvr.orchestrator.decompose import (
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.worker.prompt import build_prompt
-
-
-def git(repo: Path, *args: str) -> None:
-    subprocess.run(
-        ["git", "-c", "user.email=t@t.io", "-c", "user.name=t", *args],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
+from tests.decomposes import an_annotation, declaring_mypy, git
 
 
 @pytest.fixture
@@ -548,34 +539,6 @@ def test_a_target_larger_than_the_default_ceiling_is_refused(tmp_path: Path) -> 
 #
 # The schema demands a type-check command for the one task type whose guarantee
 # requires one; the adapter's locator finds it, and this is the wiring.
-
-
-def an_annotation(**overrides: object) -> Proposal:
-    """A `type_check: true` `code` proposal with no acceptance of its own.
-
-    The empty `acceptance` is the point. `type_check` evidence can only be
-    produced by a command, so the decomposer must either locate the repository's
-    checker and fill the acceptance in, or refuse when there is none.
-    """
-    base = {
-        "task_type": "code",
-        "task": "annotate listing() and its return.",
-        "target": "listing.py",
-        "stop_conditions": ("the intended element type is ambiguous",),
-        "no_semantic_change": True,
-        "type_check": True,
-    }
-    return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
-
-
-def declaring_mypy(repo: Index) -> Index:
-    """The same repository, having declared mypy the way mypy reads it."""
-    (repo.root / "pyproject.toml").write_text(
-        '[tool.mypy]\nfiles = ["."]\nstrict = true\n'
-    )
-    git(repo.root, "add", "-A")
-    git(repo.root, "commit", "-q", "-m", "declare mypy")
-    return build_index(repo.root)
 
 
 class StubAdapter(PythonAdapter):

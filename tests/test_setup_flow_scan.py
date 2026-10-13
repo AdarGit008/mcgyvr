@@ -17,7 +17,7 @@ from mcgyvr import cli, weights
 from mcgyvr import scan as scan_module
 from mcgyvr.initialize import InitResult, initialize, parse_api_unit
 from mcgyvr.serving import rigfile
-from tests.test_initialize import KEYLESS_RIG
+from tests.inits import KEYLESS_RIG
 
 
 def _api(model: str) -> str:

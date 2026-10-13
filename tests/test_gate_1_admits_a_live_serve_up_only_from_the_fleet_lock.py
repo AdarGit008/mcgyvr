@@ -16,56 +16,11 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any
 
 from tests import onedoor
+from tests.doors import UNITS, compose_file
+from tests.fleetlocks import SRV1_EVIDENCE, SRV1_FLEET
 from tests.red_port.conftest import required
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_file
-
-#: The fixture's two llama.cpp units on srv1, as the lock names them.
-SLOTS: list[Any] = [["a", "awake"], ["b", "awake"]]
-SRV1_FLEET: dict[str, Any] = {
-    "rigs": {"srv1": {"rig_id": "rig-" + "1" * 64}},
-    "units": {
-        name: {
-            "rig": "srv1",
-            "unit_id": "unt-" + digit * 64,
-            "engine": "llama.cpp",
-            "address": f"http://srv1:{8001 + index}",
-            "container": container,
-            "image": "llamacpp:b10644-L3",
-            "command": ["--model", "/models/x.gguf", "--port", str(8001 + index)],
-            "room_mib": 2000,
-            "width": 1,
-            "window": 4096,
-            "output_tokens": 512,
-            "request_timeout_s": 120.0,
-        }
-        for index, (name, digit, container) in enumerate(
-            (("a", "a", UNITS[0]), ("b", "b", UNITS[1]))
-        )
-    },
-    "fleets": {"flt-01": {"layout": {"srv1": SLOTS}, "next": []}},
-}
-SRV1_EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv1": {"card_mib": 6144, "overhead_mib": 400}},
-    "combinations": [
-        {
-            "rig": "srv1",
-            "slots": SLOTS,
-            "passed": True,
-            "overhead_mib": 400,
-            "restarts": {"a": 0, "b": 0},
-            "warm_decode_tok_s": {"a": 20.0, "b": 20.0},
-            "baseline_tok_s": {"a": 20.5, "b": 20.5},
-            "card_peak_mib": {"a": 2000, "b": 2000},
-            "prefill_tok_s": {"a": 1450.0, "b": 1450.0},
-            "validated_at": "2026-09-11T10:00:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-srv1/flt-01",
-        }
-    ],
-    "moves": [],
-}
 
 
 def _brought_up(root: Path, compose: Path) -> bool:

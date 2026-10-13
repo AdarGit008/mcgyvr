@@ -25,14 +25,7 @@ from typing import Any
 
 import pytest
 
-from tests.test_dev_and_live_locks_flow_one_way import (
-    MODELLED,
-    cli,
-    dev_setup,
-    fleets,
-    live_json,
-)
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import FLT02
+from tests.fleetlocks import FLT02, MODELLED, cli, dev_setup, fleets, live_json
 
 DATE = "2026-09-11"
 FLT05, FLT02_TAGGED, FLT07 = f"flt-05@{DATE}", f"flt-02@{DATE}", f"flt-07@{DATE}"

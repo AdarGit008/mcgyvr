@@ -27,13 +27,8 @@ from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import family_of
 from mcgyvr.verify import NoReviewer, Reviewer, reviewers_for
 from tests._paths import SRC
-from tests.test_a_relief_rung_takes_work_only_when_the_riders_own_rung_is_full import (
-    API,
-    RELIEF,
-    RIDE,
-    SETUP,
-    contract,
-)
+from tests.relieftakes import API, RELIEF, SETUP, contract
+from tests.rungs import RIDE
 
 
 @pytest.fixture(autouse=True)

@@ -33,20 +33,18 @@ import pytest
 import yaml
 
 from tests import onedoor
-from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import (
-    LOAD,
-    Rig,
-    rig_text,
-)
-from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
+from tests.reads import (
     FLEET,
     FLEET_NAME,
+    LOAD,
     RUN_ID,
     UNIT_3B,
     UNIT_7B,
+    Rig,
     metrics,
     page,
     reading,
+    rig_text,
     rows,
     unit_rows,
 )

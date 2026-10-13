@@ -32,7 +32,7 @@ from typing import Any
 import pytest
 
 from tests import rig_pool_fakes as fakes
-from tests.test_a_cancelled_relay_reports_what_its_head_made_before_the_agent_hangs_up import (  # noqa: E501
+from tests.relays import (
     CANCELLED,
     ENDLESS,
     IDLE,

@@ -26,7 +26,7 @@ from mcgyvr.route import Try
 from mcgyvr.runner import RunnerError
 from tests import livejournal as lj
 from tests._helpers import _orphans, _rows
-from tests.test_escalate import KEYLESS, contract, halted, mapped
+from tests.drives import KEYLESS, contract, halted, mapped
 
 TWO_DRAWS = "breadth:\n  draws: 2\n"
 

@@ -27,76 +27,31 @@ from typing import Any
 
 import pytest
 
-from tests._paths import TESTS
-from tests.test_rig_rungs_sync_writes_only_the_relief_rungs import (
+from tests.rigsyncs import (  # noqa: F401 - fixtures
     FIRST,
+    FIXTURE,
     KEY,
+    SCANNED,
     TOKEN,
     Hub,
+    a_reporting_hub,
+    a_reporting_setup,
     cli,
+    policy,
+    sent,
     serving,
 )
-
-FIXTURE = TESTS / "fixtures" / "gguf_geometry.json"
-SCANNED = "4b-Q4_K_M.gguf"
-
-FLEET = """\
-units:
-  local_fast:
-    address: http://fast-box.example:8000
-    model: qwen2.5-coder-3b
-    width: 1
-    launch:
-      geometry_json: geometry.json
-  local_big:
-    address: http://big-box.example:8001
-    model: "qwen2.5-coder:7b"
-    width: 1
-  api_big:
-    address: https://api.example.com/v1
-    model: vendor-large
-    width: 1
-    api_key_env: EXAMPLE_API_KEY
-"""
-
-
-def policy(ladder: str, escalations: int) -> str:
-    return f"ladder: [{ladder}]\nfanout: idle\nmax_escalations: {escalations}\n"
-
-
-@pytest.fixture
-def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    folder = tmp_path / "setup"
-    folder.mkdir()
-    (folder / "fleet.yaml").write_text(FLEET, encoding="utf-8")
-    (folder / "policy.yaml").write_text(
-        policy("local_fast, local_big, api_big", 1), encoding="utf-8"
-    )
-    row = json.loads(FIXTURE.read_text(encoding="utf-8"))[SCANNED]
-    (folder / "geometry.json").write_text(json.dumps(row), encoding="utf-8")
-    monkeypatch.setenv("MCGYVR_CONFIG", str(folder))
-    monkeypatch.setenv("MCGYVR_HOME", str(tmp_path / "config-folder"))
-    monkeypatch.setenv("MCGYVR_DATA", str(tmp_path / "data-folder"))
-    monkeypatch.setenv("MCGYVR_HUB_API_KEY", KEY)
-    monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "e" * 24)
-    return folder
 
 
 @pytest.fixture
 def hub(setup: Path) -> Any:
-    from mcgyvr.rig import credentials
-
-    with serving(Hub()) as running:
-        credentials.save(credentials.Credentials(hub=running.address, token=TOKEN))
-        running.answer(running.listing(FIRST))
-        yield running
+    with a_reporting_hub(setup) as made:
+        yield made
 
 
-def sent(hub: Hub) -> dict[str, Any]:
-    (asked,) = hub.asked[-1:]
-    assert asked["content_type"] == "application/json"
-    body: dict[str, Any] = json.loads(asked["body"])
-    return body
+@pytest.fixture
+def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return a_reporting_setup(tmp_path, monkeypatch)
 
 
 def test_the_ladder_is_posted_in_climbing_order_with_what_the_product_knows(

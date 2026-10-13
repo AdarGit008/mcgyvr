@@ -15,12 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from tests import onedoor
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import (
-    CONFIG_VAR,
-    UNITS,
-    compose_file,
-    dev_config,
-)
+from tests.doors import CONFIG_VAR, UNITS, compose_file, dev_config
 
 
 def test_a_second_serve_down_on_one_day_is_not_refused_for_the_first_ones_record(

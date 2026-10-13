@@ -21,48 +21,8 @@ import yaml
 
 from mcgyvr.serving import run
 from tests import onedoor
+from tests.doors import CONFIG_VAR, UNITS, compose_file, dev_config
 from tests.onedoor import STRAY_NAME
-
-UNITS = ("mcgyvr-srv1-a-8001", "mcgyvr-srv1-b-8002")
-
-
-def compose_file(root: Path, names: tuple[str, ...] = UNITS) -> Path:
-    services = {
-        f"svc{i}": {
-            "image": "llamacpp:b10644-L3",
-            "container_name": name,
-            "command": ["--model", "/models/x.gguf", "--port", str(8001 + i)],
-            "network_mode": "host",
-        }
-        for i, name in enumerate(names)
-    }
-    path = root / "compose.srv1.yml"
-    path.write_text(yaml.safe_dump({"services": services}), encoding="utf-8")
-    return path
-
-
-CONFIG_VAR = "MCGYVR_CONFIG"
-
-#: A setup under development: same rig, its own file, ``profile: dev``.
-DEV_LADDER = """\
-units:
-  only:
-    address: http://srv1:8001
-    model: a-model
-    rig: rig
-    engine: vllm
-ladder:
-- only
-sandbox:
-  mode: tempdir
-"""
-
-
-def dev_config(path: Path) -> Path:
-    """A dev config this door run reads its profile from."""
-    path.write_text("profile: dev\n" + DEV_LADDER, encoding="utf-8")
-    return path
-
 
 # --- the shape ---------------------------------------------------------------
 

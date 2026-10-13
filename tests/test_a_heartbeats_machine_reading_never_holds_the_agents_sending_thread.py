@@ -22,12 +22,7 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from tests.test_a_rig_agent_says_hello_keeps_beating_and_backs_off_when_the_hub_drops import (  # noqa: E501
-    Channel,
-    Clock,
-    Hub,
-    _frame,
-)
+from tests.rigagents import Channel, Clock, Hub, _frame
 
 #: The longest real wait for a read the fake world needs, in seconds: far
 #: above what a read takes here, so it is only reached when a read never comes.

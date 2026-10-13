@@ -330,6 +330,70 @@ def test_a_moved_file_is_still_held_to_the_counts_it_had() -> None:
     ]
 
 
+def test_the_whole_list_is_what_may_not_hold_more_of_a_kind() -> None:
+    """``totals`` counts a kind over every file, which is the figure held."""
+    assert um.totals({}) == {}
+    assert um.totals({"a": {"host": 2}, "b": {"host": 1, "address": 3}}) == {
+        "host": 3,
+        "address": 3,
+    }
+
+
+def test_a_hit_lifted_into_another_file_is_a_move_not_growth() -> None:
+    """The shape extracting a shared helper is made of: a hit leaves a test
+    module and arrives in a module beside it, under a name no rename can be
+    read from. The product names no machine it did not name before, so the
+    per-kind totals are unchanged and nothing grew."""
+    old = {"tests/test_x.py": {"host": 3}, "tests/test_y.py": {"host": 2}}
+    lifted = {
+        "tests/test_x.py": {"host": 1},
+        "tests/test_y.py": {"host": 1},
+        "tests/doors.py": {"host": 3},
+    }
+    assert um.totals(old) == um.totals(lifted) == {"host": 5}
+    assert um.more_of_a_kind(old, lifted) == []
+    # the arrival is still reported, as a move: it is not hidden
+    assert um.growth(old, lifted) == ["tests/doors.py: host 0 -> 3"]
+
+
+def test_a_kind_the_product_holds_more_of_is_growth_wherever_it_sits() -> None:
+    """A move cannot launder a new hit: one more of a kind anywhere in the
+    list is growth, named by its kind."""
+    old = {"tests/test_x.py": {"host": 3}}
+    assert um.more_of_a_kind(old, {"tests/doors.py": {"host": 3}}) == []
+    assert um.more_of_a_kind(old, {"tests/doors.py": {"host": 4}}) == ["host: 3 -> 4"]
+    assert um.more_of_a_kind(old, {"tests/test_x.py": {"host": 3, "address": 1}}) == [
+        "address: 0 -> 1"
+    ]
+    # a kind that fell while another rose is still the rise, alone
+    fell = {"tests/test_x.py": {"host": 1, "address": 2}}
+    assert um.more_of_a_kind(old, fell) == ["address: 0 -> 2"]
+
+
+def test_the_comparison_passes_a_move_and_fails_one_more_hit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End to end through ``--compare``, the way CI runs it."""
+    base = tmp_path / "base.txt"
+    base.write_text(
+        um.render(um.Listed(cleaning={"tests/test_x.py": {"host": 2}}, kept={})),
+        encoding="utf-8",
+    )
+    moved = um.Listed(
+        cleaning={"tests/test_x.py": {"host": 1}, "tests/doors.py": {"host": 1}},
+        kept={},
+    )
+    monkeypatch.setattr(um, "LIST_PATH", tmp_path / "list.txt")
+    um.LIST_PATH.write_text(um.render(moved), encoding="utf-8")
+    assert um.main(["--compare", str(base)]) == 0
+    grew = um.Listed(
+        cleaning={"tests/test_x.py": {"host": 2}, "tests/doors.py": {"host": 1}},
+        kept={},
+    )
+    um.LIST_PATH.write_text(um.render(grew), encoding="utf-8")
+    assert um.main(["--compare", str(base)]) == 1
+
+
 def test_a_rename_is_read_only_where_it_is_unambiguous() -> None:
     """Two files of one name gone, or two arrived, is not a move anybody can
     read from two lists of paths, so neither is read as one."""

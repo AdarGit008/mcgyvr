@@ -20,7 +20,7 @@ import pytest
 from mcgyvr.config import load as load_config
 from mcgyvr.initialize import InitError, initialize
 from tests import livejournal as lj
-from tests.test_initialize import KEYLESS_RIG
+from tests.inits import KEYLESS_RIG
 
 
 def _unit_names(tmp_path: Path) -> tuple[str, ...]:

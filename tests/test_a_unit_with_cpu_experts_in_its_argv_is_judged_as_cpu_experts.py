@@ -26,7 +26,7 @@ from typing import Any
 
 import pytest
 
-from tests import test_a_live_probe_is_judged_against_its_lock as probed
+from tests import liveprobes as probed
 
 #: ``srv1_deepseek`` in b-small's shape — ``--n-cpu-moe 19`` in its argv, no
 #: ``n_cpu_moe`` or ``flags`` — with the probe tests' unit id so it fits their

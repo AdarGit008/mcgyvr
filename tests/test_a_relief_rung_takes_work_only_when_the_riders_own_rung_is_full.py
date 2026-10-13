@@ -33,71 +33,30 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.capacity import Capacity
 from mcgyvr.catalog import catalog
-from mcgyvr.config import Config, parse
-from mcgyvr.contract import Contract
-from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import (
-    Assurance,
     Delivered,
     Halted,
-    Judgement,
     Outcome,
     ascent,
     escalate,
 )
-from mcgyvr.local_pool import SourceMap, source_map
-from mcgyvr.route import Try, Verdict
+from mcgyvr.route import Verdict
+from tests.relieftakes import (
+    API,
+    FAST,
+    RELIEF,
+    SETUP,
+    Script,
+    capacity_of,
+    contract,
+    mapped,
+)
+from tests.rungs import RIDE
 
-FAST = "local_fast"
-API = "api_big"
-RUNG_ID = "0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
-RIDE = f"hitchhike-{RUNG_ID}"
 OTHER_ID = "1a2b3c4d5e6f708192a3b4c5d6e7f809"
 OTHER = f"hitchhike-{OTHER_ID}"
 
-CONTRACT = """
-id: fetch-retry
-task_type: code
-task: Add retry with backoff to the fetch helper.
-target: src/pkg/fetch.py
-stop_conditions:
-  - The retry policy is not stated anywhere in the repo.
-acceptance: ["pytest -q"]
-scope:
-  allow: ["src/**/*.py"]
-limits:
-  attempts: 5
-"""
-
-SETUP = """
-units:
-  local_fast:
-    address: http://fast-box.example:8000
-    model: qwen2.5-coder-3b
-    width: 1
-  api_big:
-    address: https://api.example.com/v1
-    model: vendor-large
-    width: 1
-    api_key_env: EXAMPLE_API_KEY
-ladder:
-- local_fast
-- api_big
-max_escalations: {escalations}
-fanout: {fanout}
-"""
-
-RELIEF = f"""
-relief:
-  {RIDE}:
-    address: https://hub.example.org/v1
-    model: hitchhike@{RUNG_ID}
-    api_key_env: HUB_KEY
-    width: 1
-    position: above_ceiling
-"""
 
 SECOND = f"""
   {OTHER}:
@@ -113,23 +72,6 @@ SECOND = f"""
 def keys(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     monkeypatch.setenv("HUB_KEY", "mhu_" + "0" * 16)
-
-
-def mapped(
-    fanout: str = "idle", *, relief: str = RELIEF, escalations: int = 1
-) -> tuple[Config, SourceMap]:
-    config = parse(SETUP.format(fanout=fanout, escalations=escalations) + relief)
-    return config, source_map(config)
-
-
-def contract() -> Contract:
-    return load_contract(CONTRACT)
-
-
-def capacity_of(
-    config: Config, tmp_path: Path, servers: dict[str, int | None] | None = None
-) -> Capacity:
-    return Capacity.of(config, root=tmp_path / "slots", busy=(servers or {}).get)
 
 
 def next_free(
@@ -264,28 +206,6 @@ def test_the_capacity_bounds_a_relief_rung_at_the_width_the_hub_gave(
 
 
 # --- the climb -----------------------------------------------------------------
-
-
-class Script:
-    """An attempt function that answers from a script, per rung, and logs."""
-
-    def __init__(self, **verdicts: Verdict) -> None:
-        self._verdicts = dict(verdicts)
-        self.tried: list[str] = []
-
-    def __call__(self, this: Try) -> Judgement:
-        name = this.rung.name
-        self.tried.append(name)
-        verdict = self._verdicts.get(name)
-        if verdict is None:
-            raise AssertionError(f"an unscripted attempt on {name!r}")
-        if verdict is Verdict.PASSED:
-            return Judgement(verdict=Verdict.PASSED, assurance=Assurance.UNVERIFIED)
-        if verdict is Verdict.DECLINED:
-            return Judgement(
-                verdict=Verdict.DECLINED, detail="cannot take the request now"
-            )
-        return Judgement(verdict=Verdict.FAILED, detail="the gate rejected it")
 
 
 def by_name(**verdicts: Verdict) -> Script:

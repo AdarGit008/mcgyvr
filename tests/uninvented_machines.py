@@ -181,8 +181,13 @@ whole list first and
 replaces the file in one step. A file name the list cannot hold (a byte that
 is not UTF-8, a tab, a line break, a leading ``#``) is refused by name.
 ``--compare OLD`` reads only two list files (no scan, no dependency outside
-the standard library) and fails when the list grew against OLD; CI runs it
-against the list on a pull request's base branch. It reads OLD by its
+the standard library) and fails when the product holds more hits of a kind
+than OLD recorded (:func:`more_of_a_kind`); CI runs it against the list on a
+pull request's base branch. A hit that left one file and arrived in another
+of the same kind is a move, printed as one and not a failure: a helper
+lifted out of a test module into a module beside it reorganises the suite
+the way a renamed file does, and no file name survives that to be followed
+by. It reads OLD by its
 entries alone, whatever its comment lines say, so a change of the headers is
 not growth. The list itself is refused, by the test and by every mode, when
 it is not in the form ``--write`` writes (line endings aside), a comment line
@@ -752,8 +757,9 @@ HEADER = """\
 # The test demands that the scan finds exactly these files, kinds and counts.
 # What that does not hold: a hit replaced by another of the same kind in a
 # listed file keeps the count and passes. On a pull request CI compares this
-# list with the base branch's and fails when a file or a kind was added or a
-# count rose.
+# list with the base branch's and fails when the product holds more hits of a
+# kind than the base recorded. A hit that only moved from one file to another
+# is a move, not growth: the per-kind totals are what may never rise.
 # After cleaning, rewrite the counts with
 #     uv run --no-sync python -m tests.uninvented_machines --write
 # It refuses to add a file or a kind, or to raise a count, unless given
@@ -954,14 +960,15 @@ def rewritten(old: Listed, found: Counts) -> Listed:
     )
 
 
-def growth(old: Counts, new: Counts) -> list[str]:
-    """Where ``new`` holds a file, a kind or a count that ``old`` does not.
+def rises(old: Counts, new: Counts) -> list[tuple[str, str, int, int]]:
+    """Each place ``new`` holds more of a kind than ``old`` did: where, which
+    kind, the count before and the count now.
 
     A file that only moved is held to the counts it had where it was, and
-    names both places when it grew.
+    names both places.
     """
     moved = moved_paths(old, new)
-    grown = []
+    found: list[tuple[str, str, int, int]] = []
     for path, kinds in sorted(new.items()):
         was = moved.get(path, path)
         for kind, n in sorted(kinds.items()):
@@ -970,8 +977,49 @@ def growth(old: Counts, new: Counts) -> list[str]:
                 where = (
                     shown(path) if was == path else f"{shown(path)} (was {shown(was)})"
                 )
-                grown.append(f"{where}: {kind} {before} -> {n}")
-    return grown
+                found.append((where, kind, before, n))
+    return found
+
+
+def growth(old: Counts, new: Counts) -> list[str]:
+    """Where ``new`` holds a file, a kind or a count that ``old`` does not."""
+    return [
+        f"{where}: {kind} {before} -> {now}"
+        for where, kind, before, now in rises(old, new)
+    ]
+
+
+def totals(counts: Counts) -> dict[str, int]:
+    """How many hits of each kind the whole list holds."""
+    found: dict[str, int] = {}
+    for kinds in counts.values():
+        for kind, n in kinds.items():
+            found[kind] = found.get(kind, 0) + n
+    return found
+
+
+def more_of_a_kind(old: Counts, new: Counts) -> list[str]:
+    """The kinds the whole list holds more of than it did.
+
+    A hit that left one file and arrived in another is a move: the suite was
+    reorganised and the product names no machine it did not name before.
+    :func:`moved_paths` already follows a whole file to a new path for that
+    reason -- without it this list is the thing that forbids reorganising
+    the suite it mostly lists -- but a helper lifted out of a test module
+    into a module beside it is the same reorganisation one directory down,
+    and no file name survives it to be followed by.
+
+    So what is held is the thing that actually matters: the product may
+    name no more machines than it named before. Per kind, over the whole
+    list, the count may never rise. A per-file rise whose kind did not rise
+    overall is a move, and is reported as one.
+    """
+    was, now = totals(old), totals(new)
+    return [
+        f"{kind}: {was.get(kind, 0)} -> {now[kind]}"
+        for kind in sorted(now)
+        if now[kind] > was.get(kind, 0)
+    ]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1006,9 +1054,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"refused: {refused}", file=sys.stderr)
         return 1
     if args.compare is not None:
-        grown = growth(old.all(), listed.all())
-        for line in grown:
-            print(f"grew: {line}")
+        climbed = more_of_a_kind(old.all(), listed.all())
+        of_a_kind = {line.split(":", 1)[0] for line in climbed}
+        for where, kind, before, now in rises(old.all(), listed.all()):
+            said = "grew" if kind in of_a_kind else "moved"
+            print(f"{said}: {where}: {kind} {before} -> {now}")
+        for line in climbed:
+            print(f"more of a kind than before: {line}")
         renamed = moved_paths(old.all(), listed.all())
         crossed = sorted(
             path for path in listed.kept if renamed.get(path, path) in old.cleaning
@@ -1017,9 +1069,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"moved to kept on purpose: {path}")
         print(
             f"{LIST_NAME}: {len(listed.all())} files listed, {len(old.all())} in "
-            f"{args.compare}; " + ("it grew" if grown else "it did not grow")
+            f"{args.compare}; " + ("it grew" if climbed else "it did not grow")
         )
-        return 1 if grown else 0
+        return 1 if climbed else 0
     hits = scan()
     found = counts(hits)
     print(summary(hits))

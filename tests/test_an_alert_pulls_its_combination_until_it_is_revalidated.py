@@ -26,85 +26,27 @@ Tolerances here are placeholders: the rule is pinned, not the values.
 
 from __future__ import annotations
 
-import importlib
 import json
 import tempfile
-from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
 
 import pytest
 
-from tests.red_port.conftest import required
+from tests.reads import (
+    APPROVED,
+    CMB,
+    RIG2,
+    STAMP,
+    SWITCH,
+    UNIT,
+    _alerts,
+    check,
+    seen,
+)
+from tests.reads import alert_rows as rows
 
-RIG2 = "rig-" + "2" * 64
-CMB = "cmb-" + "a" * 64
 CMB_OTHER = "cmb-" + "b" * 64
-UNIT = "unt-" + "7" * 64
 OTHER = "unt-" + "3" * 64
-SWITCH = "flt-05 -> flt-02"
-RUN_ID = "run-20260911T120000-0a1b2c3d"
-LEASE_ID = "lease-0a1b2c3d"
-STAMP: dict[str, str] = {
-    "fleet": "flt-05",
-    "rig_id": RIG2,
-    "combination_id": CMB,
-    "unit_id": UNIT,
-}
-#: Placeholder locked values and tolerances, per unit or switch and parameter.
-APPROVED: dict[str, dict[str, dict[str, Any]]] = {
-    UNIT: {
-        "warm_decode_tok_s": {"expected": 30.0, "tolerance": {"pct": 10.0}},
-        "card_steady_mib": {"expected": 7000.0, "tolerance": {"abs": 32.0}},
-        "card_peak_mib": {"expected": 7026.0, "tolerance": {"abs": 32.0}},
-        "prefill_tok_s": {"expected": 440.0, "tolerance": {"pct": 5.0}},
-        "l2_wake_s": {"expected": 0.25, "tolerance": {"s": 0.1}},
-    },
-    SWITCH: {"downtime_s": {"expected": 0.3, "tolerance": {"s": 1.0}}},
-}
-
-
-def _alerts() -> Any:
-    return required(
-        "judge observations against their locked values, pull a combination on a "
-        "live alert, and clear it only on a re-committed validation",
-        lambda: importlib.import_module("mcgyvr.fleet.alerts"),
-    )
-
-
-def seen(field: str, observed: float, unit_id: str = UNIT) -> dict[str, Any]:
-    return {"unit_id": unit_id, "field": field, "observed": observed}
-
-
-def check(
-    alerts: Any,
-    observations: Sequence[Mapping[str, Any]],
-    journal: Path,
-    *,
-    profile: str = "live",
-    stamp: Mapping[str, str] = STAMP,
-    run_id: str = RUN_ID,
-    approved: Mapping[str, Any] = APPROVED,
-) -> list[dict[str, Any]]:
-    return list(
-        alerts.check(
-            observations,
-            approved=approved,
-            profile=profile,
-            journal_dir=journal,
-            stamp=stamp,
-            run_id=run_id,
-            lease_id=LEASE_ID,
-        )
-    )
-
-
-def rows(journal: Path) -> list[dict[str, Any]]:
-    return [
-        json.loads(line)
-        for path in journal.rglob("*.jsonl")
-        for line in path.read_text(encoding="utf-8").splitlines()
-    ]
 
 
 def test_every_observation_is_filed_under_the_journal_by_what_it_was_computed_for(

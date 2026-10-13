@@ -34,7 +34,7 @@ import pytest
 
 from mcgyvr.config import Config, parse
 from tests import livejournal as lj
-from tests.test_a_sleeping_rung_is_woken_rather_than_declined import door_log
+from tests.doors import door_log
 
 FAST = "local_fast"
 BIG_A = "local_big_a"

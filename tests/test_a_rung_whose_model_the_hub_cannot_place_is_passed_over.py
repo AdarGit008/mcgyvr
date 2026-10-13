@@ -18,12 +18,7 @@ Every server here is a loopback one this test starts.
 
 from __future__ import annotations
 
-import contextlib
-import json
 import subprocess
-import threading
-from collections.abc import Iterator
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -38,99 +33,10 @@ from mcgyvr.local_pool import source_map
 from mcgyvr.route import Verdict
 from mcgyvr.runner import BackendError, Request, RunnerError, dispatch
 from mcgyvr.sandbox.tempdir import TempDirSandbox
-
-KEY = "mhu_" + "1" * 16
-POOLED = "pooled-coder-14b"
-OTHER = "another-coder-32b"
-
-
-def error(status: int, code: str) -> tuple[int, bytes]:
-    body = {
-        "error": {
-            "message": "the hub cannot serve this now",
-            "type": "pool_unavailable",
-            "code": code,
-            "param": None,
-        }
-    }
-    return status, json.dumps(body).encode()
-
-
-def answer(model: str, text: str) -> tuple[int, bytes]:
-    body = {
-        "model": model,
-        "choices": [
-            {"message": {"role": "assistant", "content": text}, "finish_reason": "stop"}
-        ],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 7},
-    }
-    return 200, json.dumps(body).encode()
-
+from tests.rungs import CONTRACT, KEY, OTHER, POOLED, answer, error, setup
+from tests.rungs import answering_unplaced as answering
 
 UNPLACED = error(503, "model_unplaced")
-
-
-@contextlib.contextmanager
-def answering(status: int, body: bytes, seen: list[str]) -> Iterator[str]:
-    """A loopback server that answers every POST with ``status`` and ``body``."""
-
-    class _Server(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:
-            length = int(self.headers.get("Content-Length") or 0)
-            seen.append(json.loads(self.rfile.read(length))["model"])
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def do_GET(self) -> None:
-            self.send_response(404)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-
-        def log_message(self, *_: Any) -> None:
-            return
-
-    server = HTTPServer(("127.0.0.1", 0), _Server)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_address[1]}/v1"
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
-def setup(hub: str, other: str) -> str:
-    return f"""
-units:
-  pooled:
-    address: {hub}
-    model: {POOLED}
-    api_key_env: HUB_KEY
-    width: 1
-  other:
-    address: {other}
-    model: {OTHER}
-    api_key_env: HUB_KEY
-    width: 1
-ladder: [pooled, other]
-"""
-
-
-CONTRACT = """
-id: impl
-task_type: code
-task: Set VALUE to 1.
-target: src/pkg/value.py
-stop_conditions: ["The value is not stated."]
-acceptance: ["sh -c 'grep -q VALUE src/pkg/value.py'"]
-limits:
-  max_output_tokens: 256
-scope:
-  allow: ["src/**"]
-"""
 
 
 @pytest.fixture(autouse=True)

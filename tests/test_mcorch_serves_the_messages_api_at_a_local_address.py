@@ -24,20 +24,9 @@ import pytest
 
 from mcgyvr.mcorch import serve
 from mcgyvr.mcorch.anthropic import MessagesRequest
-from mcgyvr.mcorch.loop import Trace, Turn
+from mcgyvr.mcorch.loop import Turn
 from tests.mcorch_fakes import calls, text
-
-TRACE = Trace(
-    kind="main",
-    intent="work",
-    jev=(),
-    dropped_tools=(),
-    dropped_system_bytes=0,
-    dropped_blocks=(),
-    rounds=1,
-    internal_calls=(),
-    next=None,
-)
+from tests.relays import TRACE
 
 
 class _Responder:

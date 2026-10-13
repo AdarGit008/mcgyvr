@@ -35,35 +35,10 @@ import sys
 from pathlib import Path
 
 import mcgyvr
+from tests.wheels import _IMPORT_ALL, _WALK_ENDED
 
 PACKAGE = Path(mcgyvr.__file__).resolve().parent
 
-#: Run in a child interpreter: import every module the package's walk finds,
-#: print one line per failure, and exit non-zero when there was any. A module
-#: that ends the interpreter at import is a failure like any other, so the
-#: walk catches that too, and its last line says the walk reached its end.
-_WALK_ENDED = "the walk reached its end"
-_IMPORT_ALL = f"""
-import importlib
-import pkgutil
-import sys
-
-import mcgyvr
-
-failed = []
-tried = 0
-for info in pkgutil.walk_packages(
-    mcgyvr.__path__, "mcgyvr.", onerror=lambda name: failed.append(name)
-):
-    tried += 1
-    try:
-        importlib.import_module(info.name)
-    except BaseException as exc:
-        failed.append(f"{{info.name}}: {{type(exc).__name__}}: {{exc}}")
-print("\\n".join(failed))
-print(f"{_WALK_ENDED}: {{tried}} modules tried")
-sys.exit(1 if failed else 0)
-"""
 
 #: The longest the walk may take. It imports every module once in one process.
 _WALK_TIMEOUT_S = 300

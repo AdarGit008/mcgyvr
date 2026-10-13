@@ -30,22 +30,17 @@ from typing import Any
 
 import pytest
 
-from tests.red_port.conftest import required
-from tests.test_a_sleeping_rung_is_woken_rather_than_declined import (
-    RUNG_7B,
-    compose_dir,
-    door_log,
-    ladder,
-)
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
+from tests.doors import RUNG_7B, compose_dir, door_log, ladder
+from tests.fleetlocks import (
     EVIDENCE,
     FLEET,
-    POLICY,
     RIG2,
-    TOLERANCES,
     U3B,
     U7B,
+    locked,
+    observed,
 )
+from tests.red_port.conftest import required
 
 STRAY = "unt-" + "9" * 64
 MOVED = "rig-" + "8" * 64
@@ -58,34 +53,6 @@ def _admit() -> Any:
         "waking only along a listed switch",
         lambda: importlib.import_module("mcgyvr.fleet.admit"),
     )
-
-
-def locked(
-    root: Path,
-    fleet: dict[str, Any] = FLEET,
-    evidence: dict[str, Any] = EVIDENCE,
-) -> Path:
-    lock = required(
-        "write the fleet lock from passing dev runs, refusing what it cannot pin",
-        lambda: importlib.import_module("mcgyvr.fleet.lock"),
-    )
-    lock.write(root, fleet, evidence, policy=POLICY, tolerances=TOLERANCES)
-    return root
-
-
-def observed(
-    units: dict[str, str] | None = None,
-    *,
-    rig_id: str = RIG2,
-    foreign: list[str] | None = None,
-) -> dict[str, Any]:
-    return {
-        "srv2": {
-            "rig_id": rig_id,
-            "units": {U7B: "awake", U3B: "asleep"} if units is None else units,
-            "foreign": foreign or [],
-        }
-    }
 
 
 def test_live_names_a_locked_fleet_or_refuses(tmp_path: Path) -> None:

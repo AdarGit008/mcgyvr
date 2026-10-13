@@ -27,10 +27,8 @@ from mcgyvr import decision as decision_module
 from mcgyvr.decision import BoolAnswer, Noul, classify
 from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import Hangup, HungUpError
-from tests.test_the_runner_streams_from_every_unit_and_hangs_up_when_the_asker_has_gone import (  # noqa: E501
-    Unit,
-    _serve,
-)
+from tests.relays import Unit
+from tests.relays import _runner_serve as _serve
 
 TOP = [
     {"token": "Yes", "logprob": -0.1, "bytes": [89, 101, 115]},

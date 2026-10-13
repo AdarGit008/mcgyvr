@@ -11,10 +11,8 @@ is the behaviour a real config file produces.
 
 from __future__ import annotations
 
-import ast
 import dataclasses
 import textwrap
-from pathlib import Path
 
 import pytest
 
@@ -28,6 +26,7 @@ from mcgyvr.local_pool import (
     source_map,
 )
 from tests._paths import SRC
+from tests.wheels import seam_offenders
 
 SINGLE_SOURCE = """\
 units:
@@ -127,149 +126,6 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
     ]
     # Declared order is ladder order: cheapest first, as written.
     assert pool.rungs[0].name == "cheap"
-
-
-# The modules allowed to hold an `Endpoint`, which is to say the ones that live
-# *below* the seam. `local_pool.py` defines it; `runner.py` (#21) is what it was
-# defined for — dispatch is the whole reason the type exists, and a runner is
-# the last place that can still be said to not know who asked. Anything else
-# reaching for it is the failure this guard is here to catch, so the list is
-# named rather than pattern-matched: a third entry should be an argument
-# someone makes on purpose, not a file that quietly matched.
-#
-# `availability.py` (#22) is the third, added deliberately. The argument: it
-# does the same kind of thing a runner does — it takes an endpoint and sends it
-# a request over the network — and it is the only other module that needs a
-# base URL and a protocol to do its job. Crucially it does not travel *upward*:
-# `source_map` consults it through `SourceProbe`, which passes endpoints down
-# and gets back a mapping of source name to reason, so nothing above the seam
-# gains a way to learn where a rung runs. If a future module wants on this list
-# because it "just needs the URL", that is the case this guard exists to make
-# someone argue.
-#
-# `capacity.py` (#23) is the fourth, and its argument is narrower than
-# availability's. It never talks to anything: of an endpoint it reads exactly two
-# fields, `source` — the key its semaphores are held under — and `max_parallel`,
-# the number it is enforcing. It touches neither `base_url` nor `protocol` nor
-# the credential, so it cannot dispatch even by accident. And it is the use
-# `Endpoint` itself names: "``source`` is the declared source name, kept for
-# capacity accounting and telemetry — both of which live below the seam"
-# (`local_pool.py`). Nothing travels upward either — a caller above the seam hands
-# `run_batch` a capacity and gets back outcomes, and never an endpoint.
-#
-# `cooldown.py` (D09) is the fifth, and it is capacity's argument rather than
-# availability's. It never talks to anything: probing is delegated whole to
-# `Availability`, and of an endpoint it reads exactly one field, `source` — the
-# key its failure record is held under, which is the same key capacity holds its
-# semaphores under and the use `Endpoint` itself names. It touches neither
-# `base_url` nor `protocol` nor the credential, so it cannot dispatch even by
-# accident. Nothing travels upward: `source_map` consults it through
-# `SourceProbe` exactly as it consults availability, handing endpoints down and
-# getting back a mapping of source name to reason.
-#
-# `decision.py` (the Jev primitive) is the sixth, and its argument is the
-# same as availability's: it takes an endpoint and sends it a logprobs request
-# over the network, and it reuses the runner's transport so a decision and a
-# dispatch reach a unit identically. Nothing travels upward either — it hands
-# back a `Decision`, a mapping of answers, and never an endpoint.
-#
-# It is on this list rather than off it because the alternative was worse. The
-# same import spelled `from mcgyvr.availability import Endpoint` — a re-export —
-# would satisfy this guard while changing nothing about the dependency, which is
-# defeating the guard by spelling instead of making the argument it asks for.
-#
-# `decision.py` is the sixth, and it is the runner's own argument again: it asks
-# a unit a question and reads the answer from next-token probabilities, so it
-# takes an `Endpoint` exactly as a runner does and sends exactly one request
-# shape through the same transport (`runner._post_json`). Nothing travels
-# upward — `delegate.py` calls it through `classify_for`, below the seam, and
-# the typed proposer it returns holds no endpoint.
-#
-# `initialize.py` and `compose.py` reach an endpoint to run the Jev-composed
-# setup recommendation: init derives one from a detected backend (compose builds
-# it) and hands it to `mcgyvr.compose.recommend`, which is what dispatches the
-# decision. init itself never dispatches through it, and both live below the
-# seam — init writes the config that defines the ladder, compose ranks its
-# candidates.
-#
-# `pressure.py` reads one rung's load for the ladder manager. It binds the rung
-# to an endpoint to ask the two questions that need one — does it answer
-# (`availability`'s own probe) and what does the unit say it has in flight (the
-# runner's own status read) — and hands back a `Reading` of numbers and a flag.
-# Nothing travels upward: no endpoint, and no credential, leaves it.
-#
-# `recommend.py` is the same argument for the read-only placement planner:
-# it assembles a keyless decision endpoint and hands it to
-# `mcgyvr.decision.classify`, which is what dispatches the decision. It never
-# dispatches through the endpoint itself, and it lives below the seam — its
-# candidates are sized from the rig and the checkpoint header before any model
-# is consulted.
-BELOW_THE_SEAM = {
-    "local_pool.py",
-    "runner.py",
-    "availability.py",
-    "capacity.py",
-    "cooldown.py",
-    "compose.py",
-    "decision.py",
-    "initialize.py",
-    "pressure.py",
-    "triage.py",
-    "recommend.py",
-}
-
-
-#: The names that carry a dispatchable endpoint. ``RoleBinding`` holds one, so
-#: reaching either is reaching the same thing.
-BELOW_THE_SEAM_NAMES = {"Endpoint", "RoleBinding"}
-
-
-def seam_offenders(root: Path) -> list[str]:
-    """Every way a module under ``root`` reaches an endpoint, with where.
-
-    Three routes, because the guard was defeated by two of them. The original
-    checked one shape — ``from mcgyvr.local_pool import Endpoint`` — and the 2026-08-29
-    pressure test found the rule crossed anyway by ``import mcgyvr.local_pool`` and by
-    a relative import, neither of which that shape matches, and once more by
-    ``SourceMap.role()``, which needs no import at all: it *returns* a
-    ``RoleBinding``, so a module could hold a live ``credential()`` while
-    importing nothing. A guard with three known bypasses is not a weak guard, it
-    is a guard that reports on spelling.
-
-    ``role()`` is therefore treated as below-the-seam API and
-    ``SourceMap.role_model()`` is what above it may call. The check is by
-    method name, which will occasionally catch an unrelated ``.role(...)``: that
-    is the intended direction, and the same argument the module list makes — a
-    false positive costs someone an argument, a false negative costs the rule.
-    """
-    offenders: list[str] = []
-    for path in sorted(root.rglob("*.py")):
-        if path.name in BELOW_THE_SEAM:
-            continue
-        where = path.relative_to(root)
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            # `from mcgyvr.local_pool import Endpoint`, and the relative spelling of
-            # the same import, which resolves to the same module.
-            if isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                if module == "mcgyvr.local_pool" or (
-                    node.level and module == "local_pool"
-                ):
-                    imported = {alias.name for alias in node.names}
-                    if imported & BELOW_THE_SEAM_NAMES:
-                        offenders.append(f"{where}: imports {sorted(imported)}")
-            # `import mcgyvr.local_pool`, which reaches every name in it.
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name == "mcgyvr.local_pool":
-                        offenders.append(f"{where}: imports the module whole")
-            # `something.role(...)` — an endpoint through an accessor.
-            elif isinstance(node, ast.Call):
-                func = node.func
-                if isinstance(func, ast.Attribute) and func.attr == "role":
-                    offenders.append(f"{where}:{node.lineno}: calls .role()")
-    return offenders
 
 
 def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:

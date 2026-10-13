@@ -40,18 +40,17 @@ import pytest
 
 from mcgyvr.fleet import read
 from tests import onedoor
-from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import Rig, rig_text
-from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import (
-    record as read_record,
-)
-from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
+from tests.reads import (
     C_3B,
     GATE_SCRIPTS,
     UNIT_3B,
     UNIT_7B,
+    Rig,
     go_live,
+    rig_text,
     unit_rows,
 )
+from tests.reads import record as read_record
 
 #: srv2's log shape: the line that says "attention backend" carries no token,
 #: and the token is on a later line the ``attention[ _]backend`` match misses.

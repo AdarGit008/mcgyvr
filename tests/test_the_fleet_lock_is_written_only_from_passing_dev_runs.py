@@ -35,8 +35,6 @@ number.
 
 from __future__ import annotations
 
-import copy
-import importlib
 import json
 import re
 from pathlib import Path
@@ -44,138 +42,16 @@ from typing import Any
 
 import pytest
 
-from tests.red_port.conftest import required
-
-RIG2 = "rig-" + "2" * 64
-U3B = "unt-" + "3" * 64
-U7B = "unt-" + "7" * 64
-#: srv2's room slots, in order: slot 0 the 7B, slot 1 the 3B.
-FLT05: list[Any] = [["srv2_7b", "awake"], ["srv2_3b", "asleep"]]
-FLT02: list[Any] = [["srv2_7b", "awake"], ["srv2_3b", "awake"]]
-
-FLEET: dict[str, Any] = {
-    "rigs": {"srv2": {"rig_id": RIG2}},
-    "units": {
-        "srv2_7b": {
-            "rig": "srv2",
-            "unit_id": U7B,
-            "engine": "vllm",
-            "address": "http://srv2:8002",
-            "room_mib": 6800,
-            "kv_cache_memory_bytes": 2_147_483_648,
-            "attention_backend": "FLASH_ATTN",
-            "width": 8,
-            "window": 4096,
-            "output_tokens": 1024,
-            "request_timeout_s": 180.0,
-        },
-        "srv2_3b": {
-            "rig": "srv2",
-            "unit_id": U3B,
-            "engine": "vllm",
-            "address": "http://srv2:8001",
-            "room_mib": 2800,
-            "kv_cache_memory_bytes": 452_984_832,
-            "attention_backend": "FLASH_ATTN",
-            "width": 8,
-            "window": 4096,
-            "output_tokens": 1024,
-            "request_timeout_s": 180.0,
-        },
-        "cloud": {"address": "https://api.example.invalid/v1"},
-    },
-    "fleets": {
-        "flt-05": {"layout": {"srv2": FLT05}, "next": ["flt-02"]},
-        "flt-02": {"layout": {"srv2": FLT02}, "next": ["flt-05"]},
-    },
-}
-
-EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv2": {"card_mib": 12000}},
-    "combinations": [
-        {
-            "rig": "srv2",
-            "slots": FLT05,
-            "passed": True,
-            "overhead_mib": 600,
-            "restarts": {"srv2_7b": 0, "srv2_3b": 0},
-            "warm_decode_tok_s": {"srv2_7b": 58.0},
-            "baseline_tok_s": {"srv2_7b": 58.4},
-            "prefill_tok_s": {"srv2_7b": 1450.0},
-            "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
-            "validated_at": "2026-09-11T10:00:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-srv2/flt-05",
-        },
-        {
-            "rig": "srv2",
-            "slots": FLT02,
-            "passed": True,
-            "overhead_mib": 600,
-            "restarts": {"srv2_7b": 0, "srv2_3b": 0},
-            "warm_decode_tok_s": {"srv2_7b": 57.0, "srv2_3b": 105.0},
-            "baseline_tok_s": {"srv2_7b": 57.4, "srv2_3b": 106.0},
-            "prefill_tok_s": {"srv2_7b": 1420.0, "srv2_3b": 3100.0},
-            "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
-            "validated_at": "2026-09-11T10:30:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-srv2/flt-02",
-        },
-    ],
-    "moves": [
-        {
-            "rig": "srv2",
-            "from": FLT05,
-            "to": FLT02,
-            "passed": True,
-            "downtime_s": 0.3,
-            "wake_s": {"srv2_3b": 0.25},
-        },
-        {
-            "rig": "srv2",
-            "from": FLT02,
-            "to": FLT05,
-            "passed": True,
-            "downtime_s": 0.5,
-            "wake_s": {},
-        },
-    ],
-}
-
-POLICY: dict[str, Any] = {"ladder": ["srv2_3b", "srv2_7b", "cloud"]}
-#: Placeholder tolerances: the rule is pinned here, the values are measured.
-TOLERANCES: dict[str, Any] = {
-    "warm_decode_class_pct": {"vllm": 3.0, "llamacpp": 5.0, "cpu_experts": 5.0}
-}
-
-
-def _lock() -> Any:
-    return required(
-        "write the fleet lock from passing dev runs, refusing what it cannot pin",
-        lambda: importlib.import_module("mcgyvr.fleet.lock"),
-    )
-
-
-def write(
-    lock: Any,
-    root: Path,
-    fleet: dict[str, Any] | None = None,
-    evidence: dict[str, Any] | None = None,
-    policy: dict[str, Any] | None = None,
-) -> Any:
-    return lock.write(
-        root,
-        FLEET if fleet is None else fleet,
-        EVIDENCE if evidence is None else evidence,
-        policy=POLICY if policy is None else policy,
-        tolerances=TOLERANCES,
-    )
-
-
-def edited(original: dict[str, Any]) -> dict[str, Any]:
-    return copy.deepcopy(original)
-
-
-def combination_files(root: Path) -> list[Path]:
-    return sorted((root / "records" / "fleet" / "rigs" / RIG2).glob("cmb-*.json"))
+from tests.fleetlocks import (
+    EVIDENCE,
+    FLEET,
+    FLT02,
+    FLT05,
+    _lock,
+    combination_files,
+    edited,
+    write,
+)
 
 
 def test_the_lock_files_each_fleet_and_each_rig_combination_once(

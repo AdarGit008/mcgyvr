@@ -26,11 +26,11 @@ import pytest
 
 from mcgyvr.serving.gatelib import NO_SLEEP_ROUTE
 from tests import livejournal as lj
-from tests.test_a_wake_on_a_shared_card_makes_room_first import (
+from tests.doors import (
     LARGE,
     OTHER_HOST,
     SHARED_HOST,
-    home,
+    a_clean_home,
     ladder_text,
     split_ladder,
     write_spec,
@@ -70,6 +70,11 @@ def config_path(
 
 def serve(direction: str, path: Path) -> int:
     return lj.main(["serve", direction, "--host", SHARED_HOST, "--config", str(path)])
+
+
+@pytest.fixture
+def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return a_clean_home(tmp_path, monkeypatch)
 
 
 def test_a_vllm_card_a_person_sleeps_rests_at_level_2(

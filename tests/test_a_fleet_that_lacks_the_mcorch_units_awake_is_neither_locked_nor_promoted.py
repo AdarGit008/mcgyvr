@@ -23,19 +23,17 @@ import pytest
 import yaml
 
 from mcgyvr.fleet.promote import LOCK_DIR
-from tests.test_dev_and_live_locks_flow_one_way import (
-    SETUP_POLICY,
-    dev_setup,
-    home,
-    listing,
-    tree,
-)
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
+from tests.fleetlocks import (
     EVIDENCE,
     FLEET,
     FLT02,
     POLICY,
+    SETUP_POLICY,
     TOLERANCES,
+    dev_setup,
+    home,
+    listing,
+    tree,
 )
 
 AGENT, JEV = "srv2_7b", "srv2_3b"

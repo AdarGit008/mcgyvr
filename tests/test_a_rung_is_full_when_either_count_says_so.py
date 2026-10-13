@@ -159,7 +159,7 @@ def test_only_the_server_count_sees_independent_clients(tmp_path: Path) -> None:
 
 
 def idle_ladder(monkeypatch: pytest.MonkeyPatch) -> tuple[Config, SourceMap]:
-    from tests.test_escalate_marks_a_climbed_attempt import LADDER
+    from tests.drives import CLIMBED_LADDER as LADDER
 
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     config = parse(LADDER.format(fanout="fanout: idle\n"))
@@ -169,7 +169,7 @@ def idle_ladder(monkeypatch: pytest.MonkeyPatch) -> tuple[Config, SourceMap]:
 def next_free(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, servers: dict[str, int | None]
 ) -> str | None:
-    from tests.test_escalate_marks_a_climbed_attempt import contract
+    from tests.relieftakes import contract
 
     config, pool = idle_ladder(monkeypatch)
     cap = Capacity.of(config, root=tmp_path / "slots", busy=servers.get)

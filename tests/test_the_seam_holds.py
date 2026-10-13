@@ -74,11 +74,15 @@ shape.
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Callable
-from pathlib import Path
 
 from tests._paths import SRC, TESTS
+from tests.wheels import (
+    THE_COMMAND_LINE_ENTRYPOINT,
+    _dotted_name,
+    _imports_in,
+    _mcgyvr_imports,
+)
 
 RED_PORT = TESTS / "red_port"
 
@@ -292,18 +296,6 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.strict_yaml",
 )
 
-#: The one module that is allowed to reach into both halves, because reaching
-#: into both halves is what it is for. ``cli.py``'s module docstring:
-#: "Command-line entrypoint." A single ``argparse`` parser dispatches
-#: ``detect``, ``pool``, ``scan`` and ``emit`` below the seam and ``run`` and
-#: ``contract`` above it; it imports ``mcgyvr.serving`` at module level for
-#: ``emit`` and defers ``mcgyvr.contract``/``mcgyvr.orchestrator`` for ``run``
-#: and ``contract``. Neither import is a half of mcgyvr forgetting where the
-#: seam is. Written down here rather than left to a rule's silence, so that what
-#: is exempt is a name a reader can find. This is the only whole-module
-#: exemption in the file, and it is whole-module because an entrypoint reaches
-#: into both halves by definition.
-THE_COMMAND_LINE_ENTRYPOINT: str = "mcgyvr.cli"
 
 #: The docker-detection crossing, as the two edges it actually is. Docker detection is
 #: read from the probe and from the sandbox that acts on it, in a cycle:
@@ -320,37 +312,6 @@ THE_DOCKER_DETECTION_CROSSINGS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _module_path(dotted: str) -> Path:
-    """The file a dotted ``mcgyvr.*`` module name names, package or plain."""
-    rel = dotted.removeprefix("mcgyvr.").replace(".", "/")
-    if dotted == "mcgyvr":
-        return SRC / "__init__.py"
-    direct = SRC / f"{rel}.py"
-    if direct.is_file():
-        return direct
-    return SRC / rel / "__init__.py"
-
-
-def _is_module(dotted: str) -> bool:
-    """Does ``dotted`` name a file in this tree?"""
-    return _module_path(dotted).is_file()
-
-
-def _dotted_name(path: Path) -> str | None:
-    """The dotted name ``path`` is importable as, or ``None`` if it is not.
-
-    A ``.py`` file is a module when every path segment is a legal Python
-    identifier. The staged gate scripts under ``serving/gate-scripts/`` are
-    not — ``01-round.py``, ``data-10-scan.py``, the directory itself — and no
-    import statement can reach them.
-    """
-    rel = path.relative_to(SRC)
-    parts = rel.parts[:-1] if rel.name == "__init__.py" else (*rel.parts[:-1], rel.stem)
-    if not all(part.isidentifier() for part in parts):
-        return None
-    return ".".join(("mcgyvr", *parts))
-
-
 def _the_tree() -> set[str]:
     """Every importable module under ``src/mcgyvr/``.
 
@@ -360,68 +321,6 @@ def _the_tree() -> set[str]:
     everything else rather than skipped.
     """
     return {name for path in SRC.rglob("*.py") if (name := _dotted_name(path))}
-
-
-def _imports_in(source: str, package: str = "mcgyvr") -> set[str]:
-    """Every ``mcgyvr.*`` module ``source`` imports, wherever the import sits —
-    top of the file, inside a function, under ``TYPE_CHECKING``. All of them, on
-    purpose: a deferred import is still a real dependency at the moment it runs,
-    and both of the crossings this file knows about (in ``detect.detect_docker``
-    and ``sandbox.base.open_sandbox``) are exactly that shape, so a check that
-    only looked at the top of the file would miss the crossings it was written
-    to find.
-
-    Three spellings reach a module and all three are resolved, because a rule
-    that only understands one of them can be walked around by writing another:
-    ``import mcgyvr.contract``, ``from mcgyvr.contract import Contract``, ``from
-    mcgyvr import contract`` (``orchestrator/decompose.py``, ``cli.py``) and the
-    relative ``from . import contract`` (``docgen.py``). The last two name a
-    module in the *imported names* rather than in the module path, so each name
-    is followed only when ``package.name`` is a file in this tree — otherwise
-    ``from mcgyvr.contract import Contract`` would report a nonexistent
-    ``mcgyvr.contract.Contract``.
-
-    ``package`` is the dotted package a relative import is relative to, so
-    ``from . import config`` inside ``mcgyvr/docgen.py`` resolves to
-    ``mcgyvr.config``.
-
-    Takes source rather than a path so the same walk that reads the tree can
-    be handed a synthetic crossing and shown to catch it.
-    """
-    tree = ast.parse(source)
-    found: set[str] = set()
-
-    def submodules(prefix: str, node: ast.ImportFrom) -> None:
-        for alias in node.names:
-            candidate = f"{prefix}.{alias.name}"
-            if _is_module(candidate):
-                found.add(candidate)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            if node.level:
-                base = package.split(".")[: len(package.split(".")) - (node.level - 1)]
-                prefix = ".".join([*base, node.module] if node.module else base)
-            elif node.module and (
-                node.module == "mcgyvr" or node.module.startswith("mcgyvr.")
-            ):
-                prefix = node.module
-            else:
-                continue
-            found.add(prefix)
-            submodules(prefix, node)
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "mcgyvr" or alias.name.startswith("mcgyvr."):
-                    found.add(alias.name)
-    return found
-
-
-def _mcgyvr_imports(dotted: str) -> set[str]:
-    """:func:`_imports_in` over the file ``dotted`` names in the tree."""
-    path = _module_path(dotted)
-    package = dotted if path.name == "__init__.py" else dotted.rpartition(".")[0]
-    return _imports_in(path.read_text(encoding="utf-8"), package=package or "mcgyvr")
 
 
 def _crossings(
