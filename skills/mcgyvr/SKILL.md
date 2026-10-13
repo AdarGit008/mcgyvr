@@ -214,8 +214,8 @@ what the run came to. The file's keys:
   is complete whatever this says; a copy is not a sink and its failure
   does not stop a run.
 - `notes` — the uncommitted and untracked paths the sandbox of HEAD
-  left out, and what the baseline left behind, now cleaned up. Empty
-  on a clean tree.
+  left out, what the baseline left behind (now cleaned up), and what
+  a rename renamed.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can
@@ -243,9 +243,10 @@ offered nothing that would do the work. Rewriting only relocates the same
 answer. Report it to whoever owns the machine; the remedy is in
 `skills/mcgyvr/SETUP.md`.
 
-When `outcome` is `accepted`, the change is in `target`, uncommitted (a
-session changes nothing: its reply is `answer`).
+When `outcome` is `accepted`, the change is in `target` (a rename's: in
+each file `detail` names), uncommitted (a session changes nothing: its
+reply is `answer`).
 Review it there and commit it yourself. To have mcgyvr commit instead, run
-with `--commit` on a tree where `target` is clean: mcgyvr refuses to
-overwrite an edited or uncommitted target, so restore it first
+with `--commit` on a tree where those files are clean: mcgyvr refuses to
+overwrite an edited or uncommitted file, so restore it first
 (`git checkout -- <target>`) rather than rerunning on top of the last run.

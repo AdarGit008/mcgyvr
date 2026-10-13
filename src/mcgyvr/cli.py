@@ -112,6 +112,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
     from mcgyvr.detect import Detection
+    from mcgyvr.deterministic import ToolStep
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
@@ -2433,6 +2434,9 @@ def _floor(
     rung = steps[0].tool.program or contract.kind.name
     attempt_id = recording.attempt_id(contract.id, rung, 1)
 
+    # What an in-process step said it did, for the journal's verdict row.
+    performed: list[str] = []
+
     def work() -> GateResult:
         for note in sandbox.notes:
             print(f"note: {note}")
@@ -2442,7 +2446,7 @@ def _floor(
         ceiling = task_ceiling(config)
         for step in steps:
             outcome = run_tool_step(step, sandbox, timeout=ceiling)
-            print(f"  $ {' '.join(step.argv)}")
+            print(f"  {_ran(step)}")
             if not outcome.ran:
                 raise FloorStoppedError(str(outcome.environment_issue))
             assert outcome.result is not None  # `ran` is `result is not None`
@@ -2450,6 +2454,17 @@ def _floor(
                 raise FloorStoppedError(
                     (outcome.result.stderr or outcome.result.stdout).strip()
                 )
+            if not step.argv and outcome.result.stdout.strip():
+                # An in-process step's own account of what it touched — for
+                # `rename_symbol`, every file and line it renamed in and every
+                # same-named occurrence it judged to be another symbol. A
+                # program's stdout is its own business; this one is the only
+                # record of which files the change spans, so it is printed,
+                # kept in the result's notes and handed to the journal.
+                said = outcome.result.stdout.strip()
+                print(textwrap.indent(said, "    "))
+                performed.append(f"{_ran(step)}\n{said}")
+                report.notes.append(f"{_ran(step)}: {said}")
             if not outcome.ok:
                 # Reported, not swallowed. The tool did what its type
                 # guarantees and is telling us what it will not do — for
@@ -2492,6 +2507,7 @@ def _floor(
                 report,
                 recording=recording,
                 attempt_id=attempt_id,
+                performed="\n".join(performed),
             )
     except (FloorStoppedError, DriveError, SandboxError) as exc:
         # The row exists by now — `observe` writes one on both of its paths,
@@ -2513,6 +2529,23 @@ def _floor(
             on_copy_error=recording.copy_failed,
         )
         return _error(report, str(exc))
+
+
+def _ran(step: ToolStep) -> str:
+    """The line that says what a floor step ran, as a person would retype it.
+
+    A program is its command line. An in-process step has no command line —
+    :attr:`~mcgyvr.deterministic.ToolStep.argv` is empty on purpose — and
+    joining nothing printed a bare ``$``, which says a command ran and names
+    none. It is said instead as what it is: mcgyvr's own operation, with the
+    pair it was given.
+    """
+    if step.argv:
+        return f"$ {' '.join(step.argv)}"
+    said = f"(in-process) {step.tool.operation}"
+    if step.rename.stated:
+        said += f" {step.rename.old} -> {step.rename.new}"
+    return said
 
 
 def _sandbox_policy(config: Config | None) -> dict[str, Any]:
@@ -3074,6 +3107,7 @@ def _report_run(
     *,
     recording: Recording | None = None,
     attempt_id: str | None = None,
+    performed: str = "",
 ) -> int:
     """Print the gate verdict, correct the row it is about, and commit when asked.
 
@@ -3084,6 +3118,18 @@ def _report_run(
     correcting is the only part of this a caller can decline, not because there
     is a second caller that declines it — a climb never comes through here, it
     reports itself and reaches :func:`_commit` directly.
+
+    ``performed`` is what an in-process step said it did — a rename's files and
+    lines — and goes into the verdict's correction beside the findings, so the
+    journal keeps the one account of which files the change spans.
+
+    **What is delivered is what the program changed.** The binding is minted
+    over the sandbox's whole change set, the files the gate just judged, not
+    over ``target`` alone: a ``rename_symbol`` that renamed a definition and its
+    importers is one change in several files, and delivering only the target
+    left the user's tree importing a name that no longer exists. Delivery then
+    holds every file to the contract's scope and lands them in one commit, or
+    none.
     """
     from mcgyvr.deliver import Accepted, DeliveryError
     from mcgyvr.escalate import Assurance
@@ -3102,11 +3148,14 @@ def _report_run(
         # a climb's attempts are corrected with, so one query counts them
         # together. `_commit` appends a second correction on top saying where
         # the work went, and the folded row is that later one.
+        said = [str(finding) for finding in result.findings]
+        if performed:
+            said.append(performed)
         correct(
             path=recording.path,
             attempt_id=attempt_id,
             outcome=(Verdict.PASSED if result.accepted else Verdict.FAILED).value,
-            detail="\n".join(str(finding) for finding in result.findings),
+            detail="\n".join(said),
             orchestrator=recording.orchestrator,
             mirrors=recording.mirrors,
             on_copy_error=recording.copy_failed,
@@ -3115,11 +3164,17 @@ def _report_run(
         report.outcome = "rejected"
         return 1
 
+    changed = ChangeSet.detect(sandbox.workspace)
     try:
-        bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
+        bound = Accepted.read(
+            repo=sandbox.workspace,
+            contract=contract,
+            result=result,
+            paths=[change.path for change in changed] or None,
+        )
     except DeliveryError as exc:
         return _error(report, str(exc))
-    if not ChangeSet.detect(sandbox.workspace):
+    if not changed:
         # The program ran, the gate had nothing to object to, and the tree is
         # exactly as it was: the target already is what the task type asks for.
         # Delivery would refuse it as a change identical to its base — which is
@@ -3267,10 +3322,12 @@ def _commit(
                 # same lines a gate rejection leaves in `findings`.
                 report.findings = [str(finding) for finding in exc.findings]
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
-        print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
-        _say_not_rerun(adapters, contract.target)
-        landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
-        report.detail = f"change left in {contract.target}"
+        left = ", ".join(path for path, _ in bound.files(contract))
+        print(f"\nLeft in {left}, not committed (pass --commit to commit).")
+        for path, _ in bound.files(contract):
+            _say_not_rerun(adapters, path)
+        landed(NOT_COMMITTED, f"no --commit; change left in {left}")
+        report.detail = f"change left in {left}"
         return 0
 
     try:
@@ -3283,7 +3340,8 @@ def _commit(
 
     print(f"\n{delivery}")
     if delivery.committed:
-        _say_not_rerun(adapters, delivery.path)
+        for path in delivery.paths:
+            _say_not_rerun(adapters, path)
     report.committed = delivery.committed
     report.commit = delivery.commit
     report.branch = delivery.branch

@@ -53,7 +53,7 @@ with no reason cannot tell "refused" from "nothing to do":
   stance :func:`mcgyvr.gate.preflight.check_clean_tree` takes before a run, taken
   again at its end. Untracked *siblings* are not dirt: another contract's
   in-flight work in the same workspace is kept out of this commit by the
-  one-path rule below, so it does not need to block it too.
+  named-paths rule below, so it does not need to block it too.
 * **The change vanished.** Content identical to what the base already holds is
   not a delivery; committing an empty change would report success for work that
   is no longer there.
@@ -107,17 +107,22 @@ token. A branch and a printed command are checkable from a temporary directory,
 and they leave the operator holding exactly the same decision a pull request
 would have put in front of them.
 
-**What ships is one path.** The diff is taken against the base the caller
-passes — a revision of *this* repository, the one the task's worker started from
-— not against the attach revision and not against whatever is lying in the tree,
-and the commit names the contract's single target explicitly. A delivery that
-staged everything would sweep a sibling contract's half-finished work into this
-contract's commit.
+**What ships is the paths the verdict names, and nothing else.** The diff is
+taken against the base the caller passes — a revision of *this* repository, the
+one the task's worker started from — not against the attach revision and not
+against whatever is lying in the tree, and the commit names its paths
+explicitly. For a model's change that is the contract's single target. For the
+deterministic floor it is every file the program changed in the sandbox — a
+``rename_symbol`` fans across the files that reference the symbol — carried as
+one :class:`Accepted` and delivered all at once: every file inside the
+contract's scope, every file clean, one commit, or nothing written. A delivery
+that staged everything would sweep a sibling contract's half-finished work into
+this contract's commit.
 
 **Every path that does not commit puts the tree back.** No failed attempt may
 poison the next one, and the undo is narrowed to the bytes delivery itself
 wrote. mcgyvr's tree is not exclusively delivery's — a ``git clean`` here would
-delete the very sibling work the one-path rule protects — so the undo is a
+delete the very sibling work the named-paths rule protects — so the undo is a
 byte-exact snapshot taken before the write and restored after any
 non-committing exit, including a raised one.
 
@@ -283,6 +288,25 @@ class Accepted:
     """What the gate said without refusing, carried so the caller that delivers
     the change can say it too."""
 
+    path: str = ""
+    """Where ``content`` goes, when that is not the contract's ``target``.
+
+    Empty on every value a model's attempt mints: a worker writes the one file
+    its contract names, and that file is the target. Set by :meth:`read` when it
+    is handed the paths a program changed — a ``rename_symbol`` fans across the
+    files that reference the symbol, and the target need not be one of them."""
+
+    companions: tuple[Companion, ...] = field(default=())
+    """The other files the same verdict covers, bound the way ``content`` is.
+
+    One verdict over several files is what the deterministic floor reaches:
+    the gate judges the sandbox's whole change, and a rename that changed two
+    files was accepted as two files. Delivering one of them leaves the user's
+    tree half-renamed — an import of a name that no longer exists — under a
+    result that says ``accepted``. So the files travel together and land
+    together: :func:`deliver` and :func:`place` write, check and commit all of
+    them or none."""
+
     @classmethod
     def read(
         cls,
@@ -290,6 +314,7 @@ class Accepted:
         repo: Path | str | AttachedRepo,
         contract: Contract,
         result: GateResult,
+        paths: Sequence[str] | None = None,
     ) -> Accepted:
         """Bind ``result`` to the bytes on disk in the tree it was reached over.
 
@@ -297,22 +322,42 @@ class Accepted:
         and handed no content at all: the bytes come out of the tree the verdict
         is about. A caller cannot offer the string it happens to be holding,
         because there is no parameter to offer it through.
+
+        ``paths`` are the files the verdict is about when that is not the
+        contract's target alone — the change set a program left in the
+        workspace. Every one is bound; the target comes first when it is among
+        them, so a single-file change binds exactly as it does without
+        ``paths``. Omitted, the target is the one file bound.
         """
         root = _root(repo)
-        rel = _target(root, contract)
-        try:
-            text = (root / rel).read_bytes().decode("utf-8", "surrogateescape")
-        except OSError as exc:
-            raise DeliveryError(
-                f"{contract.id} was judged in {root} but {rel} is not there to bind "
-                f"the verdict to: {exc}"
-            ) from exc
+        if not paths:
+            text = _bound_text(root, contract, _target(root, contract))
+            return cls(
+                content=text,
+                accepted=result.accepted,
+                digest=digest_of(text),
+                findings=tuple(result.findings),
+                observations=tuple(result.observations),
+            )
+        first, *rest = sorted(
+            dict.fromkeys(_inside(root, contract, path) for path in paths),
+            key=lambda rel: (rel != contract.target.strip(), rel),
+        )
+        companions: list[Companion] = []
+        for rel in rest:
+            other = _bound_text(root, contract, rel)
+            companions.append(
+                Companion(path=rel, content=other, digest=digest_of(other))
+            )
+        text = _bound_text(root, contract, first)
         return cls(
             content=text,
             accepted=result.accepted,
             digest=digest_of(text),
             findings=tuple(result.findings),
             observations=tuple(result.observations),
+            path=first,
+            companions=tuple(companions),
         )
 
     @property
@@ -322,9 +367,50 @@ class Accepted:
         Always true of a freshly :meth:`read` value, and that is not what it is
         for: it answers after the pair has been *carried* — stored, restored,
         rebuilt from a record — which is where the two can come apart without
-        anybody rewriting either field.
+        anybody rewriting either field. Every companion is held to the same
+        question: a verdict over three files is not intact when one of them is
+        not.
         """
+        return self.digest == digest_of(self.content) and all(
+            companion.intact for companion in self.companions
+        )
+
+    def files(self, contract: Contract) -> tuple[tuple[str, str], ...]:
+        """Every ``(path, content)`` this verdict covers, the primary file first.
+
+        The primary file's path is :attr:`path`, or the contract's target when
+        that is empty — the target as written, for :func:`_target` to resolve
+        and refuse exactly as it always has.
+        """
+        return (
+            (self.path or contract.target, self.content),
+            *((companion.path, companion.content) for companion in self.companions),
+        )
+
+
+@dataclass(frozen=True)
+class Companion:
+    """One more file an :class:`Accepted` verdict covers, bound the same way."""
+
+    path: str
+    content: str
+    digest: str
+
+    @property
+    def intact(self) -> bool:
+        """Whether ``content`` is still what ``digest`` was taken from."""
         return self.digest == digest_of(self.content)
+
+
+def _bound_text(root: Path, contract: Contract, rel: str) -> str:
+    """The bytes of ``rel`` in the judged tree, refused when they are not there."""
+    try:
+        return (root / rel).read_bytes().decode("utf-8", "surrogateescape")
+    except OSError as exc:
+        raise DeliveryError(
+            f"{contract.id} was judged in {root} but {rel} is not there to bind "
+            f"the verdict to: {exc}"
+        ) from exc
 
 
 def digest_of(content: str) -> str:
@@ -390,7 +476,13 @@ class Delivery:
     """The delivered commit's SHA, empty when nothing was committed."""
 
     path: str = ""
-    """The single repository-relative path this delivery shipped."""
+    """The repository-relative path this delivery shipped — the primary one,
+    when it shipped several (:attr:`paths`)."""
+
+    paths: tuple[str, ...] = field(default=())
+    """Every repository-relative path this delivery shipped, :attr:`path`
+    first. One path for a model's change; every file a program changed for the
+    deterministic floor's, committed together in the one commit."""
 
     base: str = ""
     """The tree-ish the change was diffed against — a revision of *this*
@@ -448,7 +540,8 @@ class Delivery:
         if self.committed:
             where = f" on {self.branch}" if self.branch else ""
             step = f"; next: {self.handoff}" if self.handoff else ""
-            return f"delivered {self.path} as {self.commit[:12]}{where}{step}"
+            shipped = ", ".join(self.paths) or self.path
+            return f"delivered {shipped} as {self.commit[:12]}{where}{step}"
         return f"not delivered: {self.reason}"
 
 
@@ -503,32 +596,44 @@ def deliver(
     one atomic step: it lands whole, or the target, any directory the write
     created and the index are put back as they were.
 
+    **Every file the verdict covers, in one commit.** An :class:`Accepted` that
+    carries companions — the deterministic floor's, when a program changed more
+    than one file — is delivered as one change: every file is held to every
+    check above (scope, a commit since ``base``, uncommitted edits, the gate),
+    and one refusal refuses them all with nothing written. A rename committed
+    one file at a time, or half-written, is a tree that does not import.
+
     Raises :class:`DeliveryError` when delivery cannot be attempted — a path that
     is not a repository, a base that is empty or does not resolve, a target that
     escapes the tree, a verdict asserted or contradicted at the call site. A
     change that is merely unacceptable comes back as a refusal instead.
     """
     root = _root(repo)
-    _refuse_pattern_target(contract)
-    rel = _target(root, contract)
-    mode = _mode(config)
     text, refused, bound = _verdict(content, accepted)
+    files = _files(root, contract, text, bound)
+    mode = _mode(config)
     _named_base(base)
 
     with _exclusive(root):
         resolved = _resolve(root, base)
-        call = _Call(root=root, path=rel, base=resolved, mode=mode)
+        call = _Call(
+            root=root,
+            path=files[0][0],
+            base=resolved,
+            mode=mode,
+            paths=tuple(rel for rel, _ in files),
+        )
 
         hazard = _checkout_hazard(root)
         if hazard is not None:
             return call.refuse(hazard)
 
-        refusal = _unwritable(call, contract, text, refused, bound)
+        refusal = _unwritable(call, contract, files, refused, bound)
         if refusal is not None:
             return refusal
-        payload = _encoded(text)
+        payloads = {rel: _encoded(body) for rel, body in files}
 
-        dirty = _uncommitted(root, rel)
+        dirty = _uncommitted(root, call.paths)
         if dirty:
             return call.refuse(
                 f"the working tree is dirty ({_listed(dirty)}): delivering here "
@@ -536,9 +641,8 @@ def deliver(
                 f"overwrite them on the way"
             )
 
-        target = root / rel
-        before = _snapshot(target)
-        created = _missing_dirs(target)
+        before = {rel: _snapshot(root / rel) for rel in call.paths}
+        created = _all_missing_dirs(root, call.paths)
         staged = False
         # Not "did it commit" — "is the tree where the commit landed". Under
         # ``none`` the two are the same thing. Under ``branch`` the commit is in
@@ -548,22 +652,23 @@ def deliver(
         # be uncommitted edits they did not make.
         landed_here = False
         try:
-            _write(target, payload)
+            for rel, payload in payloads.items():
+                _write(root / rel, payload)
 
-            refusal = _refusal(call, contract, resolved, target, payload, adapters)
+            refusal = _refusal(call, contract, resolved, payloads, adapters)
             if refusal is not None:
                 return refusal
 
-            message = _message(contract, resolved)
+            message = _message(contract, resolved, call.paths)
             if mode == ON_A_BRANCH:
                 branch = _free_branch(root, contract.id)
                 return call.delivered(
-                    _commit_onto(root, rel, message, identity, branch), branch
+                    _commit_onto(root, call.paths, message, identity, branch), branch
                 )
 
-            _git(root, "add", "--", rel)
+            _git(root, "add", "--", *call.paths)
             staged = True
-            sha = _commit(root, rel, message, identity)
+            sha = _commit(root, call.paths, message, identity)
             landed_here = True
             return call.delivered(sha)
         finally:
@@ -579,10 +684,11 @@ def deliver(
             # racing another call's staging leaves the index holding bytes the
             # tree does not.
             if not landed_here:
-                _restore(target, before)
+                for rel, held in before.items():
+                    _restore(root / rel, held)
                 _remove_created(created)
                 if staged:
-                    _git(root, "reset", "--quiet", "--", rel)
+                    _git(root, "reset", "--quiet", "--", *call.paths)
 
 
 @dataclass(frozen=True)
@@ -598,6 +704,8 @@ class _Call:
     path: str
     base: str
     mode: str
+    paths: tuple[str, ...] = ()
+    """Every path this call delivers, :attr:`path` first."""
 
     def refuse(
         self,
@@ -620,6 +728,7 @@ class _Call:
             committed=False,
             reason=reason,
             path=self.path,
+            paths=self.paths or (self.path,),
             base=self.base,
             mode=self.mode,
             findings=tuple(findings),
@@ -631,6 +740,7 @@ class _Call:
             committed=True,
             commit=sha,
             path=self.path,
+            paths=self.paths or (self.path,),
             base=self.base,
             mode=self.mode,
             branch=branch,
@@ -833,9 +943,9 @@ def _refuses_ref(root: Path, branch: str) -> bool:
 
 
 def _commit_onto(
-    root: Path, rel: str, message: str, identity: Identity, branch: str
+    root: Path, rels: Sequence[str], message: str, identity: Identity, branch: str
 ) -> str:
-    """Commit ``rel`` onto a new ``branch``, touching neither HEAD nor the index.
+    """Commit ``rels`` onto a new ``branch``, touching neither HEAD nor the index.
 
     This is what makes ``branch`` a different mode rather than a different word
     for ``none``. ``git checkout -b`` then ``git commit`` then ``git checkout -``
@@ -843,16 +953,16 @@ def _commit_onto(
     twice through states they never asked to be in — with their unfinished work
     in the tree the whole time, and no way back if the second checkout fails.
     Instead the commit is built as objects: a scratch index (``GIT_INDEX_FILE``,
-    outside the repository) seeded from ``HEAD``, this one path added into it,
-    a tree written, a commit written over that tree, and a ref created pointing
-    at it. The repository's own index, ``HEAD`` and working tree are read and
-    never written; :func:`deliver`'s undo then puts the file back.
+    outside the repository) seeded from ``HEAD``, the delivered paths added into
+    it, a tree written, a commit written over that tree, and a ref created
+    pointing at it. The repository's own index, ``HEAD`` and working tree are
+    read and never written; :func:`deliver`'s undo then puts the files back.
 
     **The parent is ``HEAD``, not the base.** The tree being committed is
-    ``HEAD``'s tree with one path replaced, so ``HEAD`` is the only parent under
-    which the commit's diff is this task's change. Parenting it on the base while
-    committing ``HEAD``'s tree would attribute everything that landed in between
-    to this contract.
+    ``HEAD``'s tree with the delivered paths replaced, so ``HEAD`` is the only
+    parent under which the commit's diff is this task's change. Parenting it on
+    the base while committing ``HEAD``'s tree would attribute everything that
+    landed in between to this contract.
 
     ``update-ref`` is given ``""`` as the expected old value, which tells git the
     ref must not already exist and makes the create atomic — the lock excludes
@@ -867,7 +977,7 @@ def _commit_onto(
     with _scratch_index() as index:
         if head:
             _git(root, "read-tree", head, env=index)
-        _git(root, "update-index", "--add", "--", rel, env=index)
+        _git(root, "update-index", "--add", "--", *rels, env=index)
         tree = _git(root, "write-tree", env=index).strip()
     parents = ["-p", head] if head else []
     sha = _git(
@@ -960,6 +1070,53 @@ def _target(root: Path, contract: Contract) -> str:
     return resolved.relative_to(root.resolve()).as_posix()
 
 
+def _inside(root: Path, contract: Contract, named: str) -> str:
+    """``named`` as a repository-relative path, refused as :func:`_target` is.
+
+    For the paths an :class:`Accepted` carries besides the target: they came
+    out of a change set rather than out of the contract, and are held to the
+    same three refusals before anything reads or writes them.
+    """
+    try:
+        resolved = inside(root, named.strip())
+    except OutsideTreeError as refusal:
+        raise DeliveryError(
+            f"{contract.id} would deliver {refusal}; delivery refuses it"
+        ) from refusal
+    return resolved.relative_to(root.resolve()).as_posix()
+
+
+def _files(
+    root: Path, contract: Contract, text: str, bound: Accepted | None
+) -> tuple[tuple[str, str], ...]:
+    """Every ``(path, content)`` this call delivers, the primary file first.
+
+    A model's change is one file, the contract's target, refused when it is a
+    pattern (:func:`_refuse_pattern_target`) — today's single-target delivery
+    exactly. A verdict that names its own paths (:attr:`Accepted.path`, the
+    deterministic floor's) delivers those, each a literal path out of the change
+    set, so a pattern target that let a formatter or a rename fan out is not the
+    question. A path named twice is refused: two contents for one file is two
+    answers to one question.
+    """
+    if bound is None or not bound.path:
+        _refuse_pattern_target(contract)
+        primary = _target(root, contract)
+    else:
+        primary = _inside(root, contract, bound.path)
+    files = [(primary, text)]
+    for companion in bound.companions if bound is not None else ():
+        files.append((_inside(root, contract, companion.path), companion.content))
+    paths = [rel for rel, _ in files]
+    twice = sorted({rel for rel in paths if paths.count(rel) > 1})
+    if twice:
+        raise DeliveryError(
+            f"{contract.id}'s verdict names {_listed(twice)} more than once; "
+            f"delivery does not choose between two contents for one file"
+        )
+    return tuple(files)
+
+
 def _named_base(base: str) -> None:
     """Refuse a base that names nothing, before anything is touched.
 
@@ -1027,23 +1184,24 @@ def _checkout_hazard(root: Path) -> str | None:
     return None
 
 
-def _uncommitted(root: Path, rel: str) -> tuple[str, ...]:
+def _uncommitted(root: Path, rels: Sequence[str]) -> tuple[str, ...]:
     """Paths that make this tree unsafe to commit into.
 
     Two kinds:
 
     * a **tracked** file with uncommitted changes — a person's unfinished edit,
       which a delivery would mix into its commit or overwrite outright;
-    * the **target itself when it is untracked** — unversioned content the write
+    * a **delivered path that is untracked** — unversioned content the write
       would destroy with no way back.
 
-    An untracked file that is not the target is neither: it is another
+    An untracked file that is not delivered is neither: it is another
     contract's work in the same workspace, and since delivery commits exactly
-    one named path it cannot ride along.
+    the paths it names it cannot ride along.
     """
     unsafe = list(_modified(root))
-    if (root / rel).exists() and not _tracked(root, rel):
-        unsafe.append(rel)
+    for rel in rels:
+        if (root / rel).exists() and not _tracked(root, rel):
+            unsafe.append(rel)
     return tuple(dict.fromkeys(unsafe))
 
 
@@ -1100,25 +1258,29 @@ def _ignored(root: Path, rel: str) -> bool:
     return done.returncode == 0
 
 
-def _delivered_change(root: Path, base: str, rel: str) -> FileChange | None:
-    """This delivery's own file within the whole change against ``base``.
+def _delivered_changes(
+    root: Path, base: str, rels: Sequence[str]
+) -> dict[str, FileChange | None]:
+    """This delivery's own files within the whole change against ``base``.
 
     Reusing :class:`~mcgyvr.gate.changeset.ChangeSet` is not only economy: it is
     what makes "delivered" and "gated" the same notion of a change. It stages
     into a throwaway index, so an untracked new target is seen as added and the
     repository's real index is never touched — and everything else it finds is
-    the sibling work that must not ride along, which is why only one path is
-    picked out of it.
+    the sibling work that must not ride along, which is why only the delivered
+    paths are picked out of it. A delivered path the diff does not hold maps to
+    ``None``.
     """
     try:
         changed = ChangeSet.detect(root, base)
     except ChangeSetError as exc:
         raise DeliveryError(f"cannot diff against {_shown(base)}: {exc}") from exc
-    return next((change for change in changed if change.path == rel), None)
+    found = {change.path: change for change in changed}
+    return {rel: found.get(rel) for rel in rels}
 
 
 def _judged(
-    change: FileChange,
+    changes: Sequence[FileChange],
     root: Path,
     base: str,
     adapters: Sequence[LanguageAdapter] | None,
@@ -1140,10 +1302,11 @@ def _judged(
     over the result lets the call site refuse for the right reason and say which
     rung it was.
 
-    The change set handed over is narrowed to this one path on purpose. The
-    whole diff against ``base`` is also holding whatever sibling contracts have
-    left in the workspace, and a delivery must not be refused because
-    somebody else's half-finished file does not lint.
+    The change set handed over is narrowed to the delivered paths on purpose.
+    The whole diff against ``base`` is also holding whatever sibling contracts
+    have left in the workspace, and a delivery must not be refused because
+    somebody else's half-finished file does not lint. The delivered files are
+    judged together, in one run, as the sandbox's gate judged them.
 
     ``Scope`` is not passed: the contract's scope is re-confirmed a few lines
     above, where the refusal can name the contract that forbids the path rather
@@ -1158,16 +1321,21 @@ def _judged(
     written and refused where it lands, for obeying its contract.
     """
     owners = tuple(adapters) if adapters is not None else _ADAPTERS()
-    # A rung whose tool would import this file as its configuration is not run
-    # here, in the user's checkout: that would run the task's code on the host
-    # (`not_rerun_here` says so to the user).
+    # A rung whose tool would import a delivered file as its configuration is
+    # not run here, in the user's checkout: that would run the task's code on
+    # the host (`not_rerun_here` says so to the user). One run judges every
+    # delivered file, so the rung stands down for all of them together.
     kept = tuple(
-        _Without(owner, frozenset(loads))
-        if (loads := owner.loads_as_code(change.path))
+        _Without(owner, loads)
+        if (
+            loads := frozenset(
+                rung for change in changes for rung in owner.loads_as_code(change.path)
+            )
+        )
         else owner
         for owner in owners
     )
-    narrowed = ChangeSet(repo=root, base=base, files=(change,))
+    narrowed = ChangeSet(repo=root, base=base, files=tuple(changes))
     return Gate(kept).run(narrowed, contract_text=contract.prose)
 
 
@@ -1296,27 +1464,33 @@ def _refusal(
     call: _Call,
     contract: Contract,
     resolved: str,
-    target: Path,
-    payload: bytes,
+    payloads: Mapping[str, bytes],
     adapters: Sequence[LanguageAdapter] | None,
 ) -> Delivery | None:
-    """Why the bytes just written as ``target`` may not stay, or ``None``.
+    """Why the bytes just written may not stay, or ``None``.
 
     The one set of checks both ways out of a run take — :func:`deliver`
-    before it commits and :func:`place` before it leaves the file in the tree —
+    before it commits and :func:`place` before it leaves the files in the tree —
     so what is left uncommitted and what would be committed cannot be judged
     by two different bars. Called inside the repository lock, after the write
     and before anything else touches the tree; the caller owns the undo.
+    ``payloads`` maps every delivered path to the bytes written there, and one
+    refusal of any of them is a refusal of all.
 
-    In order: the change is still a change against ``resolved`` (and the
-    target is not ignored), the target is inside the contract's scope, the
-    gate's sandbox-free rungs find nothing and none of them faulted, and the
-    bytes on disk are still the bytes that were written.
+    In order: each file is still a change against ``resolved`` (and not
+    ignored), each is inside the contract's scope, the gate's sandbox-free rungs
+    find nothing over them together and none of them faulted, and the bytes on
+    disk are still the bytes that were written.
     """
     root = call.root
-    rel = call.path
-    change = _delivered_change(root, resolved, rel)
-    if change is None:
+    rels = tuple(payloads)
+    # Named as one path when there is one, so a single-file refusal reads as it
+    # always has; a set is listed.
+    shown = rels[0] if len(rels) == 1 else _listed(rels)
+    changes = _delivered_changes(root, resolved, rels)
+    for rel, change in changes.items():
+        if change is not None:
+            continue
         if _ignored(root, rel):
             # A different fact with the same symptom, and worth its own
             # sentence: `ChangeSet.detect` stages with `add -A`, which
@@ -1340,19 +1514,24 @@ def _refusal(
             f"is no longer present, so there is nothing to commit"
         )
 
-    if contract.scope.violations((rel,)):
-        # Contract loading already rejects a target its own scope forbids;
+    outside = contract.scope.violations(rels)
+    if outside:
+        # Contract loading already rejects a target its own scope forbids,
+        # and :func:`_unwritable` every delivered path before the write;
         # this re-confirms it at the commit point, where the answer is
         # about a file that now exists rather than about a declaration.
-        return call.refuse(
-            f"{rel} is outside the scope {contract.id} declares, so it may "
-            f"not be committed under it"
-        )
+        return call.refuse(_outside(contract, outside))
 
-    verdict = _judged(change, root, resolved, adapters, contract)
+    verdict = _judged(
+        tuple(change for change in changes.values() if change is not None),
+        root,
+        resolved,
+        adapters,
+        contract,
+    )
     if verdict.findings:
         return call.refuse(
-            f"{rel} does not pass the gate in {root.name}: {verdict.findings[0]}",
+            f"{shown} does not pass the gate in {root.name}: {verdict.findings[0]}",
             verdict.findings,
         )
     if verdict.inconclusive:
@@ -1362,7 +1541,7 @@ def _refusal(
         # the worker; if something else already rejected, that is the
         # sentence worth having.
         return call.refuse(
-            f"{rel} could not be judged in {root.name}: "
+            f"{shown} could not be judged in {root.name}: "
             f"{_unjudged(verdict.inconclusive)}. Nothing is committed: a "
             f"rung that ran and cannot say what bar it applied did not "
             f"pass it, and a linter that reported clean while applying "
@@ -1371,19 +1550,34 @@ def _refusal(
             inconclusive=verdict.inconclusive,
         )
 
-    if _snapshot(target) != payload:
-        # Identity, checked as late as this seam can check it. Between the
-        # write above and git reading the file back sit several subprocess
-        # round-trips, and a writer landing in that window substitutes
-        # content no verdict covers — invisibly, because a substitution made
-        # after the gate run above is judged by nothing. The repository lock
-        # excludes another delivery; this is what catches everything else.
-        return call.refuse(
-            f"{rel} changed between the write and the commit: what is on "
-            f"disk is no longer the accepted content, and committing it "
-            f"would ship bytes no verdict covers"
-        )
+    for rel, payload in payloads.items():
+        if _snapshot(root / rel) != payload:
+            # Identity, checked as late as this seam can check it. Between
+            # the write above and git reading the file back sit several
+            # subprocess round-trips, and a writer landing in that window
+            # substitutes content no verdict covers — invisibly, because a
+            # substitution made after the gate run above is judged by
+            # nothing. The repository lock excludes another delivery; this
+            # is what catches everything else.
+            return call.refuse(
+                f"{rel} changed between the write and the commit: what is on "
+                f"disk is no longer the accepted content, and committing it "
+                f"would ship bytes no verdict covers"
+            )
     return None
+
+
+def _outside(contract: Contract, outside: Sequence[str]) -> str:
+    """The refusal for delivered paths the contract's scope does not allow."""
+    if len(outside) == 1:
+        return (
+            f"{outside[0]} is outside the scope {contract.id} declares, so it may "
+            f"not be committed under it"
+        )
+    return (
+        f"{_listed(outside)} are outside the scope {contract.id} declares, so "
+        f"they may not be committed under it"
+    )
 
 
 def place(
@@ -1431,31 +1625,45 @@ def place(
     and a write that landed between its snapshot and its undo would be lost.
     """
     root = Path(repo)
-    rel = _target(root, contract)
+    files = _files(root, contract, content.content, content)
     _named_base(base)
     with _exclusive(root):
         resolved = _resolve(root, base)
-        call = _Call(root=root, path=rel, base=resolved, mode=_mode(None))
-        unwritable = _unwritable(
-            call, contract, content.content, not content.accepted, content
+        call = _Call(
+            root=root,
+            path=files[0][0],
+            base=resolved,
+            mode=_mode(None),
+            paths=tuple(rel for rel, _ in files),
         )
+        unwritable = _unwritable(call, contract, files, not content.accepted, content)
         if unwritable is not None:
             raise DeliveryRefusedError(unwritable.reason, findings=unwritable.findings)
-        if rel in _uncommitted(root, rel):
+        edited = [rel for rel in _uncommitted(root, call.paths) if rel in call.paths]
+        if len(edited) == 1:
+            (rel,) = edited
             raise DeliveryError(
                 f"{rel} has uncommitted changes in the working tree, and the "
                 f"accepted change was judged against the committed copy; writing "
                 f"it would overwrite work no one has kept. Commit or restore "
                 f"{rel} and run again."
             )
-        target = root / rel
-        payload = _encoded(content.content)
-        before = _snapshot(target)
-        created = _missing_dirs(target)
+        if edited:
+            raise DeliveryError(
+                f"{_listed(edited)} have uncommitted changes in the working tree, "
+                f"and the accepted change was judged against the committed "
+                f"copies; writing them would overwrite work no one has kept. "
+                f"Nothing was written: the change lands in every file it made or "
+                f"in none. Commit or restore them and run again."
+            )
+        payloads = {rel: _encoded(body) for rel, body in files}
+        before = {rel: _snapshot(root / rel) for rel in call.paths}
+        created = _all_missing_dirs(root, call.paths)
         kept = False
         try:
-            _write(target, payload)
-            refusal = _refusal(call, contract, resolved, target, payload, adapters)
+            for rel, payload in payloads.items():
+                _write(root / rel, payload)
+            refusal = _refusal(call, contract, resolved, payloads, adapters)
             if refusal is not None:
                 raise DeliveryRefusedError(
                     refusal.reason,
@@ -1463,19 +1671,20 @@ def place(
                     inconclusive=refusal.inconclusive,
                 )
             kept = True
-            return target
+            return root / call.path
         finally:
-            # A refusal, or anything raised past the write, leaves the target
+            # A refusal, or anything raised past the write, leaves every file
             # exactly as it was found — the invariant :func:`deliver` holds.
             if not kept:
-                _restore(target, before)
+                for rel, held in before.items():
+                    _restore(root / rel, held)
                 _remove_created(created)
 
 
 def _unwritable(
     call: _Call,
     contract: Contract,
-    text: str,
+    files: Sequence[tuple[str, str]],
     refused: bool,
     bound: Accepted | None,
 ) -> Delivery | None:
@@ -1485,14 +1694,17 @@ def _unwritable(
     :func:`_refusal` is the ones they make after it — so a change left in the
     tree and a change committed are held to one bar. Called inside the
     repository lock, before anything is touched, so a refusal has nothing to
-    undo.
+    undo. ``files`` is every ``(path, content)`` the call delivers, and each is
+    held to every check: one that fails refuses them all.
 
     In order: the gate did not accept the change; the bytes are not the ones
-    the verdict was reached on; the target was committed to after ``base``, so
-    the verdict is about a copy of the file ``HEAD`` no longer holds and
-    writing would revert that commit; and the content has no encoding.
+    the verdict was reached on; a path is outside the contract's scope — the
+    whole set is named, because a rename that reached a file the contract does
+    not allow is refused before any of it is written rather than delivered in
+    part; a path was committed to after ``base``, so the verdict is about a
+    copy of the file ``HEAD`` no longer holds and writing would revert that
+    commit; and a content has no encoding.
     """
-    rel = call.path
     if refused:
         return call.refuse(
             f"the gate did not accept {contract.id}; nothing was written",
@@ -1500,34 +1712,49 @@ def _unwritable(
         )
 
     if bound is not None and not bound.intact:
+        if bound.digest != digest_of(bound.content):
+            return call.refuse(
+                f"the content handed to {contract.id} is not the content its "
+                f"verdict was reached on: the accepted bytes digest to "
+                f"{bound.digest[:12]} and these digest to "
+                f"{digest_of(bound.content)[:12]}. Nothing is written, because "
+                f"a verdict that has come apart from its bytes covers neither."
+            )
+        broken = next(c for c in bound.companions if not c.intact)
         return call.refuse(
-            f"the content handed to {contract.id} is not the content its "
-            f"verdict was reached on: the accepted bytes digest to "
-            f"{bound.digest[:12]} and these digest to "
-            f"{digest_of(bound.content)[:12]}. Nothing is written, because "
+            f"the content handed to {contract.id} for {broken.path} is not the "
+            f"content its verdict was reached on: the accepted bytes digest to "
+            f"{broken.digest[:12]} and these digest to "
+            f"{digest_of(broken.content)[:12]}. Nothing is written, because "
             f"a verdict that has come apart from its bytes covers neither."
         )
 
-    moved = _moved_since(call.root, call.base, rel)
-    if moved:
-        return call.refuse(
-            f"{rel} was committed to after the run started: the accepted "
-            f"change was judged against {_shown(call.base)}, and HEAD "
-            f"({moved[:12]}) holds a different {rel}. Writing it would "
-            f"overwrite work that was committed while the ladder was "
-            f"climbing. Review the accepted change against the new copy, "
-            f"or run again from the current HEAD."
-        )
+    outside = contract.scope.violations(call.paths)
+    if outside:
+        return call.refuse(f"{_outside(contract, outside)}; nothing was written")
 
-    try:
-        _encoded(text)
-    except UnicodeEncodeError as exc:
-        return call.refuse(
-            f"{rel} cannot be written: the character at position {exc.start} "
-            f"is the lone surrogate U+{ord(text[exc.start]):04X}, which has no "
-            f"UTF-8 encoding and stands for no byte. Writing it as anything "
-            f"would ship bytes nobody gated."
-        )
+    for rel in call.paths:
+        moved = _moved_since(call.root, call.base, rel)
+        if moved:
+            return call.refuse(
+                f"{rel} was committed to after the run started: the accepted "
+                f"change was judged against {_shown(call.base)}, and HEAD "
+                f"({moved[:12]}) holds a different {rel}. Writing it would "
+                f"overwrite work that was committed while the ladder was "
+                f"climbing. Review the accepted change against the new copy, "
+                f"or run again from the current HEAD."
+            )
+
+    for rel, text in files:
+        try:
+            _encoded(text)
+        except UnicodeEncodeError as exc:
+            return call.refuse(
+                f"{rel} cannot be written: the character at position {exc.start} "
+                f"is the lone surrogate U+{ord(text[exc.start]):04X}, which has no "
+                f"UTF-8 encoding and stands for no byte. Writing it as anything "
+                f"would ship bytes nobody gated."
+            )
     return None
 
 
@@ -1577,6 +1804,17 @@ def _missing_dirs(path: Path) -> tuple[Path, ...]:
     return tuple(missing)
 
 
+def _all_missing_dirs(root: Path, paths: Sequence[str]) -> tuple[Path, ...]:
+    """Every missing parent directory of every path, deepest first.
+
+    Taken before the first write: once one file is written, a directory it
+    created no longer counts as missing for the next, and the undo would leave
+    it behind.
+    """
+    missing = {d for rel in paths for d in _missing_dirs(root / rel)}
+    return tuple(sorted(missing, key=lambda d: len(d.parts), reverse=True))
+
+
 def _remove_created(dirs: Sequence[Path]) -> None:
     """Remove directories a write created, empty ones only, best-effort.
 
@@ -1598,13 +1836,14 @@ def _restore(path: Path, before: bytes | None) -> None:
         path.write_bytes(before)
 
 
-def _commit(root: Path, rel: str, message: str, identity: Identity) -> str:
-    """Commit exactly ``rel`` and return the new SHA.
+def _commit(root: Path, rels: Sequence[str], message: str, identity: Identity) -> str:
+    """Commit exactly ``rels`` — in one commit — and return the new SHA.
 
-    The pathspec is what keeps the commit to one path: a bare ``git commit``
-    would take whatever else the caller had staged and ``-a`` would take the
-    whole tree, while naming the path commits this contract's file and leaves
-    everyone else's work — staged, unstaged or untracked — exactly where it was.
+    The pathspec is what keeps the commit to the delivered paths: a bare
+    ``git commit`` would take whatever else the caller had staged and ``-a``
+    would take the whole tree, while naming the paths commits this contract's
+    files and leaves everyone else's work — staged, unstaged or untracked —
+    exactly where it was.
 
     **No hooks run, because the repository is not ours.** ``repo`` is whatever
     tree the run was pointed at, and a mission points it at a detached worktree
@@ -1656,18 +1895,26 @@ def _commit(root: Path, rel: str, message: str, identity: Identity) -> str:
         "--message",
         message,
         "--",
-        rel,
+        *rels,
     )
     return _git(root, "rev-parse", "HEAD").strip()
 
 
-def _message(contract: Contract, base: str) -> str:
+def _message(contract: Contract, base: str, paths: Sequence[str] = ()) -> str:
     """A commit message naming the contract, its target and its base.
 
     The base is in the trailer because a delivery is only meaningful against one:
     a reader asking "what did this task actually change" needs the revision the
-    diff was taken from, and the branch it landed on may have moved since.
+    diff was taken from, and the branch it landed on may have moved since. The
+    delivered files are listed too when they are not exactly the target — a
+    rename's commit holds every file it renamed in, and ``Target`` alone would
+    name one of them, or none.
     """
+    files = (
+        f"Files: {', '.join(paths)}\n"
+        if paths and tuple(paths) != (contract.target.strip(),)
+        else ""
+    )
     subject = textwrap.shorten(
         f"{contract.id}: {' '.join(contract.task.split())}",
         width=72,
@@ -1677,6 +1924,7 @@ def _message(contract: Contract, base: str) -> str:
         f"{subject}\n\n"
         f"Contract: {contract.id}\n"
         f"Target: {contract.target}\n"
+        f"{files}"
         f"Base: {_shown(base)}\n"
     )
 
