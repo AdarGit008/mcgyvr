@@ -20,8 +20,8 @@ import pytest
 from mcgyvr.fleet import admission, probe
 from mcgyvr.fleet.admit import LiveRefusedError
 from tests._helpers import by_path
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-round.py"
 #: The config folder's default, as a refusal must not name it once moved.
 DEFAULT_POINTER = "~/.mcgyvr/live.json"

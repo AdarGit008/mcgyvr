@@ -14,7 +14,7 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 #: Walked recursively, relative to the repo root. ``tools/`` is live code like
 #: ``src/`` and must be scanned too.

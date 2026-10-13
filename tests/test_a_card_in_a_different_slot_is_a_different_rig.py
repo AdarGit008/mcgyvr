@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 SNAPSHOT_SH = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "rig-snapshot.sh"
 
 

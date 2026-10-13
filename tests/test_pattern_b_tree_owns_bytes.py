@@ -48,6 +48,7 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import GateResult
 from mcgyvr.repair import RepairOutcome
 from mcgyvr.sandbox import Sandbox
+from tests._paths import SRC
 
 CONTRACT = """
 id: fetch-retry
@@ -245,7 +246,7 @@ def test_no_new_type_carries_content_unbound() -> None:
     :class:`~mcgyvr.deliver.Accepted`. A fourth entry wants a reason; that is
     the intended cost.
     """
-    src = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
+    src = SRC
     unbound = sorted(set(_dataclasses_with_content(src)) - UNJUDGED_CONTENT)
     assert unbound == [], (
         f"these carry file content beside no digest, so nothing downstream can "

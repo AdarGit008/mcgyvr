@@ -14,17 +14,15 @@ so each law below is pinned to the rig reading it claims to describe.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from mcgyvr.serving import vramfit
+from tests._paths import TESTS
 
 MIB = 1024**2
-GEOMETRY = json.loads(
-    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text()
-)
+GEOMETRY = json.loads((TESTS / "fixtures" / "gguf_geometry.json").read_text())
 
 
 def g(name: str) -> dict[str, Any]:

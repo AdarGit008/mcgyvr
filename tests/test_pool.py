@@ -27,6 +27,7 @@ from mcgyvr.local_pool import (
     UnknownRungError,
     source_map,
 )
+from tests._paths import SRC
 
 SINGLE_SOURCE = """\
 units:
@@ -280,7 +281,7 @@ def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:
     the name — which is what lets a same-named type elsewhere be a naming
     question instead of a false failure here.
     """
-    src = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
+    src = SRC
     assert seam_offenders(src) == []
 
 

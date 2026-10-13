@@ -22,15 +22,14 @@ import yaml
 from mcgyvr.emit import EmitError, emit_all, render_command, render_compose
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
+from tests._paths import TESTS
 
 # An MoE is sized off its own GGUF geometry and nothing else: the row for
 # Qwen3.6-35B-A3B at IQ3_XXS, as `ggufscan` read it (40 placeable blocks of
 # 262 and 300 MiB, 12.3 GiB on disk). The name is the file's, because a
 # geometry belongs to one file.
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
-    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text(
-        encoding="utf-8"
-    )
+    (TESTS / "fixtures" / "gguf_geometry.json").read_text(encoding="utf-8")
 )
 MOE = ModelSpec(
     name="Qwen3.6-35B-A3B-UD-IQ3_XXS",

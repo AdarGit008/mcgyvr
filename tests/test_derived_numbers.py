@@ -17,8 +17,8 @@ from pathlib import Path
 import pytest
 
 from mcgyvr import derived
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "src"
 
 

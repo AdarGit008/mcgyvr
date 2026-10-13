@@ -28,8 +28,8 @@ import pytest
 from mcgyvr import cli
 from mcgyvr.fleet import roots
 from tests._helpers import by_path
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-round.py"
 #: Values that name no folder: one is not absolute, one cannot be expanded.
 UNUSABLE = ("relative/folder", "~<user>/x")

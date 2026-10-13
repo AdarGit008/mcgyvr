@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+from tests._paths import REPO
 
 SOURCE_ASKING_FOR_OLLAMA = """\
 units:

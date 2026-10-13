@@ -33,7 +33,8 @@ from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parents[2]
+from tests._paths import REPO
+
 BIN = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "bin"
 
 #: One call per shim that reaches the door's rule: `ssh` names the host

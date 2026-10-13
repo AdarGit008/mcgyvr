@@ -64,6 +64,7 @@ from typing import Any, ClassVar
 
 import pytest
 
+from tests._paths import REPO
 from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import (
     Rig,
     _load_rows,
@@ -685,14 +686,7 @@ def test_a_llamacpp_load_files_pace_null_with_the_reason(tmp_path: Path) -> None
 
 # --- the door's ssh to the rig --------------------------------------------------
 
-READ_02_RIG = (
-    Path(__file__).resolve().parents[1]
-    / "src"
-    / "mcgyvr"
-    / "serving"
-    / "gate-scripts"
-    / "read-02-rig.py"
-)
+READ_02_RIG = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "read-02-rig.py"
 
 
 def read_02_rig() -> ModuleType:

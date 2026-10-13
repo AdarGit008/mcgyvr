@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import ast
 import re
-from pathlib import Path
 
-TELEMETRY = Path(__file__).resolve().parents[1] / "src" / "mcgyvr" / "telemetry.py"
+from tests._paths import REPO
+
+TELEMETRY = REPO / "src" / "mcgyvr" / "telemetry.py"
 
 #: What loading or running code by path is spelled with: modules, and the
 #: functions read off them, seen as a name, an attribute or an import.

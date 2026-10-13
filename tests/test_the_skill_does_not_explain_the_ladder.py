@@ -32,7 +32,8 @@ from pathlib import Path
 
 import yaml
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 SKILL_MD = REPO / "skills" / "mcgyvr" / "SKILL.md"
 
 

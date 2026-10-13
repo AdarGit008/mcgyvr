@@ -24,7 +24,8 @@ from scripts.release.changelog_notes import (
     sections,
 )
 
-REPO = Path(__file__).resolve().parents[1]
+from tests._paths import REPO
+
 CHANGELOG = REPO / "CHANGELOG.md"
 
 #: A changelog shaped the way this repository's is: an open section, a written

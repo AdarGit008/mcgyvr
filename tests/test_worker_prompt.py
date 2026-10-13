@@ -11,8 +11,6 @@ fields never reach the worker is structural or it is nothing.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from mcgyvr.contract import Contract, loads
@@ -28,6 +26,7 @@ from mcgyvr.worker.bundle import (
     strip_provenance,
 )
 from mcgyvr.worker.prompt import build_prompt, render_user_message
+from tests._paths import REPO
 
 PY_CONTRACT = """
 id: fetch-retry
@@ -93,13 +92,9 @@ def test_the_js_bundle_states_its_null_result_in_the_file_but_not_in_the_prompt(
     the file alone. Sent to the model, it would open the system prompt and be
     charged against the ceiling; it is provenance, so it stops at the loader.
     """
-    raw = (
-        Path(__file__).resolve().parent.parent
-        / "src"
-        / "mcgyvr"
-        / "prompts"
-        / "javascript.md"
-    ).read_text(encoding="utf-8")
+    raw = (REPO / "src" / "mcgyvr" / "prompts" / "javascript.md").read_text(
+        encoding="utf-8"
+    )
     assert "NO EFFECT" in raw
     assert "NO EFFECT" not in load_bundle("js/ts").text
 

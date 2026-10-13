@@ -28,6 +28,7 @@ from typing import Any
 import pytest
 
 from tests import onedoor
+from tests._paths import REPO
 from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
     EVIDENCE,
     FLEET,
@@ -35,7 +36,6 @@ from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
     TOLERANCES,
 )
 
-REPO = Path(__file__).resolve().parent.parent
 SNAPSHOT_SH = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "rig-snapshot.sh"
 
 #: What srv2's lock was hashed with beyond what hosts.json declares

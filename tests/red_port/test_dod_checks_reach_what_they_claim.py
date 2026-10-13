@@ -27,9 +27,8 @@ from pathlib import Path
 
 import pytest
 
+from tests._paths import REPO
 from tests.red_port.conftest import required
-
-REPO = Path(__file__).resolve().parents[2]
 
 
 def test_the_package_exports_its_types() -> None:

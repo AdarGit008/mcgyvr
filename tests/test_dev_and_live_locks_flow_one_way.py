@@ -41,6 +41,7 @@ import yaml
 
 from tests import livejournal as lj
 from tests import onedoor
+from tests._paths import REPO
 from tests.red_port.conftest import required
 from tests.test_a_sleeping_rung_is_woken_rather_than_declined import (
     RUNG_7B,
@@ -62,8 +63,6 @@ from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
     U3B,
     U7B,
 )
-
-REPO = Path(__file__).resolve().parent.parent
 
 #: The lock fixture's fleet, every unit naming a model so a folder loads.
 MODELLED: dict[str, Any] = copy.deepcopy(FLEET)

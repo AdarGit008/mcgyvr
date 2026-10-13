@@ -57,7 +57,8 @@ from pathlib import Path
 
 from _pytest.fixtures import getfixturemarker
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 CONFTEST = REPO / "tests" / "conftest.py"
 
 #: The folders a user of the package does not have.

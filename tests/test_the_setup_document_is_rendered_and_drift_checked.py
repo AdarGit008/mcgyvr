@@ -28,8 +28,8 @@ import pytest
 
 from mcgyvr import docgen
 from mcgyvr.config import SCHEMA, Field
+from tests._paths import REPO as REPO_ROOT
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 SETUP_PATH = REPO_ROOT / "skills" / "mcgyvr" / "SETUP.md"
 
 

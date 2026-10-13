@@ -19,7 +19,8 @@ from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
 SCRIPTS = sorted(GATE_SCRIPTS.glob("*.sh"))
 

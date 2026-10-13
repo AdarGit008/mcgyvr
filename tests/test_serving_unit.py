@@ -15,7 +15,6 @@ from __future__ import annotations
 import functools
 import json
 from dataclasses import dataclass, replace
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -31,6 +30,7 @@ from mcgyvr.serving import (
     unit_for,
     units_for,
 )
+from tests._paths import TESTS
 
 #: The engine every fit and placement here is told, bound once: these units
 #: are llama.cpp's, as every ``unit_for`` below says, and what a spill costs
@@ -62,9 +62,7 @@ _ADDRESSES = {
 WINDOW = 4096
 
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
-    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text(
-        encoding="utf-8"
-    )
+    (TESTS / "fixtures" / "gguf_geometry.json").read_text(encoding="utf-8")
 )
 
 
