@@ -69,6 +69,10 @@ def repo(tmp_path: Path) -> Path:
     git(tmp_path, "init", "-q", "-b", "work", str(where))
     git(where, "config", "user.email", "test@example.invalid")
     git(where, "config", "user.name", "test")
+    # The workspace is a copytree of this repo: no background gc/maintenance
+    # may be writing (or removing a lock) under .git while it is copied.
+    git(where, "config", "maintenance.auto", "false")
+    git(where, "config", "gc.auto", "0")
     git(where, "add", "-A")
     git(where, "commit", "-qm", "base")
     return where
