@@ -10,13 +10,13 @@ says the same.
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 import pytest
 
 from mcgyvr.cli import build_parser
+from tests._paths import REPO
 
-README = Path(__file__).resolve().parent.parent / "README.md"
+README = REPO / "README.md"
 
 
 def _subcommands() -> list[argparse.Action]:

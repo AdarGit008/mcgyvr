@@ -43,8 +43,8 @@ from pathlib import Path
 import pytest
 
 from tests import livejournal as lj
+from tests._paths import REPO, TESTS
 
-REPO = Path(__file__).resolve().parent.parent
 SKILL_DIR = REPO / "skills" / "mcgyvr"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 INSTALL_SH = SKILL_DIR / "install.sh"
@@ -54,7 +54,7 @@ INSTALL_SH = SKILL_DIR / "install.sh"
 # Frozen; no ref on main names it. Its contract keys and examples are cut,
 # because they named a task vocabulary that no longer exists; the upgrade
 # below reads only that it is a real, Step-0-carrying SKILL.md.
-OLD_SKILL_MD = Path(__file__).parent / "fixtures" / "skill_md_carrying_step_0.md"
+OLD_SKILL_MD = TESTS / "fixtures" / "skill_md_carrying_step_0.md"
 
 # `skills/mcgyvr/SETUP.md`, beside the skill it is not
 # part of. Checked as a substring rather than the absolute path, so this

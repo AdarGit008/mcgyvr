@@ -17,8 +17,8 @@ import subprocess
 from pathlib import Path
 
 from mcgyvr import docgen
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 SKILL_DIR = REPO / "skills" / "mcgyvr"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 SETUP_MD = SKILL_DIR / "SETUP.md"

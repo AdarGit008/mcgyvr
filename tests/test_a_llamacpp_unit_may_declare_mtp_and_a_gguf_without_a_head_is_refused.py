@@ -23,7 +23,6 @@ driver ran), read into :class:`~mcgyvr.serving.ModelSpec` beside
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -32,12 +31,11 @@ from mcgyvr.config import parse
 from mcgyvr.emit import argv
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, UnitError, declared_models, unit_for
+from tests._paths import TESTS
 
 WINDOW = 4096
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
-    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text(
-        encoding="utf-8"
-    )
+    (TESTS / "fixtures" / "gguf_geometry.json").read_text(encoding="utf-8")
 )
 #: The grafted checkpoint of the evidence: block 40 is its MTP head.
 KAT = "KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf"

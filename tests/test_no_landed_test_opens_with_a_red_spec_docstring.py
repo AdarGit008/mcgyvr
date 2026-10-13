@@ -12,7 +12,7 @@ import ast
 import re
 from pathlib import Path
 
-TESTS = Path(__file__).resolve().parent
+from tests._paths import TESTS
 
 #: A RED spec opens a line with the word ``RED`` (any punctuation after it).
 RED_SPEC = re.compile(r"^[ \t]*RED\b", re.MULTILINE)

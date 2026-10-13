@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import shlex
-from pathlib import Path
 from typing import Any
 
 import yaml
@@ -19,12 +18,11 @@ import yaml
 from mcgyvr.emit import argv, render_command, render_compose
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
+from tests._paths import TESTS
 
 WINDOW = 4096
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
-    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text(
-        encoding="utf-8"
-    )
+    (TESTS / "fixtures" / "gguf_geometry.json").read_text(encoding="utf-8")
 )
 KAT = "KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf"
 

@@ -21,6 +21,7 @@ import pytest
 
 from mcgyvr import docgen
 from mcgyvr.config import SCHEMA, Field
+from tests._paths import REPO
 
 #: The name the inner run loads the redirect plugin under, and the variable it
 #: reads the throwaway document directory from.
@@ -278,9 +279,12 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     (documents / "SETUP.md").write_bytes(planted)
     (tmp_path / f"{_REDIRECT_MODULE}.py").write_text(_REDIRECT_PLUGIN, encoding="utf-8")
 
-    here = Path(__file__)
+    # The node id as pytest would spell it, from where this file actually is:
+    # a hardcoded "tests/" prefix is a second place that has to change when
+    # the file moves (tests/test_the_tests_find_their_places_by_marker...).
+    here = Path(__file__).resolve().relative_to(REPO)
     myself = (
-        f"tests/{here.name}::"
+        f"{here}::"
         f"{test_running_the_docgen_tests_does_not_rewrite_the_committed_documents.__name__}"
     )
     run = subprocess.run(

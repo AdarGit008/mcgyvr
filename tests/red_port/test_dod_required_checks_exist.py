@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+from tests._paths import REPO
+
 RULESETS = REPO / ".github" / "rulesets"
 WORKFLOWS = REPO / ".github" / "workflows"
 

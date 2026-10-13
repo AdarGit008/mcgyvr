@@ -42,13 +42,13 @@ sum for a measurement:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, UnitError, hold_together, unit_for
+from tests._paths import TESTS
 
 WINDOW = 4096
 
@@ -57,9 +57,7 @@ WINDOW = 4096
 AVAILABLE_GB = 14.19
 
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
-    (Path(__file__).parent / "fixtures" / "gguf_geometry.json").read_text(
-        encoding="utf-8"
-    )
+    (TESTS / "fixtures" / "gguf_geometry.json").read_text(encoding="utf-8")
 )
 
 

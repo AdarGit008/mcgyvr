@@ -54,7 +54,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO as REPO
+
 #: The door and everything it spawns. Copied whole into a fixture.
 SERVING_SRC = REPO / "src" / "mcgyvr" / "serving"
 #: The door's shim directory — what it exports as ``RUN_BIN``, and where a

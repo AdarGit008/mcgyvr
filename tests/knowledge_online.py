@@ -17,11 +17,11 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from mcgyvr.knowledge import online
+from tests._paths import TESTS
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "knowledge_online"
+FIXTURES = TESTS / "fixtures" / "knowledge_online"
 _RANGE = re.compile(r"^bytes=(\d+)-(\d+)$")
 
 

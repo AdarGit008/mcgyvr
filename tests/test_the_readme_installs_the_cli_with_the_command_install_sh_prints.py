@@ -12,9 +12,9 @@ name the plain package, and this holds them to the script.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 README = REPO / "README.md"
 INSTALL_SH = REPO / "skills" / "mcgyvr" / "install.sh"
 

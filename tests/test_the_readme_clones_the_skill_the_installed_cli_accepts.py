@@ -17,8 +17,8 @@ import sys
 from pathlib import Path
 
 import mcgyvr
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 README = REPO / "README.md"
 
 #: The clone that follows the CLI: its tag is computed, not written down.

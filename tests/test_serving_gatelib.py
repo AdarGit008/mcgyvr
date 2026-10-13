@@ -22,8 +22,8 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.serving import gatelib
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 DOOR = (
     "python -m mcgyvr.serving.run --host H --campaign C --model M "
     "--ctx-per-slot N [--step PATH]"

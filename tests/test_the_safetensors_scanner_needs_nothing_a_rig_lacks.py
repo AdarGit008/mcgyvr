@@ -17,8 +17,8 @@ import sys
 from pathlib import Path
 
 from tests import safetensors_checkpoint as ckpt
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parents[1]
 SCANNER = REPO / "src" / "mcgyvr" / "serving" / "safetensorscan.py"
 
 #: What a bare ``python3`` is guaranteed to have, and nothing that has ever

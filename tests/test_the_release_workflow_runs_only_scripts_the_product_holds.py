@@ -14,7 +14,8 @@ from typing import Any
 
 import yaml
 
-REPO = Path(__file__).resolve().parents[1]
+from tests._paths import REPO
+
 RELEASE = REPO / ".github" / "workflows" / "release.yml"
 
 #: A script a run line hands to an interpreter, spelled as a repository path.

@@ -31,7 +31,8 @@ import ast
 import collections
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 SOURCE_ROOTS = (REPO / "src",)
 # The vendored resolver engine is material, not code: its contents are pinned
 # by digest and a sweep there measures the instrument, not the project.

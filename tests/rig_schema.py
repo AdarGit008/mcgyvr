@@ -66,6 +66,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+#: Beside THIS file, counted from it, and deliberately not
+#: :data:`tests._paths.TESTS`: this module is copied into a throw-away
+#: tree and re-pinned from there
+#: (``tests/test_the_rig_agent_speaks_the_hubs_published_schema.py``), so
+#: the copy must act on the fixtures beside the copy. Deriving the place
+#: from a marker would send the copy at the committed fixtures and rewrite
+#: them.
 FIXTURES = Path(__file__).parent / "fixtures"
 #: The variable naming a hub checkout, whose ``schemas/`` folder holds every
 #: file pinned here.

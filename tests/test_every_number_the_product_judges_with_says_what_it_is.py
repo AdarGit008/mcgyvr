@@ -71,11 +71,11 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import config, contract, derived
+from tests._paths import SRC, TESTS
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
 CLI = SRC / "cli.py"
 #: Which files of the package are judged, and why the others are not.
-COVERAGE = Path(__file__).resolve().parent / "numbers_coverage.json"
+COVERAGE = TESTS / "numbers_coverage.json"
 
 #: What the coverage file says of a file whose numbers are classified.
 JUDGING = "judging"

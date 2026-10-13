@@ -16,14 +16,14 @@ the consumers' fields, so the two lists cannot drift apart unnoticed.
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 
 import pytest
 import yaml
 
 from mcgyvr.fleet import files
+from tests._paths import REPO
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "mcgyvr" / "fleet"
+SRC = REPO / "src" / "mcgyvr" / "fleet"
 
 #: The modules that read a unit block out of a loaded fleet.
 CONSUMERS = ("lock.py", "admit.py")

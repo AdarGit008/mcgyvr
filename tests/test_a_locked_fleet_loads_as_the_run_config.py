@@ -9,11 +9,8 @@ it.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from mcgyvr import config
-
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 FLEET = """\
 profile: live

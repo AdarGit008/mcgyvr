@@ -13,9 +13,9 @@ import ast
 import json
 import subprocess
 import sys
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+from tests._paths import REPO
+
 SCANNER = REPO / "src" / "mcgyvr" / "serving" / "rigscan.py"
 
 #: What a bare ``python3`` on a rig is guaranteed to have: the file's own

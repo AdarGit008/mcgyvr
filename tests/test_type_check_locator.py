@@ -31,6 +31,7 @@ import pytest
 
 from mcgyvr.contract import loads
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+from tests._paths import REPO
 
 PY = PythonAdapter()
 JS = JavaScriptAdapter()
@@ -196,7 +197,7 @@ def test_the_python_command_is_bare_so_the_repository_sets_the_scope() -> None:
     one the project wrote down — the same error as adding a flag, in a different
     costume.
     """
-    repo = Path(__file__).resolve().parent.parent
+    repo = REPO
 
     assert PY.locate_type_check_command(repo) == ["mypy"]
 

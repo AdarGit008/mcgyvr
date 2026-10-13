@@ -10,13 +10,13 @@ measure a machine and plan for it before `init` writes a config.
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 import pytest
 
 from mcgyvr.cli import build_parser
+from tests._paths import REPO
 
-SETUP_MD = Path(__file__).resolve().parent.parent / "skills" / "mcgyvr" / "SETUP.md"
+SETUP_MD = REPO / "skills" / "mcgyvr" / "SETUP.md"
 
 
 def _setup_options() -> list[str]:

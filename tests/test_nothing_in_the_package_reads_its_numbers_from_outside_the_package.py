@@ -18,8 +18,7 @@ import sys
 from pathlib import Path
 
 from mcgyvr import derived
-
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
 
 _ASK = """
 import json

@@ -15,7 +15,8 @@ import ast
 import re
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO as _REPO
+
 TESTS = _REPO / "tests"
 
 _CHECK_REF = re.compile(r"tests/(test_[a-z0-9_]+\.py)::(test_[a-z0-9_]+)")

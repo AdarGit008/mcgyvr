@@ -34,6 +34,7 @@ from typing import Any
 import pytest
 
 from mcgyvr.serving import run
+from tests._paths import REPO
 
 #: The host every door run here is opened for. A name no resolver answers.
 HOST = "gatelist-box.invalid"
@@ -255,7 +256,7 @@ def door_process(
 
 
 #: The checkout the tests run from, for a door started as its own process.
-REPO = Path(__file__).resolve().parent.parent
+
 
 #: The door as a process over :func:`fake_door`'s stand-ins, with the signal
 #: handlers the door installs when it runs as ``python -m``. Arguments: the

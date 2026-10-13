@@ -24,8 +24,8 @@ from pathlib import Path
 
 from mcgyvr import docgen
 from mcgyvr.contract import load
+from tests._paths import REPO
 
-REPO = Path(__file__).resolve().parent.parent
 SKILL_MD = REPO / "skills" / "mcgyvr" / "SKILL.md"
 EXAMPLES_MD = REPO / "skills" / "mcgyvr" / "references" / "examples.md"
 DOD_GUARD = REPO / "tests" / "red_port" / "test_dod_every_task_type_runs.py"

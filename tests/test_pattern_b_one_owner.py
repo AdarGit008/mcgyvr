@@ -33,6 +33,7 @@ from mcgyvr.deliver import Accepted, deliver
 from mcgyvr.gate import ChangeSet, Gate
 from mcgyvr.repair import repair
 from tests._helpers import git
+from tests._paths import REPO
 
 CONTRACT = """
 id: fetch-retry
@@ -348,7 +349,7 @@ def test_nothing_but_delivery_commits() -> None:
     :func:`mcgyvr.deliver.deliver`. A third entry wants an argument; that is the
     intended cost.
     """
-    here = Path(__file__).resolve().parent.parent
+    here = REPO
     offenders = commit_sites(here)
     assert offenders == [], (
         f"these commit without going through `deliver`, so the gate run under "

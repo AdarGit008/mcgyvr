@@ -55,10 +55,11 @@ from typing import Any
 import pytest
 
 from tests import rig_pool_fakes as fakes
+from tests._paths import REPO
 from tests.rig_fake_machine import Machine, Model
 
 HUB_REPO_ENV = "MCGYVR_HUB_REPO"
-REPO = Path(__file__).resolve().parent.parent
+
 
 ALPHA, BETA, GAMMA = "m-alpha.gguf", "m-beta.gguf", "m-gamma.gguf"
 MODELS = tuple(Model(name, gib=2, layers=24) for name in (ALPHA, BETA, GAMMA))

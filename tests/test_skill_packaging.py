@@ -17,7 +17,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-REPO = Path(__file__).resolve().parent.parent
+from tests._paths import REPO
+
 SKILL_DIR = REPO / "skills" / "mcgyvr"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 INSTALL_SH = SKILL_DIR / "install.sh"
