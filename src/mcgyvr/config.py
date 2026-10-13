@@ -929,10 +929,24 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
         "set to `false`. With no `unit`, the reviewer is the next dearer local "
         "rung whose model is not the builder's; where there is none, the work "
         "is accepted and labelled unverified. A hosted unit reviews only when "
-        "`unit` names it.",
+        "`unit` names it, or stands in for a hosted `unit` as `unit` says.",
         default=True,
     ),
-    *ROLE_UNIT_FIELDS,
+    Field(
+        "unit",
+        "str",
+        "Which unit reviews. A unit is the one term. It reviews every rung's "
+        "work except work its own model wrote, because a model does not review "
+        "its own output. That work is reviewed by a fallback: the usable rung "
+        "nearest this unit on the ladder whose model is not the builder's — "
+        "the rungs below it first, dearest first, then the rungs above it, "
+        "cheapest first. A local rung may always be the fallback; a hosted one "
+        "only when this unit is hosted and the rung is cheaper than it. The "
+        "result and the journal name the fallback and say it stood in; with "
+        "none, the work is accepted and labelled unverified, saying why.",
+        bind_hint="name one of the units declared under `units`",
+    ),
+    *(field for field in ROLE_UNIT_FIELDS if field.name != "unit"),
 )
 
 MANAGER_FIELDS: tuple[Field, ...] = (

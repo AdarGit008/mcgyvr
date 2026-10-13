@@ -473,13 +473,16 @@ def test_a_named_reviewer_that_is_the_builder_does_not_fail_the_builder(
     _prose_reviews(monkeypatch)
     typed = _typed(monkeypatch)
 
+    # One rung, so no other unit can stand in for the named one
+    # (`tests/test_work_the_verifier_unit_wrote_is_reviewed_by_the_next_best_unit.py`
+    # is the case where one can).
     judgement = _attempt_on(
-        repo, TWO_RUNGS + "verifier:\n  unit: small\n", "small", "acme-coder:7b"
+        repo, ONE_RUNG + "verifier:\n  unit: small\n", "small", "acme-coder:7b"
     )
 
     assert judgement.verdict is Verdict.PASSED, judgement.detail
     assert judgement.assurance is Assurance.UNVERIFIED
-    assert judgement.reviewer_failed is True
+    assert "wrote this change" in judgement.detail, judgement.detail
     assert typed == [], "a self-review was spent"
 
 

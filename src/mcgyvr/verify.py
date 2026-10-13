@@ -47,13 +47,19 @@ prose instead, through :func:`read_verdict`. A reviewer that could not be
 reached, or answered an HTTP error, is not asked twice: that is a
 reviewer-side failure, whichever way it would have been asked.
 
-**Who reviews.** ``verifier.unit`` names the reviewer outright, hosted or not.
-With no unit named, :func:`reviewer_rung` picks one per builder: the next local
-rung of the climb dearer than the builder's whose model is not the builder's.
-A hosted rung is never picked, because asking it costs money nobody chose to
-spend on review. Where there is none — the builder is the dearest rung, or
-every dearer local rung serves the builder's model — there is no independent
-reviewer, and :class:`NoReviewer` says so in words
+**Who reviews.** ``verifier.unit`` names the reviewer outright, hosted or not
+— except of work that unit's own model wrote. Escalated work lands on the
+dearest rung, which is the unit an operator most often names to review, and a
+named reviewer that may not review the change in front of it would leave the
+climb's best work the one work nobody reads. So :func:`stand_in_rung` picks
+the next-best unit that did not write it, and the judgement says which unit
+reviewed and that it stood in. With no unit named, :func:`reviewer_rung` picks
+one per builder: the next local rung of the climb dearer than the builder's
+whose model is not the builder's. A hosted rung is never picked there, because
+asking it costs money nobody chose to spend on review. Where there is none —
+the builder is the dearest rung, or every dearer local rung serves the
+builder's model, or nothing may stand in for a named verifier — there is no
+independent reviewer, and :class:`NoReviewer` says so in words
 :func:`~mcgyvr.escalate.judge` puts on the acceptance.
 
 **A reviewer-side failure is never charged to the builder.** An unreadable
@@ -92,6 +98,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.catalog import catalog
 from mcgyvr.decision import (
     BoolAnswer,
     Decision,
@@ -114,7 +121,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.gate import GateResult
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.local_pool import Rung, SourceMap
 
 #: What the pool calls the reviewer. One name, in one place, because a role that
 #: is spelled differently here than in :mod:`mcgyvr.local_pool` is a role that is
@@ -839,7 +846,9 @@ class Reviewer:
     says which part of the config chose it, for the sentence an operator reads.
     ``unit`` is the unit every one of those dispatches to, so the driver can
     send them through its waker as it sends the builder's
-    (:meth:`mcgyvr.wake.Waker.dispatching`).
+    (:meth:`mcgyvr.wake.Waker.dispatching`). ``instead`` is why this reviewer
+    stands in for the one ``verifier.unit`` names (:func:`stand_in_rung`),
+    and ``""`` for a reviewer the config chose for this work.
     """
 
     model: str
@@ -848,6 +857,18 @@ class Reviewer:
     jev: JevCheck | None = None
     where: str = ""
     unit: str | None = None
+    instead: str = ""
+
+    @property
+    def label(self) -> str:
+        """The reviewer as a judgement names it: its unit, and why it stood in.
+
+        What follows ``verified by`` in the result file and in the journal's
+        correction, so a stand-in's approval cannot be read as the configured
+        verifier's.
+        """
+        who = self.unit or self.model
+        return f"{who} ({self.instead})" if self.instead else who
 
 
 @dataclass(frozen=True)
@@ -861,32 +882,104 @@ class NoReviewer:
 type Reviewers = Callable[[str], Reviewer | NoReviewer]
 
 
+def _climb(config: Config, source_map: SourceMap) -> list[tuple[str, Rung]]:
+    """The usable rungs as work climbs them, each with its family's name.
+
+    Families in rank order, rungs in the order the ladder writes them — the
+    order :func:`~mcgyvr.route.by_family` gives — so "dearer" and "cheaper"
+    mean one thing to every rule that picks a reviewer.
+    """
+    grouped = by_family(config, source_map)
+    return [
+        (family.name, rung)
+        for family in sorted(grouped, key=lambda family: family.rank)
+        for rung in grouped[family]
+    ]
+
+
 def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | None:
     """The rung that reviews ``builder``'s work when no unit is named, or ``None``.
 
     The next rung of the climb dearer than ``builder`` — families in rank
     order, rungs in the order the ladder writes them, the order
     :func:`~mcgyvr.route.by_family` gives — whose model is not the builder's
-    by :func:`model_identity`. A dearer rung serving the builder's model under
-    another unit name or another spelling is passed over, because a review is
-    only worth the distance between the two models. Only usable rungs count,
-    and only local ones: a hosted rung costs money to ask, so it reviews only
-    when ``verifier.unit`` names it. ``None`` is the dearest rung, a rung the
-    pool does not offer, or a ladder above the builder whose local rungs serve
+    by :func:`model_identity`. A dearer rung serving the builder's model
+    under another unit name or another spelling is passed over, because a
+    review is only worth the distance between the two models. Only usable
+    rungs count, and only local ones: a hosted rung costs money to ask, so it
+    reviews only when ``verifier.unit`` names it (or stands in for a hosted
+    one, :func:`stand_in_rung`). ``None`` is the dearest rung, a rung the pool
+    does not offer, or a ladder above the builder whose local rungs serve
     nothing but the builder's model.
     """
-    grouped = by_family(config, source_map)
-    climb = [
-        (family.name, rung)
-        for family in sorted(grouped, key=lambda family: family.rank)
-        for rung in grouped[family]
-    ]
+    climb = _climb(config, source_map)
     names = [rung.name for _, rung in climb]
     if builder not in names:
         return None
     built_with = climb[names.index(builder)][1].model
     for family, rung in climb[names.index(builder) + 1 :]:
         if family == LOCAL_FAMILY and independent(built_with, rung.model):
+            return rung.name
+    return None
+
+
+def stand_in_rung(
+    config: Config, source_map: SourceMap, builder: str, unit: str
+) -> str | None:
+    """The rung that reviews ``builder``'s work in place of ``unit``, or ``None``.
+
+    Asked only where ``unit`` — the one ``verifier.unit`` names — serves the
+    model that wrote the change (e2e run 2, R8): escalated work is built on
+    the dearest rung, which is the unit most often named to review, and
+    without a stand-in the climb's best work is the one work nobody reads.
+    The rule, in three parts, each deterministic from the config alone:
+
+    **Next-best is nearest the operator's choice, the cheaper side first.**
+    The configured verifier is the operator's pick of reviewer, so its
+    replacement is the rung nearest it on the climb (:func:`_climb`'s
+    order): the rungs below it, dearest first, then — only where none below
+    qualifies — the rungs above it, cheapest first. Below first because a
+    stand-in should not cost more than the review the operator chose, and
+    because in an ordinary climb the rung just below is the one that
+    attempted the task before it escalated. Where ``unit`` is not on the
+    climb (a unit declared outside the ladder), the builder's place is used
+    instead: it serves the same model.
+
+    **Eligibility is the rule every reviewer is held to.** A rung qualifies
+    when the pool offers it and :func:`independent` holds between its model
+    and the builder's — the one rule :func:`verify` refuses a review by. So a
+    rung serving the builder's model under another unit name or spelling is
+    passed over, as :func:`reviewer_rung` passes it over; two models of one
+    family are two models there and here.
+
+    **A hosted stand-in only for a hosted verifier, and only from below it.**
+    A local rung costs nothing to ask and always qualifies. A hosted rung
+    costs money per request. Naming a hosted ``verifier.unit`` is the
+    operator choosing to spend on review, so a hosted rung cheaper than it may
+    stand in; a hosted rung dearer than it, or any hosted rung standing in for
+    a local verifier, would spend money nobody chose to spend on review.
+
+    ``None`` is a builder the pool does not offer, a climb holding neither
+    ``unit`` nor the builder, or no rung that qualifies.
+    """
+    built = source_map.get(builder)
+    if built is None:
+        return None
+    climb = _climb(config, source_map)
+    names = [rung.name for _, rung in climb]
+    anchor = unit if unit in names else builder
+    if anchor not in names:
+        return None
+    at = names.index(anchor)
+    paid = catalog().family_of(config.units[unit]).name != LOCAL_FAMILY
+    nearest = [
+        *((family, rung, True) for family, rung in reversed(climb[:at])),
+        *((family, rung, False) for family, rung in climb[at + 1 :]),
+    ]
+    for family, rung, cheaper in nearest:
+        if rung.name == builder or not independent(built.model, rung.model):
+            continue
+        if family == LOCAL_FAMILY or (paid and cheaper):
             return rung.name
     return None
 
@@ -904,9 +997,10 @@ def reviewers_for(
     anyone, said as that. A named ``verifier.unit`` is the one reviewer for
     everyone — asked about its model here, so a role declared on a source that
     cannot serve raises :class:`~mcgyvr.local_pool.SourceUnavailableError` now,
-    while refusing is still free. Otherwise each builder's reviewer is
-    :func:`reviewer_rung`'s pick, and a builder with none gets a
-    :class:`NoReviewer` that says why.
+    while refusing is still free — except a builder serving that unit's own
+    model, whose work :func:`stand_in_rung`'s pick reviews instead, or nobody,
+    said why. Otherwise each builder's reviewer is :func:`reviewer_rung`'s
+    pick, and a builder with none gets a :class:`NoReviewer` that says why.
 
     Every reviewer carries a typed seam that remembers a unit that does not
     serve probabilities, so the prose fallback costs one refused request per
@@ -917,6 +1011,7 @@ def reviewers_for(
         return lambda builder: off
 
     unit = config.get("verifier.unit")
+    picked: dict[str, Reviewer | NoReviewer] = {}
     if unit is not None:
         model = source_map.role_model(VERIFIER_ROLE)
         ask = reviewer_for(source_map, capacity=capacity)
@@ -939,9 +1034,24 @@ def reviewers_for(
             where=f"`verifier.unit` {unit!r}",
             unit=str(unit),
         )
-        return lambda builder: named
 
-    picked: dict[str, Reviewer | NoReviewer] = {}
+        def named_or_stand_in(builder: str) -> Reviewer | NoReviewer:
+            built = source_map.get(builder)
+            if built is None or not _same_model(built.model, model):
+                return named
+            if builder not in picked:
+                picked[builder] = _standing_in(
+                    config,
+                    source_map,
+                    builder,
+                    str(unit),
+                    model,
+                    capacity=capacity,
+                    timeout_s=timeout_s,
+                )
+            return picked[builder]
+
+        return named_or_stand_in
 
     def pick(builder: str) -> Reviewer | NoReviewer:
         if builder not in picked:
@@ -951,6 +1061,58 @@ def reviewers_for(
         return picked[builder]
 
     return pick
+
+
+def _same_model(builder: str, reviewer: str) -> bool:
+    """Whether two named models are one, by :func:`model_identity`.
+
+    Narrower than "not :func:`independent`": an unnamed model is a fault of
+    its own, which :func:`verify` reports as one, and is no evidence that the
+    named reviewer wrote anything.
+    """
+    built = model_identity(builder)
+    return bool(built) and built == model_identity(reviewer)
+
+
+def _standing_in(
+    config: Config,
+    source_map: SourceMap,
+    builder: str,
+    unit: str,
+    model: str,
+    *,
+    capacity: Capacity | None,
+    timeout_s: float | None,
+) -> Reviewer | NoReviewer:
+    """The reviewer :func:`stand_in_rung` picks for ``builder``, made askable.
+
+    Its :attr:`Reviewer.instead` says it is a fallback and why, so the
+    judgement it signs — the result file's detail, the journal's correction —
+    cannot be read as the configured verifier's approval.
+    """
+    wrote = (
+        f"`verifier.unit` {unit!r} serves {model!r}, the model that wrote this change"
+    )
+    rung = stand_in_rung(config, source_map, builder, unit)
+    offered = source_map.get(rung) if rung is not None else None
+    if rung is None or offered is None:
+        return NoReviewer(
+            f"{wrote}, and a model does not review its own output; no other unit "
+            f"was available to review it instead — a fallback is a usable rung "
+            f"whose model is not the builder's, local, or hosted and cheaper than "
+            f"a hosted `verifier.unit`"
+        )
+    return _askable(
+        source_map,
+        rung,
+        offered.model,
+        capacity=capacity,
+        timeout_s=timeout_s,
+        instead=(
+            f"a fallback for `verifier.unit` {unit!r}, whose model {model!r} "
+            f"wrote this change"
+        ),
+    )
 
 
 def _on_rung(
@@ -970,6 +1132,22 @@ def _on_rung(
             f"the builder's, so there is no independent reviewer; a hosted "
             f"rung reviews only when `verifier.unit` names it"
         )
+    return _askable(
+        source_map, rung, offered.model, capacity=capacity, timeout_s=timeout_s
+    )
+
+
+def _askable(
+    source_map: SourceMap,
+    rung: str,
+    model: str,
+    *,
+    capacity: Capacity | None,
+    timeout_s: float | None,
+    instead: str = "",
+) -> Reviewer:
+    """Rung ``rung``, serving ``model``, as a reviewer: prose on the rung, typed
+    through the ``jev.unit`` when one is bound and the rung when not."""
 
     def ask(prompt: str) -> str:
         completion = dispatch(
@@ -1001,12 +1179,13 @@ def _on_rung(
         return by_rung(state, JEV_QUESTIONS)
 
     return Reviewer(
-        model=offered.model,
+        model=model,
         ask=ask,
         decide=memory.guard(decide),
         jev=JevCheck(decide=memory.guard(checks)),
         where=f"rung {rung!r}",
         unit=rung,
+        instead=instead,
     )
 
 

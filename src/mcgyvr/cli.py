@@ -2730,10 +2730,11 @@ def _climb(
     # whose named verifier cannot serve is refused while refusing is still
     # free. `verifier.enabled` is acted on here — on unless the config says
     # `false` — and `reviewers_for` reads the rest once: the named
-    # `verifier.unit`, or, with none named, the next dearer local rung with
-    # another model for each builder (never a hosted one). A builder with no
-    # independent reviewer is not refused; its acceptance is labelled
-    # unverified and says so. A reply (`chat`, `agent`, `media`) is never
+    # `verifier.unit` (or, for work its own model wrote, the fallback
+    # `verify.stand_in_rung` picks), or, with none named, the next dearer
+    # local rung with another model for each builder (never a hosted one). A
+    # builder with no independent reviewer is not refused; its acceptance is
+    # labelled unverified and says so. A reply (`chat`, `agent`, `media`) is never
     # reviewed, so none is resolved for it and a verifier the install cannot
     # serve does not refuse it (owner, e2e run 2 R11: "agent and chat have no
     # gates").
