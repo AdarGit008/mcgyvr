@@ -45,7 +45,7 @@ each one.
 | `media_kind` | one of `image`, `audio`, `video` | no | empty | The media kind of the artifact, for `media_valid`: image, audio or video. (orchestrator-facing) |
 | `transcript` | text | no | empty | The text the audio output must say, for `asr_wer`. (orchestrator-facing) |
 | `wer_threshold` | decimal number (min 0.0, max 1.0) | no | unset | The word-error-rate ceiling for `asr_wer`, a share from 0 to 1. (orchestrator-facing) |
-| `sources` | list of text | no | `[]` | The corpus the reply may cite, for `grounded`. (orchestrator-facing) |
+| `sources` | list of text | no | `[]` | Repo files given whole to the worker as `[1]`, `[2]`, …; a missing, binary or secret one is refused. (worker-facing) |
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
 | `scope` | block | **yes**, not for `chat`/`agent` | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
 | `acceptance` | list of text | no | `[]` | Commands, one per entry, split like a shell would split them (quotes respected) and executed directly with no shell: no `VAR=x` prefix, `&&`, pipes or redirects (`mcgyvr contract` refuses them; write `env VAR=x cmd`, or commit a script). Each must pass for the change to be accepted — the strongest signal the gate has — and also on the *unchanged* tree (the preflight refuses a suite that is already red), which is why a command meant to demonstrate a defect goes in `demonstration`. Arbitrary code from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
@@ -197,8 +197,8 @@ what the run came to. The file's keys:
 - `assurance` — what an `accepted` result rests on, and `detail` says it
   in a sentence: `deterministic` (a tool's change, on the gate),
   `verified` (a reviewer agreed), `unverified` (no reviewer could be
-  asked; `detail` says why), `checked` (an `agent` or `media` reply that
-  passed its output checks) or `unchecked` (a `chat` reply: no checks,
+  asked; `detail` says why), `checked` (a `media` reply that passed
+  its checks) or `unchecked` (a `chat` or `agent` reply: no checks,
   no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.

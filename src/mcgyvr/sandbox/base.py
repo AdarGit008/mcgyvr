@@ -733,8 +733,13 @@ _LOGIN_RC = frozenset({".npmrc", ".pypirc", ".yarnrc", ".yarnrc.yml"})
 _RC_LOGIN = re.compile(r"(auth|token|password|passwd|secret)\w*\s*[=:]", re.IGNORECASE)
 
 
-def _holds_a_secret(path: Path) -> bool:
-    """Whether a non-git copy leaves ``path`` behind, by its name or its login."""
+def holds_a_secret(path: Path) -> bool:
+    """Whether a non-git copy leaves ``path`` behind, by its name or its login.
+
+    Also the rule a contract's ``sources`` are held to before one is given to a
+    worker (:mod:`mcgyvr.worker.sources`): a file the task is not given by
+    copy is not handed over in its prompt either.
+    """
     name = path.name
     if name in _SECRET_DIRS and path.is_dir():
         return True
@@ -768,7 +773,7 @@ def _copy_into(source: Path, workspace: Path) -> tuple[str, ...]:
         here = Path(directory)
         out = {".git"} & set(names)
         for name in names:
-            if name not in out and _holds_a_secret(here / name):
+            if name not in out and holds_a_secret(here / name):
                 out.add(name)
                 skipped.append((here / name).relative_to(source).as_posix())
         return out

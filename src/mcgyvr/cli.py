@@ -2684,9 +2684,16 @@ def _climb(
     # `verifier.unit`, or, with none named, the next dearer local rung with
     # another model for each builder (never a hosted one). A builder with no
     # independent reviewer is not refused; its acceptance is labelled
-    # unverified and says so.
+    # unverified and says so. A reply (`chat`, `agent`, `media`) is never
+    # reviewed, so none is resolved for it and a verifier the install cannot
+    # serve does not refuse it (owner, e2e run 2 R11: "agent and chat have no
+    # gates").
     try:
-        reviewers = reviewers_for(config, pool, capacity=capacity)
+        reviewers = (
+            reviewers_for(config, pool, capacity=capacity)
+            if contract.kind.judges_a_change
+            else None
+        )
     except SourceUnavailableError as exc:
         return _error(
             report,
@@ -5234,7 +5241,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="USE_CASE",
         help=(
             "which use case this install serves: coding (the deterministic "
-            "gate), chat (raw endpoint), agent (grounded + safety) or "
+            "gate), chat (raw endpoint), agent (un-gated, from its sources) or "
             "media-gen (media_valid + safety + ASR-WER); default: coding"
         ),
     )

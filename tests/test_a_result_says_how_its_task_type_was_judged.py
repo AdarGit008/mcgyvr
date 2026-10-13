@@ -8,9 +8,9 @@ review was expected where none ever is:
   configured reviewer's own reason it could not be used.
 - ``code`` with a deterministic ``operation``: ``deterministic``, on the
   deterministic gate.
-- ``chat``: ``unchecked`` — no checks, never reviewed.
-- ``agent`` and ``media``: ``checked`` — judged by their own output checks,
-  never reviewed.
+- ``chat`` and ``agent``: ``unchecked`` — no checks, never reviewed (owner,
+  e2e run 2 R11: "agent and chat have no gates").
+- ``media``: ``checked`` — judged by its own output checks, never reviewed.
 
 ``mcgyvr catalog <type>`` says the same thing the result says.
 """
@@ -97,20 +97,21 @@ def _never() -> Review:
 # --- the judgement ---------------------------------------------------------
 
 
-def test_a_chat_reply_is_served_unchecked_and_never_reviewed() -> None:
-    verdict = judge(loads(CHAT), LOCAL, GateResult(), verifier=_never)
+@pytest.mark.parametrize("document", [CHAT, AGENT])
+def test_a_chat_or_agent_reply_is_served_unchecked_and_never_reviewed(
+    document: str,
+) -> None:
+    contract = loads(document)
+    verdict = judge(contract, LOCAL, GateResult(), verifier=_never)
     assert verdict.verdict is Verdict.PASSED
     assert verdict.assurance is Assurance.UNCHECKED
     assert verdict.detail == (
-        "served unchecked: chat replies are not checked or reviewed."
+        f"served unchecked: {contract.task_type} replies are not checked or reviewed."
     )
 
 
-@pytest.mark.parametrize(
-    ("document", "checks"),
-    [(AGENT, "grounded, safety_pass"), (MEDIA, "media_valid")],
-)
-def test_an_agent_or_media_reply_is_checked_by_its_output_checks(
+@pytest.mark.parametrize(("document", "checks"), [(MEDIA, "media_valid")])
+def test_a_media_reply_is_checked_by_its_output_checks(
     document: str, checks: str
 ) -> None:
     contract = loads(document)
@@ -278,11 +279,7 @@ def test_the_result_file_carries_the_label_and_the_sentence(
     ("name", "said"),
     [
         ("chat", "served unchecked: chat replies are not checked or reviewed."),
-        (
-            "agent",
-            "accepted on its output checks (grounded, safety_pass); "
-            "agent replies are never reviewed.",
-        ),
+        ("agent", "served unchecked: agent replies are not checked or reviewed."),
         (
             "media",
             "accepted on its output checks (media_valid); "
@@ -305,7 +302,7 @@ def test_the_catalog_names_each_reply_types_label(
 ) -> None:
     for name, label in (
         ("chat", "unchecked"),
-        ("agent", "checked"),
+        ("agent", "unchecked"),
         ("media", "checked"),
     ):
         assert main(["catalog", name]) == 0
