@@ -1,11 +1,13 @@
 """The output checks — the evidence kinds a structural check makes itself.
 
-Four evidence kinds are declared structural in the catalog
-(``needs_commands: false``): ``media_valid``, ``safety_pass``, ``asr_wer`` and
-``grounded``. A structural check is one the gate produces itself, so no
+Three evidence kinds are declared structural in the catalog
+(``needs_commands: false``): ``media_valid``, ``safety_pass`` and
+``asr_wer``. A structural check is one the gate produces itself, so no
 contract command is emitted for it; this module is where those checks are
-produced. It is the seam the media-gen and agent verticals hang their
-validators on (gate seam 3, P1 generalize-the-core).
+produced. It is the seam the media-gen vertical hangs its validators on (gate
+seam 3, P1 generalize-the-core). The agent vertical has none: agent, like
+chat, is ungated (owner, e2e run 2 R11), and the ``grounded`` check it once
+declared is retired with it.
 
 ``media_valid`` reads the output file's own header and answers whether the
 bytes are a file of the declared media kind. Images are checked past the
@@ -18,10 +20,9 @@ duration must be determinable and positive for MP4, WEBM and AVI, and the
 file must be structurally complete. A worker cannot fake a header, and a
 wrong-kind or empty output is refused by name.
 
-``safety_pass`` runs an external safety classifier, ``asr_wer`` runs an
+``safety_pass`` runs an external safety classifier, and ``asr_wer`` runs an
 external transcriber and measures the word error rate against the contract's
-``transcript``, and ``grounded`` reads the output and checks that every
-sentence cites a provided source. A check whose external tool is absent
+``transcript``. A check whose external tool is absent
 (:class:`~mcgyvr.gate.adapter.ToolUnavailableError`) or ran but produced an
 answer that cannot be trusted
 (:class:`~mcgyvr.gate.adapter.ToolFailedError`) is recorded as *inconclusive* —
@@ -30,7 +31,6 @@ a rejection — never a clean pass over a bar that never ran.
 
 from __future__ import annotations
 
-import re
 import shutil
 import struct
 import subprocess
@@ -60,7 +60,6 @@ MEDIA_VALID = "media_valid"
 #: :class:`~mcgyvr.gate.adapter.ToolUnavailableError` in this build.
 SAFETY_PASS = "safety_pass"
 ASR_WER = "asr_wer"
-GROUNDED = "grounded"
 
 #: Container formats whose signature is not a plain prefix: a RIFF envelope
 #: whose four form-type bytes (offset 8) name the format. Keyed by those bytes
@@ -1225,18 +1224,6 @@ def _word_error_rate(hypothesis: str, reference: str) -> float:
     return previous[len(hyp_words)] / max(1, len(ref_words))
 
 
-def _sentences(text: str) -> list[str]:
-    """The non-empty sentences of ``text``, split on sentence punctuation."""
-    return [part.strip() for part in re.split(r"[.!?\n]+", text) if part.strip()]
-
-
-def _cites(sentence: str, sources: Sequence[str]) -> bool:
-    """Whether ``sentence`` carries a ``[n]`` marker or a source identifier."""
-    if re.search(r"\[[1-9]\d*\]", sentence):
-        return True
-    return any(source in sentence for source in sources)
-
-
 def _first_line(stderr: str | bytes) -> str:
     """The first non-empty line of a tool's stderr, clipped; ``""`` if none."""
     text = stderr.decode("utf-8", "replace") if isinstance(stderr, bytes) else stderr
@@ -1316,46 +1303,6 @@ def asr_wer(
     return []
 
 
-def grounded(path: Path, sources: Sequence[str], label: str = "") -> list[Finding]:
-    """One finding per sentence that cites no provided source.
-
-    This check has no external tool to be absent, so it always runs: the
-    output is read as UTF-8 (an unreadable file is refused by name), split
-    into sentences, and every non-empty sentence must carry a ``[n]``
-    citation marker or one of the contract's ``sources`` identifiers as a
-    substring. A sentence that cites nothing is a finding; the quoted
-    sentence is truncated for display only, never used to judge.
-    """
-    name = label or str(path)
-    try:
-        text = path.read_bytes().decode("utf-8", "replace")
-    except OSError:
-        return [
-            Finding(
-                check=GROUNDED,
-                path=name,
-                code="unreadable",
-                message=(
-                    "the output could not be read, so its grounding cannot be judged"
-                ),
-            )
-        ]
-    findings: list[Finding] = []
-    for sentence in _sentences(text):
-        if not _cites(sentence, sources):
-            findings.append(
-                Finding(
-                    check=GROUNDED,
-                    path=name,
-                    code="ungrounded",
-                    message=(
-                        f"the claim does not cite any provided source: {sentence[:80]}"
-                    ),
-                )
-            )
-    return findings
-
-
 # --- the rung the gate runs -------------------------------------------------
 
 
@@ -1396,7 +1343,6 @@ class OutputChecks:
         media_kind: str = "",
         transcript: str = "",
         wer_threshold: float | None = None,
-        sources: Sequence[str] = (),
     ) -> None:
         self.checks = tuple(checks)
         self.workspace = workspace
@@ -1404,7 +1350,6 @@ class OutputChecks:
         self.media_kind = media_kind
         self.transcript = transcript
         self.wer_threshold = wer_threshold
-        self.sources = tuple(sources)
 
     def run(self) -> OutputReport:
         """Run every declared check; one failing check never hides another's."""
@@ -1449,6 +1394,4 @@ def _run_one(name: str, checks: OutputChecks, path: Path) -> list[Finding]:
         if checks.wer_threshold is None:
             raise ValueError("asr_wer: wer_threshold is not set")
         return asr_wer(path, checks.transcript, checks.wer_threshold, checks.target)
-    if name == GROUNDED:
-        return grounded(path, checks.sources, checks.target)
     raise ValueError(f"unknown output check {name!r}")

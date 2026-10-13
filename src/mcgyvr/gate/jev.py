@@ -41,7 +41,6 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import (
     Answer,
     BoolAnswer,
@@ -158,7 +157,7 @@ def jev_check_for(
     source_map: SourceMap,
     role: str,
     *,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
     blocking: bool = False,
     capacity: Capacity | None = None,
 ) -> JevCheck | None:

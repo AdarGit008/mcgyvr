@@ -164,6 +164,16 @@
       "says": "The reply room, in tokens, added to the cap of a contract that creates a file, which arrives with its declarations as well as its body.",
       "set_by": "contract limits.max_output_tokens"
     },
+    "contract.py:REASONING_ALLOWANCE": {
+      "kind": "choice",
+      "says": "The reply room, in tokens, added to the cap of a contract that states none for the hidden reasoning a reasoning model spends before it writes: the 16216 the e2e run of 2026-10-13 saw, with half again on top.",
+      "set_by": "contract limits.max_output_tokens"
+    },
+    "contract.py:REWRITE_FACTOR": {
+      "kind": "choice",
+      "says": "How many times the target's estimated tokens the cap of a contract that states none holds for the visible reply: the file once, the estimator's under-count and room to grow.",
+      "set_by": "contract limits.max_output_tokens"
+    },
     "contract.py:RUNNING_ALLOWANCE": {
       "kind": "choice",
       "says": "The reply cap, in tokens, of a contract that declares none and whose change a command must run afterwards.",
@@ -218,11 +228,6 @@
       "kind": "fact",
       "says": "How many options one typed Choice may carry — the decision primitive's 62 single-token labels — so candidate and symbol lists are capped at it and a classification cannot overrun the label scheme.",
       "reason": "the specification of a format, protocol or tool"
-    },
-    "deliver.py:_BRANCH_ATTEMPTS": {
-      "kind": "choice",
-      "says": "How many suffixed branch names a delivery tries when its branch name is taken, before it refuses and says what to clear.",
-      "reason": "how often or how many times the product tries its own step again"
     },
     "derived.py:CHECKOUT_DATA": {
       "kind": "fact",
@@ -2293,6 +2298,11 @@
     "serving/fetchlist.py:MAX_LIST_BYTES": {
       "kind": "choice",
       "says": "The most bytes of a fetch list the door reads; a list of the files of every rung of a ladder is a few KiB, and a larger file is refused before it is parsed.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/references.py:_short(limit)": {
+      "kind": "choice",
+      "says": "How many characters of a source line a rename report quotes for a spot it left alone or could not resolve.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     }
   }

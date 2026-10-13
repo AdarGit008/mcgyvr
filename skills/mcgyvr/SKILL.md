@@ -16,6 +16,8 @@ into the repository.
 
 A `chat`/`agent` run is a *session*: no `target`, no `scope`; the
 reply is the result file's `answer`, kept in mcgyvr's session log.
+One that declares no command gets no container unless the config's
+`sandbox.sessions` is `docker`.
 
 ## Step 1 — author a contract
 
@@ -45,7 +47,7 @@ each one.
 | `media_kind` | one of `image`, `audio`, `video` | no | empty | The media kind of the artifact, for `media_valid`: image, audio or video. (orchestrator-facing) |
 | `transcript` | text | no | empty | The text the audio output must say, for `asr_wer`. (orchestrator-facing) |
 | `wer_threshold` | decimal number (min 0.0, max 1.0) | no | unset | The word-error-rate ceiling for `asr_wer`, a share from 0 to 1. (orchestrator-facing) |
-| `sources` | list of text | no | `[]` | The corpus the reply may cite, for `grounded`. (orchestrator-facing) |
+| `sources` | list of text | no | `[]` | Repo files given whole to the worker as `[1]`, `[2]`, …; a missing, binary or secret one is refused. (worker-facing) |
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
 | `scope` | block | **yes**, not for `chat`/`agent` | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
 | `acceptance` | list of text | no | `[]` | Commands, one per entry, split like a shell would split them (quotes respected) and executed directly with no shell: no `VAR=x` prefix, `&&`, pipes or redirects (`mcgyvr contract` refuses them; write `env VAR=x cmd`, or commit a script). Each must pass for the change to be accepted — the strongest signal the gate has — and also on the *unchanged* tree (the preflight refuses a suite that is already red), which is why a command meant to demonstrate a defect goes in `demonstration`. Arbitrary code from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
@@ -101,7 +103,7 @@ Hard ceilings on what one execution of this contract may spend.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `limits.max_output_tokens` | number (min 1) | no | unset | The cap this contract declares on the worker's reply. A reply cut off at the cap is a named failure and is never applied to a file. Declare it for any whole_file task type a model executes: `mcgyvr contract` and `mcgyvr run` refuse a whole_file model contract that leaves it out (exit 2) and print the figure the type's own evidence would derive (`output_cap`) as the value to start from. A raw-text reply (`prose` / `media_artifact`) carries no cap and declares nothing. It is the one key in the schema with no static default: a single number for every type is wrong for at least one of them. What this states is what the *work* is worth. (orchestrator-facing) |
+| `limits.max_output_tokens` | number (min 1) | no | unset | What the worker's reply may spend, in output tokens: what the *work* is worth, counting any reasoning a model does before it writes. Leave it out and each attempt sizes it from the target: the type's allowance, twice the target's estimated tokens, and a reasoning allowance; the journal records the number and how. A reply cut off at the cap is a named failure, never applied to a file. Not bounded by `context.max_input_tokens`. A raw-text reply (`prose` / `media_artifact`) carries no cap. (orchestrator-facing) |
 | `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract may claim: its assembled prompt and `max_output_tokens` together, over the whole window. A different question from whether the two fit, which `context.max_input_tokens` already bounds — a contract that fits with nothing to spare leaves nothing to hold anything beside it and nothing to absorb an estimate that ran long. Declared here because it is a statement about this unit of work, and checked before the work is sent. The run's `max_window_fraction` caps it: the stricter of the two applies. Unset is not 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave a quarter of the window clear. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times the work may be retried before escalating. Retrying forever is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
@@ -132,16 +134,13 @@ mcgyvr contract CONTRACT.yaml
 ```
 
 Prints what the contract resolves to, or names the key that is wrong. Fix
-the contract; never guess a field. A whole_file contract a model executes
-must declare `limits.max_output_tokens`, or this and `run` refuse it
-(exit 2) and print the figure to start from: a reply cut at a cap nobody
-chose is spent silently. A prose or media_artifact reply is uncapped and
-declares nothing.
+the contract; never guess a field. Leave `limits.max_output_tokens` out
+unless you must pin it: each attempt sizes it from the target file.
 
 ## Step 3 — run it, then read the result file
 
 ```
-mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] [--sandbox tempdir] [--commit]
+mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] [--sandbox tempdir] [--[no-]commit] [--branch NAME]
 ```
 
 The run works on the repository as committed at HEAD: uncommitted edits
@@ -197,13 +196,13 @@ what the run came to. The file's keys:
 - `assurance` — what an `accepted` result rests on, and `detail` says it
   in a sentence: `deterministic` (a tool's change, on the gate),
   `verified` (a reviewer agreed), `unverified` (no reviewer could be
-  asked; `detail` says why), `checked` (an `agent` or `media` reply that
-  passed its output checks) or `unchecked` (a `chat` reply: no checks,
+  asked; `detail` says why), `checked` (a `media` reply that passed
+  its checks) or `unchecked` (a `chat` or `agent` reply: no checks,
   no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
-- `committed`, `commit`, `branch`, `handoff` — where the work went. Without
-  `--commit` the accepted file is left in the working tree, uncommitted.
+- `committed`, `commit`, `branch`, `handoff` — where the work went. Not
+  committed (the default), the accepted file is left in the working tree.
 - `answer` — a `chat`, `agent` or `media` reply; never written to the tree.
 - `session_record` — a session's record (question, answer, unit, times,
   outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.
@@ -214,8 +213,8 @@ what the run came to. The file's keys:
   is complete whatever this says; a copy is not a sink and its failure
   does not stop a run.
 - `notes` — the uncommitted and untracked paths the sandbox of HEAD
-  left out, and what the baseline left behind, now cleaned up. Empty
-  on a clean tree.
+  left out, what the baseline left behind (now cleaned up), and what
+  a rename renamed.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can
@@ -243,9 +242,11 @@ offered nothing that would do the work. Rewriting only relocates the same
 answer. Report it to whoever owns the machine; the remedy is in
 `skills/mcgyvr/SETUP.md`.
 
-When `outcome` is `accepted`, the change is in `target`, uncommitted (a
-session changes nothing: its reply is `answer`).
+When `outcome` is `accepted`, the change is in `target` (a rename's: in
+each file `detail` names), uncommitted (a session changes nothing: its
+reply is `answer`).
 Review it there and commit it yourself. To have mcgyvr commit instead, run
-with `--commit` on a tree where `target` is clean: mcgyvr refuses to
-overwrite an edited or uncommitted target, so restore it first
-(`git checkout -- <target>`) rather than rerunning on top of the last run.
+with `--commit` or `--branch NAME` on a tree where those files are
+clean: mcgyvr refuses to overwrite an edited or uncommitted file, so
+restore it first (`git checkout -- <target>`) rather than rerunning on
+top of the last run.

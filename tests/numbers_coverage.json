@@ -179,6 +179,8 @@
     "worker/__init__.py": "holds no number that sizes or judges",
     "worker/bundle.py": "judging",
     "worker/prompt.py": "judging",
-    "worker/reply.py": "judging"
+    "worker/reply.py": "judging",
+    "worker/sources.py": "holds no number that sizes or judges",
+    "orchestrator/references.py": "judging"
   }
 }

@@ -328,10 +328,11 @@ def test_the_contracts_output_cap_reaches_the_request(
 ) -> None:
     """``limits.max_output_tokens`` is applied, for the first time.
 
-    Computed per task type at contract load, documented as a hard ceiling on one
-    execution, and — until there was a binding — read by nothing. Asserted
-    against the contract's own value rather than a literal, so a change to the
-    per-type table cannot make this pass by coincidence.
+    Documented as a hard ceiling on one execution and — until there was a
+    binding — read by nothing. Stated by the contract, because one that states
+    none is sized from its target instead (asserted in
+    ``tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py``), and
+    asserted against the contract's own value rather than a literal.
     """
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
@@ -349,6 +350,8 @@ stop_conditions: ["The interface is not stated."]
 acceptance: ["sh -c 'exit 0'"]
 scope:
   allow: ["src/**"]
+limits:
+  max_output_tokens: 1536
 """
     )
     sent: list[Request] = []
@@ -764,14 +767,14 @@ def test_gate_prose_workspace_accepts_a_chat_reply_with_no_gate(
     assert result.environment_issues == ()
 
 
-def test_gate_prose_workspace_reports_ungrounded_claims_for_an_agent(
+def test_gate_prose_workspace_runs_no_check_on_an_agent_reply(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An agent reply is gated only by the output checks its contract declares.
+    """An agent reply, like a chat reply, is accepted with no gate at all.
 
-    ``agent`` declares grounded and safety evidence. ``safety_pass`` shells out
-    to ``safety-classifier``, so it is stubbed here; the grounded check has no
-    external tool and rejects every sentence that cites no provided source.
+    Owner, e2e run 2 R11: "agent and chat have no gates". A reply that cites
+    nothing — the reply ``grounded`` once rejected — is accepted, and no
+    external checker is so much as looked for.
     """
     from types import SimpleNamespace
     from typing import cast
@@ -780,16 +783,18 @@ def test_gate_prose_workspace_reports_ungrounded_claims_for_an_agent(
     from mcgyvr.gate import output as gate_output
     from mcgyvr.sandbox.base import Sandbox
 
-    monkeypatch.setattr(gate_output, "safety_pass", lambda path, label="": [])
+    def unasked(*_: object, **__: object) -> list[object]:
+        raise AssertionError("an agent reply runs no output check")
+
+    monkeypatch.setattr(gate_output, "safety_pass", unasked)
     contract = load_contract(AGENT_CONTRACT)
     sandbox = cast(Sandbox, SimpleNamespace(workspace=tmp_path))
     (tmp_path / contract.target).write_text("The sky is blue.", encoding="utf-8")
 
     result = gate_prose_workspace(contract, sandbox)
 
-    assert not result.accepted
-    assert [f.check for f in result.findings] == ["grounded"]
-    assert result.findings[0].code == "ungrounded"
+    assert result.accepted
+    assert result.findings == ()
 
 
 def test_a_prose_contract_reaches_an_accepted_answer_not_a_file(

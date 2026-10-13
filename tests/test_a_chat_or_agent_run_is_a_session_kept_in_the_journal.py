@@ -258,7 +258,7 @@ def _run(
     ("name", "document", "reply", "assurance"),
     [
         ("sky", CHAT, "Rayleigh scattering.", "unchecked"),
-        ("brief", AGENT, "The sky is blue [1].", "checked"),
+        ("brief", AGENT, "The sky is blue [1].", "unchecked"),
     ],
 )
 def test_a_session_run_keeps_its_answer_in_a_session_record(
@@ -273,11 +273,6 @@ def test_a_session_run_keeps_its_answer_in_a_session_record(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from mcgyvr.gate import output as gate_output
-
-    # `agent` declares safety_pass, which shells out to a classifier this
-    # machine does not have; it is not what is under test here.
-    monkeypatch.setattr(gate_output, "safety_pass", lambda path, label="": [])
     sent = _scripted(monkeypatch, reply)
     contract = tmp_path / f"{name}.yaml"
     contract.write_text(document, encoding="utf-8")
@@ -328,13 +323,13 @@ def test_a_session_that_was_not_accepted_is_kept_too(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from mcgyvr.gate import output as gate_output
-
-    monkeypatch.setattr(gate_output, "safety_pass", lambda path, label="": [])
-    # Uncited twice over: the gate refuses both attempts.
-    _scripted(monkeypatch, "The sky is blue.", "The sky is blue.")
+    # A source the tree does not hold: the run ends in error before anything
+    # is sent, and the session is kept all the same.
+    _scripted(monkeypatch)
     contract = tmp_path / "brief.yaml"
-    contract.write_text(AGENT, encoding="utf-8")
+    contract.write_text(
+        AGENT.replace("src/report.txt", "src/gone.txt"), encoding="utf-8"
+    )
 
     code, result, _ = _run(contract, repo, config, capsys)
 
@@ -418,11 +413,7 @@ scope:
     ("document", "said"),
     [
         (CHAT, "served unchecked: chat replies are not checked or reviewed."),
-        (
-            AGENT,
-            "accepted on its output checks (grounded, safety_pass); "
-            "agent replies are never reviewed.",
-        ),
+        (AGENT, "served unchecked: agent replies are not checked or reviewed."),
         (
             MEDIA,
             "accepted on its output checks (media_valid); "

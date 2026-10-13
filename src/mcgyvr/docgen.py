@@ -366,6 +366,9 @@ def render_setup() -> str:
         "- `--mcorch UNIT` with `--window TOKENS` — serve that unit as the",
         "  conversational agent a harness points at (`mcgyvr mcorch serve`);",
         "  it needs `--jev`.",
+        "- `--session-sandbox` — `tempdir` (the default) or `docker`: whether a",
+        "  `chat` or `agent` run that runs no command gets a task container",
+        "  (`sandbox.sessions`).",
         "",
         "`mcgyvr setup --help` has each one's full text.",
         "",
@@ -451,10 +454,11 @@ _CONTRACT_KIND_LABELS: dict[str, str] = {
 }
 
 # One minimal contract per deterministic operation and one model-executed
-# ``code`` contract, keyed by the catalog entry each runs under, with the cap of
-# a model-executed contract left as ``{cap}``: :func:`examples` fills it from
-# :func:`mcgyvr.contract.output_cap`, so an example states the product's own
-# default and follows it when it changes.
+# ``code`` contract, keyed by the catalog entry each runs under. None states
+# ``limits.max_output_tokens``: a model-executed contract that states none has
+# its cap sized at each attempt from the target it changes
+# (:func:`mcgyvr.contract.auto_reply_cap`), and a pinned number is what a
+# reasoning model spent before it wrote a line in the e2e run of 2026-10-13.
 _EXAMPLE_TEMPLATES: dict[str, str] = {
     "format": """\
 id: format-pkg
@@ -509,8 +513,6 @@ stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
 demonstration: ["pytest -q tests/test_chunk.py"]
 risk: low
-limits:
-  max_output_tokens: {cap}
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
@@ -520,23 +522,11 @@ scope:
 def examples() -> dict[str, str]:
     """One minimal valid contract per deterministic operation, and one `code`.
 
-    Each model-executed example declares the cap its own fields derive, read
-    back by loading the example without its cap and taking the number the
-    loader derives — so a `code` example that carries a `demonstration` gets the
-    running allowance, not the structural one its bare type would. Each example
-    is loaded by ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``;
-    an example that does not validate fails the suite.
+    Each example is loaded by
+    ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``; an example
+    that does not validate fails the suite.
     """
-    rendered: dict[str, str] = {}
-    for name, template in _EXAMPLE_TEMPLATES.items():
-        if "{cap}" not in template:
-            rendered[name] = template
-            continue
-        stripped = template.replace("limits:\n  max_output_tokens: {cap}\n", "")
-        derived = contract_schema.loads(stripped).limits.max_output_tokens
-        assert derived is not None, f"{name} example must derive a cap"
-        rendered[name] = template.replace("{cap}", str(derived))
-    return rendered
+    return dict(_EXAMPLE_TEMPLATES)
 
 
 #: :func:`examples` as built at import, for readers that want a mapping.
@@ -647,6 +637,8 @@ def render_skill() -> str:
         "",
         f"A {_session_types()} run is a *session*: no `target`, no `scope`; the",
         "reply is the result file's `answer`, kept in mcgyvr's session log.",
+        "One that declares no command gets no container unless the config's",
+        "`sandbox.sessions` is `docker`.",
         "",
         "## Step 1 — author a contract",
         "",
@@ -690,17 +682,14 @@ def render_skill() -> str:
         "```",
         "",
         "Prints what the contract resolves to, or names the key that is wrong. Fix",
-        "the contract; never guess a field. A whole_file contract a model executes",
-        "must declare `limits.max_output_tokens`, or this and `run` refuse it",
-        "(exit 2) and print the figure to start from: a reply cut at a cap nobody",
-        "chose is spent silently. A prose or media_artifact reply is uncapped and",
-        "declares nothing.",
+        "the contract; never guess a field. Leave `limits.max_output_tokens` out",
+        "unless you must pin it: each attempt sizes it from the target file.",
         "",
         "## Step 3 — run it, then read the result file",
         "",
         "```",
         "mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] "
-        "[--sandbox tempdir] [--commit]",
+        "[--sandbox tempdir] [--[no-]commit] [--branch NAME]",
         "```",
         "",
         "The run works on the repository as committed at HEAD: uncommitted edits",
@@ -756,13 +745,13 @@ def render_skill() -> str:
         "- `assurance` — what an `accepted` result rests on, and `detail` says it",
         "  in a sentence: `deterministic` (a tool's change, on the gate),",
         "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
-        "  asked; `detail` says why), `checked` (an `agent` or `media` reply that",
-        "  passed its output checks) or `unchecked` (a `chat` reply: no checks,",
+        "  asked; `detail` says why), `checked` (a `media` reply that passed",
+        "  its checks) or `unchecked` (a `chat` or `agent` reply: no checks,",
         "  no review). A reply is never reviewed.",
         "- `findings` — the deterministic gate's findings for a contract that",
         "  dispatched nothing.",
-        "- `committed`, `commit`, `branch`, `handoff` — where the work went. Without",
-        "  `--commit` the accepted file is left in the working tree, uncommitted.",
+        "- `committed`, `commit`, `branch`, `handoff` — where the work went. Not",
+        "  committed (the default), the accepted file is left in the working tree.",
         "- `answer` — a `chat`, `agent` or `media` reply; never written to the tree.",
         "- `session_record` — a session's record (question, answer, unit, times,",
         "  outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.",
@@ -773,8 +762,8 @@ def render_skill() -> str:
         "  is complete whatever this says; a copy is not a sink and its failure",
         "  does not stop a run.",
         "- `notes` — the uncommitted and untracked paths the sandbox of HEAD",
-        "  left out, and what the baseline left behind, now cleaned up. Empty",
-        "  on a clean tree.",
+        "  left out, what the baseline left behind (now cleaned up), and what",
+        "  a rename renamed.",
         "",
         "Every run is journaled under the config's `journal.dir` and nothing on",
         "the command line moves it — that one directory is where every run can",
@@ -802,12 +791,14 @@ def render_skill() -> str:
         "answer. Report it to whoever owns the machine; the remedy is in",
         "`skills/mcgyvr/SETUP.md`.",
         "",
-        "When `outcome` is `accepted`, the change is in `target`, uncommitted (a",
-        "session changes nothing: its reply is `answer`).",
+        "When `outcome` is `accepted`, the change is in `target` (a rename's: in",
+        "each file `detail` names), uncommitted (a session changes nothing: its",
+        "reply is `answer`).",
         "Review it there and commit it yourself. To have mcgyvr commit instead, run",
-        "with `--commit` on a tree where `target` is clean: mcgyvr refuses to",
-        "overwrite an edited or uncommitted target, so restore it first",
-        "(`git checkout -- <target>`) rather than rerunning on top of the last run.",
+        "with `--commit` or `--branch NAME` on a tree where those files are",
+        "clean: mcgyvr refuses to overwrite an edited or uncommitted file, so",
+        "restore it first (`git checkout -- <target>`) rather than rerunning on",
+        "top of the last run.",
     ]
     return "\n".join(lines).rstrip("\n") + "\n"
 

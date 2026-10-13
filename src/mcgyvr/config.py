@@ -200,6 +200,22 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         choices=NETWORKS,
     ),
     Field(
+        "sessions",
+        "enum",
+        "The sandbox a `chat` or `agent` run gets when its contract declares "
+        "no `acceptance` or `demonstration` command. Such a session runs no "
+        "command: its reply is only staged in a throwaway checkout of HEAD for "
+        "the output checks. `tempdir` stages it on this host, so a session "
+        "never builds, pulls or starts a container and needs no Docker. "
+        "`docker` gives it a task container as `mode: docker` gives `code` and "
+        "`media`, with `allow_fallback` and `network` applying. A session that "
+        "declares a command is sandboxed by `mode`, like any task, and "
+        "`--sandbox` on `mcgyvr run` overrides both for one run. "
+        "`mcgyvr setup --session-sandbox` writes it.",
+        default="tempdir",
+        choices=("tempdir", "docker"),
+    ),
+    Field(
         "image",
         "str",
         "Base image for task containers. Unset means detect the repository's "
@@ -225,31 +241,47 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
 
 DELIVERY_FIELDS: tuple[Field, ...] = (
     Field(
-        "mode",
-        "enum",
-        "Where an accepted change is committed. `branch` puts it on a new "
-        "local branch named after the contract and leaves the branch you have "
-        "checked out, your index and your working tree exactly as they were — "
-        "the delivery tells you the `git push` to run. `none` commits onto the "
-        "branch you have checked out. Nothing here pushes or opens a pull "
-        "request: mcgyvr reaches your repository through `git` and has no "
-        "forge, so the last step off this machine is yours.",
-        default="branch",
-        choices=("branch", "none"),
-        retired=(
-            (
-                "pull_request",
-                "is no longer a mode. It never opened one — every mode "
-                "committed straight to your checked-out branch, and the pull "
-                "request was recorded as owed to something that does not "
-                "exist. Opening one needs a forge and a credential this build "
-                "has nowhere to put. Set `branch` for a commit on a branch of "
-                "its own plus the push to run, or `none` to commit onto the "
-                "branch you have checked out.",
-            ),
-        ),
+        "commit",
+        "bool",
+        "Whether `mcgyvr run` commits an accepted change. Off, the change is "
+        "left in your working tree, uncommitted, for you to review and commit. "
+        "On, it is committed onto the branch you have checked out, or onto "
+        "`branch` when that is set. `run --commit` and `run --no-commit` "
+        "decide for one run instead. Nothing here pushes or opens a pull "
+        "request: the last step off this machine is yours.",
+        default=False,
+    ),
+    Field(
+        "branch",
+        "str",
+        "The branch an accepted change is committed onto, instead of the one "
+        "you have checked out. It says where, not whether: nothing is "
+        "committed while `commit` is off. A branch that does not exist is "
+        "created from the commit you have checked out; one that does gets the "
+        "commit on its tip, refused when its copy of the target differs from "
+        "the one the change was judged against. Either way the branch you "
+        "have checked out, your index and your working tree are left exactly "
+        "as they were, and the run prints the `git push` to run. A branch "
+        "checked out in another worktree is refused. `run --branch NAME` "
+        "names one for one run and implies `--commit`.",
+        bind_hint="name a branch, or leave unset to commit onto the branch you "
+        "have checked out",
     ),
 )
+
+#: Keys this build recognises and refuses, by dotted path, each with what to
+#: set instead. Recognised rather than merely unknown, because a policy.yaml
+#: written by an older setup still carries them, and "unknown key" would not
+#: say what replaced them.
+_RETIRED_KEYS: dict[str, str] = {
+    "delivery.mode": (
+        "is retired: no shipped command read it, and `run --commit` committed "
+        "onto the checked-out branch whatever it said. Remove it; set "
+        "`delivery.commit: true` to commit accepted work onto the branch you "
+        "have checked out, and `delivery.branch: NAME` to commit onto another "
+        "branch instead."
+    ),
+}
 
 #: Where the live journal goes when `journal.dir` is left out. A literal with
 #: `~` rather than an expanded path so the reference reads the same on every
@@ -278,8 +310,9 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# How long one dispatched request may take before the transport gives up.
-# `mcgyvr.runner` reads it as `GENERATE_TIMEOUT_S`.
+# How long one dispatched request to a local unit may take before the transport
+# gives up, where the unit states no `request_timeout_s`. A hosted unit that
+# states none is given none. `mcgyvr.runner` reads it as `GENERATE_TIMEOUT_S`.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
 # How long `serve up` polls a unit into health after bringing it up: the wait
@@ -494,6 +527,18 @@ ROLE_ALWAYS_ON = "always-on"
 ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
+#: The ``output_tokens`` a hosted unit is written with when ``setup --api``
+#: names none: the room its replies are given, and the ceiling of the cap a
+#: contract that states none is sized to (`mcgyvr.gate.preflight.reply_cap`).
+#: A hosted unit is the one most likely to serve a reasoning model, which bills
+#: hidden reasoning against the same number: the e2e run of 2026-10-13 saw
+#: DeepSeek's dearer rung spend 16216 tokens on a duration parser, and empty
+#: replies at 1024 and 4096. Twice that worst case, in a power of two the
+#: hosted reasoning APIs accept (DeepSeek's reasoner takes up to 64K); a model
+#: that serves less is stated as `--api ...,output_tokens=N`, because a
+#: provider refuses a `max_tokens` above its model's own limit.
+API_OUTPUT_TOKENS = 32768
+
 UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "address",
@@ -563,9 +608,12 @@ UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "output_tokens",
         "int",
-        "Room a reply on this unit is given, the `max_tokens` its backend is \
-"
-        "actually sent.",
+        "Room a reply on this unit is given, the `max_tokens` its backend is "
+        "actually sent, hidden reasoning included. It replaces a cap a "
+        "contract states, and bounds the cap of one that states none, which "
+        "is sized from its target. A hosted reasoning model needs tens of "
+        "thousands; `setup --api` writes "
+        f"{API_OUTPUT_TOKENS}.",
         min_value=1,
         bind_hint="e.g. 2048 -- the reply length this unit needs",
     ),
@@ -574,9 +622,13 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "float",
         "How long one dispatched request to this unit may take before the \
 "
-        "transport gives up.",
+        "transport gives up, in seconds. Unset, a hosted unit (one with \
+"
+        "`api_key_env`) waits for its reply however long it takes, and a \
+"
+        f"local unit gives up after {DEFAULT_REQUEST_TIMEOUT_S:g} s.",
         min_value=0.0,
-        bind_hint="e.g. 180",
+        bind_hint="seconds; leave it unset on a hosted unit",
     ),
     Field(
         "room_mib",
@@ -971,7 +1023,8 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Which of the four use cases this install serves: `coding` (scoped "
         "edits judged by the deterministic gate), `chat` (a raw un-gated "
-        "endpoint), `agent` (grounded + safety output checks) or "
+        "endpoint), `agent` (an un-gated session over the files a contract "
+        "names as its sources) or "
         "`media-gen` (media_valid, safety and ASR-WER).",
         choices=("coding", "chat", "agent", "media-gen"),
         default="coding",
@@ -1834,6 +1887,9 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
 
     for key in given:
         _reject_credential_key(key, path)
+        retired = _RETIRED_KEYS.get(_join(path, str(key)))
+        if retired is not None:
+            raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
         if key not in known:
             where = f"{path}: " if path else "config: "
             raise ConfigSchemaError(

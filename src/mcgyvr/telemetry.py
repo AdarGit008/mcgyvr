@@ -399,6 +399,11 @@ def _completion_fields(answer: Completion) -> Record:
     # ``null`` there means the request was uncapped (a raw-text reply) — a
     # different fact from the absent-count fields below, which mean the
     # backend did not report a number.
+    if answer.cap_basis:
+        # How that cap was reached — the contract's own number, a unit's, or
+        # the automatic sizing from the target — so a reply cut at it names
+        # the term to raise.
+        fields["cap_basis"] = answer.cap_basis
     if answer.notes:
         fields["notes"] = list(answer.notes)
     # The rule, in the one place it can be broken: a count the backend did not
@@ -408,6 +413,9 @@ def _completion_fields(answer: Completion) -> Record:
     for key, count in (
         ("input_tokens", answer.input_tokens),
         ("output_tokens", answer.output_tokens),
+        # The share of `output_tokens` a reasoning model spent thinking, which
+        # counts against the cap and never reaches the reply.
+        ("reasoning_tokens", answer.reasoning_tokens),
     ):
         if count is not None:
             fields[key] = count

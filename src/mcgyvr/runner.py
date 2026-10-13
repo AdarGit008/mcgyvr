@@ -30,7 +30,8 @@ to ask in. The invariants:
   as it comes and assembles the answer the unit would have written a request
   not streamed (:class:`mcgyvr.whole.Whole`), and a caller sees one
   :class:`Completion`, as before. ``timeout_s`` bounds the whole dispatch,
-  not each token. Whoever asked and has gone hangs up: a timeout, a
+  not each token, and a hosted unit that states none is given none
+  (:func:`request_timeout`). Whoever asked and has gone hangs up: a timeout, a
   :class:`Hangup` held by the caller (the facade's client closed its
   connection) or :func:`hang_up_all` (the process is ending) shuts the
   unit's connection down under the read, and the unit's next write fails.
@@ -154,9 +155,16 @@ from mcgyvr.weights import is_model
 # dispatch, not a health check — :mod:`mcgyvr.availability` owns "is anything
 # there", with its own, much shorter `PROBE_TIMEOUT_S`.
 #
-# What a request gets when its unit declares no `request_timeout_s`:
-# `config.DEFAULT_REQUEST_TIMEOUT_S`, imported rather than restated.
+# What a request to a local unit gets when the unit declares no
+# `request_timeout_s`: `config.DEFAULT_REQUEST_TIMEOUT_S`, imported rather than
+# restated. A hosted unit that declares none gets no bound (`request_timeout`).
 GENERATE_TIMEOUT_S = DEFAULT_REQUEST_TIMEOUT_S
+
+#: How long reaching a server may take — the TCP connect and, for https, the
+#: TLS handshake — when the dispatch has no bound of its own. It bounds the
+#: connect only: once the request is sent, the reply is waited for however
+#: long it takes. An address nothing answers at still fails in seconds.
+HOSTED_CONNECT_TIMEOUT_S = 30.0
 
 # How much of a failed response body an error message quotes. Enough to carry a
 # backend's own explanation, short enough not to paste a model's whole answer
@@ -451,17 +459,26 @@ class Request:
     ``tools`` are the OpenAI function tools on offer, sent with
     ``tool_choice: "auto"``; empty sends neither key. Both default empty, so a
     single-turn request is unchanged.
+
+    ``timeout_s`` bounds the dispatch in seconds; ``None`` leaves the bound to
+    the unit it is sent to (:func:`request_timeout`).
+
+    ``cap_basis`` says how ``max_output_tokens`` was reached
+    (:func:`mcgyvr.gate.preflight.sized_reply_cap`). It is never sent; it
+    rides to the completion and the journal row, so a reply cut at its cap
+    names the term that sized it.
     """
 
     prompt: str
     max_output_tokens: int | None
     system: str = ""
     temperature: float = 0.0
-    timeout_s: float = GENERATE_TIMEOUT_S
+    timeout_s: float | None = None
     quality_sensitive: bool = False
     response_schema: dict[str, Any] | None = None
     turns: tuple[Mapping[str, Any], ...] = ()
     tools: tuple[Mapping[str, Any], ...] = ()
+    cap_basis: str = ""
 
     def __post_init__(self) -> None:
         if self.max_output_tokens is not None and self.max_output_tokens < 1:
@@ -470,7 +487,7 @@ class Request:
                 f"{self.max_output_tokens}. A cap below 1 is not a ceiling; "
                 f"use None for an uncapped raw-text dispatch."
             )
-        if self.timeout_s <= 0:
+        if self.timeout_s is not None and self.timeout_s <= 0:
             raise ValueError(f"timeout_s must be positive, got {self.timeout_s}")
         for index, turn in enumerate(self.turns):
             role = turn.get("role") if isinstance(turn, Mapping) else None
@@ -552,6 +569,12 @@ class Completion:
     #: The function calls the reply asked for, in the order the server listed
     #: them; empty for a reply in text alone.
     tool_calls: tuple[ToolCall, ...] = ()
+    #: How many of ``output_tokens`` the backend reports as hidden reasoning
+    #: (``usage.completion_tokens_details.reasoning_tokens``), or ``None``
+    #: where it reported none. A reasoning model bills them against the cap.
+    reasoning_tokens: int | None = None
+    #: How ``max_output_tokens`` was reached, copied from the request.
+    cap_basis: str = ""
 
     @property
     def complete(self) -> bool:
@@ -612,6 +635,8 @@ class _Parsed:
     draft_n_accepted: int | None = None
     #: The function calls the answer asked for; empty when it asked for none.
     tool_calls: tuple[ToolCall, ...] = ()
+    #: The reasoning share of ``output_tokens``, where the backend reports it.
+    reasoning_tokens: int | None = None
 
 
 class Runner(ABC):
@@ -672,7 +697,10 @@ class Runner(ABC):
         started = time.monotonic()
         try:
             document = _post_json(
-                url, self._payload(model, request), self._headers(), request.timeout_s
+                url,
+                self._payload(model, request),
+                self._headers(),
+                request_timeout(self.endpoint, request.timeout_s),
             )
         except BackendError as exc:
             busy = self.endpoint.busy_answers
@@ -735,6 +763,8 @@ class Runner(ABC):
             draft_n=parsed.draft_n,
             draft_n_accepted=parsed.draft_n_accepted,
             tool_calls=parsed.tool_calls,
+            reasoning_tokens=parsed.reasoning_tokens,
+            cap_basis=request.cap_basis,
         )
 
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
@@ -803,6 +833,11 @@ class Runner(ABC):
                 notes.append(
                     "the backend reported it stopped at its own length limit "
                     "(the request was uncapped)."
+                )
+            elif not parsed.text.strip():
+                notes.append(
+                    f"the reply hit the {request.max_output_tokens}-token cap "
+                    f"with no visible text: the cap went to hidden reasoning."
                 )
             else:
                 notes.append(
@@ -951,6 +986,7 @@ class OpenAIRunner(Runner):
             draft_n=_as_int(timings.get("draft_n")),
             draft_n_accepted=_as_int(timings.get("draft_n_accepted")),
             tool_calls=tool_calls,
+            reasoning_tokens=_reasoning_tokens(usage),
         )
 
     def _tool_calls(self, entries: object) -> tuple[ToolCall, ...]:
@@ -1005,6 +1041,25 @@ def runner_for(endpoint: Endpoint) -> Runner:
     shape, which is the one thing that is genuinely not a config entry.
     """
     return _RUNNERS[endpoint.protocol](endpoint)
+
+
+def request_timeout(endpoint: Endpoint, stated: float | None) -> float | None:
+    """The bound a dispatch to ``endpoint`` is sent with; ``None`` for none.
+
+    A bound the request states wins. Without one, a hosted unit (one that
+    needs a key) gets its own ``request_timeout_s``, and none when it states
+    none: how long a hosted reply takes is the provider's, and a reasoning
+    model asked for a large cap took 229 s in e2e run 2 and was cut off at a
+    120 s bound nobody had chosen for it. A local unit keeps
+    :data:`GENERATE_TIMEOUT_S`, which its own ``request_timeout_s`` reaches
+    through the caller that holds the config, as it always did. The connect
+    is bounded either way (:data:`HOSTED_CONNECT_TIMEOUT_S`).
+    """
+    if stated is not None:
+        return stated
+    if endpoint.requires_credential:
+        return endpoint.request_timeout_s
+    return GENERATE_TIMEOUT_S
 
 
 def dispatch(
@@ -1127,6 +1182,22 @@ class _Status:
     source: str
     #: vLLM's time-to-first-token totals ``(sum_s, count)``, or ``None``.
     ttft: tuple[float, int] | None = None
+
+
+def _reasoning_tokens(usage: Mapping[str, Any]) -> int | None:
+    """The reasoning share of a reply's output tokens, where the usage reports it.
+
+    ``usage.completion_tokens_details.reasoning_tokens`` is where OpenAI and
+    the OpenAI-compatible reasoning providers put it; a bare
+    ``usage.reasoning_tokens`` is read where that is absent. ``None`` where
+    neither is a count, never an estimate from the reasoning text.
+    """
+    details = usage.get("completion_tokens_details")
+    if isinstance(details, Mapping):
+        nested = _as_int(details.get("reasoning_tokens"))
+        if nested is not None:
+            return nested
+    return _as_int(usage.get("reasoning_tokens"))
 
 
 def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None]:
@@ -1296,7 +1367,7 @@ def _post_json(
     url: str,
     payload: dict[str, Any],
     headers: dict[str, str],
-    timeout: float,
+    timeout: float | None,
 ) -> dict[str, Any]:
     """POST a JSON document and return the JSON answer.
 
@@ -1306,6 +1377,8 @@ def _post_json(
     the unit at its next write; one that asks for none is read whole.
     ``timeout`` bounds the dispatch end to end, connect included; the
     :class:`Hangup` of the thread and the process's hang up on it meanwhile.
+    ``None`` bounds only the connect, by :data:`HOSTED_CONNECT_TIMEOUT_S`: once the
+    request is sent, the reply is waited for however long it takes.
 
     Every failure is named rather than folded into one: unreachable is not the
     same as a 401, and neither is the same as an answer this runner cannot
@@ -1318,7 +1391,8 @@ def _post_json(
         **headers,
         "Accept": whole.EVENT_STREAM if streamed else "application/json",
     }
-    deadline = time.monotonic() + timeout
+    deadline = None if timeout is None else time.monotonic() + timeout
+    connect_s = HOSTED_CONNECT_TIMEOUT_S if timeout is None else timeout
     under = [*_under(), _every]
 
     def gone() -> bool:
@@ -1326,14 +1400,21 @@ def _post_json(
 
     if gone():
         raise HungUpError(f"{safe_url(url)} was not asked: the asker has gone")
-    connection, path = _open(url, timeout)
+    connection, path = _open(url, connect_s)
     sock: socket.socket | None = None
     response: http.client.HTTPResponse | None = None
+    # Whether the server took the request: a failure after this is one of a
+    # server that was reached, never of one that could not be.
+    reached = False
     try:
         connection.request("POST", path, body=body, headers=sent)
+        reached = True
         sock = connection.sock
         if sock is None or not all(hangup._hold(sock) for hangup in under):
             raise HungUpError(f"{safe_url(url)} was hung up on: the asker has gone")
+        if timeout is None:
+            # The connect bound ends with the connect: the reply has none.
+            sock.settimeout(None)
         response = connection.getresponse()
         status = response.status
         media = whole.media(response.getheader("Content-Type", "") or "")
@@ -1396,6 +1477,21 @@ def _post_json(
             raise HungUpError(
                 f"{safe_url(url)} was hung up on: the asker has gone"
             ) from exc
+        if reached and timeout is not None and isinstance(exc, TimeoutError):
+            # The server took the request and was still answering when the
+            # bound ran out: a slow reply, not an address nothing answers at,
+            # and the fix is the bound or the cap, not the address.
+            raise TransportError(
+                f"{safe_url(url)} was reached but did not reply within "
+                f"{timeout:g}s ({exc}); the bound is the unit's "
+                f"`request_timeout_s`: raise it, or unset it on a hosted unit "
+                f"to wait for the reply however long it takes"
+            ) from exc
+        if reached:
+            raise TransportError(
+                f"{safe_url(url)} was reached, and the connection failed before "
+                f"its reply was whole: {exc}"
+            ) from exc
         # A refusal and a timeout are both OSError; to a caller they mean the
         # same thing — nothing usable answered within the timeout — except to
         # a waker, which wakes a card on a refusal and never on a timeout.
@@ -1406,7 +1502,7 @@ def _post_json(
             else TransportError
         )
         raise kind(
-            f"could not reach {safe_url(url)} within {timeout:g}s: {exc}"
+            f"could not reach {safe_url(url)} within {connect_s:g}s: {exc}"
         ) from exc
     except http.client.HTTPException as exc:
         if gone():
@@ -1468,17 +1564,19 @@ def _open(url: str, timeout: float) -> tuple[http.client.HTTPConnection, str]:
 def _reads(
     response: http.client.HTTPResponse,
     sock: socket.socket,
-    deadline: float,
-    timeout: float,
+    deadline: float | None,
+    timeout: float | None,
 ) -> Iterator[bytes]:
     """The answer's bytes as they come, each read bounded by what is left of
-    the deadline: a timeout is one on the dispatch, not on a token. A body
-    read to its announced end closes the response, and the socket with it."""
+    the deadline: a timeout is one on the dispatch, not on a token. With no
+    deadline each read waits as long as the unit takes. A body read to its
+    announced end closes the response, and the socket with it."""
     while not response.isclosed():
-        left = deadline - time.monotonic()
-        if left <= 0:
-            raise TimeoutError(f"no whole answer within {timeout:g}s")
-        sock.settimeout(left)
+        if deadline is not None:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise TimeoutError(f"no whole answer within {timeout:g}s")
+            sock.settimeout(left)
         chunk = response.read1(_READ_BYTES)
         if not chunk:
             return
@@ -1488,8 +1586,8 @@ def _reads(
 def _body(
     response: http.client.HTTPResponse,
     sock: socket.socket,
-    deadline: float,
-    timeout: float,
+    deadline: float | None,
+    timeout: float | None,
 ) -> bytes:
     """The whole body, or :class:`http.client.IncompleteRead` with what came
     when it ended before its announced length or mid-chunk."""
@@ -1507,8 +1605,8 @@ def _body(
 def _assembled(
     response: http.client.HTTPResponse,
     sock: socket.socket,
-    deadline: float,
-    timeout: float,
+    deadline: float | None,
+    timeout: float | None,
 ) -> tuple[int, str, bytes] | None:
     """The unit's stream read to its end and assembled as the answer a
     request not streamed gets: its status, type and body; ``None`` when the

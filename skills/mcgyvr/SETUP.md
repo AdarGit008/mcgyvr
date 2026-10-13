@@ -41,6 +41,9 @@ What the config is for comes in with these, all optional:
 - `--mcorch UNIT` with `--window TOKENS` — serve that unit as the
   conversational agent a harness points at (`mcgyvr mcorch serve`);
   it needs `--jev`.
+- `--session-sandbox` — `tempdir` (the default) or `docker`: whether a
+  `chat` or `agent` run that runs no command gets a task container
+  (`sandbox.sessions`).
 
 `mcgyvr setup --help` has each one's full text.
 
@@ -110,7 +113,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `profile` | one of `live`, `dev` | no | `live` | Which setup this file is: `live` or `dev`. A fleet fact: live outranks dev on the rigs. |
-| `use_case` | one of `coding`, `chat`, `agent`, `media-gen` | no | `coding` | Which of the four use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint), `agent` (grounded + safety output checks) or `media-gen` (media_valid, safety and ASR-WER). |
+| `use_case` | one of `coding`, `chat`, `agent`, `media-gen` | no | `coding` | Which of the four use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint), `agent` (an un-gated session over the files a contract names as its sources) or `media-gen` (media_valid, safety and ASR-WER). |
 | `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: a non-chat use case provisions a local orchestrator unit, and chat is just the ladder serving text. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
@@ -152,8 +155,8 @@ Each entry takes these keys:
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
 | `units.width` | number (min 1) | no | unset | How many requests this unit may run at once. Concurrency is a property of the process, so it is a unit fact. To bind it: e.g. 8 -- the slot count the backend was started with. |
 | `units.window` | number (min 1) | no | unset | Tokens this unit serves in one request. Read it back off the running process, not hoped for. To bind it: e.g. 4096 -- what the unit reports, not what you hoped for. |
-| `units.output_tokens` | number (min 1) | no | unset | Room a reply on this unit is given, the `max_tokens` its backend is actually sent. To bind it: e.g. 2048 -- the reply length this unit needs. |
-| `units.request_timeout_s` | decimal number (min 0.0) | no | unset | How long one dispatched request to this unit may take before the transport gives up. To bind it: e.g. 180. |
+| `units.output_tokens` | number (min 1) | no | unset | Room a reply on this unit is given, the `max_tokens` its backend is actually sent, hidden reasoning included. It replaces a cap a contract states, and bounds the cap of one that states none, which is sized from its target. A hosted reasoning model needs tens of thousands; `setup --api` writes 32768. To bind it: e.g. 2048 -- the reply length this unit needs. |
+| `units.request_timeout_s` | decimal number (min 0.0) | no | unset | How long one dispatched request to this unit may take before the transport gives up, in seconds. Unset, a hosted unit (one with `api_key_env`) waits for its reply however long it takes, and a local unit gives up after 120 s. To bind it: seconds; leave it unset on a hosted unit. |
 | `units.room_mib` | number (min 0) | no | unset | The card room this unit needs, in MiB, measured or stated. To bind it: e.g. 7000 -- the card room this unit needs. |
 | `units.kv_cache_memory_bytes` | number (min 0) | no | unset | The vLLM KV cache this unit pins, in bytes. Absent where the engine sizes its own cache; required before a vLLM unit is locked. To bind it: e.g. 34359738368. |
 | `units.attention_backend` | text | no | unset | The attention backend this vLLM unit pins, because the card decides what is valid. To bind it: e.g. FLASH_ATTN: the backend the unit's own log names. |
@@ -205,6 +208,7 @@ Where a task's commands run.
 | `sandbox.mode` | one of `docker`, `tempdir` | no | `docker` | `docker` runs each task in its own container, torn down after; with no Docker daemon answering, the task is refused unless `allow_fallback` is on. `tempdir` is the explicitly weaker mode for installs without Docker: acceptance commands are arbitrary shell from a contract, running on someone else's machine. |
 | `sandbox.allow_fallback` | boolean | no | `false` | What `mode: docker` does when no Docker daemon answers. Off, the task is refused and the refusal says how to go on. On, the task runs in the `tempdir` sandbox instead and says so once — the weaker mode, chosen ahead of time rather than read about after the run started. |
 | `sandbox.network` | one of `bridge`, `none` | no | `bridge` | The network a task container is attached to. `bridge` is Docker's default: acceptance commands can fetch dependencies and reach the configured worker endpoints — and anything else this machine can reach. `none` gives the container no network at all, so a contract whose commands download anything fails. `none` needs `mode: docker`: the `tempdir` sandbox runs on this host, where the network cannot be taken away, and is refused under it. |
+| `sandbox.sessions` | one of `tempdir`, `docker` | no | `tempdir` | The sandbox a `chat` or `agent` run gets when its contract declares no `acceptance` or `demonstration` command. Such a session runs no command: its reply is only staged in a throwaway checkout of HEAD for the output checks. `tempdir` stages it on this host, so a session never builds, pulls or starts a container and needs no Docker. `docker` gives it a task container as `mode: docker` gives `code` and `media`, with `allow_fallback` and `network` applying. A session that declares a command is sandboxed by `mode`, like any task, and `--sandbox` on `mcgyvr run` overrides both for one run. `mcgyvr setup --session-sandbox` writes it. |
 | `sandbox.image` | text | no | unset | Base image for task containers. Unset means detect the repository's stack and build one. To bind it: name an image tag, or leave unset to let the stack be detected. |
 | `sandbox.setup` | list of text | no | `[]` | Commands run once when the task image is built, before any task. In docker mode the gate's type checker, eslint and prettier run in the task container, because their configuration can load code from the task's workspace, so they are found on the image's PATH. The image mcgyvr builds installs the one the repository configures (mypy, eslint, prettier) when its dependency install does not, at the lockfile's version where it pins one; pyright, or a checker the repository does not configure, is yours to put on the image, here or with `sandbox.image`. A checker the image lacks is skipped and said so, as an absent checker is on the host. |
 
@@ -214,7 +218,8 @@ How accepted work gets back to you.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `delivery.mode` | one of `branch`, `none` | no | `branch` | Where an accepted change is committed. `branch` puts it on a new local branch named after the contract and leaves the branch you have checked out, your index and your working tree exactly as they were — the delivery tells you the `git push` to run. `none` commits onto the branch you have checked out. Nothing here pushes or opens a pull request: mcgyvr reaches your repository through `git` and has no forge, so the last step off this machine is yours. |
+| `delivery.commit` | boolean | no | `false` | Whether `mcgyvr run` commits an accepted change. Off, the change is left in your working tree, uncommitted, for you to review and commit. On, it is committed onto the branch you have checked out, or onto `branch` when that is set. `run --commit` and `run --no-commit` decide for one run instead. Nothing here pushes or opens a pull request: the last step off this machine is yours. |
+| `delivery.branch` | text | no | unset | The branch an accepted change is committed onto, instead of the one you have checked out. It says where, not whether: nothing is committed while `commit` is off. A branch that does not exist is created from the commit you have checked out; one that does gets the commit on its tip, refused when its copy of the target differs from the one the change was judged against. Either way the branch you have checked out, your index and your working tree are left exactly as they were, and the run prints the `git push` to run. A branch checked out in another worktree is refused. `run --branch NAME` names one for one run and implies `--commit`. To bind it: name a branch, or leave unset to commit onto the branch you have checked out. |
 
 ## `breadth`
 

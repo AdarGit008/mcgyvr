@@ -33,6 +33,7 @@ from mcgyvr.capability import (
     table_path,
 )
 from mcgyvr.config import (
+    API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
     Config,
@@ -112,6 +113,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
     from mcgyvr.detect import Detection
+    from mcgyvr.deterministic import ToolStep
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
@@ -395,45 +397,15 @@ def _catalog(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cap_undeclared(contract: Contract) -> str | None:
-    """Why a whole-file model contract with no declared reply cap is refused, or None.
-
-    The loader derives ``limits.max_output_tokens`` from the task type's own
-    evidence, silently, because the bench and the corpus need a number. A
-    person's run does not get that silence: a contract whose reply cap nobody
-    chose is refused before anything is spent. The derived figure is printed as
-    the value to start from. A deterministic contract has no reply to cap and
-    is not asked, and neither is a raw-text reply (``prose`` /
-    ``media_artifact``): it carries no cap, so there is nothing to declare.
-
-    A ladder unit that declares ``units.*.output_tokens`` does not lift this.
-    The two numbers answer different questions — what this unit of work is
-    worth, and what a particular backend needs to finish a reply (see
-    :func:`mcgyvr.gate.preflight.reply_cap`) — so a rig owner answering the
-    second has not answered the first, and the same contract may be run against
-    a ladder whose rungs declare nothing, where its own number is the only one
-    there is. A refusal lifted by a config the contract never mentions would
-    also make this command's answer depend on which machine it was typed on.
-    """
-    if (
-        contract.is_deterministic
-        or contract.max_output_tokens_declared
-        or contract.output_schema != "whole_file"
-    ):
-        return None
-    return (
-        f"limits.max_output_tokens is not declared, and {contract.task_type} is "
-        f"executed by a model: a reply cut at a cap nobody chose is spent "
-        f"silently. State the cap in the contract — the type's own evidence "
-        f"would size it at {contract.limits.max_output_tokens} tokens, which is "
-        f"a starting value, not a measurement."
-    )
-
-
 def _contract(args: argparse.Namespace) -> int:
     import json
 
-    from mcgyvr.contract import ContractError, load
+    from mcgyvr.contract import (
+        REASONING_ALLOWANCE,
+        REWRITE_FACTOR,
+        ContractError,
+        load,
+    )
     from mcgyvr.escalate import how_judged
 
     try:
@@ -443,10 +415,6 @@ def _contract(args: argparse.Namespace) -> int:
         # it names the field and what a valid value looks like.
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    undeclared = _cap_undeclared(contract)
-    if undeclared is not None:
-        print(f"error: {undeclared}", file=sys.stderr)
-        return Exit.USAGE
 
     if args.worker_view:
         print(json.dumps(contract.worker_view(), indent=2))
@@ -490,6 +458,15 @@ def _contract(args: argparse.Namespace) -> int:
         )
     if contract.limits.max_output_tokens is None:
         output_budget = "uncapped (raw text)"
+    elif not contract.max_output_tokens_declared and not contract.is_deterministic:
+        # Sized per attempt from the target the run reads, so the number is
+        # not known here; the floor is, and so is what is added to it.
+        output_budget = (
+            f"output cap sized from the target each attempt (from "
+            f"{contract.limits.max_output_tokens} for the type, plus "
+            f"{REWRITE_FACTOR}x the target and {REASONING_ALLOWANCE} for "
+            f"reasoning, within the unit's output_tokens)"
+        )
     else:
         output_budget = f"<={contract.limits.max_output_tokens} output tokens"
     print(
@@ -743,6 +720,7 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.jev is not None
         or args.mcorch is not None
         or args.window is not None
+        or args.session_sandbox is not None
     )
 
 
@@ -1156,6 +1134,7 @@ def _setup(args: argparse.Namespace) -> int:
             jev=args.jev,
             mcorch=args.mcorch,
             window=args.window,
+            session_sandbox=args.session_sandbox,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -1888,6 +1867,7 @@ def _run_delegated(
                 repo=str(repo),
                 sandbox=args.sandbox,
                 commit=args.commit,
+                branch=args.branch,
                 record=args.record,
                 result=None,
                 orchestrator=args.orchestrator,
@@ -1983,12 +1963,6 @@ def _run(args: argparse.Namespace) -> int:
     except ContractError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    undeclared = _cap_undeclared(contract)
-    if undeclared is not None:
-        # Before the repo, the config, the session and the journal: nothing is
-        # filed for a run that was refused for what its contract left out.
-        print(f"error: {undeclared}", file=sys.stderr)
-        return Exit.USAGE
 
     repo = Path(args.repo).resolve()
     if not (repo / ".git").exists():
@@ -2150,20 +2124,17 @@ def _run(args: argparse.Namespace) -> int:
         return 1
     print(f"journal: {recording.path}", file=sys.stderr)
 
-    # Settled once, here, so both paths below open the same sandbox: a flag
-    # typed at the terminal is a person overriding their own file and wins;
-    # with no flag `sandbox.mode` from the config answers; with neither,
-    # `docker`.
-    args.sandbox = (
-        args.sandbox
-        or (config.get("sandbox.mode") if config is not None else None)
-        or "docker"
-    )
+    # Settled once, here, so both paths below open the same sandbox
+    # (`_sandbox_mode` says who answers).
+    args.sandbox = _sandbox_mode(args.sandbox, contract, config)
     # Settled once too, for delivery (`_commit`): it judges the bytes again,
     # and a gate that read a different setup from the sandbox's would refuse
     # where the change lands what the setup asked it to accept where it was
     # written (`gate.param_mutation`).
     args.gate_adapters = gate_adapters(config)
+    # And whether, and onto which branch, an accepted change is committed: the
+    # same precedence (`_settle_delivery`).
+    _settle_delivery(args, config)
 
     if contract.is_deterministic:
         code = _floor(args, contract, repo, report, config, recording=recording)
@@ -2433,6 +2404,9 @@ def _floor(
     rung = steps[0].tool.program or contract.kind.name
     attempt_id = recording.attempt_id(contract.id, rung, 1)
 
+    # What an in-process step said it did, for the journal's verdict row.
+    performed: list[str] = []
+
     def work() -> GateResult:
         for note in sandbox.notes:
             print(f"note: {note}")
@@ -2442,7 +2416,7 @@ def _floor(
         ceiling = task_ceiling(config)
         for step in steps:
             outcome = run_tool_step(step, sandbox, timeout=ceiling)
-            print(f"  $ {' '.join(step.argv)}")
+            print(f"  {_ran(step)}")
             if not outcome.ran:
                 raise FloorStoppedError(str(outcome.environment_issue))
             assert outcome.result is not None  # `ran` is `result is not None`
@@ -2450,6 +2424,17 @@ def _floor(
                 raise FloorStoppedError(
                     (outcome.result.stderr or outcome.result.stdout).strip()
                 )
+            if not step.argv and outcome.result.stdout.strip():
+                # An in-process step's own account of what it touched — for
+                # `rename_symbol`, every file and line it renamed in and every
+                # same-named occurrence it judged to be another symbol. A
+                # program's stdout is its own business; this one is the only
+                # record of which files the change spans, so it is printed,
+                # kept in the result's notes and handed to the journal.
+                said = outcome.result.stdout.strip()
+                print(textwrap.indent(said, "    "))
+                performed.append(f"{_ran(step)}\n{said}")
+                report.notes.append(f"{_ran(step)}: {said}")
             if not outcome.ok:
                 # Reported, not swallowed. The tool did what its type
                 # guarantees and is telling us what it will not do — for
@@ -2492,6 +2477,7 @@ def _floor(
                 report,
                 recording=recording,
                 attempt_id=attempt_id,
+                performed="\n".join(performed),
             )
     except (FloorStoppedError, DriveError, SandboxError) as exc:
         # The row exists by now — `observe` writes one on both of its paths,
@@ -2513,6 +2499,61 @@ def _floor(
             on_copy_error=recording.copy_failed,
         )
         return _error(report, str(exc))
+
+
+def _runs_no_command(contract: Contract) -> bool:
+    """Whether ``contract`` is a session that declares no command to run.
+
+    Such a run only stages its reply for the output checks, so its sandbox is
+    ``sandbox.sessions``'s to choose and not ``sandbox.mode``'s (owner, e2e
+    run 2 R10: docker for chat and agent is opt-in at setup).
+    """
+    return contract.is_session and not (
+        contract.acceptance_commands or contract.demonstration_commands
+    )
+
+
+def _sandbox_mode(typed: str | None, contract: Contract, config: Config | None) -> str:
+    """The sandbox mode a run of ``contract`` opens.
+
+    A flag typed at the terminal is a person overriding their own file and
+    wins. With none, a session that runs no command reads `sandbox.sessions`
+    (`tempdir` unset), and every other run reads `sandbox.mode` (`docker`
+    unset): a session that declares a command runs it as any task does.
+    """
+    if typed:
+        return typed
+    key, unset = (
+        ("sandbox.sessions", "tempdir")
+        if _runs_no_command(contract)
+        else ("sandbox.mode", "docker")
+    )
+    return str((config.get(key) if config is not None else None) or unset)
+
+
+#: Said once when a session that runs no command is staged on this host.
+SESSION_SANDBOX_NOTE = (
+    "This session runs no command, so its reply is staged in a throwaway "
+    "checkout on this host and no container is built or started "
+    "(`sandbox.sessions: tempdir`; `docker` gives sessions a container)."
+)
+
+
+def _ran(step: ToolStep) -> str:
+    """The line that says what a floor step ran, as a person would retype it.
+
+    A program is its command line. An in-process step has no command line —
+    :attr:`~mcgyvr.deterministic.ToolStep.argv` is empty on purpose — and
+    joining nothing printed a bare ``$``, which says a command ran and names
+    none. It is said instead as what it is: mcgyvr's own operation, with the
+    pair it was given.
+    """
+    if step.argv:
+        return f"$ {' '.join(step.argv)}"
+    said = f"(in-process) {step.tool.operation}"
+    if step.rename.stated:
+        said += f" {step.rename.old} -> {step.rename.new}"
+    return said
 
 
 def _sandbox_policy(config: Config | None) -> dict[str, Any]:
@@ -2592,6 +2633,7 @@ def _climb(
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
+    from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import reviewers_for
 
     # Live is admitted before anything here is built, opened or dispatched
@@ -2684,9 +2726,16 @@ def _climb(
     # `verifier.unit`, or, with none named, the next dearer local rung with
     # another model for each builder (never a hosted one). A builder with no
     # independent reviewer is not refused; its acceptance is labelled
-    # unverified and says so.
+    # unverified and says so. A reply (`chat`, `agent`, `media`) is never
+    # reviewed, so none is resolved for it and a verifier the install cannot
+    # serve does not refuse it (owner, e2e run 2 R11: "agent and chat have no
+    # gates").
     try:
-        reviewers = reviewers_for(config, pool, capacity=capacity)
+        reviewers = (
+            reviewers_for(config, pool, capacity=capacity)
+            if contract.kind.judges_a_change
+            else None
+        )
     except SourceUnavailableError as exc:
         return _error(
             report,
@@ -2696,16 +2745,25 @@ def _climb(
         )
 
     try:
-        sandbox = open_sandbox(
-            repo,
-            mode=args.sandbox,
-            image=config.get("sandbox.image"),
-            setup=config.get("sandbox.setup") or (),
-            # The worker runs outside the sandbox and the sandbox has to be able
-            # to reach it: a container with no route to the source is a task that
-            # gates fine and never gets an answer to gate.
-            endpoints=tuple(unit.address for unit in config.units.values()),
-            **_sandbox_policy(config),
+        # A session that runs no command and was not given a container is
+        # staged on this host without `open_sandbox`: no daemon is probed, so
+        # Docker need not be installed, and neither the weaker-mode note nor
+        # `sandbox.network: none`'s refusal applies — both are about commands,
+        # and none runs. Its workspace is a checkout of HEAD as in any mode.
+        sandbox = (
+            TempDirSandbox(repo, notes=(SESSION_SANDBOX_NOTE,))
+            if _runs_no_command(contract) and args.sandbox == "tempdir"
+            else open_sandbox(
+                repo,
+                mode=args.sandbox,
+                image=config.get("sandbox.image"),
+                setup=config.get("sandbox.setup") or (),
+                # The worker runs outside the sandbox and the sandbox has to be
+                # able to reach it: a container with no route to the source is
+                # a task that gates fine and never gets an answer to gate.
+                endpoints=tuple(unit.address for unit in config.units.values()),
+                **_sandbox_policy(config),
+            )
         )
     except SandboxError as exc:
         return _error(report, str(exc))
@@ -3074,6 +3132,7 @@ def _report_run(
     *,
     recording: Recording | None = None,
     attempt_id: str | None = None,
+    performed: str = "",
 ) -> int:
     """Print the gate verdict, correct the row it is about, and commit when asked.
 
@@ -3084,6 +3143,18 @@ def _report_run(
     correcting is the only part of this a caller can decline, not because there
     is a second caller that declines it — a climb never comes through here, it
     reports itself and reaches :func:`_commit` directly.
+
+    ``performed`` is what an in-process step said it did — a rename's files and
+    lines — and goes into the verdict's correction beside the findings, so the
+    journal keeps the one account of which files the change spans.
+
+    **What is delivered is what the program changed.** The binding is minted
+    over the sandbox's whole change set, the files the gate just judged, not
+    over ``target`` alone: a ``rename_symbol`` that renamed a definition and its
+    importers is one change in several files, and delivering only the target
+    left the user's tree importing a name that no longer exists. Delivery then
+    holds every file to the contract's scope and lands them in one commit, or
+    none.
     """
     from mcgyvr.deliver import Accepted, DeliveryError
     from mcgyvr.escalate import Assurance
@@ -3102,11 +3173,14 @@ def _report_run(
         # a climb's attempts are corrected with, so one query counts them
         # together. `_commit` appends a second correction on top saying where
         # the work went, and the folded row is that later one.
+        said = [str(finding) for finding in result.findings]
+        if performed:
+            said.append(performed)
         correct(
             path=recording.path,
             attempt_id=attempt_id,
             outcome=(Verdict.PASSED if result.accepted else Verdict.FAILED).value,
-            detail="\n".join(str(finding) for finding in result.findings),
+            detail="\n".join(said),
             orchestrator=recording.orchestrator,
             mirrors=recording.mirrors,
             on_copy_error=recording.copy_failed,
@@ -3115,11 +3189,17 @@ def _report_run(
         report.outcome = "rejected"
         return 1
 
+    changed = ChangeSet.detect(sandbox.workspace)
     try:
-        bound = Accepted.read(repo=sandbox.workspace, contract=contract, result=result)
+        bound = Accepted.read(
+            repo=sandbox.workspace,
+            contract=contract,
+            result=result,
+            paths=[change.path for change in changed] or None,
+        )
     except DeliveryError as exc:
         return _error(report, str(exc))
-    if not ChangeSet.detect(sandbox.workspace):
+    if not changed:
         # The program ran, the gate had nothing to object to, and the tree is
         # exactly as it was: the target already is what the task type asks for.
         # Delivery would refuse it as a change identical to its base — which is
@@ -3161,6 +3241,53 @@ def _report_run(
         recording=recording,
         attempt_id=attempt_id,
     )
+
+
+def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
+    """Settle ``args.commit`` to a bool and ``args.branch`` to a name or ``""``.
+
+    The precedence ``--sandbox`` has: a flag typed at the terminal is a person
+    overriding their own file for one run and wins; with no flag the policy
+    answers (``delivery.commit``, ``delivery.branch``); with neither, nothing is
+    committed. ``--branch NAME`` implies ``--commit`` — naming where to commit
+    is asking for a commit — while ``delivery.branch`` does not: it is where
+    commits go once something turns them on. ``--branch`` with ``--no-commit``
+    is refused at parse time (:func:`_one_delivery_answer`) and never reaches
+    here. A run with no usable config commits only when a flag says so.
+    """
+    typed = (getattr(args, "branch", None) or "").strip()
+    policy_commit = bool(config.get("delivery.commit")) if config is not None else False
+    policy_branch = (
+        config.get("delivery.branch") if config is not None else None
+    ) or ""
+    commit = getattr(args, "commit", None)
+    args.commit = True if typed else (policy_commit if commit is None else commit)
+    args.branch = typed or policy_branch
+
+
+def _one_delivery_answer(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    """Refuse ``--branch`` that is blank, or typed beside ``--no-commit``.
+
+    At parse time, through the parser's own ``error``, so it exits 2 like every
+    other usage error and before a config is read or a sandbox opened. The two
+    flags ask for opposite things; picking one would be guessing which the
+    person meant.
+    """
+    branch = getattr(args, "branch", None)
+    if branch is None:
+        return
+    if not branch.strip():
+        parser.error(
+            "--branch was given an empty name. Name the branch to commit onto, "
+            "or leave the flag off to commit onto the one you have checked out."
+        )
+    if getattr(args, "commit", None) is False:
+        parser.error(
+            f"--branch {branch} asks for a commit onto {branch}, and --no-commit "
+            f"asks for none. Pass one of them."
+        )
 
 
 #: The words :func:`_commit` appends to the accepted attempt's row. The
@@ -3205,13 +3332,11 @@ def _commit(
     read, the ladder path carries the one its attempt minted there, and delivery
     re-judges either in the repository the commit lands in.
 
-    No ``config`` is passed to :func:`~mcgyvr.deliver.deliver`, on either path
-    and deliberately. ``deliver`` reads a config's ``delivery.mode`` to decide
-    whether the commit lands on a branch of its own, and reads *no* config as a
-    commit onto the checked-out branch — which is what ``mcgyvr run --commit``
-    is: a person at a terminal saying "commit this", in the tree they are looking
-    at. Handing over the ladder's config because the ladder path happens to have
-    one would make the same flag mean two things depending on the contract.
+    Whether to commit and onto which branch are ``args.commit`` and
+    ``args.branch`` as :func:`_settle_delivery` left them — the flags typed,
+    else ``delivery.commit`` and ``delivery.branch``, else no commit — the same
+    on both paths, whether or not the contract climbed a ladder. An empty
+    branch is the one checked out.
 
     What *is* handed over is the gate's adapters as the run's setup built them
     (``args.gate_adapters``, settled in :func:`_run`), so delivery judges by the
@@ -3219,9 +3344,9 @@ def _commit(
     refused by name rather than delivered under the strict default it did not
     choose.
 
-    **The default is the working tree, and that is not a lack.** Without
-    ``--commit`` the accepted change is left in the target and the repository
-    is otherwise untouched — no commit, no branch, no receipt. The journal row
+    **The default is the working tree, and that is not a lack.** Not committing
+    — the shipped policy — leaves the accepted change in the target and the
+    repository otherwise untouched: no commit, no branch, no receipt. The journal row
     of the accepted attempt is told so (``not_committed``), and told
     ``committed <sha> on <branch>`` or ``delivery_refused`` otherwise, so the
     folded outcome is how the work finally landed.
@@ -3267,15 +3392,22 @@ def _commit(
                 # same lines a gate rejection leaves in `findings`.
                 report.findings = [str(finding) for finding in exc.findings]
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
-        print(f"\nLeft in {contract.target}, not committed (pass --commit to commit).")
-        _say_not_rerun(adapters, contract.target)
-        landed(NOT_COMMITTED, f"no --commit; change left in {contract.target}")
-        report.detail = f"change left in {contract.target}"
+        left = ", ".join(path for path, _ in bound.files(contract))
+        print(f"\nLeft in {left}, not committed (pass --commit to commit).")
+        for path, _ in bound.files(contract):
+            _say_not_rerun(adapters, path)
+        landed(NOT_COMMITTED, f"not committed; change left in {left}")
+        report.detail = f"change left in {left}"
         return 0
 
     try:
         delivery = deliver(
-            repo=repo, contract=contract, content=bound, base=base, adapters=adapters
+            repo=repo,
+            contract=contract,
+            content=bound,
+            base=base,
+            branch=getattr(args, "branch", None) or "",
+            adapters=adapters,
         )
     except DeliveryError as exc:
         landed(DELIVERY_REFUSED, str(exc))
@@ -3283,7 +3415,8 @@ def _commit(
 
     print(f"\n{delivery}")
     if delivery.committed:
-        _say_not_rerun(adapters, delivery.path)
+        for path in delivery.paths:
+            _say_not_rerun(adapters, path)
     report.committed = delivery.committed
     report.commit = delivery.commit
     report.branch = delivery.branch
@@ -5189,9 +5322,11 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="SPEC",
         help=(
             "bind a hosted API unit, which needs no GPU and no local backend, "
-            "as `model=<id>,address=<url>,api_key_env=<VAR>` (repeatable). "
-            "api_key_env is the NAME of the environment variable holding your "
-            "key, never the key itself"
+            "as `model=<id>,address=<url>,api_key_env=<VAR>` (repeatable), "
+            "optionally `,output_tokens=<N>` for the room its replies are "
+            f"given (default {API_OUTPUT_TOKENS}: a reasoning model spends it "
+            "thinking before it writes). api_key_env is the NAME of the environment "
+            "variable holding your key, never the key itself"
         ),
     )
     setup.add_argument(
@@ -5234,7 +5369,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="USE_CASE",
         help=(
             "which use case this install serves: coding (the deterministic "
-            "gate), chat (raw endpoint), agent (grounded + safety) or "
+            "gate), chat (raw endpoint), agent (un-gated, from its sources) or "
             "media-gen (media_valid + safety + ASR-WER); default: coding"
         ),
     )
@@ -5277,6 +5412,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "with --mcorch: the tokens the agent's unit serves in one request, "
             "read back off the running process"
+        ),
+    )
+    setup.add_argument(
+        "--session-sandbox",
+        default=None,
+        choices=("tempdir", "docker"),
+        metavar="MODE",
+        help=(
+            "the sandbox a chat or agent run gets when it runs no command, "
+            "written as `sandbox.sessions`: tempdir (the default: no container "
+            "is built or started, and Docker is not needed) or docker (opt in "
+            "to a task container, as code and media get)"
         ),
     )
     setup.set_defaults(func=_setup)
@@ -5615,11 +5762,26 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     run.add_argument(
         "--commit",
-        action="store_true",
+        # No default, as for `--sandbox`: `delivery.commit` answers when no flag
+        # is typed (`_settle_delivery`).
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help=(
-            "commit the change into the repository when the gate accepts it. "
-            "Without this the accepted change is left in the working tree and "
-            "the repository is otherwise untouched: no commit, no branch"
+            "commit the change when the gate accepts it, or not (--no-commit), "
+            "whatever `delivery.commit` says. Not committed — the default — the "
+            "accepted change is left in the working tree and the repository is "
+            "otherwise untouched: no commit, no branch. Committed, it goes onto "
+            "the branch you have checked out, or onto `delivery.branch`"
+        ),
+    )
+    run.add_argument(
+        "--branch",
+        default=None,
+        metavar="NAME",
+        help=(
+            "commit onto branch NAME instead of the one you have checked out, "
+            "which is left exactly as it was; implies --commit and overrides "
+            "`delivery.branch`. Created from HEAD when absent"
         ),
     )
     run.add_argument(
@@ -5759,8 +5921,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     )
     delegate.add_argument(
         "--commit",
-        action="store_true",
-        help="commit each accepted change (with --run)",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "commit each accepted change, or not (--no-commit), whatever "
+            "`delivery.commit` says (with --run)"
+        ),
+    )
+    delegate.add_argument(
+        "--branch",
+        default=None,
+        metavar="NAME",
+        help="commit each accepted change onto branch NAME; implies --commit",
     )
     delegate.add_argument(
         "--record",
@@ -5861,6 +6033,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.func is _run:
         _name_the_writer(run, args)
+        _one_delivery_answer(run, args)
+    elif args.func is _delegate:
+        _one_delivery_answer(parser, args)
     try:
         with hanging_up_on_interrupt():
             result: int = args.func(args)

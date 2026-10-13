@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr.compose import Recommendation, endpoint_for_backend, recommend
 from mcgyvr.config import (
+    API_OUTPUT_TOKENS,
     BREADTH_FIELDS,
     CLEANUP_FIELDS,
     DELIVERY_FIELDS,
@@ -129,13 +130,23 @@ class ApiSpecError(Exception):
     """
 
 
+#: What a ``--api`` value must say. They are the unit's own schema keys rather
+#: than a second set of words for the same three facts.
+API_SPEC_KEYS: tuple[str, ...] = ("model", "address", "api_key_env")
+
+#: What a ``--api`` value may also say, by the same schema keys.
+API_SPEC_OPTIONAL_KEYS: tuple[str, ...] = ("output_tokens",)
+
+
 @dataclass(frozen=True)
 class ApiUnit:
     """A hosted unit the operator asked for, by the unit's own schema keys.
 
     Three facts, spelled exactly as :data:`mcgyvr.config.UNIT_FIELDS` spells
     them, so the flag and the file it writes cannot drift into two
-    vocabularies for one thing.
+    vocabularies for one thing — and ``output_tokens``, the room the unit's
+    replies are given, which the operator may state and otherwise gets
+    :data:`API_OUTPUT_TOKENS`.
 
     ``api_key_env`` is the NAME of an environment variable, never a key. The
     value is not accepted here, not read here and never written: it is
@@ -147,6 +158,7 @@ class ApiUnit:
     model: str
     address: str
     api_key_env: str
+    output_tokens: int = API_OUTPUT_TOKENS
 
     @property
     def name(self) -> str:
@@ -160,20 +172,15 @@ class ApiUnit:
         return binding_name(self.model, locality=API)
 
 
-#: What a ``--api`` value may say. They are the unit's own schema keys rather
-#: than a second set of words for the same three facts.
-API_SPEC_KEYS: tuple[str, ...] = ("model", "address", "api_key_env")
-
-
 def parse_api_unit(spec: str) -> ApiUnit:
     """One ``--api`` value as an :class:`ApiUnit`, or a refusal saying why.
 
     The shape is ``key=value`` pairs separated by commas, which is the form
     this repository already passes named facts in (``mcgyvr.fleet.read``, the
-    door's export lines). Every key is required and an unknown one is refused
-    rather than ignored, for the reason the loader refuses an unknown config
-    key: a value that is silently dropped is a setting the operator believes
-    they made.
+    door's export lines). Every key but ``output_tokens`` is required, and an
+    unknown one is refused rather than ignored, for the reason the loader
+    refuses an unknown config key: a value that is silently dropped is a
+    setting the operator believes they made.
     """
     stated: dict[str, str] = {}
     for part in spec.split(","):
@@ -187,10 +194,10 @@ def parse_api_unit(spec: str) -> ApiUnit:
                 f"--api: {part!r} is not `key=value`. A hosted unit is stated "
                 f"as `{','.join(f'{k}=<{k}>' for k in API_SPEC_KEYS)}`."
             )
-        if key not in API_SPEC_KEYS:
+        if key not in API_SPEC_KEYS + API_SPEC_OPTIONAL_KEYS:
             raise ApiSpecError(
                 f"--api: {key!r} is not something a hosted unit says. "
-                f"Accepted: {', '.join(API_SPEC_KEYS)}."
+                f"Accepted: {', '.join(API_SPEC_KEYS + API_SPEC_OPTIONAL_KEYS)}."
             )
         if key in stated:
             raise ApiSpecError(
@@ -208,10 +215,18 @@ def parse_api_unit(spec: str) -> ApiUnit:
             f"`api_key_env` the NAME of the environment variable holding your "
             f"key, never the key itself."
         )
+    room = stated.get("output_tokens")
+    if room is not None and not (room.isdigit() and int(room) >= 1):
+        raise ApiSpecError(
+            f"--api: output_tokens={room!r} is not a whole number of at least "
+            f"1. It is the room the unit's replies are given — the `max_tokens` "
+            f"its provider is sent — e.g. `output_tokens=16384`."
+        )
     return ApiUnit(
         model=stated["model"],
         address=stated["address"],
         api_key_env=stated["api_key_env"],
+        **({"output_tokens": int(room)} if room is not None else {}),
     )
 
 
@@ -553,12 +568,23 @@ def render_policy(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+#: Written beside ``sandbox.sessions`` when it asks for Docker init did not find.
+NO_DAEMON_SESSIONS_NOTE = (
+    "No Docker daemon answered when init ran, so a chat or agent run is "
+    "refused until one does, unless `allow_fallback` is on. `sessions: "
+    "tempdir` stages a session on this host and needs no Docker."
+)
+
+
 def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, str]:
-    """The decisions said beside their keys: a ``tempdir`` chosen for no daemon."""
-    mode = (data.get("sandbox") or {}).get("mode")
-    if not detection.docker and mode == "tempdir":
-        return {"sandbox.mode": NO_DAEMON_MODE_NOTE}
-    return {}
+    """The decisions said beside their keys: Docker asked for and not found."""
+    sandbox = data.get("sandbox") or {}
+    notes: dict[str, str] = {}
+    if not detection.docker and sandbox.get("mode") == "tempdir":
+        notes["sandbox.mode"] = NO_DAEMON_MODE_NOTE
+    if not detection.docker and sandbox.get("sessions") == "docker":
+        notes["sandbox.sessions"] = NO_DAEMON_SESSIONS_NOTE
+    return notes
 
 
 def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
@@ -655,6 +681,10 @@ def build(
             "model": api.model,
             "api_key_env": api.api_key_env,
             "width": 1,
+            # Written, not left to the cap a contract states: a hosted
+            # reasoning model spends its cap on hidden reasoning before it
+            # writes, so its unit says how much room it is given.
+            "output_tokens": api.output_tokens,
         }
     ordered_api_units = tuple(api_units)
     return {
@@ -699,13 +729,18 @@ def build(
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
             # Written at their defaults, each under the comment that names the
-            # other choice: what a run does with no daemon, and the network a
-            # task container reaches, are worth seeing before they matter.
-            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network"),
+            # other choice: what a run does with no daemon, the network a task
+            # container reaches, and whether a chat or agent session gets one,
+            # are worth seeing before they matter. `initialize` writes the
+            # setup's `--session-sandbox` over the last.
+            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network", "sessions"),
             "image": None,
             "setup": [],
         },
-        "delivery": _defaults(DELIVERY_FIELDS, "mode"),
+        # Commit written at its default — off — so the file says the run
+        # leaves its change uncommitted; the branch commented, under the doc
+        # that says what naming one does.
+        "delivery": {**_defaults(DELIVERY_FIELDS, "commit"), "branch": None},
         # Written out at its default rather than left for the renderer to show
         # commented. An omitted key renders as `# draws:  # unset`, which is
         # true of the file and false of the behaviour: the loader fills 1 in.
@@ -1003,6 +1038,7 @@ def initialize(
     jev: str | None = None,
     mcorch: str | None = None,
     window: int | None = None,
+    session_sandbox: str | None = None,
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -1042,6 +1078,11 @@ def initialize(
     ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
     ``deployment`` is omitted the default ``hybrid`` is written, so the file
     states the choice rather than leaving the schema to fill it silently.
+
+    ``session_sandbox`` is ``sandbox.sessions``: whether a ``chat`` or
+    ``agent`` run that runs no command gets a container (``docker``, an
+    opt-in) or is staged on this host (``tempdir``). ``None`` writes the
+    schema's default.
     """
     found = (
         detection
@@ -1111,6 +1152,8 @@ def initialize(
 
     # After the composition, so a composed candidate carries the opt-ins too.
     data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
+    if session_sandbox is not None:
+        data["sandbox"] = {**dict(data["sandbox"]), "sessions": session_sandbox}
     # The requested profile wins in every path: a composed candidate is built
     # from the schema's default, and the deterministic ladder carries it from
     # `build`, but both are the caller's parameter to name.

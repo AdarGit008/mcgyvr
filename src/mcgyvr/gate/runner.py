@@ -227,7 +227,7 @@ class Gate:
                 (observations if item.check == STYLE else findings).append(item)
 
         # 4b — output checks: the structural evidence kinds the gate makes
-        # itself (media_valid, safety_pass, asr_wer, grounded). They judge the
+        # itself (media_valid, safety_pass, asr_wer). They judge the
         # artifact a contract names rather than the diff, and run only when the
         # contract declared them. A validator that is not wired records an
         # inconclusive rung — a rejection — never a clean pass over no bar.

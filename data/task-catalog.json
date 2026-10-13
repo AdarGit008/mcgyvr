@@ -1,11 +1,11 @@
 {
   "schema_version": 2,
-  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`, `chat`, `agent` and `media`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated.",
+  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`, `chat`, `agent` and `media`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change.",
   "vendored_from": {
     "repo": "AdarGit008/local-ai",
     "status": "archived",
     "date": "2026-08-01",
-    "_note": "The starting vocabulary was inherited from local-ai's triage map. It was inherited, not validated; data/README.md says how it was narrowed to the four types here."
+    "_note": "The starting vocabulary was inherited from local-ai's triage map. It was inherited, not validated."
   },
 
   "families": [
@@ -36,7 +36,7 @@
     },
     {
       "name": "agent",
-      "doc": "Gated personal-assistant tasks, judged by grounded citations plus safety over plain prose; the backend is llama.cpp / vLLM with tool-calling, a serving-layer capability rather than a gate rung."
+      "doc": "Personal-assistant tasks over the repository files a contract names as its `sources`, answered in plain prose and ungated like chat; the backend is llama.cpp / vLLM with tool-calling, a serving-layer capability rather than a gate rung."
     },
     {
       "name": "media-gen",
@@ -47,7 +47,7 @@
   "evidence_kinds": [
     {
       "name": "gate",
-      "doc": "The deterministic acceptance gate. The floor under every `code` contract; chat is ungated, and agent and media are judged by their own structural evidence through the gate's output-checks rung.",
+      "doc": "The deterministic acceptance gate. The floor under every `code` contract; chat and agent are ungated, and media is judged by its own structural evidence through the gate's output-checks rung.",
       "needs_commands": false
     },
     {
@@ -96,11 +96,6 @@
     {
       "name": "asr_wer",
       "doc": "An ASR pass transcribes the audio output and its word-error-rate against the transcript stays under the contract's threshold. The transcript is the contract's own target, so the gate judges it without a human.",
-      "needs_commands": false
-    },
-    {
-      "name": "grounded",
-      "doc": "Every claim the reply makes cites a source the contract provided, so nothing is asserted that the corpus did not carry. A structural check, not a judgement.",
       "needs_commands": false
     }
   ],
@@ -176,10 +171,10 @@
       "use_case": "agent",
       "session": true,
       "starts_on": "local",
-      "guarantee": "The reply cites the contract's sources and clears the safety classifier, as plain prose — every claim is grounded, nothing unsafe is served, and the reply is raw text, not a file.",
-      "required_evidence": ["grounded", "safety_pass"],
-      "warrant": "structural — grounded and safety_pass are checks the gate makes itself, and the prose output protocol is the reply's format, so a wrong, unsafe or malformed answer is caught without a contract command.",
-      "doc": "Answer a prompt with a grounded, safe reply in plain prose, judged by the gate's output checks."
+      "guarantee": "The reply is the answer, worked from the contract's `sources`, which the worker is given numbered and whole. Nothing judges it — like chat, agent is ungated, and whether the answer is right is the harness's question, not the gate's.",
+      "required_evidence": [],
+      "warrant": "There is no bar to clear (owner, e2e run 2 R11: agent and chat have no gates) — the reply is served straight back, and what makes it worth having is the sources the worker is given, not a check after it answers.",
+      "doc": "Answer a prompt in plain prose from the repository files the contract names as its sources, ungated."
     },
     {
       "name": "media",

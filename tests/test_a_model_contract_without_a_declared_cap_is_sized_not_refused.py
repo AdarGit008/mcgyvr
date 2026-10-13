@@ -1,13 +1,14 @@
-"""A contract a model executes must declare ``limits.max_output_tokens``, or
-``mcgyvr contract`` and ``mcgyvr run`` refuse it by name (owner ruling: "fail
-loud when no budget is declared").
+"""A contract a model executes may leave ``limits.max_output_tokens`` out.
 
-A cap the loader derives from the task type's own evidence, silently, is a
-number nobody chose, and a reply cut at it spends a whole climb. The loader
-derives one — the bench and the corpus need a number — but the two commands a person
-runs refuse a model contract that leaves it out, print the derived figure as
-the value to start from, and exit 2 before a sandbox is opened or a rung is
-spent. A deterministic contract has no reply to cap and is not asked.
+It used to be refused by ``mcgyvr contract`` and ``mcgyvr run`` (owner ruling:
+"fail loud when no budget is declared"): a cap the loader derived from the
+task type alone was a number nobody chose. The e2e run of 2026-10-13 showed
+the stated number was the trap — DeepSeek's reasoning models spent a 1024 cap
+on hidden reasoning and replied with nothing — and the owner's direction is a
+cap that is a function of the file being changed. So a contract that states
+none is accepted, and each attempt sizes its cap from the target
+(``tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py``), recording
+how. A stated cap still wins, and a deterministic contract is not asked.
 """
 
 from __future__ import annotations
@@ -51,14 +52,14 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-def test_contract_refuses_a_model_contract_with_no_cap_and_names_the_key(
+def test_contract_accepts_a_model_contract_with_no_cap_and_says_how_it_is_sized(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = lj.make_contract(tmp_path / "impl.yaml", UNCAPPED)
-    assert lj.main(["contract", str(path)]) == 2
-    err = capsys.readouterr().err
-    assert "limits.max_output_tokens" in err, err
-    assert "1024" in err, "the derived figure is printed as the value to start from"
+    assert lj.main(["contract", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "output cap sized from the target each attempt" in out, out
+    assert "from 1024 for the type" in out, "the type's floor is still printed"
 
 
 def test_contract_admits_a_model_contract_that_declares_its_cap(tmp_path: Path) -> None:
@@ -83,18 +84,17 @@ def test_contract_does_not_ask_a_deterministic_contract_for_a_cap(
     assert lj.main(["contract", str(path)]) == 0
 
 
-def test_run_refuses_before_any_dispatch_and_before_a_sandbox(
+def test_run_dispatches_a_model_contract_with_no_cap(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    sent = lj.scripted(monkeypatch)  # any dispatch is an unscripted one
+    sent = lj.scripted(monkeypatch, lj.GOOD_REPLY)
     repo = lj.make_repo(tmp_path / "repo")
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=tmp_path / "journal")
     contract = lj.make_contract(tmp_path / "impl.yaml", UNCAPPED)
     code = lj.main(lj.run_args(contract, repo, config))
-    err = capsys.readouterr().err
-    assert code == 2, err
-    assert "limits.max_output_tokens" in err, err
-    assert sent == []
+    out = capsys.readouterr()
+    assert code == 0, out
+    assert len(sent) == 1

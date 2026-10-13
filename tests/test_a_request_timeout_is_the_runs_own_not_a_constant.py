@@ -52,11 +52,14 @@ def _config(path: Path, journal: Path, timeout: str = "") -> Path:
 
 def _timeout_of_one_dispatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, budgets: str
-) -> float:
-    seen: list[float] = []
+) -> float | None:
+    from mcgyvr.runner import request_timeout
+
+    seen: list[float | None] = []
 
     def capture(source_map: Any, rung: str, request: Any, **kw: Any) -> Any:
-        seen.append(request.timeout_s)
+        # The bound the wire is sent: the request's, or the unit's own.
+        seen.append(request_timeout(source_map.bind(rung), request.timeout_s))
         return lj.completion(lj.GOOD_REPLY, request)
 
     lj.patch_dispatch(monkeypatch, capture)

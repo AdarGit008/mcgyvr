@@ -49,7 +49,6 @@ from typing import Any
 
 from mcgyvr.catalog import Catalog, Family, TaskType
 from mcgyvr.catalog import catalog as load_catalog
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import (
     Choice,
     ChoiceAnswer,
@@ -165,7 +164,7 @@ def triage(
     state: Any,
     *,
     catalog: Catalog | None = None,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Triage:
     """Name the task type and semantic floor for ``state``, on ``model``.
 

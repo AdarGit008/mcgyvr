@@ -59,11 +59,11 @@ from mcgyvr.gate.adapter import SandboxRunner
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
-from mcgyvr.gate.output import ASR_WER, GROUNDED, MEDIA_VALID, SAFETY_PASS, OutputChecks
+from mcgyvr.gate.output import ASR_WER, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.preflight import (
     ServingWindow,
     check_contract_against_rung,
-    reply_cap,
+    sized_reply_cap,
 )
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
@@ -75,7 +75,14 @@ from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, independent, verify
 from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
-from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, ReplyError, parse_reply
+from mcgyvr.worker.reply import (
+    MEDIA_ARTIFACT,
+    PROSE,
+    ReplyError,
+    empty_at_cap,
+    parse_reply,
+)
+from mcgyvr.worker.sources import read_sources
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable, Sequence
@@ -281,7 +288,12 @@ def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
             f"would report a file changed that nothing opened."
         )
     try:
-        report = rename_apply(Path(sandbox.workspace), step.rename.old, step.rename.new)
+        report = rename_apply(
+            Path(sandbox.workspace),
+            step.rename.old,
+            step.rename.new,
+            target=step.target,
+        )
     except RenameError as refusal:
         return ToolOutcome(
             step=step,
@@ -402,13 +414,18 @@ def dispatch_prompt(
     """
     endpoint = source_map.bind(rung)
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
-    cap = reply_cap(contract, endpoint)
+    # Sized with the prompt and the share the refusal above measured, so the
+    # cap sent is the cap that was checked.
+    cap = sized_reply_cap(
+        contract, endpoint, prompt=prompt.measured, default_fraction=window_fraction
+    )
     # ``timeout_s`` is the unit's ``request_timeout_s``, passed by the caller
     # that holds the config. ``None`` keeps ``Request``'s own default.
     fields: dict[str, Any] = {
         "prompt": prompt.user,
         "system": prompt.system,
-        "max_output_tokens": cap,
+        "max_output_tokens": cap.tokens,
+        "cap_basis": cap.basis,
         "response_schema": response_schema,
     }
     if timeout_s is not None:
@@ -778,9 +795,15 @@ def worker_attempt(
         # Who reviews this rung's work, read before anything is dispatched.
         # Its dispatches go through the waker, as the builder's do below: a
         # reviewer on a card that is asleep refuses the connection, and
-        # without the wake every review on such an install is unusable.
+        # without the wake every review on such an install is unusable. A
+        # reply (`chat`, `agent`, `media`) has no reviewer at all — not the
+        # prose verifier and not the gate's typed Jev questions either: there
+        # is no change to review (owner, e2e run 2 R11: "agent and chat have
+        # no gates").
         chosen: Reviewer | NoReviewer | None = (
-            reviewers(this.rung.name) if reviewers is not None else None
+            reviewers(this.rung.name)
+            if reviewers is not None and contract.kind.judges_a_change
+            else None
         )
         reviewing = (
             _through(waker, chosen, jev_resident=jev_bound(pool))
@@ -842,9 +865,18 @@ def worker_attempt(
         original = _base_content(sandbox, contract)
         # The worker prompt needs the file it is changing. A decomposed
         # contract carries it as `target_content`; a hand-authored one does
-        # not, so fall back to the workspace's own copy.
+        # not, so fall back to the workspace's own copy. Its `sources` are read
+        # off the same tree, in the same moment (`mcgyvr.worker.sources`): a
+        # source that cannot be given raises here, before the first dispatch.
+        # The same contract is what is checked and dispatched below, because a
+        # contract that stated no cap is sized from this content (`reply_cap`).
+        sized = replace(
+            contract,
+            target_content=contract.target_content or original,
+            source_content=read_sources(sandbox.workspace, contract.sources),
+        )
         prompt = build_prompt(
-            replace(contract, target_content=contract.target_content or original),
+            sized,
             adapters=adapters,
             retry=notes.get(this.rung.name),
         )
@@ -858,7 +890,7 @@ def worker_attempt(
             this.rung.name,
             pool.bind(this.rung.name),
             prompt,
-            contract,
+            sized,
             window_fraction=window_share,
         )
         # Read once, before any draw goes out, because they are the attempt's
@@ -887,7 +919,7 @@ def worker_attempt(
                     pool,
                     this.rung.name,
                     prompt,
-                    contract,
+                    sized,
                     capacity=capacity,
                     timeout_s=(
                         config.units[this.rung.name].request_timeout_s
@@ -998,6 +1030,13 @@ def worker_attempt(
                 # candidate and not a failure. The draws that did answer keep
                 # their verdicts.
                 return reply
+            empty = empty_at_cap(reply)
+            if empty is not None:
+                # Before the parser, which would call this a truncated file:
+                # nothing visible came back to be truncated (the e2e run of
+                # 2026-10-13), and the repair is a larger cap, not a smaller
+                # task.
+                return Unusable(f"the reply could not be read: {empty}")
             parsed = parse_reply(
                 reply.text,
                 output_schema=contract.output_schema,
@@ -1539,16 +1578,14 @@ def acceptance_for(
 def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | None:
     """The gate's output-checks rung, or ``None`` when the contract declares none.
 
-    Only the four structural evidence kinds the gate makes itself are mapped
+    Only the three structural evidence kinds the gate makes itself are mapped
     here; the command-producing kinds have their own rungs. Built beside
     :func:`acceptance_for` rather than inside ``Gate`` because the declared
     evidence and the workspace are what this layer holds.
     """
     declared = set(contract.evidence_names)
     checks = tuple(
-        name
-        for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER, GROUNDED)
-        if name in declared
+        name for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER) if name in declared
     )
     if not checks:
         return None
@@ -1559,7 +1596,6 @@ def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | Non
         media_kind=contract.media_kind,
         transcript=contract.transcript,
         wer_threshold=contract.wer_threshold,
-        sources=contract.sources,
     )
 
 
@@ -1568,8 +1604,9 @@ def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
 
     A raw-text reply is the answer itself, not a file to be tidied, repaired or
     verifier-reviewed. The only bar it must clear is the structural output
-    evidence the contract declares — grounded citations, a safety pass, and so
-    on — and a chat contract that declares none is accepted with no gate at all.
+    evidence the contract declares — a media artifact's ``media_valid`` — and a
+    ``chat`` or ``agent`` session, which declares none, is accepted with no gate
+    at all (owner, e2e run 2 R11: "agent and chat have no gates").
     """
     rung = output_checks_for(contract, sandbox.workspace)
     if rung is None:

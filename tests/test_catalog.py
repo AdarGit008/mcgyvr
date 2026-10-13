@@ -102,12 +102,13 @@ def test_the_config_use_case_choices_match_the_catalog(shipped: Catalog) -> None
 
 
 def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
-    # chat is the sole ungated type: the raw endpoint has no bar to clear, so
-    # it carries no evidence and no gate. Every other type states evidence.
-    # Coding types carry the gate kind as their floor; agent is judged by its
-    # own structural evidence through the gate's output-checks rung instead.
+    # chat and agent are the ungated types (owner, e2e run 2 R11: "agent and
+    # chat have no gates"): neither carries evidence or the gate. Every other
+    # type states evidence. Coding types carry the gate kind as their floor;
+    # media is judged by its own structural evidence through the gate's
+    # output-checks rung instead.
     for kind in shipped.task_types:
-        if kind.use_case.name == "chat":
+        if kind.use_case.name in ("chat", "agent"):
             assert kind.required_evidence == (), f"{kind.name} should be ungated"
             assert "gate" not in kind.evidence_names, (
                 f"{kind.name} must not carry the gate"
@@ -130,11 +131,11 @@ def test_the_chat_type_is_ungated(shipped: Catalog) -> None:
     assert chat.evidence_names == ()
 
 
-def test_the_agent_type_judges_by_grounding_and_safety(shipped: Catalog) -> None:
+def test_the_agent_type_is_ungated(shipped: Catalog) -> None:
     agent = shipped.require("agent")
     assert agent.use_case.name == "agent"
     assert agent.starts_on.name == "local"
-    assert agent.evidence_names == ("grounded", "safety_pass")
+    assert agent.evidence_names == ()
 
 
 def test_the_media_type_judges_by_media_valid(shipped: Catalog) -> None:
@@ -209,10 +210,10 @@ def test_evidence_baseline_routes_each_kind_to_the_slot_that_can_satisfy_it(
             assert kind.baseline == "pass"  # the default; no baseline run exists
 
 
-def test_the_media_and_agent_evidence_kinds_are_declared(shipped: Catalog) -> None:
-    """The new use cases judge by the gate's own tools, not contract commands."""
+def test_the_media_evidence_kinds_are_declared(shipped: Catalog) -> None:
+    """Media judges by the gate's own tools, not contract commands."""
     by_name = {e.name: e for e in shipped.evidence_kinds}
-    for name in ("media_valid", "safety_pass", "asr_wer", "grounded"):
+    for name in ("media_valid", "safety_pass", "asr_wer"):
         assert name in by_name, f"{name} is not a declared evidence kind"
         assert not by_name[name].needs_commands, f"{name} needs a contract command"
         assert by_name[name].baseline == "pass"
