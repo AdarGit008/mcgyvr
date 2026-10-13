@@ -164,7 +164,7 @@ GENERATE_TIMEOUT_S = DEFAULT_REQUEST_TIMEOUT_S
 #: TLS handshake — when the dispatch has no bound of its own. It bounds the
 #: connect only: once the request is sent, the reply is waited for however
 #: long it takes. An address nothing answers at still fails in seconds.
-CONNECT_TIMEOUT_S = 30.0
+HOSTED_CONNECT_TIMEOUT_S = 30.0
 
 # How much of a failed response body an error message quotes. Enough to carry a
 # backend's own explanation, short enough not to paste a model's whole answer
@@ -1053,7 +1053,7 @@ def request_timeout(endpoint: Endpoint, stated: float | None) -> float | None:
     120 s bound nobody had chosen for it. A local unit keeps
     :data:`GENERATE_TIMEOUT_S`, which its own ``request_timeout_s`` reaches
     through the caller that holds the config, as it always did. The connect
-    is bounded either way (:data:`CONNECT_TIMEOUT_S`).
+    is bounded either way (:data:`HOSTED_CONNECT_TIMEOUT_S`).
     """
     if stated is not None:
         return stated
@@ -1377,7 +1377,7 @@ def _post_json(
     the unit at its next write; one that asks for none is read whole.
     ``timeout`` bounds the dispatch end to end, connect included; the
     :class:`Hangup` of the thread and the process's hang up on it meanwhile.
-    ``None`` bounds only the connect, by :data:`CONNECT_TIMEOUT_S`: once the
+    ``None`` bounds only the connect, by :data:`HOSTED_CONNECT_TIMEOUT_S`: once the
     request is sent, the reply is waited for however long it takes.
 
     Every failure is named rather than folded into one: unreachable is not the
@@ -1392,7 +1392,7 @@ def _post_json(
         "Accept": whole.EVENT_STREAM if streamed else "application/json",
     }
     deadline = None if timeout is None else time.monotonic() + timeout
-    connect_s = CONNECT_TIMEOUT_S if timeout is None else timeout
+    connect_s = HOSTED_CONNECT_TIMEOUT_S if timeout is None else timeout
     under = [*_under(), _every]
 
     def gone() -> bool:

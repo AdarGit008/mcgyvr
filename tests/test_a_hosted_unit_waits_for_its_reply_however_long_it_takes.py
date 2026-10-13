@@ -8,7 +8,7 @@ here knows it. So a unit with `api_key_env` and no `request_timeout_s` sends
 its request with no bound on the reply at all.
 
 What still fails fast is the connect: an address nothing answers at is refused
-within :data:`mcgyvr.runner.CONNECT_TIMEOUT_S`, a bound on reaching the server
+within :data:`mcgyvr.runner.HOSTED_CONNECT_TIMEOUT_S`, a bound on reaching the server
 and never on its reply. A unit that states `request_timeout_s` keeps it, hosted
 or local, and a local unit that states none keeps the bound it always had.
 """
@@ -218,7 +218,7 @@ def test_the_connect_bound_does_not_bound_the_reply(
 ) -> None:
     """A reply slower than the connect bound still arrives: the bound on
     reaching the server is lifted once the request is sent."""
-    monkeypatch.setattr(runner_module, "CONNECT_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(runner_module, "HOSTED_CONNECT_TIMEOUT_S", 0.2)
     with answering_after(0.8) as base_url:
         hosted = dataclasses.replace(HOSTED, base_url=base_url)
         done = runner_for(hosted).generate("m", ASK)
@@ -229,7 +229,7 @@ def test_an_address_nothing_answers_at_still_fails_fast(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No bound on the reply is not no bound on the connect."""
-    monkeypatch.setattr(runner_module, "CONNECT_TIMEOUT_S", 0.25)
+    monkeypatch.setattr(runner_module, "HOSTED_CONNECT_TIMEOUT_S", 0.25)
     # Reserved for documentation (RFC 5737) and not routable.
     unroutable = dataclasses.replace(HOSTED, base_url="http://192.0.2.1:9")
     started = time.monotonic()
