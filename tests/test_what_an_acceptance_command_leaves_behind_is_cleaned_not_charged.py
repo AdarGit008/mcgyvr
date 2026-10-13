@@ -109,6 +109,24 @@ def test_a_baseline_that_writes_caches_passes_preflight_on_a_clean_copy(
     assert "pkg/__pycache__/" in note
 
 
+@pytest.mark.parametrize("listed_as", ["acceptance", "demonstration"])
+def test_the_note_labels_the_command_by_the_list_it_came_from(
+    repo: Path, listed_as: str
+) -> None:
+    """A demonstration is not labelled ``acceptance:`` (e2e run 2, R6)."""
+    exit_code = 0 if listed_as == "acceptance" else 1
+    command = ("sh", "-c", f"{CACHES}; exit {exit_code}")
+    with TempDirSandbox(repo) as sandbox:
+        if listed_as == "acceptance":
+            acceptance = Acceptance(sandbox, (command,))
+        else:
+            acceptance = Acceptance(sandbox, (), demonstrations=(command,))
+        baseline = acceptance.baseline()
+
+    (note,) = baseline.notes
+    assert note.startswith(f"{listed_as}: "), note
+
+
 def test_the_note_names_five_paths_and_counts_the_rest(repo: Path) -> None:
     many = "touch a.pyc b.pyc c.pyc d.pyc e.pyc f.pyc g.pyc"
     with TempDirSandbox(repo) as sandbox:
