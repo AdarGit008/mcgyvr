@@ -24,8 +24,6 @@ stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
 demonstration: ["pytest -q tests/test_chunk.py"]
 risk: low
-limits:
-  max_output_tokens: 1024
 scope:
   allow: ["src/pkg/chunk.py"]
 ```

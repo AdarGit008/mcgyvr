@@ -328,10 +328,11 @@ def test_the_contracts_output_cap_reaches_the_request(
 ) -> None:
     """``limits.max_output_tokens`` is applied, for the first time.
 
-    Computed per task type at contract load, documented as a hard ceiling on one
-    execution, and — until there was a binding — read by nothing. Asserted
-    against the contract's own value rather than a literal, so a change to the
-    per-type table cannot make this pass by coincidence.
+    Documented as a hard ceiling on one execution and — until there was a
+    binding — read by nothing. Stated by the contract, because one that states
+    none is sized from its target instead (asserted in
+    ``tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py``), and
+    asserted against the contract's own value rather than a literal.
     """
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
@@ -349,6 +350,8 @@ stop_conditions: ["The interface is not stated."]
 acceptance: ["sh -c 'exit 0'"]
 scope:
   allow: ["src/**"]
+limits:
+  max_output_tokens: 1536
 """
     )
     sent: list[Request] = []

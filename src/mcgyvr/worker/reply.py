@@ -124,7 +124,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from mcgyvr.runner import StopReason
+from mcgyvr.runner import Completion, StopReason
 
 # The shape this module implements. A contract declaring anything else is
 # refused rather than best-effort parsed.
@@ -342,6 +342,44 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
             f"and still be missing its tail",
         )
     return None
+
+
+def empty_at_cap(reply: Completion) -> ReplyError | None:
+    """The refusal for a reply cut at its cap with nothing visible in it, or ``None``.
+
+    Read before :func:`parse_reply`, whose ``incomplete-reply`` says a
+    truncated file "can parse cleanly and still be missing its tail" — true of
+    a reply that wrote something, and the wrong diagnosis of one that wrote
+    nothing. A hosted reasoning model bills its hidden reasoning against the
+    same cap, and when the reasoning uses all of it the visible reply is empty
+    (the e2e run of 2026-10-13: ``reply_sha256`` the hash of ``""``, stop
+    ``length``, on both rungs). What fixes that is a larger cap, so the
+    refusal names the cap, what was spent, and the two keys that raise it.
+
+    Only a reply the backend said it cut (``truncated``) with no text beyond
+    whitespace qualifies: an empty reply that *completed* is the model's own
+    answer, and the parser's ordinary refusals describe it.
+    """
+    if reply.stop_reason is not StopReason.TRUNCATED or reply.text.strip():
+        return None
+    cap = reply.max_output_tokens
+    spent = reply.output_tokens if reply.output_tokens is not None else cap
+    of_cap = f" of its {cap}-token cap" if cap is not None else ""
+    spent_on = (
+        f"all {spent} output tokens{of_cap}" if spent is not None else "its output"
+    )
+    reasoning = (
+        f" ({reply.reasoning_tokens} reported as reasoning)"
+        if reply.reasoning_tokens is not None
+        else ""
+    )
+    return ReplyError(
+        "empty-reply",
+        f"the model used {spent_on} on hidden reasoning{reasoning} and returned "
+        f"no visible reply. Raise the contract's `limits.max_output_tokens`, or "
+        f"leave it unset so the cap is sized from the target; a unit's "
+        f"`units.<unit>.output_tokens` bounds or replaces it",
+    )
 
 
 def _prose(text: str) -> str:

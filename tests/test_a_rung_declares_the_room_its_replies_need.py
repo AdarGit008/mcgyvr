@@ -11,9 +11,9 @@ What must be true, and is asserted below: a rung may declare the room its
 replies need; that number is what reaches the wire on that rung and nowhere
 else; a rung that declares nothing still sends the contract's number; a
 declared room that does not fit the rung's own window is a named refusal rather
-than the truncation it was written to prevent; and a contract must still say
-what it is willing to spend, because the ladder can be re-pointed at rungs that
-declare nothing.
+than the truncation it was written to prevent. A contract that states no cap is
+sized from its target, with the rung's number as its ceiling
+(``tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py``).
 """
 
 from __future__ import annotations
@@ -290,25 +290,24 @@ def test_the_rungs_room_is_what_the_fit_is_measured_against() -> None:
     )
 
 
-# --- the contract still has to say what it will spend ---------------------
+# --- a contract that says nothing is sized, not refused -------------------
 
 
-def test_a_contract_with_no_cap_is_still_refused_on_a_ladder_that_declares_one(
+def test_a_contract_with_no_cap_is_accepted_and_sized_per_attempt(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A rung declaring room does not excuse a contract from declaring spend.
+    """A contract that states no cap is no longer refused.
 
-    The two numbers answer different questions — what this unit of work is
-    worth, and what that backend needs to finish a reply — so a ladder that
-    answers the second has not answered the first. The refusal
-    (``mcgyvr.cli._cap_undeclared``, owner ruling: "fail loud when no budget is
-    declared") stands beside a rung's declared room.
+    It used to be (``mcgyvr.cli._cap_undeclared``): a reply cut at a cap
+    nobody chose was spent silently. A cap nobody chose is now sized from the
+    target at each attempt and recorded with how it was reached, so the
+    contract is accepted and says so.
     """
     uncapped = CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
     path = lj.make_contract(tmp_path / "impl.yaml", uncapped)
 
-    assert lj.main(["contract", str(path)]) == 2
-    assert "limits.max_output_tokens" in capsys.readouterr().err
+    assert lj.main(["contract", str(path)]) == 0
+    assert "output cap sized from the target each attempt" in capsys.readouterr().out
 
 
 # --- a raw-text reply is uncapped ----------------------------------------

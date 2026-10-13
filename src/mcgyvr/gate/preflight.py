@@ -27,7 +27,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
-from mcgyvr.contract import Contract
+from mcgyvr.contract import Contract, auto_reply_cap
 
 
 class TokenCount(StrEnum):
@@ -360,7 +360,39 @@ def check_window_fraction(
     )
 
 
-def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
+@dataclass(frozen=True)
+class ReplyCap:
+    """The output cap a dispatch sends, and the sentence saying where it came from.
+
+    ``tokens`` is ``None`` for an uncapped request. ``basis`` is what the
+    journal row records beside the number (``cap_basis``), so a reply cut at
+    the cap can be traced to the term that sized it without re-deriving it.
+    """
+
+    tokens: int | None
+    basis: str
+
+
+def reply_cap(
+    contract: Contract,
+    rung: ServingWindow,
+    *,
+    prompt: str | None = None,
+    default_fraction: float | None = None,
+) -> int | None:
+    """The output cap that will actually be sent: :func:`sized_reply_cap`'s number."""
+    return sized_reply_cap(
+        contract, rung, prompt=prompt, default_fraction=default_fraction
+    ).tokens
+
+
+def sized_reply_cap(
+    contract: Contract,
+    rung: ServingWindow,
+    *,
+    prompt: str | None = None,
+    default_fraction: float | None = None,
+) -> ReplyCap:
     """The output cap that will actually be sent, and why the rung's one wins.
 
     Two numbers, one wire. The unit's ``units.*.output_tokens`` where it
@@ -409,12 +441,25 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     What the override does *not* do is escape a bound. A rung's number is
     checked against the rung's own window by
     :func:`check_contract_against_rung`, which is the bound that matters,
-    because the window is the thing the cap actually competes for. And it does
-    not excuse a whole_file contract from declaring a cap: ``mcgyvr contract``
-    and ``mcgyvr run`` still refuse a whole_file model contract with none (see
-    :func:`mcgyvr.cli._cap_undeclared`), since the ladder can be re-pointed at
-    rungs that declare nothing and the work still has to say what it will
-    spend.
+    because the window is the thing the cap actually competes for.
+
+    **A contract that stated no cap is sized, not overridden.** Its
+    ``limits.max_output_tokens`` is the loader's floor for the task type
+    (``max_output_tokens_declared`` is false), and the cap sent is
+    :func:`~mcgyvr.contract.auto_reply_cap`'s: the visible reply the target
+    needs — the floor plus twice the target's estimated tokens, the target
+    read from ``contract.target_content``, which the driver fills from the
+    workspace before it dispatches — plus a reasoning allowance for a model
+    that thinks before it writes. A rung's ``output_tokens`` is then a
+    ceiling rather than a replacement: the contract has already said, by
+    saying nothing, that the work is worth what its target needs, and the
+    rung says how much its backend can be given. Given the ``prompt``, the
+    reasoning allowance — and only that half — is also trimmed to the room
+    the rung's window leaves beside the prompt as charged, under the share
+    the contract is held to (:func:`held_share`), so a backend that does not
+    reason is not refused for headroom it never uses. The visible half is
+    never trimmed: a target too big to re-emit in the room left is refused
+    by the fit checks, by name, rather than sent to be cut.
 
     **A ceiling is the one place the lower of two numbers is sent.** A rung may
     carry an ``output_ceiling`` (:attr:`mcgyvr.local_pool.Endpoint.output_ceiling`):
@@ -430,12 +475,59 @@ def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     bounds. Where the local unit declares none either, nothing is sent.
     """
     declared = contract.limits.max_output_tokens
+    ceiling = rung.output_ceiling
+    riding = f"the ceiling of the unit rung {rung.source!r} stands in for"
     if declared is None:
-        return rung.output_ceiling
-    cap = declared if rung.output_tokens is None else rung.output_tokens
-    if rung.output_ceiling is not None:
-        return min(cap, rung.output_ceiling)
-    return cap
+        if ceiling is None:
+            return ReplyCap(None, "uncapped: a raw-text reply")
+        return ReplyCap(ceiling, f"uncapped raw-text reply, sent {riding}")
+    if contract.max_output_tokens_declared:
+        if rung.output_tokens is None:
+            cap = declared
+            basis = "the contract's limits.max_output_tokens"
+        else:
+            cap = rung.output_tokens
+            basis = f"rung {rung.source!r}'s output_tokens, in place of the contract's"
+    else:
+        auto = auto_reply_cap(declared, contract.target_content)
+        cap, basis = auto.tokens, auto.basis
+        room = _room_beside(contract, rung, prompt, default_fraction)
+        if room is not None and room < cap:
+            cap = max(auto.visible, room)
+            basis += f"; reasoning trimmed to the {room} the window leaves"
+        if rung.output_tokens is not None and rung.output_tokens < cap:
+            cap = rung.output_tokens
+            basis += f"; bounded by rung {rung.source!r}'s output_tokens"
+    if ceiling is not None and ceiling < cap:
+        return ReplyCap(ceiling, f"{basis}; bounded by {riding}")
+    return ReplyCap(cap, basis)
+
+
+def _room_beside(
+    contract: Contract,
+    rung: ServingWindow,
+    prompt: str | None,
+    default_fraction: float | None,
+) -> int | None:
+    """What a rung's window leaves for a reply beside this prompt, or ``None``.
+
+    The same arithmetic the fit checks below refuse with — the prompt charged
+    as :func:`_charged` charges it, against the window and against the share
+    :func:`held_share` holds the contract to — so a cap trimmed to this passes
+    both, and a cap that is not trimmed is measured by them on the same
+    terms. ``None`` where there is no prompt to measure or no window declared:
+    nothing to trim against, the answer :func:`check_contract_against_rung`
+    gives such a rung.
+    """
+    window = rung.context_window
+    if prompt is None or window is None:
+        return None
+    from mcgyvr.orchestrator.read import estimate_tokens
+
+    charged = _charged(estimate_tokens(prompt), TokenCount.ESTIMATE)
+    share, _ = held_share(contract.limits.max_window_fraction, default_fraction)
+    allowed = window if share is None else min(window, math.floor(share * window))
+    return allowed - charged
 
 
 def check_contract_against_rung(
@@ -506,23 +598,29 @@ def check_contract_against_rung(
             f"ceiling the rung cannot keep is truncation at a boundary "
             f"nobody chose",
         )
-    cap = reply_cap(contract, rung)
+    cap = reply_cap(contract, rung, prompt=prompt, default_fraction=default_fraction)
     if cap is not None and cap >= window:
         # Which of the two numbers this is decides the repair, so the refusal
         # names it. A message that said "lower the rung's room" about a cap the
         # contract declared would send an operator to edit a key that is not
         # set.
-        whose, fix = (
-            (
+        if not contract.max_output_tokens_declared:
+            # Sized from the target: the visible half alone fills the window,
+            # since the reasoning half was trimmed to the room left.
+            whose, fix = (
+                "the target needs a visible reply of",
+                "Decompose the target into smaller contracts",
+            )
+        elif rung.output_tokens is not None:
+            whose, fix = (
                 f"rung {rung.source!r} declares its replies need",
                 "Lower that rung's `output_tokens`",
             )
-            if rung.output_tokens is not None
-            else (
+        else:
+            whose, fix = (
                 "the contract declares a reply of",
                 "Lower the contract's `limits.max_output_tokens`",
             )
-        )
         return PreflightIssue(
             "output-cap",
             f"{whose} {cap} tokens, but rung {rung.source!r} serves a window "

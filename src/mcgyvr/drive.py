@@ -63,7 +63,7 @@ from mcgyvr.gate.output import ASR_WER, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.preflight import (
     ServingWindow,
     check_contract_against_rung,
-    reply_cap,
+    sized_reply_cap,
 )
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
@@ -75,7 +75,13 @@ from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, independent, verify
 from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
-from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, ReplyError, parse_reply
+from mcgyvr.worker.reply import (
+    MEDIA_ARTIFACT,
+    PROSE,
+    ReplyError,
+    empty_at_cap,
+    parse_reply,
+)
 from mcgyvr.worker.sources import read_sources
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -403,13 +409,18 @@ def dispatch_prompt(
     """
     endpoint = source_map.bind(rung)
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
-    cap = reply_cap(contract, endpoint)
+    # Sized with the prompt and the share the refusal above measured, so the
+    # cap sent is the cap that was checked.
+    cap = sized_reply_cap(
+        contract, endpoint, prompt=prompt.measured, default_fraction=window_fraction
+    )
     # ``timeout_s`` is the unit's ``request_timeout_s``, passed by the caller
     # that holds the config. ``None`` keeps ``Request``'s own default.
     fields: dict[str, Any] = {
         "prompt": prompt.user,
         "system": prompt.system,
-        "max_output_tokens": cap,
+        "max_output_tokens": cap.tokens,
+        "cap_basis": cap.basis,
         "response_schema": response_schema,
     }
     if timeout_s is not None:
@@ -852,12 +863,15 @@ def worker_attempt(
         # not, so fall back to the workspace's own copy. Its `sources` are read
         # off the same tree, in the same moment (`mcgyvr.worker.sources`): a
         # source that cannot be given raises here, before the first dispatch.
+        # The same contract is what is checked and dispatched below, because a
+        # contract that stated no cap is sized from this content (`reply_cap`).
+        sized = replace(
+            contract,
+            target_content=contract.target_content or original,
+            source_content=read_sources(sandbox.workspace, contract.sources),
+        )
         prompt = build_prompt(
-            replace(
-                contract,
-                target_content=contract.target_content or original,
-                source_content=read_sources(sandbox.workspace, contract.sources),
-            ),
+            sized,
             adapters=adapters,
             retry=notes.get(this.rung.name),
         )
@@ -871,7 +885,7 @@ def worker_attempt(
             this.rung.name,
             pool.bind(this.rung.name),
             prompt,
-            contract,
+            sized,
             window_fraction=window_share,
         )
         # Read once, before any draw goes out, because they are the attempt's
@@ -900,7 +914,7 @@ def worker_attempt(
                     pool,
                     this.rung.name,
                     prompt,
-                    contract,
+                    sized,
                     capacity=capacity,
                     timeout_s=(
                         config.units[this.rung.name].request_timeout_s
@@ -1011,6 +1025,13 @@ def worker_attempt(
                 # candidate and not a failure. The draws that did answer keep
                 # their verdicts.
                 return reply
+            empty = empty_at_cap(reply)
+            if empty is not None:
+                # Before the parser, which would call this a truncated file:
+                # nothing visible came back to be truncated (the e2e run of
+                # 2026-10-13), and the repair is a larger cap, not a smaller
+                # task.
+                return Unusable(f"the reply could not be read: {empty}")
             parsed = parse_reply(
                 reply.text,
                 output_schema=contract.output_schema,

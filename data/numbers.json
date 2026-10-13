@@ -164,6 +164,16 @@
       "says": "The reply room, in tokens, added to the cap of a contract that creates a file, which arrives with its declarations as well as its body.",
       "set_by": "contract limits.max_output_tokens"
     },
+    "contract.py:REASONING_ALLOWANCE": {
+      "kind": "choice",
+      "says": "The reply room, in tokens, added to the cap of a contract that states none for the hidden reasoning a reasoning model spends before it writes: the 16216 the e2e run of 2026-10-13 saw, with half again on top.",
+      "set_by": "contract limits.max_output_tokens"
+    },
+    "contract.py:REWRITE_FACTOR": {
+      "kind": "choice",
+      "says": "How many times the target's estimated tokens the cap of a contract that states none holds for the visible reply: the file once, the estimator's under-count and room to grow.",
+      "set_by": "contract limits.max_output_tokens"
+    },
     "contract.py:RUNNING_ALLOWANCE": {
       "kind": "choice",
       "says": "The reply cap, in tokens, of a contract that declares none and whose change a command must run afterwards.",

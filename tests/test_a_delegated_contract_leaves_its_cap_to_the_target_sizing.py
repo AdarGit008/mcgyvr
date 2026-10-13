@@ -1,15 +1,13 @@
-"""A delegated contract carries the reply cap its task type derives, so `run` takes it.
+"""A delegated contract pins no reply cap unless its proposal did.
 
-`mcgyvr run` refuses a whole-file model contract that declares no
-`limits.max_output_tokens` (exit 2): a reply cut at a cap nobody chose is spent
-silently. The decomposer emitted every such contract without one, so every
-prose (P) contract in the campaign validated and then was refused by `run`
-(the lab's 2026-10-04 jev-mcorch evidence, the orch-modes RUN rows). The cap is now
-written on the document from the one derivation the loader and `mcgyvr
-contract` already use — :func:`mcgyvr.contract.output_cap`, the type's own
-evidence — so nothing invents a number, and `run`'s refusal no longer fires. A
-proposal that states its own cap wins; a deterministic operation carries none,
-having no reply to cap; a raw-text type (prose) carries none either.
+The decomposer used to write the type-derived cap onto every whole-file
+contract, because `mcgyvr run` refused one that stated none. The refusal is
+gone: a contract that states no cap is sized at each attempt from the target
+it changes, with a reasoning allowance on top
+(:func:`mcgyvr.contract.auto_reply_cap`), and the type-derived figure is only
+that sizing's floor. A number written here would have been the 1024 a
+reasoning model spent before it wrote a line (the e2e run of 2026-10-13). A
+proposal that states its own cap still wins and is written.
 """
 
 from __future__ import annotations
@@ -19,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr import cli, contract
+from mcgyvr import contract
 from mcgyvr.config import parse
 from mcgyvr.delegate import proposals_from_reply
 from mcgyvr.mcorch import authoring, evidence
@@ -62,7 +60,7 @@ CODE_VARIANTS: dict[str, dict[str, object]] = {
 
 
 @pytest.mark.parametrize("variant", sorted(CODE_VARIANTS))
-def test_every_code_shape_is_emitted_with_the_cap_its_evidence_derives(
+def test_every_code_shape_is_emitted_with_its_cap_left_to_the_sizing(
     tmp_path: Path, variant: str
 ) -> None:
     result = decompose(
@@ -73,15 +71,14 @@ def test_every_code_shape_is_emitted_with_the_cap_its_evidence_derives(
     )
     assert result.refusals == (), result.refusals
     (built,) = result.contracts
-    assert built.max_output_tokens_declared is True
+    assert built.max_output_tokens_declared is False
+    # The loader's floor for the type, which the attempt sizes up from.
     assert built.limits.max_output_tokens == contract.output_cap(
         "code", evidence=built.evidence
     )
-    assert cli._cap_undeclared(built) is None
     (document,) = result.documents
-    assert json.loads(document)["limits"]["max_output_tokens"] == contract.output_cap(
-        "code", evidence=built.evidence
-    )
+    # Emitted as `null`, the form `dumps` writes for a cap nobody stated.
+    assert json.loads(document)["limits"]["max_output_tokens"] is None
 
 
 def test_a_proposal_stating_its_own_cap_wins(tmp_path: Path) -> None:
@@ -117,7 +114,7 @@ def test_the_prose_proposer_reads_a_stated_cap_from_the_reply() -> None:
     assert second.max_output_tokens is None
 
 
-def test_the_mcorch_digest_hands_the_rung_a_contract_run_accepts() -> None:
+def test_the_mcorch_digest_hands_the_rung_a_contract_sized_per_attempt() -> None:
     document = evidence.parse_document(
         json.dumps(
             {
@@ -158,5 +155,5 @@ def test_the_mcorch_digest_hands_the_rung_a_contract_run_accepts() -> None:
     digest = chosen.propose(document, max_output_tokens=400)
     assert digest.startswith("ready: contract ")
     written = contract.loads(digest.split("\n", 1)[1])
-    assert written.max_output_tokens_declared is True
-    assert cli._cap_undeclared(written) is None
+    assert written.max_output_tokens_declared is False
+    assert written.limits.max_output_tokens is not None

@@ -31,6 +31,7 @@ from mcgyvr.gate.jev import JevCheck, JevReport
 from mcgyvr.gate.preflight import (
     ESTIMATE_RESERVE,
     PreflightIssue,
+    ReplyCap,
     ServingWindow,
     TokenCount,
     check_clean_tree,
@@ -39,6 +40,7 @@ from mcgyvr.gate.preflight import (
     check_prompt_fits,
     check_window_fraction,
     reply_cap,
+    sized_reply_cap,
 )
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
@@ -61,6 +63,7 @@ __all__ = [
     "LanguageAdapter",
     "PreflightIssue",
     "PythonAdapter",
+    "ReplyCap",
     "SemanticCheck",
     "SemanticReport",
     "ServingWindow",
@@ -73,4 +76,5 @@ __all__ = [
     "check_prompt_fits",
     "check_window_fraction",
     "reply_cap",
+    "sized_reply_cap",
 ]
