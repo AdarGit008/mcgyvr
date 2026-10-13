@@ -18,8 +18,8 @@ from pathlib import Path
 
 from mcgyvr.orchestrator.decompose import RecordedProposer, decompose
 from mcgyvr.orchestrator.index import Index, build_index
+from tests.decomposes import an_annotation, declaring_mypy
 from tests.livejournal import git
-from tests.test_orchestrator_decompose import an_annotation, declaring_mypy
 
 
 def _repo(tmp_path: Path) -> Index:

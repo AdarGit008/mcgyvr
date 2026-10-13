@@ -20,21 +20,20 @@ from __future__ import annotations
 
 import copy
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from tests import rig_schema
-from tests.test_a_sync_reports_the_riders_ladder_and_nothing_else import (
-    hub,
-    sent,
-    setup,
-)
-from tests.test_rig_rungs_sync_writes_only_the_relief_rungs import (
+from tests.rigsyncs import (
     FIRST,
     SECOND,
     Hub,
+    a_reporting_hub,
+    a_reporting_setup,
     cli,
+    sent,
 )
 
 __all__ = ["hub", "setup"]  # the fixtures the tests here take
@@ -50,6 +49,17 @@ def _ref(rider: dict[str, Any], method: str, part: str) -> str:
 
     ref: str = rider["x-paths"][rungs.RUNGS_PATH][method][part]["$ref"]
     return ref
+
+
+@pytest.fixture
+def hub(setup: Path) -> Any:
+    with a_reporting_hub(setup) as made:
+        yield made
+
+
+@pytest.fixture
+def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return a_reporting_setup(tmp_path, monkeypatch)
 
 
 def test_the_path_a_sync_asks_is_the_one_the_hub_publishes(

@@ -38,7 +38,7 @@ from tests.hub_borders import (
     SRC,
     core_files,
 )
-from tests.test_the_seam_holds import (
+from tests.wheels import (
     THE_COMMAND_LINE_ENTRYPOINT,
     _dotted_name,
     _imports_in,

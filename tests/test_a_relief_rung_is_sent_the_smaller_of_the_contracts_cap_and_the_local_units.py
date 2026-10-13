@@ -34,15 +34,8 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.local_pool import SourceMap, source_map
-from tests.test_a_relief_rung_that_cannot_take_the_request_now_is_full import (
-    RIDE,
-    RUNG_ID,
-)
-from tests.test_a_rung_declares_the_room_its_replies_need import (
-    CONTRACT,
-    PROSE_CONTRACT,
-    caps_sent,
-)
+from tests.rungs import PROSE_CONTRACT, RIDE, RUNG_ID, caps_sent
+from tests.rungs import ROOM_CONTRACT as CONTRACT
 
 LOCAL = "local_fast"
 

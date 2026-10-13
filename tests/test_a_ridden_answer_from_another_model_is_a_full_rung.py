@@ -20,73 +20,27 @@ Every server here is a loopback one this test starts.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
-from mcgyvr.capacity import Capacity, SlotUnavailableError
-from mcgyvr.config import parse
-from mcgyvr.local_pool import source_map
-from mcgyvr.runner import Completion, Request, dispatch
-from tests.test_a_relief_rung_that_cannot_take_the_request_now_is_full import (
+from mcgyvr.capacity import SlotUnavailableError
+from mcgyvr.runner import Completion
+from tests.rungs import (  # noqa: F401 - fixtures
+    PROMPT,
     RIDE,
     RUNG_ID,
+    SERVED,
     answering,
+    completion,
+    ride,
+    set_hub_key,
 )
-
-SERVED = "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
-PROMPT = "the rider's private prompt"
-
-
-def completion(model: str | None) -> bytes:
-    body: dict[str, Any] = {
-        "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 3, "completion_tokens": 1},
-    }
-    if model is not None:
-        body["model"] = model
-    return json.dumps(body).encode()
 
 
 @pytest.fixture(autouse=True)
 def key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HUB_KEY", "mhu_" + "1" * 16)
-
-
-def ride(answer: bytes, tmp_path: Path) -> Any:
-    seen: list[dict[str, Any]] = []
-    with answering(200, answer, seen) as address:
-        config = parse(
-            f"""
-units:
-  local_fast:
-    address: {address}
-    model: qwen2.5-coder-3b
-    width: 1
-ladder: [local_fast]
-fanout: idle
-relief:
-  {RIDE}:
-    address: {address}
-    model: hitchhike@{RUNG_ID}
-    api_key_env: HUB_KEY
-    width: 1
-    position: within
-    served_model: {SERVED}
-"""
-        )
-        capacity = Capacity.of(config, root=tmp_path / "slots")
-        try:
-            return dispatch(
-                source_map(config),
-                RIDE,
-                Request(prompt=PROMPT, max_output_tokens=8),
-                capacity=capacity,
-            )
-        except Exception as exc:
-            return exc
+    set_hub_key(monkeypatch)
 
 
 def test_an_answer_naming_the_served_model_is_the_completion(tmp_path: Path) -> None:

@@ -29,12 +29,7 @@ import pytest
 
 from tests import onedoor
 from tests._paths import REPO
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
-    EVIDENCE,
-    FLEET,
-    POLICY,
-    TOLERANCES,
-)
+from tests.fleetlocks import EVIDENCE, FLEET, POLICY, TOLERANCES
 
 SNAPSHOT_SH = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "rig-snapshot.sh"
 

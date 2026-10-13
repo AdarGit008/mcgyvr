@@ -28,20 +28,14 @@ the unit's own ``timings``. What is held here:
 
 from __future__ import annotations
 
-import json
-import select
-import socket
 import threading
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass, field
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import pytest
 
 from mcgyvr import runner as runner_module
-from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import (
     BackendError,
     Hangup,
@@ -54,210 +48,8 @@ from mcgyvr.runner import (
     runner_for,
 )
 from mcgyvr.whole import MAX_EVENT_BYTES
-
-MODEL = "a-model.gguf"
-USAGE = {"completion_tokens": 7, "prompt_tokens": 23, "total_tokens": 30}
-TIMINGS = {
-    "prompt_n": 23,
-    "prompt_per_second": 390.625,
-    "predicted_n": 7,
-    "predicted_per_second": 56.726,
-    "draft_n": 4,
-    "draft_n_accepted": 3,
-}
-
-
-def _dump(value: Any) -> bytes:
-    return json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode()
-
-
-def _gone(sock: socket.socket) -> bool:
-    readable, _, _ = select.select([sock], [], [], 0)
-    if not readable:
-        return False
-    try:
-        return sock.recv(1, socket.MSG_PEEK) == b""
-    except OSError:
-        return True
-
-
-@dataclass
-class Unit:
-    """A model server on loopback as llama.cpp's behaves: an answer not
-    streamed is decoded to its end and written once, whoever is listening;
-    a stream is written as it comes and stops at a hang-up."""
-
-    pieces: list[str] = field(default_factory=lambda: ["Hello", ",", " world"])
-    finish_reason: str = "stop"
-    usage: dict[str, int] | None = field(default_factory=lambda: dict(USAGE))
-    timings: dict[str, Any] | None = field(default_factory=lambda: dict(TIMINGS))
-    pace_s: float = 0.0
-    error: dict[str, Any] | None = None  # written mid-stream, after the pieces
-    cut_after: int | None = None  # the unit dies after this many pieces
-    status: int = 200
-    refused: bytes | None = None  # a body in place of an answer
-    whole_json: bool = False  # answers a stream asked with a whole JSON body
-    logprobs: list[dict[str, Any]] | None = None  # one entry per piece
-    seen: list[dict[str, Any]] = field(default_factory=list)
-    events: list[str] = field(default_factory=list)
-    lock: threading.Lock = field(default_factory=threading.Lock)
-    server: ThreadingHTTPServer | None = None
-
-    def note(self, event: str) -> None:
-        with self.lock:
-            self.events.append(event)
-
-    def seen_event(self, event: str, timeout: float = 5.0, count: int = 1) -> bool:
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            with self.lock:
-                if self.events.count(event) >= count:
-                    return True
-            time.sleep(0.005)
-        return False
-
-    def decoded(self) -> int:
-        with self.lock:
-            return self.events.count("decoded")
-
-    @property
-    def endpoint(self) -> Endpoint:
-        assert self.server is not None
-        return Endpoint(
-            source="unit",
-            base_url=f"http://127.0.0.1:{self.server.server_address[1]}",
-            protocol=Protocol.OPENAI,
-            max_parallel=1,
-            credential_env=None,
-        )
-
-    def whole(self) -> dict[str, Any]:
-        """The answer a request not streamed gets."""
-        choice: dict[str, Any] = {
-            "finish_reason": self.finish_reason,
-            "index": 0,
-            "message": {"role": "assistant", "content": "".join(self.pieces)},
-        }
-        if self.logprobs:
-            choice["logprobs"] = {"content": self.logprobs}
-        answer: dict[str, Any] = {
-            "choices": [choice],
-            "created": 1_770_000_000,
-            "model": MODEL,
-            "object": "chat.completion",
-            "id": "chatcmpl-abc",
-        }
-        if self.usage is not None:
-            answer["usage"] = self.usage
-        if self.timings is not None:
-            answer["timings"] = self.timings
-        return answer
-
-    def stream(self) -> list[bytes]:
-        def chunk(choices: list[dict[str, Any]], **more: Any) -> bytes:
-            event = {
-                "choices": choices,
-                "created": 1_770_000_000,
-                "id": "chatcmpl-abc",
-                "model": MODEL,
-                "object": "chat.completion.chunk",
-                **more,
-            }
-            return b"data: " + _dump(event) + b"\n\n"
-
-        events = [
-            chunk([{"index": 0, "delta": {"role": "assistant", "content": None}}])
-        ]
-        for n, piece in enumerate(self.pieces):
-            choice: dict[str, Any] = {"index": 0, "delta": {"content": piece}}
-            if self.logprobs and n < len(self.logprobs):
-                choice["logprobs"] = {"content": [self.logprobs[n]]}
-            events.append(chunk([choice]))
-        events.append(
-            chunk([{"index": 0, "delta": {}, "finish_reason": self.finish_reason}])
-        )
-        if self.usage is not None:
-            events.append(chunk([], usage=self.usage))
-        if self.timings is not None:
-            last = json.loads(events[-1][6:])
-            last["timings"] = self.timings
-            events[-1] = b"data: " + _dump(last) + b"\n\n"
-        return events
-
-
-def _serve(unit: Unit) -> ThreadingHTTPServer:
-    class Handler(BaseHTTPRequestHandler):
-        protocol_version = "HTTP/1.1"
-
-        def log_message(self, format: str, *args: Any) -> None:
-            pass
-
-        def _json(self, status: int, body: bytes) -> None:
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def do_POST(self) -> None:
-            body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-            asked = json.loads(body)
-            unit.seen.append(
-                {
-                    "path": self.path,
-                    "body": asked,
-                    "headers": {k.lower(): v for k, v in self.headers.items()},
-                }
-            )
-            if unit.refused is not None:
-                self._json(unit.status, unit.refused)
-                return
-            try:
-                if not asked.get("stream") or unit.whole_json:
-                    for _ in unit.pieces:
-                        time.sleep(unit.pace_s)
-                        unit.note("decoded")
-                    self._json(unit.status, _dump(unit.whole()))
-                    unit.note("answered")
-                    return
-                self.send_response(unit.status)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Transfer-Encoding", "chunked")
-                self.end_headers()
-                events = unit.stream()
-                if asked.get("stream_options", {}).get("include_usage") is not True:
-                    events = [e for e in events if b'"usage"' not in e]
-                if unit.error is not None:
-                    events = [
-                        *events[: 1 + len(unit.pieces)],
-                        b"error: " + _dump(unit.error) + b"\n\n",
-                    ]
-                for n, event in enumerate(events):
-                    if _gone(self.connection):
-                        raise OSError
-                    if 0 < n <= len(unit.pieces):
-                        time.sleep(unit.pace_s)
-                        unit.note("decoded")
-                    if unit.cut_after is not None and n > unit.cut_after:
-                        self.connection.shutdown(socket.SHUT_RDWR)
-                        unit.note("died")
-                        return
-                    self.wfile.write(f"{len(event):x}\r\n".encode() + event + b"\r\n")
-                    self.wfile.flush()
-                done = b"data: [DONE]\n\n"
-                self.wfile.write(f"{len(done):x}\r\n".encode() + done + b"\r\n")
-                self.wfile.write(b"0\r\n\r\n")
-                self.wfile.flush()
-                unit.note("answered")
-            except OSError:
-                unit.note("hung up")
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.daemon_threads = True
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server
+from tests.relays import MODEL, Unit
+from tests.relays import _runner_serve as _serve
 
 
 @pytest.fixture

@@ -29,89 +29,17 @@ import json
 import threading
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass, field
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
 
 from tests import rig_pool_fakes as fakes
-
-PROMPT = "the secret prompt words"
-
-
-@dataclass
-class Head:
-    """A model server's API on this machine's loopback, scripted."""
-
-    chunks: list[bytes] = field(default_factory=lambda: [b'{"ok": true}'])
-    pause_s: float = 0.0
-    status: int = 200
-    content_type: str = "application/json; charset=utf-8"
-    seen: list[tuple[str, str, bytes, dict[str, str]]] = field(default_factory=list)
-    hung_up: threading.Event = field(default_factory=threading.Event)
-    server: ThreadingHTTPServer | None = None
-
-    @property
-    def port(self) -> int:
-        assert self.server is not None
-        return int(self.server.server_address[1])
-
-
-def _serve(head: Head) -> ThreadingHTTPServer:
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, format: str, *args: Any) -> None:
-            pass
-
-        def do_POST(self) -> None:
-            length = int(self.headers.get("Content-Length", "0"))
-            body = self.rfile.read(length)
-            head.seen.append(
-                (
-                    self.command,
-                    self.path,
-                    body,
-                    {k.lower(): v for k, v in self.headers.items()},
-                )
-            )
-            self.send_response(head.status)
-            self.send_header("Content-Type", head.content_type)
-            self.send_header("Transfer-Encoding", "chunked")
-            self.end_headers()
-            try:
-                for chunk in head.chunks:
-                    self.wfile.write(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
-                    self.wfile.flush()
-                    time.sleep(head.pause_s)
-                self.wfile.write(b"0\r\n\r\n")
-                self.wfile.flush()
-            except OSError:
-                head.hung_up.set()
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.daemon_threads = True
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server
-
-
-class Heads:
-    def __init__(
-        self, port: int | None, state: str = "ready", role: str = "head"
-    ) -> None:
-        self.port = port
-        self.state = state
-        self.role = role
-
-    def head_port(self, session_id: str) -> int | None:
-        if session_id == "s1" and self.state == "ready" and self.role == "head":
-            return self.port
-        return None
-
-    def head_slots(self, session_id: str) -> int:
-        return 1
-
-    def state_of(self, session_id: str) -> tuple[str, str | None]:
-        return (self.state, self.role) if session_id == "s1" else ("absent", None)
+from tests.relays import PROMPT
+from tests.relays import RelayHead as Head
+from tests.relays import RelayHeads as Heads
+from tests.relays import _relay_body as _body
+from tests.relays import _relay_serve as _serve
 
 
 @dataclass
@@ -201,10 +129,6 @@ def made() -> Iterator[Relay]:
     built.relays.cancel_all()
     assert built.head.server is not None
     built.head.server.shutdown()
-
-
-def _body() -> bytes:
-    return json.dumps({"messages": [{"role": "user", "content": PROMPT}]}).encode()
 
 
 def test_a_request_goes_whole_to_the_one_path_on_loopback_and_comes_back_whole(

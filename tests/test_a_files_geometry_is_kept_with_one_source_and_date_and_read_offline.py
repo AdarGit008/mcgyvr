@@ -41,15 +41,7 @@ from mcgyvr.knowledge import geometry as kg
 from mcgyvr.knowledge import online
 from mcgyvr.knowledge import store as ks
 from mcgyvr.knowledge.record import KnowledgeError
-from tests.test_a_model_is_sized_from_its_header_before_it_is_downloaded import (
-    BASE,
-    DAY,
-    FILE,
-    REPO,
-    SHA,
-    hub,
-    invented_header,
-)
+from tests.sizings import BASE, DAY, FILE, REPO, SHA, hub, invented_header
 
 #: An invented file, at an invented revision.
 INVENTED = ("example-org/Invented-GGUF", "1" * 40, "invented-Q4_K_M.gguf")

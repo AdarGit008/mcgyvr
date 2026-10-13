@@ -35,8 +35,7 @@ from typing import Any
 
 import pytest
 
-from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import rig_text
-from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
+from tests.reads import (
     HARNESS_PY,
     RUN_ID,
     UNIT_3B,
@@ -44,6 +43,7 @@ from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
     go_live,
     metrics,
     rig_row,
+    rig_text,
     unit_rows,
 )
 

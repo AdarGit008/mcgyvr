@@ -27,11 +27,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_a_ride_reaches_only_the_shared_units_own_address_and_the_host_goes_first import (  # noqa: E501
-    Host,
-    _body,
-    _host,
-)
+from tests.relays import Host, _host
+from tests.relays import _ride_body as _body
 
 
 @pytest.fixture

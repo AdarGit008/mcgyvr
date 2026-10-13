@@ -33,13 +33,8 @@ from mcgyvr.emit import (
     sleep_mode,
 )
 from mcgyvr.serving import Unit, unit_for
-from tests.test_the_live_ladder_serves_vllm_and_carries_extra_flags import (
-    DENSE,
-    SEVEN_B_SPEC,
-    WINDOW,
-    rig,
-    service_of,
-)
+from tests.doors import DENSE, SEVEN_B_SPEC, rig, service_of
+from tests.sizings import WINDOW
 
 HOST = "gpu-box.example"
 SLEEP_FLAG = "--enable-sleep-mode"

@@ -21,15 +21,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from tests.test_an_alert_pulls_its_combination_until_it_is_revalidated import (
-    APPROVED,
-    STAMP,
-    UNIT,
-    _alerts,
-    check,
-    rows,
-    seen,
-)
+from tests.reads import APPROVED, STAMP, UNIT, _alerts, check, seen
+from tests.reads import alert_rows as rows
 
 
 def test_prefill_alerts_only_below_its_approved_value_less_tolerance(

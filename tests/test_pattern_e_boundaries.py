@@ -391,7 +391,7 @@ def test_the_seam_guard_catches_every_spelling_it_used_to_miss(
     because a guard is only shown to hold by giving it something that should
     fail.
     """
-    from tests.test_pool import seam_offenders
+    from tests.wheels import seam_offenders
 
     (tmp_path / "by_module_import.py").write_text(
         "import mcgyvr.local_pool\n\nE = mcgyvr.local_pool.Endpoint\n", encoding="utf-8"
@@ -419,7 +419,7 @@ def test_the_seam_guard_still_passes_an_innocent_module(tmp_path: Path) -> None:
     ``SourceMap`` and ``Rung`` are the seam's public face and are meant to be
     imported above it; ``role_model`` is the accessor that replaces ``role``.
     """
-    from tests.test_pool import seam_offenders
+    from tests.wheels import seam_offenders
 
     (tmp_path / "innocent.py").write_text(
         "from mcgyvr.local_pool import SourceMap\n\n"

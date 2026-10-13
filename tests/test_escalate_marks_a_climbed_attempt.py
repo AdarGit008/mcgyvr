@@ -33,11 +33,11 @@ import pytest
 
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import Config, parse
-from mcgyvr.contract import Contract
-from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Halted, Judgement, escalate
 from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import Try, Verdict
+from tests.drives import CLIMBED_LADDER as LADDER
+from tests.relieftakes import contract
 
 FAST = "local_fast"
 SMART = "local_smart"
@@ -58,38 +58,6 @@ limits:
   attempts: 5
 """
 
-LADDER = """
-units:
-  local_fast:
-    address: http://fast-box.example:8000
-    model: qwen2.5-coder-3b
-    rig: fast-rig
-    width: 1
-  local_smart:
-    address: http://smart-box.example:8001
-    model: qwen2.5-coder-7b
-    rig: smart-rig
-    width: 1
-  api_big:
-    address: https://api.example.com/v1
-    model: vendor-large
-    rig: vendor
-    width: 1
-    api_key_env: EXAMPLE_API_KEY
-  api_bigger:
-    address: https://big.example.com/v1
-    model: vendor-largest
-    rig: vendor-big
-    width: 4
-    api_key_env: EXAMPLE_API_KEY
-ladder:
-- local_fast
-- local_smart
-- api_big
-- api_bigger
-max_escalations: 3
-{fanout}"""
-
 
 @pytest.fixture(autouse=True)
 def key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -99,10 +67,6 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
 def mapped(fanout: str = "") -> tuple[Config, SourceMap]:
     config = parse(LADDER.format(fanout=f"fanout: {fanout}\n" if fanout else ""))
     return config, source_map(config)
-
-
-def contract() -> Contract:
-    return load_contract(CONTRACT)
 
 
 class Script:

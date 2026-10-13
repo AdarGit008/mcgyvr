@@ -35,7 +35,7 @@ from typing import Any
 
 import pytest
 
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
+from tests.fleetlocks import (
     EVIDENCE,
     FLEET,
     RIG2,

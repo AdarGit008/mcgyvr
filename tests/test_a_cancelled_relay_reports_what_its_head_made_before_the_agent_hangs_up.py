@@ -23,233 +23,25 @@ ride's cancel reads its unit the same way
 
 from __future__ import annotations
 
-import base64
 import json
-import select
-import socket
-import threading
-import time
 from collections.abc import Iterator
-from dataclasses import dataclass, field
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import pytest
 
 from tests import rig_pool_fakes as fakes
-
-IDLE = {"id": 1, "n_ctx": 4096, "speculative": False, "is_processing": False}
-
-
-def busy(slot_id: int = 0, *, n_in: Any = 40, n_out: Any = 7) -> dict[str, Any]:
-    """A slot at work, as llama.cpp's ``/slots`` shows it."""
-    return {
-        "id": slot_id,
-        "n_ctx": 4096,
-        "speculative": False,
-        "is_processing": True,
-        "id_task": 12,
-        "n_prompt_tokens": n_in,
-        "n_prompt_tokens_processed": n_in,
-        "n_prompt_tokens_cache": 0,
-        "params": {"n_predict": 512, "stream": True},
-        "next_token": [
-            {
-                "has_next_token": True,
-                "has_new_line": False,
-                "n_remain": 505,
-                "n_decoded": n_out,
-            }
-        ],
-    }
-
-
-@dataclass
-class Head:
-    """A model server on loopback: an answer that takes its time, and the
-    status page it shows meanwhile."""
-
-    page: bytes = json.dumps([busy(), IDLE]).encode()
-    page_status: int = 200
-    # A held page is answered only once ``page_free`` is set: as slow as a
-    # test needs, by what the test does, not by how long a clock runs.
-    page_held: bool = False
-    page_free: threading.Event = field(default_factory=threading.Event)
-    answers_first: bool = True  # its headers go out before it generates
-    chunks: int = 400
-    events: list[str] = field(default_factory=list)  # in the order they happen
-    lock: threading.Lock = field(default_factory=threading.Lock)
-    asked: threading.Semaphore = field(default_factory=lambda: threading.Semaphore(0))
-    streaming: threading.Event = field(default_factory=threading.Event)  # 1st piece
-    server: ThreadingHTTPServer | None = None
-
-    def note(self, event: str) -> None:
-        with self.lock:
-            self.events.append(event)
-
-    def seen(self, event: str, timeout: float = 5.0) -> bool:
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            with self.lock:
-                if event in self.events:
-                    return True
-            time.sleep(0.005)
-        return False
-
-    @property
-    def port(self) -> int:
-        assert self.server is not None
-        return int(self.server.server_address[1])
-
-
-def _gone(sock: socket.socket) -> bool:
-    """Whether the other end hung up on ``sock``."""
-    readable, _, _ = select.select([sock], [], [], 0)
-    if not readable:
-        return False
-    try:
-        return sock.recv(1, socket.MSG_PEEK) == b""
-    except OSError:
-        return True
-
-
-def _serve(head: Head) -> ThreadingHTTPServer:
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, format: str, *args: Any) -> None:
-            pass
-
-        def do_GET(self) -> None:
-            head.note(f"GET {self.path}")
-            if head.page_held:
-                head.page_free.wait()
-            self.send_response(head.page_status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(head.page)))
-            self.end_headers()
-            self.wfile.write(head.page)
-
-        def do_POST(self) -> None:
-            self.rfile.read(int(self.headers.get("Content-Length", "0")))
-            head.asked.release()
-            try:
-                if not head.answers_first:  # generating: nothing said yet
-                    for _ in range(head.chunks):
-                        if _gone(self.connection):
-                            raise OSError
-                        time.sleep(0.01)
-                self.send_response(200)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Transfer-Encoding", "chunked")
-                self.end_headers()
-                for _ in range(head.chunks if head.answers_first else 1):
-                    chunk = b"data: x\n\n"
-                    self.wfile.write(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
-                    self.wfile.flush()
-                    head.streaming.set()
-                    time.sleep(0.01)
-                self.wfile.write(b"0\r\n\r\n")
-                self.wfile.flush()
-                head.note("answered")
-            except OSError:
-                head.note("hung up")
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.daemon_threads = True
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server
-
-
-class Heads:
-    """One ready head, of ``slots`` slots."""
-
-    def __init__(self, port: int, slots: int = 1) -> None:
-        self.port = port
-        self.slots = slots
-
-    def head_port(self, session_id: str) -> int | None:
-        return self.port if session_id == "s1" else None
-
-    def head_slots(self, session_id: str) -> int:
-        return self.slots
-
-    def state_of(self, session_id: str) -> tuple[str, str | None]:
-        return ("ready", "head") if session_id == "s1" else ("absent", None)
-
-
-@dataclass
-class Rig:
-    head: Head
-    box: fakes.Box
-    relays: Any
-    dispatcher: Any
-
-    def send(self, kind: str, message_id: str, **body: Any) -> None:
-        answer = self.dispatcher.dispatch(
-            fakes.frame(kind, message_id, **body), fakes.Stub()
-        )
-        assert answer is None, answer
-
-    def ask(self, request_id: str = "q1", *, stream: bool = True) -> None:
-        body = b'{"messages": []}'
-        self.send(
-            "relay_request",
-            f"r-{request_id}",
-            session_id="s1",
-            request_id=request_id,
-            endpoint="chat_completions",
-            body_bytes=len(body),
-            stream=stream,
-            timeout_s=20,
-            max_response_bytes=1 << 20,
-            window=64,
-        )
-        self.send(
-            "relay_data",
-            f"d-{request_id}",
-            request_id=request_id,
-            seq=0,
-            data_b64=base64.b64encode(body).decode(),
-        )
-        assert self.head.asked.acquire(timeout=5.0)  # the head has the request
-
-    def cancel(self, request_id: str = "q1") -> None:
-        self.send("relay_cancel", f"c-{request_id}", request_id=request_id)
-
-    def ended(self, request_id: str = "q1", timeout: float = 5.0) -> dict[str, Any]:
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            for end in self.box.of_type("relay_end"):
-                if end["body"]["request_id"] == request_id:
-                    body: dict[str, Any] = end["body"]
-                    return body
-            time.sleep(0.005)
-        raise AssertionError("no relay_end")
-
-    def answering(self, request_id: str = "q1", timeout: float = 5.0) -> None:
-        deadline = time.monotonic() + timeout
-        while not self.box.of_type("relay_data"):
-            assert time.monotonic() < deadline, "the answer never started"
-            time.sleep(0.005)
-
-    def at_work(self, request_id: str = "q1", timeout: float = 5.0) -> None:
-        """Wait until the agent counts the head at work on ``request_id``.
-
-        The head has the request (:meth:`ask`) a moment before the agent's
-        relay thread, back from sending it, says so; a cancel in between is
-        read for nothing, rightly, and on a loaded machine that moment is
-        long. A stream's first frame (:meth:`answering`) comes after it; an
-        answer not streamed sends the hub nothing to wait for, so this waits
-        on the relay itself."""
-        deadline = time.monotonic() + timeout
-        while True:
-            with self.relays._lock:
-                relay = self.relays._active.get(request_id)
-            if relay is not None:
-                with relay.changed:
-                    if relay.working:
-                        return
-            assert time.monotonic() < deadline, "the head never went to work"
-            time.sleep(0.005)
+from tests.relays import (
+    CANCELLED,
+    ENDLESS,
+    IDLE,
+    MADE,
+    PAGES,
+    Head,
+    Heads,
+    Rig,
+    _serve,
+    busy,
+)
 
 
 def _rig(head: Head, slots: int = 1) -> Rig:
@@ -271,10 +63,6 @@ def rig() -> Iterator[Rig]:
     built.relays.cancel_all()
     assert built.head.server is not None
     built.head.server.shutdown()
-
-
-CANCELLED = {"request_id": "q1", "outcome": "cancelled", "error_code": "cancelled"}
-MADE = CANCELLED | {"tokens_in": 40, "tokens_out": 7}
 
 
 def test_a_stream_cancelled_mid_answer_says_what_its_slot_made(rig: Rig) -> None:
@@ -300,31 +88,6 @@ def test_an_answer_not_streamed_cancelled_while_the_head_works_says_it_too(
     assert not rig.box.of_type("relay_response")
 
 
-PAGES = {
-    "no such page": (404, b'{"error": {"code": 404, "message": "File Not Found"}}'),
-    "the page is turned off": (
-        501,
-        b'{"error": {"code": 501, "message": "This server does not support slots '
-        b'endpoint.", "type": "not_supported_error"}}',
-    ),
-    "an error object": (200, b'{"error": {"code": 501}}'),
-    "not json": (200, b"vllm:num_requests_running 1.0\n"),
-    "no slots": (200, b"[]"),
-    "no slot at work": (200, json.dumps([IDLE]).encode()),
-    "two slots at work": (200, json.dumps([busy(0), busy(1, n_out=9)]).encode()),
-    "a slot that does not say whether it works": (
-        200,
-        json.dumps([busy(), {"id": 1}]).encode(),
-    ),
-    "no count of the prompt": (200, json.dumps([busy(n_in=None)]).encode()),
-    "a prompt not counted yet": (200, json.dumps([busy(n_in=0)]).encode()),
-    "no count of the answer": (200, json.dumps([busy(n_out=None)]).encode()),
-    "a count that is no number": (200, json.dumps([busy(n_out=True)]).encode()),
-    "a count below zero": (200, json.dumps([busy(n_out=-1)]).encode()),
-    "a count past the protocol's": (200, json.dumps([busy(n_in=1 << 40)]).encode()),
-}
-
-
 @pytest.mark.parametrize("why", PAGES)
 def test_a_page_that_does_not_say_for_certain_leaves_the_end_as_it_was(
     rig: Rig, why: str
@@ -335,11 +98,6 @@ def test_a_page_that_does_not_say_for_certain_leaves_the_end_as_it_was(
     rig.cancel()
     assert rig.ended() == CANCELLED
     assert rig.head.seen("hung up")
-
-
-#: An answer that is still streaming whenever a test ends it: the head
-#: writes it until it is hung up on.
-ENDLESS = 1 << 20
 
 
 def test_a_slow_page_is_not_waited_for(

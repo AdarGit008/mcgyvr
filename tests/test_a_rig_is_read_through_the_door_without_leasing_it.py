@@ -35,201 +35,33 @@ import subprocess
 import sys
 import threading
 from collections.abc import Iterator
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, ClassVar
 
 import pytest
-import yaml
 
 from mcgyvr.serving import run
 from tests import onedoor
-from tests._paths import REPO
-
-GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
-HARNESS_PY = REPO / "src" / "mcgyvr" / "fleet" / "harness.py"
-
-#: srv2 as it is locked, and what its snapshot must print to reproduce it
-#: (``fleet-setup/digests-srv2.json``).
-LOCKED_SRV2 = "rig-cbe770b55841d616363165e38553a1c7c3768250df01ead1a255f0cbdef98455"
-SRV2_SYSTEM = {"os_machine_id": "6d5d8f1f2bfa5f96", "kernel": "7.0.0-31-generic"}
-
-UNIT_3B = "unt-" + "5" * 64
-UNIT_7B = "unt-" + "7" * 64
-C_3B = "3b" * 32
-C_7B = "7b" * 32
-C_STRAY = "5a" * 32
-C_OTHER = "0e" * 32
-RUN_ID = "run-20260915T120000-0a1b2c3d"
-FLEET_NAME = "b-small"
-
-
-def _vllm(port: int, container: str, room: int, kv: int) -> dict[str, Any]:
-    return {
-        "rig": "srv2",
-        "engine": "vllm",
-        "address": f"http://srv2:{port}",
-        "model": f"Qwen/unit-{port}",
-        "container": container,
-        "width": 8,
-        "window": 4096,
-        "output_tokens": 2048,
-        "request_timeout_s": 180,
-        "room_mib": room,
-        "kv_cache_memory_bytes": kv,
-        "attention_backend": "FLASH_ATTN",
-    }
-
-
-FLEET: dict[str, Any] = {
-    "profile": "live",
-    "units": {
-        "srv2_3b": {
-            **_vllm(8001, "mcgyvr-srv2-3b", 3573, 1207959552),
-            "unit_id": UNIT_3B,
-        },
-        "srv2_7b": {
-            **_vllm(8002, "mcgyvr-srv2-7b", 8099, 1879048192),
-            "unit_id": UNIT_7B,
-        },
-    },
-    "rigs": {"srv2": {"rig_id": LOCKED_SRV2}},
-    "fleets": {
-        FLEET_NAME: {
-            "layout": {"srv2": [["srv2_3b", "awake"], ["srv2_7b", "awake"]]},
-            "next": [],
-        }
-    },
-}
-EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv2": {"card_mib": 12288}},
-    "combinations": [
-        {
-            "rig": "srv2",
-            "slots": [["srv2_3b", "awake"], ["srv2_7b", "awake"]],
-            "passed": True,
-            "overhead_mib": 610.5,
-            "restarts": {"srv2_3b": 0, "srv2_7b": 0},
-            "warm_decode_tok_s": {"srv2_3b": 126.7, "srv2_7b": 68.3},
-            "prefill_tok_s": {"srv2_3b": 11500.0, "srv2_7b": 12059.0},
-            "attention_backend": {"srv2_3b": "FLASH_ATTN", "srv2_7b": "FLASH_ATTN"},
-            "validated_at": "2026-09-13T21:44:00Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/srv2",
-        }
-    ],
-    "moves": [],
-}
-TOLERANCES = {
-    "warm_decode_class_pct": {"vllm": 1.0, "llamacpp": 1.0, "cpu_experts": 48.0}
-}
-
-
-def go_live(tmp_path: Path) -> Path:
-    """Promote the fleet into this test's HOME, name it live, return its journal."""
-    from mcgyvr.fleet import lock
-
-    home = Path(os.environ["HOME"])
-    folder = home / ".mcgyvr" / "fleets" / FLEET_NAME
-    folder.mkdir(parents=True)
-    (folder / "fleet.yaml").write_text(yaml.safe_dump(FLEET), encoding="utf-8")
-    journal = tmp_path / "journal"
-    policy = {"ladder": ["srv2_3b", "srv2_7b"], "journal": {"dir": str(journal)}}
-    (folder / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
-    lock.write(folder, FLEET, EVIDENCE, tolerances=TOLERANCES)
-    (home / ".mcgyvr" / "live.json").write_text(
-        json.dumps({"fleet": FLEET_NAME}), encoding="utf-8"
-    )
-    return journal / "fleet"
-
-
-def metrics(running: int) -> str:
-    return (
-        f'vllm:num_requests_running{{model_name="m"}} {running}.0\n'
-        'vllm:num_requests_waiting{model_name="m"} 0.0\n'
-    )
-
-
-def page(text: str) -> str:
-    return base64.b64encode(text.encode("utf-8")).decode("ascii")
-
-
-def reading(
-    root: Path,
-    *,
-    snapshot: dict[str, str] | None = None,
-    containers: tuple[str, ...] | None = None,
-    gpu: tuple[str, ...] | None = None,
-    sleeping: tuple[str, ...] = ("8001,false", "8002,none"),
-    status: tuple[str, ...] = (),
-) -> None:
-    """What the stub rig answers the reader with: its snapshot and the rest."""
-    lines = onedoor.snapshot_lines("srv2", **(SRV2_SYSTEM | (snapshot or {})))
-    for row in (
-        containers
-        if containers is not None
-        else (
-            f"mcgyvr-srv2-3b,{C_3B},mcgyvr,0",
-            f"mcgyvr-srv2-7b,{C_7B},mcgyvr,unread",
-            f"mcgyvr-srv2-stray,{C_STRAY},mcgyvr,0",
-            f"someone-elses,{C_OTHER},-,0",
-        )
-    ):
-        lines += f"container={row}\n"
-    for row in (
-        gpu
-        if gpu is not None
-        else (
-            f"4242,3400,{C_3B},python3",
-            f"4343,7800,{C_7B},python3",
-            "5555,1024,none,python3_train.py",
-        )
-    ):
-        lines += f"gpu_app={row}\n"
-    for row in sleeping:
-        lines += f"sleeping={row}\n"
-    for row in status:
-        lines += f"status={row}\n"
-    (onedoor.stubs_dir(root) / "snapshot.txt").write_text(lines, encoding="utf-8")
-
-
-def read_door(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    argv = [sys.executable, str(root / onedoor.DOOR_REL), "read"]
-    argv += ["--host", "srv2"]
-    argv += ["--run-id", RUN_ID, *args]
-    return subprocess.run(
-        argv,
-        cwd=root,
-        env=onedoor.door_env(root),
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    )
-
-
-def rows(journal: Path) -> list[dict[str, Any]]:
-    if not journal.is_dir():
-        return []
-    return [
-        json.loads(line)
-        for path in sorted(journal.rglob("*.jsonl"))
-        for line in path.read_text(encoding="utf-8").splitlines()
-    ]
-
-
-def unit_rows(journal: Path, unit_id: str) -> dict[str, dict[str, Any]]:
-    return {
-        r["field"]: r
-        for r in rows(journal)
-        if r.get("unit_id") == unit_id and "field" in r
-    }
-
-
-def rig_row(journal: Path) -> dict[str, Any]:
-    found = [r for r in rows(journal) if "observed_rig_id" in r]
-    assert len(found) == 1, rows(journal)
-    return found[0]
+from tests.reads import (
+    C_3B,
+    C_7B,
+    FLEET_NAME,
+    GATE_SCRIPTS,
+    HARNESS_PY,
+    LOCKED_SRV2,
+    RUN_ID,
+    UNIT_3B,
+    UNIT_7B,
+    _Unit,
+    go_live,
+    metrics,
+    page,
+    read_door,
+    reading,
+    rig_row,
+    rows,
+    unit_rows,
+)
 
 
 @pytest.fixture
@@ -523,44 +355,6 @@ def test_the_units_reader_tells_no_sleep_route_from_a_failed_read(
     )
     assert done.returncode == 0, done.stderr
     assert f"sleeping=8001,{printed}" in done.stdout.splitlines(), done.stdout
-
-
-class _Unit(BaseHTTPRequestHandler):
-    seen: ClassVar[list[str]] = []
-
-    def log_message(self, *_: Any) -> None:
-        return
-
-    def _send(self, body: str, kind: str = "application/json") -> None:
-        data = body.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", kind)
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def do_GET(self) -> None:
-        self.seen.append(f"GET {self.path}")
-        if self.path == "/v1/models":
-            self._send(json.dumps({"data": [{"id": "m"}]}))
-        else:
-            self._send(metrics(0), "text/plain")
-
-    def do_POST(self) -> None:
-        length = int(self.headers.get("Content-Length") or 0)
-        payload = json.loads(self.rfile.read(length))
-        self.seen.append(f"POST {self.path} {payload['max_tokens']}")
-        prompt = 1960 if payload["max_tokens"] == 16 else 20
-        self._send(
-            json.dumps(
-                {
-                    "usage": {
-                        "completion_tokens": payload["max_tokens"],
-                        "prompt_tokens": prompt,
-                    }
-                }
-            )
-        )
 
 
 def test_the_harness_shipped_to_the_rig_asks_the_locks_requests_at_127_0_0_1() -> None:

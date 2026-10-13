@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from tests import livejournal as lj
-from tests.test_a_rename_delivers_every_file_it_renamed_in_one_commit import _run
+from tests.renamecommits import _run
 
 
 def test_the_run_names_the_operation_and_reports_every_renamed_file(

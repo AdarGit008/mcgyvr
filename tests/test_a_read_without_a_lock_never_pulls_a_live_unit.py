@@ -27,14 +27,7 @@ from typing import Any
 import pytest
 import yaml
 
-from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import rig_text
-from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
-    FLEET,
-    FLEET_NAME,
-    RUN_ID,
-    UNIT_3B,
-    unit_rows,
-)
+from tests.reads import FLEET, FLEET_NAME, RUN_ID, UNIT_3B, rig_text, unit_rows
 
 #: An invented rig id, the one both setups declare for srv2.
 RIG_ID = "rig-" + "a1" * 32

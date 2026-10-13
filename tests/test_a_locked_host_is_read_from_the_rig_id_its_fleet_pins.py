@@ -25,11 +25,7 @@ from typing import Any
 import yaml
 
 from mcgyvr.fleet.admit import host_is_locked
-from tests.test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock import (
-    SRV1_EVIDENCE,
-    SRV1_FLEET,
-)
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import TOLERANCES
+from tests.fleetlocks import SRV1_EVIDENCE, SRV1_FLEET, TOLERANCES
 
 #: srv1's rig id as SRV1_FLEET pins it, and the id of a machine it is not.
 PINNED = SRV1_FLEET["rigs"]["srv1"]["rig_id"]

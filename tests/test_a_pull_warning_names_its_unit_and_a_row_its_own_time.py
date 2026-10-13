@@ -25,14 +25,13 @@ from typing import Any
 
 import pytest
 
-from tests.test_a_live_probe_is_judged_against_its_lock import (
+from tests.liveprobes import (
     EVIDENCE,
     FLEET,
     HOLDING,
     NOW,
     RIG1,
     STAMP,
-    UNIT_3B,
     UNIT_DS,
     FakeUnits,
     idle,
@@ -40,6 +39,7 @@ from tests.test_a_live_probe_is_judged_against_its_lock import (
     lock_root,
     rows,
 )
+from tests.reads import UNIT_3B
 
 UNIT_CODER = "unt-" + "9" * 64
 #: Each llama.cpp request takes this long on the fake clock.

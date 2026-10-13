@@ -26,14 +26,11 @@ here:
 from __future__ import annotations
 
 import shlex
-from typing import Any
 
 import pytest
-import yaml
 
 from mcgyvr.config import parse
 from mcgyvr.emit import EmitError, argv, render_command, render_compose
-from mcgyvr.scan import Scan
 from mcgyvr.serving import (
     ModelSpec,
     UnitError,
@@ -42,28 +39,21 @@ from mcgyvr.serving import (
     unit_for,
     units_for,
 )
+from tests.doors import (
+    DENSE,
+    HF_CACHE,
+    SEVEN_B,
+    SEVEN_B_SPEC,
+    THINKING_OFF,
+    rig,
+    service_of,
+)
+from tests.sizings import WINDOW
 
-#: The window these tests use, stated because ``mcgyvr.serving`` supplies no
-#: default: the window is what the run declares, so a test is a run and declares
-#: its own.
-WINDOW = 4096
-
-SEVEN_B = "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
 THREE_B = "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
-HF_CACHE = "/home/someone/.cache/huggingface"
 VLLM_IMAGE = (
     "vllm/vllm-openai@sha256:"
     "ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52"
-)
-# The spike's card figures, in GiB: 7291 MiB alone, 10869 - 7291 beside it.
-SEVEN_B_SPEC = ModelSpec(
-    name=SEVEN_B,
-    vram_gb=7.12,
-    ram_gb=0.0,
-    disk_gb=4.93,
-    hf_cache=HF_CACHE,
-    serve_args=("--gpu-memory-utilization", "0.68"),
-    kv_cache_dtype_k="auto",
 )
 THREE_B_SPEC = ModelSpec(
     name=THREE_B,
@@ -74,28 +64,6 @@ THREE_B_SPEC = ModelSpec(
     serve_args=("--gpu-memory-utilization", "0.33"),
     kv_cache_dtype_k="auto",
 )
-
-
-def rig(host: str, *, vram_mib: int = 12288, free_mib: int = 11911) -> Scan:
-    scan = Scan.of(
-        host=host,
-        vram_mib=vram_mib,
-        ram_gb=45.0,
-        disk_free_gb=900.0,
-        cores=10,
-        threads=20,
-        bandwidth_gbps=27.9,
-    )
-    gpu = scan.gpus[0]
-    from dataclasses import replace
-
-    return replace(
-        scan, gpus=(replace(gpu, vram=replace(gpu.vram, free_mib=free_mib)),)
-    )
-
-
-def service_of(document: str) -> dict[str, Any]:
-    return next(iter(yaml.safe_load(document)["services"].values()))
 
 
 # --- a vLLM unit -----------------------------------------------------------
@@ -166,17 +134,6 @@ def test_a_vllm_service_mounts_the_hf_cache_offline_with_host_ipc() -> None:
 
 
 # --- serve_args --------------------------------------------------------------
-
-THINKING_OFF = ("--chat-template-kwargs", '{"enable_thinking":false}')
-DENSE = ModelSpec(
-    name="qwen2.5-coder-3b",
-    vram_gb=2.4,
-    ram_gb=0.0,
-    disk_gb=2.1,
-    serve_args=THINKING_OFF,
-    kv_cache_dtype_k="f16",
-    kv_cache_dtype_v="f16",
-)
 
 
 def test_serve_args_reach_both_renderings_verbatim() -> None:

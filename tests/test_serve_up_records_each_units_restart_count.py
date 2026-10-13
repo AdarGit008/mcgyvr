@@ -11,12 +11,7 @@ import json
 from pathlib import Path
 
 from tests import onedoor
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import (
-    CONFIG_VAR,
-    UNITS,
-    compose_file,
-    dev_config,
-)
+from tests.doors import CONFIG_VAR, UNITS, compose_file, dev_config
 
 
 def test_serve_up_files_a_restart_count_for_every_unit(tmp_path: Path) -> None:

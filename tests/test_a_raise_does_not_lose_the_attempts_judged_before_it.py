@@ -21,7 +21,7 @@ from mcgyvr.escalate import Judgement, Outcome, RetryNotes, escalate, required_p
 from mcgyvr.route import Try, Verdict, family_of
 from mcgyvr.telemetry import fold
 from tests import livejournal as lj
-from tests.test_escalate import KEYLESS, contract, halted, mapped
+from tests.drives import KEYLESS, contract, halted, mapped
 
 LADDER_WITH_THREE_ATTEMPTS = lj.LADDER + "attempts:\n  local_qwen-7b: 3\n"
 CONTRACT_WITH_THREE_ATTEMPTS = lj.MODEL_CONTRACT.replace(

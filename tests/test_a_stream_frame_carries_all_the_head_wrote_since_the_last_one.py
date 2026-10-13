@@ -24,19 +24,11 @@ from typing import Any
 import pytest
 
 from tests import rig_schema
-from tests.test_a_lending_agent_offers_in_its_hello_and_sends_what_its_sessions_say_within_the_rate import (  # noqa: E501
-    _made,
-)
-from tests.test_a_relayed_request_reaches_only_the_heads_loopback_api_and_streams_back_within_credit import (  # noqa: E501
-    Head,
-    Heads,
-    _body,
-    _serve,
-)
-from tests.test_a_rig_agent_says_hello_keeps_beating_and_backs_off_when_the_hub_drops import (  # noqa: E501
-    Clock,
-    Hub,
-)
+from tests.relays import RelayHead as Head
+from tests.relays import RelayHeads as Heads
+from tests.relays import _relay_body as _body
+from tests.relays import _relay_serve as _serve
+from tests.rigagents import Clock, Hub, _made
 
 
 class Held:

@@ -20,14 +20,15 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import Protocol, source_map
+from mcgyvr.local_pool import source_map
 from tests import livejournal as lj
+from tests.rungs import PROSE_CONTRACT, caps_sent
+from tests.rungs import ROOM_CONTRACT as CONTRACT
 
 #: Two rungs on one rig that serves a 4096-token window. The dear rung declares
 #: the room its replies need; the cheap one declares nothing, which is how the
@@ -52,65 +53,9 @@ ladder:
 - local_qwen3.6-35b-a3b
 """
 
-#: A model-executed contract whose own cap is the 1024 the live rows were
-#: written under, declared rather than derived so the number is the operator's.
-CONTRACT = """
-id: impl
-task_type: code
-task: Add retry with backoff to the fetch helper.
-target: src/pkg/fetch.py
-stop_conditions: ["The retry policy is not stated anywhere in the repo."]
-acceptance: ["python -c 'import sys; sys.exit(0)'"]
-scope:
-  allow: ["src/**/*.py"]
-limits:
-  max_output_tokens: 1024
-"""
-
-#: The same contract as an uncapped raw-text reply: no declared cap, and a
-#: context ceiling small enough to sit inside the tiny window the preflight
-#: check uses to prove a prose reply is not refused for its (absent) reserve.
-PROSE_CONTRACT = (
-    CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
-    + "context:\n  max_input_tokens: 64\n"
-    + "output_schema: prose\n"
-)
-
 
 def cfg(body: str) -> str:
     return textwrap.dedent(body).strip() + "\n"
-
-
-def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int]]:
-    """Record the rung and the cap of every request the driver dispatches.
-
-    The substitution is the seam the whole project is built on:
-    ``mcgyvr.runner.dispatch`` takes a rung name and a source map, so nothing
-    above it knows a socket exists. What is asserted is the number on the
-    request, which is the number the backend is actually given.
-    """
-    from mcgyvr import drive
-    from mcgyvr.runner import Completion, StopReason
-
-    seen: list[tuple[str, int]] = []
-
-    def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
-    ) -> Completion:
-        seen.append((rung, request.max_output_tokens))
-        return Completion(
-            text="```python\nx = 1\n```",
-            stop_reason=StopReason.COMPLETE,
-            raw_stop_reason="stop",
-            model="qwen2.5-coder:3b",
-            source="srv1",
-            protocol=Protocol.OPENAI,
-            max_output_tokens=request.max_output_tokens,
-            latency_s=0.0,
-        )
-
-    monkeypatch.setattr(drive, "dispatch", fake_dispatch)
-    return seen
 
 
 # --- the rung may say what its replies need -------------------------------

@@ -43,16 +43,8 @@ from mcgyvr.runner import (
     dispatch,
 )
 from mcgyvr.sandbox.tempdir import TempDirSandbox
-from tests.test_a_rung_whose_model_the_hub_cannot_place_is_passed_over import (
-    CONTRACT,
-    KEY,
-    OTHER,
-    POOLED,
-    answer,
-    answering,
-    error,
-    setup,
-)
+from tests.rungs import CONTRACT, KEY, OTHER, POOLED, answer, error, setup
+from tests.rungs import answering_unplaced as answering
 
 UNKNOWN = error(404, "model_not_found")
 RUNG_ID = "0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"

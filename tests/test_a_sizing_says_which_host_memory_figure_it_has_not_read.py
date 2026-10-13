@@ -40,11 +40,7 @@ from mcgyvr.serving import (
 )
 from tests import machine_shapes
 from tests import numbers_fixture as nf
-from tests.test_one_engines_host_memory_figure_is_never_charged_to_another import (
-    WINDOW,
-    machines,
-    spilling,
-)
+from tests.sizings import WINDOW, machines, spilling
 
 #: The engines that carry a ``runtime_resident_gb`` figure: the one shipped,
 #: plus the ones read on the machine. A media engine (diffusers) prices its

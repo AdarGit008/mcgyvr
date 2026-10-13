@@ -30,144 +30,29 @@ Every hub here is a loopback server this test starts.
 
 from __future__ import annotations
 
-import contextlib
 import copy
-import json
-import threading
 from collections.abc import Callable, Iterator
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-HANDLE = "bob"
-KEY = "mhu_0123456789abcdef_" + "k" * 40
-TOKEN = "mhr_0123456789abcdef_" + "t" * 43
-FIRST = "0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
-SECOND = "1a2b3c4d5e6f708192a3b4c5d6e7f809"
-PRIVACY = (
-    "Riding sends your prompts to other people's machines: the host of each "
-    "rung runs the model on hardware they control and can read your prompts "
-    "and the answers. Ride only with prompts you would show them."
+from tests.rigsyncs import (  # noqa: F401 - fixtures
+    FIRST,
+    FLEET,
+    HANDLE,
+    KEY,
+    POLICY,
+    PRIVACY,
+    SECOND,
+    TOKEN,
+    Hub,
+    a_syncing_hub,
+    a_syncing_setup,
+    cli,
+    rung,
+    serving,
 )
-FLEET = """\
-# what runs where
-units:
-  local_fast:
-    address: http://fast-box.example:8000
-    model: qwen2.5-coder-3b
-    width: 1
-"""
-POLICY = """\
-# my own ladder, commented by hand
-ladder: [local_fast]
-fanout: idle
-"""
-
-
-def rung(
-    rung_id: str, address: str, *, position: str = "below_floor"
-) -> dict[str, Any]:
-    return {
-        "id": rung_id,
-        "host": HANDLE,
-        "address": address,
-        "model": f"hitchhike@{rung_id}",
-        "served_model": "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
-        "width": 2,
-        "relief": True,
-        "position": position,
-        "price": {
-            "currency": "credits",
-            "per_tokens": 1000,
-            "input": "0.5",
-            "output": "1",
-        },
-    }
-
-
-class Hub:
-    """What the loopback hub answers, and what it was asked."""
-
-    def __init__(self) -> None:
-        self.status = 200
-        self.body: bytes = b""
-        self.asked: list[dict[str, Any]] = []
-        self.address = ""
-
-    def answer(self, document: object, status: int = 200) -> None:
-        self.status = status
-        self.body = json.dumps(document).encode()
-
-    def listing(self, *rung_ids: str, ride: bool = True) -> dict[str, Any]:
-        return {
-            "ride": ride,
-            "privacy": PRIVACY,
-            "refresh_s": 60,
-            "rungs": [rung(i, f"{self.address}/v1") for i in rung_ids],
-        }
-
-
-@contextlib.contextmanager
-def serving(hub: Hub) -> Iterator[Hub]:
-    class _Hub(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:
-            length = int(self.headers.get("Content-Length") or 0)
-            hub.asked.append(
-                {
-                    "path": self.path,
-                    "authorization": self.headers.get("Authorization"),
-                    "content_type": self.headers.get("Content-Type"),
-                    "body": self.rfile.read(length),
-                }
-            )
-            self.send_response(hub.status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(hub.body)))
-            self.end_headers()
-            self.wfile.write(hub.body)
-
-        def log_message(self, *_: Any) -> None:
-            return
-
-    server = HTTPServer(("127.0.0.1", 0), _Hub)
-    hub.address = f"http://127.0.0.1:{server.server_address[1]}"
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield hub
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
-@pytest.fixture
-def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    folder = tmp_path / "setup"
-    folder.mkdir()
-    (folder / "fleet.yaml").write_text(FLEET, encoding="utf-8")
-    (folder / "policy.yaml").write_text(POLICY, encoding="utf-8")
-    monkeypatch.setenv("MCGYVR_CONFIG", str(folder))
-    monkeypatch.setenv("MCGYVR_HOME", str(tmp_path / "config-folder"))
-    monkeypatch.setenv("MCGYVR_DATA", str(tmp_path / "data-folder"))
-    monkeypatch.setenv("MCGYVR_HUB_API_KEY", KEY)
-    return folder
-
-
-@pytest.fixture
-def hub(setup: Path) -> Iterator[Hub]:
-    from mcgyvr.rig import credentials
-
-    with serving(Hub()) as running:
-        credentials.save(credentials.Credentials(hub=running.address, token=TOKEN))
-        yield running
-
-
-def cli(*argv: str) -> int:
-    from mcgyvr.cli import main
-
-    return main(["rig", "rungs", "sync", *argv])
 
 
 def relief(setup: Path) -> dict[str, Any]:
@@ -177,6 +62,17 @@ def relief(setup: Path) -> dict[str, Any]:
 
 
 # --- what a sync writes --------------------------------------------------------
+
+
+@pytest.fixture
+def hub(setup: Path) -> Iterator[Hub]:
+    with a_syncing_hub(setup) as made:
+        yield made
+
+
+@pytest.fixture
+def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return a_syncing_setup(tmp_path, monkeypatch)
 
 
 def test_a_sync_keeps_each_rung_the_hub_lists_as_a_relief_rung(

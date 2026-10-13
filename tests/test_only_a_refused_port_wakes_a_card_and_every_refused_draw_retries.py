@@ -28,11 +28,7 @@ import pytest
 import mcgyvr.wake as wake
 from mcgyvr.config import load
 from mcgyvr.runner import TransportError, _post_json
-from tests.test_a_sleeping_rung_is_woken_rather_than_declined import (
-    RUNG_3B,
-    compose_dir,
-    config_file,
-)
+from tests.doors import RUNG_3B, compose_dir, config_file
 
 
 @pytest.fixture

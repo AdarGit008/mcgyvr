@@ -29,10 +29,9 @@ import pytest
 import yaml
 
 from tests import livejournal as lj
-from tests.test_a_live_run_is_admitted_only_by_a_read_of_its_rigs import (
+from tests.liveruns import (
     EVIDENCE,
     FIRST,
-    FLEET_NAME,
     SECOND,
     TOLERANCES,
     FakeDoor,
@@ -40,6 +39,7 @@ from tests.test_a_live_run_is_admitted_only_by_a_read_of_its_rigs import (
     dispatched,
     fleet,
 )
+from tests.reads import FLEET_NAME
 
 TAGGED = f"{FLEET_NAME}@2026-09-13"
 

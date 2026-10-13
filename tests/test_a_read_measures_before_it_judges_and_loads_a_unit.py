@@ -46,101 +46,27 @@ from typing import Any, ClassVar
 import pytest
 
 from tests import onedoor
-from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
+from tests.reads import (
     C_3B,
-    C_7B,
     GATE_SCRIPTS,
     HARNESS_PY,
+    LOAD,
     LOCKED_SRV2,
     RUN_ID,
-    SRV2_SYSTEM,
     UNIT_3B,
     UNIT_7B,
+    Rig,
+    _load_rows,
     go_live,
     metrics,
     page,
     read_door,
     reading,
+    record,
     rig_row,
+    rig_text,
     unit_rows,
 )
-
-LOAD = "8x4096"
-
-
-def rig_text(
-    *,
-    card_3b: int = 3400,
-    restarts_7b: str = "0",
-    status: tuple[str, ...] = (f"8001,{page(metrics(0))}",),
-    backend: tuple[str, ...] = ("8001,FLASH_ATTN", "8002,FLASH_ATTN"),
-) -> str:
-    """One reader's output for srv2 with both units up."""
-    lines = onedoor.snapshot_lines("srv2", **SRV2_SYSTEM)
-    lines += f"container=mcgyvr-srv2-3b,{C_3B},mcgyvr,0\n"
-    lines += f"container=mcgyvr-srv2-7b,{C_7B},mcgyvr,{restarts_7b}\n"
-    lines += f"gpu_app=4242,{card_3b},{C_3B},python3\n"
-    lines += f"gpu_app=4343,7800,{C_7B},python3\n"
-    lines += "sleeping=8001,false\nsleeping=8002,false\n"
-    lines += "".join(f"status={row}\n" for row in status)
-    lines += "".join(f"backend={row}\n" for row in backend)
-    return lines
-
-
-class Rig:
-    """The harness on the rig: the lock's probe, and a load of the unit."""
-
-    def __init__(
-        self, load_mib: tuple[int, ...] = (3000, 3500, 3100), completed: int = 8
-    ) -> None:
-        self.load_mib = load_mib
-        self.completed = completed
-        self.specs: list[dict[str, Any]] = []
-
-    def __call__(self, unit: str, spec: str) -> str:
-        asked = json.loads(spec)
-        self.specs.append(asked)
-        if asked.get("mode") == "load":
-            samples = [
-                f"gpu_app=4242,{mib},{C_3B},python3\ngpu_app=4343,7800,{C_7B},python3\n"
-                for mib in self.load_mib
-            ]
-            return json.dumps(
-                {
-                    "load": {
-                        "prompt_tokens": 4032,
-                        "max_tokens": 64,
-                        "completed": self.completed,
-                        "errors": [],
-                        "started_at": "2026-09-15T12:00:05",
-                        "finished_at": "2026-09-15T12:00:41",
-                        "samples": samples,
-                        "restarts_before": "0",
-                        "restarts_after": "0",
-                    }
-                }
-            )
-        return json.dumps(
-            {
-                "figures": {"warm_decode_tok_s": 126.7, "prefill_tok_s": 11500.0},
-                "after_page": metrics(0),
-            }
-        )
-
-
-def record(text: str, profile: str, rig: Rig, **more: Any) -> Any:
-    from mcgyvr.fleet import read
-
-    return read.record(
-        "srv2",
-        text,
-        run_id=RUN_ID,
-        profile=profile,
-        probe=("srv2_3b",),
-        measure=rig,
-        **more,
-    )
-
 
 # --- B2: probe first, judge after ------------------------------------------------
 
@@ -178,15 +104,6 @@ def test_a_dev_read_files_every_units_rows_before_it_raises(tmp_path: Path) -> N
 
 
 # --- B1: a load of the unit --------------------------------------------------------
-
-
-def _load_rows(journal: Path) -> list[dict[str, Any]]:
-    return [
-        row
-        for path in sorted(journal.rglob("*.jsonl"))
-        for row in map(json.loads, path.read_text(encoding="utf-8").splitlines())
-        if row.get("field") == "load_peak_mib"
-    ]
 
 
 def test_a_load_files_one_row_with_its_peak_samples_container_times_and_restarts(

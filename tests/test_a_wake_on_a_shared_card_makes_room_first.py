@@ -21,12 +21,10 @@ is kept per unit.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
 from mcgyvr import ladder_manager
 from mcgyvr.config import Config, parse
@@ -34,118 +32,21 @@ from mcgyvr.ladder_manager import Bounds, Manager, View
 from mcgyvr.pressure import Reading
 from mcgyvr.scan import Scan
 from tests import livejournal as lj
-
-FAST = "local_fast"
-SMALL = "local_small"
-LARGE = "local_large"
-
-FAST_HOST = "fast-box.example"
-SHARED_HOST = "shared-box.example"
-SMALL_CONTAINER = "mcgyvr-shared-small"
-LARGE_CONTAINER = "mcgyvr-shared-large"
-
-
-def ladder_text(
-    compose_dir: Path | None,
-    *,
-    engine: str = "vllm",
-    small_mib: int | None = 4000,
-    large_mib: int | None = 9000,
-) -> str:
-    def room(mib: int | None) -> str:
-        return "" if mib is None else f"    room_mib: {mib}\n"
-
-    serving = (
-        ""
-        if compose_dir is None
-        else f"serving:\n  compose_dir: {compose_dir}\n  enable_sleep_wake: true\n"
-    )
-    return (
-        "units:\n"
-        f"  {FAST}:\n"
-        f"    address: http://{FAST_HOST}:8000\n"
-        "    model: small-coder\n"
-        "    rig: fast-rig\n"
-        "    width: 2\n"
-        f"  {SMALL}:\n"
-        f"    address: http://{SHARED_HOST}:8001\n"
-        "    model: mid-coder\n"
-        "    rig: shared-rig-small\n"
-        f"    engine: {engine}\n"
-        "    width: 2\n" + room(small_mib) + f"  {LARGE}:\n"
-        f"    address: http://{SHARED_HOST}:8002\n"
-        "    model: large-coder\n"
-        "    rig: shared-rig-large\n"
-        f"    engine: {engine}\n"
-        "    width: 2\n" + room(large_mib) + "ladder:\n"
-        f"- {FAST}\n"
-        f"- {SMALL}\n"
-        f"- {LARGE}\n"
-        "profile: dev\n" + serving
-    )
-
-
-def reservation(device_ids: list[str]) -> dict[str, Any]:
-    """The card reservation ``emit`` writes for a service, naming ``device_ids``."""
-    return {
-        "resources": {
-            "reservations": {
-                "devices": [
-                    {
-                        "driver": "nvidia",
-                        "device_ids": device_ids,
-                        "capabilities": ["gpu"],
-                    }
-                ]
-            }
-        }
-    }
-
-
-def write_spec(
-    tmp_path: Path,
-    *,
-    small_on: list[str] | None = None,
-    large_on: list[str] | None = None,
-) -> Path:
-    """The shared host's one launch spec: both units, each its own container.
-
-    ``small_on`` and ``large_on`` are the card ids each service reserves;
-    ``None`` writes no reservation, as a hand-written spec may not.
-    """
-    from mcgyvr.serving import COMPOSE_PREFIX, COMPOSE_SUFFIX
-
-    where = tmp_path / "specs"
-    where.mkdir(exist_ok=True)
-    services: dict[str, dict[str, Any]] = {
-        "small": {
-            "image": "example/server:1",
-            "container_name": SMALL_CONTAINER,
-            "command": ["mid-coder", "--port", "8001"],
-        },
-        "large": {
-            "image": "example/server:1",
-            "container_name": LARGE_CONTAINER,
-            "command": ["large-coder", "--port", "8002"],
-        },
-    }
-    if small_on is not None:
-        services["small"]["deploy"] = reservation(small_on)
-    if large_on is not None:
-        services["large"]["deploy"] = reservation(large_on)
-    (where / f"{COMPOSE_PREFIX}{SHARED_HOST}{COMPOSE_SUFFIX}").write_text(
-        yaml.safe_dump({"services": services}), encoding="utf-8"
-    )
-    return where
-
-
-@pytest.fixture
-def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "home").mkdir(exist_ok=True)
-    lj.clean_env(monkeypatch, tmp_path / "home")
-    (tmp_path / "rendezvous").mkdir(exist_ok=True)
-    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "rendezvous"))
-    return tmp_path / "home"
+from tests.doors import (  # noqa: F401 - fixtures
+    FAST,
+    FAST_HOST,
+    LARGE,
+    LARGE_CONTAINER,
+    OTHER_HOST,
+    SHARED_HOST,
+    SMALL,
+    SMALL_CONTAINER,
+    a_clean_home,
+    ladder_text,
+    reservation,
+    split_ladder,
+    write_spec,
+)
 
 
 def door(monkeypatch: pytest.MonkeyPatch) -> list[str]:
@@ -186,6 +87,11 @@ def switches(
 
 
 # --- how much room ---------------------------------------------------------------
+
+
+@pytest.fixture
+def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return a_clean_home(tmp_path, monkeypatch)
 
 
 def test_waking_the_larger_unit_needs_the_smaller_ones_room(
@@ -533,24 +439,6 @@ def test_manage_reads_the_card_sizes_from_the_scans(
 
 
 # --- a unit split across machines ------------------------------------------------
-
-OTHER_HOST = "other-box.example"
-
-
-def split_ladder(compose_dir: Path, *, across: str) -> str:
-    """The shared host's larger unit split over two cards, the second on ``across``.
-
-    No worker ``bind`` is stated: which machines a unit spans is all the
-    manager reads, and an address is emit's to check.
-    """
-    return ladder_text(compose_dir).replace(
-        "    model: large-coder\n",
-        "    model: large-coder\n"
-        "    launch:\n"
-        "      shards:\n"
-        f"      - {{rig: {SHARED_HOST}, gpu: 0}}\n"
-        f"      - {{rig: {across}, gpu: 1}}\n",
-    )
 
 
 def test_a_card_holding_a_unit_split_across_machines_is_left_to_a_person(

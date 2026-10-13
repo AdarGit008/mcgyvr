@@ -44,17 +44,19 @@ from __future__ import annotations
 
 import json
 import tempfile
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from tests import livejournal as lj
-
-HOST = "srv2"
-RUNG_3B = "local_qwen2.5-coder-3b"
-RUNG_7B = "local_qwen2.5-coder-7b"
+from tests.doors import (
+    HOST,
+    RUNG_3B,
+    compose_dir,
+    config_file,
+    door_log,
+)
 
 #: The refusal a sleeping rig gives: nothing is listening, so the answer comes
 #: back in under a millisecond and carries ``Connection refused``. This is the
@@ -63,125 +65,6 @@ REFUSED = (
     "could not reach http://srv2:8001/v1/chat/completions within 120s: "
     "[Errno 111] Connection refused"
 )
-
-
-def ladder(*, engine: str) -> str:
-    """srv2's two rungs, on one card, behind ``engine``.
-
-    ``attempts: 1`` on each tier so that "the retry spends no attempt" is a
-    statement the result file can be read for: a rung allowed one attempt that
-    was refused and then answered must show one attempt, and a rung that
-    charged the refusal has none left to answer with.
-    """
-    return f"""
-units:
-  {RUNG_3B}:
-    address: http://{HOST}:8001
-    model: qwen2.5-coder-3b
-    engine: {engine}
-    rig: srv2_3b
-    width: 2
-  {RUNG_7B}:
-    address: http://{HOST}:8002
-    model: qwen2.5-coder-7b
-    engine: {engine}
-    rig: srv2_7b
-    width: 2
-ladder:
-- {RUNG_3B}
-- {RUNG_7B}
-attempts:
-  {RUNG_3B}: 1
-  {RUNG_7B}: 1
-"""
-
-
-def compose_dir(tmp_path: Path, *, with_spec: bool) -> Path:
-    """Where this checkout keeps launch specs, holding srv2's or holding none.
-
-    The file name is ``emit_all``'s own convention rather than a literal, so a
-    wake that looked somewhere else would fail here rather than in a year on a
-    rig: one compose file per host, ``compose.<host>.yml``, because a host is
-    what an operator brings up.
-    """
-    from mcgyvr.emit import COMPOSE_PREFIX, COMPOSE_SUFFIX
-
-    where = tmp_path / "specs"
-    where.mkdir(exist_ok=True)
-    if with_spec:
-        (where / f"{COMPOSE_PREFIX}{HOST}{COMPOSE_SUFFIX}").write_text(
-            "services:\n"
-            "  qwen7b:\n"
-            "    image: vllm/vllm-openai:v0.26.0\n"
-            f"    container_name: mcgyvr-{HOST}-qwen7b-8002\n"
-            "  qwen3b:\n"
-            "    image: vllm/vllm-openai:v0.26.0\n"
-            f"    container_name: mcgyvr-{HOST}-qwen3b-8001\n"
-            "    depends_on: [qwen7b]\n",
-            encoding="utf-8",
-        )
-    return where
-
-
-def config_file(
-    path: Path,
-    *,
-    journal: Path,
-    specs: Path | None,
-    switch: bool | None,
-    engine: str = "vllm",
-    profile: str | None = None,
-) -> Path:
-    """A config on disk. ``switch=None`` writes no ``serving:`` block at all.
-
-    ``profile=None`` writes no ``profile:`` key, which loads as ``live``. The
-    tests that act on a card pass ``"dev"``: under
-    ``mcgyvr-lab/records/plans/fleet-identity.md`` a live config that holds launch specs
-    acts only on an approved fleet shape, and these tests pin the wake
-    mechanism, which a dev run may exercise freely.
-
-    Loaded here rather than left for ``mcgyvr run`` to load, so that a config
-    the schema does not know says so at the line that wrote it.
-    """
-    from mcgyvr.config import load
-
-    text = ladder(engine=engine) + f"journal:\n  dir: {journal}\n"
-    if profile is not None:
-        text += f"profile: {profile}\n"
-    if switch is not None:
-        text += "serving:\n"
-        text += f"  enable_sleep_wake: {'true' if switch else 'false'}\n"
-        if specs is not None:
-            text += f"  compose_dir: {specs}\n"
-    path.write_text(text, encoding="utf-8")
-    load(path)
-    return path
-
-
-def door_log(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
-    """Substitute the one subprocess a wake is allowed to make, and record it.
-
-    D3: "A wake is ``python -m mcgyvr.serving.run serve up --host H --compose
-    FILE --suffix S``, spawned as a subprocess. ... Nothing in ``mcgyvr.wake``
-    runs ``docker`` or ``ssh``." Under the door those two names resolve to shims
-    that admit only the host the door was opened for and only a process the door
-    started, and ``tests/test_one_door.py`` bans the way round it. So a single
-    seam is the whole of this module's contact with a rig, and a test that owns
-    it owns everything that could reach a machine.
-
-    Returning ``0`` is the door reporting the card up. What the caller does with
-    that — dispatch again, once — is what the tests below read.
-    """
-    import mcgyvr.wake as wake
-
-    spawned: list[list[str]] = []
-
-    def spawn(argv: Sequence[str], **_: Any) -> int:
-        spawned.append(list(argv))
-        return 0
-
-    monkeypatch.setattr(wake, "spawn_door", spawn)
-    return spawned
 
 
 def refusing(*, until_call: int) -> tuple[Any, list[str]]:

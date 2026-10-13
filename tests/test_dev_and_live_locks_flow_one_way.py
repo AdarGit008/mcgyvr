@@ -42,36 +42,35 @@ import yaml
 from tests import livejournal as lj
 from tests import onedoor
 from tests._paths import REPO
-from tests.red_port.conftest import required
-from tests.test_a_sleeping_rung_is_woken_rather_than_declined import (
-    RUNG_7B,
-    compose_dir,
-    door_log,
-    ladder,
-)
-from tests.test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock import (
-    SRV1_EVIDENCE,
-    SRV1_FLEET,
-)
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_file
-from tests.test_the_fleet_lock_is_written_only_from_passing_dev_runs import (
+from tests.doors import RUNG_7B, UNITS, compose_dir, compose_file, door_log, ladder
+from tests.fleetlocks import (
     EVIDENCE,
     FLEET,
+    LOCK_DATE,
+    MODELLED,
     POLICY,
     RIG2,
+    SRV1_EVIDENCE,
+    SRV1_FLEET,
     TOLERANCES,
     U3B,
     U7B,
+    cli,
+    dev_setup,
+    fleets,
+    flt05_records,
+    home,
+    listing,
+    live_json,
+    name_live,
+    tree,
 )
+from tests.fleetlocks import _flow_lock as _lock
+from tests.red_port.conftest import required
 
-#: The lock fixture's fleet, every unit naming a model so a folder loads.
-MODELLED: dict[str, Any] = copy.deepcopy(FLEET)
 for _name, _unit in MODELLED["units"].items():
     _unit.setdefault("model", f"model-{_name}")
 
-#: The dev policy a setup directory holds: a ladder over every unit, and one
-#: other key that promotion copies as it is.
-SETUP_POLICY: dict[str, Any] = {"ladder": list(POLICY["ladder"]), "fanout": "idle"}
 
 SMALLEST_FLEET = "units:\n  {name}:\n    address: http://localhost:8080\n    model: m\n"
 SMALLEST_POLICY = "ladder: [{name}]\n"
@@ -85,48 +84,6 @@ def _roots() -> Any:
     )
 
 
-def _lock() -> Any:
-    return importlib.import_module("mcgyvr.fleet.lock")
-
-
-def home() -> Path:
-    return Path.home() / ".mcgyvr"
-
-
-def fleets() -> Path:
-    return home() / "fleets"
-
-
-def live_json() -> Path:
-    return home() / "live.json"
-
-
-def name_live(fleet: str) -> None:
-    live_json().parent.mkdir(parents=True, exist_ok=True)
-    live_json().write_text(
-        json.dumps({"fleet": fleet, "since": "2026-09-15T00:00:00+00:00"}),
-        encoding="utf-8",
-    )
-
-
-def tree(root: Path) -> dict[str, bytes]:
-    """Every file under ``root``, by relative path, with its bytes."""
-    if not root.exists():
-        return {}
-    return {
-        path.relative_to(root).as_posix(): path.read_bytes()
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    }
-
-
-def listing(root: Path) -> list[str]:
-    """Every file and directory under ``root``, empty ones included."""
-    if not root.exists():
-        return []
-    return sorted(path.relative_to(root).as_posix() for path in root.rglob("*"))
-
-
 def small_setup(where: Path, unit: str) -> Path:
     where.mkdir(parents=True, exist_ok=True)
     (where / "fleet.yaml").write_text(
@@ -138,59 +95,9 @@ def small_setup(where: Path, unit: str) -> Path:
     return where
 
 
-def dev_setup(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    locked_fleet: dict[str, Any] = MODELLED,
-    file_fleet: dict[str, Any] | None = None,
-) -> tuple[Path, Path]:
-    """A dev root holding a lock of ``locked_fleet``, and a setup directory."""
-    dev = tmp_path / "dev"
-    _lock().write(dev, locked_fleet, EVIDENCE, policy=POLICY, tolerances=TOLERANCES)
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(dev))
-    setup = tmp_path / "setup"
-    setup.mkdir()
-    (setup / "fleet.yaml").write_text(
-        yaml.safe_dump(
-            {"profile": "dev", **(locked_fleet if file_fleet is None else file_fleet)},
-            sort_keys=False,
-        ),
-        encoding="utf-8",
-    )
-    (setup / "policy.yaml").write_text(
-        yaml.safe_dump(SETUP_POLICY, sort_keys=False), encoding="utf-8"
-    )
-    return dev, setup
-
-
-def cli(*argv: str) -> int:
-    from mcgyvr.cli import main
-
-    try:
-        return main(list(argv))
-    except SystemExit as exited:
-        pytest.fail(
-            f"mcgyvr must be able to: `mcgyvr {' '.join(argv)}`\n"
-            f"  argparse exited {exited.code}",
-            pytrace=False,
-        )
-
-
-#: The fixture lock's date, which promote tags each folder with.
-LOCK_DATE = "2026-09-11"
-
-
 def promoted(fleet: str) -> str:
     """The name ``fleet`` is promoted under: the fleet at the fixture's lock date."""
     return f"{fleet}@{LOCK_DATE}"
-
-
-def flt05_records() -> tuple[str, str]:
-    from mcgyvr.fleet.layout import combination_id
-
-    cmb = combination_id(RIG2, [(U7B, "awake"), (U3B, "asleep")])
-    return "records/fleet/flt-05.json", f"records/fleet/rigs/{RIG2}/{cmb}.json"
 
 
 def test_the_live_lock_is_the_fleet_folder_live_json_names_and_dev_is_the_run_root(

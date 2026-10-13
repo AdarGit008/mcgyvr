@@ -13,6 +13,7 @@ Every server here is a loopback one this test starts.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -28,21 +29,8 @@ from mcgyvr.runner import (
     RunnerError,
     dispatch,
 )
-from tests.test_a_relief_rung_that_cannot_take_the_request_now_is_full import (
-    KEY,
-    RIDE,
-    RUNG_ID,
-    answering,
-    error,
-)
-from tests.test_rig_rungs_sync_writes_only_the_relief_rungs import (
-    FIRST,
-    SECOND,
-    Hub,
-    cli,
-    hub,
-    setup,
-)
+from tests.rigsyncs import FIRST, SECOND, Hub, a_syncing_hub, a_syncing_setup, cli
+from tests.rungs import KEY, RIDE, RUNG_ID, answering, error
 
 __all__ = ["hub", "setup"]  # the fixtures the sync tests here take
 
@@ -112,6 +100,17 @@ def full(outcome: object) -> bool:
 
 
 # --- a sync writes them --------------------------------------------------------
+
+
+@pytest.fixture
+def hub(setup: Path) -> Iterator[Hub]:
+    with a_syncing_hub(setup) as made:
+        yield made
+
+
+@pytest.fixture
+def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return a_syncing_setup(tmp_path, monkeypatch)
 
 
 def test_a_sync_writes_each_rungs_busy_answers_into_relief_yaml(

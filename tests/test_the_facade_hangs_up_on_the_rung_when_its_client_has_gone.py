@@ -35,12 +35,8 @@ from mcgyvr.mcorch.anthropic import MessagesRequest
 from mcgyvr.mcorch.loop import Turn
 from mcgyvr.runner import HungUpError, Request, runner_for
 from tests.mcorch_fakes import text
-from tests.test_mcorch_serves_the_messages_api_at_a_local_address import TRACE
-from tests.test_the_runner_streams_from_every_unit_and_hangs_up_when_the_asker_has_gone import (  # noqa: E501
-    MODEL,
-    Unit,
-    _serve,
-)
+from tests.relays import MODEL, TRACE, Unit
+from tests.relays import _runner_serve as _serve
 
 #: A turn long enough that only a hang-up ends it early: 400 pieces at 0.02 s.
 LONG = ["x"] * 400

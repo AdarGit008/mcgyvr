@@ -29,7 +29,7 @@ from typing import Any
 
 import pytest
 
-from tests import test_a_live_probe_is_judged_against_its_lock as probed
+from tests import liveprobes as probed
 
 RUN_ID = "run-20260915T120000-0a1b2c3d"
 LEASE_ID = "probe-0a1b2c3d"

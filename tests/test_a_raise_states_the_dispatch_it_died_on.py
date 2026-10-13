@@ -23,7 +23,7 @@ from collections.abc import Callable
 from mcgyvr.escalate import DispatchRaisedError, Judgement, Outcome, escalate
 from mcgyvr.route import Try, Verdict
 from mcgyvr.runner import RunnerError
-from tests.test_escalate import KEYLESS, contract, halted, mapped
+from tests.drives import KEYLESS, contract, halted, mapped
 
 
 def _raising(error: BaseException) -> Callable[[Try], Judgement]:

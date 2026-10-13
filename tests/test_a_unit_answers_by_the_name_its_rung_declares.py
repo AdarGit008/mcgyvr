@@ -28,14 +28,7 @@ from mcgyvr.emit import argv, render_command, render_compose
 from mcgyvr.runner import Completion
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ROLE_RPC, ModelSpec, Unit, unit_for
-from tests.test_a_ridden_answer_from_another_model_is_a_full_rung import (
-    SERVED,
-    completion,
-    ride,
-)
-from tests.test_a_ridden_answer_from_another_model_is_a_full_rung import (
-    key as key,  # the fixture that sets the rider's key
-)
+from tests.rungs import SERVED, completion, ride, set_hub_key
 
 MODEL = "qwen2.5-coder-3b"
 WINDOW = 4096
@@ -65,6 +58,11 @@ def unit(engine: str = "llama.cpp", name: str = MODEL) -> Unit:
 
 def alias_of(parts: tuple[str, ...] | list[str]) -> list[str]:
     return [parts[i + 1] for i, part in enumerate(parts) if part == "--alias"]
+
+
+@pytest.fixture(autouse=True)
+def key(monkeypatch: pytest.MonkeyPatch) -> None:
+    set_hub_key(monkeypatch)
 
 
 def test_the_emitted_server_answers_by_the_units_model_name() -> None:

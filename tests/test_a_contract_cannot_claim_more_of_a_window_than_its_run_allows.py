@@ -18,14 +18,14 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_a_contract_claiming_more_than_the_runs_window_share_fails_before_it_is_sent import (  # noqa: E501
-    RUN_SHARE,
-    _run,
-    _sharing,
-    repo,
-)
+from tests.drives import RUN_SHARE, _run, _sharing, a_git_repo
 
 __all__ = ["repo"]  # the fixture, used by name
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    return a_git_repo(tmp_path)
 
 
 def test_a_contract_declaring_a_wider_share_than_its_run_is_refused_unsent(

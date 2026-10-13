@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from tests import onedoor
-from tests.test_the_door_serves_a_ladder_and_leaves_it_up import UNITS, compose_file
+from tests.doors import UNITS, compose_file
 
 CONFIG_VAR = "MCGYVR_CONFIG"
 

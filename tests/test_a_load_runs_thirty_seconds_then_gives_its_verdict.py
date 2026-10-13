@@ -65,18 +65,7 @@ from typing import Any, ClassVar
 import pytest
 
 from tests._paths import REPO
-from tests.test_a_read_measures_before_it_judges_and_loads_a_unit import (
-    Rig,
-    _load_rows,
-    rig_text,
-)
-from tests.test_a_rig_is_read_through_the_door_without_leasing_it import (
-    C_3B,
-    C_7B,
-    RUN_ID,
-    go_live,
-    metrics,
-)
+from tests.reads import C_3B, C_7B, RUN_ID, Rig, _load_rows, go_live, metrics, rig_text
 
 COUNTER = "vllm:prompt_tokens_total"
 WIDTH, WINDOW = 8, 4096
@@ -642,7 +631,7 @@ def test_a_pace_counter_that_went_backwards_is_null_with_why(tmp_path: Path) -> 
 
 def test_a_llamacpp_load_files_pace_null_with_the_reason(tmp_path: Path) -> None:
     from mcgyvr.fleet import read
-    from tests import test_a_live_run_is_admitted_only_by_a_read_of_its_rigs as two
+    from tests import liveruns as two
 
     two.go_live(tmp_path)
     journal = tmp_path / "journal" / "fleet"

@@ -177,7 +177,7 @@ def test_a_chat_reply_with_a_reviewer_configured_is_not_told_there_is_none(
     from mcgyvr.route import Try
     from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import Reviewer
-    from tests.test_drive import LADDER, _driven, _git
+    from tests.drives import LADDER, _driven, _git
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -218,7 +218,7 @@ def test_the_result_file_carries_the_label_and_the_sentence(
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted
     from mcgyvr.sandbox.tempdir import TempDirSandbox
-    from tests.test_drive import _git
+    from tests.drives import _git
 
     repo = tmp_path / "repo"
     repo.mkdir()
