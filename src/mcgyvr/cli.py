@@ -15,6 +15,7 @@ import sys
 import textwrap
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
@@ -3020,10 +3021,16 @@ def _report_climb(
         print(f"error: {outcome.detail}", file=sys.stderr)
         return 1
 
-    print(
-        f"\n{contract.id}: accepted on {outcome.rung} ({outcome.assurance.value}) "
+    spent = (
+        f"on {outcome.rung} ({outcome.assurance.value}) "
         f"after {outcome.attempts_spent} attempt(s) and "
         f"{outcome.escalations} escalation(s)"
+    )
+    # The headline waits for delivery when there is one: "accepted" is said
+    # only of a change that was written (e2e run 2, R2).
+    verdict = _Headline(
+        headline=f"{contract.id}: accepted {spent}",
+        passed=f"{contract.id}: checks passed {spent}",
     )
     report.outcome = "accepted"
     report.rung = outcome.rung
@@ -3049,6 +3056,7 @@ def _report_climb(
         # asserting because the alternative to a bound value is not a fallback:
         # there is nothing to deliver, and a commit assembled from anything else
         # would be bytes no gate read.
+        verdict.say()
         return _error(
             report,
             f"{contract.id} was accepted on {outcome.rung} without bound "
@@ -3059,6 +3067,7 @@ def _report_climb(
         # harness reads it off the result file rather than off a delivery. No
         # `_commit` is attempted and the accepted exit is returned.
         report.answer = bound.content
+        verdict.say()
         print(f"\n{contract.id}: answer —\n{bound.content}")
         return 0
     landed = outcome.history[-1]
@@ -3069,6 +3078,7 @@ def _report_climb(
         sandbox.source_base_commit(),
         bound,
         report,
+        verdict=verdict,
         recording=recording,
         attempt_id=(
             recording.attempt_id(
@@ -3162,11 +3172,14 @@ def _report_run(
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
 
-    print(f"\n{contract.id}: gate {'accepted' if result.accepted else 'rejected'}")
-    for finding in result.findings:
-        print(f"  ✗ {finding}")
-    for issue in result.environment_issues:
-        print(f"  ? {issue}")
+    verdict = _Headline(
+        headline=f"{contract.id}: gate {'accepted' if result.accepted else 'rejected'}",
+        passed=f"{contract.id}: checks passed",
+        below=(
+            *(f"  ✗ {finding}" for finding in result.findings),
+            *(f"  ? {issue}" for issue in result.environment_issues),
+        ),
+    )
     report.findings = [str(finding) for finding in result.findings]
     if recording is not None and attempt_id is not None:
         # The gate's word for it, in the gate's vocabulary — the same two words
@@ -3186,6 +3199,7 @@ def _report_run(
             on_copy_error=recording.copy_failed,
         )
     if not result.accepted:
+        verdict.say()
         report.outcome = "rejected"
         return 1
 
@@ -3198,6 +3212,7 @@ def _report_run(
             paths=[change.path for change in changed] or None,
         )
     except DeliveryError as exc:
+        verdict.say()
         return _error(report, str(exc))
     if not changed:
         # The program ran, the gate had nothing to object to, and the tree is
@@ -3212,6 +3227,7 @@ def _report_run(
             f"{contract.target} already is what {contract.kind.name!r} asks for; "
             f"nothing was written"
         )
+        verdict.say()
         print(f"\n{contract.id}: {NOTHING_TO_CHANGE} — {detail}")
         report.outcome = NOTHING_TO_CHANGE
         report.detail = detail
@@ -3238,6 +3254,7 @@ def _report_run(
         sandbox.source_base_commit(),
         bound,
         report,
+        verdict=verdict,
         recording=recording,
         attempt_id=attempt_id,
     )
@@ -3313,6 +3330,35 @@ RAISED = "error"
 DETERMINISTIC = "deterministic"
 
 
+@dataclass(frozen=True)
+class _Headline:
+    """The stdout lines that say how a run's change was judged and where it went.
+
+    Built by the two reporters (:func:`_report_run`, :func:`_report_climb`)
+    and said once, by whichever path ends the run: :func:`_commit` after
+    delivery has answered, or the reporter itself on a path that delivers
+    nothing. ``headline`` is the line of a change that landed (or of a run
+    that never reached delivery); ``passed`` opens the line of one delivery
+    refused, which goes on to say ``but not written`` and why (e2e run 2, R2).
+    ``below`` is what is printed under either — the gate's findings and
+    environment issues.
+    """
+
+    headline: str
+    passed: str
+    below: tuple[str, ...] = ()
+
+    def say(self, *, refused: str | None = None) -> None:
+        line = (
+            self.headline
+            if refused is None
+            else (f"{self.passed}, but not written: {refused}")
+        )
+        print(f"\n{line}")
+        for each in self.below:
+            print(each)
+
+
 def _commit(
     args: argparse.Namespace,
     contract: Contract,
@@ -3321,6 +3367,7 @@ def _commit(
     bound: Accepted,
     report: RunResult,
     *,
+    verdict: _Headline,
     recording: Recording | None = None,
     attempt_id: str | None = None,
 ) -> int:
@@ -3350,6 +3397,14 @@ def _commit(
     of the accepted attempt is told so (``not_committed``), and told
     ``committed <sha> on <branch>`` or ``delivery_refused`` otherwise, so the
     folded outcome is how the work finally landed.
+
+    **The verdict's headline is printed here, once delivery has answered.**
+    A change delivery refused was not written, and a stdout that said
+    ``gate accepted`` above a refusal on stderr read as an acceptance (e2e
+    run 2, R2). So ``verdict`` is said as it was when the change landed, and
+    as ``<id>: checks passed, but not written: <reason>`` for every reason
+    delivery refuses; the exit code, the result file and the ``error:`` line
+    on stderr are unchanged.
     """
     from mcgyvr.deliver import DeliveryError, DeliveryRefusedError, deliver, place
     from mcgyvr.telemetry import correct
@@ -3366,15 +3421,20 @@ def _commit(
                 on_copy_error=recording.copy_failed,
             )
 
+    def refused(reason: str) -> None:
+        verdict.say(refused=reason)
+        _say_reported(bound)
+        landed(DELIVERY_REFUSED, reason)
+
     adapters = getattr(args, "gate_adapters", None)
     if adapters is None:
+        verdict.say()
         return _error(
             report,
             "delivery was reached with no `gate_adapters` settled for this run, "
             "so it cannot judge the change by the setup's `gate` settings; "
             "nothing was written",
         )
-    _say_reported(bound)
 
     if not args.commit:
         try:
@@ -3386,12 +3446,14 @@ def _commit(
                 adapters=adapters,
             )
         except DeliveryError as exc:
-            landed(DELIVERY_REFUSED, str(exc))
+            refused(str(exc))
             if isinstance(exc, DeliveryRefusedError):
                 # The checks behind the refusal, not only its sentence — the
                 # same lines a gate rejection leaves in `findings`.
                 report.findings = [str(finding) for finding in exc.findings]
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
+        verdict.say()
+        _say_reported(bound)
         left = ", ".join(path for path, _ in bound.files(contract))
         print(f"\nLeft in {left}, not committed (pass --commit to commit).")
         for path, _ in bound.files(contract):
@@ -3410,25 +3472,26 @@ def _commit(
             adapters=adapters,
         )
     except DeliveryError as exc:
-        landed(DELIVERY_REFUSED, str(exc))
+        refused(str(exc))
         return _error(report, str(exc), outcome=DELIVERY_REFUSED)
 
+    if not delivery.committed:
+        refused(delivery.reason)
+        report.outcome = DELIVERY_REFUSED
+        report.detail = delivery.reason
+        report.findings = [str(finding) for finding in delivery.findings]
+        return 1
+    verdict.say()
+    _say_reported(bound)
     print(f"\n{delivery}")
-    if delivery.committed:
-        for path in delivery.paths:
-            _say_not_rerun(adapters, path)
+    for path in delivery.paths:
+        _say_not_rerun(adapters, path)
     report.committed = delivery.committed
     report.commit = delivery.commit
     report.branch = delivery.branch
     report.handoff = delivery.handoff
-    if delivery.committed:
-        landed(COMMITTED, f"{delivery.commit[:12]} on {delivery.branch or 'HEAD'}")
-        return 0
-    landed(DELIVERY_REFUSED, delivery.reason)
-    report.outcome = DELIVERY_REFUSED
-    report.detail = delivery.reason
-    report.findings = [str(finding) for finding in delivery.findings]
-    return 1
+    landed(COMMITTED, f"{delivery.commit[:12]} on {delivery.branch or 'HEAD'}")
+    return 0
 
 
 def _say_not_rerun(adapters: Sequence[LanguageAdapter], path: str) -> None:
