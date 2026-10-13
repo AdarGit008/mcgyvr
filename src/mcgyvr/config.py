@@ -278,8 +278,9 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# How long one dispatched request may take before the transport gives up.
-# `mcgyvr.runner` reads it as `GENERATE_TIMEOUT_S`.
+# How long one dispatched request to a local unit may take before the transport
+# gives up, where the unit states no `request_timeout_s`. A hosted unit that
+# states none is given none. `mcgyvr.runner` reads it as `GENERATE_TIMEOUT_S`.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
 # How long `serve up` polls a unit into health after bringing it up: the wait
@@ -574,9 +575,13 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "float",
         "How long one dispatched request to this unit may take before the \
 "
-        "transport gives up.",
+        "transport gives up, in seconds. Unset, a hosted unit (one with \
+"
+        "`api_key_env`) waits for its reply however long it takes, and a \
+"
+        f"local unit gives up after {DEFAULT_REQUEST_TIMEOUT_S:g} s.",
         min_value=0.0,
-        bind_hint="e.g. 180",
+        bind_hint="seconds; leave it unset on a hosted unit",
     ),
     Field(
         "room_mib",

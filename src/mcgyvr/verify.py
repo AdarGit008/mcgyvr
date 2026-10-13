@@ -92,7 +92,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import (
     BoolAnswer,
     Decision,
@@ -733,7 +732,7 @@ def _typed_verdict(
 def decider_for(
     source_map: SourceMap,
     *,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
     capacity: Capacity | None = None,
 ) -> Decide | None:
     """The install's verifier role as a typed-verdict seam, or ``None``.
@@ -897,7 +896,7 @@ def reviewers_for(
     source_map: SourceMap,
     *,
     capacity: Capacity | None = None,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Reviewers:
     """Who reviews each builder's work under ``config``.
 
@@ -960,7 +959,7 @@ def _on_rung(
     builder: str,
     *,
     capacity: Capacity | None,
-    timeout_s: float,
+    timeout_s: float | None,
 ) -> Reviewer | NoReviewer:
     """The reviewer :func:`reviewer_rung` picks for ``builder``, made askable."""
     rung = reviewer_rung(config, source_map, builder)

@@ -33,7 +33,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr import decision
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.local_pool import Rung
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -79,7 +78,7 @@ def judge(
     rung: str,
     state: Mapping[str, Any],
     *,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Difficulty:
     """Ask Jev whether to wake the smarter rung for this task.
 
@@ -158,7 +157,7 @@ def wake_before_api(
     contract: Contract,
     *,
     judge_with: str,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
     cooldown: Cooling | None = None,
 ) -> str | None:
     """The hook: name the smarter rung to route to before the API, or ``None``.
@@ -184,7 +183,7 @@ def hook_for(
     pool: SourceMap,
     *,
     cooldown: Cooling | None = None,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Callable[[Contract], str | None] | None:
     """The hook for an install that can judge, or ``None`` when nothing to decide.
 

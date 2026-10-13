@@ -24,7 +24,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, classify
 from mcgyvr.detect import Backend, Detection
 from mcgyvr.local_pool import Endpoint, Protocol
@@ -185,7 +184,7 @@ def recommend(
     priority: str,
     *,
     api_units: Sequence[ApiUnit] = (),
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> Recommendation:
