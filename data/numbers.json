@@ -2299,6 +2299,11 @@
       "kind": "choice",
       "says": "The most bytes of a fetch list the door reads; a list of the files of every rung of a ladder is a few KiB, and a larger file is refused before it is parsed.",
       "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
+    },
+    "orchestrator/references.py:_short(limit)": {
+      "kind": "choice",
+      "says": "How many characters of a source line a rename report quotes for a spot it left alone or could not resolve.",
+      "reason": "how much of a text the product itself shows, carries or reads, and at what width (never a budget for a model's whole reply or whole input)"
     }
   }
 }
