@@ -93,6 +93,18 @@ def test_missing_dependency_is_an_environment_issue_never_a_finding(
     assert "could not run" in report.environment_issues[0]
 
 
+def test_a_demonstration_that_could_not_run_is_labelled_a_demonstration(
+    git_repo: Path,
+) -> None:
+    """The note names the command's role, not always ``acceptance`` (R6)."""
+    with TempDirSandbox(git_repo) as sandbox:
+        report = Acceptance(
+            sandbox, (), demonstrations=(("this-binary-does-not-exist-42",),)
+        ).run()
+    (issue,) = report.environment_issues
+    assert issue.startswith("demonstration: "), issue
+
+
 def test_tree_altering_command_fails_by_name(git_repo: Path) -> None:
     """Acceptance criterion: a command that rewrites the change fails, named."""
     with TempDirSandbox(git_repo) as sandbox:

@@ -702,8 +702,9 @@ def worker_attempt(
 
     **``reviewers`` is the same seam, chosen per builder, and it is what
     ``mcgyvr run`` hands in.** :func:`~mcgyvr.verify.reviewers_for` names the
-    reviewer of each rung's work — the bound ``verifier`` role, or the next
-    dearer local rung with another model — or says why there is none, and that
+    reviewer of each rung's work — the bound ``verifier`` role (or a fallback
+    standing in for it where its model wrote the work), or the next dearer
+    local rung with another model — or says why there is none, and that
     sentence reaches the judgement. Each reviewer is asked for a typed verdict
     first and in prose where it serves no probabilities, and the same typed
     seam is the gate's Jev rung (:class:`~mcgyvr.gate.jev.JevCheck`): its
@@ -1128,9 +1129,10 @@ def worker_attempt(
                 absent=(
                     chosen.reason if isinstance(chosen, NoReviewer) else NO_REVIEWER
                 ),
-                reviewer=(
-                    (reviewing.unit or reviewing.model) if reviewing is not None else ""
-                ),
+                # Who signs a `verified`: the reviewing unit, and — for one
+                # standing in for a `verifier.unit` that wrote the change —
+                # that it is a fallback and why (`Reviewer.label`).
+                reviewer=reviewing.label if reviewing is not None else "",
             )
             # Which draw the verdict is about, how many were asked for, and how
             # many left a row: one journal row per draw was written above,

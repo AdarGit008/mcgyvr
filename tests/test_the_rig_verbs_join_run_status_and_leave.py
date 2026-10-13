@@ -53,7 +53,7 @@ def ran(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
 
     runs: list[Any] = []
 
-    def fake(kept: Any) -> int:
+    def fake(kept: Any, config: Any = None) -> int:
         runs.append(kept)
         return 0
 

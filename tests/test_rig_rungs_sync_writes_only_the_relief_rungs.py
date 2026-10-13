@@ -335,6 +335,22 @@ def test_a_folder_with_no_setup_is_not_written_into(
     assert list(empty.iterdir()) == []
 
 
+def test_dash_dash_config_names_the_setup_over_the_environment(
+    tmp_path: Path, setup: Path, hub: Hub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--config`` means what it means on ``run`` (e2e run 2, R9)."""
+    empty = tmp_path / "not-a-setup"
+    empty.mkdir()
+    monkeypatch.setenv("MCGYVR_CONFIG", str(empty))
+    hub.answer(hub.listing(FIRST))
+
+    assert cli("--config", str(setup)) == 0
+
+    (only,) = relief(setup).values()
+    assert only.name == f"hitchhike-{FIRST}"
+    assert list(empty.iterdir()) == []
+
+
 def test_a_hub_that_refuses_the_key_is_said_and_nothing_is_written(
     setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
 ) -> None:

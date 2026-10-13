@@ -1503,7 +1503,9 @@ def escalate(
         history=tuple(history),
         attempts_spent=attempts_spent,
         escalations=escalations,
-        detail=_halt_detail(outcome, route, attempts_spent, escalations),
+        detail=_halt_detail(
+            outcome, route, attempts_spent, escalations, tuple(entered)
+        ),
     )
 
 
@@ -1696,10 +1698,21 @@ def _spent_outcome(history: list[Attempted], attempts_spent: int) -> Outcome:
 
 
 def _halt_detail(
-    outcome: Outcome, route: Ascent, attempts_spent: int, escalations: int
+    outcome: Outcome,
+    route: Ascent,
+    attempts_spent: int,
+    escalations: int,
+    entered: tuple[Family, ...],
 ) -> str:
-    """One sentence naming the rule that ended the task, in its own terms."""
-    climbed = ", ".join(f.name for f in route.families)
+    """One sentence naming the rule that ended the task, in its own terms.
+
+    The families it names are the ones the climb ``entered`` — a family on the
+    route with no rung for this contract never ran, and naming it says the
+    ladder went somewhere it did not (e2e run 2, R6). With nothing entered,
+    the climbable families of the route are what the ladder offered.
+    """
+    ran = entered or tuple(p.family for p in route.plans if p.climbable)
+    climbed = ", ".join(dict.fromkeys(f.name for f in ran or route.families))
     if outcome is Outcome.NOTHING_TO_RUN:
         return (
             f"no family from {route.floor.name!r} upward offers a rung. {route.reason}"

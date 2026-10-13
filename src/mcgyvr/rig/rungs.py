@@ -568,15 +568,19 @@ class Refresher:
 
 
 def refresher_for(
-    hub: str, *, environ: Mapping[str, str] = os.environ
+    hub: str,
+    *,
+    environ: Mapping[str, str] = os.environ,
+    folder: Path | None = None,
 ) -> Refresher | None:
     """The agent's refresher for the hub it joined, or ``None`` without a key.
 
     Only when :data:`KEY_ENV` is set: the rig token is the agent's, and the
     rider's personal key is theirs to give. The key is read at each sync, so
-    a variable changed under the agent is the one used next; the setup is the
-    one :func:`mcgyvr.config.config_path` locates, as ``mcgyvr rig rungs
-    sync`` does.
+    a variable changed under the agent is the one used next; the setup is
+    ``folder`` (the agent's ``--config``), else the one
+    :func:`mcgyvr.config.config_path` locates, as ``mcgyvr rig rungs sync``
+    does.
     """
     if not environ.get(KEY_ENV):
         return None
@@ -586,10 +590,10 @@ def refresher_for(
         if not key:
             raise SyncError(f"${KEY_ENV} is no longer set")
         try:
-            folder = config_path()
+            where = folder if folder is not None else config_path()
         except ConfigError as exc:
             raise SyncError(str(exc)) from exc
-        rides, _ = sync(folder, hub, key, KEY_ENV)
+        rides, _ = sync(where, hub, key, KEY_ENV)
         return rides
 
     return Refresher(sync=once)

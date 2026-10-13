@@ -14,6 +14,8 @@ mcgyvr local_pool
 refuses to overwrite an existing config without `--force`, and prints what
 was decided and why, then what is *not* configured and what that costs.
 Backends on another machine come in with `--host` (repeatable).
+It writes to `--config DIR` when named, as every command that reads
+a setup takes it.
 
 A hosted API unit comes in with `--api` (repeatable), written as
 `model=<id>,address=<url>,api_key_env=<VAR>` — so a machine with no
@@ -184,8 +186,8 @@ Which unit reads an applied diff in fresh context.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `verifier.enabled` | boolean | no | `true` | Model verification of the applied diff, on top of the gate. On unless set to `false`. With no `unit`, the reviewer is the next dearer local rung whose model is not the builder's; where there is none, the work is accepted and labelled unverified. A hosted unit reviews only when `unit` names it. |
-| `verifier.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
+| `verifier.enabled` | boolean | no | `true` | Model verification of the applied diff, on top of the gate. On unless set to `false`. With no `unit`, the reviewer is the next dearer local rung whose model is not the builder's; where there is none, the work is accepted and labelled unverified. A hosted unit reviews only when `unit` names it, or stands in for a hosted `unit` as `unit` says. |
+| `verifier.unit` | text | no | unset | Which unit reviews. A unit is the one term. It reviews every rung's work except work its own model wrote, because a model does not review its own output. That work is reviewed by a fallback: the usable rung nearest this unit on the ladder whose model is not the builder's — the rungs below it first, dearest first, then the rungs above it, cheapest first. A local rung may always be the fallback; a hosted one only when this unit is hosted and the rung is cheaper than it. The result and the journal name the fallback and say it stood in; with none, the work is accepted and labelled unverified, saying why. To bind it: name one of the units declared under `units`. |
 | `verifier.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
 ## `jev`

@@ -185,12 +185,12 @@ class Acceptance:
         """
         notes: list[str] = []
         for command in self.demonstrations:
-            ran = self._run_one(command, notes, when=_AT_BASELINE)
+            ran = self._run_one(command, notes, when=_AT_BASELINE, demonstrates=True)
             issue = _demonstration_preflight(command, ran.outcome, ran.result)
             if issue is not None:
                 return Baseline(issue, tuple(notes))
         for command in self.commands:
-            ran = self._run_one(command, notes, when=_AT_BASELINE)
+            ran = self._run_one(command, notes, when=_AT_BASELINE, demonstrates=False)
             issue = _as_preflight(command, ran.outcome, ran.result)
             if issue is not None:
                 return Baseline(issue, tuple(notes))
@@ -219,31 +219,44 @@ class Acceptance:
         judged = [(c, True) for c in self.demonstrations]
         judged += [(c, False) for c in self.commands]
         for command, demonstrates in judged:
-            ran = self._run_one(command, notes, when=_AT_GATE)
+            ran = self._run_one(
+                command, notes, when=_AT_GATE, demonstrates=demonstrates
+            )
             if ran.outcome is _Outcome.PASSED:
                 continue
             if ran.outcome is _Outcome.DID_NOT_RUN:
-                env_issues.append(_did_not_run_note(command, ran.result))
+                env_issues.append(
+                    _did_not_run_note(command, ran.result, _role(demonstrates))
+                )
                 continue
             findings.append(_as_finding(command, ran, demonstrates))
             if ran.outcome is _Outcome.ALTERED_TREE:
                 break
         return AcceptanceReport(tuple(findings), tuple(env_issues), tuple(notes))
 
-    def _run_one(self, command: Sequence[str], notes: list[str], *, when: str) -> _Ran:
+    def _run_one(
+        self,
+        command: Sequence[str],
+        notes: list[str],
+        *,
+        when: str,
+        demonstrates: bool,
+    ) -> _Ran:
         """Run one command, put the workspace back, and classify the run.
 
         Classified by deterministic signals only. A rewrite of the change is
         checked first, because it invalidates the run whatever the exit code;
         then the wall-clock kill, then the shell's did-not-run codes, then any
         other non-zero exit. At the baseline there is no change to rewrite.
+        ``demonstrates`` says which list the command came from, so a note
+        labels it by its role (e2e run 2, R6).
         """
         before = self.sandbox.snapshot()
         result = self.sandbox.run(command, timeout=self.timeout)
         restored = self.sandbox.restore(before)
         if not restored:
             return _Ran(_classify(result), result)
-        notes.append(_cleanup_note(command, restored, when))
+        notes.append(_cleanup_note(command, restored, when, _role(demonstrates)))
         if when == _AT_GATE and restored.reverted:
             change = self.sandbox.changed_since_base(before)
             altered = tuple(path for path in restored.reverted if path in change)
@@ -258,6 +271,16 @@ _AT_BASELINE = "baseline"
 _AT_GATE = "gate"
 
 
+def _role(demonstrates: bool) -> str:
+    """The contract field a command came from, which is how a note labels it.
+
+    The contract splits its checks into ``acceptance`` and ``demonstration``;
+    a note about a demonstration that says ``acceptance:`` names a list the
+    command is not in (e2e run 2, R6).
+    """
+    return "demonstration" if demonstrates else CHECK
+
+
 def _classify(result: CommandResult) -> _Outcome:
     if result.timed_out:
         return _Outcome.TIMED_OUT
@@ -268,7 +291,9 @@ def _classify(result: CommandResult) -> _Outcome:
     return _Outcome.PASSED
 
 
-def _cleanup_note(command: Sequence[str], restored: Restored, when: str) -> str:
+def _cleanup_note(
+    command: Sequence[str], restored: Restored, when: str, role: str
+) -> str:
     """The sentence naming what one command left behind and what became of it."""
     after = (
         "so the first attempt starts on a clean copy"
@@ -276,7 +301,7 @@ def _cleanup_note(command: Sequence[str], restored: Restored, when: str) -> str:
         else "none of it is part of the change"
     )
     return (
-        f"acceptance: {_label(command)} left {restored.named()} in the workspace; "
+        f"{role}: {_label(command)} left {restored.named()} in the workspace; "
         f"cleaned up after it ran, {after}"
     )
 
@@ -370,11 +395,11 @@ def _not_run_detail(command: Sequence[str], result: CommandResult) -> str:
     return detail
 
 
-def _did_not_run_note(command: Sequence[str], result: CommandResult) -> str:
+def _did_not_run_note(command: Sequence[str], result: CommandResult, role: str) -> str:
     """The environment-issue line for a command that never ran."""
     detail = _not_run_detail(command, result)
     return (
-        f"acceptance: {_label(command)} could not run — {detail}; this is a "
+        f"{role}: {_label(command)} could not run — {detail}; this is a "
         "missing dependency, an environment fault, not a rejected change"
     )
 

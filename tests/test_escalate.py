@@ -533,6 +533,50 @@ def test_a_ladder_that_declines_throughout_is_not_a_ladder_that_failed(
     assert "no attempt was spent" in result.detail
 
 
+API_ONLY = """\
+units:
+  api_small:
+    address: https://api.example.com/v1
+    model: vendor-small
+    rig: vendor
+    width: 4
+    api_key_env: EXAMPLE_API_KEY
+  api_big:
+    address: https://api.example.com/v1
+    model: vendor-large
+    rig: vendor
+    width: 4
+    api_key_env: EXAMPLE_API_KEY
+ladder:
+- api_small
+- api_big
+max_escalations: 2
+"""
+
+
+def test_ladder_spent_names_only_the_families_that_ran(key: None) -> None:
+    """A ladder with no local rung is not spent "across local, api" (e2e run 2, R6)."""
+    config, pool = mapped(API_ONLY)
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
+
+    result = halted(escalate(config, pool, contract(), attempts))
+
+    assert result.outcome is Outcome.LADDER_SPENT
+    assert attempts.rungs == ["api_small", "api_big"]
+    assert "across api," in result.detail, result.detail
+    assert "local" not in result.detail, result.detail
+
+
+def test_a_ladder_spent_across_two_families_names_both(key: None) -> None:
+    config, pool = mapped(with_budgets(MIXED, max_escalations=2))
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
+
+    result = halted(escalate(config, pool, contract(), attempts))
+
+    assert result.outcome is Outcome.LADDER_SPENT
+    assert "across local, api," in result.detail, result.detail
+
+
 def test_every_terminal_outcome_is_reachable_and_distinct() -> None:
     """A vocabulary nothing can reach is prose with an enum around it."""
     reached = {
