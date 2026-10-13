@@ -568,12 +568,23 @@ def render_policy(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+#: Written beside ``sandbox.sessions`` when it asks for Docker init did not find.
+NO_DAEMON_SESSIONS_NOTE = (
+    "No Docker daemon answered when init ran, so a chat or agent run is "
+    "refused until one does, unless `allow_fallback` is on. `sessions: "
+    "tempdir` stages a session on this host and needs no Docker."
+)
+
+
 def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, str]:
-    """The decisions said beside their keys: a ``tempdir`` chosen for no daemon."""
-    mode = (data.get("sandbox") or {}).get("mode")
-    if not detection.docker and mode == "tempdir":
-        return {"sandbox.mode": NO_DAEMON_MODE_NOTE}
-    return {}
+    """The decisions said beside their keys: Docker asked for and not found."""
+    sandbox = data.get("sandbox") or {}
+    notes: dict[str, str] = {}
+    if not detection.docker and sandbox.get("mode") == "tempdir":
+        notes["sandbox.mode"] = NO_DAEMON_MODE_NOTE
+    if not detection.docker and sandbox.get("sessions") == "docker":
+        notes["sandbox.sessions"] = NO_DAEMON_SESSIONS_NOTE
+    return notes
 
 
 def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
@@ -718,9 +729,11 @@ def build(
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
             # Written at their defaults, each under the comment that names the
-            # other choice: what a run does with no daemon, and the network a
-            # task container reaches, are worth seeing before they matter.
-            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network"),
+            # other choice: what a run does with no daemon, the network a task
+            # container reaches, and whether a chat or agent session gets one,
+            # are worth seeing before they matter. `initialize` writes the
+            # setup's `--session-sandbox` over the last.
+            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network", "sessions"),
             "image": None,
             "setup": [],
         },
@@ -1025,6 +1038,7 @@ def initialize(
     jev: str | None = None,
     mcorch: str | None = None,
     window: int | None = None,
+    session_sandbox: str | None = None,
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -1064,6 +1078,11 @@ def initialize(
     ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
     ``deployment`` is omitted the default ``hybrid`` is written, so the file
     states the choice rather than leaving the schema to fill it silently.
+
+    ``session_sandbox`` is ``sandbox.sessions``: whether a ``chat`` or
+    ``agent`` run that runs no command gets a container (``docker``, an
+    opt-in) or is staged on this host (``tempdir``). ``None`` writes the
+    schema's default.
     """
     found = (
         detection
@@ -1133,6 +1152,8 @@ def initialize(
 
     # After the composition, so a composed candidate carries the opt-ins too.
     data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
+    if session_sandbox is not None:
+        data["sandbox"] = {**dict(data["sandbox"]), "sessions": session_sandbox}
     # The requested profile wins in every path: a composed candidate is built
     # from the schema's default, and the deterministic ladder carries it from
     # `build`, but both are the caller's parameter to name.

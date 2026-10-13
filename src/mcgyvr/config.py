@@ -200,6 +200,22 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         choices=NETWORKS,
     ),
     Field(
+        "sessions",
+        "enum",
+        "The sandbox a `chat` or `agent` run gets when its contract declares "
+        "no `acceptance` or `demonstration` command. Such a session runs no "
+        "command: its reply is only staged in a throwaway checkout of HEAD for "
+        "the output checks. `tempdir` stages it on this host, so a session "
+        "never builds, pulls or starts a container and needs no Docker. "
+        "`docker` gives it a task container as `mode: docker` gives `code` and "
+        "`media`, with `allow_fallback` and `network` applying. A session that "
+        "declares a command is sandboxed by `mode`, like any task, and "
+        "`--sandbox` on `mcgyvr run` overrides both for one run. "
+        "`mcgyvr setup --session-sandbox` writes it.",
+        default="tempdir",
+        choices=("tempdir", "docker"),
+    ),
+    Field(
         "image",
         "str",
         "Base image for task containers. Unset means detect the repository's "
