@@ -584,9 +584,15 @@ def _sandbox(args: argparse.Namespace) -> int:
     # `sandbox.allow_fallback`, read as a run reads them. No setup at all is
     # the schema's defaults (`docker`, no fallback); a setup that cannot be
     # read has no resolved mode to show.
+    chosen = Path(args.config) if getattr(args, "config", None) else None
     try:
-        config: Config | None = load_config(None)
-    except ConfigMissingError:
+        config: Config | None = load_config(chosen)
+    except ConfigMissingError as exc:
+        if chosen is not None:
+            # Named with --config and not there: an error, as on `run`, not
+            # the defaults a bare install reads.
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
         config = None
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -4717,6 +4723,74 @@ def _add_repo(parser: argparse.ArgumentParser, what: str) -> None:
     )
 
 
+def add_config(
+    parser: argparse.ArgumentParser,
+    *,
+    dest: str = "config",
+    what: str = "config to read",
+) -> None:
+    """``--config PATH``, the one way every verb is told which setup to read.
+
+    ``run`` took the setup as ``--config`` while ``config`` and ``local_pool``
+    took it by position, ``catalog`` as ``--against``, and ``sandbox``,
+    ``fleet alerts`` and the ``rig`` agent had no way to name it, so the flag a
+    user learned on ``run`` was refused elsewhere (e2e run 2, R9). Every verb
+    that reads the setup now takes it, with ``run``'s meaning and precedence:
+    the directory (or one merged file) it names wins over ``$MCGYVR_CONFIG``,
+    the working directory and the live fleet, and leaving it off takes that
+    chain. ``tests/test_every_command_that_reads_a_config_takes_dash_dash_config.py``
+    walks the parser so a new verb cannot miss it.
+
+    ``dest`` is for a verb whose older spelling is kept beside the flag (a
+    positional, ``--against``): both store into it through
+    :class:`_OneSetup`, so the handler reads one value and two different
+    setups on one line are refused.
+    """
+    parser.add_argument(
+        "--config",
+        dest=dest,
+        default=argparse.SUPPRESS,
+        type=_named_path,
+        metavar="PATH",
+        action=_OneSetup,
+        help=f"{what} (default: {CONFIG_DEFAULT_HELP})",
+    )
+
+
+class _OneSetup(argparse.Action):
+    """Store a setup path, refusing a second, different one on the same line.
+
+    The action of ``--config`` and of the older spelling a verb keeps beside it
+    (``mcgyvr config PATH``, ``catalog --against PATH``). A value that names no
+    path — an absent positional, a bare ``--against`` — never replaces one
+    that does, so the order they are typed in does not matter. Two paths that
+    differ are a usage error through the subparser's own ``error`` (exit 2):
+    picking one would be guessing which setup the person meant.
+    """
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        earlier = getattr(namespace, self.dest, None)
+        if not isinstance(values, str):
+            if not isinstance(earlier, str):
+                setattr(namespace, self.dest, values)
+            return
+        if (
+            isinstance(earlier, str)
+            and Path(earlier).expanduser() != Path(values).expanduser()
+        ):
+            parser.error(
+                f"the command line names two setups, {earlier} and {values}; "
+                "name one, with --config"
+            )
+        setattr(namespace, self.dest, values)
+
+
 def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """Resolve who is writing the journal, or refuse at parse time.
 
@@ -4896,9 +4970,13 @@ def _fleet_alerts(args: argparse.Namespace) -> int:
     if args.root:
         root = Path(args.root)
     else:
+        chosen = Path(args.config) if getattr(args, "config", None) else None
         try:
-            profile = str(load_config(None).get("profile"))
-        except ConfigMissingError:
+            profile = str(load_config(chosen).get("profile"))
+        except ConfigMissingError as exc:
+            if chosen is not None:
+                print(f"error: {exc}", file=sys.stderr)
+                return 1
             spec = field_at("profile")
             profile = str(spec.default) if spec is not None else "live"
         except ConfigError as exc:
@@ -5089,8 +5167,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         nargs="?",
         default=None,
         type=_named_path,
-        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
+        action=_OneSetup,
+        help="the same as --config, by position",
     )
+    add_config(conf, dest="path")
     conf.set_defaults(func=_config)
 
     local_pool = sub.add_parser(
@@ -5102,8 +5182,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         nargs="?",
         default=None,
         type=_named_path,
-        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
+        action=_OneSetup,
+        help="the same as --config, by position",
     )
+    add_config(local_pool, dest="path")
     local_pool.add_argument(
         "--probe",
         action="store_true",
@@ -5142,10 +5224,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         const=None,
         type=_named_path,
         metavar="CONFIG",
+        action=_OneSetup,
         help=(
             "resolve against a configured ladder and name the types it cannot "
             f"start (default config: {CONFIG_DEFAULT_HELP})"
         ),
+    )
+    add_config(
+        cat,
+        dest="against",
+        what="resolve against this setup's ladder, as --against PATH does",
     )
     cat.set_defaults(func=_catalog)
 
@@ -5360,6 +5448,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         action="store_true",
         help="remove every task image mcgyvr has cached",
     )
+    add_config(sbx, what="setup whose `sandbox` block a run here would read")
     sbx.set_defaults(func=_sandbox)
 
     setup = sub.add_parser(
@@ -5396,7 +5485,19 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         "path",
         nargs="?",
         default=None,
+        action=_OneSetup,
         help=f"where to write (default: {INIT_DEFAULT_HELP})",
+    )
+    # The setup it writes, and the one it reads first to keep hand edits. Its
+    # default chain is its own (INIT_DEFAULT_HELP): never the live fleet.
+    setup.add_argument(
+        "--config",
+        dest="path",
+        default=argparse.SUPPRESS,
+        type=_named_path,
+        metavar="PATH",
+        action=_OneSetup,
+        help="the same as PATH: the setup to write",
     )
     setup.add_argument(
         "--force",
@@ -5751,11 +5852,12 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "for dev the dev root)"
         ),
     )
+    add_config(falerts, what="setup whose `profile` picks the lock root")
     falerts.set_defaults(func=_fleet_alerts)
 
     from mcgyvr.rig import verbs as rig_verbs
 
-    rig_verbs.add_parser(sub)
+    rig_verbs.add_parser(sub, add_config=add_config)
 
     mcorch = sub.add_parser(
         "mcorch",

@@ -14,6 +14,8 @@ mcgyvr local_pool
 refuses to overwrite an existing config without `--force`, and prints what
 was decided and why, then what is *not* configured and what that costs.
 Backends on another machine come in with `--host` (repeatable).
+It writes to `--config DIR` when named, as every command that reads
+a setup takes it.
 
 A hosted API unit comes in with `--api` (repeatable), written as
 `model=<id>,address=<url>,api_key_env=<VAR>` — so a machine with no

@@ -37,6 +37,8 @@ import signal
 import sys
 import time
 import urllib.parse
+from collections.abc import Callable
+from pathlib import Path
 from types import FrameType
 from typing import TYPE_CHECKING
 
@@ -131,8 +133,13 @@ def _agent_version() -> str:
     return "0.0.0+unknown"
 
 
-def run_agent(kept: Credentials) -> int:
-    """Run the agent for ``kept`` in the foreground until stopped or refused."""
+def run_agent(kept: Credentials, config: Path | None = None) -> int:
+    """Run the agent for ``kept`` in the foreground until stopped or refused.
+
+    ``config`` is the setup ``--config`` named, whose shared units the agent
+    advertises and whose ``relief.yaml`` the heartbeat refreshes; ``None``
+    locates it the way every verb does (:func:`mcgyvr.config.config_path`).
+    """
     from mcgyvr.fleet import roots
     from mcgyvr.rig import (
         agent,
@@ -239,7 +246,7 @@ def run_agent(kept: Credentials) -> int:
     # The units this host shares with riders (hitchhike), read from its own
     # setup: advertised once the hello is acked, then kept fresh on the
     # heartbeat and a ticker of their own; a ride to one is a relay.
-    units = hitchhike.Units(send=box.put)
+    units = hitchhike.Units(send=box.put, setup=lambda: hitchhike.load_setup(config))
     relays = relay.Relays(heads=sessions, send=box.put, units=units)
     sessions.on_end(relays.session_ended)
     probes = probe.Probes(
@@ -265,7 +272,7 @@ def run_agent(kept: Credentials) -> int:
 
     # With the rider's personal key in the environment, the heartbeat keeps
     # the relief rungs fresh too (`mcgyvr rig rungs sync`, on the agent's tick).
-    refresher = rungs.refresher_for(kept.hub)
+    refresher = rungs.refresher_for(kept.hub, folder=config)
     if refresher is not None:
         print(
             f"relief rungs: kept fresh from {kept.hub} with ${rungs.KEY_ENV}",
@@ -385,7 +392,13 @@ def _join(args: argparse.Namespace) -> int:
         f"joined {hub} as {credentials.shown(token)}; the token is kept in {where}",
         flush=True,
     )
-    return run_agent(wanted)
+    return run_agent(wanted, _named(args))
+
+
+def _named(args: argparse.Namespace) -> Path | None:
+    """The setup ``--config`` named, or ``None`` to locate it."""
+    named: str | None = getattr(args, "config", None)
+    return Path(named) if named else None
 
 
 def _kept() -> Credentials | int:
@@ -408,7 +421,7 @@ def _kept() -> Credentials | int:
 
 def _run(args: argparse.Namespace) -> int:
     kept = _kept()
-    return kept if isinstance(kept, int) else run_agent(kept)
+    return kept if isinstance(kept, int) else run_agent(kept, _named(args))
 
 
 def _alive(pid: int) -> bool:
@@ -530,7 +543,7 @@ def _rungs_sync(args: argparse.Namespace) -> int:
         )
         return int(Exit.ERROR)
     try:
-        folder = config_path()
+        folder = _named(args) or config_path()
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return int(Exit.ERROR)
@@ -647,8 +660,18 @@ def _share(args: argparse.Namespace) -> int:
     return int(Exit.OK)
 
 
-def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Add the ``rig`` group to ``mcgyvr``'s subcommands."""
+def add_parser(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    *,
+    add_config: Callable[..., None],
+) -> None:
+    """Add the ``rig`` group to ``mcgyvr``'s subcommands.
+
+    ``add_config`` is :func:`mcgyvr.cli.add_config`, handed in rather than
+    imported so this module never imports the CLI: the verbs that read the
+    setup (``join``, ``run``, ``rungs sync``) take ``--config`` as every
+    other verb does.
+    """
     rig = sub.add_parser("rig", help="publish this machine as a rig of a hub")
     verbs = rig.add_subparsers(dest="rig_command", required=True)
     join = verbs.add_parser(
@@ -667,8 +690,10 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help="the rig token the hub showed when the rig was created; - reads it "
         "from stdin",
     )
+    add_config(join, what="setup whose units the agent shares")
     join.set_defaults(func=_join)
     run = verbs.add_parser("run", help="run the agent again from the kept token")
+    add_config(run, what="setup whose units the agent shares")
     run.set_defaults(func=_run)
     status = verbs.add_parser(
         "status", help="what is kept, what the agent last heard, what this reads as"
@@ -697,6 +722,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help="the NAME of the variable holding your personal hub key "
         "(default: MCGYVR_HUB_API_KEY)",
     )
+    add_config(sync, what="setup whose relief.yaml is written")
     sync.set_defaults(func=_rungs_sync)
     share = verbs.add_parser(
         "share", help="what this rig lends to the hub's sessions; change it"
