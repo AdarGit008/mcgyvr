@@ -743,6 +743,7 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.jev is not None
         or args.mcorch is not None
         or args.window is not None
+        or args.session_sandbox is not None
     )
 
 
@@ -1156,6 +1157,7 @@ def _setup(args: argparse.Namespace) -> int:
             jev=args.jev,
             mcorch=args.mcorch,
             window=args.window,
+            session_sandbox=args.session_sandbox,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -2150,15 +2152,9 @@ def _run(args: argparse.Namespace) -> int:
         return 1
     print(f"journal: {recording.path}", file=sys.stderr)
 
-    # Settled once, here, so both paths below open the same sandbox: a flag
-    # typed at the terminal is a person overriding their own file and wins;
-    # with no flag `sandbox.mode` from the config answers; with neither,
-    # `docker`.
-    args.sandbox = (
-        args.sandbox
-        or (config.get("sandbox.mode") if config is not None else None)
-        or "docker"
-    )
+    # Settled once, here, so both paths below open the same sandbox
+    # (`_sandbox_mode` says who answers).
+    args.sandbox = _sandbox_mode(args.sandbox, contract, config)
     # Settled once too, for delivery (`_commit`): it judges the bytes again,
     # and a gate that read a different setup from the sandbox's would refuse
     # where the change lands what the setup asked it to accept where it was
@@ -2515,6 +2511,44 @@ def _floor(
         return _error(report, str(exc))
 
 
+def _runs_no_command(contract: Contract) -> bool:
+    """Whether ``contract`` is a session that declares no command to run.
+
+    Such a run only stages its reply for the output checks, so its sandbox is
+    ``sandbox.sessions``'s to choose and not ``sandbox.mode``'s (owner, e2e
+    run 2 R10: docker for chat and agent is opt-in at setup).
+    """
+    return contract.is_session and not (
+        contract.acceptance_commands or contract.demonstration_commands
+    )
+
+
+def _sandbox_mode(typed: str | None, contract: Contract, config: Config | None) -> str:
+    """The sandbox mode a run of ``contract`` opens.
+
+    A flag typed at the terminal is a person overriding their own file and
+    wins. With none, a session that runs no command reads `sandbox.sessions`
+    (`tempdir` unset), and every other run reads `sandbox.mode` (`docker`
+    unset): a session that declares a command runs it as any task does.
+    """
+    if typed:
+        return typed
+    key, unset = (
+        ("sandbox.sessions", "tempdir")
+        if _runs_no_command(contract)
+        else ("sandbox.mode", "docker")
+    )
+    return str((config.get(key) if config is not None else None) or unset)
+
+
+#: Said once when a session that runs no command is staged on this host.
+SESSION_SANDBOX_NOTE = (
+    "This session runs no command, so its reply is staged in a throwaway "
+    "checkout on this host and no container is built or started "
+    "(`sandbox.sessions: tempdir`; `docker` gives sessions a container)."
+)
+
+
 def _sandbox_policy(config: Config | None) -> dict[str, Any]:
     """What the `sandbox` block says about a sandbox beyond its mode.
 
@@ -2592,6 +2626,7 @@ def _climb(
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
+    from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import reviewers_for
 
     # Live is admitted before anything here is built, opened or dispatched
@@ -2696,16 +2731,25 @@ def _climb(
         )
 
     try:
-        sandbox = open_sandbox(
-            repo,
-            mode=args.sandbox,
-            image=config.get("sandbox.image"),
-            setup=config.get("sandbox.setup") or (),
-            # The worker runs outside the sandbox and the sandbox has to be able
-            # to reach it: a container with no route to the source is a task that
-            # gates fine and never gets an answer to gate.
-            endpoints=tuple(unit.address for unit in config.units.values()),
-            **_sandbox_policy(config),
+        # A session that runs no command and was not given a container is
+        # staged on this host without `open_sandbox`: no daemon is probed, so
+        # Docker need not be installed, and neither the weaker-mode note nor
+        # `sandbox.network: none`'s refusal applies — both are about commands,
+        # and none runs. Its workspace is a checkout of HEAD as in any mode.
+        sandbox = (
+            TempDirSandbox(repo, notes=(SESSION_SANDBOX_NOTE,))
+            if _runs_no_command(contract) and args.sandbox == "tempdir"
+            else open_sandbox(
+                repo,
+                mode=args.sandbox,
+                image=config.get("sandbox.image"),
+                setup=config.get("sandbox.setup") or (),
+                # The worker runs outside the sandbox and the sandbox has to be
+                # able to reach it: a container with no route to the source is
+                # a task that gates fine and never gets an answer to gate.
+                endpoints=tuple(unit.address for unit in config.units.values()),
+                **_sandbox_policy(config),
+            )
         )
     except SandboxError as exc:
         return _error(report, str(exc))
@@ -5277,6 +5321,18 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         help=(
             "with --mcorch: the tokens the agent's unit serves in one request, "
             "read back off the running process"
+        ),
+    )
+    setup.add_argument(
+        "--session-sandbox",
+        default=None,
+        choices=("tempdir", "docker"),
+        metavar="MODE",
+        help=(
+            "the sandbox a chat or agent run gets when it runs no command, "
+            "written as `sandbox.sessions`: tempdir (the default: no container "
+            "is built or started, and Docker is not needed) or docker (opt in "
+            "to a task container, as code and media get)"
         ),
     )
     setup.set_defaults(func=_setup)

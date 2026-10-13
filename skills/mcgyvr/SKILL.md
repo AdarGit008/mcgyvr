@@ -16,6 +16,8 @@ into the repository.
 
 A `chat`/`agent` run is a *session*: no `target`, no `scope`; the
 reply is the result file's `answer`, kept in mcgyvr's session log.
+One that declares no command gets no container unless the config's
+`sandbox.sessions` is `docker`.
 
 ## Step 1 — author a contract
 
