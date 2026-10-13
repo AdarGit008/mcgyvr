@@ -9,8 +9,9 @@
 # The test demands that the scan finds exactly these files, kinds and counts.
 # What that does not hold: a hit replaced by another of the same kind in a
 # listed file keeps the count and passes. On a pull request CI compares this
-# list with the base branch's and fails when a file or a kind was added or a
-# count rose.
+# list with the base branch's and fails when the product holds more hits of a
+# kind than the base recorded. A hit that only moved from one file to another
+# is a move, not growth: the per-kind totals are what may never rise.
 # After cleaning, rewrite the counts with
 #     uv run --no-sync python -m tests.uninvented_machines --write
 # It refuses to add a file or a kind, or to raise a count, unless given
