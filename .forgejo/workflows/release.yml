@@ -1,3 +1,10 @@
+# ── FORGEJO adaptation (2026-10-14) ────────────────────────────────────
+# Two GitHub-only mechanisms replaced:
+#   1. `gh release create`          → Forgejo API (step `publish the Forgejo release`)
+#   2. PyPI trusted publishing (OIDC) → classic `PYPI_API_TOKEN` repo secret
+# Untested until runners exist. Requires DEFAULT_ACTIONS_URL=github.com on the
+# instance so the pinned `actions/*`, `astral-sh/*` and `pypa/*` actions resolve.
+#
 # The product is built here, once, from a `v*` tag, and nowhere else.
 #
 # Four buckets: source (this repository), product (a
@@ -80,12 +87,27 @@ jobs:
         run: |
           uv run --no-project --with packaging python scripts/release/changelog_notes.py "$GITHUB_REF_NAME" CHANGELOG.md > release-notes.md
           cat release-notes.md
-      # `gh` is on every ubuntu runner and needs no action to pin. The release
-      # carries the wheel and the sdist as assets.
-      - name: publish the GitHub release
+      # FORGEJO: no `gh` CLI against Forgejo. Create the release and attach the
+      # wheel + sdist via the Forgejo API with the run token (the workflow
+      # declares `contents: write`). Needs `jq` + `curl` on the runner image.
+      - name: publish the Forgejo release
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+          TOKEN: ${{ github.token }}
+          API: ${{ github.server_url }}/api/v1
+        run: |
+          set -e
+          rel_id="$(curl -sS -X POST "$API/repos/adar/mcgyvr/releases" \
+            -H "Authorization: token $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg tag "$GITHUB_REF_NAME" --arg body "$(cat release-notes.md)" \
+                 '{tag_name: $tag, name: $tag, body: $body}')" | jq -r '.id')"
+          for f in dist/*; do
+            curl -sS -X POST "$API/repos/adar/mcgyvr/releases/$rel_id/assets?name=$(basename "$f")" \
+              -H "Authorization: token $TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$f" >/dev/null
+          done
+          echo "published release id $rel_id"
       # The same files the release carries, handed to `pypi` rather than built
       # again there. `if-no-files-found: error` because an empty artifact would
       # reach the publish job as "nothing to upload" and succeed at publishing
@@ -96,18 +118,12 @@ jobs:
           name: dist
           path: dist/
           if-no-files-found: error
-  # The second destination. It builds nothing, checks out nothing and holds no
-  # token: it takes the artifact `build` made and hands it to PyPI under an
-  # OIDC identity, which is the whole of the header's trusted-publishing note.
+  # FORGEJO: no OIDC trusted publishing. Publishes with a classic PyPI API
+  # token stored as the Forgejo repo secret `PYPI_API_TOKEN` (repo Settings →
+  # Actions → Secrets). Create the token on pypi.org scoped to project `mcgyvr`.
   pypi:
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
-    # Job-level permissions replace the workflow's `contents: write` outright,
-    # so this job can mint an OIDC token and do nothing else with the
-    # repository. A same-run artifact download needs no `actions:` scope.
-    permissions:
-      id-token: write
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -116,3 +132,4 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
