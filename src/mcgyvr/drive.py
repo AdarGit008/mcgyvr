@@ -281,7 +281,12 @@ def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
             f"would report a file changed that nothing opened."
         )
     try:
-        report = rename_apply(Path(sandbox.workspace), step.rename.old, step.rename.new)
+        report = rename_apply(
+            Path(sandbox.workspace),
+            step.rename.old,
+            step.rename.new,
+            target=step.target,
+        )
     except RenameError as refusal:
         return ToolOutcome(
             step=step,

@@ -251,6 +251,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.decompose",
     "mcgyvr.orchestrator.index",
     "mcgyvr.orchestrator.read",
+    "mcgyvr.orchestrator.references",
     "mcgyvr.orchestrator.repo",
     "mcgyvr.orchestrator.resolve",
     "mcgyvr.orchestrator.symbols",
