@@ -15,8 +15,9 @@
 #     uv run --no-sync python -m tests.uninvented_machines --write
 # It refuses to add a file or a kind, or to raise a count, unless given
 # --allow-growth; it puts a new file in the first section and never moves an
-# entry between sections, which a person does. A renamed file is a new file
-# to it: rename the entry by hand, in its section and in order.
+# entry between sections, which a person does. A file that only moved is
+# followed: one path gone and one arrived under the same file name is that
+# file renamed, kept in its section and held to the counts it had.
 # On a merge conflict in this file: take the base branch's list, then run the
 # command above without a flag.
 # Any other comment line, and any line not in this form, is refused.
