@@ -48,9 +48,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr import whole
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.local_pool import Endpoint, PoolError, SourceMap
-from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for
+from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for, request_timeout
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -313,13 +312,15 @@ def classify(
     state: Any,
     questions: Mapping[str, Question],
     *,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Decision:
     """Answer ``questions`` about ``state`` on ``model``, served by ``endpoint``.
 
     One request per question, each sent with ``max_tokens: 1`` and ``logprobs``
     and read from the reply's ``top_logprobs``. A keyless endpoint gets no
     ``Authorization`` header, the same as a dispatch through the runner.
+    ``timeout_s`` ``None`` leaves the bound to the unit, as a dispatch's does
+    (:func:`~mcgyvr.runner.request_timeout`).
     """
     url = _url_for(endpoint.base_url, "/v1/chat/completions")
     headers = {"Content-Type": "application/json"}
@@ -355,7 +356,9 @@ def classify(
             payload["temperature"] = 0.0
         # The stream and its counts, as every dispatch asks: the transport
         # assembles the whole answer, the token's logprobs under its choice.
-        document = _post_json(url, whole.asking(payload), headers, timeout_s)
+        document = _post_json(
+            url, whole.asking(payload), headers, request_timeout(endpoint, timeout_s)
+        )
         answers[name] = answer_for(question, _top_logprobs(document))
     return Decision(answers=answers)
 
@@ -367,7 +370,7 @@ def classify_role(
     questions: Mapping[str, Question],
     *,
     capacity: Capacity | None = None,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Decision | None:
     """Answer ``questions`` on the model a non-ladder ``role`` binds, or ``None``.
 
@@ -402,7 +405,7 @@ def classify_rung(
     questions: Mapping[str, Question],
     *,
     capacity: Capacity | None = None,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Decision:
     """Answer ``questions`` on the model a ladder ``rung`` serves.
 
@@ -440,7 +443,7 @@ def classify_for(
     role: str | None = None,
     rung: str | None = None,
     capacity: Capacity | None = None,
-    timeout_s: float = DEFAULT_REQUEST_TIMEOUT_S,
+    timeout_s: float | None = None,
 ) -> Decision:
     """Ask the Jev unit when one is bound; else the ``role`` or ``rung`` named.
 

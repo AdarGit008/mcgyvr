@@ -33,7 +33,7 @@ from mcgyvr.mcorch.anthropic import MessagesRequest
 from mcgyvr.mcorch.authoring import Authoring, authoring_for
 from mcgyvr.mcorch.transcript import Transcript, writer_id
 from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungReply, RungToolCall
-from mcgyvr.runner import GENERATE_TIMEOUT_S, Request, dispatch_role
+from mcgyvr.runner import Request, dispatch_role
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,9 @@ def bind(config: Config, *, journal_dir: Path, pool: SourceMap | None = None) ->
                 "serve, and none is."
             )
     unit = config.units[str(config.get("orchestrator.unit"))]
-    timeout_s = unit.request_timeout_s or GENERATE_TIMEOUT_S
+    # `None` leaves the bound to the unit: none on a hosted one that states
+    # none (`mcgyvr.runner.request_timeout`).
+    timeout_s = unit.request_timeout_s
 
     def rung(call: RungCall) -> RungReply:
         completion = dispatch_role(
