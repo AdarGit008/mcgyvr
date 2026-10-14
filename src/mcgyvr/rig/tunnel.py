@@ -223,13 +223,6 @@ def may_aim_at(
     )
 
 
-def _address(text: str) -> ipaddress.IPv4Address | None:
-    try:
-        return ipaddress.IPv4Address(text)
-    except ValueError:
-        return None
-
-
 def candidates(
     peer: sessionwire.TunnelPeer,
     network: ipaddress.IPv4Network,
@@ -238,7 +231,7 @@ def candidates(
     """``peer``'s endpoints this rig may be aimed at, in the hub's order."""
     found = []
     for endpoint in peer.endpoints:
-        host = _address(endpoint.host)
+        host = sessionwire._ipv4(endpoint.host)
         if host is None or endpoint.kind not in PATHS:
             continue
         if endpoint.kind == "lan" and not is_lan(host):
@@ -255,7 +248,7 @@ def _relay(
 ) -> RelayAim | None:
     if peer.relay is None:
         return None
-    host = _address(peer.relay.host)
+    host = sessionwire._ipv4(peer.relay.host)
     if host is None or not may_aim_at(host, network, own):
         return None
     return RelayAim(grant=peer.relay, host=host)

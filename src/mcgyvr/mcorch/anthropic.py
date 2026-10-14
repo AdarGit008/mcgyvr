@@ -39,11 +39,9 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from mcgyvr.mcorch import guard
 from mcgyvr.mcorch.wire import RungReply
 from mcgyvr.orchestrator.read import estimate_tokens
-
-#: The API version header every Messages request carries.
-API_VERSION = "2023-06-01"
 
 #: The roles a Messages request may carry; a facade accepts no others.
 _ROLES = frozenset({"user", "assistant"})
@@ -289,19 +287,9 @@ def unreadable_calls(reply: RungReply) -> tuple[str, ...]:
     """The ids of the reply's calls whose arguments are not a JSON object."""
     unreadable: list[str] = []
     for call in reply.tool_calls:
-        if _arguments(call.arguments) is None:
+        if guard.arguments(call.arguments) is None:
             unreadable.append(call.id)
     return tuple(unreadable)
-
-
-def _arguments(text: str) -> dict[str, Any] | None:
-    if not text.strip():
-        return {}
-    try:
-        parsed = json.loads(text)
-    except ValueError:
-        return None
-    return parsed if isinstance(parsed, dict) else None
 
 
 def new_id(prefix: str) -> str:
@@ -329,7 +317,7 @@ def message_from(
     if reply.text:
         content.append({"type": _TEXT, "text": reply.text})
     for call in reply.tool_calls:
-        arguments = _arguments(call.arguments)
+        arguments = guard.arguments(call.arguments)
         if arguments is None:
             continue
         content.append(

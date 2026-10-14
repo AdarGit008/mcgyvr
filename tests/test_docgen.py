@@ -250,8 +250,7 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     leave `skills/mcgyvr/SETUP.md` carrying a comment line for the length of the
     inner run while `addopts = "-q -n auto"` in `pyproject.toml` has the rest of
     the suite reading that file in other processes, and a test that reads it
-    would pass only by scheduling luck
-    (`tests/test_the_docgen_guard_never_writes_the_committed_setup.py`).
+    would pass only by scheduling luck.
     Instead the three kept documents are copied into `tmp_path`, the sentinel
     goes into the copy, and the inner run is handed a `-p` plugin that points
     docgen's defaults at the copies. A defaulting write in this file lands on

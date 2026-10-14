@@ -21,6 +21,7 @@ from pathlib import Path
 from mcgyvr.gate.adapter import (
     LanguageAdapter,
     ToolFailedError,
+    added_by_resolved_path,
     plain_env,
     require_tool,
     trusted_stdout,
@@ -269,7 +270,7 @@ class PythonAdapter(LanguageAdapter):
             raise ToolFailedError(
                 RUFF, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
-        added = _added_by_resolved_path(files, repo)
+        added = added_by_resolved_path(files, repo)
         if base is not None:
             diagnostics = _without_pre_existing(
                 diagnostics, added, repo, base, [ruff, "check", *config_args]
@@ -582,18 +583,6 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
 
 def _paths(changes: Sequence[FileChange]) -> list[str]:
     return [c.path for c in changes]
-
-
-def _added_by_resolved_path(
-    changes: Sequence[FileChange], repo: Path
-) -> dict[Path, tuple[str, frozenset[int]]]:
-    """Map each file's resolved absolute path to its repo-relative path and added lines.
-
-    ruff reports absolute filenames; the change set carries repo-relative ones.
-    Resolving both sides is what lets a lint diagnostic be matched back to the
-    right file's added-line set.
-    """
-    return {(repo / c.path).resolve(): (c.path, c.added_lines) for c in changes}
 
 
 def _diagnostic_key(diag: dict[str, object]) -> tuple[object, str]:

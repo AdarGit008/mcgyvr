@@ -424,25 +424,13 @@ def _run(args: argparse.Namespace) -> int:
     return kept if isinstance(kept, int) else run_agent(kept, _named(args))
 
 
-def _alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
-
-
 def _ago(at: float) -> str:
     seconds = max(0, round(time.time() - at))
     return f"{seconds} s ago"
 
 
 def _status(args: argparse.Namespace) -> int:
-    from mcgyvr.rig import agent, credentials, hardware, state
+    from mcgyvr.rig import agent, credentials, hardware, session, state
 
     try:
         kept = credentials.load()
@@ -458,7 +446,7 @@ def _status(args: argparse.Namespace) -> int:
     if last is None or last.hub != kept.hub:
         print("agent:   no word from an agent yet")
     else:
-        running = "running" if _alive(last.pid) else "not running"
+        running = "running" if session._alive(last.pid) else "not running"
         rig = agent.shown(last.rig_id) if last.rig_id else "no rig id yet"
         heard = f"; last ack {_ago(last.last_ack_at)}" if last.last_ack_at else ""
         link = "online" if last.connected else "offline"

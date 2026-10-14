@@ -112,23 +112,21 @@ variable that is set and is not such an object is refused, as an unusable
 week later, when they cannot be told apart. Unset or empty, the row has no
 ``run_tags``. The round a run measured under and the product revision that
 dispatched it are tags like any other, said by whoever started it; the product
-runs no code of the development checkout to find them
-(``tests/test_telemetry_runs_no_lab_code.py``).
+runs no code of the development checkout to find them.
 """
 
 from __future__ import annotations
 
-import contextlib
 import fcntl
 import hashlib
 import json
 import math
 import os
-import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr import atomic
 from mcgyvr.redact import scrub
 from mcgyvr.runner import Completion
 
@@ -602,23 +600,9 @@ def _store_one(path: Path, data: bytes) -> str:
     blob = blobs / digest
     if blob.exists():
         return digest
-    # Unique per writer, so two threads or processes storing the same text at
-    # once each stage their own copy and the last ``replace`` wins with bytes
-    # identical to the first.
-    staging = blobs / f".{digest}.{os.getpid()}-{threading.get_ident()}.part"
-    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
-    try:
-        try:
-            _write_all(fd, data)
-        finally:
-            os.close(fd)
-        os.replace(staging, blob)
-    except BaseException:
-        # Best effort and only for the file this call created: the failure
-        # that matters is the one about to propagate.
-        with contextlib.suppress(OSError):
-            os.unlink(staging)
-        raise
+    # Two threads or processes storing the same text at once each stage their
+    # own copy and the last ``replace`` wins with bytes identical to the first.
+    atomic.write(blob, data)
     return digest
 
 

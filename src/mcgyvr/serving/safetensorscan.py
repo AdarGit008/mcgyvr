@@ -18,8 +18,7 @@ Operators run ``python -m mcgyvr.serving.safetensorscan <model dir>`` on the
 machine that holds the weights, and a gate may ship the file to that machine
 as bytes and run it as ``python3 -``, where there is no venv, no ``mcgyvr`` and
 no ``PYTHONPATH``. An import added here fails on that machine and nowhere
-else, so ``tests/test_the_safetensors_scanner_needs_nothing_a_rig_lacks.py``
-refuses one.
+else.
 
 **A dtype it does not know is refused by name, never sized as the widest one.**
 Every tensor's ``data_offsets`` span is also compared with the bytes its dtype

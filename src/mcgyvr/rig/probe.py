@@ -56,8 +56,7 @@ from mcgyvr.rig.sessionwire import SessionCode
 MAX_OPEN = 4
 #: How long each round of binding requests waits for its answers.
 STUN_WAIT_S = 0.5
-#: The size of a ping, and of a bulk packet (the format's largest).
-PING_BYTES = udpwire.PROBE_PACKET_MIN_BYTES
+#: The size of a bulk packet (the format's largest).
 BULK_BYTES = udpwire.PROBE_PACKET_MAX_BYTES
 #: The most pongs sent to one peer in one run: every ping it may send to
 #: every candidate of this rig.

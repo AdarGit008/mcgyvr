@@ -34,12 +34,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from mcgyvr import atomic
 
 RESULTS_DIR = "results"
 SESSIONS_DIR = "sessions"
@@ -265,16 +266,5 @@ def write(path: Path, result: RunResult) -> Path:
 def _write_json(path: Path, data: dict[str, Any]) -> Path:
     """``data`` as JSON at ``path``, through a staging name: whole or not at all."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    staging = path.with_name(f".{path.name}.part")
-    try:
-        staging.write_text(
-            json.dumps(data, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(staging, path)
-    except OSError:
-        # The same tidy-up `telemetry._store_one` makes: a write that failed
-        # partway leaves no `.part` for the next reader to wonder about.
-        staging.unlink(missing_ok=True)
-        raise
+    atomic.write(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
     return path

@@ -244,7 +244,6 @@ class Timing:
     poll_s: float = 1.0
     grace_s: float = 30.0
     stop_wait_s: float = 120.0
-    ping_s: float = 30.0
     peer_lost_s: float = 45.0
     stall_s: float = 240.0
     warm_s: float = 300.0
@@ -270,7 +269,6 @@ class Timing:
             poll_s=0.01,
             grace_s=0.1,
             stop_wait_s=5.0,
-            ping_s=0.5,
             peer_lost_s=0.2,
             stall_s=5.0,
             warm_s=1.0,
@@ -473,13 +471,6 @@ def candidate_time(
 def _log(line: str) -> None:
     """Say ``line`` where the agent says what it does: its standard error."""
     print(line, file=sys.stderr, flush=True)
-
-
-def _ipv4(text: str) -> ipaddress.IPv4Address | None:
-    try:
-        return ipaddress.IPv4Address(text)
-    except ValueError:
-        return None
 
 
 def _alive(pid: int) -> bool:
@@ -1432,7 +1423,7 @@ class Sessions:
         own.append(ipaddress.IPv4Interface(hello.address))
         servers: list[tuple[str, int]] = []
         for endpoint in session.traversal.stun[: sessionwire.MAX_STUN_ENDPOINTS]:
-            host = _ipv4(endpoint.host)
+            host = sessionwire._ipv4(endpoint.host)
             if host is not None and tunnel.may_aim_at(host, None, own):
                 servers.append((str(host), endpoint.port))
         if not servers:
@@ -2002,7 +1993,7 @@ def endpoint_hosts(
 def endpoint_kind(host: str) -> str:
     """``lan`` for an address on a LAN, ``public`` for one the owner named
     beyond it (a forwarded port, a public address)."""
-    found = _ipv4(host)
+    found = sessionwire._ipv4(host)
     return "lan" if found is not None and tunnel.is_lan(found) else "public"
 
 

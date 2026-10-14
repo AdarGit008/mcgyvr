@@ -27,6 +27,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
+from mcgyvr import atomic
 from mcgyvr.fleet import roots
 
 #: The file's name in the config folder.
@@ -88,20 +89,8 @@ def save(credentials: Credentials) -> Path:
         raise CredentialsError(
             f"{target} is a link; remove it, and keep no link in its place"
         )
-    staging = folder / f".{CREDENTIALS_FILE}.part"
-    staging.unlink(missing_ok=True)
     data = json.dumps({"hub": credentials.hub, "token": credentials.token})
-    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    try:
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(data + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(staging, target)
-    except BaseException:
-        staging.unlink(missing_ok=True)
-        raise
+    atomic.write(target, data + "\n", private=True, fsync=True)
     return target
 
 

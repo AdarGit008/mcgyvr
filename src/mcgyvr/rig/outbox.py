@@ -59,11 +59,6 @@ class Outbox:
             self._frames.clear()
             self._changed.notify_all()
 
-    def is_open(self) -> bool:
-        """Whether a frame put now would be sent."""
-        with self._changed:
-            return self._open
-
     def put(self, frame: Frame, timeout: float | None = None) -> bool:
         """Queue ``frame``; ``False`` when the box is closed, or stayed full
         for ``timeout`` seconds."""

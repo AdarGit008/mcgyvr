@@ -29,14 +29,12 @@ from __future__ import annotations
 
 import json
 import math
-import os
-import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import derived
+from mcgyvr import atomic, derived
 from mcgyvr.fleet import links, roots
 
 #: The readings file's name, in the user's data folder.
@@ -367,17 +365,7 @@ def record_reading(
     merged[link_class] = entry
     document = {"schema": READINGS_SCHEMA, "links": merged}
     where.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(
-        dir=where.parent, prefix=where.name, suffix=".tmp"
-    )
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as stream:
-            json.dump(document, stream, indent=2)
-            stream.write("\n")
-        os.replace(temporary, where)
-    except BaseException:
-        Path(temporary).unlink(missing_ok=True)
-        raise
+    atomic.write(where, json.dumps(document, indent=2) + "\n", private=True)
     return where
 
 

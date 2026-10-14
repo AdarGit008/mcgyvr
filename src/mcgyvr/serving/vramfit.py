@@ -468,38 +468,3 @@ def explain(
         predicted_mib=predicted / (1 << 20),
         allowance_mib=allowance_mib(geometry, n_ubatch=n_ubatch),
     )
-
-
-def fits_measured(
-    geometry: dict[str, Any],
-    *,
-    n_cpu_moe: int,
-    slots: int,
-    free_bytes: int,
-    ctx_per_slot: int,
-    n_ubatch: int = 512,
-    speculative: str = "none",
-) -> bool:
-    """Whether a card handing out ``free_bytes`` can hold this placement.
-
-    The question asked of a placement somebody already has — the offload a rig
-    is running, or one a person is proposing against a card they have just
-    scanned — as distinct from :func:`floor`, which derives one from nothing and
-    keeps the conservative bound because it has no measurement to check itself
-    against.
-
-    Both halves matter and the tests that pin this say so. Loosening the
-    allowance must not become deleting it: a placement whose raw prediction
-    fits the card with less than its working room to spare is still refused,
-    because a server needs room past the weights it holds, and an under-stated
-    allowance admits a cell that clears every gate and then fails to allocate.
-    """
-    told = explain(
-        geometry,
-        n_cpu_moe=n_cpu_moe,
-        slots=slots,
-        ctx_per_slot=ctx_per_slot,
-        n_ubatch=n_ubatch,
-        speculative=speculative,
-    )
-    return told.required_mib * (1 << 20) <= free_bytes

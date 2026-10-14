@@ -187,9 +187,7 @@ def test_skill_body_no_longer_documents_the_levers() -> None:
     step introduces a lever with — and not as a raw substring, as the sibling
     check in ``tests/test_setup_leaves_the_skill.py`` does. A raw
     `"ladder" not in body` is unsatisfiable rather than strict: the outcome
-    literal `ladder_spent` must be present in the body
-    (``tests/test_the_skill_does_not_explain_the_ladder.py`` keeps it on its
-    closed exception list).
+    literal `ladder_spent` must be present in the body.
     """
     assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
     body = _body(SKILL_MD)

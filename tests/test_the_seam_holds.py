@@ -189,7 +189,6 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.sharding",
     "mcgyvr.serving.shardlaunch",
     "mcgyvr.serving.vramfit",
-    "mcgyvr.triage",
     "mcgyvr.wake",
     "mcgyvr.weights",
     "mcgyvr.whole",
@@ -275,19 +274,20 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.worker.sources",
 )
 
-#: The modules both halves import, written down. Each is read from above the
-#: seam and from below it, and each answers one question for the whole project
-#: rather than for one half of it: the package itself, the setup's schema and
-#: the two files it reads (``config.py``), the vocabulary of what may be asked
-#: for (``catalog.py``), the exit codes a caller branches on (``exits.py``),
-#: where a line ends (``lines.py``), what is safe to quote to an operator
-#: (``redact.py``), and the strict YAML loader both schemas share
-#: (``strict_yaml.py``), each as its module docstring's first line says. Being
-#: on this list is not an exemption: a shared module is held to *both* rules
-#: below, because a shared module that reached into either half would pull that
-#: half into everything that reads it.
+#: The modules both halves import, written down. Each is read from above the seam and
+#: from below it, and each answers one question for the whole project rather than for
+#: one half of it: the package itself, the setup's schema and the two files it reads
+#: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), how a
+#: file is replaced whole (``atomic.py``), the exit codes a caller branches on
+#: (``exits.py``), where a line ends (``lines.py``), what is safe to quote to an
+#: operator (``redact.py``), and the strict YAML loader both schemas share
+#: (``strict_yaml.py``), each as its module docstring's first line says. Being on this
+#: list is not an exemption: a shared module is held to *both* rules below, because a
+#: shared module that reached into either half would pull that half into everything
+#: that reads it.
 SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr",
+    "mcgyvr.atomic",
     "mcgyvr.catalog",
     "mcgyvr.config",
     "mcgyvr.exits",

@@ -22,7 +22,12 @@ _RETIRED_PREFIXES = frozenset({"msp-", "rsh-", "fsh-", "cfg-", "flt-"})
 
 
 class _CanonicalDumper(yaml.SafeDumper):
-    """A SafeDumper that never writes an anchor (see ``mcgyvr.config``)."""
+    """A SafeDumper that never writes an anchor.
+
+    Two keys sharing one default object would otherwise render as ``&id001``
+    and ``*id001``, and a digest would depend on object identity inside this
+    process. ``mcgyvr.config`` renders its canonical form through this too.
+    """
 
     def ignore_aliases(self, data: object) -> bool:
         return True

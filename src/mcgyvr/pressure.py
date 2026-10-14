@@ -71,6 +71,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr import atomic
 from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict, probe_endpoint
 from mcgyvr.cooldown import COOLDOWN_S, Cooldown, SharedHold
 from mcgyvr.runner import unit_in_flight
@@ -336,12 +337,8 @@ class Board:
             return False
         scratch = where / f"{_BOARD}.{os.getpid()}.{_next_number()}.tmp"
         try:
-            fd = os.open(scratch, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                handle.write(text)
-            os.replace(scratch, where / _BOARD)
+            atomic.write(where / _BOARD, text, private=True, staging=scratch)
         except OSError:
-            _quietly_remove(scratch)
             return False
         return True
 
@@ -404,12 +401,10 @@ class HostCooling:
         target = self._file(where, source)
         scratch = where / f"{target.name}.{os.getpid()}.{_next_number()}.tmp"
         try:
-            fd = os.open(scratch, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                handle.write(json.dumps({"source": source, "until": until}))
-            os.replace(scratch, target)
+            body = json.dumps({"source": source, "until": until})
+            atomic.write(target, body, private=True, staging=scratch)
         except OSError:
-            _quietly_remove(scratch)
+            return
 
     def held(self, source: str) -> float | None:
         """Seconds ``source`` is still held out for, or ``None`` if it is not."""

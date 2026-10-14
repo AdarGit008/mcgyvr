@@ -247,12 +247,3 @@ def _no_test_opens_the_doors_read(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr(read, "spawn_read", refused)
-
-
-def pytest_collection_modifyitems(
-    config: pytest.Config, items: list[pytest.Item]
-) -> None:
-    """Mark each test with its row of tests/MANIFEST.tsv."""
-    from tests.manifest import mark
-
-    mark(config, items)

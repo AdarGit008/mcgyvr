@@ -305,7 +305,6 @@ BELOW_THE_SEAM = {
     "decision.py",
     "initialize.py",
     "pressure.py",
-    "triage.py",
     "recommend.py",
 }
 

@@ -2,8 +2,7 @@
 
 ``src/mcgyvr/serving/run.py`` is the one access point to the rigs. A test may
 not touch a rig, and the door has no variable that names a substitute for a
-reading — the archived door's three seam variables left with it
-(``tests/test_no_retired_door_names.py`` spells them), because a variable
+reading — the archived door's three seam variables left with it, because a variable
 that replaces a reading is a variable that skips one. What the door DOES have
 is a PATH: it puts its own ``ssh`` and ``docker`` shims first, and each shim,
 having admitted the host, execs the NEXT binary of that name on PATH. So a

@@ -92,10 +92,6 @@ _REGRESSION_LEVEL = 1.0
 type Decide = Callable[[Any], Decision]
 
 
-class JevUnavailableError(RuntimeError):
-    """The verifier role was bound and then had nothing to answer a decision."""
-
-
 @dataclass(frozen=True)
 class JevReport:
     """What the rung saw, in the gate's own currency.

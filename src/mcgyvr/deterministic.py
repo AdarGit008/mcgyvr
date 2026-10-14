@@ -10,8 +10,7 @@ day that program is absent.
 :func:`tool_for` answers from two facts and no config: the contract's
 ``operation``, and the language of its target, by file extension. The extensions
 restate the gate's default adapters' (:func:`_language_of`);
-``tests/test_four_lenses.py`` holds the Python ones in agreement, and nothing
-holds the JavaScript ones.
+nothing holds the two in agreement.
 
 **A missing tool degrades rather than halts.** ``ruff`` not being installed is
 an ordinary state of an ordinary machine, and it must not turn an
@@ -510,8 +509,8 @@ def _cheapest_above(
 # decision does not import them — importing :mod:`mcgyvr.gate.adapters` (or
 # :mod:`mcgyvr.worker.reply`, whose package pulls in the gate's prompt builder)
 # drags tree-sitter and the whole gate package into a process that is only
-# planning. Declared as a duplicate in ``tests/test_four_lenses.py``, which
-# holds the Python pair to the gate's.
+# planning. They restate the gate adapters' extensions; nothing holds the two
+# in agreement.
 _PY_EXTENSIONS = (".py", ".pyi")
 _JS_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")
 

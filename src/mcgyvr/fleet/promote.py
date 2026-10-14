@@ -47,6 +47,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from mcgyvr import atomic
 from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
@@ -558,24 +559,6 @@ def approve_own_rigs(setup: Path, *, rigs: Mapping[str, str]) -> Path:
     return folder
 
 
-def approve_own_rig(setup: Path, *, rig: str, rig_id: str) -> Path:
-    """Write ``<config folder>/fleets/own@<today>/`` with ``rig`` laid out; that
-    folder.
-
-    :func:`approve_own` for a setup whose units sit on the user's own machine,
-    read through the door's own reader before it is approved: the caller hands
-    the rig id that read named, and this writes the fleet ``own`` with ``rig``
-    laid out (each of its units awake) and the lock pinning that layout. The
-    rig is the user's own machine, approved by no dev evidence: a stranger has
-    none. Refused, with no fleet folder written, when the setup cannot be read,
-    lays out no unit on ``rig``, holds a hosted unit at a machine of the user's,
-    or would not load as a setup (the caller's read of ``rig`` may already have
-    filed its rig file; that is the read's record, not this approval's). It
-    names nothing live: :func:`use` does that.
-    """
-    return approve_own_rigs(setup, rigs={rig: rig_id})
-
-
 @dataclass(frozen=True)
 class Switch:
     """What ``use`` did: the pointer it wrote, and what the lock knows of the move."""
@@ -669,12 +652,10 @@ def use(name: str) -> Switch:
 
 
 def _point(pointer: Path, name: str, since: str) -> None:
-    staged = pointer.with_name(f".{pointer.name}.tmp")
-    staged.write_text(
+    atomic.write(
+        pointer,
         json.dumps({"fleet": name, "since": since}, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
     )
-    os.replace(staged, pointer)
 
 
 def tag(name: str) -> Path:

@@ -43,7 +43,14 @@ from typing import Any, Literal
 
 import yaml
 
-from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy, load_relief
+from mcgyvr.fleet.files import (
+    FleetFileError,
+    _typename,
+    load_fleet,
+    load_policy,
+    load_relief,
+)
+from mcgyvr.fleet.ids import _canonical_dump
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
@@ -1541,14 +1548,7 @@ class Config:
         ``geometry_json`` has already been resolved into ``data`` and
         ``declared``, so the rendering names the file the original did.
         """
-        return yaml.dump(
-            _plain(self.declared),
-            Dumper=_CanonicalDumper,
-            sort_keys=True,
-            default_flow_style=False,
-            allow_unicode=True,
-            width=1_000_000,
-        )
+        return _canonical_dump(self.declared)
 
     def _unbound(self, key: str) -> str:
         spec = field_at(key)
@@ -1561,29 +1561,6 @@ class Config:
 
     def _in_file(self) -> str:
         return f" in {self.path}" if self.path is not None else ""
-
-
-class _CanonicalDumper(yaml.SafeDumper):
-    """A SafeDumper that never writes an anchor.
-
-    Two keys sharing one default object — a tuple declared once in the
-    schema — would otherwise render as ``&id001`` and ``*id001``, and the
-    digest would depend on object identity inside this process.
-    """
-
-    def ignore_aliases(self, data: object) -> bool:
-        return True
-
-
-def _plain(value: Any) -> Any:
-    """``value`` as plain dicts, lists and scalars, for a canonical dump."""
-    if isinstance(value, Mapping):
-        return {str(k): _plain(v) for k, v in value.items()}
-    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
-        return [_plain(v) for v in value]
-    if isinstance(value, Path):
-        return str(value)
-    return value
 
 
 def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
@@ -1686,19 +1663,6 @@ def _dig(data: Mapping[str, Any], key: str) -> Any:
         else:
             raise KeyError(key)
     return current
-
-
-def _typename(value: object) -> str:
-    if value is None:
-        return "nothing"
-    return {
-        bool: "a true/false value",
-        int: "a number",
-        float: "a number",
-        str: "text",
-        list: "a list",
-        dict: "a block of keys",
-    }.get(type(value), type(value).__name__)
 
 
 def _join(path: str, name: str) -> str:

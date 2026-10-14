@@ -64,6 +64,7 @@ from mcgyvr.serving import (
     DEFAULT_PORT,
     DEFAULT_SPEC_DRAFT_N_MAX,
     DEFAULT_UBATCH,
+    _free_vram_bytes,
     gatelib,
     vramfit,
 )
@@ -227,13 +228,6 @@ def _discover(host: str, directory: str) -> tuple[str, ...]:
 def _scan_host(host: str) -> Scan:
     """Re-read one rig at this moment. Never a stored spec."""
     return scan_module.scan_over(Reach.ssh(host))
-
-
-def _free_vram_bytes(scan: Scan) -> int:
-    """Free VRAM on the roomiest card, or zero when no card is visible."""
-    if not scan.gpus:
-        return 0
-    return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
 
 
 def _host_ram_bytes(scan: Scan) -> int | None:

@@ -395,11 +395,8 @@ def test_nothing_under_tools_or_src_names_its_own_daemon() -> None:
     )
 
 
-#: Files that must spell the retired names: the guard and this file.
-SPELLS_THE_SEAMS = (
-    "tests/test_no_retired_door_names.py",
-    "tests/test_one_door.py",
-)
+#: Files that must spell the retired names: this file.
+SPELLS_THE_SEAMS = ("tests/test_one_door.py",)
 
 
 def test_the_archived_doors_seam_variables_are_gone() -> None:
