@@ -34,13 +34,13 @@ units:
   local_qwen2.5-coder-3b:
     address: http://localhost:11434
     model: qwen2.5-coder:3b
-    rig: srv1
+    rig: box1
     width: 2
     window: 4096
   local_qwen3.6-35b-a3b:
     address: http://localhost:11434
     model: qwen3.6:35b-a3b
-    rig: srv1
+    rig: box1
     width: 2
     window: 4096
     output_tokens: 2048

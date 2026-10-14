@@ -3,13 +3,13 @@
 `emit` writes one file per launch spec, which for most hosts is one file per
 host: a host is what an operator brings up, and two files for one rig would be
 two commands with a rule about which comes first. That reason holds for units
-that *are* brought up together — srv2's 3B and 7B share a card, and the
+that *are* brought up together — box2's 3B and 7B share a card, and the
 `depends_on` inside their one file is what sequences them. It does not hold for
 units that can never be up at the same time.
 
 Two rungs naming **one source** are two models for one process: one URL, one
-port, one card. They are alternatives, and a ladder can be made of them — srv1
-alternating DeepSeek-Coder-V2-Lite with Qwen3.6-35B, srv2 its vLLM pair with
+port, one card. They are alternatives, and a ladder can be made of them — box1
+alternating DeepSeek-Coder-V2-Lite with Qwen3.6-35B, box2 its vLLM pair with
 the 80B. That is "sleep funds a wake" in
 `mcgyvr-lab/records/plans/sleep-wake.md` §17. Summing both against the card
 would refuse a pair that never contends, and one file with both services on
@@ -67,7 +67,7 @@ HF_CACHE = "/home/someone/.cache/huggingface"
 
 @pytest.fixture
 def geometry(tmp_path: Path) -> dict[str, Path]:
-    """The two srv1 candidates, each scanned into a file the config can name."""
+    """The two box1 candidates, each scanned into a file the config can name."""
     written = {}
     for model in (BIG, LITE):
         path = tmp_path / f"{model}.geometry.json"
@@ -76,9 +76,9 @@ def geometry(tmp_path: Path) -> dict[str, Path]:
     return written
 
 
-def srv1() -> Scan:
+def box1() -> Scan:
     return Scan.of(
-        host="srv1",
+        host="box1",
         vram_mib=6144,
         ram_gb=14.2,
         disk_free_gb=900.0,
@@ -88,9 +88,9 @@ def srv1() -> Scan:
     )
 
 
-def srv2() -> Scan:
+def box2() -> Scan:
     return Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=12288,
         ram_gb=45.0,
         disk_free_gb=900.0,
@@ -114,13 +114,13 @@ def _with_free_vram(scan: Scan, free_mib: int) -> Scan:
 
 
 def alternatives(geometry: dict[str, Path]) -> str:
-    """srv1's two candidates behind one URL: the owner's swap layout."""
+    """box1's two candidates behind one URL: the owner's swap layout."""
     return f"""
 units:
   local_lite:
-    address: "http://srv1:8080"
+    address: "http://box1:8080"
     model: "{LITE}"
-    rig: srv1_llamacpp
+    rig: box1_llamacpp
     width: 2
     window: 4096
     launch:
@@ -128,9 +128,9 @@ units:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
   local_big:
-    address: "http://srv1:8080"
+    address: "http://box1:8080"
     model: "{BIG}"
-    rig: srv1_llamacpp
+    rig: box1_llamacpp
     width: 2
     window: 4096
     launch:
@@ -146,10 +146,10 @@ ladder:
 CO_RESIDENT = f"""
 units:
   local_3b:
-    address: "http://srv2:8001"
+    address: "http://box2:8001"
     model: "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
     engine: vllm
-    rig: srv2_vllm_3b
+    rig: box2_vllm_3b
     width: 8
     window: 4096
     hf_cache: "{HF_CACHE}"
@@ -158,10 +158,10 @@ units:
       disk_gb: 1.95
       kv_cache_dtype_k: auto
   local_7b:
-    address: "http://srv2:8002"
+    address: "http://box2:8002"
     model: "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
     engine: vllm
-    rig: srv2_vllm_7b
+    rig: box2_vllm_7b
     width: 8
     window: 4096
     hf_cache: "{HF_CACHE}"
@@ -175,7 +175,7 @@ ladder:
 """
 
 
-#: A host that is genuinely mixed, which srv1's two llama.cpp candidates cannot
+#: A host that is genuinely mixed, which box1's two llama.cpp candidates cannot
 #: be: a llama.cpp unit grows to fill whatever card it is given, so two of them
 #: never co-reside whatever the card is. Declared figures do not grow, so these
 #: three on one 12 GiB card are the mixed shape — the two 8 GiB models cannot be
@@ -187,10 +187,10 @@ BIG_B = "Qwen/Qwen3-14B-AWQ"
 MIXED = f"""
 units:
   local_small:
-    address: "http://srv2:8001"
+    address: "http://box2:8001"
     model: "{SMALL}"
     engine: vllm
-    rig: srv2_small
+    rig: box2_small
     width: 8
     window: 4096
     hf_cache: "{HF_CACHE}"
@@ -199,10 +199,10 @@ units:
       disk_gb: 1.95
       kv_cache_dtype_k: auto
   local_big_a:
-    address: "http://srv2:8002"
+    address: "http://box2:8002"
     model: "{BIG_A}"
     engine: vllm
-    rig: srv2_big_a
+    rig: box2_big_a
     width: 8
     window: 4096
     hf_cache: "{HF_CACHE}"
@@ -211,10 +211,10 @@ units:
       disk_gb: 9.0
       kv_cache_dtype_k: auto
   local_big_b:
-    address: "http://srv2:8003"
+    address: "http://box2:8003"
     model: "{BIG_B}"
     engine: vllm
-    rig: srv2_big_b
+    rig: box2_big_b
     width: 8
     window: 4096
     hf_cache: "{HF_CACHE}"
@@ -238,7 +238,7 @@ def test_two_models_on_one_url_are_two_units_on_one_port(
 ) -> None:
     """The ladder implies both processes; what it does not imply is both at once."""
     units = units_for(
-        parse(alternatives(geometry)), {"srv1": srv1()}, specs=(), ctx_per_slot=None
+        parse(alternatives(geometry)), {"box1": box1()}, specs=(), ctx_per_slot=None
     )
     assert len(units) == 2
     assert {unit.port for unit in units} == {8080}
@@ -256,9 +256,9 @@ def test_alternatives_are_never_summed_against_the_card(
     ladder that would have run.
     """
     units = units_for(
-        parse(alternatives(geometry)), {"srv1": srv1()}, specs=(), ctx_per_slot=None
+        parse(alternatives(geometry)), {"box1": box1()}, specs=(), ctx_per_slot=None
     )
-    hold_together(units, {"srv1": srv1()})
+    hold_together(units, {"box1": box1()})
 
 
 def test_a_pair_that_will_not_sum_is_cut_into_alternatives_and_said_out_loud() -> None:
@@ -270,17 +270,17 @@ def test_a_pair_that_will_not_sum_is_cut_into_alternatives_and_said_out_loud() -
     only one of which is ever up, decided by arithmetic they never saw.
     `hold_together` returns that sentence and `cli._emit` prints it.
     """
-    tight = _with_free_vram(srv2(), 10000)
-    units = units_for(parse(CO_RESIDENT), {"srv2": tight}, specs=(), ctx_per_slot=None)
+    tight = _with_free_vram(box2(), 10000)
+    units = units_for(parse(CO_RESIDENT), {"box2": tight}, specs=(), ctx_per_slot=None)
 
-    (said,) = hold_together(units, {"srv2": tight})
+    (said,) = hold_together(units, {"box2": tight})
 
     assert "do not sum onto the card and were emitted as 2 alternatives" in said
-    assert "compose.srv2.Qwen-Qwen2.5-Coder-3B-Instruct-AWQ.yml" in said
-    assert "compose.srv2.Qwen-Qwen2.5-Coder-7B-Instruct-AWQ.yml" in said
+    assert "compose.box2.Qwen-Qwen2.5-Coder-3B-Instruct-AWQ.yml" in said
+    assert "compose.box2.Qwen-Qwen2.5-Coder-7B-Instruct-AWQ.yml" in said
     # A one-file emit of the same pair, which nothing deletes and `serve up`
     # would happily start: both services, one card, and the second dies.
-    assert "delete the compose.srv2.yml" in said
+    assert "delete the compose.box2.yml" in said
 
 
 def test_the_card_sum_still_refuses_a_ladder_held_against_a_tighter_scan() -> None:
@@ -288,15 +288,15 @@ def test_the_card_sum_still_refuses_a_ladder_held_against_a_tighter_scan() -> No
 
     `alternate` cuts on the card figure each unit recorded when it was sized
     (`Fit.card_free_gb`); `hold_together` adds the same units up against the
-    scan it is handed. Sized against srv2's whole card the pair co-resides — one
+    scan it is handed. Sized against box2's whole card the pair co-resides — one
     spec holding both — so nothing cut it, and held against a rig that has since
     had 2 GiB of something else put on it, this sum is what catches it and
     nothing else is.
     """
-    units = units_for(parse(CO_RESIDENT), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(CO_RESIDENT), {"box2": box2()}, specs=(), ctx_per_slot=None)
 
     with pytest.raises(UnitError, match="one at a time and not together"):
-        hold_together(units, {"srv2": _with_free_vram(srv2(), 10000)})
+        hold_together(units, {"box2": _with_free_vram(box2(), 10000)})
 
 
 def test_each_alternative_is_its_own_launch_spec(
@@ -310,14 +310,14 @@ def test_each_alternative_is_its_own_launch_spec(
     that agree on host, engine and port.
     """
     units = units_for(
-        parse(alternatives(geometry)), {"srv1": srv1()}, specs=(), ctx_per_slot=None
+        parse(alternatives(geometry)), {"box1": box1()}, specs=(), ctx_per_slot=None
     )
     written = emit_all(units, root=tmp_path / "out")
 
     assert len(written) == 2, written
     assert {path.name for path in written} == {
-        f"compose.srv1.{LITE}.yml",
-        f"compose.srv1.{BIG}.yml",
+        f"compose.box1.{LITE}.yml",
+        f"compose.box1.{BIG}.yml",
     }
     for path in written:
         services = services_of(path)
@@ -327,13 +327,13 @@ def test_each_alternative_is_its_own_launch_spec(
 def test_a_host_whose_units_come_up_together_keeps_its_one_file(
     tmp_path: Path,
 ) -> None:
-    """srv2 as it stands: one file per host, both services in it, the
+    """box2 as it stands: one file per host, both services in it, the
     `depends_on` that sequences them intact. A ladder that has no alternatives
     keeps its one file."""
-    units = units_for(parse(CO_RESIDENT), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(CO_RESIDENT), {"box2": box2()}, specs=(), ctx_per_slot=None)
     written = emit_all(units, root=tmp_path / "out")
 
-    assert [path.name for path in written] == ["compose.srv2.yml"]
+    assert [path.name for path in written] == ["compose.box2.yml"]
     services = services_of(written[0])
     assert len(services) == 2, list(services)
     assert any("depends_on" in service for service in services.values()), services
@@ -351,7 +351,7 @@ def test_a_host_that_mixes_alternatives_and_co_residents_is_covered(
     every unit is reachable from one of them, which is the property that matters
     because a unit no file holds is a rung mcgyvr can never start.
     """
-    units = units_for(parse(MIXED), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(MIXED), {"box2": box2()}, specs=(), ctx_per_slot=None)
 
     written = emit_all(units, root=tmp_path / "out")
 
@@ -394,7 +394,7 @@ def test_the_command_writes_a_ladder_of_alternatives_rather_than_refusing_it(
 
     scans = tmp_path / "scans"
     scans.mkdir()
-    (scans / "srv1.json").write_text(srv1().to_json(), encoding="utf-8")
+    (scans / "box1.json").write_text(box1().to_json(), encoding="utf-8")
     monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(scans))
 
     config = tmp_path / "mcgyvr.yaml"
@@ -404,8 +404,8 @@ def test_the_command_writes_a_ladder_of_alternatives_rather_than_refusing_it(
     out = tmp_path / "compose"
     assert main(["emit", "--out", str(out)]) == Exit.OK
     assert {path.name for path in out.iterdir()} == {
-        f"compose.srv1.{LITE}.yml",
-        f"compose.srv1.{BIG}.yml",
+        f"compose.box1.{LITE}.yml",
+        f"compose.box1.{BIG}.yml",
     }
 
     # And the check reads the same two files, not a `compose.<host>.yml` that

@@ -70,15 +70,15 @@ def test_a_unit_is_awake_or_asleep_and_nothing_else() -> None:
 
 def test_a_fleet_name_is_pinned_to_the_sha256_of_its_layout() -> None:
     layout = _layout()
-    srv2 = layout.combination_id(RIG2, [(U7B, "awake"), (U3B, "asleep")])
-    srv1 = layout.combination_id(RIG1, [(U35B, "awake")])
-    pinned = layout.layout_sha256({RIG2: srv2, RIG1: srv1})
+    box2 = layout.combination_id(RIG2, [(U7B, "awake"), (U3B, "asleep")])
+    box1 = layout.combination_id(RIG1, [(U35B, "awake")])
+    pinned = layout.layout_sha256({RIG2: box2, RIG1: box1})
     assert re.fullmatch(r"[0-9a-f]{64}", pinned), pinned
-    assert layout.layout_sha256({RIG1: srv1, RIG2: srv2}) == pinned
-    assert layout.check_pin("flt-05", {RIG2: srv2, RIG1: srv1}, pinned) is None
+    assert layout.layout_sha256({RIG1: box1, RIG2: box2}) == pinned
+    assert layout.check_pin("flt-05", {RIG2: box2, RIG1: box1}, pinned) is None
     edited = layout.combination_id(RIG2, [(U7B, "awake"), (U3B, "awake")])
     with pytest.raises(layout.FleetError, match="flt-05") as refused:
-        layout.check_pin("flt-05", {RIG2: edited, RIG1: srv1}, pinned)
+        layout.check_pin("flt-05", {RIG2: edited, RIG1: box1}, pinned)
     assert "re-lock" in str(refused.value), refused.value
 
 
@@ -93,7 +93,7 @@ def test_only_a_listed_switch_is_approved() -> None:
 
 
 def test_a_switch_acts_only_on_the_slots_that_differ() -> None:
-    """srv2's slot 1 holds an asleep 3B and takes a 4B; slot 0 and srv1 stay."""
+    """box2's slot 1 holds an asleep 3B and takes a 4B; slot 0 and box1 stay."""
     layout = _layout()
     flt05 = {RIG2: [(U7B, "awake"), (U3B, "asleep")], RIG1: [(U35B, "awake")]}
     flt02 = {RIG2: [(U7B, "awake"), (U4B, "awake")], RIG1: [(U35B, "awake")]}
@@ -139,15 +139,15 @@ def test_sleep_and_wake_are_switches_like_any_other() -> None:
 
 def test_a_rig_move_proven_once_serves_every_fleet_switch_that_derives_it() -> None:
     layout = _layout()
-    srv2_from = [(U7B, "awake"), (U3B, "asleep")]
-    srv2_to = [(U7B, "awake"), (U4B, "awake")]
-    flt05 = {RIG2: srv2_from, RIG1: [(U35B, "awake")]}
-    flt02 = {RIG2: srv2_to, RIG1: [(U35B, "awake")]}
-    flt07 = {RIG2: srv2_from, RIG1: [(U35B, "asleep")]}
-    flt09 = {RIG2: srv2_to, RIG1: [(U35B, "asleep")]}
+    box2_from = [(U7B, "awake"), (U3B, "asleep")]
+    box2_to = [(U7B, "awake"), (U4B, "awake")]
+    flt05 = {RIG2: box2_from, RIG1: [(U35B, "awake")]}
+    flt02 = {RIG2: box2_to, RIG1: [(U35B, "awake")]}
+    flt07 = {RIG2: box2_from, RIG1: [(U35B, "asleep")]}
+    flt09 = {RIG2: box2_to, RIG1: [(U35B, "asleep")]}
     one = layout.rig_moves(flt05, flt02)
     assert len(one) == 1, one
-    assert layout.rig_moves(flt07, flt09) == one, "the same srv2 move, once"
+    assert layout.rig_moves(flt07, flt09) == one, "the same box2 move, once"
     elsewhere = {RIG2: [(U7B, "awake"), (U3B, "awake")], RIG1: [(U35B, "awake")]}
     assert layout.rig_moves(elsewhere, flt02) != one, (
         "the same actions from another combination are another move"

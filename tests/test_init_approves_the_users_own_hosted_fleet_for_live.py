@@ -252,7 +252,7 @@ RIG_ID = "rig-" + "2" * 64
 
 #: Two invented remote rigs, and the rig ids a substituted remote read hands
 #: back for each, shaped as rig ids are.
-REMOTE_RIG_IDS = {"srv1": "rig-" + "1" * 64, "srv2": "rig-" + "3" * 64}
+REMOTE_RIG_IDS = {"box1": "rig-" + "1" * 64, "box2": "rig-" + "3" * 64}
 
 #: A ``rig-snapshot.sh`` reading for the invented local machine, every declared
 #: key ``mcgyvr.fleet.ids.rig_id`` hashes, printed as the reader prints them.
@@ -534,8 +534,8 @@ def test_a_fleet_on_two_remote_rigs_is_read_then_approved_by_init(
             monkeypatch,
             setup,
             found=_found(
-                _remote("srv1", "small-model", name="llama.cpp"),
-                _remote("srv2", "other-model", name="llama.cpp-2"),
+                _remote("box1", "small-model", name="llama.cpp"),
+                _remote("box2", "other-model", name="llama.cpp-2"),
             ),
         )
         == 0
@@ -546,21 +546,21 @@ def test_a_fleet_on_two_remote_rigs_is_read_then_approved_by_init(
     assert live_fleet() == name, said
     folder = fleets_dir() / name
     live = yaml.safe_load((folder / "fleet.yaml").read_text(encoding="utf-8"))
-    assert read == ["srv1", "srv2"]
+    assert read == ["box1", "box2"]
     assert live["rigs"] == {
-        "srv1": {"rig_id": REMOTE_RIG_IDS["srv1"]},
-        "srv2": {"rig_id": REMOTE_RIG_IDS["srv2"]},
+        "box1": {"rig_id": REMOTE_RIG_IDS["box1"]},
+        "box2": {"rig_id": REMOTE_RIG_IDS["box2"]},
     }
     assert live["fleets"] == {
         "own": {
             "layout": {
-                "srv1": [["local_small-model", "awake"]],
-                "srv2": [["local_other-model", "awake"]],
+                "box1": [["local_small-model", "awake"]],
+                "box2": [["local_other-model", "awake"]],
             }
         }
     }
-    assert live["units"]["local_small-model"]["rig"] == "srv1"
-    assert live["units"]["local_other-model"]["rig"] == "srv2"
+    assert live["units"]["local_small-model"]["rig"] == "box1"
+    assert live["units"]["local_other-model"]["rig"] == "box2"
     assert live["units"]["local_small-model"]["unit_id"]
     assert live["units"]["local_other-model"]["unit_id"]
     lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))

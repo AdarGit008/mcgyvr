@@ -1,6 +1,6 @@
-"""The suite can say ``srv2``. It cannot ask anyone where ``srv2`` is.
+"""The suite can say ``box2``. It cannot ask anyone where ``box2`` is.
 
-``srv1`` and ``srv2`` resolve over Tailscale on the machine this suite is
+``box1`` and ``box2`` resolve over Tailscale on the machine this suite is
 developed on, and the fixtures name them because that is what the live ladder
 is. A probe added to code under test would send a request from this suite to
 a real rig, and ``tests/test_one_door.py`` does not catch it: it scans for
@@ -24,8 +24,8 @@ from tests.conftest import ReachedForAMachineError
 
 #: The rig the protected sleep/wake specs name, and an endpoint on it a probe
 #: would reach.
-A_RIG = "srv2"
-WHAT_WAS_REACHED = "http://srv2:8001/v1/models"
+A_RIG = "box2"
+WHAT_WAS_REACHED = "http://box2:8001/v1/models"
 
 
 def test_a_rig_hostname_does_not_resolve() -> None:
@@ -34,7 +34,7 @@ def test_a_rig_hostname_does_not_resolve() -> None:
 
 
 def test_the_request_that_was_actually_made_cannot_be_made() -> None:
-    """Through ``urlopen``, because that is what reached srv2 — and it must fail
+    """Through ``urlopen``, because that is what reached box2 — and it must fail
     loudly rather than as a connection error. ``availability`` and ``detect``
     both read a refused connection as "not serving", so a guard that raised
     ``URLError`` would leave the test passing and the socket unopened by luck.
@@ -45,7 +45,7 @@ def test_the_request_that_was_actually_made_cannot_be_made() -> None:
 
 def test_a_name_nobody_has_is_refused_too() -> None:
     """A deny-list of the whole world, not of the two rigs: a guard listing
-    ``srv1`` and ``srv2`` is a guard the third rig is not in."""
+    ``box1`` and ``box2`` is a guard the third rig is not in."""
     with pytest.raises(ReachedForAMachineError):
         socket.getaddrinfo("some-rig-nobody-has-bought-yet", 80)
 

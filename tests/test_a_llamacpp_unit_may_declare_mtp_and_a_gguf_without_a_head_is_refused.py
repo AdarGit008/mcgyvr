@@ -1,7 +1,7 @@
 """A llama.cpp unit may declare MTP, and a GGUF without a head is refused.
 
 Native multi-token-prediction self-speculation (``--spec-type draft-mtp``)
-speeds decode on srv2's card
+speeds decode on box2's card
 (``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` §2). The
 declaration is two keys of a unit's ``launch`` block, ``speculative``
 (``none`` | ``mtp``) and ``spec_draft_n_max`` (the ``--spec-draft-n-max`` the
@@ -59,7 +59,7 @@ def scanned(file: str, **declared: Any) -> ModelSpec:
 def card() -> Scan:
     """A 12 GB card with the host memory to map either blob."""
     return Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=12288,
         ram_gb=48.0,
         disk_free_gb=120.0,
@@ -150,20 +150,20 @@ def test_a_draft_width_below_one_is_refused(width: int) -> None:
 CONFIG = """\
 units:
   head:
-    address: http://srv2:8080
+    address: http://box2:8080
     engine: llama.cpp
     model: a-model
-    rig: srv2
+    rig: box2
     launch:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
       speculative: mtp
       spec_draft_n_max: 3
   plain:
-    address: http://srv2:8081
+    address: http://box2:8081
     engine: llama.cpp
     model: b-model
-    rig: srv2
+    rig: box2
     launch:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16

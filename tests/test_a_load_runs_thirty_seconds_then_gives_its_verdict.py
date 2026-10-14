@@ -507,15 +507,15 @@ class LoadRig(Rig):
         return super().__call__(unit, asked)
 
 
-def read_srv2(rig: Rig) -> Any:
+def read_box2(rig: Rig) -> Any:
     from mcgyvr.fleet import read
 
     return read.record(
-        "srv2",
+        "box2",
         rig_text(),
         run_id=RUN_ID,
         profile="live",
-        probe=("srv2_3b",),
+        probe=("box2_3b",),
         measure=rig,
         load=f"{WIDTH}x{WINDOW}",
     )
@@ -527,7 +527,7 @@ def test_a_load_files_its_limit_pace_closed_count_and_the_idle_reading_after(
     journal = go_live(tmp_path)
     rig = LoadRig()
 
-    read_srv2(rig)
+    read_box2(rig)
 
     (asked,) = [s for s in rig.specs if s.get("mode") == "load"]
     assert asked["pace_path"] == "/metrics"
@@ -546,14 +546,14 @@ def test_a_load_cut_at_the_limit_is_judged_and_one_with_a_real_error_is_not(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     journal = go_live(tmp_path)
-    read_srv2(LoadRig(mib=3600))
+    read_box2(LoadRig(mib=3600))
     (cut,) = _load_rows(journal)
     assert cut["alert"] is True, "3600 MiB is over the 3573 MiB room"
 
     later = tmp_path / "errored"
     later.mkdir()
     journal = go_live_again(later, monkeypatch)
-    read_srv2(LoadRig(mib=3600, errors=["ConnectionResetError: reset by peer"]))
+    read_box2(LoadRig(mib=3600, errors=["ConnectionResetError: reset by peer"]))
     (errored,) = _load_rows(journal)
     assert "alert" not in errored
 
@@ -571,7 +571,7 @@ def test_a_unit_still_busy_after_the_close_files_how_long_it_took_to_read_idle(
 ) -> None:
     journal = go_live(tmp_path)
 
-    read_srv2(LoadRig(idle_after_close=False, idle_after_s=4.5))
+    read_box2(LoadRig(idle_after_close=False, idle_after_s=4.5))
 
     (row,) = _load_rows(journal)
     assert row["idle_after_close"] is False
@@ -584,7 +584,7 @@ def test_the_verdict_is_the_peak_over_every_sample_up_to_idle(tmp_path: Path) ->
     before = f"gpu_app=4242,3500,{C_3B},python3\n"
     after = f"gpu_app=4242,3600,{C_3B},python3\n"
 
-    read_srv2(LoadRig(samples=[before, before, after], samples_before_close=2))
+    read_box2(LoadRig(samples=[before, before, after], samples_before_close=2))
 
     (row,) = _load_rows(journal)
     assert row["peak_mib"] == row["observed"] == 3600
@@ -598,7 +598,7 @@ def test_a_load_filed_before_sampling_until_idle_says_so(tmp_path: Path) -> None
     rig = LoadRig()
     del rig.answer["samples_before_close"], rig.answer["sampled_until_idle"]
 
-    read_srv2(rig)
+    read_box2(rig)
 
     (row,) = _load_rows(journal)
     assert row["sampled_until_idle"] is False
@@ -611,7 +611,7 @@ def test_an_unreadable_status_page_after_a_load_is_filed_and_the_verdict_stands(
     journal = go_live(tmp_path)
     why = "http://127.0.0.1:8001/metrics could not be read as a status page"
 
-    read_srv2(LoadRig(idle_after_close=None, idle_after_s=None, idle_error=why))
+    read_box2(LoadRig(idle_after_close=None, idle_after_s=None, idle_error=why))
 
     (row,) = _load_rows(journal)
     assert row["idle_error"] == why
@@ -622,7 +622,7 @@ def test_an_unreadable_status_page_after_a_load_is_filed_and_the_verdict_stands(
 def test_a_pace_counter_that_went_backwards_is_null_with_why(tmp_path: Path) -> None:
     journal = go_live(tmp_path)
 
-    read_srv2(LoadRig(start=302901.0, end=1000.0))
+    read_box2(LoadRig(start=302901.0, end=1000.0))
 
     (row,) = _load_rows(journal)
     assert row["pace_prompt_tok_s"] is None
@@ -636,7 +636,7 @@ def test_a_llamacpp_load_files_pace_null_with_the_reason(tmp_path: Path) -> None
     two.go_live(tmp_path)
     journal = tmp_path / "journal" / "fleet"
     slots = '[{"id":0,"n_ctx":8192,"speculative":false,"is_processing":false}]'
-    text = two.matching("srv1") + (
+    text = two.matching("box1") + (
         f"status=18080,{base64.b64encode(slots.encode()).decode()}\n"
     )
     specs: list[dict[str, Any]] = []
@@ -656,11 +656,11 @@ def test_a_llamacpp_load_files_pace_null_with_the_reason(tmp_path: Path) -> None
         return json.dumps({"figures": figures, "after_page": slots})
 
     read.record(
-        "srv1",
+        "box1",
         text,
         run_id=RUN_ID,
         profile="live",
-        probe=("srv1_deepseek",),
+        probe=("box1_deepseek",),
         measure=measure,
         load="2x8192",
     )
@@ -708,11 +708,11 @@ def test_the_doors_ssh_gives_a_load_no_timeout_and_a_probe_its_own(
     load = json.dumps({"mode": "load", "engine": "vllm", "port": 8001, "width": 8})
     probe = json.dumps({"mode": "probe", "engine": "vllm", "port": 8001})
 
-    assert gate.harness_on_rig("srv2", load, "SOURCE") == '{"load": {}}'
-    assert gate.harness_on_rig("srv2", probe, "SOURCE") == '{"load": {}}'
+    assert gate.harness_on_rig("box2", load, "SOURCE") == '{"load": {}}'
+    assert gate.harness_on_rig("box2", probe, "SOURCE") == '{"load": {}}'
 
     (on_load, on_probe) = asked
-    assert on_load[0] == "srv2" and harness.HARNESS_WORD in on_load[1]
+    assert on_load[0] == "box2" and harness.HARNESS_WORD in on_load[1]
     assert on_load[3] == "SOURCE"
     assert on_load[2] is None
     assert on_probe[2] == gate.PROBE_TIMEOUT_S == 1800
@@ -736,4 +736,4 @@ def test_a_probe_that_outlasts_its_timeout_is_still_no_answer(
     monkeypatch.setattr(gate, "ssh", ssh)
     probe = json.dumps({"mode": "probe", "engine": "vllm", "port": 8001})
 
-    assert gate.harness_on_rig("srv2", probe, "SOURCE") is None
+    assert gate.harness_on_rig("box2", probe, "SOURCE") is None

@@ -86,7 +86,7 @@ def test_a_gate_after_the_envelope_that_refuses_leaves_no_claim_behind(
         [
             "step",
             "--host",
-            "srv1",
+            "box1",
             "--campaign",
             "claim-probe",
             "--step",
@@ -126,7 +126,7 @@ def test_a_run_that_reaches_the_end_still_releases(
             [
                 "step",
                 "--host",
-                "srv1",
+                "box1",
                 "--campaign",
                 "claim-probe",
                 "--step",

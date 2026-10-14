@@ -24,7 +24,7 @@ from mcgyvr import runner as runner_module
 from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import Request, RunnerError, WrongWeightsError, runner_for
 
-SRV1 = Endpoint(
+BOX1 = Endpoint(
     source="llama-server",
     base_url="http://localhost:8080",
     protocol=Protocol.OPENAI,
@@ -75,7 +75,7 @@ def test_an_answer_from_another_model_is_refused(
     and the 3B answers. That answer must not become a completion."""
     stub_post(monkeypatch, answer("Qwen2.5-Coder-3B-Instruct"))
     with pytest.raises(WrongWeightsError) as caught:
-        runner_for(SRV1).generate("Qwen3.6-35B-A3B-UD-IQ3_XXS", ASK)
+        runner_for(BOX1).generate("Qwen3.6-35B-A3B-UD-IQ3_XXS", ASK)
 
     said = str(caught.value)
     assert "Qwen3.6-35B-A3B-UD-IQ3_XXS" in said, "the model that was asked for"
@@ -91,7 +91,7 @@ def test_the_refusal_is_a_dispatch_that_did_not_produce_a_completion(
     outside that tree would escape all of them."""
     stub_post(monkeypatch, answer("something-else"))
     with pytest.raises(RunnerError):
-        runner_for(SRV1).generate("declared", ASK)
+        runner_for(BOX1).generate("declared", ASK)
 
 
 def test_llama_cpps_path_for_the_model_asked_for_is_not_a_mismatch(
@@ -99,13 +99,13 @@ def test_llama_cpps_path_for_the_model_asked_for_is_not_a_mismatch(
 ) -> None:
     """llama.cpp reports the path it was handed, not a name — the two
     vocabularies `availability` exists to reconcile. Reading them as different
-    models would refuse every dispatch on srv1's ceiling rung, which is the
+    models would refuse every dispatch on box1's ceiling rung, which is the
     failure this check must not trade for the one it closes."""
     stub_post(
         monkeypatch,
         answer("/models/moe/Qwen3.6-35B-A3B-UD-IQ3_XXS-00001-of-00002.gguf"),
     )
-    done = runner_for(SRV1).generate("Qwen3.6-35B-A3B-UD-IQ3_XXS", ASK)
+    done = runner_for(BOX1).generate("Qwen3.6-35B-A3B-UD-IQ3_XXS", ASK)
     assert done.text == "ok"
     assert done.model == "Qwen3.6-35B-A3B-UD-IQ3_XXS", "what was asked for"
     assert done.served_model == (
@@ -120,6 +120,6 @@ def test_a_backend_that_reports_no_model_is_not_refused(
     and refusing it would make an optional key a requirement — the completion
     says it does not know rather than claiming agreement."""
     stub_post(monkeypatch, answer(None))
-    done = runner_for(SRV1).generate("declared", ASK)
+    done = runner_for(BOX1).generate("declared", ASK)
     assert done.served_model is None
     assert done.text == "ok"

@@ -256,8 +256,8 @@ def _never(*args: object, **kwargs: object) -> NoReturn:
         "SSH://github.com/owner/repo.git",
         "git+ssh://git@github.com/owner/repo.git",
         "git@github.com:owner/repo.git",
-        "srv1:/home/adaramir/repos/x.git",
-        "adaramir@srv2:repos/x.git",
+        "box1:/home/user/repos/x.git",
+        "user@box2:repos/x.git",
     ],
     ids=[
         "ssh-scheme",

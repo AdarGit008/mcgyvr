@@ -38,7 +38,7 @@ def _digest() -> Any:
 def test_every_identity_kind_carries_its_own_prefix() -> None:
     digest = _digest()
     for prefix in PREFIXES:
-        named = digest(prefix, {"host": "srv2"})
+        named = digest(prefix, {"host": "box2"})
         assert named.startswith(prefix), f"{prefix} identity reads {named!r}"
         assert IDENTITY.match(named), f"not prefix + sha256: {named!r}"
 
@@ -46,16 +46,16 @@ def test_every_identity_kind_carries_its_own_prefix() -> None:
 def test_key_order_does_not_change_an_identity() -> None:
     """Canonical, not textual: a dict built in another order is the same thing."""
     digest = _digest()
-    one = digest("rig-", {"host": "srv1", "hw": {"gpu": "GTX 1660", "vram": 6144}})
-    two = digest("rig-", {"hw": {"vram": 6144, "gpu": "GTX 1660"}, "host": "srv1"})
+    one = digest("rig-", {"host": "box1", "hw": {"gpu": "GTX 1660", "vram": 6144}})
+    two = digest("rig-", {"hw": {"vram": 6144, "gpu": "GTX 1660"}, "host": "box1"})
     assert one == two
 
 
 def test_any_changed_or_added_field_is_a_new_identity() -> None:
     digest = _digest()
-    base = digest("rig-", {"host": "srv1", "driver": "580.173.02"})
-    assert digest("rig-", {"host": "srv1", "driver": "580.173.03"}) != base
-    assert digest("rig-", {"host": "srv1", "driver": "580.173.02", "x": 1}) != base
+    base = digest("rig-", {"host": "box1", "driver": "580.173.02"})
+    assert digest("rig-", {"host": "box1", "driver": "580.173.03"}) != base
+    assert digest("rig-", {"host": "box1", "driver": "580.173.02", "x": 1}) != base
 
 
 def test_a_retired_or_unknown_prefix_is_refused() -> None:
@@ -64,4 +64,4 @@ def test_a_retired_or_unknown_prefix_is_refused() -> None:
     digest = _digest()
     for prefix in ("msp-", "rsh-", "fsh-", "cfg-", "flt-"):
         with pytest.raises(ValueError, match=prefix):
-            digest(prefix, {"host": "srv1"})
+            digest(prefix, {"host": "box1"})

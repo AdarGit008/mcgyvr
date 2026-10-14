@@ -48,7 +48,7 @@ scope:
 """
 
 
-FIRST, SECOND = "srv2_3b", "srv1_deepseek"
+FIRST, SECOND = "box2_3b", "box1_deepseek"
 
 
 UNIT_FIRST = "unt-" + "5" * 64
@@ -64,8 +64,8 @@ C_SECOND = "de" * 32
 
 
 SYSTEM = {
-    "srv2": {"os_machine_id": "6d5d8f1f2bfa5f96", "kernel": "7.0.0-31-generic"},
-    "srv1": {"os_machine_id": "9f01e96b66e798b2", "kernel": "7.0.0-31-generic"},
+    "box2": {"os_machine_id": "6d5d8f1f2bfa5f96", "kernel": "7.0.0-31-generic"},
+    "box1": {"os_machine_id": "9f01e96b66e798b2", "kernel": "7.0.0-31-generic"},
 }
 
 
@@ -90,12 +90,12 @@ def fleet(profile: str = "live") -> dict[str, Any]:
         "profile": profile,
         "units": {
             FIRST: {
-                "rig": "srv2",
+                "rig": "box2",
                 "unit_id": UNIT_FIRST,
                 "engine": "vllm",
                 "address": "http://127.0.0.1:18001",
                 "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
-                "container": "mcgyvr-srv2-3b",
+                "container": "mcgyvr-box2-3b",
                 "width": 1,
                 "window": 8192,
                 "output_tokens": 512,
@@ -105,12 +105,12 @@ def fleet(profile: str = "live") -> dict[str, Any]:
                 "attention_backend": "FLASH_ATTN",
             },
             SECOND: {
-                "rig": "srv1",
+                "rig": "box1",
                 "unit_id": UNIT_SECOND,
                 "engine": "llama.cpp",
                 "address": "http://127.0.0.1:18080",
                 "model": "deepseek-coder-v2-16b",
-                "container": "mcgyvr-srv1-deepseek",
+                "container": "mcgyvr-box1-deepseek",
                 "width": 1,
                 "window": 8192,
                 "output_tokens": 512,
@@ -119,12 +119,12 @@ def fleet(profile: str = "live") -> dict[str, Any]:
             },
         },
         "rigs": {
-            "srv2": {"rig_id": rig_id_of("srv2")},
-            "srv1": {"rig_id": rig_id_of("srv1")},
+            "box2": {"rig_id": rig_id_of("box2")},
+            "box1": {"rig_id": rig_id_of("box1")},
         },
         "fleets": {
             FLEET_NAME: {
-                "layout": {"srv2": [[FIRST, "awake"]], "srv1": [[SECOND, "awake"]]},
+                "layout": {"box2": [[FIRST, "awake"]], "box1": [[SECOND, "awake"]]},
                 "next": [],
             }
         },
@@ -132,10 +132,10 @@ def fleet(profile: str = "live") -> dict[str, Any]:
 
 
 EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv2": {"card_mib": 12288}, "srv1": {"card_mib": 6144}},
+    "rigs": {"box2": {"card_mib": 12288}, "box1": {"card_mib": 6144}},
     "combinations": [
         {
-            "rig": "srv2",
+            "rig": "box2",
             "slots": [[FIRST, "awake"]],
             "passed": True,
             "overhead_mib": 610.5,
@@ -144,10 +144,10 @@ EVIDENCE: dict[str, Any] = {
             "prefill_tok_s": {FIRST: 11500.0},
             "attention_backend": {FIRST: "FLASH_ATTN"},
             "validated_at": "2026-09-13T21:44:00Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/srv2",
+            "envelope": "records/measurements/fleet-setup-2026-09-13/box2",
         },
         {
-            "rig": "srv1",
+            "rig": "box1",
             "slots": [[SECOND, "awake"]],
             "passed": True,
             "overhead_mib": 486.22,
@@ -157,7 +157,7 @@ EVIDENCE: dict[str, Any] = {
             "card_peak_mib": {SECOND: 5458},
             "card_steady_mib": {SECOND: 5430},
             "validated_at": "2026-09-13T21:48:11Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/srv1",
+            "envelope": "records/measurements/fleet-setup-2026-09-13/box1",
         },
     ],
     "moves": [],
@@ -196,16 +196,16 @@ def metrics(running: int) -> str:
 
 def matching(host: str) -> str:
     """A reading of ``host`` exactly as the lock names it: its one unit up."""
-    if host == "srv2":
+    if host == "box2":
         extra = (
-            f"container=mcgyvr-srv2-3b,{C_FIRST},mcgyvr,0\n"
+            f"container=mcgyvr-box2-3b,{C_FIRST},mcgyvr,0\n"
             f"gpu_app=4242,3400,{C_FIRST},python3\n"
             "sleeping=18001,false\n"
             "status=18001," + base64.b64encode(metrics(0).encode()).decode() + "\n"
         )
     else:
         extra = (
-            f"container=mcgyvr-srv1-deepseek,{C_SECOND},mcgyvr,0\n"
+            f"container=mcgyvr-box1-deepseek,{C_SECOND},mcgyvr,0\n"
             f"gpu_app=4343,5200,{C_SECOND},llama-server\n"
         )
     return snapshot_text(host) + extra
@@ -225,7 +225,7 @@ class FakeDoor:
 
     def __init__(self, events: list[tuple[str, str]]) -> None:
         self.events = events
-        self.readings = {"srv1": matching("srv1"), "srv2": matching("srv2")}
+        self.readings = {"box1": matching("box1"), "box2": matching("box2")}
         self.calls: list[tuple[str, tuple[str, ...]]] = []
         self.down: set[str] = set()
 

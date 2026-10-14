@@ -26,11 +26,11 @@ from tests.doors import UNITS, compose_file
 
 CONFIG_VAR = "MCGYVR_CONFIG"
 
-#: A ladder pointing at the fixture's rig, which is srv1 under ``onedoor``.
+#: A ladder pointing at the fixture's rig, which is box1 under ``onedoor``.
 LADDER = """\
 units:
   only:
-    address: http://srv1:8001
+    address: http://box1:8001
     model: a-model
     rig: rig
     engine: vllm

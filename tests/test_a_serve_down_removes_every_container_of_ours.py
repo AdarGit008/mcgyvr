@@ -21,7 +21,7 @@ from tests import onedoor
 from tests.doors import UNITS, compose_file
 
 #: A unit of ours a dev run left up under a service name this file does not have.
-PLANTED = "mcgyvr-srv1-old-8009"
+PLANTED = "mcgyvr-box1-old-8009"
 
 
 def test_serve_down_removes_a_container_of_ours_its_file_does_not_name(

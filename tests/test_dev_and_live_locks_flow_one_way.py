@@ -50,8 +50,8 @@ from tests.fleetlocks import (
     MODELLED,
     POLICY,
     RIG2,
-    SRV1_EVIDENCE,
-    SRV1_FLEET,
+    BOX1_EVIDENCE,
+    BOX1_FLEET,
     TOLERANCES,
     U3B,
     U7B,
@@ -166,7 +166,7 @@ def test_gate_1_admits_a_live_serve_up_only_from_the_fleet_live_json_names(
     def up() -> Any:
         return onedoor.serve_door(root, "up", compose)
 
-    _lock().write(root, SRV1_FLEET, SRV1_EVIDENCE, policy=policy, tolerances=tolerances)
+    _lock().write(root, BOX1_FLEET, BOX1_EVIDENCE, policy=policy, tolerances=tolerances)
     under_run_root = up()
     assert under_run_root.returncode != 0 and "gate 1:" in under_run_root.stderr, (
         "a lock under the run root admitted a live serve up.\n"
@@ -175,7 +175,7 @@ def test_gate_1_admits_a_live_serve_up_only_from_the_fleet_live_json_names(
 
     folder = fleets() / "flt-01"
     _lock().write(
-        folder, SRV1_FLEET, SRV1_EVIDENCE, policy=policy, tolerances=tolerances
+        folder, BOX1_FLEET, BOX1_EVIDENCE, policy=policy, tolerances=tolerances
     )
     unnamed = up()
     assert unnamed.returncode != 0 and "gate 1:" in unnamed.stderr, (
@@ -236,14 +236,14 @@ def test_promote_writes_a_new_fleet_folder_that_loads_as_a_live_setup(
 
     live_fleet = load_fleet(written["fleet.yaml"].decode("utf-8"))
     assert live_fleet["profile"] == "live"
-    assert set(live_fleet["units"]) == {"srv2_7b", "srv2_3b"}
-    assert live_fleet["units"]["srv2_7b"]["unit_id"] == U7B
-    assert live_fleet["units"]["srv2_3b"]["unit_id"] == U3B
-    assert live_fleet["rigs"] == {"srv2": {"rig_id": RIG2}}
+    assert set(live_fleet["units"]) == {"box2_7b", "box2_3b"}
+    assert live_fleet["units"]["box2_7b"]["unit_id"] == U7B
+    assert live_fleet["units"]["box2_3b"]["unit_id"] == U3B
+    assert live_fleet["rigs"] == {"box2": {"rig_id": RIG2}}
     assert live_fleet["fleets"] == {"flt-05": MODELLED["fleets"]["flt-05"]}
 
     policy = load_policy(written["policy.yaml"].decode("utf-8"))
-    assert policy["ladder"] == ["srv2_3b", "srv2_7b"]
+    assert policy["ladder"] == ["box2_3b", "box2_7b"]
     assert policy["fanout"] == "idle"
 
     admit = required(
@@ -269,8 +269,8 @@ def test_promote_refuses_and_writes_nothing(
         name = "flt-09"
     if case == "layout":
         file_fleet = copy.deepcopy(MODELLED)
-        slots = file_fleet["fleets"]["flt-05"]["layout"]["srv2"]
-        file_fleet["fleets"]["flt-05"]["layout"]["srv2"] = list(reversed(slots))
+        slots = file_fleet["fleets"]["flt-05"]["layout"]["box2"]
+        file_fleet["fleets"]["flt-05"]["layout"]["box2"] = list(reversed(slots))
     dev, setup = dev_setup(tmp_path, monkeypatch, file_fleet=file_fleet)
     if case == "missing-cmb":
         (dev / flt05_records()[1]).unlink()
@@ -323,8 +323,8 @@ def test_use_refuses_a_folder_whose_layout_no_longer_matches_its_own_lock(
     assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
     fleet_file = fleets() / promoted("flt-05") / "fleet.yaml"
     edited = yaml.safe_load(fleet_file.read_text(encoding="utf-8"))
-    slots = edited["fleets"]["flt-05"]["layout"]["srv2"]
-    edited["fleets"]["flt-05"]["layout"]["srv2"] = list(reversed(slots))
+    slots = edited["fleets"]["flt-05"]["layout"]["box2"]
+    edited["fleets"]["flt-05"]["layout"]["box2"] = list(reversed(slots))
     fleet_file.write_text(yaml.safe_dump(edited, sort_keys=False), encoding="utf-8")
 
     assert cli("fleet", "use", promoted("flt-05")) != 0

@@ -33,7 +33,7 @@ def rig(host: str, *, vram_mib: int) -> Scan:
     )
 
 
-SCANS = {"srv1": rig("srv1", vram_mib=16384)}
+SCANS = {"box1": rig("box1", vram_mib=16384)}
 
 
 FLEET = f"""\
@@ -41,9 +41,9 @@ users: 4
 deployment: local-only
 units:
   cheap:
-    address: http://srv1:8001
+    address: http://box1:8001
     model: '{THREE_B}'
-    rig: srv1
+    rig: box1
     engine: vllm
     width: 2
     window: 4096
@@ -51,18 +51,18 @@ units:
     launch:
       kv_cache_dtype_k: auto
   orchestrator:
-    address: http://srv1:8002
+    address: http://box1:8002
     model: '{SEVEN_B}'
-    rig: srv1
+    rig: box1
     engine: vllm
     hf_cache: '{HF_CACHE}'
     window: 8192
     launch:
       kv_cache_dtype_k: auto
   verifier:
-    address: http://srv1:8003
+    address: http://box1:8003
     model: '{THREE_B}'
-    rig: srv1
+    rig: box1
     engine: vllm
     hf_cache: '{HF_CACHE}'
     window: 4096
@@ -109,9 +109,9 @@ users: 4
 deployment: local-only
 units:
   orch:
-    address: http://srv1:8002
+    address: http://box1:8002
     model: small
-    rig: srv1
+    rig: box1
     width: 2
     window: 8192
     launch:
@@ -131,7 +131,7 @@ orchestrator:
     assert widths[8002] == 2
 
 
-RESIDENT_RIG = {"srv1": rig("srv1", vram_mib=12288)}
+RESIDENT_RIG = {"box1": rig("box1", vram_mib=12288)}
 
 # A scalar (declared) working set, so the card claim is exactly the number
 # written: the orchestrator claims 6 GB, the ladder 2 GB, on a 12 GB card.
@@ -140,9 +140,9 @@ users: 2
 deployment: local-only
 units:
   orchestrator:
-    address: http://srv1:8080
+    address: http://box1:8080
     model: heavy
-    rig: srv1
+    rig: box1
     window: 8192
     launch:
       vram_gb: 6.0
@@ -150,9 +150,9 @@ units:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
   cheap:
-    address: http://srv1:8081
+    address: http://box1:8081
     model: small
-    rig: srv1
+    rig: box1
     window: 4096
     launch:
       vram_gb: 2.0

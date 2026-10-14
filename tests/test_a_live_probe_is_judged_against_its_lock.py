@@ -9,7 +9,7 @@ prompt and 256 tokens out, so a dispatch is not the lock's quantity.
   (``completion_tokens`` over wall seconds) and three 16-token prefills of the
   long prompt (``prompt_tokens`` over wall seconds). A llama.cpp unit gets the
   lock's llama.cpp harness: ``/completion`` with ``timings``. Both take the
-  median, as the lock did (the lab's fleet reports for srv1 and srv2).
+  median, as the lock did (the lab's fleet reports for box1 and box2).
 * **It probes only an idle unit.** It reads the unit's own count first and
   again after; a unit busy before is not probed, and one busy after is filed
   as contended and not judged.
@@ -95,12 +95,12 @@ def test_the_locks_nvme_check_reads_the_same_class(tmp_path: Path) -> None:
     from mcgyvr.fleet import lock
 
     evidence = json.loads(json.dumps(EVIDENCE))
-    evidence["combinations"][1]["warm_decode_tok_s"]["srv1_deepseek"] = 30.0
-    evidence["combinations"][1]["baseline_tok_s"] = {"srv1_deepseek": 33.0}
+    evidence["combinations"][1]["warm_decode_tok_s"]["box1_deepseek"] = 30.0
+    evidence["combinations"][1]["baseline_tok_s"] = {"box1_deepseek": 33.0}
     lock.write(tmp_path / "experts", FLEET, evidence, tolerances=TOLERANCES)
 
     plain = json.loads(json.dumps(FLEET))
-    plain["units"]["srv1_deepseek"]["launch"] = {"flags": ["-ngl", "99"]}
+    plain["units"]["box1_deepseek"]["launch"] = {"flags": ["-ngl", "99"]}
     with pytest.raises(lock.LockRefusedError, match="baseline"):
         lock.write(tmp_path / "plain", plain, evidence, tolerances=TOLERANCES)
 
@@ -172,10 +172,10 @@ def test_the_probe_files_stamped_observations_under_journal_fleet(
     }
     three = by_unit[(UNIT_3B, "warm_decode_tok_s")]
     assert three["observed"] == pytest.approx(126.7)
-    assert three["fleet"] == "b-small" and three["rig"] == "srv2"
+    assert three["fleet"] == "b-small" and three["rig"] == "box2"
     assert three["rig_id"] == RIG2
     assert three["combination_id"].startswith("cmb-")
-    # The moment srv2_3b's measurement finished: 11.1 s of its requests after
+    # The moment box2_3b's measurement finished: 11.1 s of its requests after
     # the probe began (a 0.5 s warm-up, 5 x 256/126.7 s, 3 x 1960/11500 s).
     assert three["at"] == "2026-09-15T12:00:11"
     assert by_unit[(UNIT_DS, "prefill_tok_s")]["observed"] == pytest.approx(307.11)
@@ -200,7 +200,7 @@ def test_a_llamacpp_unit_below_its_class_tolerance_raises_an_alert(
     assert [(r["unit_id"], r["field"]) for r in flagged] == [
         (UNIT_DS, "warm_decode_tok_s")
     ]
-    assert "srv1_deepseek" not in report.off_the_rig
+    assert "box1_deepseek" not in report.off_the_rig
     pulls = alerts.pulled(journal / "fleet", lock_root(tmp_path))
     assert list(pulls.values()) == [
         [{"unit_id": UNIT_DS, "field": "warm_decode_tok_s", "count": 1}]
@@ -219,7 +219,7 @@ def test_a_vllm_unit_timed_off_the_rig_is_recorded_not_judged(
 
     assert report.alerts == []
     assert report.exit_code == 0
-    assert report.probed["srv2_3b"] == {
+    assert report.probed["box2_3b"] == {
         "warm_decode_tok_s": pytest.approx(60.0),
         "prefill_tok_s": pytest.approx(5000.0),
     }
@@ -228,7 +228,7 @@ def test_a_vllm_unit_timed_off_the_rig_is_recorded_not_judged(
     assert three["warm_decode_tok_s"]["observed"] == pytest.approx(60.0)
     assert three["prefill_tok_s"]["observed"] == pytest.approx(5000.0)
     for row in three.values():
-        assert row["fleet"] == "b-small" and row["rig"] == "srv2"
+        assert row["fleet"] == "b-small" and row["rig"] == "box2"
         assert row["rig_id"] == RIG2 and row["combination_id"].startswith("cmb-")
         # 23.0 s of requests: 0.5 + 5 x 256/60 + 3 x 1960/5000.
         assert row["at"] == "2026-09-15T12:00:23"
@@ -236,8 +236,8 @@ def test_a_vllm_unit_timed_off_the_rig_is_recorded_not_judged(
         assert "alert" not in row
     assert alerts.pulled(journal / "fleet", lock_root(tmp_path)) == {}
 
-    assert set(report.off_the_rig) == {"srv2_3b"}
-    fields, reason = report.off_the_rig["srv2_3b"]
+    assert set(report.off_the_rig) == {"box2_3b"}
+    fields, reason = report.off_the_rig["box2_3b"]
     assert set(fields) == {"warm_decode_tok_s", "prefill_tok_s"}
     assert "off the rig" in reason and "127.0.0.1" in reason
 
@@ -265,12 +265,12 @@ def test_fleet_probe_prints_a_vllm_unit_as_recorded_not_judged(
     assert cli.main(["fleet", "probe"]) == 0
     lines = capsys.readouterr().out.splitlines()
 
-    assert "probed srv2_3b: warm_decode_tok_s 60.00, prefill_tok_s 11500.00" in lines
-    marked = [line for line in lines if line.startswith("not judged srv2_3b: ")]
+    assert "probed box2_3b: warm_decode_tok_s 60.00, prefill_tok_s 11500.00" in lines
+    marked = [line for line in lines if line.startswith("not judged box2_3b: ")]
     assert len(marked) == 1, lines
     assert "warm_decode_tok_s, prefill_tok_s recorded" in marked[0]
     assert "off the rig" in marked[0] and "127.0.0.1" in marked[0]
-    assert not [line for line in lines if line.startswith("not judged srv1_deepseek")]
+    assert not [line for line in lines if line.startswith("not judged box1_deepseek")]
     assert not [line for line in lines if line.startswith("alert ")]
 
 
@@ -279,7 +279,7 @@ def test_card_and_restarts_are_named_as_not_read_behind_the_door(
 ) -> None:
     live_home(tmp_path, monkeypatch)
     report = run_probe(FakeUnits(HOLDING))
-    assert set(report.not_read) == {"srv2_3b", "srv1_deepseek"}
+    assert set(report.not_read) == {"box2_3b", "box1_deepseek"}
     for fields, reason in report.not_read.values():
         assert set(fields) == {"card_mib", "restarts"}
         assert "door" in reason
@@ -292,11 +292,11 @@ def test_a_busy_unit_is_not_probed(
     fake = FakeUnits(HOLDING)
 
     def busy_3b(name: str, unit: Mapping[str, Any]) -> int | None:
-        return 2 if name == "srv2_3b" else 0
+        return 2 if name == "box2_3b" else 0
 
     report = run_probe(fake, in_flight=busy_3b)
-    assert report.busy == {"srv2_3b": 2}
-    assert not [u for u, _ in fake.posts if u.startswith("http://srv2:8001")]
+    assert report.busy == {"box2_3b": 2}
+    assert not [u for u, _ in fake.posts if u.startswith("http://box2:8001")]
     assert {r["unit_id"] for r in rows(journal / "fleet")} == {UNIT_DS}
     assert report.exit_code == 0
 
@@ -309,10 +309,10 @@ def test_a_unit_that_took_work_during_the_probe_is_filed_as_contended_not_judged
 
     def later(name: str, unit: Mapping[str, Any]) -> int | None:
         reads[name] = reads.get(name, 0) + 1
-        return 1 if name == "srv2_3b" and reads[name] > 1 else 0
+        return 1 if name == "box2_3b" and reads[name] > 1 else 0
 
     report = run_probe(FakeUnits(HOLDING | {"3b_decode": 60.0}), in_flight=later)
-    assert report.contended == ["srv2_3b"]
+    assert report.contended == ["box2_3b"]
     assert report.alerts == []
     three = [r for r in rows(journal / "fleet") if r["unit_id"] == UNIT_3B]
     assert three and all(r.get("contended") is True for r in three)
@@ -325,10 +325,10 @@ def test_a_unit_whose_count_cannot_be_read_is_a_probe_that_could_not_run(
     live_home(tmp_path, monkeypatch)
 
     def unreadable(name: str, unit: Mapping[str, Any]) -> int | None:
-        return None if name == "srv1_deepseek" else 0
+        return None if name == "box1_deepseek" else 0
 
     report = run_probe(FakeUnits(HOLDING), in_flight=unreadable)
-    assert "srv1_deepseek" in report.failed
+    assert "box1_deepseek" in report.failed
     assert report.exit_code == 1
 
 
@@ -337,8 +337,8 @@ def test_naming_units_probes_only_those(
 ) -> None:
     live_home(tmp_path, monkeypatch)
     fake = FakeUnits(HOLDING)
-    run_probe(fake, units=["srv1_deepseek"])
-    assert {u.split("/")[2] for u, _ in fake.posts} == {"srv1:8080"}
+    run_probe(fake, units=["box1_deepseek"])
+    assert {u.split("/")[2] for u, _ in fake.posts} == {"box1:8080"}
 
 
 def test_with_no_live_fleet_the_probe_cannot_run(

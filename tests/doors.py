@@ -16,7 +16,7 @@ from mcgyvr.serving import (
 )
 from tests import livejournal as lj
 
-UNITS = ("mcgyvr-srv1-a-8001", "mcgyvr-srv1-b-8002")
+UNITS = ("mcgyvr-box1-a-8001", "mcgyvr-box1-b-8002")
 
 
 def compose_file(root: Path, names: tuple[str, ...] = UNITS) -> Path:
@@ -29,7 +29,7 @@ def compose_file(root: Path, names: tuple[str, ...] = UNITS) -> Path:
         }
         for i, name in enumerate(names)
     }
-    path = root / "compose.srv1.yml"
+    path = root / "compose.box1.yml"
     path.write_text(yaml.safe_dump({"services": services}), encoding="utf-8")
     return path
 
@@ -41,7 +41,7 @@ CONFIG_VAR = "MCGYVR_CONFIG"
 DEV_LADDER = """\
 units:
   only:
-    address: http://srv1:8001
+    address: http://box1:8001
     model: a-model
     rig: rig
     engine: vllm
@@ -59,7 +59,7 @@ def dev_config(path: Path) -> Path:
     return path
 
 
-HOST = "srv2"
+HOST = "box2"
 
 
 RUNG_3B = "local_qwen2.5-coder-3b"
@@ -69,7 +69,7 @@ RUNG_7B = "local_qwen2.5-coder-7b"
 
 
 def ladder(*, engine: str) -> str:
-    """srv2's two rungs, on one card, behind ``engine``.
+    """box2's two rungs, on one card, behind ``engine``.
 
     ``attempts: 1`` on each tier so that "the retry spends no attempt" is a
     statement the result file can be read for: a rung allowed one attempt that
@@ -82,14 +82,14 @@ units:
     address: http://{HOST}:8001
     model: qwen2.5-coder-3b
     engine: {engine}
-    rig: srv2_3b
+    rig: box2_3b
     width: 2
     window: 32768
   {RUNG_7B}:
     address: http://{HOST}:8002
     model: qwen2.5-coder-7b
     engine: {engine}
-    rig: srv2_7b
+    rig: box2_7b
     width: 2
     window: 32768
 ladder:
@@ -102,7 +102,7 @@ attempts:
 
 
 def compose_dir(tmp_path: Path, *, with_spec: bool) -> Path:
-    """Where this checkout keeps launch specs, holding srv2's or holding none.
+    """Where this checkout keeps launch specs, holding box2's or holding none.
 
     The file name is ``emit_all``'s own convention rather than a literal, so a
     wake that looked somewhere else would fail here rather than in a year on a
@@ -331,12 +331,12 @@ def split_ladder(compose_dir: Path, *, across: str) -> str:
     )
 
 
-#: A dev serve, on another machine, holding srv1 (the lease format of
+#: A dev serve, on another machine, holding box1 (the lease format of
 #: ``tests/red_port/test_dod_rig_lease.py``).
 DEV_SERVE_LEASE = (
     "lease_id=deadbeefdeadbeef profile=dev holder=someone@elsewhere "
     "machine=elsewhere0000 pid=1 started_at=2026-09-06T01:02:03Z "
-    "campaign=live-srv1 step=serve-up run_id=2026-09-06-live-srv1-serve-up"
+    "campaign=live-box1 step=serve-up run_id=2026-09-06-live-box1-serve-up"
 )
 
 

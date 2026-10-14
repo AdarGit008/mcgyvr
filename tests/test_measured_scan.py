@@ -253,7 +253,7 @@ def test_nvidia_smi_answering_with_nothing_still_says_so(bench: Bench) -> None:
     assert any("reported no device" in note for note in result.notes)
 
 
-#: srv1 as nvidia-smi printed it on 2026-09-05 with the 35B unit up: the card
+#: box1 as nvidia-smi printed it on 2026-09-05 with the 35B unit up: the card
 #: says 6144 total, 5306 used and 438 free, which do not sum -- 400 MiB is the
 #: driver's own reserve and is never handed to a process.
 SMI_RESERVED = "0, NVIDIA GeForce RTX 3050, 6144, 5306, 438\n"
@@ -262,7 +262,7 @@ SMI_RESERVED = "0, NVIDIA GeForce RTX 3050, 6144, 5306, 438\n"
 def test_free_vram_is_the_cards_own_number_not_total_minus_used(bench: Bench) -> None:
     """``total - used`` is not what the card will hand out, and the gap decides fits.
 
-    Measured on srv1 (2026-09-05): total 6144, used 5306, free 438. Deriving
+    Measured on box1 (2026-09-05): total 6144, used 5306, free 438. Deriving
     free from the first two reports 838 -- 400 MiB that no process can have,
     because the driver is holding it. A placement sized against the derived
     number clears every gate and then OOMs at load by exactly that reserve.

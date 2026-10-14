@@ -39,7 +39,7 @@ BIN = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "bin"
 
 #: One call per shim that reaches the door's rule: `ssh` names the host
 #: itself, `docker` takes the door's from RUN_HOST.
-CALLS = {"ssh": ["srv2", "true"], "docker": ["ps"]}
+CALLS = {"ssh": ["box2", "true"], "docker": ["ps"]}
 
 #: The rule every shim applies before it becomes the real binary.
 REFUSAL = "was not started by the door"
@@ -57,7 +57,7 @@ def blind(tmp_path: Path) -> dict[str, str]:
     (tmp_path / "mcgyvr.py").write_text(
         'raise ImportError("no mcgyvr on this interpreter")\n', encoding="utf-8"
     )
-    return {**os.environ, "PYTHONPATH": str(tmp_path), "RUN_HOST": "srv2"}
+    return {**os.environ, "PYTHONPATH": str(tmp_path), "RUN_HOST": "box2"}
 
 
 @pytest.mark.parametrize("shim", sorted(CALLS))

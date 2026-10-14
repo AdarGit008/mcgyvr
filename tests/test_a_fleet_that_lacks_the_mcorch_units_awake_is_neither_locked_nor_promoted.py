@@ -36,7 +36,7 @@ from tests.fleetlocks import (
     tree,
 )
 
-AGENT, JEV = "srv2_7b", "srv2_3b"
+AGENT, JEV = "box2_7b", "box2_3b"
 
 
 def mcorch(agent: str | None = AGENT, jev: str | None = JEV) -> dict[str, Any]:
@@ -57,13 +57,13 @@ def mcorch(agent: str | None = AGENT, jev: str | None = JEV) -> dict[str, Any]:
 def test_a_layout_holding_both_units_awake_passes() -> None:
     from mcgyvr.fleet.layout import mcorch_units
 
-    mcorch_units(mcorch(), {"srv2": FLT02}, name="flt-02")
+    mcorch_units(mcorch(), {"box2": FLT02}, name="flt-02")
 
 
 def test_an_asleep_slot_does_not_count() -> None:
     from mcgyvr.fleet.layout import FleetError, mcorch_units
 
-    layout = {"srv2": [[AGENT, "awake"], [JEV, "asleep"]]}
+    layout = {"box2": [[AGENT, "awake"], [JEV, "asleep"]]}
     with pytest.raises(FleetError) as exc:
         mcorch_units(mcorch(), layout, name="flt-05")
     message = str(exc.value)
@@ -75,7 +75,7 @@ def test_every_missing_unit_is_named() -> None:
     from mcgyvr.fleet.layout import FleetError, mcorch_units
 
     with pytest.raises(FleetError) as exc:
-        mcorch_units(mcorch(), {"srv1": [["other", "awake"], None]}, name="flt-09")
+        mcorch_units(mcorch(), {"box1": [["other", "awake"], None]}, name="flt-09")
     message = str(exc.value)
     assert repr(AGENT) in message and repr(JEV) in message, message
 
@@ -84,7 +84,7 @@ def test_a_policy_naming_no_jev_unit_is_held_by_no_layout() -> None:
     from mcgyvr.fleet.layout import FleetError, mcorch_units
 
     with pytest.raises(FleetError, match=r"jev\.unit"):
-        mcorch_units(mcorch(jev=None), {"srv2": FLT02}, name="flt-02")
+        mcorch_units(mcorch(jev=None), {"box2": FLT02}, name="flt-02")
 
 
 def test_a_proposer_orchestrator_is_untouched() -> None:
@@ -113,7 +113,7 @@ def test_lock_writes_a_fleet_holding_both_units_awake(tmp_path: Path) -> None:
     from mcgyvr.fleet import lock
 
     fleet = copy.deepcopy(FLEET)
-    fleet["fleets"] = {"flt-02": {"layout": {"srv2": FLT02}, "next": []}}
+    fleet["fleets"] = {"flt-02": {"layout": {"box2": FLT02}, "next": []}}
     lock.write(tmp_path, fleet, EVIDENCE, policy=mcorch(), tolerances=TOLERANCES)
     assert (tmp_path / LOCK_DIR / "flt-02.json").is_file()
 

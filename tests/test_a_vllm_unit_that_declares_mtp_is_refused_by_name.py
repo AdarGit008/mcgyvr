@@ -24,7 +24,7 @@ HF_CACHE = "/home/someone/.cache/huggingface"
 
 def card() -> Scan:
     return Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=12288,
         ram_gb=16.0,
         disk_free_gb=120.0,

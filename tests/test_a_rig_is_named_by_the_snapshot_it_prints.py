@@ -33,14 +33,14 @@ from tests.fleetlocks import EVIDENCE, FLEET, POLICY, TOLERANCES
 
 SNAPSHOT_SH = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "rig-snapshot.sh"
 
-#: What srv2's lock was hashed with beyond what hosts.json declares
-#: (``fleet-setup/digests-srv2.json``): its machine id and kernel then.
-SRV2_SYSTEM = {"os_machine_id": "6d5d8f1f2bfa5f96", "kernel": "7.0.0-31-generic"}
+#: What box2's lock was hashed with beyond what hosts.json declares
+#: (``fleet-setup/digests-box2.json``): its machine id and kernel then.
+BOX2_SYSTEM = {"os_machine_id": "6d5d8f1f2bfa5f96", "kernel": "7.0.0-31-generic"}
 
 
-def srv2_snapshot(**override: str) -> dict[str, str]:
-    """srv2's reading as ``rig-snapshot.sh`` prints it, parsed ``key=value``."""
-    text = onedoor.snapshot_lines("srv2", **(SRV2_SYSTEM | override))
+def box2_snapshot(**override: str) -> dict[str, str]:
+    """box2's reading as ``rig-snapshot.sh`` prints it, parsed ``key=value``."""
+    text = onedoor.snapshot_lines("box2", **(BOX2_SYSTEM | override))
     return dict(line.split("=", 1) for line in text.splitlines() if line)
 
 
@@ -78,7 +78,7 @@ def test_a_moved_rig_is_named_anew() -> None:
 def test_a_snapshot_missing_a_rig_field_is_refused_by_name(missing: str) -> None:
     from mcgyvr.fleet.ids import rig_id
 
-    snapshot = srv2_snapshot()
+    snapshot = box2_snapshot()
     del snapshot[missing]
     with pytest.raises(ValueError, match=missing):
         rig_id(snapshot)
@@ -110,7 +110,7 @@ def test_the_snapshot_prints_os_machine_id_as_mcgyvr_scan_derives_it() -> None:
 
 def _fleet_named_by(snapshot: dict[str, str], pinned: str) -> dict[str, Any]:
     fleet = copy.deepcopy(FLEET)
-    fleet["rigs"]["srv2"]["rig_id"] = pinned
+    fleet["rigs"]["box2"]["rig_id"] = pinned
     return fleet
 
 
@@ -120,9 +120,9 @@ def test_the_lock_refuses_a_rig_id_its_dev_runs_snapshot_does_not_name(
     from mcgyvr.fleet import lock
     from mcgyvr.fleet.ids import rig_id
 
-    snapshot = srv2_snapshot(hostname="srv2")
+    snapshot = box2_snapshot(hostname="box2")
     evidence = copy.deepcopy(EVIDENCE)
-    evidence["rigs"]["srv2"]["snapshot"] = snapshot
+    evidence["rigs"]["box2"]["snapshot"] = snapshot
     named = rig_id(snapshot)
 
     stale = "rig-" + "2" * 64
@@ -135,7 +135,7 @@ def test_the_lock_refuses_a_rig_id_its_dev_runs_snapshot_does_not_name(
             tolerances=TOLERANCES,
         )
     said = str(refused.value)
-    assert "srv2" in said and stale in said and named in said, said
+    assert "box2" in said and stale in said and named in said, said
 
     lock.write(
         tmp_path / "named",

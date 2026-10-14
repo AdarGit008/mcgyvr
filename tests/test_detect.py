@@ -307,16 +307,16 @@ def test_the_default_sweep_is_localhost_and_unchanged() -> None:
 
 
 def test_a_named_host_is_swept_on_every_port_convention() -> None:
-    targets = targets_for(["srv1"])
+    targets = targets_for(["box1"])
     assert len(targets) == len(PORT_CONVENTIONS)
-    assert {t.host for t in targets} == {"srv1"}
-    assert "http://srv1:8080" in {t.base_url for t in targets}
-    assert "http://srv1:8000" in {t.base_url for t in targets}
+    assert {t.host for t in targets} == {"box1"}
+    assert "http://box1:8080" in {t.base_url for t in targets}
+    assert "http://box1:8000" in {t.base_url for t in targets}
 
 
 def test_a_single_named_host_still_gets_bare_names() -> None:
     """One machine is unambiguous, whichever machine it is."""
-    assert [t.name for t in targets_for(["srv1"])] == [
+    assert [t.name for t in targets_for(["box1"])] == [
         name for name, *_ in PORT_CONVENTIONS
     ]
 
@@ -327,34 +327,34 @@ def test_two_hosts_qualify_names_so_sources_cannot_collide() -> None:
     The config maps sources by name, so a collision here is not a cosmetic
     problem: it is one rig silently disappearing from the ladder.
     """
-    targets = targets_for(["srv1", "srv2"])
+    targets = targets_for(["box1", "box2"])
     names = [t.name for t in targets]
     assert len(names) == len(set(names)), "every candidate source is distinctly named"
-    assert "srv1_llama-server" in names
-    assert "srv2_llama-server" in names
+    assert "box1_llama-server" in names
+    assert "box2_llama-server" in names
 
 
 def test_qualifying_a_name_never_changes_what_the_backend_is() -> None:
     """`requires_backend` in the table matches the kind, not the config name.
 
     A model measured on vLLM is measured on vLLM whether the source is
-    called `vllm` or `srv2_vllm`. Conflating the two would withhold every
+    called `vllm` or `box2_vllm`. Conflating the two would withhold every
     backend-pinned model the moment a second host was named.
     """
-    for target in targets_for(["srv1", "srv2"]):
+    for target in targets_for(["box1", "box2"]):
         assert target.kind in {name for name, *_ in PORT_CONVENTIONS}
         assert target.name.endswith(target.kind)
 
 
 def test_an_address_survives_becoming_a_config_key() -> None:
     """A tailnet address is a name someone edits by hand in YAML."""
-    names = [t.name for t in targets_for(["100.69.72.51", "srv1"])]
+    names = [t.name for t in targets_for(["100.64.0.1", "box1"])]
     assert all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", n) for n in names), names
 
 
 def test_naming_one_host_twice_probes_it_once() -> None:
-    assert len(targets_for(["srv1", "srv1"])) == len(PORT_CONVENTIONS)
-    assert [t.name for t in targets_for(["srv1", "srv1"])] == [
+    assert len(targets_for(["box1", "box1"])) == len(PORT_CONVENTIONS)
+    assert [t.name for t in targets_for(["box1", "box1"])] == [
         name for name, *_ in PORT_CONVENTIONS
     ], "a duplicate must not be read as two hosts and trigger qualification"
 
@@ -363,11 +363,11 @@ def test_a_remote_backend_is_not_reported_as_local(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_run(monkeypatch, {})
-    stub_http(monkeypatch, {"http://srv2:8080/v1/models": LCP_MODELS})
-    found = detect(targets_for(["srv2"]))
+    stub_http(monkeypatch, {"http://box2:8080/v1/models": LCP_MODELS})
+    found = detect(targets_for(["box2"]))
     assert found.backends
     assert found.has_remote_backend
-    assert found.hosts_answering == ("srv2",)
+    assert found.hosts_answering == ("box2",)
     assert all(not b.is_local for b in found.backends)
 
 
@@ -391,10 +391,10 @@ def test_nothing_answering_anywhere_names_the_flag_that_widens_the_sweep(
 ) -> None:
     stub_run(monkeypatch, {})
     stub_http(monkeypatch, {})
-    found = detect(targets_for(["srv1", "srv2"]))
+    found = detect(targets_for(["box1", "box2"]))
     joined = " ".join(found.notes)
     assert "--host" in joined
-    assert "http://srv1:8080" in joined, "and says exactly what was tried"
+    assert "http://box1:8080" in joined, "and says exactly what was tried"
 
 
 # --- one protocol, asked and dispatched alike ----------------------------

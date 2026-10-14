@@ -7,7 +7,7 @@ labels below name) finds that this is not a behaviour to build but one the tree
 has — the card is the compose file, ``emit.emit_all`` writes one compose file
 per set of units that come up together, and the door's ``down`` step tears
 down every service in the file it is handed. On the live ladder that means
-srv2's one RTX 3060 sits behind two sources, ``:8001`` (3B) and ``:8002`` (7B),
+box2's one RTX 3060 sits behind two sources, ``:8001`` (3B) and ``:8002`` (7B),
 and putting that card to sleep takes both rungs down together. There is no
 per-model sleep and therefore no wake that displaces a neighbour: whole-card
 eviction does not solve partial eviction, it deletes the case (D8). Gate 2
@@ -185,7 +185,7 @@ def test_a_dispatch_in_flight_is_never_cut_by_a_sleep(
 ) -> None:
     """The drain, and the reason it is a hold and not a reading.
 
-    A slot of ``srv2_3b`` is taken by a second capacity — the stand-in for the
+    A slot of ``box2_3b`` is taken by a second capacity — the stand-in for the
     other mcgyvr process the bound exists to keep out, and the same stand-in
     ``tests/test_a_full_rung_is_declined_not_waited_on_forever.py`` uses. The
     sleep must not reach the rig while that slot is held: ``docker compose

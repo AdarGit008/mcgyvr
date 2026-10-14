@@ -83,21 +83,21 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # Two local sources carrying the *same model*, which is what makes the ordering
 # question sharp: the rungs are genuinely equal in price, so preferring the free
-# one costs nothing that could be called an escalation. Deliberately not srv1
-# and srv2 as this project actually runs them — those are a throughput rig and
+# one costs nothing that could be called an escalation. Deliberately not box1
+# and box2 as this project actually runs them — those are a throughput rig and
 # an intelligence rig and are never interchangeable. This is the symmetric
 # arrangement the knob exists for.
 PEERS = """
 units:
-  local_srv1:
-    address: http://srv1.example.net:11434
+  local_box1:
+    address: http://box1.example.net:11434
     model: qwen3-coder:30b
-    rig: srv1
+    rig: box1
     width: 2
-  local_srv2:
-    address: http://srv2.example.net:11434
+  local_box2:
+    address: http://box2.example.net:11434
     model: qwen3-coder:30b
-    rig: srv2
+    rig: box2
     width: 2
   api_big:
     address: https://api.example.com/v1
@@ -106,8 +106,8 @@ units:
     width: 4
     api_key_env: EXAMPLE_API_KEY
 ladder:
-- local_srv1
-- local_srv2
+- local_box1
+- local_box2
 - api_big
 {fanout}"""
 
@@ -304,11 +304,11 @@ def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> Non
     leaves that unused.
     """
     config, _ = mapped()
-    reported = {"local_srv1": 4, "local_srv2": 4, "api_big": 4}
+    reported = {"local_box1": 4, "local_box2": 4, "api_big": 4}
 
     capacity = Capacity.of(config, probe=_ReportingProbe(reported))
 
-    assert capacity.limits["local_srv1"] == 4, "the config declared 2; the rig said 4"
+    assert capacity.limits["local_box1"] == 4, "the config declared 2; the rig said 4"
     assert capacity.total == 12
 
 
@@ -324,13 +324,13 @@ def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_s
     """
     config, _ = mapped()
 
-    probe = _ReportingProbe({"local_srv1": None, "local_srv2": None})
+    probe = _ReportingProbe({"local_box1": None, "local_box2": None})
     capacity = Capacity.of(config, probe=probe)
 
-    assert capacity.limits["local_srv1"] == 2, (
+    assert capacity.limits["local_box1"] == 2, (
         "the declaration stands when nothing answers"
     )
-    assert capacity.confirmed("local_srv1") is False
+    assert capacity.confirmed("local_box1") is False
     assert capacity.confirmed("api_big") is False
 
 
@@ -347,8 +347,8 @@ def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced(
     """
     config, _ = mapped()
 
-    with pytest.raises(Exception, match=r"srv1.*declares 2.*reports 1"):
-        Capacity.of(config, probe=_ReportingProbe({"local_srv1": 1}))
+    with pytest.raises(Exception, match=r"box1.*declares 2.*reports 1"):
+        Capacity.of(config, probe=_ReportingProbe({"local_box1": 1}))
 
 
 class _ReportingProbe:
@@ -383,7 +383,7 @@ def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
     second is that queueing is not failing — six contracts through two slots
     means four of them wait, and :mod:`mcgyvr.escalate` climbs on ``FAILED``, so
     a wait that produced a failing verdict would fund the api family out of a
-    queue that is free. Every contract lands on srv1, none on vendor, and
+    queue that is free. Every contract lands on box1, none on vendor, and
     nothing fails.
     """
     config, pool = mapped()
@@ -396,8 +396,8 @@ def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
     landed = [o.value for o in outcomes]
-    assert set(landed) == {"local_srv1"}, "the default takes the cheapest rung, always"
-    assert observer.peak == {"local_srv1": 2}, "srv2 was never recruited"
+    assert set(landed) == {"local_box1"}, "the default takes the cheapest rung, always"
+    assert observer.peak == {"local_box1": 2}, "box2 was never recruited"
     assert observer.peak_total == 2
 
 
@@ -408,14 +408,14 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
 
     Six contracts, one task type, one floor family, two sources that both serve
     it at a width of two. The reachable concurrency is four. Under ``none`` it is
-    two: every contract takes ``local_srv1`` because it is written first, and
-    ``local_srv2`` is reached only by a contract that *failed* on srv1 — never
-    because srv1 is busy. Widening ``width`` widens the rig that was already the
+    two: every contract takes ``local_box1`` because it is written first, and
+    ``local_box2`` is reached only by a contract that *failed* on box1 — never
+    because box1 is busy. Widening ``width`` widens the rig that was already the
     only one being used.
 
     The assertions are per source *and* across sources, and both are needed.
-    Two per-source peaks of 2 are equally true of a batch that drained srv1 and
-    only then started srv2; :class:`~mcgyvr.capacity.Concurrency` removes that
+    Two per-source peaks of 2 are equally true of a batch that drained box1 and
+    only then started box2; :class:`~mcgyvr.capacity.Concurrency` removes that
     ambiguity, and the rendezvous is what
     turns it into a fact rather than a stopwatch reading.
     """
@@ -428,7 +428,7 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
     outcomes = run_batch(jobs, capacity)
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
-    assert observer.peak == {"local_srv1": 2, "local_srv2": 2}
+    assert observer.peak == {"local_box1": 2, "local_box2": 2}
     assert observer.peak_total == 4
     assert observer.peak_total > max(observer.peak.values()), "together, not in series"
 
@@ -436,7 +436,7 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
 def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
     """The constraint that keeps the fix from becoming an escalation change.
 
-    ``local_srv1`` and ``local_srv2`` carry the same model, so choosing the free
+    ``local_box1`` and ``local_box2`` carry the same model, so choosing the free
     one is a tie-break and costs nothing. Order is a different matter: a plan
     that put a busy rung last would be deciding, from inside one family, that
     load outranks price. Within the family this stays a tie-break, and #24's
@@ -449,7 +449,7 @@ def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
 
     ordered = plan(config, pool, contract(), capacity=capacity)
 
-    assert ordered.rungs == ("local_srv1", "local_srv2"), "price order, always"
+    assert ordered.rungs == ("local_box1", "local_box2"), "price order, always"
 
 
 def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
@@ -471,7 +471,7 @@ def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
     config, pool = mapped(peers("idle"))
     capacity = Capacity.of(config)
 
-    with saturated(capacity, pool, "local_srv1", "local_srv2"):
+    with saturated(capacity, pool, "local_box1", "local_box2"):
         climbable = ascent(config, pool, contract(), capacity=capacity)
 
         assert climbable.next_free_rung == "api_big"

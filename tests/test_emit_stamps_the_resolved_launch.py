@@ -71,7 +71,7 @@ def service_of(document: str) -> dict[str, Any]:
 
 def llama_unit() -> Any:
     return unit_for(
-        machine("srv1", vram_mib=6144),
+        machine("box1", vram_mib=6144),
         SMALL,
         engine="llama.cpp",
         width=8,
@@ -81,7 +81,7 @@ def llama_unit() -> Any:
 
 def vllm_unit() -> Any:
     return unit_for(
-        machine("srv2", vram_mib=12288),
+        machine("box2", vram_mib=12288),
         VLLM_SPEC,
         engine="vllm",
         width=8,

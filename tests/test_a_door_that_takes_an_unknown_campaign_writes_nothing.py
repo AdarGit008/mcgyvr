@@ -42,11 +42,11 @@ def test_the_door_is_the_python_module() -> None:
 def test_an_undeclared_host_is_refused_at_gate_2_before_the_rig_is_read(
     root: Path, tmp_path: Path
 ) -> None:
-    result = onedoor.door(root, Scenario("alpha", "1-probe.sh", host="srv9"))
+    result = onedoor.door(root, Scenario("alpha", "1-probe.sh", host="box9"))
     assert result.returncode == 2, (result.stdout, result.stderr)
-    assert "srv9" in result.stderr, result.stderr
+    assert "box9" in result.stderr, result.stderr
     assert "no rig file" in result.stderr, result.stderr
-    assert "mcgyvr scan --rig srv9" in result.stderr, result.stderr
+    assert "mcgyvr scan --rig box9" in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
     assert onedoor.ssh_log(root) == [], "a rig nobody described was reached"
     assert not (tmp_path / "e").exists()

@@ -99,9 +99,9 @@ def test_a_container_the_rigs_reader_lists_is_named_by_id(tmp_path: Path) -> Non
         onedoor.probe_step(tmp_path / "e", after=f"touch '{flag}'"),
     )
     stubs = onedoor.stubs_dir(root)
-    onedoor.rig_stub(stubs, "srv1", moved_flag=flag)
+    onedoor.rig_stub(stubs, "box1", moved_flag=flag)
     (stubs / "snapshot-moved.txt").write_text(
-        onedoor.snapshot_lines("srv1", containers="deadbeef0042"), encoding="utf-8"
+        onedoor.snapshot_lines("box1", containers="deadbeef0042"), encoding="utf-8"
     )
     result = onedoor.door(root, PROBE)
     assert result.returncode == 1, (result.stdout, result.stderr)

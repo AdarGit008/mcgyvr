@@ -42,7 +42,7 @@ CARD_MIB = 12288
 
 #: A vLLM unit loads a repository id out of the rig's HuggingFace cache, so a
 #: spec served by it has to say where that cache is — the same requirement the
-#: live srv2 config carries for both of these models.
+#: live box2 config carries for both of these models.
 BIG = ModelSpec(
     name="qwen2.5-coder-7b",
     vram_gb=8.4,
@@ -64,7 +64,7 @@ SMALL = ModelSpec(
 def _rig() -> Scan:
     """One card, built the way ``tests/test_emit.py`` builds a machine."""
     return Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=CARD_MIB,
         ram_gb=64.0,
         disk_free_gb=900.0,
@@ -75,7 +75,7 @@ def _rig() -> Scan:
 
 
 def _both() -> tuple[Unit, Unit]:
-    """The two units srv2 actually serves, on one card, on two ports."""
+    """The two units box2 actually serves, on one card, on two ports."""
     rig = _rig()
     big = unit_for(rig, BIG, engine="vllm", width=8, port=8002, ctx_per_slot=WINDOW)
     small = unit_for(rig, SMALL, engine="vllm", width=6, port=8001, ctx_per_slot=WINDOW)

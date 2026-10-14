@@ -423,20 +423,20 @@ def test_setup_fetch_and_start_go_through_the_door(
         scores=(),
     )
 
-    cli._setup_fetch("srv1", record, tmp_path)
+    cli._setup_fetch("box1", record, tmp_path)
     argv = calls[-1]
     assert argv[:5] == (sys.executable, "-m", "mcgyvr.serving.run", "serve", "fetch")
-    assert argv[argv.index("--host") + 1] == "srv1"
+    assert argv[argv.index("--host") + 1] == "box1"
     assert "--weights" in argv and "--suffix" in argv
 
     scan = scan_module.Scan(
         machine=scan_module.Machine(id="x", host="localhost", kernel="k")
     )
     (tmp_path / spec_name("localhost")).write_text("services: {}", encoding="utf-8")
-    cli._setup_start(["srv1"], {"srv1": scan}, tmp_path)
+    cli._setup_start(["box1"], {"box1": scan}, tmp_path)
     argv = calls[-1]
     assert argv[:5] == (sys.executable, "-m", "mcgyvr.serving.run", "serve", "up")
-    assert argv[argv.index("--host") + 1] == "srv1"
+    assert argv[argv.index("--host") + 1] == "box1"
     assert "--compose" in argv and "--suffix" in argv
 
 
@@ -461,7 +461,7 @@ def test_setup_start_runs_the_door_against_the_bootstrap_config(
     )
     (tmp_path / spec_name("localhost")).write_text("services: {}", encoding="utf-8")
 
-    cli._setup_start(["srv1"], {"srv1": scan}, tmp_path)
+    cli._setup_start(["box1"], {"box1": scan}, tmp_path)
 
     assert spawns and spawns[-1]["env"] is not None
     env = spawns[-1]["env"]
@@ -498,10 +498,10 @@ def test_setup_start_skips_a_rig_that_emit_wrote_no_compose_for(
     )
     (tmp_path / spec_name("rig.example")).write_text("services: {}", encoding="utf-8")
 
-    cli._setup_start(["srv1", "srv2"], {"srv1": scan1, "srv2": scan2}, tmp_path)
+    cli._setup_start(["box1", "box2"], {"box1": scan1, "box2": scan2}, tmp_path)
 
     assert len(spawns) == 1
-    assert spawns[0][spawns[0].index("--host") + 1] == "srv1"
+    assert spawns[0][spawns[0].index("--host") + 1] == "box1"
 
 
 def test_setup_emit_declares_the_priced_context_window(
@@ -532,16 +532,16 @@ def test_setup_emit_declares_the_priced_context_window(
 def test_setup_context_window_collapses_differing_placements_to_the_smallest() -> None:
     """Differing rig windows collapse to the smallest, never an invention."""
     plans = {
-        "srv1": {"placement": {"context_length": 32768}},
-        "srv2": {"placement": {"context_length": 4096}},
-        "srv3": {"placement": {"context_length": 65536}},
+        "box1": {"placement": {"context_length": 32768}},
+        "box2": {"placement": {"context_length": 4096}},
+        "box3": {"placement": {"context_length": 65536}},
     }
     assert cli._setup_context_window(plans) == 4096
 
 
 def test_setup_context_window_refuses_a_placement_without_a_window() -> None:
     """A placement with no declared window is refused, not guessed."""
-    plans = {"srv1": {"placement": {"context_length": None}}}
+    plans = {"box1": {"placement": {"context_length": None}}}
     with pytest.raises(cli._SetupInteractiveError):
         cli._setup_context_window(plans)
 
@@ -568,22 +568,22 @@ def test_the_serve_step_runs_on_the_doors_interpreter(
 
     monkeypatch.setattr(gate6, "door_required", lambda what: None)
     monkeypatch.setattr(gate6, "_run", fake_run)
-    monkeypatch.setattr(sys, "argv", ["06-step.py", "--host", "srv1"])
+    monkeypatch.setattr(sys, "argv", ["06-step.py", "--host", "box1"])
     monkeypatch.setenv("RUN_STEP_FILE", str(step))
-    monkeypatch.setenv("RUN_HOST", "srv1")
+    monkeypatch.setenv("RUN_HOST", "box1")
     monkeypatch.setenv("RUN_OUT_DIR", "/x")
     monkeypatch.setenv("RUN_ID", "r1")
 
     # A serve run's step is mcgyvr code: run it on the door's interpreter.
     monkeypatch.setenv("RUN_SERVE", "fetch")
     assert gate6.main() == 0
-    assert seen == [[sys.executable, str(step), "--host", "srv1"]]
+    assert seen == [[sys.executable, str(step), "--host", "box1"]]
 
     # A caller's own --step keeps its shebang and runs as itself.
     monkeypatch.delenv("RUN_SERVE")
     seen.clear()
     assert gate6.main() == 0
-    assert seen == [[str(step), "--host", "srv1"]]
+    assert seen == [[str(step), "--host", "box1"]]
 
 
 def test_setup_writes_through_the_initialize_engine(
@@ -640,13 +640,13 @@ def test_setup_interactive_re_emits_after_the_final_init_and_before_the_lock(
     calls: list[tuple[object, ...]] = []
 
     def fake_ask_rigs(prompt: object = None) -> tuple[str, ...]:
-        return ("srv1",)
+        return ("box1",)
 
     def fake_scan_rigs(rigs: object) -> dict[str, object]:
         return {}
 
     def fake_placements(rigs: object, scans: object) -> dict[str, object]:
-        return {"srv1": {"placement": {"context_length": 4096}}}
+        return {"box1": {"placement": {"context_length": 4096}}}
 
     def fake_downloads(
         plans: object, scans: object, prompt: object = None

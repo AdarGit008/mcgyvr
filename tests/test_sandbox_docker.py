@@ -241,9 +241,9 @@ def test_an_exec_under_a_daemon_override_raises_before_spawning(
     first, and raises it: a command that ran wherever DOCKER_CONTEXT points
     would not be a sandbox result, so it is not made."""
     monkeypatch.delenv("DOCKER_HOST", raising=False)
-    monkeypatch.setenv("DOCKER_CONTEXT", "srv1")
+    monkeypatch.setenv("DOCKER_CONTEXT", "box1")
     monkeypatch.setattr(subprocess, "run", _never)
-    with pytest.raises(SandboxError, match="DOCKER_CONTEXT=srv1 is set"):
+    with pytest.raises(SandboxError, match="DOCKER_CONTEXT=box1 is set"):
         docker_module._docker_exec(["exec", "c", "true"], None)
 
 
@@ -255,7 +255,7 @@ def test_the_container_mode_under_a_daemon_override_refuses_to_open(
     probed, with the one message; the CLI reports a SandboxError as
     ``error:`` and exits non-zero."""
     monkeypatch.delenv("DOCKER_CONTEXT", raising=False)
-    monkeypatch.setenv("DOCKER_HOST", "ssh://srv1")
+    monkeypatch.setenv("DOCKER_HOST", "ssh://box1")
     monkeypatch.setattr(subprocess, "run", _never)
     with (
         pytest.raises(SandboxError, match="the sandbox runs on this machine's daemon"),
@@ -276,6 +276,6 @@ def test_a_container_that_started_is_still_refused_an_exec_under_an_override(
         pytest.raises(SandboxError, match="must never land on a rig"),
         DockerSandbox(git_repo, image="img:latest", runner=runner) as sb,
     ):
-        monkeypatch.setenv("DOCKER_HOST", "ssh://srv2")
+        monkeypatch.setenv("DOCKER_HOST", "ssh://box2")
         sb.run(["true"])
     assert any(c[:2] == ["rm", "--force"] for c in runner.calls)

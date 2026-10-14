@@ -45,7 +45,7 @@ from mcgyvr.scan import Scan
 HOST = "rig"
 
 #: Two models that each fit the card alone and cannot both be on it: 7.0 + 7.0
-#: GiB of a 12 GiB card. srv1's own shape, with the figures declared rather than
+#: GiB of a 12 GiB card. box1's own shape, with the figures declared rather than
 #: read out of a GGUF header, because what is under test is the file on disk and
 #: not the arithmetic that sized it.
 LITE = "lite-7b"

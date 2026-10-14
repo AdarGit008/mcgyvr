@@ -58,7 +58,7 @@ scope:
 
 #: The ladder, cheapest first: the first rung never answers usably, so every
 #: run climbs to the second, and a warning that changed the climb would show.
-FIRST, SECOND = "srv2_3b", "srv1_deepseek"
+FIRST, SECOND = "box2_3b", "box1_deepseek"
 UNIT_FIRST = "unt-" + "5" * 64
 UNIT_SECOND = "unt-" + "e" * 64
 RIG_FIRST = "rig-" + "c" * 64
@@ -76,7 +76,7 @@ def fleet(profile: str = "live") -> dict[str, Any]:
         "profile": profile,
         "units": {
             FIRST: {
-                "rig": "srv2",
+                "rig": "box2",
                 "unit_id": UNIT_FIRST,
                 "address": "http://127.0.0.1:18001",
                 "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
@@ -84,7 +84,7 @@ def fleet(profile: str = "live") -> dict[str, Any]:
                 "window": 8192,
             },
             SECOND: {
-                "rig": "srv1",
+                "rig": "box1",
                 "unit_id": UNIT_SECOND,
                 "address": "http://127.0.0.1:18080",
                 "model": "deepseek-coder-v2-16b",
@@ -92,10 +92,10 @@ def fleet(profile: str = "live") -> dict[str, Any]:
                 "window": 8192,
             },
         },
-        "rigs": {"srv2": {"rig_id": RIG_FIRST}, "srv1": {"rig_id": RIG_SECOND}},
+        "rigs": {"box2": {"rig_id": RIG_FIRST}, "box1": {"rig_id": RIG_SECOND}},
         "fleets": {
             FLEET_NAME: {
-                "layout": {"srv2": [[FIRST, "awake"]], "srv1": [[SECOND, "awake"]]},
+                "layout": {"box2": [[FIRST, "awake"]], "box1": [[SECOND, "awake"]]},
                 "next": [],
             }
         },
@@ -266,9 +266,9 @@ def test_a_pulled_step_warns_once_before_it_is_dispatched_and_is_still_dispatche
     assert clean_rungs[0] == FIRST and clean_rungs[-1] == SECOND, clean_rungs
     assert clean_rungs.count(FIRST) >= 1
 
-    pull(journal, "srv2", UNIT_FIRST, "warm_decode_tok_s", count=2)
-    pull(journal, "srv2", UNIT_FIRST, "prefill_tok_s")
-    pull(journal, "srv1", UNIT_SECOND, "prefill_tok_s", count=3)
+    pull(journal, "box2", UNIT_FIRST, "warm_decode_tok_s", count=2)
+    pull(journal, "box2", UNIT_FIRST, "prefill_tok_s")
+    pull(journal, "box1", UNIT_SECOND, "prefill_tok_s", count=3)
     code, rungs, err = climb(tmp_path, monkeypatch, capsys, "pulled")
 
     said = warnings(err)
@@ -289,8 +289,8 @@ def test_a_step_validated_after_its_alerts_prints_nothing(
 ) -> None:
     journal = go_live(tmp_path, {RIG_FIRST: NEWER, RIG_SECOND: OLDER})
     clean_code, clean_rungs, _ = climb(tmp_path, monkeypatch, capsys, "clean")
-    pull(journal, "srv2", UNIT_FIRST, "warm_decode_tok_s")
-    pull(journal, "srv1", UNIT_SECOND, "warm_decode_tok_s")
+    pull(journal, "box2", UNIT_FIRST, "warm_decode_tok_s")
+    pull(journal, "box1", UNIT_SECOND, "warm_decode_tok_s")
 
     code, rungs, err = climb(tmp_path, monkeypatch, capsys, "revalidated")
 
@@ -305,7 +305,7 @@ def test_pulls_that_cannot_be_read_are_one_warning_and_the_run_goes_on(
 ) -> None:
     journal = go_live(tmp_path)
     clean_code, clean_rungs, _ = climb(tmp_path, monkeypatch, capsys, "clean")
-    pull(journal, "srv2", UNIT_FIRST, "warm_decode_tok_s")
+    pull(journal, "box2", UNIT_FIRST, "warm_decode_tok_s")
     # A journal file nobody can read: a directory where a row file should be.
     (journal / "fleet" / combination(RIG_FIRST) / "unreadable.jsonl").mkdir()
 
@@ -326,8 +326,8 @@ def test_a_dev_run_is_unchanged_by_pulls(
     clean_code, clean_rungs, clean_err = climb(
         tmp_path, monkeypatch, capsys, "clean", config=dev
     )
-    pull(journal, "srv2", UNIT_FIRST, "warm_decode_tok_s")
-    pull(journal, "srv1", UNIT_SECOND, "warm_decode_tok_s")
+    pull(journal, "box2", UNIT_FIRST, "warm_decode_tok_s")
+    pull(journal, "box1", UNIT_SECOND, "warm_decode_tok_s")
 
     code, rungs, err = climb(tmp_path, monkeypatch, capsys, "dev", config=dev)
 
@@ -343,8 +343,8 @@ def test_the_units_a_pull_reaches_are_resolved_where_enforcement_can_ask_again(
 
     assert alerts.live_pulled_units() == {}, "no fleet named live, nothing pulled"
     journal = go_live(tmp_path, {RIG_FIRST: OLDER, RIG_SECOND: NEWER})
-    pull(journal, "srv2", UNIT_FIRST, "warm_decode_tok_s", count=2)
-    pull(journal, "srv1", UNIT_SECOND, "prefill_tok_s")
+    pull(journal, "box2", UNIT_FIRST, "warm_decode_tok_s", count=2)
+    pull(journal, "box1", UNIT_SECOND, "prefill_tok_s")
 
     units = alerts.live_pulled_units()
 

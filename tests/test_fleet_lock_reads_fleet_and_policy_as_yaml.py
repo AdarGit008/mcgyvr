@@ -8,7 +8,7 @@ from pathlib import Path
 from tests.fleetlocks import FLEET_YAML
 from tests.fleetlocks import YAML_EVIDENCE as EVIDENCE
 
-POLICY_YAML = "ladder: [srv2_7b]\n"
+POLICY_YAML = "ladder: [box2_7b]\n"
 
 
 def test_fleet_lock_reads_fleet_and_policy_as_yaml(tmp_path: Path) -> None:

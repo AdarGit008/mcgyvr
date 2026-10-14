@@ -72,7 +72,7 @@ def test_the_lock_files_each_fleet_and_each_rig_combination_once(
     assert "api.example.invalid" not in json.dumps(records), (
         "an outside unit is never locked"
     )
-    locked = {record["approved"]["srv2_7b"]["warm_decode_tok_s"] for record in records}
+    locked = {record["approved"]["box2_7b"]["warm_decode_tok_s"] for record in records}
     assert locked == {58.0, 57.0}, "the locked warm decode is the as-run figure"
 
 
@@ -124,15 +124,15 @@ def test_every_units_room_plus_overhead_must_fit_its_card_asleep_or_awake(
     too, where the 3B is asleep, because an asleep unit keeps its room."""
     lock = _lock()
     fleet = edited(FLEET)
-    fleet["units"]["srv2_7b"]["room_mib"] = 9000
-    fleet["fleets"] = {"flt-05": {"layout": {"srv2": FLT05}, "next": []}}
+    fleet["units"]["box2_7b"]["room_mib"] = 9000
+    fleet["fleets"] = {"flt-05": {"layout": {"box2": FLT05}, "next": []}}
     evidence = edited(EVIDENCE)
     evidence["combinations"] = evidence["combinations"][:1]
     evidence["moves"] = []
     with pytest.raises(lock.LockRefusedError) as refused:
         write(lock, tmp_path, fleet=fleet, evidence=evidence)
     said = str(refused.value)
-    assert "srv2" in said and "overhead" in said, said
+    assert "box2" in said and "overhead" in said, said
 
 
 def test_a_vllm_unit_whose_kv_size_is_not_pinned_is_not_locked(
@@ -140,7 +140,7 @@ def test_a_vllm_unit_whose_kv_size_is_not_pinned_is_not_locked(
 ) -> None:
     lock = _lock()
     fleet = edited(FLEET)
-    del fleet["units"]["srv2_7b"]["kv_cache_memory_bytes"]
+    del fleet["units"]["box2_7b"]["kv_cache_memory_bytes"]
     with pytest.raises(lock.LockRefusedError, match="kv_cache_memory_bytes"):
         write(lock, tmp_path, fleet=fleet)
 
@@ -152,8 +152,8 @@ def test_a_reply_its_unit_cannot_finish_inside_its_timeout_is_not_locked(
     lock = _lock()
     evidence = edited(EVIDENCE)
     for row in evidence["combinations"]:
-        row["warm_decode_tok_s"]["srv2_7b"] = 5.0
-        row["baseline_tok_s"]["srv2_7b"] = 5.1
+        row["warm_decode_tok_s"]["box2_7b"] = 5.0
+        row["baseline_tok_s"]["box2_7b"] = 5.1
     with pytest.raises(lock.LockRefusedError, match="request_timeout_s"):
         write(lock, tmp_path, evidence=evidence)
 
@@ -165,11 +165,11 @@ def test_nvme_use_is_locked_only_where_warm_decode_holds_against_its_baseline(
     past a 3% tolerance."""
     lock = _lock()
     evidence = edited(EVIDENCE)
-    evidence["combinations"][0]["warm_decode_tok_s"]["srv2_7b"] = 55.0
+    evidence["combinations"][0]["warm_decode_tok_s"]["box2_7b"] = 55.0
     with pytest.raises(lock.LockRefusedError) as refused:
         write(lock, tmp_path, evidence=evidence)
     said = str(refused.value)
-    assert "srv2_7b" in said and "baseline" in said, said
+    assert "box2_7b" in said and "baseline" in said, said
 
 
 def test_a_model_with_no_no_nvme_run_is_locked_on_its_own_value_and_marked(
@@ -178,7 +178,7 @@ def test_a_model_with_no_no_nvme_run_is_locked_on_its_own_value_and_marked(
     lock = _lock()
     evidence = edited(EVIDENCE)
     for row in evidence["combinations"]:
-        row["baseline_tok_s"]["srv2_7b"] = None
+        row["baseline_tok_s"]["box2_7b"] = None
     write(lock, tmp_path, evidence=evidence)
     written = " ".join(
         path.read_text(encoding="utf-8") for path in combination_files(tmp_path)
@@ -189,7 +189,7 @@ def test_a_model_with_no_no_nvme_run_is_locked_on_its_own_value_and_marked(
 def test_a_restart_in_a_dev_validation_is_not_locked(tmp_path: Path) -> None:
     lock = _lock()
     evidence = edited(EVIDENCE)
-    evidence["combinations"][1]["restarts"]["srv2_3b"] = 1
+    evidence["combinations"][1]["restarts"]["box2_3b"] = 1
     with pytest.raises(lock.LockRefusedError, match="restarts"):
         write(lock, tmp_path, evidence=evidence)
 
@@ -199,8 +199,8 @@ def test_an_outside_unit_may_not_answer_at_a_rig_units_address(
 ) -> None:
     lock = _lock()
     fleet = edited(FLEET)
-    fleet["units"]["cloud"]["address"] = "http://srv2:8002"
-    with pytest.raises(lock.LockRefusedError, match="http://srv2:8002"):
+    fleet["units"]["cloud"]["address"] = "http://box2:8002"
+    with pytest.raises(lock.LockRefusedError, match="http://box2:8002"):
         write(lock, tmp_path, fleet=fleet)
 
 
@@ -209,7 +209,7 @@ def test_a_policy_ladder_naming_a_unit_the_fleet_lacks_is_not_locked(
 ) -> None:
     lock = _lock()
     with pytest.raises(lock.LockRefusedError, match="ghost"):
-        write(lock, tmp_path, policy={"ladder": ["srv2_3b", "ghost"]})
+        write(lock, tmp_path, policy={"ladder": ["box2_3b", "ghost"]})
 
 
 def test_evidence_for_a_combination_no_fleet_lists_is_not_locked(
@@ -220,9 +220,9 @@ def test_evidence_for_a_combination_no_fleet_lists_is_not_locked(
     evidence["combinations"].append(
         {
             **evidence["combinations"][1],
-            "slots": [["srv2_7b", "asleep"], ["srv2_3b", "awake"]],
-            "warm_decode_tok_s": {"srv2_3b": 105.0},
-            "baseline_tok_s": {"srv2_3b": 107.0},
+            "slots": [["box2_7b", "asleep"], ["box2_3b", "awake"]],
+            "warm_decode_tok_s": {"box2_3b": 105.0},
+            "baseline_tok_s": {"box2_3b": 107.0},
         }
     )
     write(lock, tmp_path, evidence=evidence)
@@ -236,27 +236,27 @@ def test_editing_one_fleet_leaves_every_other_combination_record_untouched(
     lock = _lock()
     write(lock, tmp_path)
     before = {path.name: path.read_bytes() for path in combination_files(tmp_path)}
-    freed: list[Any] = [["srv2_7b", "awake"], None]
+    freed: list[Any] = [["box2_7b", "awake"], None]
     fleet = edited(FLEET)
-    fleet["fleets"]["flt-05"]["layout"]["srv2"] = freed
+    fleet["fleets"]["flt-05"]["layout"]["box2"] = freed
     evidence = edited(EVIDENCE)
     evidence["combinations"][0] = {
         **evidence["combinations"][0],
         "slots": freed,
-        "restarts": {"srv2_7b": 0},
-        "attention_backend": {"srv2_7b": "FLASH_ATTN"},
+        "restarts": {"box2_7b": 0},
+        "attention_backend": {"box2_7b": "FLASH_ATTN"},
     }
     evidence["moves"] = [
         {
-            "rig": "srv2",
+            "rig": "box2",
             "from": freed,
             "to": FLT02,
             "passed": True,
             "downtime_s": 0.4,
-            "wake_s": {"srv2_3b": 30.0},
+            "wake_s": {"box2_3b": 30.0},
         },
         {
-            "rig": "srv2",
+            "rig": "box2",
             "from": FLT02,
             "to": freed,
             "passed": True,
@@ -275,10 +275,10 @@ def test_editing_one_fleet_leaves_every_other_combination_record_untouched(
 def test_a_fleet_switch_is_locked_on_a_rig_move_another_switch_ran(
     tmp_path: Path,
 ) -> None:
-    """flt-02 → flt-06 is the same srv2 move as flt-02 → flt-05, which ran."""
+    """flt-02 → flt-06 is the same box2 move as flt-02 → flt-05, which ran."""
     lock = _lock()
     fleet = edited(FLEET)
-    fleet["fleets"]["flt-06"] = {"layout": {"srv2": FLT05}, "next": ["flt-02"]}
+    fleet["fleets"]["flt-06"] = {"layout": {"box2": FLT05}, "next": ["flt-02"]}
     fleet["fleets"]["flt-02"]["next"] = ["flt-05", "flt-06"]
     write(lock, tmp_path, fleet=fleet)
     assert (tmp_path / "records" / "fleet" / "flt-06.json").is_file()

@@ -222,18 +222,18 @@ def test_load_fleet_accepts_every_field_the_consumers_read() -> None:
     for consumer in CONSUMERS:
         read |= _unit_fields_read((SRC / consumer).read_text(encoding="utf-8"))
     document = {
-        "units": {"srv2_7b": {field: "pinned" for field in sorted(read)}},
+        "units": {"box2_7b": {field: "pinned" for field in sorted(read)}},
         "rigs": {},
         "fleets": {},
     }
     loaded = files.load_fleet(yaml.safe_dump(document))
-    assert set(loaded["units"]["srv2_7b"]) == read, (
+    assert set(loaded["units"]["box2_7b"]) == read, (
         "a field the lock reads was dropped or renamed by files.load_fleet; "
-        f"the loader refuses {sorted(read - set(loaded['units']['srv2_7b']))}"
+        f"the loader refuses {sorted(read - set(loaded['units']['box2_7b']))}"
     )
 
 
 def test_load_fleet_still_refuses_a_unit_field_it_does_not_know() -> None:
     """The guard depends on this refusal: an unknown field must not load."""
     with pytest.raises(files.FleetFileError, match="not_a_unit_field"):
-        files.load_fleet("units:\n  srv2_7b:\n    not_a_unit_field: 1\n")
+        files.load_fleet("units:\n  box2_7b:\n    not_a_unit_field: 1\n")

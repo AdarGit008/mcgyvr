@@ -25,7 +25,7 @@ def test_serve_up_files_a_restart_count_for_every_unit(tmp_path: Path) -> None:
 
     record = json.loads(
         (
-            onedoor.serve_envelope(root, "serve-up", "live-srv1") / "serve-up.json"
+            onedoor.serve_envelope(root, "serve-up", "live-box1") / "serve-up.json"
         ).read_text()
     )
     uncounted = [

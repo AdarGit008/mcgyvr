@@ -11,7 +11,7 @@
 # wheel built from src/mcgyvr on a tag), declared config (~/.mcgyvr/config)
 # and live state (the rigs). The arrows go one way —
 # source -> product -> install — and config joins at install time, never at
-# build time: the same wheel runs on the laptop and on srv1, and only
+# build time: the same wheel runs on the laptop and on box1, and only
 # $MCGYVR_CONFIG differs. A wheel built twice would be two products with one
 # name, so `ci.yml` publishes nothing (the wheels its tests build go to
 # temporary directories and prove packaging) and this workflow builds exactly

@@ -45,10 +45,10 @@ def test_a_level_two_sleep_is_issued_against_the_units_own_port(
     dialled = FakeSsh()
     monkeypatch.setattr(servelib, "ssh", dialled, raising=True)
 
-    assert servelib.sleep("srv2", 8002, level=2) is True
+    assert servelib.sleep("box2", 8002, level=2) is True
     assert len(dialled.calls) == 1
     host, command = dialled.calls[0]
-    assert host == "srv2"
+    assert host == "box2"
     assert "8002" in command, command
     assert "/sleep" in command and "level=2" in command, command
 
@@ -63,7 +63,7 @@ def test_a_level_one_sleep_is_refused_and_nothing_is_dialled(
     monkeypatch.setattr(servelib, "ssh", dialled, raising=True)
 
     with pytest.raises(SleepLevelError):
-        servelib.sleep("srv2", 8002, level=1)
+        servelib.sleep("box2", 8002, level=1)
     assert dialled.calls == [], "the refusal must not reach the rig"
 
 
@@ -76,7 +76,7 @@ def test_the_refusal_says_what_it_costs_and_what_to_use_instead(
     monkeypatch.setattr(servelib, "ssh", FakeSsh(), raising=True)
 
     with pytest.raises(SleepLevelError) as caught:
-        servelib.sleep("srv2", 8001, level=1)
+        servelib.sleep("box2", 8001, level=1)
     said = str(caught.value)
     assert "13.46" in said, said
     assert "level 2" in said, said
@@ -94,7 +94,7 @@ def test_a_level_nobody_measured_is_refused_too(
 
     for level in (0, 3, -1):
         with pytest.raises(SleepLevelError):
-            servelib.sleep("srv2", 8002, level=level)
+            servelib.sleep("box2", 8002, level=level)
     assert dialled.calls == []
 
 
@@ -105,4 +105,4 @@ def test_a_sleep_that_does_not_land_is_false_and_not_a_refusal(
     The policy failure and the transport failure are different answers, the
     way `sleeping` already keeps `None` apart from `False`."""
     monkeypatch.setattr(servelib, "ssh", FakeSsh(returncode=7), raising=True)
-    assert servelib.sleep("srv2", 8002, level=2) is False
+    assert servelib.sleep("box2", 8002, level=2) is False

@@ -27,7 +27,7 @@ because the door derives its repo root from its own file — holding:
 * ``stubs/``, first on the PATH :func:`door_env` builds: the ``ssh`` reads the
   rig-snapshot request off its command line and answers from
   ``snapshot.txt`` (or ``snapshot-moved.txt`` once a flag file the test names
-  exists — the reading srv1 gave after a hard lock wiped its BIOS profile), the
+  exists — the reading box1 gave after a hard lock wiped its BIOS profile), the
   geometry read from ``geometry.json`` (one row seeded from a recorded
   envelope), and the rest with canned lines; the ``docker`` logs every argv it
   is handed and answers ``info``, ``version``, ``image inspect`` and ``ps``.
@@ -92,7 +92,7 @@ BARE_HOST = "rig.invalid"
 #: The rig's facts the fixture's snapshot and its rig file carry. Strings,
 #: because that is what a ``k=v`` line carries.
 RIG: dict[str, dict[str, str]] = {
-    "srv1": {
+    "box1": {
         "cpu_max_mhz": "4600",
         "cpu_model": "Intel(R)_Core(TM)_i5-9600K_CPU_@_3.70GHz",
         "ram_mt_s": "3600",
@@ -106,7 +106,7 @@ RIG: dict[str, dict[str, str]] = {
         "gpu_reserve_mib": "381",
         "docker": "29.7.2",
     },
-    "srv2": {
+    "box2": {
         "cpu_max_mhz": "5200",
         "cpu_model": "Intel(R)_Core(TM)_i9-10900F_CPU_@_2.80GHz",
         "ram_mt_s": "3200",
@@ -121,16 +121,16 @@ RIG: dict[str, dict[str, str]] = {
         "docker": "29.7.2",
     },
 }
-RIG_KEYS = frozenset(RIG["srv1"])
+RIG_KEYS = frozenset(RIG["box1"])
 RIG_READ_ON = "2026-09-26"
 #: What ``rig-snapshot.sh`` prints beyond the declared keys: the two VRAM
 #: figures a placement spends, the host memory, the thread count, the name
 #: the daemon must answer to (gate 3), and the two idle readings gate 2 holds
-#: to ``none``. srv1's are a recorded scan. The kernel, MemTotal, swap and
+#: to ``none``. box1's are a recorded scan. The kernel, MemTotal, swap and
 #: swappiness values here are placeholders: the rig file declares none of them,
 #: so the door does not compare them.
 LIVE: dict[str, dict[str, str]] = {
-    "srv1": {
+    "box1": {
         "gpu_used_mib": "17",
         "gpu_free_mib": "5727",
         "mem_available_kib": "14835712",
@@ -139,11 +139,11 @@ LIVE: dict[str, dict[str, str]] = {
         "swap_total_kib": "8388604",
         "swappiness": "60",
         "nproc": "6",
-        "hostname": "srv1",
+        "hostname": "box1",
         "gpu_procs": "none",
         "containers": "none",
     },
-    "srv2": {
+    "box2": {
         "gpu_used_mib": "0",
         "gpu_free_mib": "11911",
         "mem_available_kib": "26214400",
@@ -152,7 +152,7 @@ LIVE: dict[str, dict[str, str]] = {
         "swap_total_kib": "8388608",
         "swappiness": "60",
         "nproc": "20",
-        "hostname": "srv2",
+        "hostname": "box2",
         "gpu_procs": "none",
         "containers": "none",
     },
@@ -672,10 +672,10 @@ def rigs_home(root: Path) -> Path:
     return root / "mcgyvr-home"
 
 
-def fixture_repo(tmp_path: Path, *, host: str = "srv1") -> Path:
+def fixture_repo(tmp_path: Path, *, host: str = "box1") -> Path:
     """A throw-away checkout the door can be run from and write into.
 
-    The machine behind the stubs reads as ``host``'s declaration (srv1 unless
+    The machine behind the stubs reads as ``host``'s declaration (box1 unless
     said otherwise); :func:`rig_stub` changes that. The checkout is no lab
     checkout, so the door runs in user mode against the rig files under
     :func:`rigs_home`.
@@ -695,7 +695,7 @@ def fixture_repo(tmp_path: Path, *, host: str = "srv1") -> Path:
     # A step run files under --out-root; the folder must exist, as the door
     # never makes it.
     (root / OUT_ROOT).mkdir(parents=True, exist_ok=True)
-    for name in ("srv1", "srv2"):
+    for name in ("box1", "box2"):
         folder = rigs_home(root) / "rigs"
         folder.mkdir(parents=True, exist_ok=True)
         (folder / f"{name}.json").write_text(
@@ -743,7 +743,7 @@ def probe_step(
         f"### END uptime_since={UPTIME} pl1_uw=95000000 pl2_uw=120000000 "
         "cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s"
     )
-    rig = " ".join(f"{k}={v}" for k, v in RIG["srv1"].items())
+    rig = " ".join(f"{k}={v}" for k, v in RIG["box1"].items())
     return (
         "#!/usr/bin/env bash\n"
         f"# {directive}: probe.tsv\n"
@@ -784,7 +784,7 @@ class Scenario:
 
     campaign: str
     step: str
-    host: str = "srv1"
+    host: str = "box1"
     suffix: str = ""
     step_args: tuple[str, ...] = ()
     model: str = MODEL
@@ -843,8 +843,8 @@ def door_env(root: Path) -> dict[str, str]:
     parts += (env.get("PATH") or os.defpath).split(os.pathsep)
     env["PATH"] = os.pathsep.join(parts)
     env["STUB_RIG_HOME"] = RIG_HOME
-    env["STUB_FREE"] = LIVE["srv1"]["gpu_free_mib"]
-    env["STUB_USED"] = LIVE["srv1"]["gpu_used_mib"]
+    env["STUB_FREE"] = LIVE["box1"]["gpu_free_mib"]
+    env["STUB_USED"] = LIVE["box1"]["gpu_used_mib"]
     env["MCGYVR_RIGS"] = str(rigs_home(root) / "rigs")
     env["MCGYVR_DATA"] = str(root / "data")
     return env
@@ -988,7 +988,7 @@ def serve_door(
     mode: str,
     compose: Path,
     *,
-    host: str = "srv1",
+    host: str = "box1",
     date: str = RUN_DATE,
     suffix: str = "",
     env_extra: dict[str, str] | None = None,

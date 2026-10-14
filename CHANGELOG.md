@@ -876,7 +876,7 @@ Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
 - A llama.cpp model block may declare `speculative: mtp` and
   `spec_draft_n_max` (default 2): llama.cpp's native multi-token-prediction
   self-speculation (`--spec-type draft-mtp --spec-draft-n-max N`), measured at
-  +26.5% decode at width 1 and +22% at width 2 on srv2's 12 GB card with
+  +26.5% decode at width 1 and +22% at width 2 on box2's 12 GB card with
   acceptance ~0.90 (`records/evidence/2026-08-28-mtp-ornith/`). The grafted
   head's bytes are read off the scan's tensor table (`vramfit.mtp_head_bytes`,
   816 MiB on KAT/Ornith Q2_K-AllGPU) and charged to the card, so the derived
@@ -894,9 +894,9 @@ Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
   draft-mtp` or `--spec-type=draft-mtp` in its argv or flags, or
   `speculative: mtp` in its launch block, with or without experts on the CPU
   beside it. The class is stated in `tools/runs/derived.json`: warm decode 2%
-  and prefill 5%, both measured on `srv2_ornith_mtp` over the mtp-ornith
+  and prefill 5%, both measured on `box2_ornith_mtp` over the mtp-ornith
   window (`records/measurements/lock-fleets/mtp-ornith/`), not `cpu_experts`'
-  48% and 1%, which were measured on srv1 offload (owner, 2026-09-16). The
+  48% and 1%, which were measured on box1 offload (owner, 2026-09-16). The
   window's prefill tolerance is recorded twice with the same figures:
   `prefill-tolerance-cpu_experts.json`, written while the unit was still
   `cpu_experts`, is kept as recorded, beside `prefill-tolerance-mtp.json`,
@@ -2143,12 +2143,12 @@ behind v0.1.0.
   **A source name and a backend kind stopped being the same string.** Two rigs
   both run Ollama on 11434, and `sources` is a mapping, so an unqualified name
   is one rig silently overwriting the other in the config. Names are qualified
-  with the host (`srv1_ollama`) exactly when a sweep covers more than one — and
+  with the host (`box1_ollama`) exactly when a sweep covers more than one — and
   qualification is keyed on hosts *probed* rather than hosts that *answered*, so
   a source does not get renamed when a box is down. `Backend.kind` carries the
   convention (`ollama`) separately, because the capability table's
   `requires_backend` matches on what the server *is*: a model measured on Ollama
-  is measured on Ollama whether the source is called `ollama` or `srv2_ollama`.
+  is measured on Ollama whether the source is called `ollama` or `box2_ollama`.
 
   **Fit evidence is now chosen by where the backend is, not by which claim is
   stronger.** A VRAM test is a statement about this machine's card, so it
@@ -2380,7 +2380,7 @@ behind v0.1.0.
 
 - `records/measurements/mbpp-plus-3b-2026-08-10/` (#225) — MBPP+ measured
   against the floor model through the rig sweeps' own serving path: 70.6%
-  base / 60.6% plus, greedy, EvalPlus 0.3.1 against Ollama on srv1. The
+  base / 60.6% plus, greedy, EvalPlus 0.3.1 against Ollama on box1. The
   issue's "plausibly between d3 and the pool" hypothesis is refuted — MBPP+
   reads above d1, at the easy end the retired sets already covered — and the
   d3→pool collapse is confirmed as a unit-of-work cliff, not
@@ -2695,7 +2695,7 @@ behind v0.1.0.
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable
   from one saying what the worker replied — and a resume skipped it forever. A
-  269-problem sweep lost **152 of 807 draws (18.8%)** to a contiguous srv2
+  269-problem sweep lost **152 of 807 draws (18.8%)** to a contiguous box2
   outage that closed on its own; re-running the identical command printed
   `resuming: 807 draws already recorded` and dispatched nothing. The rows file
   is append-only, so refilling means rewriting it: the displaced rows are kept
@@ -2763,7 +2763,7 @@ behind v0.1.0.
   default of 1 is withdrawn. It was taken on the strongest local rung against
   the easiest task set, where 18 of 20 tasks passed on the first draw; the
   collapse-to-mode mechanism it leans on is likewise rung-specific — 5 of 20
-  tasks collapsed there against 0 of 20 on srv1's four models.
+  tasks collapsed there against 0 of 20 on box1's four models.
 - `prompts/javascript.md` states a measured null result instead of an
   `UNMEASURED` marker, and `Bundle` grew `BundleStanding` because a boolean
   could no longer carry the answer. Both shipped bundles are now the artifact a

@@ -16,7 +16,7 @@ that was ever true:
 2. Two units on two ports that **do** sum onto the card are co-residents, one
    launch spec, and nothing on disk moves — the compatibility rule ``d8c5cf0a``
    established.
-3. A card holding both shapes at once — srv2's real trio — is cut into the
+3. A card holding both shapes at once — box2's real trio — is cut into the
    feasible combinations rather than into ports: the pair that fits together in
    one spec, the unit that fits alone in another, every unit reachable, and the
    file names deterministic.
@@ -58,7 +58,7 @@ HF_CACHE = "/home/someone/.cache/huggingface"
 
 @pytest.fixture
 def geometry(tmp_path: Path) -> dict[str, Path]:
-    """srv1's two candidates, each scanned into a file the config can name."""
+    """box1's two candidates, each scanned into a file the config can name."""
     written = {}
     for model in (BIG, LITE):
         path = tmp_path / f"{model}.geometry.json"
@@ -67,9 +67,9 @@ def geometry(tmp_path: Path) -> dict[str, Path]:
     return written
 
 
-def srv1() -> Scan:
+def box1() -> Scan:
     return Scan.of(
-        host="srv1",
+        host="box1",
         vram_mib=6144,
         ram_gb=14.2,
         disk_free_gb=900.0,
@@ -79,9 +79,9 @@ def srv1() -> Scan:
     )
 
 
-def srv2(*, vram_mib: int = 12288, ram_gb: float = 45.0) -> Scan:
+def box2(*, vram_mib: int = 12288, ram_gb: float = 45.0) -> Scan:
     return Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=vram_mib,
         ram_gb=ram_gb,
         disk_free_gb=900.0,
@@ -92,7 +92,7 @@ def srv2(*, vram_mib: int = 12288, ram_gb: float = 45.0) -> Scan:
 
 
 def port_per_model(geometry: dict[str, Path]) -> str:
-    """srv1's two candidates, each on a port of its own — and still alternating.
+    """box1's two candidates, each on a port of its own — and still alternating.
 
     This is the layout the owner ruled for. Under the port discriminator it
     reads as two co-residents on one 6 GiB card, which is 11.83 GiB asked of
@@ -102,9 +102,9 @@ def port_per_model(geometry: dict[str, Path]) -> str:
     return f"""
 units:
   local_lite:
-    address: "http://srv1:8080"
+    address: "http://box1:8080"
     model: "{LITE}"
-    rig: srv1_lite
+    rig: box1_lite
     width: 2
     window: 4096
     launch:
@@ -112,9 +112,9 @@ units:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
   local_big:
-    address: "http://srv1:8081"
+    address: "http://box1:8081"
     model: "{BIG}"
-    rig: srv1_big
+    rig: box1_big
     width: 2
     window: 4096
     launch:
@@ -127,16 +127,16 @@ ladder:
 """
 
 
-#: srv2 as the owner wants it: the vLLM pair, which co-reside, plus the 80B,
+#: box2 as the owner wants it: the vLLM pair, which co-reside, plus the 80B,
 #: which takes the whole card. Three ports, none of them colliding. Figures are
 #: the measured ones -- 3.49 and 7.12 GiB on 2026-09-05, and the 80B at the
 #: 11,409 MiB two level-2 sleepers leave (``vllm-sleep-2026-09-09``).
 TRIO = f"""\
 units:
   local_3b:
-    address: http://srv2:8001
+    address: http://box2:8001
     model: '{THREE_B}'
-    rig: srv2_3b
+    rig: box2_3b
     width: 8
     window: 4096
     engine: vllm
@@ -146,9 +146,9 @@ units:
       disk_gb: 1.95
       kv_cache_dtype_k: auto
   local_7b:
-    address: http://srv2:8002
+    address: http://box2:8002
     model: '{SEVEN_B}'
-    rig: srv2_7b
+    rig: box2_7b
     width: 8
     window: 4096
     engine: vllm
@@ -158,9 +158,9 @@ units:
       disk_gb: 4.93
       kv_cache_dtype_k: auto
   local_80b:
-    address: http://srv2:8003
+    address: http://box2:8003
     model: '{EIGHTY_B}'
-    rig: srv2_80b
+    rig: box2_80b
     width: 2
     window: 4096
     engine: vllm
@@ -180,9 +180,9 @@ ladder:
 #: emitted before ``d8c5cf0a``. One file, and nothing on disk moves for it.
 PAIR = TRIO.replace(
     f"""  local_80b:
-    address: http://srv2:8003
+    address: http://box2:8003
     model: '{EIGHTY_B}'
-    rig: srv2_80b
+    rig: box2_80b
     width: 2
     window: 4096
     engine: vllm
@@ -202,7 +202,7 @@ PAIR = TRIO.replace(
 SPILLING = """\
 units:
   local_careful:
-    address: http://srv2:8001
+    address: http://box2:8001
     model: careful-16b
     rig: careful
     window: 4096
@@ -213,7 +213,7 @@ units:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
   local_quick:
-    address: http://srv2:8002
+    address: http://box2:8002
     model: quick-16b
     rig: quick
     window: 4096
@@ -243,7 +243,7 @@ def test_two_ports_that_overflow_one_card_are_alternatives(
     only fact that was ever load-bearing.
     """
     units = units_for(
-        parse(port_per_model(geometry)), {"srv1": srv1()}, specs=(), ctx_per_slot=None
+        parse(port_per_model(geometry)), {"box1": box1()}, specs=(), ctx_per_slot=None
     )
     assert sorted(unit.port for unit in units) == [8080, 8081]
 
@@ -260,18 +260,18 @@ def test_alternatives_on_two_ports_are_not_summed_against_the_card(
     """A contention that cannot happen must not be priced.
 
     11.83 GiB against 6.00 free is the refusal the port discriminator produced
-    for srv1 the moment its two models were given ports of their own — a ladder
+    for box1 the moment its two models were given ports of their own — a ladder
     either half of which serves perfectly well.
     """
     units = units_for(
-        parse(port_per_model(geometry)), {"srv1": srv1()}, specs=(), ctx_per_slot=None
+        parse(port_per_model(geometry)), {"box1": box1()}, specs=(), ctx_per_slot=None
     )
 
-    hold_together(units, {"srv1": srv1()})
+    hold_together(units, {"box1": box1()})
 
 
 def test_a_card_that_holds_both_shapes_is_cut_into_the_sets_that_fit_it() -> None:
-    """srv2's real trio: the pair that fits together, and the one that does not.
+    """box2's real trio: the pair that fits together, and the one that does not.
 
     3.49 + 7.12 = 10.61 GiB onto 11.63 free, so the vLLM pair is one launch spec
     and keeps the ``depends_on`` that sequences it. The 80B is 9.5 and fits
@@ -279,7 +279,7 @@ def test_a_card_that_holds_both_shapes_is_cut_into_the_sets_that_fit_it() -> Non
     the port discriminator sees one host of three co-residents asking 21.75 GiB
     of a 12 GiB card.
     """
-    units = units_for(parse(TRIO), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(TRIO), {"box2": box2()}, specs=(), ctx_per_slot=None)
     assert sorted(unit.port for unit in units) == [8001, 8002, 8003]
 
     specs = launch_specs(units)
@@ -287,7 +287,7 @@ def test_a_card_that_holds_both_shapes_is_cut_into_the_sets_that_fit_it() -> Non
     assert sorted(sorted(models_of(spec)) for spec in specs) == sorted(
         [sorted({THREE_B, SEVEN_B}), sorted({EIGHTY_B})]
     ), [models_of(spec) for spec in specs]
-    assert all(spec.host == "srv2" for spec in specs)
+    assert all(spec.host == "box2" for spec in specs)
     assert all(spec.model is not None for spec in specs), (
         "a host whose units do not all come up together has no whole-host "
         "launch spec, so every one of its specs needs a name of its own"
@@ -301,7 +301,7 @@ def test_every_unit_of_such_a_card_is_reachable_from_some_launch_spec() -> None:
     one file and starts what is in it, so a unit no file holds is a config lie
     exactly as a rung bound to an unbound port is.
     """
-    units = units_for(parse(TRIO), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(TRIO), {"box2": box2()}, specs=(), ctx_per_slot=None)
 
     covered = {unit.key.slug for spec in launch_specs(units) for unit in spec.units}
 
@@ -318,7 +318,7 @@ def test_the_cut_is_deterministic_and_so_are_the_files_it_writes(
     iterated would produce a different file name per run, and ``emit --check``
     would report drift against a config nobody had touched.
     """
-    units = units_for(parse(TRIO), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(TRIO), {"box2": box2()}, specs=(), ctx_per_slot=None)
 
     first = emit_all(units, root=tmp_path / "one")
     second = emit_all(units, root=tmp_path / "two")
@@ -340,14 +340,14 @@ def test_a_host_whose_units_all_co_reside_still_writes_one_file(
 ) -> None:
     """The compatibility rule, restated on the new axis.
 
-    Nothing on disk moves for a fleet whose units fit the card together. srv2's
+    Nothing on disk moves for a fleet whose units fit the card together. box2's
     pair without the 80B is that fleet.
     """
-    units = units_for(parse(PAIR), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(PAIR), {"box2": box2()}, specs=(), ctx_per_slot=None)
 
     written = emit_all(units, root=tmp_path / "out")
 
-    assert [path.name for path in written] == ["compose.srv2.yml"], written
+    assert [path.name for path in written] == ["compose.box2.yml"], written
 
 
 def test_host_ram_is_summed_over_what_a_spec_brings_up_together() -> None:
@@ -361,11 +361,11 @@ def test_host_ram_is_summed_over_what_a_spec_brings_up_together() -> None:
     what moves under this change is only which units it is taken over.
     """
     units = units_for(
-        parse(SPILLING), {"srv2": srv2(ram_gb=14.2)}, specs=(), ctx_per_slot=None
+        parse(SPILLING), {"box2": box2(ram_gb=14.2)}, specs=(), ctx_per_slot=None
     )
 
     with pytest.raises(UnitError, match="fit host memory one at a time"):
-        hold_together(units, {"srv2": srv2(ram_gb=14.2)})
+        hold_together(units, {"box2": box2(ram_gb=14.2)})
 
 
 def test_a_card_nobody_measured_claims_nothing_about_who_alternates() -> None:
@@ -377,7 +377,7 @@ def test_a_card_nobody_measured_claims_nothing_about_who_alternates() -> None:
     conflict, and inventing a conflict there would move files for every fleet
     whose units were never sized.
     """
-    units = units_for(parse(TRIO), {"srv2": srv2()}, specs=(), ctx_per_slot=None)
+    units = units_for(parse(TRIO), {"box2": box2()}, specs=(), ctx_per_slot=None)
     blind = tuple(
         replace(unit, fit=replace(unit.fit, card_free_gb=0.0)) for unit in units
     )

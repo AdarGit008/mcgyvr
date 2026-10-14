@@ -33,7 +33,7 @@ sum for a measurement:
   host**, so the
   sum is the declared law rather than a measured one.
 * The case that can actually arrive is a host whose card figures are
-  *declared* — srv2's vLLM pair states ``vram_gb`` in the config. Two
+  *declared* — box2's vLLM pair states ``vram_gb`` in the config. Two
   geometry-sized units cannot reach this check, because ``_placement`` fills the
   card with experts and the VRAM sum refuses them first. That is why the specs
   below are scalar.
@@ -52,7 +52,7 @@ from tests._paths import TESTS
 
 WINDOW = 4096
 
-#: srv1's measured idle ``MemAvailable``, 2026-09-09 — the figure both the
+#: box1's measured idle ``MemAvailable``, 2026-09-09 — the figure both the
 #: sweep and the recorded scan agree on.
 AVAILABLE_GB = 14.19
 
@@ -63,7 +63,7 @@ GEOMETRY: dict[str, dict[str, Any]] = json.loads(
 
 def rig(*, ram_gb: float = AVAILABLE_GB, vram_mib: int = 12288) -> Scan:
     return Scan.of(
-        host="srv1",
+        host="box1",
         vram_mib=vram_mib,
         ram_gb=ram_gb,
         disk_free_gb=900.0,
@@ -117,7 +117,7 @@ def test_two_spilling_co_residents_are_summed_against_the_host() -> None:
     units = pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8081))
     assert [unit.fit.load_mode for unit in units] == ["none", "none"]
     with pytest.raises(UnitError) as raised:
-        hold_together(units, {"srv1": rig()})
+        hold_together(units, {"box1": rig()})
     why = str(raised.value)
     assert "careful" in why and "quick" in why, why
     assert "13.00" in why, why
@@ -137,7 +137,7 @@ def test_a_mapped_unit_asks_for_its_blob_and_an_unmapped_one_for_its_experts() -
     assert [unit.fit.load_mode for unit in units] == [None, None]
     assert [unit.fit.ram_gb for unit in units] == [6.5, 6.5]
     with pytest.raises(UnitError):
-        hold_together(units, {"srv1": rig()})
+        hold_together(units, {"box1": rig()})
 
 
 def test_a_pair_that_fits_with_the_headroom_is_not_refused() -> None:
@@ -146,7 +146,7 @@ def test_a_pair_that_fits_with_the_headroom_is_not_refused() -> None:
     fits — where a margin charged per unit would make it 15.0 and refuse a
     layout the host can hold.
     """
-    hold_together(pair(ram_gb=1.0, disk_gb=5.5, ports=(8080, 8081)), {"srv1": rig()})
+    hold_together(pair(ram_gb=1.0, disk_gb=5.5, ports=(8080, 8081)), {"box1": rig()})
 
 
 def test_alternatives_are_not_summed_because_only_one_is_ever_up() -> None:
@@ -155,7 +155,7 @@ def test_alternatives_are_not_summed_because_only_one_is_ever_up() -> None:
     their memory prices a contention that cannot happen, which is exactly the
     rule ``hold_together`` already applies to the card.
     """
-    hold_together(pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8080)), {"srv1": rig()})
+    hold_together(pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8080)), {"box1": rig()})
 
 
 def test_a_unit_that_spills_nothing_asks_the_host_for_nothing() -> None:
@@ -165,11 +165,11 @@ def test_a_unit_that_spills_nothing_asks_the_host_for_nothing() -> None:
     """
     units = pair(ram_gb=0.0, disk_gb=14.0, ports=(8080, 8081))
     assert [unit.fit.ram_gb for unit in units] == [0.0, 0.0]
-    hold_together(units, {"srv1": rig()})
+    hold_together(units, {"box1": rig()})
 
 
 def test_a_lone_unit_is_left_to_the_fit_that_already_admitted_it() -> None:
-    """srv1 as it now stands, and the guard on the other half of 2026-09-09's
+    """box1 as it now stands, and the guard on the other half of 2026-09-09's
     finding: one Qwen3.6, 12.30 GiB of blob mapped into 14.19 GiB available,
     admitted by a mode gate that holds back 0.5. A host RAM sum charging the
     2.0 GiB refusal margin to that lone unit would refuse the very rung the
@@ -192,4 +192,4 @@ def test_a_lone_unit_is_left_to_the_fit_that_already_admitted_it() -> None:
     )
     assert qwen.fit.load_mode is None
     assert qwen.fit.ram_gb == pytest.approx(12.304, abs=0.001)
-    hold_together((qwen,), {"srv1": scan})
+    hold_together((qwen,), {"box1": scan})

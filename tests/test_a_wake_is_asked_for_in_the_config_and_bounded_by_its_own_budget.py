@@ -33,15 +33,15 @@ import pytest
 CARD = """\
 units:
   local_qwen2.5-coder-3b:
-    address: http://srv2:8001
+    address: http://box2:8001
     model: qwen2.5-coder-3b
-    rig: srv2_3b
+    rig: box2_3b
     width: 2
     engine: vllm
   local_qwen2.5-coder-7b:
-    address: http://srv2:8002
+    address: http://box2:8002
     model: qwen2.5-coder-7b
-    rig: srv2_7b
+    rig: box2_7b
     width: 2
     engine: vllm
 ladder:

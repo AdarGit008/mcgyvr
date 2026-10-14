@@ -47,13 +47,13 @@ SLEEPING = "deepseek-coder-v2-16b"
 LADDER = f"""\
 units:
   local_lite:
-    address: http://srv1:8080
+    address: http://box1:8080
     model: '{SLEEPING}'
-    rig: srv1_lite
+    rig: box1_lite
   local_big:
-    address: http://srv1:8081
+    address: http://box1:8081
     model: '{RESIDENT}'
-    rig: srv1_big
+    rig: box1_big
 ladder:
 - local_lite
 - local_big

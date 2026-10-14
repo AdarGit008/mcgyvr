@@ -25,7 +25,7 @@ import yaml
 from tests.fleetlocks import FLEET, POLICY, U3B, U7B, locked, observed
 from tests.liveruns import FIRST, FakeDoor, go_live
 
-AGENT, JEV = "srv2_7b", "srv2_3b"
+AGENT, JEV = "box2_7b", "box2_3b"
 
 
 def mcorch(agent: str | None = AGENT, jev: str | None = JEV) -> dict[str, Any]:
@@ -67,8 +67,8 @@ def test_the_pin_is_checked_before_the_mcorch_units(tmp_path: Path) -> None:
 
     root = locked(tmp_path)
     edited = copy.deepcopy(FLEET)
-    slots = edited["fleets"]["flt-05"]["layout"]["srv2"]
-    edited["fleets"]["flt-05"]["layout"]["srv2"] = list(reversed(slots))
+    slots = edited["fleets"]["flt-05"]["layout"]["box2"]
+    edited["fleets"]["flt-05"]["layout"]["box2"] = list(reversed(slots))
     with pytest.raises(LiveRefusedError, match="re-lock"):
         admit_live(root, edited, "flt-05", observed(), policy=mcorch())
 
@@ -118,9 +118,9 @@ def test_admission_names_an_agent_the_live_fleet_does_not_hold(tmp_path: Path) -
     from mcgyvr.fleet.admit import LiveRefusedError
 
     folder = go_live(tmp_path)
-    live_policy(folder, {"type": "mcorch", "unit": "srv9_absent"})
+    live_policy(folder, {"type": "mcorch", "unit": "box9_absent"})
 
-    with pytest.raises(LiveRefusedError, match="mcorch needs 'srv9_absent' awake"):
+    with pytest.raises(LiveRefusedError, match="mcorch needs 'box9_absent' awake"):
         admit(FakeDoor([]).spawn)
 
 
@@ -128,9 +128,9 @@ def test_admission_admits_a_live_proposer_setup_as_before(tmp_path: Path) -> Non
     from mcgyvr.fleet.admission import admit
 
     folder = go_live(tmp_path)
-    live_policy(folder, {"type": "proposer", "unit": "srv9_absent"})
+    live_policy(folder, {"type": "proposer", "unit": "box9_absent"})
     door = FakeDoor([])
 
     admission = admit(door.spawn)
     assert admission.admitted, admission.commands
-    assert sorted(host for host, _ in door.calls) == ["srv1", "srv2"]
+    assert sorted(host for host, _ in door.calls) == ["box1", "box2"]
