@@ -357,15 +357,15 @@ def test_the_installed_wheel_answers_every_offline_command(
     walked = _run(work, env, installed.python, "-I", "-c", _IMPORT_ALL)
     assert walked.returncode == 0 and _WALK_ENDED in walked.stdout, _ran(walked)
 
-    # Each command, and a word its answer holds. In order: `init` writes the
-    # config the three after it read.
+    # Each command, and a word its answer holds. In order: `setup` stages and
+    # makes live the config the three after it read.
     expected: list[tuple[tuple[str | Path, ...], str]] = [
         (("--help",), "usage: mcgyvr"),
         (("--version",), "mcgyvr "),
         (("capabilities",), "Shipped models"),
         (("catalog",), "Task types"),
         (("contract", "impl.yaml"), "valid"),
-        (("setup", "--api", HOSTED_UNIT), "Wrote"),
+        (("setup", "--api", HOSTED_UNIT), "Staged"),
         (("config",), "valid"),
         (("local_pool",), "usable rung"),
         (("index", "--repo", repo), "Indexed"),
@@ -376,7 +376,7 @@ def test_the_installed_wheel_answers_every_offline_command(
         if done.returncode != 0 or word not in done.stdout:
             failed.append(_ran(done))
     assert not failed, "\n\n".join(failed)
-    assert (work / "fleet.yaml").is_file()
+    assert not (work / "fleet.yaml").exists(), "setup wrote the working directory"
 
     wrote = sorted(_installed_files(installed.site) - before)
     assert not wrote, f"a command wrote inside the installed package: {wrote}"

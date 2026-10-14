@@ -11,6 +11,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed (breaking)
 
+- **`mcgyvr setup` stages in the data folder and writes nothing where it
+  runs.**
+  - Each run stages its `fleet.yaml` and `policy.yaml` in a folder of its own,
+    `$MCGYVR_DATA/setup/<run>/` (default `~/.local/state/mcgyvr/setup/<run>/`),
+    and emits, starts and samples from there. The folder is kept as the record
+    of that run, as a stamp is. A `PATH` argument (or `--config PATH`) or
+    `$MCGYVR_CONFIG` stages there instead; the working directory is never
+    written.
+  - The interactive setup writes the staged setup once, from the plan, and
+    emits its launch specs once. The second write over the running servers and
+    the re-emit are gone.
+
 - **One reader reads a machine, and one id names it.**
   - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
     tool. The door ships it to a rig as one read-only line

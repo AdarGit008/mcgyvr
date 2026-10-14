@@ -69,6 +69,7 @@ from mcgyvr.fleet.roots import (
     HOME_ENV,
     LIVE_FILE_SHOWN,
     RIGS_SHOWN,
+    STAGING_SHOWN,
     FolderError,
 )
 from mcgyvr.initialize import (
@@ -100,8 +101,9 @@ CONFIG_DEFAULT_HELP = (
 #: Where `mcgyvr setup` writes when no path is given. Never a live fleet folder:
 #: those are written only by `mcgyvr fleet promote`, and never in place.
 INIT_DEFAULT_HELP = (
-    f"${CONFIG_PATH_ENV}, else the working directory — never a live fleet "
-    f"folder, which only `mcgyvr fleet promote` writes"
+    f"${CONFIG_PATH_ENV}, else a folder of the run's own, {STAGING_SHOWN} — "
+    f"never the working directory, and never a live fleet folder, which only "
+    f"`mcgyvr fleet promote` writes"
 )
 
 #: Where a machine's owner reads how to stand the ladder up; `run` prints it
@@ -947,14 +949,14 @@ def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
 
 
 def _setup_synthetic_detection(
-    plans: Mapping[str, Mapping[str, Any]],
+    plans: Mapping[str, Mapping[str, Any]], window: int | None = None
 ) -> Detection:
-    """The recommended servers as if they were already answering.
+    """The planned servers as if they were already answering.
 
-    ``initialize`` binds only models a running server lists, so the wizard
-    writes a bootstrap config from this synthetic detection, emits the launch
-    specs for it, starts the containers, and then re-runs ``initialize`` over
-    the real servers.
+    ``initialize`` binds only models a server lists, so the wizard writes the
+    staged setup once from this detection of the plan: each planned server at
+    the address its launch spec will answer on, serving ``window`` tokens per
+    slot (the window ``emit`` sizes it at, which the sample reads back).
     """
     from mcgyvr.detect import Backend, Detection
     from mcgyvr.serving import DEFAULT_PORT
@@ -981,6 +983,7 @@ def _setup_synthetic_detection(
                 how="interactive setup",
                 host=rig,
                 kind=kind,
+                window=window,
             )
         )
     return Detection(
@@ -1074,8 +1077,14 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
 
 
 def _setup_interactive(path: Path) -> int:
-    """The guided ``mcgyvr setup``: prompt, then perform each step."""
+    """The guided ``mcgyvr setup``: prompt, then perform each step.
+
+    READ each rig once, PLAN, then STAGE at ``path``: the setup written once
+    from the plan and its launch specs emitted once, both there. Nothing is
+    written anywhere else.
+    """
     try:
+        path.mkdir(parents=True, exist_ok=True)
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
         scans, readings = _setup_scan_rigs(rigs)
@@ -1085,49 +1094,37 @@ def _setup_interactive(path: Path) -> int:
         for rig, record in downloads:
             _setup_fetch(rig, record, path)
 
-        synthetic = _setup_synthetic_detection(plans)
-        bootstrap = initialize(
-            path, force=True, detection=synthetic, use_case="coding", profile="dev"
+        staged = initialize(
+            path,
+            force=True,
+            detection=_setup_synthetic_detection(plans, window=ctx_per_slot),
+            use_case="coding",
+            profile="dev",
         )
-        if not bootstrap.written:
-            raise _SetupInteractiveError("the bootstrap setup was not written")
-        print(f"Wrote bootstrap setup at {bootstrap.path}\n")
-
+        if not staged.written:
+            raise _SetupInteractiveError("the staged setup was not written")
+        print(f"Staged the setup at {staged.path}\n")
         _setup_emit(path, ctx_per_slot)
-        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
-            _setup_start(rigs, scans, path)
-        else:
+
+        if not _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
             print(
-                "Containers were not started. The bootstrap setup and launch "
-                "specs are written; start the containers, then re-run "
-                "`mcgyvr setup --force` to bind and lock them."
+                "Containers were not started. The staged setup and its launch "
+                f"specs are at {path}."
             )
             return 0
-
-        final = initialize(
-            path, force=True, hosts=tuple(rigs), use_case="coding", profile="dev"
-        )
-        if not final.written:
-            raise _SetupInteractiveError("the running setup was not written")
-        print(f"Wrote {final.path} bound to the running servers\n")
-
-        # The final init rewrote fleet.yaml from the running servers and so
-        # dropped the launch the bootstrap emit stamped. Re-emit here so the
-        # fleet that is about to be locked carries the resolved launch; the
-        # compose rewrite is idempotent and the stamp is what matters.
-        _setup_emit(path, ctx_per_slot)
+        _setup_start(rigs, scans, path)
 
         if _confirm("Lock the fleet and name it live? [y/N] "):
             approved, unapproved = _own_fleet_live(path, readings)
         else:
             approved, unapproved = (), ("The fleet was not locked or made live.",)
-        decisions = final.decisions + approved
+        decisions = staged.decisions + approved
         if decisions:
             print("What was decided, and why:")
             for decision in decisions:
                 print(f"  - {decision}")
             print()
-        limits = final.limits + unapproved
+        limits = staged.limits + unapproved
         if limits:
             print("What is NOT configured, and what that costs:")
             for limit in limits:
@@ -1144,10 +1141,34 @@ def _setup_interactive(path: Path) -> int:
         return 1
 
 
+def _setup_run_id() -> str:
+    """A name for one setup run: when it started, and 8 hex digits of its own."""
+    import secrets
+    from datetime import UTC, datetime
+
+    return f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-{secrets.token_hex(4)}"
+
+
+def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
+    """Where this setup run stages: ``PATH`` (or ``--config``) when named, else
+    ``$MCGYVR_CONFIG`` when set, else ``<data folder>/setup/<run_id>/``.
+
+    Never the working directory, and never a live fleet folder: those are
+    written only by ``mcgyvr fleet promote``.
+    """
+    from mcgyvr.fleet.roots import staging_dir
+
+    named = Path(args.path) if args.path else named_config_path()
+    return named if named is not None else staging_dir(run_id)
+
+
 def _setup(args: argparse.Namespace) -> int:
-    # Not the config resolution order: with a fleet named live, that ends in a
-    # promoted folder, and a promoted folder is never written in place.
-    path = Path(args.path) if args.path else (named_config_path() or Path.cwd())
+    run_id = _setup_run_id()
+    try:
+        path = _setup_path(args, run_id)
+    except FolderError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if _setup_is_interactive(args):
         return _setup_interactive(path)
     # Parsed before anything is detected: a mistyped `--api` is the operator's
@@ -1182,7 +1203,7 @@ def _setup(args: argparse.Namespace) -> int:
         return 1
 
     if result.created:
-        print(f"Wrote {result.path}\n")
+        print(f"Staged the setup at {result.path}\n")
     elif result.written:
         print(f"Overwrote {result.path} (--force)\n")
     else:

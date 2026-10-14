@@ -48,12 +48,18 @@ DATA_NAME = "mcgyvr"
 DATA_DIR = f"~/.local/state/{DATA_NAME}"
 #: Where each live fleet folder sits under the config folder.
 FLEETS_DIR = "fleets"
+#: Where ``mcgyvr setup`` stages each run under the data folder.
+SETUPS_DIR = "setup"
 #: The pointer naming the fleet live runs.
 LIVE_FILE = "live.json"
 #: The two as help text names them: by the variable, with the default marked
 #: as the default. A refusal names the file it read (:func:`live_file`).
 FLEETS_SHOWN = f"${HOME_ENV}/{FLEETS_DIR} (default {HOME_DIR}/{FLEETS_DIR})"
 LIVE_FILE_SHOWN = f"${HOME_ENV}/{LIVE_FILE} (default {HOME_DIR}/{LIVE_FILE})"
+#: Where a setup run stages, as help text names it.
+STAGING_SHOWN = (
+    f"${DATA_ENV}/{SETUPS_DIR}/<run> (default {DATA_DIR}/{SETUPS_DIR}/<run>)"
+)
 #: The variable that moves the rig-file folder, and the folder's name under
 #: the config folder when it is unset.
 RIGS_ENV = "MCGYVR_RIGS"
@@ -135,6 +141,19 @@ def data_home() -> Path:
     if named is not None:
         return named
     return under_state if under_state is not None else Path(DATA_DIR).expanduser()
+
+
+def staging_dir(run_id: str) -> Path:
+    """``<data folder>/setup/<run_id>``: where one ``mcgyvr setup`` run stages.
+
+    The staged ``fleet.yaml`` and ``policy.yaml``, the launch specs emitted for
+    them and the fetch lists of the weights it downloaded: setup emits, starts
+    and samples from here, and writes nothing in the working directory. The
+    folder stays once the run is over, as a stamp does: it is the record of
+    what that run staged, and the launch specs a live fleet promoted from it
+    wakes its units by (``serving.compose_dir``).
+    """
+    return data_home() / SETUPS_DIR / run_id
 
 
 def fleets_dir() -> Path:
