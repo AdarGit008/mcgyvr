@@ -237,6 +237,18 @@ class ToolStep:
             return ()
         return (*self.tool.command, "--", self.target)
 
+    def argv_over(self, paths: Collection[str]) -> tuple[str, ...]:
+        """:attr:`argv` with ``paths`` in place of the target.
+
+        For a pattern target: the step hands its program literal paths, because
+        nothing between mcgyvr and the program expands a glob — there is no
+        shell — and a program that does not expand its own arguments (ruff)
+        would otherwise be asked to open a file named ``src/*.py``.
+        """
+        if not self.tool.command:
+            return ()
+        return (*self.tool.command, "--", *paths)
+
 
 @dataclass(frozen=True)
 class Degradation:
