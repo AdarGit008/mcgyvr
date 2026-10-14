@@ -36,6 +36,7 @@ PROPOSAL = json.dumps(
     [
         {
             "task_type": "code",
+            "max_output_tokens": 1024,
             "task": "Annotate listing() and its return.",
             "target": "listing.py",
             "stop_conditions": ["the element type is ambiguous"],

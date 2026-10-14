@@ -45,6 +45,7 @@ units:
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+    window: 32768
 ladder:
 - local_qwen-7b
 """
@@ -59,6 +60,7 @@ units:
     model: big-model
     rig: hosted
     api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
+    window: 32768
 ladder:
 - api_big
 """
@@ -768,11 +770,13 @@ units:
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+    window: 32768
   hosted:
     address: https://api.example.invalid
     model: big-model
     rig: hosted
     api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
+    window: 32768
 ladder:
 - local_qwen-7b
 verifier:

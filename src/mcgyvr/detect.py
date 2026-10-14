@@ -220,6 +220,12 @@ class Backend:
     how: str
     host: str = DEFAULT_HOST
     kind: str = ""  # the backend convention; see ProbeTarget.kind
+    #: The context length the backend serves in one request, read off the
+    #: running process where its convention states it (:data:`WINDOW_SOURCES`),
+    #: or ``None`` when it could not be read. Setup writes it as the unit's
+    #: ``window``, the ceiling a `code` contract's cap is held to beside its
+    #: prompt; a number nobody read is not written.
+    window: int | None = None
 
     def __post_init__(self) -> None:
         if not self.kind:
@@ -362,21 +368,79 @@ def _models_from(payload: Any, api: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(found))  # de-duplicated, order preserved
 
 
+#: Where each backend convention states the context length it serves: the
+#: path asked, and the keys read off the answer. A list of rows is read row by
+#: row, and the smallest is the window: a window larger than the model loaded
+#: would let a cap pass that the backend then refuses. ``/v1/models`` is the
+#: listing :func:`probe` already holds, so vLLM costs no second request.
+WINDOW_SOURCES: Mapping[str, tuple[str, tuple[str, ...]]] = {
+    "vllm": ("/v1/models", ("data", "max_model_len")),
+    "llama-server": ("/props", ("default_generation_settings", "n_ctx")),
+    "lmstudio": ("/api/v0/models", ("data", "max_context_length")),
+    "tgi": ("/info", ("max_total_tokens",)),
+}
+
+
+def _window_from(payload: Any, keys: tuple[str, ...]) -> int | None:
+    """The positive whole number at ``keys`` in ``payload``, or ``None``.
+
+    A list met on the way is read row by row and the smallest number kept.
+    Anything else — a missing key, a string, a bool, zero — is a window that
+    was not stated, and ``None`` says so rather than guessing one.
+    """
+    if not keys:
+        if isinstance(payload, int) and not isinstance(payload, bool):
+            return payload if payload > 0 else None
+        return None
+    if isinstance(payload, list):
+        found = [_window_from(row, keys) for row in payload]
+        known = [n for n in found if n is not None]
+        return min(known) if known else None
+    if not isinstance(payload, dict):
+        return None
+    return _window_from(payload.get(keys[0]), keys[1:])
+
+
+def _served_window(
+    target: ProbeTarget, listing: Any, timeout: float
+) -> tuple[int | None, str]:
+    """The window ``target`` serves, and where it was read; ``None`` if unread."""
+    source = WINDOW_SOURCES.get(target.kind)
+    if source is None:
+        return None, ""
+    path, keys = source
+    payload = (
+        listing
+        if path == "/v1/models"
+        else _get_json(target.base_url.rstrip("/") + path, timeout)
+    )
+    window = _window_from(payload, keys)
+    if window is None:
+        return None, ""
+    return window, f"; serves a {window}-token window (GET {path})"
+
+
 def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | None:
-    """Ask one target what it is serving. None means nothing usable there."""
+    """Ask one target what it is serving. None means nothing usable there.
+
+    What it serves is the models it lists and, where its convention states it,
+    the context length it serves in one request (:data:`WINDOW_SOURCES`).
+    """
     path = "/v1/models"
     url = target.base_url.rstrip("/") + path
     payload = _get_json(url, timeout)
     if payload is None:
         return None
+    window, read = _served_window(target, payload, timeout)
     return Backend(
         name=target.name,
         base_url=target.base_url,
         api=target.api,
         models=_models_from(payload, target.api),
-        how=f"answered GET {path} at {target.base_url} within {timeout:g}s",
+        how=f"answered GET {path} at {target.base_url} within {timeout:g}s{read}",
         host=target.host,
         kind=target.kind,
+        window=window,
     )
 
 
@@ -542,8 +606,9 @@ def detect(
             f"Sandbox: no Docker daemon ({docker_how}), so `sandbox.mode: "
             f"docker` is refused here. `sandbox.mode: tempdir` (or "
             f"`sandbox.allow_fallback: true`) runs tasks in a temp directory, "
-            f"the explicitly weaker mode: acceptance commands are arbitrary "
-            f"shell from a contract."
+            f"the explicitly weaker mode: a contract's acceptance commands run "
+            f"without a shell, but each runs whatever program it names, on the "
+            f"host."
         )
     if cpu_count is None:
         provenance.pop("cpu_count")

@@ -70,6 +70,9 @@ def a_fix(**overrides: object) -> Proposal:
         "stop_conditions": ("the pager's contract is ambiguous",),
         "acceptance": ("pytest -q",),
         "demonstration": ("pytest -q tests/test_listing.py::test_page_size",),
+        # Every model-written `code` contract states what its reply is worth
+        # (owner, 2026-10-14); one that does not is refused before emission.
+        "max_output_tokens": 1024,
     }
     return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
 
@@ -427,6 +430,7 @@ def test_content_is_filled_for_every_type_not_a_chosen_list(
         task="tidy listing()",
         target="listing.py",
         stop_conditions=("the function's behaviour is ambiguous",),
+        max_output_tokens=1024,
     )
 
     (built,) = decompose(

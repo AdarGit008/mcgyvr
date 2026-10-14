@@ -63,6 +63,7 @@ units:
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+    window: 32768
 ladder:
 - local_qwen-7b
 verifier:
@@ -79,6 +80,8 @@ target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
 demonstration: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
 acceptance: ["python -c 'import sys; sys.exit(0)'"]
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """

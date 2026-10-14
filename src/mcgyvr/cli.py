@@ -180,7 +180,7 @@ def _config(args: argparse.Namespace) -> int:
             f"x{unit.width or 1}  ({credential})"
         )
 
-    print("\nLadder, cheapest first:")
+    print("\nLadder, in ladder order:")
     for name in config.ladder.names:
         print(f"  {name:<16} {config.units[name].model:<32}")
 
@@ -220,7 +220,12 @@ def _local_pool(args: argparse.Namespace) -> int:
     # nobody can check.
     # A family is a cost class rather than a location, so printing it says how
     # dear a rung is to ask without saying which machine answers.
-    print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
+    #
+    # The rungs are listed in the order the ladder names them, which is the
+    # order work climbs them. That is cheapest first only when the ladder was
+    # written so, and the header says the order the list is in, not the one a
+    # ladder usually has.
+    print(f"{config.path}: {len(pool)} usable rung(s), in ladder order:\n")
     ladder_budget = 0
     for rung in pool.rungs:
         budget = int((config.get("attempts") or {}).get(rung.name, 1))
@@ -401,12 +406,7 @@ def _catalog(args: argparse.Namespace) -> int:
 def _contract(args: argparse.Namespace) -> int:
     import json
 
-    from mcgyvr.contract import (
-        REASONING_ALLOWANCE,
-        REWRITE_FACTOR,
-        ContractError,
-        load,
-    )
+    from mcgyvr.contract import ContractError, load
     from mcgyvr.escalate import how_judged
 
     try:
@@ -457,24 +457,33 @@ def _contract(args: argparse.Namespace) -> int:
             f"  risk:    {contract.risk} — verified by "
             f"{contract.verification.policy.replace('_', ' ')}"
         )
-    if contract.limits.max_output_tokens is None:
-        output_budget = "uncapped (raw text)"
-    elif not contract.max_output_tokens_declared and not contract.is_deterministic:
-        # Sized per attempt from the target the run reads, so the number is
-        # not known here; the floor is, and so is what is added to it.
-        output_budget = (
-            f"output cap sized from the target each attempt (from "
-            f"{contract.limits.max_output_tokens} for the type, plus "
-            f"{REWRITE_FACTOR}x the target and {REASONING_ALLOWANCE} for "
-            f"reasoning, within the unit's output_tokens)"
+    # The cap model is decided by task type (owner, 2026-10-14), and this line
+    # says which rule the contract is under. A deterministic operation calls
+    # no model, so it has no reply to cap and no model attempts to count, and
+    # prints no line at all.
+    if contract.is_session:
+        print(
+            f"  limits:  raw connection: no output cap, no prompt checks, "
+            f"{contract.limits.attempts} attempt(s)"
         )
-    else:
-        output_budget = f"<={contract.limits.max_output_tokens} output tokens"
-    print(
-        f"  limits:  {output_budget}, "
-        f"<={contract.max_input_tokens} prompt tokens, "
-        f"{contract.limits.attempts} attempt(s)"
-    )
+    elif not contract.is_deterministic:
+        if contract.limits.max_output_tokens is not None:
+            output_budget = f"<={contract.limits.max_output_tokens} output tokens"
+        elif contract.needs_output_cap:
+            # Valid, and never sent as it stands: the run refuses a
+            # model-written contract with no cap before any model is called,
+            # so say so here, where refusing costs nothing.
+            output_budget = (
+                "no output cap stated — `mcgyvr run` refuses it until "
+                "`limits.max_output_tokens` is stated"
+            )
+        else:
+            output_budget = "uncapped (raw text)"
+        print(
+            f"  limits:  {output_budget}, "
+            f"<={contract.max_input_tokens} prompt tokens, "
+            f"{contract.limits.attempts} attempt(s)"
+        )
     if reply:
         if contract.acceptance:
             print(
@@ -633,6 +642,25 @@ def _sandbox(args: argparse.Namespace) -> int:
     for note in stack.notes:
         print(f"  - {note}")
     return 0
+
+
+def _reads_the_tree(contract: Contract) -> bool:
+    """Whether a run of ``contract`` reads anything off the repository's HEAD.
+
+    The note :func:`_say_what_the_sandbox_leaves_out` prints is about what a
+    sandbox of HEAD holds, so it is worth reading only to a run that looks in
+    it. Every run that writes a change does. A session (``chat``, ``agent``)
+    writes nothing and has no target: it reads the tree only through the
+    ``sources`` it names and the commands it declares. One with neither — a
+    plain ``chat`` — reads nothing there, and telling it to commit files it
+    never opens is noise (e2e run 3, T4). An ``agent``'s sources are read off
+    HEAD, so it is told. Read off the contract and the catalog's ``session``
+    flag, never a task type's name, which no consumer of the vocabulary
+    spells.
+    """
+    if not contract.is_session:
+        return True
+    return bool(contract.sources or contract.acceptance or contract.demonstration)
 
 
 def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
@@ -1976,8 +2004,9 @@ def _run(args: argparse.Namespace) -> int:
         print(f"error: {repo} is not a git repository", file=sys.stderr)
         return 1
     # Warned, never refused: the sandbox is HEAD by design, and a dirty tree
-    # only blocks delivery where the target itself is dirty.
-    notes = _say_what_the_sandbox_leaves_out(repo)
+    # only blocks delivery where the target itself is dirty. Said only where
+    # the run reads the tree at all (e2e run 3, T4).
+    notes = _say_what_the_sandbox_leaves_out(repo) if _reads_the_tree(contract) else []
 
     # The ladder path needs the config; the deterministic floor does not and
     # must keep running without one. Both need the journal dir, which is the
@@ -2218,11 +2247,14 @@ def _run(args: argparse.Namespace) -> int:
         # is already in the working tree — and a traceback with no `result:`
         # line reads to the caller as a run that never started. One line that
         # names the path, the reason and what the run came to is the whole of
-        # what the file would have said that matters.
+        # what the file would have said that matters — where the change went
+        # included, which is `delivery`'s to say beside the judgement.
+        went = report.delivery if report.delivery != report.detail else ""
         print(
             f"error: the result could not be written to {failed}: {exc}. "
             f"The run came to {report.outcome}"
             + (f": {report.detail}" if report.detail else "")
+            + (f"; {went}" if went else "")
             + f" (exit {code}).",
             file=sys.stderr,
         )
@@ -3449,9 +3481,13 @@ def _commit(
             )
 
     def refused(reason: str) -> None:
+        # The refusal is the run's outcome, so `detail` carries it too (set by
+        # the caller with the outcome); `delivery` says it where every other
+        # delivery says where the change went.
         verdict.say(refused=reason)
         _say_reported(bound)
         landed(DELIVERY_REFUSED, reason)
+        report.delivery = reason
 
     adapters = getattr(args, "gate_adapters", None)
     if adapters is None:
@@ -3485,8 +3521,10 @@ def _commit(
         print(f"\nLeft in {left}, not committed (pass --commit to commit).")
         for path, _ in bound.files(contract):
             _say_not_rerun(adapters, path)
-        landed(NOT_COMMITTED, f"not committed; change left in {left}")
-        report.detail = f"change left in {left}"
+        # Beside the judgement, never over it: `detail` stays how the work
+        # was judged, and where it went is `delivery`'s (#183).
+        report.delivery = f"not committed; change left in {left}"
+        landed(NOT_COMMITTED, report.delivery)
         return 0
 
     try:
@@ -3517,6 +3555,7 @@ def _commit(
     report.commit = delivery.commit
     report.branch = delivery.branch
     report.handoff = delivery.handoff
+    report.delivery = str(delivery)
     landed(COMMITTED, f"{delivery.commit[:12]} on {delivery.branch or 'HEAD'}")
     return 0
 

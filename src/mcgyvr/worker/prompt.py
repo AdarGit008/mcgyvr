@@ -268,10 +268,17 @@ def build_prompt(
     system = bundle.text if bundle is not None else ""
     user = render_user_message(contract.worker_view(), retry)
     tokens = estimate(_measured(system, user))
-    issue = check_prompt_fits(
-        tokens,
-        contract.max_input_tokens,
-        counted_by=counted_by,
+    # A session (`chat`, `agent`) is a raw connection to a model, and mcgyvr
+    # measures no prompt of one (owner, 2026-10-14): its size is still counted
+    # for the record, and nothing refuses it.
+    issue = (
+        None
+        if contract.is_session
+        else check_prompt_fits(
+            tokens,
+            contract.max_input_tokens,
+            counted_by=counted_by,
+        )
     )
     return WorkerPrompt(
         system=system,

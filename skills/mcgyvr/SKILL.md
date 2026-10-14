@@ -103,7 +103,7 @@ Hard ceilings on what one execution of this contract may spend.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `limits.max_output_tokens` | number (min 1) | no | unset | What the worker's reply may spend, in output tokens: what the *work* is worth, counting any reasoning a model does before it writes. Leave it out and each attempt sizes it from the target: the type's allowance, twice the target's estimated tokens, and a reasoning allowance; the journal records the number and how. A reply cut off at the cap is a named failure, never applied to a file. Not bounded by `context.max_input_tokens`. A raw-text reply (`prose` / `media_artifact`) carries no cap. (orchestrator-facing) |
+| `limits.max_output_tokens` | number (min 1) | no | unset | What the worker's reply may spend, in output tokens: what the *work* is worth, counting any reasoning a model does before it writes. Model-written `code` must state it: without it the contract is valid, and `mcgyvr run` refuses it before any model is called. Sent exactly; refused by name if above the ceiling of a unit the run may reach (its `window` less the prompt, or its `output_tokens`). A reply cut off at the cap is a named failure, never applied to a file. `chat` and `agent` are a raw connection: stating it there is refused. A deterministic operation has no cap. (orchestrator-facing) |
 | `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract may claim: its assembled prompt and `max_output_tokens` together, over the whole window. A different question from whether the two fit, which `context.max_input_tokens` already bounds — a contract that fits with nothing to spare leaves nothing to hold anything beside it and nothing to absorb an estimate that ran long. Declared here because it is a statement about this unit of work, and checked before the work is sent. The run's `max_window_fraction` caps it: the stricter of the two applies. Unset is not 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave a quarter of the window clear. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times the work may be retried before escalating. Retrying forever is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
@@ -134,8 +134,8 @@ mcgyvr contract CONTRACT.yaml
 ```
 
 Prints what the contract resolves to, or names the key that is wrong. Fix
-the contract; never guess a field. Leave `limits.max_output_tokens` out
-unless you must pin it: each attempt sizes it from the target file.
+the contract; never guess a field. A `code` contract states
+`limits.max_output_tokens`, within its unit's ceiling, or `run` refuses it.
 
 ## Step 3 — run it, then read the result file
 
@@ -201,8 +201,9 @@ what the run came to. The file's keys:
   no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
-- `committed`, `commit`, `branch`, `handoff` — where the work went. Not
-  committed (the default), the accepted file is left in the working tree.
+- `delivery` — where the work went: left uncommitted in the tree (the
+  default), the commit, or why it was refused (as `detail`).
+  `committed`, `commit`, `branch`, `handoff` are the commit as fields.
 - `answer` — a `chat`, `agent` or `media` reply; never written to the tree.
 - `session_record` — a session's record (question, answer, unit, times,
   outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.
@@ -243,7 +244,7 @@ answer. Report it to whoever owns the machine; the remedy is in
 `skills/mcgyvr/SETUP.md`.
 
 When `outcome` is `accepted`, the change is in `target` (a rename's: in
-each file `detail` names), uncommitted (a session changes nothing: its
+each file `delivery` names), uncommitted (a session changes nothing: its
 reply is `answer`).
 Review it there and commit it yourself. To have mcgyvr commit instead, run
 with `--commit` or `--branch NAME` on a tree where those files are

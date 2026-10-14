@@ -44,6 +44,7 @@ units:
     address: http://localhost:11434
     model: qwen2.5-coder:7b
     rig: workstation
+    window: 32768
 ladder:
 - local_qwen-7b
 """

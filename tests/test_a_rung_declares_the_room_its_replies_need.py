@@ -1,32 +1,28 @@
-"""One contract cap sent to every rung is wrong for at least one of them.
+"""A unit may declare the room its replies are given, and it is a ceiling.
 
-A unit may declare ``output_tokens``; a unit that declares none falls back to
-the contract's ``limits.max_output_tokens``
-(:func:`mcgyvr.gate.preflight.reply_cap`). A cut reply is not a short reply:
-``mcgyvr.worker.reply`` refuses a truncated file rather than applying it
-(``reply[incomplete-reply]``), so a rung cut at a cap sized for a smaller model
-spends its dispatch and produces nothing.
+A unit may declare ``output_tokens``. It used to be the number sent in place of
+the contract's ``limits.max_output_tokens`` (``mcgyvr.gate.preflight``), and in
+e2e run 3 a contract capped at 16 was sent the 32768 ``setup --api`` writes on
+a hosted unit. Owner decision (2026-10-14): the contract's cap is what the
+work is worth and is sent exactly; a unit's ``output_tokens`` bounds it, beside
+the room its window leaves for the prompt, and a cap above that ceiling is a
+named refusal
+(``tests/test_a_code_contracts_cap_is_sent_exactly_within_its_units_ceiling.py``).
 
-What must be true, and is asserted below: a rung may declare the room its
-replies need; that number is what reaches the wire on that rung and nowhere
-else; a rung that declares nothing still sends the contract's number; a
-declared room that does not fit the rung's own window is a named refusal rather
-than the truncation it was written to prevent. A contract that states no cap is
-sized from its target, with the rung's number as its ceiling
-(``tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py``).
+What is asserted below: a unit may declare the room its replies are given;
+the contract's number reaches the wire on a unit that declared room and on one
+that declared none; and a raw-text reply stays uncapped wherever it runs.
 """
 
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
 
 import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.local_pool import source_map
-from tests import livejournal as lj
 from tests.rungs import PROSE_CONTRACT, caps_sent
 from tests.rungs import ROOM_CONTRACT as CONTRACT
 
@@ -85,34 +81,14 @@ def test_a_rung_may_declare_the_room_its_replies_need() -> None:
 # --- the number that reaches the wire -------------------------------------
 
 
-def test_the_rung_that_declared_the_room_sends_its_own_number(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("rung", ["local_qwen2.5-coder-3b", "local_qwen3.6-35b-a3b"])
+def test_the_contracts_cap_is_sent_whether_or_not_the_rung_declared_room(
+    rung: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The rung's number, not the contract's, is what the backend is given."""
-    from mcgyvr.drive import dispatch_prompt
-    from mcgyvr.worker.prompt import build_prompt
+    """The contract's number reaches the wire on both rungs, unreplaced.
 
-    sent = caps_sent(monkeypatch)
-    pool = source_map(parse_config(cfg(LADDER)))
-    contract = load_contract(CONTRACT)
-    assert contract.limits.max_output_tokens == 1024
-
-    dispatch_prompt(pool, "local_qwen3.6-35b-a3b", build_prompt(contract), contract)
-
-    assert sent == [("local_qwen3.6-35b-a3b", 2048)], (
-        f"the rung declared 2048 and must be sent 2048; got {sent!r}. Taking "
-        f"the lower of the two numbers re-creates the truncation this exists "
-        f"to end"
-    )
-
-
-def test_a_rung_that_declared_nothing_still_sends_the_contracts_cap(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The contract's number is the fallback, not a floor and not a ceiling.
-
-    This is what ``dispatch_prompt`` has always sent, and it must keep sending
-    it: a ladder can be re-pointed at rungs that declare nothing.
+    The dear rung declares 2048 and the contract states 1024, which is within
+    it: 1024 is sent. The rung's number is room, not a reply size.
     """
     from mcgyvr.drive import dispatch_prompt
     from mcgyvr.worker.prompt import build_prompt
@@ -121,68 +97,12 @@ def test_a_rung_that_declared_nothing_still_sends_the_contracts_cap(
     pool = source_map(parse_config(cfg(LADDER)))
     contract = load_contract(CONTRACT)
 
-    dispatch_prompt(pool, "local_qwen2.5-coder-3b", build_prompt(contract), contract)
+    dispatch_prompt(pool, rung, build_prompt(contract), contract)
 
-    assert sent == [("local_qwen2.5-coder-3b", 1024)]
-
-
-def test_the_cheap_rung_is_not_dragged_up_by_the_dear_one(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """One contract, one climb, two different numbers on the wire.
-
-    The whole defect in one assertion: the same contract reaching two rungs
-    must not carry one number to both. The 3B rung's replies had a p95 of 716
-    and never approached 1024; raising it to the 35B rung's 2048 would spend
-    the cheap rung's window on room it has never used.
-    """
-    from mcgyvr.drive import dispatch_prompt
-    from mcgyvr.worker.prompt import build_prompt
-
-    sent = caps_sent(monkeypatch)
-    pool = source_map(parse_config(cfg(LADDER)))
-    contract = load_contract(CONTRACT)
-    prompt = build_prompt(contract)
-
-    dispatch_prompt(pool, "local_qwen2.5-coder-3b", prompt, contract)
-    dispatch_prompt(pool, "local_qwen3.6-35b-a3b", prompt, contract)
-
-    assert sent == [("local_qwen2.5-coder-3b", 1024), ("local_qwen3.6-35b-a3b", 2048)]
+    assert sent == [(rung, 1024)]
 
 
-# --- a room that does not fit the rung it was declared on -----------------
-
-
-def test_a_rung_room_that_does_not_fit_its_own_window_is_refused_by_name() -> None:
-    """The failure mode a per-rung number introduces, refused where it is read.
-
-    A rung declaring 4096 of reply on a rig serving a 4096-token window has
-    left nothing for the prompt. Sending it is the same silent truncation the
-    per-rung number exists to prevent, one level up, so the gate names it: the
-    rung, its number and the window it does not fit.
-    """
-    from mcgyvr.gate.preflight import check_contract_against_rung
-
-    over = cfg(LADDER).replace("output_tokens: 2048", "output_tokens: 4096")
-    pool = source_map(parse_config(over))
-    issue = check_contract_against_rung(
-        load_contract(CONTRACT),
-        "def fetch(url):\n    return url\n",
-        rung=pool.bind("local_qwen3.6-35b-a3b"),
-    )
-
-    assert issue is not None, (
-        "a reply cap as large as the whole window leaves no room for a prompt "
-        "and must be refused before anything is dispatched"
-    )
-    assert issue.reason == "output-cap", (
-        f"the refusal must be about the cap rather than about the prompt that "
-        f"happened to be measured with it; got {issue.reason!r}"
-    )
-    assert "4096" in issue.message and "local_qwen3.6-35b-a3b" in issue.message, (
-        f"the refusal must name the number and the rung whose window it does "
-        f"not fit: {issue.message}"
-    )
+# --- a contract cap that fits the rung's ceiling -------------------------
 
 
 def test_a_rung_room_that_fits_is_not_refused() -> None:
@@ -198,61 +118,6 @@ def test_a_rung_room_that_fits_is_not_refused() -> None:
         )
         is None
     )
-
-
-def test_the_rungs_room_is_what_the_fit_is_measured_against() -> None:
-    """The reserve the gate holds back is the number that will be sent.
-
-    A prompt that fits beside the contract's 1024 but not beside the rung's
-    2048 must be refused on the rung that will send 2048. Measuring the fit
-    against a number the dispatch will not use is how a check comes to pass on
-    a request that then arrives truncated.
-    """
-    from mcgyvr.gate.preflight import check_contract_against_rung
-
-    contract = load_contract(CONTRACT)
-    pool = source_map(parse_config(cfg(LADDER)))
-    # 2000 estimated tokens, charged as 2640 against the estimator's measured
-    # 32% reserve: room beside 1024 in a 4096 window, none beside 2048.
-    prompt = "x" * 8_000
-
-    assert (
-        check_contract_against_rung(
-            contract, prompt, rung=pool.bind("local_qwen2.5-coder-3b")
-        )
-        is None
-    ), "the cheap rung reserves the contract's 1024 and this prompt fits beside it"
-
-    issue = check_contract_against_rung(
-        contract, prompt, rung=pool.bind("local_qwen3.6-35b-a3b")
-    )
-    assert issue is not None, (
-        "the dear rung will be sent 2048, so 2048 is what the prompt must be "
-        "measured against"
-    )
-    assert "2048" in issue.message, (
-        f"the refusal must name the reserve it actually enforced: {issue.message}"
-    )
-
-
-# --- a contract that says nothing is sized, not refused -------------------
-
-
-def test_a_contract_with_no_cap_is_accepted_and_sized_per_attempt(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A contract that states no cap is no longer refused.
-
-    It used to be (``mcgyvr.cli._cap_undeclared``): a reply cut at a cap
-    nobody chose was spent silently. A cap nobody chose is now sized from the
-    target at each attempt and recorded with how it was reached, so the
-    contract is accepted and says so.
-    """
-    uncapped = CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
-    path = lj.make_contract(tmp_path / "impl.yaml", uncapped)
-
-    assert lj.main(["contract", str(path)]) == 0
-    assert "output cap sized from the target each attempt" in capsys.readouterr().out
 
 
 # --- a raw-text reply is uncapped ----------------------------------------

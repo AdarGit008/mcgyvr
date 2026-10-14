@@ -437,7 +437,9 @@ def judge(
     ``absent`` is why there is no ``verifier``, in the caller's words, and it
     goes into the judgement's detail: an unverified acceptance that cannot say
     why is the silent kind this label exists to end. ``reviewer`` names who
-    ``verifier`` asks, for the ``verified by`` sentence.
+    ``verifier`` asks, for the ``verified by`` sentence and the ``refused by``
+    one alike: a judgement that names who approved and not who refused would
+    let a stand-in's refusal read as the configured verifier's.
 
     A reply — a kind that is not judged as a change
     (:attr:`~mcgyvr.catalog.TaskType.judges_a_change`) — is judged by its
@@ -521,7 +523,9 @@ def judge(
             # with it — they are observations elsewhere, but here they are the
             # only reasons a typed refusal has, and they are already paid for.
             retry=_refusal_notes(review, gate),
-            detail=f"the verifier refused the change: {review.detail}",
+            # Named as an approval is named: a stand-in's refusal is not the
+            # configured verifier's, and its label says so (#183).
+            detail=f"refused by {reviewer or 'the verifier'}: {review.detail}",
         )
     # The reviewer's fault, never the builder's: the gate accepted this change
     # and nothing has since said otherwise. Failing it would spend the

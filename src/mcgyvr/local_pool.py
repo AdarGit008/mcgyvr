@@ -153,8 +153,9 @@ class Endpoint:
     #: ``None`` when the unit declared none. Below the seam with ``context_window``
     #: and for the same reason — both are facts about the machine that answers,
     #: and :class:`Rung` stays empty so a rung can be re-pointed at another one.
-    #: ``None`` falls back to the contract's ``limits.max_output_tokens``; see
-    #: :func:`mcgyvr.gate.preflight.reply_cap`, where that happens once.
+    #: A ceiling on the contract's ``limits.max_output_tokens``, beside the room
+    #: ``context_window`` leaves for the prompt, and never a number sent in its
+    #: place; see :class:`mcgyvr.gate.preflight.UnitCeiling`.
     output_tokens: int | None = None
     #: The most room a reply here is given whatever else was declared, or
     #: ``None`` for no such bound. Set for a relief rung, which declares no

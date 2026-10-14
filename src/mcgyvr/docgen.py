@@ -456,11 +456,11 @@ _CONTRACT_KIND_LABELS: dict[str, str] = {
 }
 
 # One minimal contract per deterministic operation and one model-executed
-# ``code`` contract, keyed by the catalog entry each runs under. None states
-# ``limits.max_output_tokens``: a model-executed contract that states none has
-# its cap sized at each attempt from the target it changes
-# (:func:`mcgyvr.contract.auto_reply_cap`), and a pinned number is what a
-# reasoning model spent before it wrote a line in the e2e run of 2026-10-13.
+# ``code`` contract, keyed by the catalog entry each runs under. The ``code``
+# one states ``limits.max_output_tokens``, as every model-written contract
+# must (owner, 2026-10-14): one that states none is refused by `mcgyvr run`.
+# The deterministic ones state none — a tool does the work, and no model is
+# called whose reply could be capped.
 _EXAMPLE_TEMPLATES: dict[str, str] = {
     "format": """\
 id: format-pkg
@@ -515,6 +515,8 @@ stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
 demonstration: ["pytest -q tests/test_chunk.py"]
 risk: low
+limits:
+  max_output_tokens: 4096
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
@@ -684,8 +686,8 @@ def render_skill() -> str:
         "```",
         "",
         "Prints what the contract resolves to, or names the key that is wrong. Fix",
-        "the contract; never guess a field. Leave `limits.max_output_tokens` out",
-        "unless you must pin it: each attempt sizes it from the target file.",
+        "the contract; never guess a field. A `code` contract states",
+        "`limits.max_output_tokens`, within its unit's ceiling, or `run` refuses it.",
         "",
         "## Step 3 — run it, then read the result file",
         "",
@@ -752,8 +754,9 @@ def render_skill() -> str:
         "  no review). A reply is never reviewed.",
         "- `findings` — the deterministic gate's findings for a contract that",
         "  dispatched nothing.",
-        "- `committed`, `commit`, `branch`, `handoff` — where the work went. Not",
-        "  committed (the default), the accepted file is left in the working tree.",
+        "- `delivery` — where the work went: left uncommitted in the tree (the",
+        "  default), the commit, or why it was refused (as `detail`).",
+        "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
         "- `answer` — a `chat`, `agent` or `media` reply; never written to the tree.",
         "- `session_record` — a session's record (question, answer, unit, times,",
         "  outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.",
@@ -794,7 +797,7 @@ def render_skill() -> str:
         "`skills/mcgyvr/SETUP.md`.",
         "",
         "When `outcome` is `accepted`, the change is in `target` (a rename's: in",
-        "each file `detail` names), uncommitted (a session changes nothing: its",
+        "each file `delivery` names), uncommitted (a session changes nothing: its",
         "reply is `answer`).",
         "Review it there and commit it yourself. To have mcgyvr commit instead, run",
         "with `--commit` or `--branch NAME` on a tree where those files are",

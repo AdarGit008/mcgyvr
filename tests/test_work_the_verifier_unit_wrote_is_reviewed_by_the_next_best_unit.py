@@ -60,11 +60,13 @@ units:
     model: zeta-flash
     rig: cloud-a
     api_key_env: {KEY}
+    window: 32768
   pro:
     address: https://pro.example.invalid
     model: zeta-pro
     rig: cloud-b
     api_key_env: {KEY}
+    window: 32768
 ladder:
 - flash
 - pro
@@ -81,16 +83,19 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
   middle:
     address: http://localhost:18002
     model: kappa-coder:14b
     rig: bench-b
     width: 1
+    window: 32768
   big:
     address: http://localhost:18003
     model: zeta-coder:32b
     rig: bench-c
     width: 1
+    window: 32768
 ladder:
 - small
 - middle
@@ -107,16 +112,19 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
   twin:
     address: http://localhost:18003
     model: registry.example/Acme-Coder:7b:latest
     rig: bench-c
     width: 1
+    window: 32768
   big:
     address: http://localhost:18002
     model: zeta-coder:32b
     rig: bench-b
     width: 1
+    window: 32768
 ladder:
 - small
 - twin
@@ -131,6 +139,7 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
 ladder:
 - small
 """
@@ -144,11 +153,13 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
   hosted:
     address: https://api.example.invalid
     model: zeta-large
     rig: cloud
     api_key_env: {KEY}
+    window: 32768
 ladder:
 - small
 - hosted
@@ -428,8 +439,10 @@ def test_the_result_and_the_journal_name_the_stand_in_after_a_climb(
     assert set(typed) == {"flash"}, f"asked on {typed}"
     written = json.loads(result.read_text(encoding="utf-8"))
     assert written["assurance"] == "verified", written
-    # The judgement's words ride on the accepted attempt: the run's own
-    # `detail` is where the work landed, which delivery writes last.
+    # The judgement's words are the run's own `detail`, as they are the
+    # accepted attempt's: where the work landed is `delivery`'s (#183).
+    assert "verified by flash" in written["detail"], written["detail"]
+    assert written["delivery"].startswith("not committed"), written["delivery"]
     accepted = written["attempts"][-1]
     assert accepted["rung"] == "pro", accepted
     assert "verified by flash" in accepted["detail"], accepted["detail"]

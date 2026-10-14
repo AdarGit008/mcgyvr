@@ -196,153 +196,28 @@ def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
 
 
 # --- the output cap -------------------------------------------------------
-
-# What a reply may cost, in tokens, before anything is known about the file it
-# lands in. One number for every task type is wrong for at least one of them:
-# too small truncates a reply into a named failure that costs a whole attempt,
-# too large steals context from the prompt that would have made the reply
-# right, and a docstring and a function written from nothing cannot both be
-# served by the same number.
 #
-# Keyed by what the catalog says a type must *prove*, never by the type's name.
-# A table of names here would be the second definition of the vocabulary that
-# :mod:`mcgyvr.catalog` exists to prevent, and adding a task type would mean
-# editing this file to give it a cap. Required evidence is the honest key
-# because it is already a statement about the reply: evidence a structural
-# check can read is evidence about prose or a shape, and evidence only a
-# command can produce is evidence about behaviour — which has to be written
-# before it can run.
+# Decided by task type (owner, 2026-10-14, e2e run 3 T1), and never sized here.
 #
-# Two steps and not more, because two is as far as the catalog's properties
-# actually distinguish. Every type whose required evidence needs a command
-# must write what that command will judge, and under `whole_file` each re-emits
-# the file around it, so a third number among them would be a preference
-# wearing a budget's clothes.
+# `code` written by a model is the work mcgyvr's harness runs, so it is bounded
+# twice and both bounds are written by somebody: the contract states
+# `limits.max_output_tokens`, what the work is worth, and every unit carries a
+# ceiling from setup — its served `window`, less the prompt as charged, or its
+# `output_tokens` where the window is not known
+# (`mcgyvr.gate.preflight.unit_ceiling`). The contract's cap is sent exactly
+# when it is within the ceiling and refused by name when it is not; a contract
+# that states none still loads and is refused at dispatch
+# (`mcgyvr.gate.preflight.check_cap_stated`), before any model is called.
 #
-# The numbers below are the product's defaults: chosen rather than measured,
-# and generous on purpose. An unspent cap costs nothing, while truncation costs
-# a whole attempt; a reply that overflows a generous cap is a task too big for
-# one contract, which is a re-decomposition and not a larger number.
+# `chat` and `agent` are a raw connection to a model: no cap, and a contract
+# that states one is refused at load. A deterministic operation calls no model,
+# so there is no reply to cap. `media` keeps the cap it states, which is none
+# for a `media_artifact` reply.
 #
-# They are the floor of the automatic cap (`auto_reply_cap`, below): what the
-# loader fills in for a whole_file contract that states no cap, the visible
-# reply a task type needs before the target's own size is counted. A raw-text
-# reply (prose / media_artifact) carries no cap and gets no floor.
-#
-# Nor are they the last word. A contract states its own cap with
-# `limits.max_output_tokens`, and a unit that declares
-# `units.<name>.output_tokens` sends that number in place of a stated cap, and
-# bounds the automatic one (`mcgyvr.gate.preflight.reply_cap`). A relief rung
-# (another person's unit, ridden when the rider's own is full) is sent the
-# smaller of the contract's cap and the local unit's, and the local unit's
-# where the contract has none.
-#
-# A cap derived here for a contract loaded from text is not part of that
-# contract's emitted form: `dumps` writes `null` for it, so changing these
-# numbers moves the identity of no such contract. A declared cap is emitted and
-# is part of the identity, and so is the cap of a contract built in code, whose
-# dataclass default counts as declared.
-STRUCTURAL_ALLOWANCE = 512
-"""Nothing to run: the reply is prose, or an edit a parser can check."""
-
-RUNNING_ALLOWANCE = 1024
-"""A command has to run afterwards, so behaviour has to be written."""
-
-# A file that does not exist yet arrives with its declarations as well as its
-# body — the imports, the def line, the module docstring — so creating one is a
-# step dearer than editing one that is already there.
-NEW_FILE_STEP = 512
-
-# Caps come out as whole steps, never below the floor. The floor is what a
-# deterministic operation gets; the allowances above are already whole steps.
-CAP_STEP = 128
-MIN_CAP = 256
-
-# --- the automatic cap ----------------------------------------------------
-#
-# A contract that states no cap is sized per attempt, once the target's
-# content is in hand, by `auto_reply_cap`. Two terms, because a reply now holds
-# two things and only one of them is ever seen.
-#
-# The visible reply re-emits the whole file (`whole_file`), so it grows with
-# the target: the floor above for what the change adds, plus REWRITE_FACTOR
-# times the target's estimated tokens (`mcgyvr.orchestrator.read.
-# estimate_tokens`, the one proxy every budget spends against). Two, not one:
-# the file once, the proxy's measured under-count on top
-# (`mcgyvr.gate.preflight.ESTIMATE_RESERVE`, 0.32), and room for the file to
-# grow. A target that does not exist yet has no size and takes NEW_FILE_STEP
-# instead, for the declarations a new file arrives with.
-#
-# The hidden reply is the reasoning a hosted reasoning model spends before it
-# writes. It is billed against the same `max_tokens` and never read, so a cap
-# sized for the visible reply alone comes back empty. The e2e run of
-# 2026-10-13 measured it on DeepSeek: a 1024 cap returned an empty reply on
-# both rungs for a small new module, 4096 returned an empty reply on both for a
-# duration parser, and the dearer rung finished that parser in 16216 output
-# tokens of a 16384 cap, almost all of it reasoning (the cheaper rung finished
-# the small module in 599). REASONING_ALLOWANCE is that 16216 with half again on
-# top, in whole steps: the worst case seen, with room for a harder one. A model
-# that does not reason stops when its file is written, and an unspent cap costs
-# nothing on the wire; where it would cost window, the dispatch trims this term
-# (and only this one) to what the window leaves
-# (`mcgyvr.gate.preflight.reply_cap`).
-REWRITE_FACTOR = 2
-REASONING_ALLOWANCE = 24576
-
-
-@dataclass(frozen=True)
-class AutoCap:
-    """The two halves of an automatic cap, and how they were reached.
-
-    ``visible`` is the room the written file needs; ``reasoning`` the hidden
-    allowance on top. Kept apart because only ``reasoning`` may be trimmed to
-    fit a window: a visible reply that does not fit is a contract too big for
-    the rung, which a fit check refuses by name rather than a cap that
-    truncates it.
-    """
-
-    floor: int
-    target_tokens: int
-    visible: int
-    reasoning: int = REASONING_ALLOWANCE
-
-    @property
-    def tokens(self) -> int:
-        """The cap asked for before any unit, window or ceiling bounds it."""
-        return self.visible + self.reasoning
-
-    @property
-    def basis(self) -> str:
-        """How the number was reached, in the words a journal row carries."""
-        if self.target_tokens:
-            reply = (
-                f"{self.floor} for the task type + {REWRITE_FACTOR} x "
-                f"{self.target_tokens} target tokens"
-            )
-        else:
-            reply = f"{self.floor} for the task type + {NEW_FILE_STEP} for a new file"
-        return f"auto: {reply} + {self.reasoning} reasoning allowance = {self.tokens}"
-
-
-def auto_reply_cap(floor: int, target: str) -> AutoCap:
-    """The automatic cap of a contract that states none, sized from its target.
-
-    ``floor`` is the cap the loader derived for the task type
-    (:func:`output_cap`); ``target`` the target's content as the attempt reads
-    it, empty for a file that does not exist yet. Deterministic in the two,
-    for the reason :func:`output_cap` is: a budget that moved between two runs
-    of the same contract on the same file would make every refusal downstream
-    unreproducible. The constants and the measurements behind them are above.
-    """
-    # Imported here for the reason `mcgyvr.gate.preflight` does: the
-    # orchestrator package imports this module, so at module scope this would
-    # be a cycle to reach one arithmetic helper.
-    from mcgyvr.orchestrator.read import estimate_tokens
-
-    tokens = estimate_tokens(target) if target else 0
-    grown = REWRITE_FACTOR * tokens if tokens else NEW_FILE_STEP
-    visible = ((floor + grown + CAP_STEP - 1) // CAP_STEP) * CAP_STEP
-    return AutoCap(floor=floor, target_tokens=tokens, visible=visible)
+# Nothing is derived for a contract that states nothing. The automatic sizing
+# that used to fill the gap — a floor for the task type, twice the target and a
+# reasoning allowance — sent a number nobody chose, and a unit's `output_tokens`
+# then replaced even a stated one: a contract's 16 left as 32768 (e2e run 3).
 
 
 def evidence_for(
@@ -360,8 +235,8 @@ def evidence_for(
     name — ``failing_test_first`` from a non-empty ``demonstration``,
     ``tests_pass`` from a non-empty ``acceptance``, and ``no_semantic_change``
     / ``type_check`` from the two flags. This is the one place the derivation
-    is spelled, so the loader, the output cap and the gate all read the same
-    evidence for a contract rather than three copies that can drift.
+    is spelled, so the loader and the gate read the same evidence for a
+    contract rather than two copies that can drift.
     """
     if not getattr(kind, "evidence_derived", False):
         return kind.required_evidence
@@ -376,64 +251,6 @@ def evidence_for(
     if type_check:
         names.append("type_check")
     return tuple(book.evidence(name) for name in names)
-
-
-def output_cap(
-    name: str,
-    *,
-    new_file: bool = False,
-    evidence: tuple[CatalogEvidence, ...] | None = None,
-    operation: str = "",
-) -> int:
-    """The output cap a contract of this task type carries when it declares none.
-
-    Deterministic in its inputs and in nothing else: same task type, same
-    number, in this process and in the next one. A cap is a budget, and a
-    budget that moved between two runs of the same contract would make every
-    refusal downstream unreproducible.
-
-    A type the deterministic tier executes gets the floor. There is no model
-    reply to size — a tool writes the change — so any larger number would be a
-    reservation against something that never happens.
-
-    ``evidence`` overrides the type's static ``required_evidence``, for the one
-    type whose evidence is derived per contract (``code``): its cap depends on
-    whether it must write behaviour, which only the contract's own fields say.
-
-    ``new_file`` adds the new-file step. No caller passes it: the loader, the
-    one call site, cannot supply it, because an empty ``target_content`` means
-    "the file does not exist yet" *or* "its content is not needed".
-
-    ``operation`` names the deterministic operation a ``code`` contract asks
-    for, whose entry then decides: a tool writes the change, so the floor.
-    """
-    kind = kind_of(name, operation)
-    required = kind.required_evidence if evidence is None else tuple(evidence)
-    allowance = (
-        0
-        if kind.deterministic
-        else max(
-            (_evidence_allowance(e) for e in required),
-            default=STRUCTURAL_ALLOWANCE,
-        )
-    )
-    if allowance and new_file:
-        allowance += NEW_FILE_STEP
-    whole_steps = ((allowance + CAP_STEP - 1) // CAP_STEP) * CAP_STEP
-    return max(MIN_CAP, whole_steps)
-
-
-def _evidence_allowance(evidence: CatalogEvidence) -> int:
-    """How big one required evidence kind says the reply has to be allowed to be.
-
-    Read off the property the catalog declares — whether this evidence needs a
-    command to produce it — because that is the property that says what the
-    reply must contain: evidence a structural check can read is evidence about
-    prose or a shape, and evidence a command produces is evidence about
-    behaviour, which has to be written before it can run. A kind matched by
-    name would put the evidence vocabulary in this file too.
-    """
-    return RUNNING_ALLOWANCE if evidence.needs_commands else STRUCTURAL_ALLOWANCE
 
 
 def generic_stop_condition(task_type_name: str, subject: str) -> str:
@@ -616,12 +433,13 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "int",
         "What the worker's reply may spend, in output tokens: what the *work* "
         "is worth, counting any reasoning a model does before it writes. "
-        "Leave it out and each attempt sizes it from the target: the type's "
-        "allowance, twice the target's estimated tokens, and a reasoning "
-        "allowance; the journal records the number and how. A reply cut off "
-        "at the cap is a named failure, never applied to a file. Not bounded "
-        "by `context.max_input_tokens`. A raw-text reply (`prose` / "
-        "`media_artifact`) carries no cap.",
+        "Model-written `code` must state it: without it the contract is "
+        "valid, and `mcgyvr run` refuses it before any model is called. Sent "
+        "exactly; refused by name if above the ceiling of a unit the run may "
+        "reach (its `window` less the prompt, or its `output_tokens`). A "
+        "reply cut off at the cap is a named failure, never applied to a "
+        "file. `chat` and `agent` are a raw connection: stating it there is "
+        "refused. A deterministic operation has no cap.",
         default=None,
         min_value=1,
     ),
@@ -989,11 +807,10 @@ class Contract:
     depends_on: tuple[str, ...] = ()
     risk: str = "medium"
     verification: Verification = Verification("gate_only")
-    limits: Limits = Limits(RUNNING_ALLOWANCE, 2)
+    limits: Limits = Limits(None, 2)
     rename: Rename = Rename()
     no_semantic_change: bool = False
     type_check: bool = False
-    max_output_tokens_declared: bool = True
     #: The content of each of ``sources``, in order, once the attempt has read
     #: them off the tree the run started from (:func:`mcgyvr.drive.worker_attempt`,
     #: :mod:`mcgyvr.worker.sources`). Not a schema key: a contract names its
@@ -1051,6 +868,19 @@ class Contract:
         ``scope`` are not used — empty unless the contract gave them anyway.
         """
         return self.kind.session
+
+    @property
+    def needs_output_cap(self) -> bool:
+        """Whether this contract must state ``limits.max_output_tokens`` to run.
+
+        True of the work mcgyvr's harness bounds: a change a model writes and
+        the gate judges (``code`` without an ``operation``). Not of a session,
+        which is a raw connection to a model, nor of a deterministic operation,
+        which calls none, nor of a reply judged only by its output checks
+        (``media``). Read off the catalog entry rather than the type's name, so
+        the rule follows what the work is and not what it is called.
+        """
+        return self.kind.needs_output_cap
 
     @property
     def acceptance_commands(self) -> tuple[tuple[str, ...], ...]:
@@ -1219,11 +1049,7 @@ class Contract:
             **renamed,
             "verification": {"policy": self.verification.policy},
             "limits": {
-                "max_output_tokens": (
-                    self.limits.max_output_tokens
-                    if self.max_output_tokens_declared
-                    else None
-                ),
+                "max_output_tokens": self.limits.max_output_tokens,
                 "attempts": self.limits.attempts,
                 **share,
             },
@@ -1273,33 +1099,8 @@ def parse(text: str, path: Path | None = None) -> Contract:
         # A session's reply is the answer, so prose is its shape; whole_file,
         # the schema's default, would have a chat reply written over a target.
         data["output_schema"] = "prose"
-    declared_cap = data["limits"]["max_output_tokens"] is not None
-    if not declared_cap:
-        # The one key the schema cannot default statically: how big a reply may
-        # be depends on what the reply has to be. What is filled here is the
-        # floor of the automatic cap — the task type's visible allowance — and
-        # each attempt sizes the cap it sends from the target it reads
-        # (`auto_reply_cap`, through `mcgyvr.gate.preflight.reply_cap`). A
-        # raw-text reply (prose / media_artifact) carries no cap at all — a
-        # chatty model is a prompting issue, not a cap issue — so only a
-        # whole_file reply gets a derived number.
-        data["limits"]["max_output_tokens"] = (
-            output_cap(
-                data["task_type"],
-                operation=data["operation"],
-                evidence=evidence_for(
-                    kind_of(data["task_type"], data["operation"]),
-                    acceptance=data["acceptance"],
-                    demonstration=data["demonstration"],
-                    no_semantic_change=data["no_semantic_change"],
-                    type_check=data["type_check"],
-                ),
-            )
-            if data["output_schema"] == "whole_file"
-            else None
-        )
     _cross_validate(data)
-    return _build(data, max_output_tokens_declared=declared_cap)
+    return _build(data)
 
 
 def dumps(contract: Contract) -> str:
@@ -1307,7 +1108,7 @@ def dumps(contract: Contract) -> str:
     return json.dumps(contract.as_dict(), indent=2)
 
 
-def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Contract:
+def _build(data: Mapping[str, Any]) -> Contract:
     """Assemble the validated mapping into a Contract."""
     return Contract(
         id=data["id"],
@@ -1343,7 +1144,6 @@ def _build(data: Mapping[str, Any], *, max_output_tokens_declared: bool) -> Cont
         rename=Rename(old=data["rename"]["from"], new=data["rename"]["to"]),
         no_semantic_change=data["no_semantic_change"],
         type_check=data["type_check"],
-        max_output_tokens_declared=max_output_tokens_declared,
     )
 
 
@@ -1653,6 +1453,18 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"answer, returned in the result file and kept in the session "
                 f"log, never written. Drop output_schema; 'prose' is the "
                 f"default."
+            )
+        # A session is a raw connection to a model (owner, 2026-10-14, e2e
+        # run 3 T1): mcgyvr wraps no harness around it, so it sends no output
+        # cap and measures no prompt or window. A cap stated anyway would read
+        # as a bound nothing enforces.
+        stated = data["limits"]["max_output_tokens"]
+        if stated is not None:
+            raise ContractSchemaError(
+                f"limits.max_output_tokens: {stated} is stated, but a "
+                f"{kind.name!r} run is a raw connection to a model and mcgyvr "
+                f"sets no limits on it: no output cap is sent, and no prompt or "
+                f"window check is made. Drop limits.max_output_tokens."
             )
     else:
         _check_destination(data, kind, target, allow, forbid)

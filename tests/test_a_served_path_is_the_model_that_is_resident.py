@@ -56,6 +56,7 @@ units:
     address: http://srv1:8080
     model: '{DECLARED}'
     rig: srv1_big
+    window: 32768
 ladder:
 - local_big
 """

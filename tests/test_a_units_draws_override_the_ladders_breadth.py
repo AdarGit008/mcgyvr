@@ -35,10 +35,12 @@ units:
     address: http://localhost:11434
     model: qwen2.5-coder:3b
     rig: workstation
+    window: 32768
   big:
     address: http://localhost:11435
     model: qwen2.5-coder:7b
     rig: workstation
+    window: 32768
 ladder:
 - small
 - big

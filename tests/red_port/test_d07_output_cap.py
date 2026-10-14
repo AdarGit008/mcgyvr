@@ -1,28 +1,12 @@
-"""D07 — the output cap is sized for the task, and a prompt that cannot fit is refused
-unspent.
+"""D07 — the output cap is the one the contract states, and a prompt that cannot fit
+is refused unspent.
 
-``limits.max_output_tokens`` has no static default (``contract.py``'s
-``LIMITS_FIELDS``): an undeclared cap is derived from the contract's own
-evidence by :func:`mcgyvr.contract.output_cap`. One number for a gate-only edit
-and for a function written from nothing is wrong for one of them: too small
-truncates a reply into a named failure that costs an attempt, too large steals
-context from the prompt that would have made the reply right.
-
-Three statements, and the second exists to make the first honest.
-
-*A small task is capped lower than a large one* is asserted on two `code`
-contracts that differ only in whether they carry an acceptance command — so the
-only explanation for a difference is the evidence the fields derive. Asserting a
-specific number would freeze a table that is free to be measured and
-re-measured; the ordering is the requirement, the numbers are not.
-
-*The cap is deterministic* would be satisfied by a flat constant, which is why
-it is not asserted alone. Stability is asserted across repeated loads **and
-across separate processes with different hash seeds** — dict iteration order is
-exactly how a table-driven cap acquires a per-process wobble, and an in-process
-loop would never see it — and then, in the same test, that the caps are not all
-one value. Together they say what is actually required: the cap varies with its
-inputs and with nothing else. Apart, each is passed by a bug the other catches.
+``limits.max_output_tokens`` has no default and is never derived: owner
+decision (2026-10-14, e2e run 3 T1) — a model-written ``code`` contract states
+what its reply is worth, and one that states nothing is refused at dispatch
+(``tests/test_a_code_contract_states_its_cap_or_is_refused_at_dispatch.py``).
+The sizing this file used to pin, a cap derived from the contract's evidence,
+is gone with that decision.
 
 *A contract that cannot fit is refused before dispatch* is asserted on a
 returned refusal rather than a raised one, and on a value produced from the
@@ -42,9 +26,6 @@ assertion in this file.
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from typing import Any
 
 from mcgyvr.contract import loads
@@ -57,9 +38,7 @@ BEHAVIOR = (
     "context window, before anything is dispatched"
 )
 
-# Identical in every field a cap could plausibly depend on except the evidence
-# the fields derive, so a difference between two loads of it has exactly one
-# available cause.
+#: A model-written change that states its cap, as every one must.
 CONTRACT = """
 id: cap-probe
 task_type: code
@@ -67,41 +46,12 @@ task: Do the one thing this contract describes.
 target: src/pkg/fetch.py
 stop_conditions:
   - The intended behaviour is not stated anywhere in the repo.
-{extra}
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
+limits:
+  max_output_tokens: 1024
 scope:
   allow: ["src/**/*.py"]
 """
-
-#: A gate-only edit: no command to run, so behaviour does not have to be written.
-SMALL = ""
-#: A change backed by an acceptance command: behaviour has to be written.
-LARGE = "acceptance: [\"python -c 'import sys; sys.exit(0)'\"]"
-#: A change backed by the type-check flag: the checker has to run.
-TYPE_CHECK = "type_check: true\nno_semantic_change: true"
-
-
-def _cap(extra: str) -> int:
-    """The output cap a contract with this evidence carries when it declares none."""
-    cap = loads(CONTRACT.format(extra=extra)).limits.max_output_tokens
-    assert cap is not None, "a whole_file contract must still derive a cap"
-    return cap
-
-
-def _cap_in_a_fresh_process(extra: str, hash_seed: str) -> int:
-    """The same cap, read by a process that ordered its dicts differently."""
-    program = (
-        "from mcgyvr.contract import loads;"
-        f"print(loads({CONTRACT.format(extra=extra)!r}).limits.max_output_tokens)"
-    )
-    env = {**os.environ, "PYTHONHASHSEED": hash_seed}
-    done = subprocess.run(
-        [sys.executable, "-c", program],
-        capture_output=True,
-        text=True,
-        check=True,
-        env=env,
-    )
-    return int(done.stdout.strip())
 
 
 def _budget_check() -> Any:
@@ -112,51 +62,6 @@ def _budget_check() -> Any:
                 "mcgyvr.gate.preflight", fromlist=["check_contract_fits"]
             ).check_contract_fits
         ),
-    )
-
-
-def test_a_gate_only_edit_is_capped_lower_than_one_that_must_run_a_command() -> None:
-    """A gate-only edit needs fewer output tokens than a change backed by a command.
-
-    The two contracts differ only in the `acceptance` list, so an equal cap is
-    not a coincidence to be explained — it is a cap that ignores what it is
-    capping.
-    """
-    small, large = _cap(SMALL), _cap(LARGE)
-
-    assert small < large, (
-        f"a gate-only code edit is capped at {small} tokens and a command-backed "
-        f"one at {large}: the cap does not vary with the evidence it is capping"
-    )
-
-
-def test_the_cap_is_the_same_every_time_and_is_not_the_same_for_everything() -> None:
-    """Stable across runs, and stable because it is derived — not because it is a
-    constant.
-
-    Both halves are here on purpose. Stability alone is passed by a flat
-    constant; variation alone is passed by a cap that reshuffles with dict order
-    between processes. A cap is a budget, and a budget that moves between two
-    runs of the same contract makes every refusal downstream unreproducible.
-    """
-    caps = {extra: _cap(extra) for extra in (SMALL, LARGE, TYPE_CHECK)}
-
-    for extra, first in caps.items():
-        repeated = {_cap(extra) for _ in range(20)}
-        assert repeated == {first}, (
-            f"cap for {extra!r} wandered within one process: {repeated}"
-        )
-        for seed in ("0", "1", "12345"):
-            fresh = _cap_in_a_fresh_process(extra, seed)
-            assert fresh == first, (
-                f"cap for {extra!r} is {first} here and {fresh} under "
-                f"PYTHONHASHSEED={seed}: "
-                f"the cap depends on something other than the contract"
-            )
-
-    assert len(set(caps.values())) > 1, (
-        f"every shape is capped at the same number ({caps}): the cap is stable "
-        f"only because it is a constant"
     )
 
 
@@ -172,9 +77,9 @@ def test_a_contract_that_cannot_fit_its_window_is_refused_at_zero_spend() -> Non
     that refuses everything satisfies a refusal assertion perfectly.
     """
     check = _budget_check()
-    contract = loads(CONTRACT.format(extra=LARGE))
+    contract = loads(CONTRACT)
     cap = contract.limits.max_output_tokens
-    assert cap is not None, "a whole_file contract must still derive a cap"
+    assert cap == 1024
 
     prompt = "x" * (4 * 4000)
     estimated = estimate_tokens(prompt)

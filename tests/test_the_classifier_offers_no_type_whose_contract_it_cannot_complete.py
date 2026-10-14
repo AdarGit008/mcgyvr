@@ -74,14 +74,19 @@ def _answering(
 
 
 def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
-    """`code` needs no forced commands, so it is offered with the rest."""
+    """`code` needs no forced commands, so it is offered with the rest.
+
+    Chosen, it is handed on rather than proposed: a `code` contract states its
+    reply cap, which no choice can say, so the prose proposer writes it
+    (owner, 2026-10-14).
+    """
     seen, classify = _answering({"kind": "code", "symbol": ""})
     evidence = _evidence(tmp_path, _types("chat", "code"))
     proposals = ClassifierProposer(classify=classify)(evidence)
     kind = seen[0]["kind"]
     assert isinstance(kind, Choice)
     assert list(kind.options) == ["chat", "code"]
-    assert proposals[0].task_type == "code"
+    assert proposals == ()
 
 
 def test_an_empty_vocabulary_is_a_refusal_not_a_contract(tmp_path: Path) -> None:
