@@ -22,8 +22,6 @@ edges that did were written down as data,
 :data:`tests.hub_borders.IMPORTS_NOT_YET_MOVED`, which may only shrink and is
 now empty: an entry left the list in the change that removed the import, and
 :func:`test_every_edge_not_yet_moved_is_still_in_the_tree` failed until it did.
-That a pull request did not add to the list is CI's to see
-(``tests/hub_borders.py --compare``).
 """
 
 from __future__ import annotations

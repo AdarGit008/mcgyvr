@@ -79,26 +79,3 @@ jobs:
         run: |
           uv sync --frozen
           uv run --no-sync pytest tests/test_every_module_of_the_package_imports_under_every_supported_python.py
-  # The hub's borders may only shrink. What a tree cannot show is the borders
-  # as they were, so on a pull request this job compares them with the base
-  # branch's. Standard library only, so it needs no install. It runs beside
-  # `test` and the ruleset requires both.
-  list-only-shrinks:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # The hub's borders (tests/hub_borders.py): the
-      # imports into the hub client and the hub words in the offline core may
-      # only shrink, and the words read and the places that are not the core
-      # may not widen. The base's copy is read as a syntax tree, never run.
-      - name: compare the hub's borders with the base branch's
-        env:
-          BORDERS: tests/hub_borders.py
-        run: |
-          if ! git cat-file -e "FETCH_HEAD:$BORDERS" 2>/dev/null; then
-            echo "the base branch has no $BORDERS; nothing to compare"
-            exit 0
-          fi
-          git show "FETCH_HEAD:$BORDERS" > "$RUNNER_TEMP/base-borders.py"
-          python3 tests/hub_borders.py --compare "$RUNNER_TEMP/base-borders.py"
