@@ -49,7 +49,7 @@ def render(*, writer: str, authoring: str) -> str:
     """The system prompt for one server: writer and strategy filled, notes slot kept.
 
     The notes slot stays a slot so the loop can fill it per turn without
-    re-reading the file; :func:`with_notes` does that.
+    re-reading the file; :func:`mcgyvr.mcorch.loop.respond` does that.
     """
     text = strip_provenance(source())
     return (
@@ -57,8 +57,3 @@ def render(*, writer: str, authoring: str) -> str:
         .replace(_AUTHORING_SLOT, authoring)
         .replace(VOCABULARY_SLOT, vocabulary())
     )
-
-
-def with_notes(rendered: str, notes: str) -> str:
-    """``rendered`` with this turn's Jev notes in their slot."""
-    return rendered.replace(NOTES_SLOT, notes)

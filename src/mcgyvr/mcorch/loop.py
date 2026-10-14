@@ -149,7 +149,7 @@ def respond(
     """Answer one request: a side request alone, a main request through the loop.
 
     ``system`` is the rendered mcorch prompt with its notes slot still open
-    (:func:`mcgyvr.mcorch.prompt.with_notes` fills it here). ``keep_tools``
+    (filled here with this turn's notes). ``keep_tools``
     names the harness tools kept; empty keeps all. ``internal`` are the
     strategies whose tools are offered beside the harness's and run here.
     """

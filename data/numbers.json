@@ -1239,11 +1239,6 @@
       "says": "How long, in seconds, a living worker can go unheard over a session's tunnel, pinged when quiet; past it the head's session fails as no_path.",
       "moves_to": "worker_silence_s"
     },
-    "rig/session.py:Timing.ping_s": {
-      "kind": "estimate",
-      "says": "How long, in seconds, a session's peers take to answer over the tunnel once it is up; past it no round trip is reported.",
-      "moves_to": "peer_rtt_wait_s"
-    },
     "rig/session.py:Timing.poll_s": {
       "kind": "choice",
       "says": "How often, in seconds, a starting session looks again at its containers.",
@@ -2210,12 +2205,6 @@
     "serving/vramfit.py:explain(n_ubatch)": {
       "kind": "choice",
       "says": "The micro-batch an explanation of a placement is made at when its caller names none.",
-      "reason": "a duplicate of another entry",
-      "same_as": "serving/__init__.py:DEFAULT_UBATCH"
-    },
-    "serving/vramfit.py:fits_measured(n_ubatch)": {
-      "kind": "choice",
-      "says": "The micro-batch a held placement is judged at when its caller names none.",
       "reason": "a duplicate of another entry",
       "same_as": "serving/__init__.py:DEFAULT_UBATCH"
     },

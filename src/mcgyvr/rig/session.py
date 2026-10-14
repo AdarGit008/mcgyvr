@@ -244,7 +244,6 @@ class Timing:
     poll_s: float = 1.0
     grace_s: float = 30.0
     stop_wait_s: float = 120.0
-    ping_s: float = 30.0
     peer_lost_s: float = 45.0
     stall_s: float = 240.0
     warm_s: float = 300.0
@@ -270,7 +269,6 @@ class Timing:
             poll_s=0.01,
             grace_s=0.1,
             stop_wait_s=5.0,
-            ping_s=0.5,
             peer_lost_s=0.2,
             stall_s=5.0,
             warm_s=1.0,

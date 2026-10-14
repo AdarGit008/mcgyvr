@@ -42,9 +42,6 @@ from typing import Any
 from mcgyvr.mcorch.wire import RungReply
 from mcgyvr.orchestrator.read import estimate_tokens
 
-#: The API version header every Messages request carries.
-API_VERSION = "2023-06-01"
-
 #: The roles a Messages request may carry; a facade accepts no others.
 _ROLES = frozenset({"user", "assistant"})
 
