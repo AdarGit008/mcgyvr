@@ -640,6 +640,25 @@ def _sandbox(args: argparse.Namespace) -> int:
     return 0
 
 
+def _reads_the_tree(contract: Contract) -> bool:
+    """Whether a run of ``contract`` reads anything off the repository's HEAD.
+
+    The note :func:`_say_what_the_sandbox_leaves_out` prints is about what a
+    sandbox of HEAD holds, so it is worth reading only to a run that looks in
+    it. Every run that writes a change does. A session (``chat``, ``agent``)
+    writes nothing and has no target: it reads the tree only through the
+    ``sources`` it names and the commands it declares. One with neither — a
+    plain ``chat`` — reads nothing there, and telling it to commit files it
+    never opens is noise (e2e run 3, T4). An ``agent``'s sources are read off
+    HEAD, so it is told. Read off the contract and the catalog's ``session``
+    flag, never a task type's name, which no consumer of the vocabulary
+    spells.
+    """
+    if not contract.is_session:
+        return True
+    return bool(contract.sources or contract.acceptance or contract.demonstration)
+
+
 def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
     """Say on stderr what a sandbox of ``repo``'s HEAD will not hold.
 
@@ -1981,8 +2000,9 @@ def _run(args: argparse.Namespace) -> int:
         print(f"error: {repo} is not a git repository", file=sys.stderr)
         return 1
     # Warned, never refused: the sandbox is HEAD by design, and a dirty tree
-    # only blocks delivery where the target itself is dirty.
-    notes = _say_what_the_sandbox_leaves_out(repo)
+    # only blocks delivery where the target itself is dirty. Said only where
+    # the run reads the tree at all (e2e run 3, T4).
+    notes = _say_what_the_sandbox_leaves_out(repo) if _reads_the_tree(contract) else []
 
     # The ladder path needs the config; the deterministic floor does not and
     # must keep running without one. Both need the journal dir, which is the
