@@ -1,5 +1,2 @@
 # Binary artefacts: never diffed, never merged textually.
-# The PDF summaries this rule was written for moved to AdarGit008/mcgyvr-lab
-# with their Markdown sources; the rule still keeps any PDF out of textual
-# diffs and merges.
 *.pdf binary -diff -merge
