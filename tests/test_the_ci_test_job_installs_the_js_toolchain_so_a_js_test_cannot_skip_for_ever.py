@@ -24,7 +24,7 @@ def test_ci_installs_the_js_toolchain_so_the_skip_cannot_become_permanent() -> N
     holds the one job that must have the toolchain, from any machine, with
     nothing to install.
     """
-    workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    workflow = (REPO / ".forgejo" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     # The job is read up to the next job, so another job's steps cannot stand
     # in for it.
     job = workflow[workflow.index("\n  test:") + 1 :]

@@ -50,7 +50,8 @@ jobs:
       # The runner image ships it today; naming it here keeps the test from
       # turning into a silent skip if the image ever drops it.
       - name: install shellcheck
-        run: sudo apt-get install -y shellcheck
+        # FORGEJO: act-latest ships a stale apt index — update first.
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
       # One `make check` — a single `make setup`, then lint, typecheck,
       # docs-check and test in one pass. The four leaf targets each depend on
       # `setup`, so running them separately rebuilds the editable package four
@@ -61,7 +62,12 @@ jobs:
       # check, so the config-reference / skill drift it guards cannot merge.
       # A separate job would not be required.
       - name: check (lint, typecheck, docs, test)
-        run: make check
+        # FORGEJO: the runner sets RUN_TOOL_CACHE; the door refuses any
+        # ambient RUN_*/DOCKER_* variable (its own vocabulary). Strip them
+        # before `make check`.
+        run: |
+          for v in $(env | grep -E '^(RUN_|DOCKER_)' | cut -d= -f1); do unset "$v"; done
+          make check
   # The package supports every Python from its `requires-python` floor up, and
   # a module can import on the floor and not on a newer one. This job runs the
   # test file that imports every module of the package, and compiles every

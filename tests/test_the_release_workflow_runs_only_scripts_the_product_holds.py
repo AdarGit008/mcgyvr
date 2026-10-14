@@ -16,7 +16,7 @@ import yaml
 
 from tests._paths import REPO
 
-RELEASE = REPO / ".github" / "workflows" / "release.yml"
+RELEASE = REPO / ".forgejo" / "workflows" / "release.yml"
 
 #: A script a run line hands to an interpreter, spelled as a repository path.
 SCRIPT = re.compile(r"(?<![\w/.-])([\w.-]+(?:/[\w.-]+)*\.py)\b")

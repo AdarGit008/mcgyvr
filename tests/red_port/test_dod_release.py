@@ -41,7 +41,7 @@ import yaml
 
 from tests._paths import REPO
 
-WORKFLOWS = REPO / ".github" / "workflows"
+WORKFLOWS = REPO / ".forgejo" / "workflows"
 RELEASE = WORKFLOWS / "release.yml"
 
 #: A pinned action: ``owner/name@<40 hex>``, with the version it stands for
