@@ -50,6 +50,7 @@ from mcgyvr.escalate import (
     DispatchRaisedError,
     Judgement,
     RetryNotes,
+    ascent,
     judge,
     required_policy,
 )
@@ -402,6 +403,51 @@ def refuse_unsendable(
         f"contract {contract.id!r} does not fit rung {rung!r} ({served}) and was "
         f"not sent — {issue}"
     )
+
+
+def refuse_unsendable_climb(
+    config: Config,
+    pool: SourceMap,
+    contract: Contract,
+    prompt: WorkerPrompt,
+    *,
+    window_fraction: float | None = None,
+) -> None:
+    """Raise, before the first attempt, if any rung of the climb cannot be sent to.
+
+    Owner decision (2026-10-14, e2e run 3 T1): a model-written ``code``
+    contract's cap is held to the ceiling of every unit it reaches. Asked only
+    as each rung is reached, a cap the dearer rung cannot hold is found on the
+    escalation to it — after the cheaper rungs have spent their attempts on
+    work the run could never finish. So the first attempt asks
+    :func:`refuse_unsendable` of every rung of the climb, with its own prompt,
+    and the first refusal ends the run before anything is dispatched, naming
+    the rung it is about.
+
+    The climb is :func:`~mcgyvr.escalate.ascent`'s, from the contract's floor:
+    every rung of every family the run may enter. Only for the contracts the
+    unit ceiling bounds (:attr:`~mcgyvr.contract.Contract.needs_output_cap`);
+    any other reply is measured per rung, as it always was.
+    """
+    if not contract.needs_output_cap:
+        return
+    for plan in ascent(config, pool, contract).plans:
+        for step in plan.climbable:
+            name = step.rung.name
+            try:
+                refuse_unsendable(
+                    name,
+                    pool.bind(name),
+                    prompt,
+                    contract,
+                    window_fraction=window_fraction,
+                )
+            except DriveError as refused:
+                raise type(refused)(
+                    f"{refused} (checked before the first attempt: a rung of "
+                    f"the climb that cannot be sent to ends the run before "
+                    f"anything is spent on the rungs below it)"
+                ) from refused
 
 
 def dispatch_prompt(
@@ -760,6 +806,11 @@ def worker_attempt(
     the orchestrator's copy from when the contract was written and is empty on a
     hand-authored one.
 
+    **A cap one rung of the climb cannot hold ends the run before its first
+    attempt.** :func:`refuse_unsendable_climb` asks every rung, with the first
+    prompt, before anything is dispatched; each attempt then asks its own rung
+    again, because a retry's prompt is longer.
+
     **A session's reply is staged at :data:`SESSION_REPLY`, never at its
     target.** A ``chat`` or ``agent`` contract names no target — its reply is
     the answer, returned in the result file and kept in the session log — but
@@ -770,6 +821,9 @@ def worker_attempt(
     if contract.is_session:
         contract = replace(contract, target=SESSION_REPLY)
     notes: dict[str, RetryNotes | None] = {}
+    # The rung the climb was checked from, once: empty until the first attempt
+    # has built its prompt (`refuse_unsendable_climb`).
+    checked: list[str] = []
     if reviewers is None and reviewer is not None:
         # The prose-only seam, as one reviewer for every builder. Its model is
         # asked once, and only because there is a reviewer to name:
@@ -918,6 +972,16 @@ def worker_attempt(
             adapters=adapters,
             retry=notes.get(this.rung.name),
         )
+        # Before the first attempt, every rung of the climb: a cap one of them
+        # cannot hold would otherwise be found only on the escalation to it,
+        # after the cheaper rungs had spent their attempts (owner, 2026-10-14).
+        # The first prompt is the one measured; each attempt still checks its
+        # own, below, because a retry's notes make it longer.
+        if not checked:
+            checked.append(this.rung.name)
+            refuse_unsendable_climb(
+                config, pool, sized, prompt, window_fraction=window_share
+            )
         # A prompt that cannot go to this rung is refused here, before the
         # draws, and not only inside `dispatch_prompt`: there it would be
         # inside the journal's `observe` (a row for a request never sent) and
