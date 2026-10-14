@@ -1,37 +1,28 @@
 {
-  "name": "main — merge protection",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": {
-    "ref_name": {
-      "include": ["~DEFAULT_BRANCH"],
-      "exclude": []
-    }
-  },
-  "bypass_actors": [],
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": true,
-        "allowed_merge_methods": ["merge", "squash", "rebase"]
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": true,
-        "do_not_enforce_on_create": false,
-        "required_status_checks": [
-          { "context": "test", "integration_id": 15368 }
-        ]
-      }
-    }
-  ]
+  "rule_name": "main",
+  "enable_push": false,
+  "enable_push_whitelist": false,
+  "push_whitelist_usernames": [],
+  "push_whitelist_teams": [],
+  "push_whitelist_deploy_keys": false,
+  "enable_merge_whitelist": false,
+  "merge_whitelist_usernames": [],
+  "merge_whitelist_teams": [],
+  "enable_status_check": true,
+  "status_check_contexts": [
+    "ci / test (pull_request)"
+  ],
+  "required_approvals": 0,
+  "enable_approvals_whitelist": false,
+  "approvals_whitelist_username": [],
+  "approvals_whitelist_teams": [],
+  "block_on_rejected_reviews": false,
+  "block_on_official_review_requests": false,
+  "block_on_outdated_branch": true,
+  "dismiss_stale_approvals": false,
+  "ignore_stale_approvals": false,
+  "require_signed_commits": false,
+  "protected_file_patterns": "",
+  "unprotected_file_patterns": "",
+  "apply_to_admins": false
 }
