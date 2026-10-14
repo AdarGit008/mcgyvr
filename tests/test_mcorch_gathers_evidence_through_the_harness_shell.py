@@ -227,18 +227,29 @@ def test_prose_proposes_from_the_document_and_the_rung_sees_a_digest() -> None:
 
 
 def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() -> None:
-    rung = ScriptedRung(text("ok"))
+    proposals = json.dumps(
+        [
+            {
+                "task_type": "code",
+                "max_output_tokens": 1024,
+                "task": "Doc.",
+                "target": "pkg/listing.py",
+                "stop_conditions": ["x"],
+            }
+        ]
+    )
+    rung = ScriptedRung(text(proposals), text("ok"))
     jev = ScriptedJev(
         kind="code", target="pkg/listing.py", symbol="paginate", ready_to_run=True
     )
     turn = _respond(_after_read(_tools("Write", "Bash")), rung, jev, "classifier")
-    # The classifier states no reply cap, and a `code` contract must (owner,
-    # 2026-10-14): its proposal is refused at decomposition, by name, and no
-    # contract is put to the readiness question.
-    assert [name for name, _ in jev.asked] == ["kind", "target", "symbol"]
-    assert turn.trace.contracts == 0
-    digest = rung.calls[0].turns[-1]["content"]
-    assert "max_output_tokens" in digest, digest
+    # The classifier chooses `code`, whose contract states a reply cap no
+    # choice can say (owner, 2026-10-14): it proposes nothing, asks no symbol,
+    # and the prose proposer writes the contract, cap included.
+    assert [name for name, _ in jev.asked][:2] == ["kind", "target"]
+    assert "symbol" not in [name for name, _ in jev.asked]
+    assert turn.trace.contracts == 1
+    assert len(rung.calls) == 2  # the prose proposer, then the conversation
 
     # Nothing from the classifier (it is not sure of the kind) → prose is asked.
     proposals = json.dumps(

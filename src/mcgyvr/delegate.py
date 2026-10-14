@@ -437,7 +437,9 @@ class ClassifierProposer:
     knows the endpoint and model, so this type holds neither — which is what
     keeps it above the seam. On low confidence in any answer the proposer
     returns nothing, a refusal the caller answers by falling back to the agent
-    or a stronger proposer, rather than by guessing.
+    or a stronger proposer, rather than by guessing. It returns nothing too when
+    the model chooses a type whose contract must state its reply cap
+    (``code``): the prose proposer writes that work, cap included.
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
@@ -474,6 +476,11 @@ class ClassifierProposer:
             return ()
         kind = _kind_for(kind_answer.choice, vocabulary)
         if kind is None:  # the model answered with a name not on offer
+            return ()
+        if kind.needs_output_cap:
+            # The work must state what its reply is worth, and no choice here
+            # can say it (owner, 2026-10-14, e2e run 3): nothing is proposed,
+            # and the prose proposer behind this one writes it with its cap.
             return ()
         target = target_answer.choice
 

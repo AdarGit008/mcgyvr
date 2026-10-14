@@ -191,6 +191,18 @@ class TaskType:
         """
         return self.evidence_derived or "gate" in self.evidence_names
 
+    @property
+    def needs_output_cap(self) -> bool:
+        """Whether a contract of this kind must state ``limits.max_output_tokens``.
+
+        True of the work mcgyvr's harness bounds: a change a model writes and
+        the gate judges. Not of a session, which is a raw connection to a
+        model, nor of a deterministic operation, which calls none, nor of a
+        reply judged only by its output checks (``media``). Owner decision,
+        2026-10-14 (e2e run 3 T1).
+        """
+        return not self.deterministic and not self.session and self.judges_a_change
+
 
 @dataclass(frozen=True)
 class Catalog:

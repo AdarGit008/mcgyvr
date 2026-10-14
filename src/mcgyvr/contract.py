@@ -880,11 +880,7 @@ class Contract:
         (``media``). Read off the catalog entry rather than the type's name, so
         the rule follows what the work is and not what it is called.
         """
-        return (
-            not self.is_deterministic
-            and not self.is_session
-            and self.kind.judges_a_change
-        )
+        return self.kind.needs_output_cap
 
     @property
     def acceptance_commands(self) -> tuple[tuple[str, ...], ...]:

@@ -32,7 +32,7 @@ from mcgyvr.delegate import (
     classifier_proposer_for,
 )
 from mcgyvr.local_pool import Protocol, source_map
-from mcgyvr.orchestrator.decompose import Evidence, Proposal, decompose
+from mcgyvr.orchestrator.decompose import Evidence, Proposal
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
@@ -128,7 +128,11 @@ def answer(choice: str, confidence: float) -> ChoiceAnswer:
     )
 
 
-CODE = catalog().require("code")
+#: The example kind the choice mechanics are shown with. Not ``code``: a
+#: ``code`` contract states its reply cap, which no choice can say, so the
+#: classifier hands that work to the prose proposer
+#: (test_the_classifier_leaves_capped_work_to_the_prose_proposer.py).
+MEDIA = catalog().require("media")
 
 
 # --- the typed-decision path ----------------------------------------------
@@ -147,21 +151,24 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
             return decision_of({"symbol": answer("listing", 0.9)})
         return decision_of(
             {
-                "kind": answer("code", 0.9),
+                "kind": answer("media", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    proposals = propose(evidence_for(repo, "document listing", (CODE,)))
+    proposals = propose(evidence_for(repo, "document listing", (MEDIA,)))
 
     (proposal,) = proposals
     assert proposal == Proposal(
-        task_type="code",
-        task="Make a scoped edit to one named target: listing in listing.py.",
+        task_type="media",
+        task=(
+            "Generate one image, audio or video artifact, judged by the gate's "
+            "media_valid check: listing in listing.py."
+        ),
         target="listing.py",
         stop_conditions=(
-            "code on listing in listing.py would require deciding "
+            "media on listing in listing.py would require deciding "
             "something the contract does not state — report BLOCKED rather "
             "than guess",
         ),
@@ -172,7 +179,7 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
 
     kind = first["kind"]
     assert isinstance(kind, Choice)
-    assert kind.options == {"code": CODE.doc}
+    assert kind.options == {"media": MEDIA.doc}
 
     target = first["target"]
     assert isinstance(target, Choice)
@@ -196,18 +203,18 @@ def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
             return decision_of({"symbol": answer("", 0.9)})
         return decision_of(
             {
-                "kind": answer("code", 0.9),
+                "kind": answer("media", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    proposals = propose(evidence_for(repo, "document the pagination helper", (CODE,)))
+    proposals = propose(evidence_for(repo, "document the pagination helper", (MEDIA,)))
 
     assert len(proposals) == 1
     state, _ = seen[0]
     assert state["request"] == "document the pagination helper"
-    assert state["task_types"] == ["code"]
+    assert state["task_types"] == ["media"]
     assert "listing.py" in state["candidates"] or "pagination.py" in state["candidates"]
 
 
@@ -220,13 +227,13 @@ def test_a_classifier_proposer_refuses_when_the_kind_is_uncertain(
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return decision_of(
             {
-                "kind": answer("code", MIN_CONFIDENCE - 0.1),
+                "kind": answer("media", MIN_CONFIDENCE - 0.1),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (CODE,))) == ()
+    assert propose(evidence_for(repo, "document listing", (MEDIA,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
@@ -235,13 +242,13 @@ def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return decision_of(
             {
-                "kind": answer("code", 0.9),
+                "kind": answer("media", 0.9),
                 "target": answer("listing.py", MIN_CONFIDENCE - 0.1),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (CODE,))) == ()
+    assert propose(evidence_for(repo, "document listing", (MEDIA,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_the_symbol_is_uncertain(
@@ -252,13 +259,13 @@ def test_a_classifier_proposer_refuses_when_the_symbol_is_uncertain(
             return decision_of({"symbol": answer("listing", MIN_CONFIDENCE - 0.1)})
         return decision_of(
             {
-                "kind": answer("code", 0.9),
+                "kind": answer("media", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (CODE,))) == ()
+    assert propose(evidence_for(repo, "document listing", (MEDIA,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_nothing_matched(
@@ -316,7 +323,7 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
             return decision_of({"symbol": answer("listing", 0.9)})
         return decision_of(
             {
-                "kind": answer("code", 0.9),
+                "kind": answer("media", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
@@ -325,52 +332,7 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
 
     propose = classifier_proposer_for(pool)
     assert propose is not None
-    (proposal,) = propose(evidence_for(repo, "document listing", (CODE,)))
+    (proposal,) = propose(evidence_for(repo, "document listing", (MEDIA,)))
 
     assert proposal.target == "listing.py"
     assert len(sent) == 2
-
-
-def test_decompose_refuses_the_classifiers_code_proposal_for_its_missing_cap(
-    repo: Index, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The classifier names a kind, a target and a symbol, and no reply cap.
-
-    A model-written `code` contract states what its reply is worth (owner,
-    2026-10-14), and the classifier has no question that could say it, so its
-    `code` proposal reaches the decomposer with none and is refused there,
-    naming the field, rather than emitted to be refused at dispatch.
-    """
-    import mcgyvr.decision as decision
-
-    config = parse(cfg(ORCHESTRATOR))
-    pool = source_map(config)
-
-    def fake_classify_role(
-        source_map: Any,
-        role: str,
-        state: Any,
-        questions: Mapping[str, Question],
-        *,
-        capacity: Any = None,
-        timeout_s: Any = None,
-    ) -> Decision:
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("listing", 0.9)})
-        return decision_of(
-            {
-                "kind": answer("code", 0.9),
-                "target": answer("listing.py", 0.9),
-            }
-        )
-
-    monkeypatch.setattr(decision, "classify_role", fake_classify_role)
-
-    propose = classifier_proposer_for(pool)
-    assert propose is not None
-    result = decompose(repo, "document listing", propose=propose, config=config)
-
-    assert result.contracts == ()
-    (refused,) = result.refusals
-    assert refused.subject == "listing.py"
-    assert "max_output_tokens" in refused.reason, refused.reason

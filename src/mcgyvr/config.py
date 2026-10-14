@@ -895,7 +895,8 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "and the deterministic decomposer turns them into contracts. "
         "`classifier`: the `jev` unit answers typed questions (task type, "
         "target, symbol), and the strategy falls back to `prose` when its "
-        "confidence is low. No default is shipped, because which strategy a "
+        "confidence is low or it chooses `code`, whose reply cap only `prose` "
+        "states. No default is shipped, because which strategy a "
         "local rung does best is being measured, and the file must say which.",
         choices=("direct", "prose", "classifier"),
         bind_hint="name one of `direct`, `prose`, `classifier`",
