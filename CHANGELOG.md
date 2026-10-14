@@ -94,6 +94,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   findings are gone, and a table that carries one is refused by its name.
   `mcgyvr capabilities` lists each model's memory figure, without the card
   classes and caveats it printed before. A version 3 table is refused.
+- **The `measure` dependency group.** Only the lab's token-estimator
+  measurement used it, and the lab carries the group itself.
 - **The model knowledge's online half**, `mcgyvr.knowledge.online` and
   `mcgyvr.knowledge.boards`: no command ran it. The cache, the shipped catalog
   and the geometry rows are read as before. The Hub's address `serve fetch`
