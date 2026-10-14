@@ -942,7 +942,7 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
         "nearest this unit on the ladder whose model is not the builder's — "
         "the rungs below it first, dearest first, then the rungs above it, "
         "cheapest first. A local rung may always be the fallback; a hosted one "
-        "only when this unit is hosted and the rung is cheaper than it. The "
+        "only when this unit is hosted and the rung is below it on the ladder. The "
         "result and the journal name the fallback and say it stood in; with "
         "none, the work is accepted and labelled unverified, saying why.",
         bind_hint="name one of the units declared under `units`",
