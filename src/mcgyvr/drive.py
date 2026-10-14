@@ -126,15 +126,27 @@ class OutputCapUnstatedError(DriveError):
 
 
 class OutputCapTooLargeError(DriveError):
-    """The reply cap for this rung does not fit the window that rung serves.
+    """The contract's reply cap is above the ceiling of the unit it reaches.
 
-    Distinct from :class:`PromptTooLargeError` because the repair is: one is a
-    contract to re-decompose, the other is a number to re-declare — the rung's
-    ``output_tokens`` where it set one, the contract's
-    ``limits.max_output_tokens`` where it did not, and the message names which.
-    A reply cap larger than the machine serves would be truncated at a boundary
-    nobody chose — the failure a per-rung cap exists to end — so it is refused
-    at the seam that would have sent it.
+    For model-written ``code``, the ceiling is what the unit's window leaves
+    beside the prompt, or its ``output_tokens``, or the smaller of the two
+    (:class:`~mcgyvr.gate.preflight.UnitCeiling`); for any other reply, the
+    whole window. Distinct from :class:`PromptTooLargeError` because the
+    repair is: one is a contract to re-decompose, the other is a number to
+    re-declare, and the message names the cap, the unit, the window, the
+    prompt as charged and the ceiling. A cap above the ceiling is not lowered
+    to fit — that would send a number nobody chose — so it is refused at the
+    seam that would have sent it.
+    """
+
+
+class UnitCeilingUnknownError(DriveError):
+    """The unit states no ceiling a ``code`` contract's cap can be held to.
+
+    Neither ``units.<unit>.window`` nor ``units.<unit>.output_tokens`` is set,
+    so whether the contract's cap fits cannot be known (owner, 2026-10-14).
+    Setup writes one on every unit it can read; one it could not is listed as
+    not configured, and a dispatch to it refuses until either is set.
     """
 
 
@@ -377,14 +389,18 @@ def refuse_unsendable(
     )
     if issue is None:
         return
-    refusal = (
-        OutputCapTooLargeError
-        if issue.reason == "output-cap"
-        else ContractTooLargeForRungError
+    refusal: type[DriveError] = {
+        "output-cap": OutputCapTooLargeError,
+        "unit-ceiling-unknown": UnitCeilingUnknownError,
+    }.get(issue.reason, ContractTooLargeForRungError)
+    served = (
+        f"{endpoint.context_window}-token window"
+        if endpoint.context_window is not None
+        else "no window stated"
     )
     raise refusal(
-        f"contract {contract.id!r} does not fit rung {rung!r} "
-        f"({endpoint.context_window}-token window) and was not sent — {issue}"
+        f"contract {contract.id!r} does not fit rung {rung!r} ({served}) and was "
+        f"not sent — {issue}"
     )
 
 
@@ -405,14 +421,13 @@ def dispatch_prompt(
     Both halves of the prompt travel — ``system`` carries the bundle the
     target's language earned and dropping it would send a worker the
     instructions for no language at all — and the output cap is
-    :func:`~mcgyvr.gate.preflight.reply_cap`'s: the rung's own
-    ``units.*.output_tokens`` where it declared one, and the contract's
-    ``limits.max_output_tokens`` where it did not, and never more than a
-    ceiling the rung carries. The argument for which of
-    the two wins is written where the choice is made, in ``reply_cap``. A
-    raw-text reply (``prose`` / ``media_artifact``) is uncapped, so ``cap`` is
-    ``None`` there and the runner omits the wire field — except on a ride,
-    which is sent the ceiling it carries.
+    :func:`~mcgyvr.gate.preflight.sized_reply_cap`'s: the contract's
+    ``limits.max_output_tokens``, exactly, once :func:`refuse_unsendable` has
+    found it within the unit's ceiling — a unit's ``output_tokens`` bounds it
+    and never replaces it. A contract that states no cap (a raw connection, a
+    ``media_artifact`` reply) is uncapped, so ``cap`` is ``None`` there and the
+    runner omits the wire field — except on a ride, which is sent the ceiling
+    it carries.
 
     ``contract`` is taken whole rather than as a cap, because a binding given
     only a number cannot be the place the fit refusal happens, and the refusal
@@ -438,11 +453,9 @@ def dispatch_prompt(
     """
     endpoint = source_map.bind(rung)
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
-    # Sized with the prompt and the share the refusal above measured, so the
-    # cap sent is the cap that was checked.
-    cap = sized_reply_cap(
-        contract, endpoint, prompt=prompt.measured, default_fraction=window_fraction
-    )
+    # Read beside the prompt the refusal above measured, so the basis the
+    # journal records names the ceiling the cap was checked against.
+    cap = sized_reply_cap(contract, endpoint, prompt=prompt.measured)
     # ``timeout_s`` is the unit's ``request_timeout_s``, passed by the caller
     # that holds the config. ``None`` keeps ``Request``'s own default.
     fields: dict[str, Any] = {

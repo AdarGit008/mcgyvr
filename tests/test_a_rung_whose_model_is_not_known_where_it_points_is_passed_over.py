@@ -61,10 +61,12 @@ units:
     model: {POOLED}
     api_key_env: HUB_KEY
     width: 1
+    window: 32768
   local_fast:
     address: {address}
     model: {LOCAL_MODEL}
     width: 1
+    window: 32768
 ladder: [local_fast, pooled]
 fanout: idle
 relief:

@@ -130,16 +130,18 @@ def test_a_contract_whose_ceiling_exceeds_the_rungs_window_is_not_sent(
         assert named in said, f"the refusal must name {named!r}: {said}"
 
 
-def test_a_prompt_bigger_than_the_rungs_window_is_not_sent(
+def test_a_prompt_that_leaves_too_little_room_for_the_cap_is_not_sent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The case the contract's own ceiling cannot see: question 3.
+    """The case the contract's own ceiling cannot see: question 2.
 
     The contract declares a ceiling the rung serves, and the prompt it is
-    assembled into fits that ceiling — but not beside the reply the rung must
-    hold room for. This is the request llama.cpp answered with a ``400``.
+    assembled into fits that ceiling — but not beside the reply the contract
+    states. This is the request llama.cpp answered with a ``400``. The prompt
+    is the constant and the cap is what adjusts (owner, 2026-10-14), so the
+    refusal names the unit's ceiling for this prompt and the cap above it.
     """
-    from mcgyvr.drive import ContractTooLargeForRungError, dispatch_prompt
+    from mcgyvr.drive import OutputCapTooLargeError, dispatch_prompt
     from mcgyvr.worker.prompt import build_prompt
 
     sent = _sent(monkeypatch)
@@ -152,13 +154,13 @@ def test_a_prompt_bigger_than_the_rungs_window_is_not_sent(
     prompt = build_prompt(contract)
     assert prompt.fits, "the prompt fits the contract's own ceiling"
 
-    with pytest.raises(ContractTooLargeForRungError) as refused:
+    with pytest.raises(OutputCapTooLargeError) as refused:
         dispatch_prompt(pool, "local_narrow", prompt, contract)
 
     assert sent == []
     said = str(refused.value)
-    assert "local_narrow" in said and "2048" in said, said
-    assert "prompt-too-large" in said, said
+    assert "local_narrow" in said and "2048" in said and "256" in said, said
+    assert "output-cap" in said, said
 
 
 def test_the_same_contract_is_sent_to_a_rung_that_serves_its_size(

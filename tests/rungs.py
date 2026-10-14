@@ -128,11 +128,13 @@ units:
     model: {POOLED}
     api_key_env: HUB_KEY
     width: 1
+    window: 32768
   other:
     address: {other}
     model: {OTHER}
     api_key_env: HUB_KEY
     width: 1
+    window: 32768
 ladder: [pooled, other]
 """
 
@@ -239,6 +241,7 @@ units:
     address: {address}
     model: qwen2.5-coder-3b
     width: 1
+    window: 32768
 ladder: [local_fast]
 fanout: idle
 relief:

@@ -62,11 +62,13 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
   big:
     address: http://localhost:18002
     model: zeta-coder:32b
     rig: bench-b
     width: 1
+    window: 32768
 ladder:
 - small
 - big
@@ -82,16 +84,19 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
   twin:
     address: http://localhost:18003
     model: registry.example/Acme-Coder:7b:latest
     rig: bench-c
     width: 1
+    window: 32768
   big:
     address: http://localhost:18002
     model: zeta-coder:32b
     rig: bench-b
     width: 1
+    window: 32768
 ladder:
 - small
 - twin
@@ -106,6 +111,7 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
 ladder:
 - small
 """
@@ -718,11 +724,13 @@ units:
     model: acme-coder:7b
     rig: bench-a
     width: 1
+    window: 32768
   hosted:
     address: https://api.example.invalid
     model: zeta-large
     rig: cloud
     api_key_env: ZETA_TEST_KEY
+    window: 32768
 ladder:
 - small
 - hosted
