@@ -428,8 +428,10 @@ def test_the_result_and_the_journal_name_the_stand_in_after_a_climb(
     assert set(typed) == {"flash"}, f"asked on {typed}"
     written = json.loads(result.read_text(encoding="utf-8"))
     assert written["assurance"] == "verified", written
-    # The judgement's words ride on the accepted attempt: the run's own
-    # `detail` is where the work landed, which delivery writes last.
+    # The judgement's words are the run's own `detail`, as they are the
+    # accepted attempt's: where the work landed is `delivery`'s (#183).
+    assert "verified by flash" in written["detail"], written["detail"]
+    assert written["delivery"].startswith("not committed"), written["delivery"]
     accepted = written["attempts"][-1]
     assert accepted["rung"] == "pro", accepted
     assert "verified by flash" in accepted["detail"], accepted["detail"]

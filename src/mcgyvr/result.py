@@ -86,7 +86,18 @@ class RunResult:
     session_file: str | None = None
     journal: str | None = None
     outcome: str = "error"
+    #: Why the run ended as it did. On an accepted run, the judgement in its
+    #: own words — verified by whom, unverified and why, or a reply's checks —
+    #: and never where the change went, which is :attr:`delivery`'s. On any
+    #: other outcome, what stopped it: an outcome that is not ``accepted`` is
+    #: explained here, a refused delivery included.
     detail: str = ""
+    #: Where delivery put the accepted change, in its own words: left in the
+    #: tree uncommitted, the commit it landed in, or why it was refused (then
+    #: also :attr:`detail`, since the refusal is the outcome). Empty on a run
+    #: that never reached delivery. A field of its own so that saying where the
+    #: change went never writes over how it was judged (#183).
+    delivery: str = ""
     #: The rung the run came to rest on, not renamed for the reason
     #: :attr:`AttemptResult.rung` gives.
     rung: str | None = None

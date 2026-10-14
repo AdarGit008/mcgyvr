@@ -2243,11 +2243,14 @@ def _run(args: argparse.Namespace) -> int:
         # is already in the working tree — and a traceback with no `result:`
         # line reads to the caller as a run that never started. One line that
         # names the path, the reason and what the run came to is the whole of
-        # what the file would have said that matters.
+        # what the file would have said that matters — where the change went
+        # included, which is `delivery`'s to say beside the judgement.
+        went = report.delivery if report.delivery != report.detail else ""
         print(
             f"error: the result could not be written to {failed}: {exc}. "
             f"The run came to {report.outcome}"
             + (f": {report.detail}" if report.detail else "")
+            + (f"; {went}" if went else "")
             + f" (exit {code}).",
             file=sys.stderr,
         )
@@ -3454,9 +3457,13 @@ def _commit(
             )
 
     def refused(reason: str) -> None:
+        # The refusal is the run's outcome, so `detail` carries it too (set by
+        # the caller with the outcome); `delivery` says it where every other
+        # delivery says where the change went.
         verdict.say(refused=reason)
         _say_reported(bound)
         landed(DELIVERY_REFUSED, reason)
+        report.delivery = reason
 
     adapters = getattr(args, "gate_adapters", None)
     if adapters is None:
@@ -3490,8 +3497,10 @@ def _commit(
         print(f"\nLeft in {left}, not committed (pass --commit to commit).")
         for path, _ in bound.files(contract):
             _say_not_rerun(adapters, path)
-        landed(NOT_COMMITTED, f"not committed; change left in {left}")
-        report.detail = f"change left in {left}"
+        # Beside the judgement, never over it: `detail` stays how the work
+        # was judged, and where it went is `delivery`'s (#183).
+        report.delivery = f"not committed; change left in {left}"
+        landed(NOT_COMMITTED, report.delivery)
         return 0
 
     try:
@@ -3522,6 +3531,7 @@ def _commit(
     report.commit = delivery.commit
     report.branch = delivery.branch
     report.handoff = delivery.handoff
+    report.delivery = str(delivery)
     landed(COMMITTED, f"{delivery.commit[:12]} on {delivery.branch or 'HEAD'}")
     return 0
 

@@ -381,6 +381,7 @@ tests/test_delegate.py	integration	functional	agreed	agreed
 tests/test_delivery_checks_run_with_or_without_commit.py	integration	logic|functional	agreed	disputed	
 tests/test_delivery_does_not_load_a_delivered_checker_config_on_the_host.py	unit|integration	logic	disputed	agreed	
 tests/test_delivery_judges_a_changed_argument_by_the_same_setting_as_the_sandbox.py	integration	functional	agreed	agreed	
+tests/test_delivery_says_where_the_change_went_beside_the_judgement_not_over_it.py			unreviewed	unreviewed	
 tests/test_delivery_writes_what_was_judged_where_the_contract_said.py	integration	functional	agreed	agreed	
 tests/test_derived_numbers.py	integration|unit	infra	disputed	agreed	
 tests/test_detect.py	unit	functional	agreed	agreed	
