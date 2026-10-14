@@ -44,6 +44,7 @@ path.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -770,14 +771,14 @@ def ssh_log(where: Path) -> list[str]:
 
 
 def scan_payload(host: str) -> dict[str, object]:
-    """What the shipped rig scanner answers for ``host``, matching its rig file."""
+    """What the one reader answers for ``host``, matching its rig file."""
     rig = RIG[host]
     total = int(rig["gpu_vram_mib"])
     reserve = int(rig["gpu_reserve_mib"])
     used = int(LIVE[host]["gpu_used_mib"])
     return {
         "machine": {
-            "id": f"machine-{host}",
+            "id": hashlib.sha256(f"host:{host}".encode()).hexdigest()[:16],
             "host": host,
             "kernel": "6.8.0-invented",
         },
@@ -803,26 +804,16 @@ def scan_payload(host: str) -> dict[str, object]:
 
 
 def rig_file(host: str) -> dict[str, object]:
-    """The user's rig file for ``host``, as ``mcgyvr scan --rig`` writes it."""
-    rig = RIG[host]
+    """The user's rig file for ``host``, as ``mcgyvr scan --rig`` writes it: the
+    one reading the stubs answer with, kept whole."""
+    snapshot, _ = split_reading(snapshot_lines(host))
     return {
         "rig": host,
         "read_at": "2026-09-26T00:00:00Z",
-        "hostname": host,
-        "machine_id": f"machine-{host}",
-        "cards": [
-            {
-                "index": 0,
-                "name": rig["gpu_name"],
-                "total_mib": int(rig["gpu_vram_mib"]),
-            }
-        ],
-        "ram_total_gb": 15.7,
-        "disk": {"path": "/home/user/.cache/mcgyvr/weights", "free_gb": 400.0},
-        "docker": rig["docker"],
-        "private_ipv4": None,
-        "private_ipv4_how": "the scan read no network (an invented rig)",
-        "notes": [],
+        "reading": {
+            **scan_payload(host),
+            "snapshot": {"gpu_others": "", **snapshot["snapshot"]},  # type: ignore[dict-item]
+        },
     }
 
 

@@ -176,15 +176,19 @@ def test_the_machines_together_are_spread_over_many_card_sizes_and_counts() -> N
 
 
 def test_card_reader_text_answers_the_query_detection_asks() -> None:
-    """The default query is detect's own: captured, not restated."""
+    """The default query is the one reader's own: captured, not restated."""
+    from mcgyvr.serving import rigscan
+
     asked: list[Sequence[str]] = []
 
-    def run(command: Sequence[str]) -> str | None:
+    def run(
+        command: Sequence[str], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
         asked.append(tuple(command))
-        return None
+        return None, None
 
-    with mock.patch.object(detect, "_run", run):
-        detect.detect_gpus()
+    with mock.patch.object(rigscan, "_run", run):
+        rigscan.read_machine(root="/nonexistent-root")
     query = next(a for a in asked[0] if a.startswith("--query-gpu="))
     cards = shape("several-sizes").cards
     assert card_reader_text(cards) == card_reader_text(

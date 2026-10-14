@@ -4,6 +4,9 @@ The properties that matter are therefore about behaviour under absence and
 under failure, not about what this particular machine reports. Nothing here
 touches the network or a real subprocess: every probe is stubbed, so the
 suite asserts on the code's handling rather than on the runner's hardware.
+The cards and RAM come from the one reader of a machine
+(:mod:`mcgyvr.serving.rigscan`), read here over a file root that holds nothing
+and with its tool seam answered from a table.
 """
 
 from __future__ import annotations
@@ -28,15 +31,36 @@ from mcgyvr.detect import (
     targets_for,
 )
 
-NVIDIA_SMI = "NVIDIA GeForce RTX 3060, 12288\n"
-NVIDIA_SMI_TWO = "NVIDIA GeForce RTX 3060, 12288\nNVIDIA GeForce GTX 1660 SUPER, 6144\n"
+#: What the first vendor's tool prints for the reader's query
+#: (``index,memory.total,memory.used,memory.free,name``).
+NVIDIA_SMI = "0, 12288, 0, 12288, NVIDIA GeForce RTX 3060\n"
+NVIDIA_SMI_TWO = (
+    "0, 12288, 0, 12288, NVIDIA GeForce RTX 3060\n"
+    "1, 6144, 0, 6144, NVIDIA GeForce GTX 1660 SUPER\n"
+)
+#: A file root that holds nothing: no file of the machine the tests run on is
+#: read by the reader.
+EMPTY_ROOT = "/nonexistent-mcgyvr-test-root"
 
 LCP_MODELS = {"data": [{"id": "qwen2.5-coder:7b"}, {"id": "qwen2.5-coder:3b"}]}
 OPENAI_MODELS = {"data": [{"id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"}]}
 
 
 def stub_run(monkeypatch: pytest.MonkeyPatch, table: dict[str, str | None]) -> None:
-    """Replace command execution with a lookup keyed on the binary name."""
+    """Replace command execution with a lookup keyed on the binary name: the
+    one reader's tool seam (cards) and detect's own (the docker probe)."""
+    from mcgyvr.serving import rigscan
+
+    def reader_run(argv: Any, *, bound: float = 0.0) -> tuple[str | None, str | None]:
+        return table.get(argv[0]), None
+
+    monkeypatch.setattr(rigscan, "_run", reader_run, raising=True)
+    monkeypatch.setattr(
+        detect_module,
+        "_reading",
+        lambda: rigscan.read_machine(root=EMPTY_ROOT),
+        raising=True,
+    )
     monkeypatch.setattr(
         detect_module, "_run", lambda cmd: table.get(cmd[0]), raising=True
     )
@@ -73,7 +97,7 @@ def test_absence_is_explained_rather_than_left_silent(
     stub_http(monkeypatch, {})
     notes = " ".join(detect().notes)
     assert "nvidia-smi" in notes, "an undetected GPU must say what was tried"
-    assert "AMD" in notes, "and must name the machines it cannot speak for"
+    assert "other vendors" in notes, "and must name the cards it cannot speak for"
     assert "No local backend answered" in notes
     assert "temp directory" in notes, "a missing Docker must state what it costs"
 
@@ -143,10 +167,44 @@ def test_largest_vram_is_not_a_sum(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_garbage_from_nvidia_smi_does_not_raise(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Lines that are no card are no card list: not determined, and why."""
     stub_run(monkeypatch, {"nvidia-smi": "this is not, csv\nnor, is-this\n"})
     gpus, notes = detect_gpus()
     assert gpus == ()
-    assert notes and "reported no device" in notes[0]
+    assert notes and "not determined" in notes[0]
+    assert "not a card line" in notes[0]
+
+
+def test_a_tool_that_answers_with_no_card_reports_no_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_run(monkeypatch, {"nvidia-smi": ""})
+    gpus, notes = detect_gpus()
+    assert gpus == ()
+    assert notes == ("GPU: nvidia-smi ran but reported no device.",)
+
+
+def test_a_card_of_another_vendor_is_not_proposed_from() -> None:
+    """The reader reads it; detection sizes from the first vendor's cards."""
+    reading = {
+        "cards": [
+            {"vendor": "amd", "index": 0, "name": "Example Card", "total_mib": 8192}
+        ],
+        "unread": [],
+    }
+    gpus, notes = detect_gpus(reading)
+    assert gpus == ()
+    assert notes and "not determined" in notes[0]
+
+
+def test_ram_is_the_readers_memory_total() -> None:
+    from mcgyvr.detect import detect_ram_gb
+
+    assert detect_ram_gb({"memory": {"total_gb": 15.7, "available_gb": 9.0}})[0] == 15.7
+    assert detect_ram_gb({"memory": None}) == (
+        None,
+        "not determined — the reader read no memory total",
+    )
 
 
 # --- backends -------------------------------------------------------------

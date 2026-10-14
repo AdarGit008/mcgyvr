@@ -35,7 +35,7 @@ import ipaddress
 import json
 import os
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -292,7 +292,7 @@ def test_a_local_gpu_is_read_then_approved_by_init(
     beside it stays hosted."""
     setup = tmp_path / "setup"
     found = _found(LOCAL)
-    monkeypatch.setattr("mcgyvr.cli._read_local_rig", lambda rig: RIG_ID)
+    _reads(monkeypatch, lambda rig: RIG_ID)
     assert _init(monkeypatch, setup, "--api", HOSTED, found=found) == 0
     said = capsys.readouterr().out
 
@@ -343,7 +343,7 @@ def test_a_hosted_unit_at_a_user_machine_is_not_approved_beside_a_local_rig(
         f"model=small-model,address=http://{_first_host(0xC0A80000, 16)}:8080/v1,"
         "api_key_env=K"
     )
-    monkeypatch.setattr("mcgyvr.cli._read_local_rig", lambda rig: RIG_ID)
+    _reads(monkeypatch, lambda rig: RIG_ID)
     assert _init(monkeypatch, setup, "--api", mine, found=_found(LOCAL)) == 0
     said = capsys.readouterr().out
 
@@ -352,22 +352,29 @@ def test_a_hosted_unit_at_a_user_machine_is_not_approved_beside_a_local_rig(
     assert "No fleet was made live" in said and "machine of yours" in said, said
 
 
-def test_read_local_rig_runs_the_one_reader_locally(
+def _reads(monkeypatch: pytest.MonkeyPatch, named: Callable[[str], str]) -> None:
+    """Every rig init reads answers with a reading ``named`` names the rig id
+    of (or refuses, as ``named`` raises): the read stands in for the machine."""
+    monkeypatch.setattr("mcgyvr.cli._read_rig", lambda rig: {"named": named(rig)})
+    monkeypatch.setattr("mcgyvr.cli._rig_id", lambda rig, reading: reading["named"])
+
+
+def test_read_rig_runs_the_one_reader_locally(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """The genuine reader runs ``rigscan`` on this machine, writes the rig file,
-    and returns the rig id its reading names."""
+    """The genuine reader runs ``rigscan`` on this machine and writes the rig
+    file, and the rig id is the one its reading names."""
     from mcgyvr.fleet import ids
     from mcgyvr.serving import rigfile
 
-    monkeypatch.setattr("mcgyvr.serving.rigscan.scan", lambda: LOCAL_SCAN)
+    monkeypatch.setattr("mcgyvr.serving.rigscan.scan", lambda **_: LOCAL_SCAN)
     rigs = tmp_path / "rigs"
     monkeypatch.setattr("mcgyvr.serving.rigfile.rigs_dir", lambda: rigs)
 
-    rig_id = cli._read_local_rig("localhost")
+    reading = cli._read_rig("localhost")
 
-    assert rig_id == ids.rig_id(LOCAL_SCAN)
+    assert cli._rig_id("localhost", reading) == ids.rig_id(LOCAL_SCAN)
     saved = rigfile.read("localhost")
     assert saved is not None and saved.rig == "localhost"
 
@@ -378,13 +385,15 @@ def _done(
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
 
-def test_read_remote_rig_reads_the_one_reader_over_the_read_only_ssh_line(
+def test_read_rig_reads_a_remote_one_over_the_read_only_ssh_line_and_records_it(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """The remote reader ships ``rigscan`` over ``ssh_read_only`` — not the
-    door — and returns the rig id its reading names."""
+    door — and writes the rig's file, the one its ``serve up``'s gate 2 asks
+    for; the rig id is the one its reading names."""
     from mcgyvr.fleet import ids
-    from mcgyvr.serving import gatelib
+    from mcgyvr.serving import gatelib, rigfile
 
     seen: dict[str, str] = {}
 
@@ -396,15 +405,18 @@ def test_read_remote_rig_reads_the_one_reader_over_the_read_only_ssh_line(
         return _done(json.dumps(LOCAL_SCAN))
 
     monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
+    rigs = tmp_path / "rigs"
+    monkeypatch.setattr("mcgyvr.serving.rigfile.rigs_dir", lambda: rigs)
 
-    rig_id = cli._read_remote_rig("box.invalid")
+    reading = cli._read_rig("box.invalid")
 
-    assert rig_id == ids.rig_id(LOCAL_SCAN)
+    assert cli._rig_id("box.invalid", reading) == ids.rig_id(LOCAL_SCAN)
     assert seen["host"] == "box.invalid"
     assert seen["command"] == gatelib.scan_read_command()
+    assert rigfile.read("box.invalid") is not None
 
 
-def test_read_remote_rig_refuses_on_a_nonzero_ssh_exit(
+def test_read_rig_refuses_on_a_nonzero_ssh_exit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A rig that cannot answer the read is a refusal, not a traceback."""
@@ -417,13 +429,13 @@ def test_read_remote_rig_refuses_on_a_nonzero_ssh_exit(
     monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
 
     with pytest.raises(PromoteRefusedError) as excinfo:
-        cli._read_remote_rig("box.invalid")
+        cli._read_rig("box.invalid")
     assert "box.invalid" in str(excinfo.value)
     assert "no route to host" in str(excinfo.value)
 
 
-def test_read_remote_rig_refuses_when_the_reading_names_no_rig_id(
-    monkeypatch: pytest.MonkeyPatch,
+def test_a_rig_whose_reading_names_no_rig_id_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A reading whose card size was not read hashes no rig id: refused."""
     unread = {
@@ -439,8 +451,9 @@ def test_read_remote_rig_refuses_when_the_reading_names_no_rig_id(
 
     monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
 
+    monkeypatch.setenv("MCGYVR_RIGS", str(tmp_path / "rigs"))
     with pytest.raises(PromoteRefusedError) as excinfo:
-        cli._read_remote_rig("box.invalid")
+        cli._rig_id("box.invalid", cli._read_rig("box.invalid"))
     assert "box.invalid" in str(excinfo.value)
     assert "does not read" in str(excinfo.value)
 
@@ -467,7 +480,7 @@ def test_a_unit_on_a_remote_rig_is_read_then_approved_by_init(
     machine over ssh: the fleet lays out the remote rig, pinned by the read's
     rig id, and a hosted unit beside it stays hosted."""
     setup = tmp_path / "setup"
-    monkeypatch.setattr("mcgyvr.cli._read_remote_rig", lambda rig: RIG_ID)
+    _reads(monkeypatch, lambda rig: RIG_ID)
     remote = _remote("box.invalid", "small-model")
     assert _init(monkeypatch, setup, "--api", HOSTED, found=_found(remote)) == 0
     said = capsys.readouterr().out
@@ -503,7 +516,7 @@ def test_a_fleet_on_two_remote_rigs_is_read_then_approved_by_init(
         read.append(rig)
         return REMOTE_RIG_IDS[rig]
 
-    monkeypatch.setattr("mcgyvr.cli._read_remote_rig", read_rig)
+    _reads(monkeypatch, read_rig)
     assert (
         _init(
             monkeypatch,
@@ -555,7 +568,7 @@ def test_a_remote_rig_that_cannot_be_read_is_not_approved(
     def unreadable(rig: str) -> str:
         raise PromoteRefusedError(f"{rig}: cannot be read")
 
-    monkeypatch.setattr("mcgyvr.cli._read_remote_rig", unreadable)
+    _reads(monkeypatch, unreadable)
     assert (
         _init(
             monkeypatch,

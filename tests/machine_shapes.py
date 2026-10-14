@@ -21,12 +21,13 @@ that need them, and nothing here needs a pytest fixture.
 
 How the product's readers are fed
 ---------------------------------
-The product reads cards with one vendor's tool and reads servers by asking each
-conventional port for its model list. :func:`detection` and :func:`scan` run
-the product's own code with only those two seams answered from the shape
-(``_run`` for the tool, ``_get_json`` for a server), so what they return is
-what the product's parsers make of this machine. If a parser changes, the
-answer here changes with it.
+The product reads cards with its one reader (:mod:`mcgyvr.serving.rigscan`)
+and reads servers by asking each conventional port for its model list.
+:func:`detection` and :func:`scan` run the product's own code with only those
+two seams answered from the shape (the reader's ``_run`` for the tool, over an
+empty file root, and ``_get_json`` for a server), so what they return is what
+the product's parsers make of this machine. If a parser changes, the answer
+here changes with it.
 
 How the card sizes are made
 ---------------------------
@@ -48,6 +49,8 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+import json
+import tempfile
 import types
 import urllib.parse
 from collections.abc import Mapping, Sequence
@@ -84,10 +87,10 @@ VENDORS: Mapping[str, bool] = types.MappingProxyType(
 # What the card reading tool prints for a value it cannot read.
 _NOT_AVAILABLE = "[N/A]"
 
-# The query mcgyvr.detect asks the card reading tool. Held to detect's own
-# command by the generator's test, which captures the command rather than
-# trusting this copy.
-_DETECT_QUERY = "name,memory.total"
+# The query the product's one reader asks the card reading tool. Held to the
+# reader's own command by the generator's test, which captures the command
+# rather than trusting this copy.
+_DETECT_QUERY = "index,memory.total,memory.used,memory.free,name"
 
 # The kernel release every invented machine reports: a stand-in, so no scan
 # built here carries the release of the machine the tests happen to run on.
@@ -406,7 +409,7 @@ def card_reader_text(cards: Sequence[Card], /, *, query: str = _DETECT_QUERY) ->
 def _reader_answer(machine: Shape, arguments: Sequence[str]) -> str | None:
     """What the card reading tool answers on this machine: None when absent."""
     query = _query_of(arguments)
-    if machine.card_reader_missing:
+    if machine.card_reader_missing or "pci.bus_id" in query:
         return None
     return card_reader_text(machine.cards, query=query)
 
@@ -455,10 +458,12 @@ def detection(machine: Shape, /, *, reached: Sequence[Shape] = ()) -> Detection:
         raise ValueError(f"a host is swept twice in {list(hosts)}")
     servers = [server for each in (machine, *reached) for server in each.servers]
 
-    def run(command: Sequence[str]) -> str | None:
+    def run(
+        command: Sequence[str], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
         if not machine.local or command[0] != "nvidia-smi":
-            return None
-        return _reader_answer(machine, command[1:])
+            return None, None
+        return _reader_answer(machine, command[1:]), None
 
     def get_json(url: str, timeout: float) -> Any | None:
         asked = urllib.parse.urlsplit(url)
@@ -474,15 +479,23 @@ def detection(machine: Shape, /, *, reached: Sequence[Shape] = ()) -> Detection:
                 }
         return None
 
-    def ram() -> tuple[float | None, str]:
+    def ram(*_: Any) -> tuple[float | None, str]:
         return None, "not determined — an invented machine states no RAM"
 
     def docker() -> tuple[bool, str]:
         return False, "an invented machine has no docker daemon"
 
+    from mcgyvr.serving import rigscan
+
+    def reading() -> Mapping[str, Any]:
+        # An empty root: nothing of the machine the tests run on is read.
+        with tempfile.TemporaryDirectory() as root:
+            return rigscan.read_machine(root=root)
+
     no_cpu_count = types.SimpleNamespace(cpu_count=lambda: None)
     with (
-        mock.patch.object(detect, "_run", run),
+        mock.patch.object(rigscan, "_run", run),
+        mock.patch.object(detect, "_reading", reading),
         mock.patch.object(detect, "_get_json", get_json),
         mock.patch.object(detect, "detect_ram_gb", ram),
         mock.patch.object(detect, "detect_docker", docker),
@@ -494,34 +507,37 @@ def detection(machine: Shape, /, *, reached: Sequence[Shape] = ()) -> Detection:
 def scan(machine: Shape, /) -> Scan:
     """What :mod:`mcgyvr.scan` reports of this machine, scanned where it is.
 
-    The cards go through the product's own reader (``_scan_gpus``) with the
-    card reading tool answering :func:`card_reader_text` for scan's query, so
-    its notes on an unreadable row or an absent tool are the product's. The
+    The cards go through the product's one reader (:mod:`mcgyvr.serving.rigscan`)
+    with the card reading tool answering :func:`card_reader_text` for its
+    query, so its notes on an unreadable row or an absent tool are the
+    product's. The
     machine is the shape's id and host with a stand-in kernel. Memory, CPU,
     bandwidth and disk are not part of a shape and are left absent. A machine
     that is not ``local`` is scanned on the far end and read back through
     ``Scan.from_json``, as the product's remote transport does.
     """
     from mcgyvr import scan as product
+    from mcgyvr.serving import rigscan
 
-    def run(binary: str, *arguments: str, timeout: float = 0.0) -> str | None:
-        if binary != "nvidia-smi":
-            return None
-        return _reader_answer(machine, arguments)
+    def run(
+        command: Sequence[str], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
+        if command[0] != "nvidia-smi":
+            return None, None
+        return _reader_answer(machine, command[1:]), None
 
-    with mock.patch.object(product, "_run", run):
-        gpus, facts, notes = product._scan_gpus()
-    measured = product.Scan(
-        machine=product.Machine(
-            id=machine.machine_id, host=machine.host, kernel=_KERNEL
-        ),
-        gpus=gpus,
-        notes=notes,
-        facts=(product.Fact(field="machine.id", how="invented"), *facts),
-    )
-    if machine.local:
-        return measured
-    return product.Scan.from_json(measured.to_json())
+    with tempfile.TemporaryDirectory() as root, mock.patch.object(rigscan, "_run", run):
+        read = rigscan._Short(root, rigscan.BOUND_S)
+        gpus, facts, notes = rigscan._gpus(
+            read.rows, read.first_answered, read.document["unread"]
+        )
+    payload = {
+        "machine": {"id": machine.machine_id, "host": machine.host, "kernel": _KERNEL},
+        "gpus": gpus,
+        "notes": notes,
+        "facts": [{"field": "machine.id", "how": "invented"}, *facts],
+    }
+    return product.Scan.from_json(json.dumps(payload))
 
 
 def with_server(

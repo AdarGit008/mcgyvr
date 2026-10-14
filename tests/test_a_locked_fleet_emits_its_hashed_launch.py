@@ -27,9 +27,9 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
 from mcgyvr.exits import Exit
+from tests import records
 
 HF_CACHE = "/home/user/.cache/huggingface"
 MODELS_VOLUMES = [
@@ -151,7 +151,7 @@ def no_scans(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """No rig has been scanned: a locked launch needs no scan to be rendered."""
     empty = tmp_path / "scans"
     empty.mkdir()
-    monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(empty))
+    monkeypatch.setenv(records.RIGS_ENV, str(empty))
 
 
 def emit(config: Path, out: Path, *extra: str) -> int:

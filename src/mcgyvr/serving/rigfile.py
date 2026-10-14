@@ -1,23 +1,34 @@
-"""The rig as its user described it: what the door's user mode holds a run to.
+"""The rig as its user described it: the one record of a machine.
 
 Owner, 2026-10-07 (Round 5): a door run from an install has no lab checkout,
-so there is no lab ``hosts.json`` declaring the rig. What it has
-instead is the rig file ``<rig-file folder>/<rig>.json`` (:func:`path`): the
-rig's read-only ssh scan (:mod:`mcgyvr.serving.rigscan`, the one scanner),
-saved by ``mcgyvr scan --rig`` -- its hostname, its cards and their memory,
-its RAM, its free disk, its docker version, and its private IPv4 address
-(:func:`private_ipv4`, owner Round 9: the address an RPC worker of a unit
-spanning machines listens on, as the rig reported it; nothing is resolved).
-The rig-file folder is ``$MCGYVR_RIGS`` when the user named one, else the
-config folder's ``rigs``. ``mcgyvr setup`` will write the file on a first run.
+so there is no lab ``hosts.json`` declaring the rig. What it has instead is
+the rig file ``<rig-file folder>/<rig>.json`` (:func:`path`): one reading of
+the rig by the one reader (:mod:`mcgyvr.serving.rigscan`), kept whole. It is
+the only record of a machine mcgyvr keeps (owner, 2026-10-14: one record per
+machine): ``mcgyvr scan`` writes this machine's as ``localhost``, ``mcgyvr
+scan --rig`` a remote rig's over the read-only ssh line, and ``mcgyvr setup``
+each rig it serves on; ``emit`` sizes from them. The rig-file folder is
+``$MCGYVR_RIGS`` when the user named one, else the config folder's ``rigs``.
 
-Each user-mode door run reads the rig again with the same scanner and holds
-the reading to the file (:func:`door_check`): it says what moved, and it
-refuses only when the fleet no longer fits -- a card the fleet's compose file
-reserves is gone, or holds less memory than the file records. Anything else
-that moved (RAM, docker, the hostname, a card the fleet does not use) is said
-and admitted. The file is the user's description and the door never rewrites
-it: a rig that changed for good is scanned again.
+What a door run holds a rig to is read off that reading (:class:`Rig`): its
+hostname, machine id and rig id (:func:`mcgyvr.fleet.ids.rig_id`), its cards
+and their memory, its RAM, cores and bandwidth, its free disk, its docker
+version, the snapshot's facts of the machine (:data:`RECORDED`: the CPU's
+model, clock and power limits, the DDR speed, the first card's slot and
+compute capability, the cards beyond it, the driver and the kernel), and its
+private IPv4 address (:func:`private_ipv4`, owner Round 9: the address an RPC
+worker of a unit spanning machines listens on, as the rig reported it;
+nothing is resolved).
+
+Each user-mode door run reads the rig again with the same reader and holds the
+reading to the file (:func:`door_check`): it says what moved (:func:`moved`),
+and it refuses only when the fleet no longer fits -- a card the fleet's
+compose file reserves is gone, or holds less memory than the file records.
+Anything else that moved (RAM, docker, the driver, the kernel, the hostname, a
+card the fleet does not use) is said and admitted: a driver upgrade is a
+machine that changed, which the gate says, not another machine. The file is
+the user's record and the door never rewrites it: a rig that changed for good
+is scanned again.
 """
 
 from __future__ import annotations
@@ -29,6 +40,7 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import cached_property
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +51,31 @@ from mcgyvr.scan import ModelOnDisk, Network, Scan
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 #: The command that writes a rig file, as a refusal names it.
 MAKE = "mcgyvr scan --rig {rig}"
+#: The rig name this machine's own record is kept under.
+LOCAL = "localhost"
+#: The snapshot keys a rig file holds the rig to: the facts of the machine that
+#: are not in its rig id and do not move run to run. Volatile readings (the
+#: boot time, free memory, the reserve the firmware takes per boot) are left
+#: out, as is what :class:`Rig` reads elsewhere (the card's name and size, and
+#: docker).
+RECORDED = (
+    "cpu_model",
+    "cpu_max_mhz",
+    "ram_mt_s",
+    "pl1_uw",
+    "pl2_uw",
+    "gpu_cc",
+    "gpu_slot",
+    "gpu_others",
+    "driver",
+    "kernel",
+)
+#: The facts a change in which is the hardware changing under the machine —
+#: what ``mcgyvr scan`` exits 4 for. A bandwidth reading repeats to within 9%
+#: of itself run to run (:mod:`mcgyvr.serving.rigscan`), so it has moved only
+#: past :data:`BANDWIDTH_TOLERANCE`: memory that lost a channel roughly halves.
+HARDWARE = ("ram_total_gb", "cpu_cores", "cpu_threads", "bandwidth_gbps")
+BANDWIDTH_TOLERANCE = 0.15
 
 
 class RigFileError(Exception):
@@ -59,75 +96,113 @@ class Card:
 
 @dataclass(frozen=True)
 class Rig:
-    """One rig file: the rig's scan, kept to the facts the door holds a run to."""
+    """One rig file: one reading of the rig, and when it was taken.
+
+    Every fact is read off :attr:`reading` (the one reader's document), so the
+    file holds each fact once.
+    """
 
     rig: str
     read_at: str
-    hostname: str
-    machine_id: str
-    cards: tuple[Card, ...] = ()
-    ram_total_gb: float | None = None
-    cpu_cores: int | None = None
-    cpu_threads: int | None = None
-    bandwidth_gbps: float | None = None
-    bandwidth_how: str = ""
-    disk_path: str | None = None
-    disk_free_gb: float | None = None
-    disk_total_gb: float | None = None
-    disk_device: str | None = None
-    models_on_disk: tuple[ModelOnDisk, ...] = ()
-    docker: str | None = None
-    notes: tuple[str, ...] = ()
-    #: The private IPv4 address a worker on this rig listens on, or None.
-    private_ipv4: str | None = None
-    #: How :attr:`private_ipv4` was picked, or why none was.
-    private_ipv4_how: str = ""
+    reading: Mapping[str, Any]
+
+    @cached_property
+    def scan(self) -> Scan:
+        return Scan.from_json(json.dumps(self.reading))
+
+    @property
+    def hostname(self) -> str:
+        return self.scan.machine.host
+
+    @property
+    def machine_id(self) -> str:
+        return self.scan.machine.id
+
+    @property
+    def rig_id(self) -> str | None:
+        """The rig id the reading names, or ``None`` when it names none."""
+        from mcgyvr.fleet import ids
+
+        try:
+            return ids.rig_id(self.reading)
+        except ValueError:
+            return None
+
+    @property
+    def cards(self) -> tuple[Card, ...]:
+        return tuple(
+            Card(index=gpu.index, name=gpu.name, total_mib=gpu.vram.total_mib)
+            for gpu in self.scan.gpus
+        )
+
+    @property
+    def ram_total_gb(self) -> float | None:
+        return None if self.scan.memory is None else self.scan.memory.total_gb
+
+    @property
+    def cpu_cores(self) -> int | None:
+        return None if self.scan.cpu is None else self.scan.cpu.cores
+
+    @property
+    def cpu_threads(self) -> int | None:
+        return None if self.scan.cpu is None else self.scan.cpu.threads
+
+    @property
+    def bandwidth_gbps(self) -> float | None:
+        bandwidth = self.scan.bandwidth
+        return None if bandwidth is None else bandwidth.measured_gbps
+
+    @property
+    def bandwidth_how(self) -> str:
+        return "" if self.scan.bandwidth is None else self.scan.bandwidth.how
+
+    @property
+    def disk_path(self) -> str | None:
+        return None if self.scan.disk is None else str(self.scan.disk.path)
+
+    @property
+    def disk_free_gb(self) -> float | None:
+        return None if self.scan.disk is None else self.scan.disk.free_gb
+
+    @property
+    def disk_total_gb(self) -> float | None:
+        return None if self.scan.disk is None else self.scan.disk.total_gb
+
+    @property
+    def disk_device(self) -> str | None:
+        return None if self.scan.disk is None else self.scan.disk.device
+
+    @property
+    def models_on_disk(self) -> tuple[ModelOnDisk, ...]:
+        return self.scan.models_on_disk
+
+    @property
+    def docker(self) -> str | None:
+        return self.scan.docker
+
+    @property
+    def notes(self) -> tuple[str, ...]:
+        return self.scan.notes
+
+    @property
+    def snapshot(self) -> dict[str, str]:
+        """The :data:`RECORDED` snapshot keys the reading read."""
+        said = self.reading.get("snapshot")
+        said = said if isinstance(said, Mapping) else {}
+        return {key: str(said[key]) for key in RECORDED if key in said}
+
+    @property
+    def private_ipv4(self) -> str | None:
+        """The private IPv4 address a worker on this rig listens on, or None."""
+        return private_ipv4(self.scan.network)[0]
+
+    @property
+    def private_ipv4_how(self) -> str:
+        """How :attr:`private_ipv4` was picked, or why none was."""
+        return private_ipv4(self.scan.network)[1]
 
     def to_json(self) -> str:
-        payload: dict[str, Any] = {
-            "rig": self.rig,
-            "read_at": self.read_at,
-            "hostname": self.hostname,
-            "machine_id": self.machine_id,
-            "cards": [
-                {"index": card.index, "name": card.name, "total_mib": card.total_mib}
-                for card in self.cards
-            ],
-            "ram_total_gb": self.ram_total_gb,
-            "cpu": (
-                None
-                if self.cpu_cores is None and self.cpu_threads is None
-                else {"cores": self.cpu_cores, "threads": self.cpu_threads}
-            ),
-            "bandwidth": (
-                None
-                if self.bandwidth_gbps is None
-                else {"measured_gbps": self.bandwidth_gbps, "how": self.bandwidth_how}
-            ),
-            "disk": (
-                None
-                if self.disk_path is None
-                else {
-                    "path": self.disk_path,
-                    "free_gb": self.disk_free_gb,
-                    "total_gb": self.disk_total_gb,
-                    "device": self.disk_device,
-                }
-            ),
-            "models_on_disk": [
-                {
-                    "name": model.name,
-                    "quant": model.quant,
-                    "size_bytes": model.size_bytes,
-                    "path": str(model.path),
-                }
-                for model in self.models_on_disk
-            ],
-            "docker": self.docker,
-            "private_ipv4": self.private_ipv4,
-            "private_ipv4_how": self.private_ipv4_how,
-            "notes": list(self.notes),
-        }
+        payload = {"rig": self.rig, "read_at": self.read_at, "reading": self.reading}
         return json.dumps(payload, indent=2) + "\n"
 
 
@@ -135,66 +210,13 @@ def from_json(text: str) -> Rig:
     """A rig file read back, or :class:`RigFileError` naming what is wrong."""
     try:
         raw = json.loads(text)
-        disk = raw.get("disk")
-        ram = raw.get("ram_total_gb")
-        cpu = raw.get("cpu")
-        bandwidth = raw.get("bandwidth")
-        address = raw.get("private_ipv4")
-        if address is not None and _listenable(address) is None:
-            raise ValueError(
-                f"private_ipv4 is {address!r}, not a private IPv4 address a "
-                "worker may listen on"
-            )
-        return Rig(
+        rig = Rig(
             rig=str(raw["rig"]),
             read_at=str(raw["read_at"]),
-            hostname=str(raw["hostname"]),
-            machine_id=str(raw.get("machine_id", "")),
-            cards=tuple(
-                Card(
-                    index=int(card["index"]),
-                    name=str(card["name"]),
-                    total_mib=int(card["total_mib"]),
-                )
-                for card in raw.get("cards") or ()
-            ),
-            ram_total_gb=None if ram is None else float(ram),
-            cpu_cores=(
-                None if not cpu or cpu.get("cores") is None else int(cpu["cores"])
-            ),
-            cpu_threads=(
-                None if not cpu or cpu.get("threads") is None else int(cpu["threads"])
-            ),
-            bandwidth_gbps=(
-                None
-                if not bandwidth or bandwidth.get("measured_gbps") is None
-                else float(bandwidth["measured_gbps"])
-            ),
-            bandwidth_how="" if not bandwidth else str(bandwidth.get("how") or ""),
-            disk_path=None if not disk else str(disk["path"]),
-            disk_free_gb=None if not disk else float(disk["free_gb"]),
-            disk_total_gb=(
-                None
-                if not disk or disk.get("total_gb") is None
-                else float(disk["total_gb"])
-            ),
-            disk_device=(
-                None if not disk or disk.get("device") is None else str(disk["device"])
-            ),
-            models_on_disk=tuple(
-                ModelOnDisk(
-                    name=str(model["name"]),
-                    quant=None if model.get("quant") is None else str(model["quant"]),
-                    size_bytes=int(model["size_bytes"]),
-                    path=Path(model["path"]),
-                )
-                for model in raw.get("models_on_disk") or ()
-            ),
-            docker=None if raw.get("docker") is None else str(raw["docker"]),
-            notes=tuple(str(note) for note in raw.get("notes") or ()),
-            private_ipv4=None if address is None else str(address),
-            private_ipv4_how=str(raw.get("private_ipv4_how") or ""),
+            reading=dict(raw["reading"]),
         )
+        rig.scan  # noqa: B018 -- a reading Scan does not take is no rig file
+        return rig
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         raise RigFileError(f"not a rig file ({type(exc).__name__}: {exc})") from None
 
@@ -263,44 +285,20 @@ def private_ipv4(network: Network | None) -> tuple[str | None, str]:
     )
 
 
-def from_scan(rig: str, scan: Scan, read_at: str | None = None) -> Rig:
-    """The rig file of ``rig`` from one scan of it."""
-    address, how = private_ipv4(scan.network)
-    return Rig(
-        rig=rig,
-        read_at=read_at or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        hostname=scan.machine.host,
-        machine_id=scan.machine.id,
-        cards=tuple(
-            Card(index=gpu.index, name=gpu.name, total_mib=gpu.vram.total_mib)
-            for gpu in scan.gpus
-        ),
-        ram_total_gb=None if scan.memory is None else scan.memory.total_gb,
-        cpu_cores=None if scan.cpu is None else scan.cpu.cores,
-        cpu_threads=None if scan.cpu is None else scan.cpu.threads,
-        bandwidth_gbps=None if scan.bandwidth is None else scan.bandwidth.measured_gbps,
-        bandwidth_how="" if scan.bandwidth is None else scan.bandwidth.how,
-        disk_path=None if scan.disk is None else str(scan.disk.path),
-        disk_free_gb=None if scan.disk is None else scan.disk.free_gb,
-        disk_total_gb=None if scan.disk is None else scan.disk.total_gb,
-        disk_device=None if scan.disk is None else scan.disk.device,
-        models_on_disk=scan.models_on_disk,
-        docker=scan.docker,
-        notes=scan.notes,
-        private_ipv4=address,
-        private_ipv4_how=how,
-    )
-
-
 def from_reading(
     rig: str, reading: Mapping[str, Any], read_at: str | None = None
 ) -> Rig:
     """The rig file of ``rig`` from one reading of it (:mod:`~.rigscan`)."""
+    now = Rig(
+        rig=rig,
+        read_at=read_at or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        reading=dict(reading),
+    )
     try:
-        scan = Scan.from_json(json.dumps(reading))
-    except (ValueError, KeyError, TypeError) as exc:
+        now.scan  # noqa: B018 -- a reading Scan does not take is refused here
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
         raise RigFileError(f"{rig}: the reading is not one this takes ({exc})") from exc
-    return from_scan(rig, scan, read_at)
+    return now
 
 
 def path(rig: str) -> Path:
@@ -331,6 +329,38 @@ def write(rig: Rig) -> Path:
     partial.write_text(rig.to_json(), encoding="utf-8")
     partial.replace(target)
     return target
+
+
+@dataclass(frozen=True)
+class Saved:
+    """What :func:`save` did: the rig file now, the one before, and where."""
+
+    now: Rig
+    before: Rig | None
+    path: Path
+    #: Whether the file before was kept: it knew its cards and this reading
+    #: did not.
+    kept: bool
+
+
+def save(rig: str, reading: Mapping[str, Any]) -> Saved:
+    """Record ``reading`` as ``rig``'s rig file, replacing the one before.
+
+    Unless the one before knew its cards and this reading does not: a card
+    list nvidia-smi could not give is no reading of the cards, and replacing
+    a record that had one would make the next healthy read report every card
+    as new — and a door run refuse a card the fleet uses as gone.
+    """
+    now = from_reading(rig, reading)
+    try:
+        before = read(rig)
+    except RigFileError:
+        before = None
+    target = path(rig)
+    known = before is not None and before.scan.gpus_determined
+    if known and not now.scan.gpus_determined:
+        return Saved(now=now, before=before, path=target, kept=True)
+    return Saved(now=now, before=before, path=write(now), kept=False)
 
 
 def read(rig: str) -> Rig | None:
@@ -364,7 +394,11 @@ def moved(saved: Rig, now: Rig) -> tuple[Moved, ...]:
     """Every fact the door holds a run to that reads differently now.
 
     Free disk is not among them: it moves with every download, and a
-    difference in it says nothing about the machine.
+    difference in it says nothing about the machine. Bandwidth has moved only
+    past :data:`BANDWIDTH_TOLERANCE`. Cards are compared only when both
+    readings determined them: an unanswered card tool is not a pulled card. A
+    snapshot fact the record read and the rig no longer does is said as
+    ``unread``; one the record never read is not held.
     """
     found = [
         Moved(field, getattr(saved, field), getattr(now, field))
@@ -372,24 +406,48 @@ def moved(saved: Rig, now: Rig) -> tuple[Moved, ...]:
             "hostname",
             "machine_id",
             "ram_total_gb",
+            "cpu_cores",
+            "cpu_threads",
             "docker",
             "private_ipv4",
         )
         if getattr(saved, field) != getattr(now, field)
     ]
+    was_gbps, now_gbps = saved.bandwidth_gbps, now.bandwidth_gbps
+    if (
+        was_gbps is not None
+        and now_gbps is not None
+        and was_gbps > 0
+        and abs(now_gbps - was_gbps) > BANDWIDTH_TOLERANCE * was_gbps
+    ):
+        found.append(Moved("bandwidth_gbps", was_gbps, now_gbps))
+    # The record says what the rig is held to: a fact it never read is no
+    # fact that moved, and a fact it read that now is not is said as unread.
+    for key in RECORDED:
+        was, is_now = saved.snapshot.get(key), now.snapshot.get(key)
+        if was is not None and was != is_now:
+            found.append(Moved(key, was, is_now or "unread"))
+    if not (saved.scan.gpus_determined and now.scan.gpus_determined):
+        return tuple(found)
     before = {card.index: card for card in saved.cards}
     after = {card.index: card for card in now.cards}
     for index in sorted(before.keys() | after.keys()):
-        was, is_now = before.get(index), after.get(index)
-        if was != is_now:
+        was_card, now_card = before.get(index), after.get(index)
+        if was_card != now_card:
             found.append(
                 Moved(
                     f"card {index}",
-                    "absent" if was is None else was.said(),
-                    "absent" if is_now is None else is_now.said(),
+                    "absent" if was_card is None else was_card.said(),
+                    "absent" if now_card is None else now_card.said(),
                 )
             )
     return tuple(found)
+
+
+def is_hardware(change: Moved) -> bool:
+    """Whether ``change`` is the hardware changing under the machine: a card,
+    RAM, cores or bandwidth (:data:`HARDWARE`)."""
+    return change.field in HARDWARE or change.field.startswith("card ")
 
 
 def misfits(saved: Rig, now: Rig, used: Iterable[int] | None) -> tuple[str, ...]:

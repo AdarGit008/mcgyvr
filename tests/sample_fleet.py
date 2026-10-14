@@ -135,25 +135,25 @@ def staged(
 
 
 def rig_file(cards: tuple[int, ...] = (12288,)) -> Path:
-    """Write the invented rig's file under the config folder, as setup's scan does."""
+    """Write the invented rig's file under the config folder, as setup's read does."""
     from mcgyvr.serving import rigfile
 
-    return rigfile.write(
-        rigfile.Rig(
-            rig=RIG,
-            read_at="2026-10-05T09:59:00Z",
-            hostname=RIG,
-            machine_id=SNAPSHOT["os_machine_id"],
-            cards=tuple(
-                rigfile.Card(index=index, name="Example GPU 12GB", total_mib=mib)
-                for index, mib in enumerate(cards)
-            ),
-            ram_total_gb=64.0,
-            disk_path="/",
-            disk_free_gb=500.0,
-            docker=SNAPSHOT["docker"],
-        )
-    )
+    reading = {
+        "machine": {"id": SNAPSHOT["os_machine_id"], "host": RIG, "kernel": "k"},
+        "gpus": [
+            {
+                "index": index,
+                "name": "Example GPU 12GB",
+                "vram": {"total_mib": mib, "used_mib": 0, "free_mib": mib},
+            }
+            for index, mib in enumerate(cards)
+        ],
+        "memory": {"total_gb": 64.0, "available_gb": 60.0},
+        "disk": {"path": "/", "free_gb": 500.0},
+        "docker": SNAPSHOT["docker"],
+        "snapshot": dict(SNAPSHOT),
+    }
+    return rigfile.write(rigfile.from_reading(RIG, reading, "2026-10-05T09:59:00Z"))
 
 
 def slots_page(busy: bool = False) -> str:

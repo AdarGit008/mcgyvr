@@ -17,7 +17,6 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
 from mcgyvr.config import FLEET_FILENAME
 from mcgyvr.config import load as load_config
@@ -30,6 +29,7 @@ from mcgyvr.exits import Exit
 from mcgyvr.fleet.files import load_fleet
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, unit_for
+from tests import records
 
 WINDOW = 4096
 SMALL = ModelSpec(
@@ -153,9 +153,9 @@ def _config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
     scans = tmp_path / "scans"
     scans.mkdir()
     (scans / f"{host}.json").write_text(
-        machine(host, vram_mib=12288).to_json(), encoding="utf-8"
+        records.rig_file(machine(host, vram_mib=12288)), encoding="utf-8"
     )
-    monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(scans))
+    monkeypatch.setenv(records.RIGS_ENV, str(scans))
 
     config = tmp_path / "config"
     config.mkdir()

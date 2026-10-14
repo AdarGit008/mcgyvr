@@ -7,6 +7,10 @@ something to say. A caller that cannot tell those apart has to read prose.
 
 ``scan --json`` prints the wire format ``mcgyvr.scan.Scan.from_json`` reads,
 so its contract is here too: stdout is the scan and nothing else.
+
+The machine is read by the one reader (:mod:`mcgyvr.serving.rigscan`), stubbed
+here with an invented machine's document, and recorded as its rig file
+(``$MCGYVR_RIGS/localhost.json``), the one record ``emit`` sizes from.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -22,40 +27,57 @@ from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
 from mcgyvr.exits import Exit
 
-LSCPU = (
-    "CPU(s):                20\nCore(s) per socket:    10\nThread(s) per core:    2\n"
-)
-SMI = "0, NVIDIA GeForce RTX 3060, 12288, 12, 12276\n"
+#: The invented machine's id and the name it calls itself.
+MACHINE_ID = "0a1b2c3d4e5f6a7b"
+HOST = "bench-host"
+
+
+def _reading(ram_kb: int) -> dict[str, Any]:
+    """What the one reader prints for the invented machine with ``ram_kb`` RAM."""
+    return {
+        "machine": {"id": MACHINE_ID, "host": HOST, "kernel": "6.8.0-invented"},
+        "gpus": [
+            {
+                "index": 0,
+                "name": "Example Card 12G",
+                "vram": {
+                    "total_mib": 12288,
+                    "used_mib": 12,
+                    "free_mib": 12276,
+                    "reserved_mib": 0,
+                },
+            }
+        ],
+        "memory": {
+            "total_gb": round(ram_kb / (1024.0 * 1024.0), 1),
+            "available_gb": round(30000000 / (1024.0 * 1024.0), 1),
+        },
+        "cpu": {"cores": 10, "threads": 20},
+        "bandwidth": {"measured_gbps": 41.2, "how": "copy loop"},
+        "disk": {"path": "/home/user/.cache/mcgyvr/weights", "free_gb": 900.0},
+        "models_on_disk": [],
+        "docker": None,
+        "network": {"reached_at": None, "ipv4": []},
+        "snapshot": {"driver": "580.1", "kernel": "6.8.0-invented"},
+        "notes": [],
+        "facts": [],
+    }
 
 
 #: What the `bench` fixture hands a case: a re-installer for the stubbed
-#: hardware answers, called with any subset of `install`'s keyword arguments.
+#: reading, called with any subset of `install`'s keyword arguments.
 Bench = Callable[..., None]
 
 
 @pytest.fixture
 def bench(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Bench:
+    from mcgyvr.serving import rigscan
+
+    monkeypatch.setenv("MCGYVR_RIGS", str(tmp_path / "rigs"))
+    monkeypatch.setattr(rigscan, "machine_id", lambda **_: MACHINE_ID)
+
     def install(*, ram_kb: int = 49293144) -> None:
-        monkeypatch.setattr(
-            scan_module,
-            "_run",
-            lambda binary, *a, **k: {
-                "nvidia-smi": SMI,
-                "lscpu": LSCPU,
-            }.get(binary),
-        )
-        monkeypatch.setattr(
-            scan_module,
-            "_read_meminfo",
-            lambda: f"MemTotal:       {ram_kb} kB\nMemAvailable:   30000000 kB\n",
-        )
-        monkeypatch.setattr(
-            scan_module,
-            "measure_bandwidth",
-            lambda: scan_module.Bandwidth(measured_gbps=41.2, how="copy loop"),
-        )
-        monkeypatch.setattr(scan_module, "_free_bytes", lambda path: 900 * 1024**3)
-        monkeypatch.setattr(scan_module, "default_root", lambda: tmp_path)
+        monkeypatch.setattr(rigscan, "scan", lambda *a, **k: _reading(ram_kb))
 
     install()
     return install
@@ -90,13 +112,15 @@ def test_a_mismatch_exits_four(
 
 
 def test_a_mismatch_still_wrote_the_scan(
-    bench: Bench, capsys: pytest.CaptureFixture[str]
+    bench: Bench, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     main(["scan"])
     capsys.readouterr()
     bench(ram_kb=33554432)
     main(["scan"])
-    assert "mismatch" in capsys.readouterr().out.lower()
+    assert "moved since" in capsys.readouterr().out.lower()
+    saved = json.loads((tmp_path / "rigs" / "localhost.json").read_text("utf-8"))
+    assert saved["reading"]["memory"]["total_gb"] == 32.0
 
 
 def test_emitting_for_an_unscanned_host_exits_three(
@@ -157,8 +181,8 @@ def test_two_models_on_one_endpoint_are_two_launch_specs(
     """
     main(["scan"])
     capsys.readouterr()
-    scanned = next(iter(scan_module.default_root().glob("*.json")))
-    host = json.loads(scanned.read_text(encoding="utf-8"))["machine"]["host"]
+    scanned = tmp_path / "rigs" / "localhost.json"
+    host = json.loads(scanned.read_text(encoding="utf-8"))["reading"]["machine"]["host"]
     config = tmp_path / "two.yaml"
     config.write_text(
         f"""\
@@ -211,11 +235,12 @@ def test_a_loopback_source_resolves_to_the_scan_of_this_machine(
 ) -> None:
     """`base_url: http://localhost:8080` names the machine that was just scanned.
 
-    A scan is filed under what the machine calls itself (``platform.node()``);
-    a source is looked up by the hostname in its URL. Those two strings almost
-    never agree, so `emit` refused the one machine it did have a measurement
-    for -- and `localhost` is what the stock config ships with, which made the
-    command unusable for the ordinary case of a rig serving itself.
+    A machine is known by what it calls itself (``platform.node()``) and by
+    its rig name; a source is looked up by the hostname in its URL. Those
+    strings almost never agree, so `emit` refused the one machine it did have a
+    measurement for -- and `localhost` is what the stock config ships with,
+    which made the command unusable for the ordinary case of a rig serving
+    itself.
     """
     assert main(["scan"]) == Exit.OK
     capsys.readouterr()
@@ -330,9 +355,9 @@ def test_scan_json_exits_zero_even_when_the_hardware_drifted(
 ) -> None:
     """A drifted rig must still deliver its measurement down the wire.
 
-    `--json` is only ever the remote transport's format: `scan_over` -> `_ssh`
-    -> `_run`, and `_run` answers None for any non-zero status, whatever was
-    written to stdout. Exiting 4 there would make the exact rig exit 4 exists
+    `--json` prints the remote transport's format, and a transport that reads a
+    command's stdout discards it for any non-zero status, whatever was
+    written. Exiting 4 there would make the exact rig exit 4 exists
     to report -- one that lost a DIMM or a card -- read as unreachable and drop
     out of the sweep, taking a perfectly good scan with it. The mismatch is
     reported on stderr instead, where the transport never looks.
@@ -343,19 +368,20 @@ def test_scan_json_exits_zero_even_when_the_hardware_drifted(
     assert main(["scan", "--json"]) == Exit.OK
     captured = capsys.readouterr()
     assert json.loads(captured.out)["memory"]["total_gb"] == 32.0
-    assert "mismatch" in captured.err.lower()
+    assert "moved since" in captured.err.lower()
 
 
 def test_a_drifted_rig_survives_the_transport_that_reads_the_json(
     bench: Bench, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The same rule stated as `_run` states it, so the two cannot drift apart."""
+    """The same rule stated as a transport states it, so the two cannot drift
+    apart."""
     main(["scan"])
     capsys.readouterr()
     bench(ram_kb=33554432)
     code = main(["scan", "--json"])
     written = capsys.readouterr().out
-    # What `_run` does with a status and a stdout: anything non-zero is
+    # What a transport does with a status and a stdout: anything non-zero is
     # discarded and becomes `Unreachable` one frame up.
     delivered = written if code == Exit.OK else None
     assert delivered is not None

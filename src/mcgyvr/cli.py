@@ -79,7 +79,7 @@ from mcgyvr.initialize import (
     parse_api_unit,
     render_fleet,
 )
-from mcgyvr.scan import Mismatch, ModelOnDisk, Scan
+from mcgyvr.scan import ModelOnDisk, Scan
 from mcgyvr.serving import (
     ModelSpec,
     Unit,
@@ -785,26 +785,28 @@ def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
     return str(prompt(question)).strip().lower() in {"y", "yes"}
 
 
-def _setup_scan_rigs(rigs: Sequence[str]) -> dict[str, Scan]:
-    """Step 2: measure each rig and record it, so ``emit`` can size from it."""
-    from mcgyvr.detect import is_local_host
+def _setup_scan_rigs(
+    rigs: Sequence[str],
+) -> tuple[dict[str, Scan], dict[str, dict[str, Any]]]:
+    """Step 2: read each rig once and record it as its rig file, so ``emit``
+    sizes from it and the door's gate 2 holds ``serve up`` to it.
+
+    Returns each rig's scan and the reading it was parsed from: the fleet is
+    approved later from that same reading (:func:`_own_fleet_live`), so a rig
+    is read once per setup.
+    """
+    from mcgyvr.fleet.promote import PromoteRefusedError
 
     scans: dict[str, Scan] = {}
+    readings: dict[str, dict[str, Any]] = {}
     for rig in dict.fromkeys(rigs):
-        if is_local_host(rig):
-            measured = scan_module.scan()
-        else:
-            try:
-                measured = scan_module.scan_over(scan_module.Reach.ssh(rig))
-            except (
-                scan_module.Unreachable,
-                scan_module.ScannerMissing,
-                scan_module.ScanFailed,
-            ) as exc:
-                raise _SetupInteractiveError(f"{rig}: {exc}") from exc
-        scan_module.write_scan(measured, scan_module.default_root())
-        scans[rig] = measured
-    return scans
+        try:
+            reading = _read_rig(rig)
+        except PromoteRefusedError as exc:
+            raise _SetupInteractiveError(str(exc)) from exc
+        readings[rig] = reading
+        scans[rig] = Scan.from_json(json.dumps(reading))
+    return scans, readings
 
 
 def _setup_placements(
@@ -1076,7 +1078,7 @@ def _setup_interactive(path: Path) -> int:
     try:
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
-        scans = _setup_scan_rigs(rigs)
+        scans, readings = _setup_scan_rigs(rigs)
         plans = _setup_placements(rigs, scans)
         ctx_per_slot = _setup_context_window(plans)
         downloads = _setup_downloads(plans, scans)
@@ -1116,7 +1118,7 @@ def _setup_interactive(path: Path) -> int:
         _setup_emit(path, ctx_per_slot)
 
         if _confirm("Lock the fleet and name it live? [y/N] "):
-            approved, unapproved = _own_fleet_live(path)
+            approved, unapproved = _own_fleet_live(path, readings)
         else:
             approved, unapproved = (), ("The fleet was not locked or made live.",)
         decisions = final.decisions + approved
@@ -1218,7 +1220,9 @@ def _setup(args: argparse.Namespace) -> int:
     return 0
 
 
-def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _own_fleet_live(
+    setup: Path, readings: Mapping[str, Mapping[str, Any]] | None = None
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Approve the setup ``setup`` wrote at ``setup`` as the user's own fleet and
     name it live; ``(decisions, limits)`` saying what was done, or why not.
 
@@ -1230,7 +1234,9 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     (``mcgyvr fleet use`` switches), and a machine of the user's is not
     approved: it is approved only by a read of it. Every rig the setup lays a
     unit on is read first — the local machine without ssh, a remote one over
-    ssh — and only then is the fleet approved with each of them laid out.
+    ssh, or by the reading ``readings`` already holds for it when the setup read
+    it a step before — and only then is the fleet approved with each of them
+    laid out, named by the rig id its reading names.
     """
     from mcgyvr.fleet.promote import (
         PromoteRefusedError,
@@ -1259,10 +1265,9 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
         if not rigs:
             folder = approve_own(setup)
         else:
+            held = readings or {}
             rig_ids = {
-                rig: _read_local_rig(rig)
-                if rig == "localhost"
-                else _read_remote_rig(rig)
+                rig: _rig_id(rig, held[rig] if rig in held else _read_rig(rig))
                 for rig in rigs
             }
             folder = approve_own_rigs(setup, rigs=rig_ids)
@@ -1297,9 +1302,9 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
 def _rigs(setup: Path) -> tuple[str, ...]:
     """The rigs the setup init wrote lays units on, in sorted order.
 
-    A machine of the user's is approved only by a read of it: the local machine
-    is read without ssh (:func:`_read_local_rig`), a remote one over ssh
-    (:func:`_read_remote_rig`). A hosted unit lays out no rig, so it names none.
+    A machine of the user's is approved only by a read of it (:func:`_read_rig`):
+    the local machine without ssh, a remote one over ssh. A hosted unit lays
+    out no rig, so it names none.
     """
     from mcgyvr.config import FLEET_FILENAME
     from mcgyvr.fleet.files import FleetFileError, load_fleet
@@ -1316,75 +1321,54 @@ def _rigs(setup: Path) -> tuple[str, ...]:
     return tuple(sorted(rigs))
 
 
-def _read_local_rig(rig: str) -> str:
-    """Read the local machine with the one reader, no ssh, and write its rig
-    file; return the rig id the lock pins.
+def _read_rig(rig: str) -> dict[str, Any]:
+    """Read ``rig`` once with the one reader and write its rig file; return the
+    reading.
 
-    The machine mcgyvr runs on is reached directly: the one reader
-    (:mod:`mcgyvr.serving.rigscan`) run here is the same copy the door ships to
-    a remote rig, so the rig file this writes reads the same when the door
-    re-reads it, and its reading names the rig (:func:`mcgyvr.fleet.ids.rig_id`).
-    Nothing here ssh's; a remote machine is read over ssh by
-    :func:`_read_remote_rig`.
+    The machine mcgyvr runs on is read directly, no ssh; a remote one over the
+    one sanctioned read of a rig from outside the door,
+    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the reader as
+    one read-only line (``echo <base64> | base64 -d | python3 -I -B -``). Either
+    way the reading is the door's own, so the rig file it writes reads the same
+    when the door's gate 2 reads the rig again — which is why ``serve up`` on a
+    rig set up here finds the rig file it asks for. A rig that cannot be read,
+    or whose rig file will not write, is a refusal, not a traceback.
     """
-    from mcgyvr.fleet import ids
+    from mcgyvr.detect import is_local_host
     from mcgyvr.fleet.promote import PromoteRefusedError
-    from mcgyvr.serving import rigfile, rigscan
+    from mcgyvr.serving import rigfile
 
-    reading = rigscan.scan()
+    reach = (
+        scan_module.Reach.local() if is_local_host(rig) else scan_module.Reach.ssh(rig)
+    )
     try:
-        rig_id = ids.rig_id(reading)
-    except ValueError as exc:
-        raise PromoteRefusedError(f"{rig}: {exc}") from exc
-    # The id is named before anything is written: a refusal leaves the
-    # rig-folder untouched. A rig file that will not write is a refusal, not a
-    # traceback: the fleet is not approved for lack of a read's record.
+        reading = scan_module.read_over(reach)
+    except scan_module.Unreachable as exc:
+        raise PromoteRefusedError(f"{rig}: did not answer ssh ({exc})") from exc
+    except (scan_module.ScannerMissing, scan_module.ScanFailed) as exc:
+        raise PromoteRefusedError(
+            f"{rig}: answered ssh but the reader did not run there (it needs "
+            f"python3): {exc}"
+        ) from exc
     try:
-        rigfile.write(rigfile.from_reading(rig, reading))
+        rigfile.save(rig, reading)
     except (OSError, rigfile.RigFileError) as exc:
         raise PromoteRefusedError(
             f"{rig}: its rig file could not be written: {exc}"
         ) from exc
-    return rig_id
+    return reading
 
 
-def _read_remote_rig(rig: str) -> str:
-    """Read ``rig`` over the sanctioned read-only ssh line and return the rig
-    id the lock pins.
-
-    The wizard runs outside the door, so the door-gated ssh
-    (:func:`mcgyvr.serving.gatelib.ssh`) is not usable here; the one sanctioned
-    read of a remote rig from outside is
-    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the one reader
-    (:mod:`mcgyvr.serving.rigscan`) as one read-only line
-    (``echo <base64> | base64 -d | python3 -I -B -``). A rig that cannot be read is a
-    refusal, not a traceback.
-    """
-    import subprocess
-
+def _rig_id(rig: str, reading: Mapping[str, Any]) -> str:
+    """The rig id ``rig``'s reading names (:func:`mcgyvr.fleet.ids.rig_id`), the
+    one the lock pins, or a refusal naming what was not read."""
     from mcgyvr.fleet import ids
     from mcgyvr.fleet.promote import PromoteRefusedError
-    from mcgyvr.serving import gatelib
 
     try:
-        done = gatelib.ssh_read_only(rig, gatelib.scan_read_command())
-    except subprocess.TimeoutExpired as exc:
-        raise PromoteRefusedError(f"{rig}: the remote read timed out") from exc
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise PromoteRefusedError(
-            f"{rig}: the remote read could not start: {exc}"
-        ) from exc
-    if done.returncode != 0:
-        raise PromoteRefusedError(
-            f"{rig}: the remote read could not run: "
-            f"{done.stderr.strip()[:300] or '(no stderr)'}"
-        )
-    try:
-        reading = json.loads(done.stdout)
-        rig_id = ids.rig_id(reading)
-    except (ValueError, AttributeError, TypeError) as exc:
+        return ids.rig_id(reading)
+    except ValueError as exc:
         raise PromoteRefusedError(f"{rig}: {exc}") from exc
-    return rig_id
 
 
 def _attach(args: argparse.Namespace) -> int:
@@ -3549,38 +3533,51 @@ def _say_reported(bound: Accepted) -> None:
 
 
 def _scan(args: argparse.Namespace) -> int:
-    """Measure this machine, record it, and say what stopped matching.
+    """Measure this machine, record it as its rig file, and say what moved.
 
     ``--json`` exits :attr:`Exit.OK` even when the scan disagrees with the
     record, and that asymmetry is the point rather than an oversight.
     ``--json`` is not a quieter mode of this command for a person; it prints
     the wire format that :func:`mcgyvr.scan.Scan.from_json` reads — the same
-    shape the shipped self-contained scanner prints on a rig. The exit-code
+    shape the one reader prints on a rig. The exit-code
     channel belongs to the human-facing command, which keeps exit 4: a rig
     that lost a DIMM or a card still delivers its measurement down the wire
-    and the mismatch goes to stderr, where the operator reads it.
+    and the mismatch goes to stderr, where the operator reads it. The record is
+    this machine's rig file (``localhost``, :mod:`mcgyvr.serving.rigfile`), the
+    one record of a machine; what moved since it is said, and exit 4 is kept
+    for the hardware changing under it (a card, RAM, cores, bandwidth).
     """
     if args.rig is not None:
         return _scan_rig(args.rig, as_json=args.json)
-    measured = scan_module.scan(
+    from mcgyvr.serving import rigfile
+
+    reading = scan_module.reading(
         model_stores=tuple(Path(store) for store in (args.model_store or ()))
     )
-    root = scan_module.default_root()
-    prior = scan_module.load_prior(scan_module.os_machine_id(measured), root)
-    drift = scan_module.compare(measured, prior)
     # Recorded before anything is reported, and recorded even when it
-    # disagrees with the last scan. A mismatch is a successful measurement of a
-    # machine that changed, not a failed one; withholding it would leave the
+    # disagrees with the last record. A mismatch is a successful measurement of
+    # a machine that changed, not a failed one; withholding it would leave the
     # stale record in place for the next run to disagree with all over again.
-    path = scan_module.write_scan(measured, root)
+    try:
+        saved = rigfile.save(rigfile.LOCAL, reading)
+    except (OSError, rigfile.RigFileError) as exc:
+        print(
+            f"error: this machine's rig file could not be written: {exc}",
+            file=sys.stderr,
+        )
+        return Exit.ERROR
+    measured = saved.now.scan
+    changes = () if saved.before is None else rigfile.moved(saved.before, saved.now)
+    drift = [change for change in changes if rigfile.is_hardware(change)]
+    path = saved.path
 
     if args.json:
         # stdout is the wire format `Scan.from_json` reads — the same shape the
-        # shipped self-contained scanner prints on the rig. One banner line
+        # one reader prints on the rig. One banner line
         # here and the scan stops parsing, so everything a person would read
         # goes to stderr.
         sys.stdout.write(measured.to_json())
-        _report_mismatches(drift, sys.stderr)
+        _report_moved(saved.before, changes, sys.stderr)
         return Exit.OK
 
     machine = measured.machine
@@ -3624,19 +3621,23 @@ def _scan(args: argparse.Namespace) -> int:
         )
     for note in measured.notes:
         print(f"  - {note}")
-    print(f"\nRecorded at {path}")
+    if saved.kept:
+        print(
+            f"\nKept the record at {path}: it knew its cards, and this read "
+            "could not read them"
+        )
+    else:
+        print(f"\nRecorded at {path}")
 
-    if drift:
-        _report_mismatches(drift, sys.stdout)
-        return Exit.MISMATCH
-    return Exit.OK
+    _report_moved(saved.before, changes, sys.stdout)
+    return Exit.MISMATCH if drift else Exit.OK
 
 
 def _scan_rig(rig: str, *, as_json: bool) -> int:
     """Scan ``rig`` over ssh and save it as the door's rig file; say what moved.
 
-    The scan is the read-only one ``mcgyvr recommend`` takes (the shipped
-    scanner, over the user's own ssh config and keys with ``BatchMode``), and
+    The read is the read-only one ``mcgyvr recommend`` takes (the one reader,
+    shipped over the user's own ssh config and keys with ``BatchMode``), and
     the file is what a user-mode door run holds the rig to
     (:mod:`mcgyvr.serving.rigfile`). A rig that does not answer writes
     nothing.
@@ -3654,7 +3655,7 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.USAGE
     try:
-        measured = scan_module.scan_over(scan_module.Reach.ssh(rig))
+        reading = scan_module.read_over(scan_module.Reach.ssh(rig))
     except scan_module.Unreachable:
         print(
             f"error: {rig} did not answer ssh (BatchMode: your own ssh config and "
@@ -3669,8 +3670,12 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
             file=sys.stderr,
         )
         return Exit.ERROR
-    now = rigfile.from_scan(rig, measured)
-    rigfile.write(now)
+    try:
+        saved = rigfile.save(rig, reading)
+    except rigfile.RigFileError as exc:
+        print(f"error: {exc}; no rig file is written", file=sys.stderr)
+        return Exit.ERROR
+    now = saved.now
     out = sys.stderr if as_json else sys.stdout
     if as_json:
         sys.stdout.write(now.to_json())
@@ -3713,7 +3718,14 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
     if before is not None:
         for change in rigfile.moved(before, now):
             print(f"moved since {before.read_at}: {change.said()}", file=out)
-    print(f"\nSaved as {target}", file=out)
+    if saved.kept:
+        print(
+            f"\nKept the rig file at {target}: it knew its cards, and this read "
+            "could not read them",
+            file=out,
+        )
+    else:
+        print(f"\nSaved as {target}", file=out)
     return Exit.OK
 
 
@@ -3877,18 +3889,19 @@ def _manage(args: argparse.Namespace) -> int:
 
 
 def _card_mib(config: Config) -> dict[str, dict[int, int]]:
-    """Each card's memory in MiB from the recorded scans, by host and card index.
+    """Each card's memory in MiB from the rig files, by host and card index.
 
-    The scans ``emit`` sizes against, resolved to the hosts this ladder names
-    (:func:`_resolve_hosts`); a host with no scan is not in the answer, and the
-    ladder manager then makes no room on it and says so at start.
+    The records ``emit`` sizes against (:func:`_scans`), resolved to the hosts
+    this ladder names (:func:`_resolve_hosts`); a host with no record is not in
+    the answer, and the ladder manager then makes no room on it and says so at
+    start.
     """
     from mcgyvr import wake as wakelib
     from mcgyvr.serving import cards
 
     hosts = {card.host for card in cards(config).values()}
     try:
-        scans = _resolve_hosts(_scans(scan_module.default_root()), hosts)
+        scans = _resolve_hosts(_scans(), hosts)
     except OSError:
         return {}
     return wakelib.card_rooms({host: scans[host] for host in hosts if host in scans})
@@ -4151,7 +4164,7 @@ def _emit(args: argparse.Namespace) -> int:
     if fleet is not None:
         return _emit_locked(fleet, args, config.path)
 
-    scans = _scans(scan_module.default_root())
+    scans = _scans()
     try:
         hosts = _hosts_wanted(config)
     except UnitError as exc:
@@ -4389,36 +4402,47 @@ def _report_drift(
     return Exit.MISMATCH
 
 
-def _report_mismatches(found: Sequence[Mismatch], stream: TextIO) -> None:
-    if not found:
+def _report_moved(before: Any, changes: Sequence[Any], stream: TextIO) -> None:
+    """What moved since this machine's last record, one line each."""
+    if before is None or not changes:
         return
-    print("mismatch: this machine no longer matches its last scan:", file=stream)
-    for item in found:
-        print(f"  {item.field}: was {item.prior}, now {item.measured}", file=stream)
+    print(f"moved since the record of {before.read_at}:", file=stream)
+    for change in changes:
+        print(f"  {change.said()}", file=stream)
 
 
-def _scans(root: Path) -> dict[str, Scan]:
-    """Every machine recorded under ``root``, keyed by the name it calls itself.
+def _scans() -> dict[str, Scan]:
+    """Every machine recorded as a rig file, keyed by the name it calls itself
+    and by its rig name.
 
-    That is ``platform.node()``, which is not the name a unit's ``address``
-    carries; :func:`_resolve_hosts` is what bridges the two. Keying by the
-    recorded name and widening afterwards keeps this function a faithful
-    reading of the directory — one key per machine, no invented names — so the
-    reconciliation is somewhere a reader can find it and argue with it.
+    The name it calls itself is ``platform.node()``, which is not the name a
+    unit's ``address`` carries; :func:`_resolve_hosts` is what bridges the two.
+    The rig name is what the user's ssh names it, which a unit's address often
+    does carry. Keying by both — never by an invented name — keeps this a
+    faithful reading of the folder, and the reconciliation is somewhere a
+    reader can find it and argue with it.
 
     A record that cannot be read is skipped rather than fatal, on the same rule
-    the rest of the scan layer runs on: the answer to an unreadable scan is to
-    take another one, and that is what ``_emit``'s never-scanned refusal asks
-    for anyway.
+    the rest of the scan layer runs on: the answer to an unreadable record is
+    to read the machine again, and that is what ``_emit``'s never-scanned
+    refusal asks for anyway.
     """
+    from mcgyvr.fleet.roots import FolderError, rigs_dir
+    from mcgyvr.serving import rigfile
+
+    try:
+        folder = rigs_dir()
+    except FolderError:
+        return {}
     found: dict[str, Scan] = {}
-    for path in sorted(root.glob("*.json")):
+    for path in sorted(folder.glob("*.json")):
         try:
-            recorded = Scan.from_json(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError, KeyError, TypeError):
+            recorded = rigfile.from_json(path.read_text(encoding="utf-8"))
+        except (OSError, rigfile.RigFileError):
             continue
-        if recorded.machine.host:
-            found[recorded.machine.host] = recorded
+        found.setdefault(recorded.rig, recorded.scan)
+        if recorded.hostname:
+            found.setdefault(recorded.hostname, recorded.scan)
     return found
 
 
@@ -4478,12 +4502,13 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     """``scans`` again, with a key added for each wanted name that resolves to
     a machine already in it.
 
-    Without this, ``emit`` refuses the machine it is running on. A config
-    written by ``mcgyvr setup`` says ``address: http://localhost:8080``,
-    ``mcgyvr scan`` files the record under ``platform.node()``, and the two
-    never agree — so the most ordinary setup there is, one rig serving itself,
-    reports "localhost has never been scanned" the instant after it was
-    scanned.
+    Without this, ``emit`` refuses the machine it is running on whenever a
+    config spells it otherwise than its record does. ``mcgyvr scan`` records
+    this machine as ``localhost`` (and :func:`_scans` keys it by the name
+    ``platform.node()`` gives it too), but a config may say
+    ``http://127.0.0.1:8080`` or ``http://0.0.0.0:8080`` — so the most ordinary
+    setup there is, one rig serving itself, would report "never been scanned"
+    the instant after it was scanned.
 
     Resolution is by identity rather than by name wherever it can be: a
     loopback source is matched to the local scan through

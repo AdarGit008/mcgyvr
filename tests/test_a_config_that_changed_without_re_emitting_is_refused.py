@@ -28,11 +28,11 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.exits import Exit
 from mcgyvr.scan import Scan
+from tests import records
 
 #: The window every emit here declares, stated per run: ``-c`` is this times
 #: the slot count, which is precisely the product a changed width moves.
@@ -82,18 +82,20 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Install:
     scans = tmp_path / "scans"
     scans.mkdir()
     (scans / f"{HOST}.json").write_text(
-        Scan.of(
-            host=HOST,
-            vram_mib=12288,
-            ram_gb=64.0,
-            disk_free_gb=900.0,
-            cores=10,
-            threads=20,
-            bandwidth_gbps=41.2,
-        ).to_json(),
+        records.rig_file(
+            Scan.of(
+                host=HOST,
+                vram_mib=12288,
+                ram_gb=64.0,
+                disk_free_gb=900.0,
+                cores=10,
+                threads=20,
+                bandwidth_gbps=41.2,
+            )
+        ),
         encoding="utf-8",
     )
-    monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(scans))
+    monkeypatch.setenv(records.RIGS_ENV, str(scans))
 
     config = tmp_path / "mcgyvr.yaml"
     monkeypatch.setenv(CONFIG_PATH_ENV, str(config))

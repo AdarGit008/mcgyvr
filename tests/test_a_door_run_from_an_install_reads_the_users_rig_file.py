@@ -21,7 +21,6 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.scan import Scan
 from mcgyvr.serving import rigfile
 from tests import onedoor, usermode
 from tests.onedoor import STRAY_NAME
@@ -29,9 +28,7 @@ from tests.onedoor import STRAY_NAME
 
 def _save_rig(scan: dict[str, object]) -> Path:
     """The rig file as `mcgyvr scan --rig` writes it, from ``scan``."""
-    return rigfile.write(
-        rigfile.from_scan(usermode.RIG, Scan.from_json(json.dumps(scan)))
-    )
+    return rigfile.write(rigfile.from_reading(usermode.RIG, scan))
 
 
 def _up(tmp_path: Path, stubs: Path, **extra: str) -> tuple[int, str]:

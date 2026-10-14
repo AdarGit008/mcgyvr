@@ -17,8 +17,9 @@ Promises, over invented machines behind a stub ssh:
 * Reached some other way (a tunnel to loopback, IPv6), the rig's one private
   address is recorded; with several, none is guessed, and the rig file and
   the scan say which there are.
-* A rig file read back holds only an address a worker may listen on; an older
-  rig file with no address reads as one with none.
+* The rig file keeps the reading whole, and its address is picked from what
+  the rig said each time it is read back: only an address a worker may listen
+  on is one, and a reading with no network names none.
 """
 
 from __future__ import annotations
@@ -62,14 +63,13 @@ def _network(reached_at: str | None, *addresses: tuple[str, str]) -> dict[str, o
 
 def _scan_rig(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, network: dict[str, object]
-) -> dict[str, object]:
+) -> rigfile.Rig:
     payload = usermode.scan_payload()
     payload["network"] = network
     _on_path(usermode.machine(tmp_path, scan=payload), monkeypatch)
     assert cli.main(["scan", "--rig", usermode.RIG]) == 0
-    saved: dict[str, object] = json.loads(
-        rigfile.path(usermode.RIG).read_text(encoding="utf-8")
-    )
+    saved = rigfile.read(usermode.RIG)
+    assert saved is not None
     return saved
 
 
@@ -118,8 +118,8 @@ def test_scan_rig_records_the_address_the_rig_was_reached_at(
 
     saved = _scan_rig(tmp_path, monkeypatch, network)
 
-    assert saved["private_ipv4"] == LAN
-    assert "ssh" in str(saved["private_ipv4_how"])
+    assert saved.private_ipv4 == LAN
+    assert "ssh" in str(saved.private_ipv4_how)
     assert LAN in capsys.readouterr().out
     recorded = rigfile.read(usermode.RIG)
     assert recorded is not None and recorded.private_ipv4 == LAN
@@ -133,8 +133,8 @@ def test_reached_another_way_the_one_private_address_is_recorded(
 
     saved = _scan_rig(tmp_path, monkeypatch, network)
 
-    assert saved["private_ipv4"] == LAN
-    assert "eth0" in str(saved["private_ipv4_how"])
+    assert saved.private_ipv4 == LAN
+    assert "eth0" in str(saved.private_ipv4_how)
 
 
 def test_an_ipv4_address_spelled_as_ipv6_is_the_ipv4_address(
@@ -144,7 +144,7 @@ def test_an_ipv4_address_spelled_as_ipv6_is_the_ipv4_address(
 
     saved = _scan_rig(tmp_path, monkeypatch, network)
 
-    assert saved["private_ipv4"] == LAN
+    assert saved.private_ipv4 == LAN
 
 
 def test_with_several_private_addresses_and_none_reached_none_is_guessed(
@@ -156,20 +156,23 @@ def test_with_several_private_addresses_and_none_reached_none_is_guessed(
 
     saved = _scan_rig(tmp_path, monkeypatch, network)
 
-    assert saved["private_ipv4"] is None
-    how = str(saved["private_ipv4_how"])
+    assert saved.private_ipv4 is None
+    how = str(saved.private_ipv4_how)
     assert LAN in how and BRIDGE in how
     out = capsys.readouterr().out
     assert "no private IPv4" in out and LAN in out and BRIDGE in out
 
 
-def test_a_rig_file_from_before_addresses_reads_as_one_with_none(
+def test_a_reading_with_no_network_names_no_address(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     saved = _scan_rig(tmp_path, monkeypatch, _network(LAN, ("eth0", LAN)))
-    del saved["private_ipv4"], saved["private_ipv4_how"]
+    reading = dict(saved.reading)
+    del reading["network"]
 
-    old = rigfile.from_json(json.dumps(saved))
+    old = rigfile.from_json(
+        json.dumps({**json.loads(saved.to_json()), "reading": reading})
+    )
 
     assert old.private_ipv4 is None
 
@@ -177,11 +180,9 @@ def test_a_rig_file_from_before_addresses_reads_as_one_with_none(
 @pytest.mark.parametrize(
     "stated", ["box-b.invalid", "0.0.0.0", "127.0.0.1", "2001:db8::20"]
 )
-def test_a_rig_file_holds_only_an_address_a_worker_may_listen_on(
+def test_an_address_no_worker_may_listen_on_is_never_the_rigs(
     stated: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    saved = _scan_rig(tmp_path, monkeypatch, _network(LAN, ("eth0", LAN)))
-    saved["private_ipv4"] = stated
+    saved = _scan_rig(tmp_path, monkeypatch, _network(stated, ("lo", "127.0.0.1")))
 
-    with pytest.raises(rigfile.RigFileError, match="private_ipv4"):
-        rigfile.from_json(json.dumps(saved))
+    assert saved.private_ipv4 is None

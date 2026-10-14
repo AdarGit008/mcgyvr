@@ -33,6 +33,28 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   - `ssh_read_only` admits the shipped reader's exact bytes and no snapshot
     line.
 
+- **One record per machine: its rig file.**
+  - The scans folder (`~/.local/state/mcgyvr/scans`, `$MCGYVR_SCANS`) is gone.
+    `mcgyvr scan` records this machine as its rig file,
+    `$MCGYVR_RIGS/localhost.json`. `emit` and `mcgyvr manage` size from the
+    rig files.
+  - A rig file now holds the one reader's reading whole. Rig files written
+    before this release are not read: run `mcgyvr scan --rig RIG` again.
+  - `mcgyvr scan` says what moved since the last record. A gate says the same
+    thing, and it now also covers the kernel, the driver, the CPU's clock,
+    power limits and the card's slot.
+  - Exit 4 is kept for the hardware changing: a card, RAM, cores or bandwidth.
+  - `mcgyvr scan`, `mcgyvr detect` and the card figures a serve step files
+    are read by the one reader. Nothing else runs `nvidia-smi` or reads
+    `/proc/meminfo`.
+
+### Fixed
+
+- **Interactive `mcgyvr setup` writes every rig's file**, a remote rig's too.
+  Before, `serve up` on a remote rig was refused unless `mcgyvr scan --rig`
+  had run first. Each rig is now read once per setup: the fleet is approved
+  from the same reading.
+
 ## [0.5.0] - 2026-10-13
 
 Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab

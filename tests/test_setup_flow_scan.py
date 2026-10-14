@@ -44,6 +44,29 @@ def test_local_pool_exists_and_init_is_gone() -> None:
 # --- Fix 2: models on disk are part of the scan -----------------------------
 
 
+def _a_quiet_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The one reader with no tool answering, a timed copy that says 20 GB/s,
+    and a weights folder on a 1 TiB disk with 512 GiB free on ``nvme0n1``."""
+    import collections
+    import shutil
+
+    from mcgyvr.serving import rigscan
+
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(rigscan, "_run", lambda *a, **k: (None, None))
+    monkeypatch.setattr(
+        rigscan,
+        "measure_bandwidth",
+        lambda root="": {"measured_gbps": 20.0, "how": "an invented copy"},
+    )
+    monkeypatch.setattr(
+        shutil,
+        "disk_usage",
+        lambda path: usage(1024 * 1024**3, 512 * 1024**3, 512 * 1024**3),
+    )
+    monkeypatch.setattr(rigscan, "_disk_device", lambda path: "nvme0n1")
+
+
 def test_scan_inventories_models_on_disk(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -52,9 +75,7 @@ def test_scan_inventories_models_on_disk(
     (store / "coder-7b-Q4_K_M.gguf").write_bytes(b"\x00" * 1024)
     (store / "vision-encoder.safetensors").write_bytes(b"\x00" * 2048)
 
-    monkeypatch.setattr(scan_module, "_free_bytes", lambda path: 512 * 1024**3)
-    monkeypatch.setattr(scan_module, "_total_bytes", lambda path: 1024 * 1024**3)
-    monkeypatch.setattr(scan_module, "_disk_device", lambda path: "nvme0n1")
+    _a_quiet_machine(monkeypatch)
 
     measured = scan_module.scan(weights_dir=store)
     names = {(m.name, m.quant) for m in measured.models_on_disk}
@@ -74,12 +95,9 @@ def test_rig_scan_carries_bandwidth_and_models_on_disk(
     store.mkdir()
     (store / "coder-7b-Q4_K_M.gguf").write_bytes(b"\x00" * 1024)
 
-    monkeypatch.setattr(scan_module, "_free_bytes", lambda path: 512 * 1024**3)
-    monkeypatch.setattr(scan_module, "_total_bytes", lambda path: 1024 * 1024**3)
-    monkeypatch.setattr(scan_module, "_disk_device", lambda path: "nvme0n1")
+    _a_quiet_machine(monkeypatch)
 
-    measured = scan_module.scan(weights_dir=store)
-    rig = rigfile.from_scan("rig", measured)
+    rig = rigfile.from_reading("rig", scan_module.reading(weights_dir=store))
     assert rig.bandwidth_gbps is not None
     assert [(m.name, m.quant) for m in rig.models_on_disk] == [("coder-7b", "Q4_K_M")]
 
@@ -642,8 +660,8 @@ def test_setup_interactive_re_emits_after_the_final_init_and_before_the_lock(
     def fake_ask_rigs(prompt: object = None) -> tuple[str, ...]:
         return ("box1",)
 
-    def fake_scan_rigs(rigs: object) -> dict[str, object]:
-        return {}
+    def fake_scan_rigs(rigs: object) -> tuple[dict[str, object], dict[str, object]]:
+        return {}, {"box1": {"read": "once"}}
 
     def fake_placements(rigs: object, scans: object) -> dict[str, object]:
         return {"box1": {"placement": {"context_length": 4096}}}
@@ -669,8 +687,10 @@ def test_setup_interactive_re_emits_after_the_final_init_and_before_the_lock(
     def fake_start(rigs: object, scans: object, path: Path) -> None:
         calls.append(("start",))
 
-    def fake_own(path: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        calls.append(("own_fleet_live", path))
+    def fake_own(
+        path: Path, readings: object = None
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        calls.append(("own_fleet_live", path, readings))
         return ((), ())
 
     monkeypatch.setattr(cli, "_ask_setup_rigs", fake_ask_rigs)
@@ -692,5 +712,6 @@ def test_setup_interactive_re_emits_after_the_final_init_and_before_the_lock(
         ("start",),
         ("initialize", tmp_path),
         ("setup_emit", tmp_path, 4096),
-        ("own_fleet_live", tmp_path),
+        # The fleet is named from the reading step 2 took: no rig is read twice.
+        ("own_fleet_live", tmp_path, {"box1": {"read": "once"}}),
     ]

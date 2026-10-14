@@ -41,15 +41,19 @@ def test_scan_rig_writes_the_rig_file_under_the_config_folder(
     path = tmp_path / "settings" / "rigs" / f"{usermode.RIG}.json"
     assert str(path) in capsys.readouterr().out
     saved = json.loads(path.read_text(encoding="utf-8"))
+    # The file is the reading, kept whole, and every fact is read off it.
+    assert sorted(saved) == ["read_at", "reading", "rig"]
     assert saved["rig"] == usermode.RIG
-    assert saved["hostname"] == usermode.HOSTNAME
-    assert saved["cards"] == [
-        {"index": 0, "name": "Invented Card 16G", "total_mib": 16384}
-    ]
-    assert saved["ram_total_gb"] == 62.7
-    assert saved["disk"]["free_gb"] == 400.0
-    assert saved["docker"] == usermode.DOCKER
-    assert rigfile.read(usermode.RIG) == rigfile.from_json(path.read_text("utf-8"))
+    assert saved["reading"]["machine"]["host"] == usermode.HOSTNAME
+    rig = rigfile.from_json(path.read_text("utf-8"))
+    assert rig.hostname == usermode.HOSTNAME
+    assert rig.cards == (
+        rigfile.Card(index=0, name="Invented Card 16G", total_mib=16384),
+    )
+    assert rig.ram_total_gb == 62.7
+    assert rig.disk_free_gb == 400.0
+    assert rig.docker == usermode.DOCKER
+    assert rigfile.read(usermode.RIG) == rig
 
 
 def test_scan_rig_writes_to_the_named_rigs_folder(

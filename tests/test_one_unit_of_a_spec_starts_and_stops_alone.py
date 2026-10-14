@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.scan import Scan
 from mcgyvr.serving import rigfile
 from tests import onedoor, usermode
 
@@ -29,11 +28,7 @@ SERVICE = {FAST: "unit0", STRONG: "unit1"}
 
 
 def _rig() -> None:
-    rigfile.write(
-        rigfile.from_scan(
-            usermode.RIG, Scan.from_json(json.dumps(usermode.scan_payload()))
-        )
-    )
+    rigfile.write(rigfile.from_reading(usermode.RIG, usermode.scan_payload()))
 
 
 def _serving(stubs: Path, *, up: tuple[str, ...], pending: tuple[str, ...]) -> None:

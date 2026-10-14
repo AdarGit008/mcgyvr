@@ -301,9 +301,11 @@ def main_user(host: str) -> int:
         used = rigfile.cards_used(Path(compose)) if compose else None
     except servelib.ComposeError as exc:
         refuse(f"gate 2: the compose file cannot be read for its cards: {exc}")
-    rigfile.door_check(
-        host, saved, rigfile.from_reading(host, document), used, "gate 2"
-    )
+    try:
+        now = rigfile.from_reading(host, document)
+    except rigfile.RigFileError as exc:
+        refuse(f"gate 2: {exc}. A machine that cannot be read is not compared")
+    rigfile.door_check(host, saved, now, used, "gate 2")
 
     busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
     busy = {key: value for key, value in busy.items() if value != "none"}

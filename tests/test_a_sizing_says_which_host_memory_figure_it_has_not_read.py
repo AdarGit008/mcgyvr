@@ -25,7 +25,6 @@ from typing import Any
 import pytest
 
 from mcgyvr import derived, serving
-from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.exits import Exit
@@ -38,7 +37,7 @@ from mcgyvr.serving import (
     UnitKey,
     unit_for,
 )
-from tests import machine_shapes
+from tests import machine_shapes, records
 from tests import numbers_fixture as nf
 from tests.sizings import WINDOW, machines, spilling
 
@@ -219,8 +218,8 @@ def install(
     host = scan.machine.host
     scans = tmp_path / "scans"
     scans.mkdir()
-    (scans / "machine.json").write_text(scan.to_json(), encoding="utf-8")
-    monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(scans))
+    (scans / "machine.json").write_text(records.rig_file(scan), encoding="utf-8")
+    monkeypatch.setenv(records.RIGS_ENV, str(scans))
     written = tmp_path / "mcgyvr.yaml"
     written.write_text(config(host, sizes), encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(written))

@@ -985,8 +985,10 @@ def _gpus(
                 for u in unread
                 if u["field"].startswith(key)
             )
+            named = f" ({card['name']})" if card["name"] else ""
             notes.append(
-                f"{GPU_ROW_UNREAD}, so card {card['index']} is missing from the scan "
+                f"{GPU_ROW_UNREAD}, so card {card['index']}{named} is missing from "
+                "the scan "
                 f"({why}). MIG and vGPU rows report memory as [N/A] and land here. "
                 "Read the card list as incomplete rather than short: the indexes "
                 "below place a unit, and a change in their number reads as "

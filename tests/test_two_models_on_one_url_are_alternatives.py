@@ -55,6 +55,7 @@ from mcgyvr.config import parse
 from mcgyvr.emit import emit_all
 from mcgyvr.scan import Scan
 from mcgyvr.serving import UnitError, hold_together, units_for
+from tests import records
 from tests._paths import TESTS
 
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
@@ -387,15 +388,14 @@ def test_the_command_writes_a_ladder_of_alternatives_rather_than_refusing_it(
     command would not show in the emit layer: every unit test in this file
     could pass while the command exited REFUSED and wrote nothing.
     """
-    from mcgyvr import scan as scan_module
     from mcgyvr.cli import main
     from mcgyvr.config import CONFIG_PATH_ENV
     from mcgyvr.exits import Exit
 
     scans = tmp_path / "scans"
     scans.mkdir()
-    (scans / "box1.json").write_text(box1().to_json(), encoding="utf-8")
-    monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(scans))
+    (scans / "box1.json").write_text(records.rig_file(box1()), encoding="utf-8")
+    monkeypatch.setenv(records.RIGS_ENV, str(scans))
 
     config = tmp_path / "mcgyvr.yaml"
     config.write_text(alternatives(geometry), encoding="utf-8")
