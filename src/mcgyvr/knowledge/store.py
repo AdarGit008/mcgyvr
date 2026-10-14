@@ -3,8 +3,7 @@
 Two places hold records of :mod:`mcgyvr.knowledge.record`:
 
 * the **cache**, ``$MCGYVR_HOME/knowledge/`` (default ``~/.mcgyvr/knowledge``):
-  what an online run read from the Hub and the boards, one file per model at
-  one quantisation, written by :func:`write`;
+  records filed with :func:`write`, one file per model at one quantisation;
 * the **shipped catalog**, ``data/model-catalog.json`` in the package: the
   fallback a machine with no network and no cache still has.
 
@@ -15,20 +14,17 @@ that is of another format version, is not read; it is named in
 :attr:`Knowledge.skipped` with why, and the catalog still answers. The cache
 is a cache: losing a file costs a lookup, never a plan.
 
-Nothing here opens a socket. The online half implements :class:`Lookup` and
-files what it answers with :func:`write`.
+Nothing here opens a socket.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from importlib import resources
 from pathlib import Path
-from typing import Protocol
 
 from mcgyvr import atomic
 from mcgyvr.fleet import roots
@@ -49,18 +45,6 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 #: Where a record came from, as :attr:`Known.origin` says it.
 CACHE = "cache"
 SHIPPED = "shipped"
-
-
-class Lookup(Protocol):
-    """An online source of records: the Hub, a header read, a board.
-
-    Asked for a model, it answers the records it could read, every number with
-    its source and the day it was read. It never writes; the caller files what
-    it answered with :func:`write`. The online half implements it, over a
-    transport a test injects.
-    """
-
-    def __call__(self, model_id: str) -> Sequence[ModelRecord]: ...
 
 
 @dataclass(frozen=True)

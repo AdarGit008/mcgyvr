@@ -86,6 +86,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     approved on no evidence from its layout, while that layout matches the
     pin.
 
+### Removed
+
+- **The model knowledge's online half**, `mcgyvr.knowledge.online` and
+  `mcgyvr.knowledge.boards`: no command ran it. The cache, the shipped catalog
+  and the geometry rows are read as before. The Hub's address `serve fetch`
+  downloads from is `mcgyvr.serving.fetchlist.HUB`.
+
 ## [0.5.0] - 2026-10-13
 
 Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
