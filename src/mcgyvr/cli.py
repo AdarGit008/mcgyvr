@@ -2635,7 +2635,7 @@ def _climb(
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
-    from mcgyvr.escalate import ascent, escalate
+    from mcgyvr.escalate import Outcome, ascent, escalate
     from mcgyvr.fleet_manager import hook_for as fleet_hook_for
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
@@ -2724,6 +2724,7 @@ def _climb(
             f"{contract.id} is a {contract.task_type!r} contract and "
             f"starts on the {route.floor.name!r} family; nothing in {config.path} "
             f"can run it. {route.reason}",
+            outcome=Outcome.NOTHING_TO_RUN.value,
         )
 
     # Before the sandbox, for the reason the paragraph above gives: an install
