@@ -1076,13 +1076,16 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
             raise _SetupInteractiveError(f"{rig}: serve up exited {code}")
 
 
-def _setup_interactive(path: Path) -> int:
+def _setup_interactive(path: Path, run_id: str = "") -> int:
     """The guided ``mcgyvr setup``: prompt, then perform each step.
 
     READ each rig once, PLAN, then STAGE at ``path``: the setup written once
-    from the plan and its launch specs emitted once, both there. Nothing is
+    from the plan and its launch specs emitted once, both there. START its
+    units through the door on a yes, SAMPLE them (:func:`_setup_sample`), and
+    lock the stamped fleet and name it live on a second yes. Nothing is
     written anywhere else.
     """
+    run_id = run_id or _setup_run_id()
     try:
         path.mkdir(parents=True, exist_ok=True)
         rigs = _ask_setup_rigs()
@@ -1104,6 +1107,7 @@ def _setup_interactive(path: Path) -> int:
         if not staged.written:
             raise _SetupInteractiveError("the staged setup was not written")
         print(f"Staged the setup at {staged.path}\n")
+        rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
 
         if not _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
@@ -1113,11 +1117,7 @@ def _setup_interactive(path: Path) -> int:
             )
             return 0
         _setup_start(rigs, scans, path)
-
-        if _confirm("Lock the fleet and name it live? [y/N] "):
-            approved, unapproved = _own_fleet_live(path, readings)
-        else:
-            approved, unapproved = (), ("The fleet was not locked or made live.",)
+        approved, unapproved = _setup_sample(path, run_id, readings, rooms)
         decisions = staged.decisions + approved
         if decisions:
             print("What was decided, and why:")
@@ -1139,6 +1139,89 @@ def _setup_interactive(path: Path) -> int:
     except (ConfigError, CapabilityTableError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
+    """The card room, MiB, each unit of the staged setup at ``path`` is sized at.
+
+    Sized as ``emit`` sizes it, from the same rig files and table: the card
+    figure its fit was judged on, and the headroom held back beside it. The
+    lock holds each unit's card peak in the sample to this room.
+    """
+    import math
+
+    try:
+        config = load_config(path)
+        scans = _resolve_hosts(_scans(), _hosts_wanted(config).values())
+        units = units_for(
+            config, scans, specs=_model_specs(), ctx_per_slot=ctx_per_slot
+        )
+    except (ConfigError, UnitError, CapabilityTableError) as exc:
+        raise _SetupInteractiveError(
+            f"the staged setup cannot be sized: {exc}"
+        ) from exc
+    rooms: dict[str, int] = {}
+    for unit in units:
+        mib = math.ceil((unit.fit.vram_gb + unit.fit.headroom_gb) * 1024)
+        for rung in unit.rungs:
+            rooms[rung] = mib
+    return rooms
+
+
+def _setup_sample(
+    path: Path,
+    run_id: str,
+    readings: Mapping[str, Mapping[str, Any]],
+    rooms: Mapping[str, int],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """SAMPLE the started staged setup at ``path``, STAMP it, and LOCK it live
+    on the user's yes; ``(decisions, limits)`` saying what was done, or why not.
+
+    The setup is laid out as the user's own fleet, each rig pinned to the id
+    the read step named (:func:`mcgyvr.fleet.sampler.lay_out`), sampled through
+    the door (:func:`mcgyvr.fleet.sampler.run`) and judged and stamped
+    (:func:`mcgyvr.fleet.stamp.stamp`, under ``run_id``). A red sample is never
+    locked: its reasons are printed. A green one is locked from its stamp
+    (:func:`mcgyvr.fleet.lock.write_from_stamp`), promoted and named live
+    (:func:`_own_fleet_switch`).
+    """
+    from mcgyvr.fleet import sampler
+    from mcgyvr.fleet.lock import OWN_FLEET, write_from_stamp
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote
+    from mcgyvr.fleet.stamp import SETUP_DIR, stamp
+
+    try:
+        rig_ids = {
+            rig: _rig_id(rig, readings[rig] if rig in readings else _read_rig(rig))
+            for rig in _rigs(path)
+        }
+        sampler.lay_out(path, rig_ids, rooms)
+        ran = sampler.run(path)
+    except (sampler.SamplerError, PromoteRefusedError) as exc:
+        return (), (f"The fleet was not sampled, so nothing was locked: {exc}.",)
+    for failed in ran.failed:
+        print(f"warning: the door's {failed}", file=sys.stderr)
+    stamped = stamp(ran.sample, run_id=run_id)
+    for line in stamped.lines():
+        print(line)
+    print()
+    if stamped.folder is None:
+        return (), (
+            "The sample was red, so the fleet was not locked or made live: "
+            + "; ".join(stamped.why),
+        )
+    folder = stamped.folder
+    if not _confirm("Lock the fleet and name it live? [y/N] "):
+        return (), (
+            f"The fleet was stamped and not locked: `mcgyvr fleet lock --stamp "
+            f"{folder}` locks it.",
+        )
+
+    def lock_and_promote() -> Path:
+        write_from_stamp(folder)
+        return promote(folder, folder / SETUP_DIR, OWN_FLEET)
+
+    return _own_fleet_switch(lock_and_promote, tuple(rig_ids), sampled=True)
 
 
 def _setup_run_id() -> str:
@@ -1170,7 +1253,7 @@ def _setup(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if _setup_is_interactive(args):
-        return _setup_interactive(path)
+        return _setup_interactive(path, run_id)
     # Parsed before anything is detected: a mistyped `--api` is the operator's
     # to fix, and making them wait out a network sweep to hear about it is
     # spending their time to tell them something already known.
@@ -1244,35 +1327,58 @@ def _setup(args: argparse.Namespace) -> int:
 def _own_fleet_live(
     setup: Path, readings: Mapping[str, Mapping[str, Any]] | None = None
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Approve the setup ``setup`` wrote at ``setup`` as the user's own fleet and
+    """Lock the setup at ``setup`` as the user's own fleet on no evidence and
     name it live; ``(decisions, limits)`` saying what was done, or why not.
 
-    Through the path every live fleet takes: locked, on no evidence
-    (:func:`mcgyvr.fleet.lock.write_unsampled`), promoted to a folder under
-    the config folder (:func:`mcgyvr.fleet.promote.promote`), named by
-    ``live.json`` (:func:`mcgyvr.fleet.promote.use`), and admitted as any live
-    fleet is. The lock is written into a dev root of its own that is removed
-    once the folder is promoted: the folder holds all of it. With
-    init's own fleet already live, a new folder is approved and named in its
-    place, and the old one is kept. Any other live fleet is never replaced
-    (``mcgyvr fleet use`` switches), and a machine of the user's is not
-    approved: it is approved only by a read of it. Every rig the setup lays a
-    unit on is read first — the local machine without ssh, a remote one over
-    ssh, or by the reading ``readings`` already holds for it when the setup read
-    it a step before — and only then is the fleet approved with each of them
-    laid out, named by the rig id its reading names.
+    For a fleet no sample ran on, once the user has acknowledged that: locked
+    on no evidence (:func:`mcgyvr.fleet.lock.write_unsampled`), promoted and
+    named live (:func:`_own_fleet_switch`). Every rig the setup lays a unit on
+    is read first -- the local machine without ssh, a remote one over ssh, or
+    by the reading ``readings`` already holds for it -- and the fleet is laid
+    out with each of them, named by the rig id its reading names. The lock is
+    written into a dev root of its own that is removed once the folder is
+    promoted: the folder holds all of it.
     """
     import tempfile
 
-    from mcgyvr.fleet.lock import OWN_FLEET, LockRefusedError, is_own, write_unsampled
-    from mcgyvr.fleet.promote import PromoteRefusedError, promote, use
-    from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+    from mcgyvr.fleet.lock import OWN_FLEET, LockRefusedError, write_unsampled
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote
     from mcgyvr.fleet.stamp import SETUP_DIR
 
-    refused = (
-        "A live run is refused until a fleet is live (`mcgyvr fleet use`); "
-        "`profile: dev` runs without live admission."
-    )
+    rigs = _rigs(setup)
+    try:
+        held = readings or {}
+        rig_ids = {
+            rig: _rig_id(rig, held[rig] if rig in held else _read_rig(rig))
+            for rig in rigs
+        }
+    except (LockRefusedError, PromoteRefusedError) as exc:
+        return (), (f"No fleet was made live: {exc}.",)
+
+    def lock_and_promote() -> Path:
+        with tempfile.TemporaryDirectory(prefix="mcgyvr-own-") as scratch:
+            dev = Path(scratch)
+            write_unsampled(dev, setup, rigs=rig_ids, acknowledged=True)
+            return promote(dev, dev / SETUP_DIR, OWN_FLEET)
+
+    return _own_fleet_switch(lock_and_promote, rigs, sampled=False)
+
+
+def _own_fleet_switch(
+    lock_and_promote: Callable[[], Path], rigs: Sequence[str], *, sampled: bool
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Lock and promote the user's own fleet with ``lock_and_promote``, and name
+    the folder it promoted live; ``(decisions, limits)``.
+
+    With the user's own fleet already live, the new folder is named in its
+    place, and the old one is kept. Any other live fleet is never replaced
+    (``mcgyvr fleet use`` switches), and then nothing is locked.
+    """
+    from mcgyvr.fleet.lock import LockRefusedError, is_own
+    from mcgyvr.fleet.promote import PromoteRefusedError, use
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+
+    refused = "A live run is refused until a fleet is live (`mcgyvr fleet use`)."
     try:
         current = live_fleet()
     except LiveFleetError as exc:
@@ -1282,18 +1388,8 @@ def _own_fleet_live(
             f"{current} is live, and stays so: your own fleet was not approved "
             "over it (`mcgyvr fleet use` switches).",
         ), ()
-    rigs = _rigs(setup)
     try:
-        held = readings or {}
-        rig_ids = {
-            rig: _rig_id(rig, held[rig] if rig in held else _read_rig(rig))
-            for rig in rigs
-        }
-        with tempfile.TemporaryDirectory(prefix="mcgyvr-own-") as scratch:
-            dev = Path(scratch)
-            # TODO(setup): ask
-            write_unsampled(dev, setup, rigs=rig_ids, acknowledged=True)
-            folder = promote(dev, dev / SETUP_DIR, OWN_FLEET)
+        folder = lock_and_promote()
         switch = use(folder.name)
     except (LockRefusedError, PromoteRefusedError) as exc:
         if current is None:
@@ -1303,6 +1399,7 @@ def _own_fleet_live(
             "before, stays live, and a run that dispatches to an unapproved "
             "machine is refused.",
         )
+    how = "on its sample's evidence" if sampled else "on no evidence"
     if rigs:
         where = (
             ". Its rig units sit on "
@@ -1315,7 +1412,7 @@ def _own_fleet_live(
             "admission reads none."
         )
     return (
-        f"Approved your own fleet for live runs: {folder}, named in "
+        f"Approved your own fleet for live runs {how}: {folder}, named in "
         f"{switch.pointer}"
         + (f" in place of {current}" if current is not None else "")
         + where,

@@ -700,9 +700,11 @@ def approved_on_no_evidence(record: Mapping[str, Any]) -> bool:
 
 
 def is_own(name: str) -> bool:
-    """Whether the live name ``name`` is the user's own fleet: a folder promoted
-    from a lock :func:`write_unsampled` wrote, which ``mcgyvr setup`` may
-    replace with a later approval of its own, as it may no other live fleet."""
+    """Whether the live name ``name`` is the user's own fleet: a folder of the
+    fleet :data:`OWN_FLEET` holding its lock, which ``mcgyvr setup`` wrote --
+    from the stamp of its sample (:func:`write_from_stamp`) or on no evidence
+    (:func:`write_unsampled`) -- and may replace with a later setup of its
+    own, as it may no other live fleet."""
     if split_name(name)[0] != OWN_FLEET:
         return False
     path = fleets_dir() / name / LOCK_DIR / f"{OWN_FLEET}.json"
@@ -710,7 +712,9 @@ def is_own(name: str) -> bool:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    return isinstance(record, dict) and approved_on_no_evidence(record)
+    return isinstance(record, dict) and (
+        approved_on_no_evidence(record) or "layout_sha256" in record
+    )
 
 
 def _unit_id(unit: Mapping[str, Any]) -> str:

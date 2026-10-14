@@ -23,6 +23,27 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     emits its launch specs once. The second write over the running servers and
     the re-emit are gone.
 
+- **`mcgyvr setup` samples the fleet it started, stamps it, and locks it on a
+  yes.**
+  - Once the containers are up, the staged setup is laid out as the user's own
+    fleet `own`: each rig pinned to the rig id its read named, each unit given
+    the id the lock pins, the card room it was sized at, its request timeout,
+    and the longest reply its measured warm decode finishes in that time.
+  - It is sampled through the door (`read --fleet own` of every rig,
+    `read --fleet own --probe U --load WxN` of every awake unit, and a last
+    read), with the use case's sample task between them
+    (`mcgyvr.fleet.sampler`): `coding` runs a bundled one-function bug fix
+    through `mcgyvr run` and passes when the deterministic gate does on any
+    rung; `agent` runs a bundled grounded contract, its reply checked grounded
+    and by the safety check; `chat` asks one completion of each unit and reads
+    back the window and slots it serves; an opted-in Jev unit gives one typed
+    choice.
+  - A green sample is stamped under the setup run's name, and behind "Lock the
+    fleet and name it live? [y/N]" it is locked from the stamp, promoted and
+    named live. A red sample is never locked: the stamp's reasons are printed.
+  - A live `own` folder locked from a stamp is the user's own, which a later
+    setup may name live in its place.
+
 - **One reader reads a machine, and one id names it.**
   - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
     tool. The door ships it to a rig as one read-only line

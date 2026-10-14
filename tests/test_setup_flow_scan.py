@@ -184,7 +184,7 @@ def test_setup_routes_to_interactive_only_on_a_tty_without_flags(
     monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
     interactive: list[Path] = []
 
-    def fake_interactive(path: Path) -> int:
+    def fake_interactive(path: Path, run_id: str = "") -> int:
         interactive.append(path)
         return 0
 
@@ -200,7 +200,7 @@ def test_setup_with_a_flag_keeps_the_flag_driven_path(
     monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
     interactive: list[Path] = []
 
-    def fake_interactive(path: Path) -> int:
+    def fake_interactive(path: Path, run_id: str = "") -> int:
         interactive.append(path)
         return 0
 

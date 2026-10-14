@@ -94,6 +94,7 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
         return InitResult(path=path, created=True, written=True)
 
     monkeypatch.setattr(cli, "initialize", fake_initialize)
+    monkeypatch.setattr(cli, "_setup_rooms", lambda path, ctx: {})
     monkeypatch.setattr(
         cli, "_setup_emit", lambda path, ctx: calls.append(("emit", path, ctx))
     )
