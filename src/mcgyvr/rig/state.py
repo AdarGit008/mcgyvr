@@ -11,10 +11,10 @@ writes it again on its next change.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from mcgyvr import atomic
 from mcgyvr.fleet import roots
 
 #: The file's name in the data folder.
@@ -43,13 +43,7 @@ def write(state: State) -> None:
     """Replace the kept state with ``state``."""
     target = path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging = target.parent / f".{STATE_FILE}.{os.getpid()}.part"
-    try:
-        staging.write_text(json.dumps(asdict(state)) + "\n", encoding="utf-8")
-        os.replace(staging, target)
-    except OSError:
-        staging.unlink(missing_ok=True)
-        raise
+    atomic.write(target, json.dumps(asdict(state)) + "\n")
 
 
 def read() -> State | None:

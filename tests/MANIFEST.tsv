@@ -122,6 +122,7 @@ tests/test_a_draw_whose_row_was_lost_does_not_move_the_raise.py	integration	func
 tests/test_a_draws_temperature_is_on_its_journal_row.py	integration	functional	agreed	agreed	
 tests/test_a_failed_ride_returns_to_the_riders_own_ladder_uncounted.py	unit	logic	agreed	agreed	
 tests/test_a_fetch_resumes_and_keeps_no_file_whose_hash_does_not_match.py	e2e	operational|functional	agreed	disputed	
+tests/test_a_file_is_replaced_whole_or_not_at_all.py	unit	logic	agreed	agreed	
 tests/test_a_files_geometry_is_kept_with_one_source_and_date_and_read_offline.py	unit|integration	functional	disputed	agreed	
 tests/test_a_fixer_that_fixed_what_it_could_is_not_an_error.py	integration|e2e	functional	disputed	agreed	
 tests/test_a_fleet_id_is_a_prefixed_content_digest.py	unit	functional	agreed	agreed	

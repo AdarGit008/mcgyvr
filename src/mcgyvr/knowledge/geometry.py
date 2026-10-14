@@ -26,7 +26,6 @@ why, and the shipped rows still answer. Nothing here opens a socket.
 from __future__ import annotations
 
 import json
-import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -35,6 +34,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from mcgyvr import atomic
 from mcgyvr.knowledge import store
 from mcgyvr.knowledge.record import KnowledgeError, Weights
 
@@ -225,9 +225,7 @@ def write(
     parse(document, f"the header of {locator(repo, revision, file)}", origin="cache")
     target = cache_file(repo, revision, file)
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging = target.with_name(f".{target.name}.{os.getpid()}.tmp")
-    staging.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
-    os.replace(staging, target)
+    atomic.write(target, json.dumps(document, indent=1) + "\n")
     return target
 
 

@@ -22,7 +22,6 @@ files what it answers with :func:`write`.
 from __future__ import annotations
 
 import json
-import os
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -31,6 +30,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Protocol
 
+from mcgyvr import atomic
 from mcgyvr.fleet import roots
 from mcgyvr.knowledge.record import (
     KnowledgeError,
@@ -153,9 +153,7 @@ def write(record: ModelRecord) -> Path:
     parse_document(document, f"the record of {record.model_id}", shipped=False)
     target = cache_file(record.model_id, record.quant)
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging = target.with_name(f".{target.name}.{os.getpid()}.tmp")
-    staging.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
-    os.replace(staging, target)
+    atomic.write(target, json.dumps(document, indent=2) + "\n")
     return target
 
 

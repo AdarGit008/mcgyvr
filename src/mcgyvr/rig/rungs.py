@@ -64,6 +64,7 @@ from typing import Any
 
 import yaml
 
+from mcgyvr import atomic
 from mcgyvr.config import (
     FLEET_FILENAME,
     POLICY_FILENAME,
@@ -494,14 +495,7 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
             f"the hub's answer is refused: the setup would not load with it ({exc})"
         ) from exc
     target = folder / RELIEF_FILENAME
-    staging = folder / f".{RELIEF_FILENAME}.part"
-    staging.unlink(missing_ok=True)
-    try:
-        staging.write_text(text, encoding="utf-8")
-        os.replace(staging, target)
-    except BaseException:
-        staging.unlink(missing_ok=True)
-        raise
+    atomic.write(target, text)
     return rides, target
 
 
