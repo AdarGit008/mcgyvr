@@ -1226,9 +1226,12 @@ def _own_fleet_live(
     """Approve the setup ``setup`` wrote at ``setup`` as the user's own fleet and
     name it live; ``(decisions, limits)`` saying what was done, or why not.
 
-    Through the path every live fleet takes: a folder under the config folder
-    (:func:`mcgyvr.fleet.promote.approve_own`), named by ``live.json``
-    (:func:`mcgyvr.fleet.promote.use`), and admitted as any live fleet is. With
+    Through the path every live fleet takes: locked, on no evidence
+    (:func:`mcgyvr.fleet.lock.write_unsampled`), promoted to a folder under
+    the config folder (:func:`mcgyvr.fleet.promote.promote`), named by
+    ``live.json`` (:func:`mcgyvr.fleet.promote.use`), and admitted as any live
+    fleet is. The lock is written into a dev root of its own that is removed
+    once the folder is promoted: the folder holds all of it. With
     init's own fleet already live, a new folder is approved and named in its
     place, and the old one is kept. Any other live fleet is never replaced
     (``mcgyvr fleet use`` switches), and a machine of the user's is not
@@ -1238,14 +1241,12 @@ def _own_fleet_live(
     it a step before — and only then is the fleet approved with each of them
     laid out, named by the rig id its reading names.
     """
-    from mcgyvr.fleet.promote import (
-        PromoteRefusedError,
-        approve_own,
-        approve_own_rigs,
-        is_own,
-        use,
-    )
+    import tempfile
+
+    from mcgyvr.fleet.lock import OWN_FLEET, LockRefusedError, is_own, write_unsampled
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote, use
     from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+    from mcgyvr.fleet.stamp import SETUP_DIR
 
     refused = (
         "A live run is refused until a fleet is live (`mcgyvr fleet use`); "
@@ -1262,17 +1263,18 @@ def _own_fleet_live(
         ), ()
     rigs = _rigs(setup)
     try:
-        if not rigs:
-            folder = approve_own(setup)
-        else:
-            held = readings or {}
-            rig_ids = {
-                rig: _rig_id(rig, held[rig] if rig in held else _read_rig(rig))
-                for rig in rigs
-            }
-            folder = approve_own_rigs(setup, rigs=rig_ids)
+        held = readings or {}
+        rig_ids = {
+            rig: _rig_id(rig, held[rig] if rig in held else _read_rig(rig))
+            for rig in rigs
+        }
+        with tempfile.TemporaryDirectory(prefix="mcgyvr-own-") as scratch:
+            dev = Path(scratch)
+            # TODO(setup): ask
+            write_unsampled(dev, setup, rigs=rig_ids, acknowledged=True)
+            folder = promote(dev, dev / SETUP_DIR, OWN_FLEET)
         switch = use(folder.name)
-    except PromoteRefusedError as exc:
+    except (LockRefusedError, PromoteRefusedError) as exc:
         if current is None:
             return (), (f"No fleet was made live: {exc}. {refused}",)
         return (), (
@@ -4924,17 +4926,41 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
 
 
 def _fleet_lock(args: argparse.Namespace) -> int:
-    """Write the fleet lock from the fleet, evidence and policy files named."""
+    """Write the fleet lock from the fleet, evidence and policy files named, or
+    from a stamp folder (:func:`mcgyvr.fleet.lock.write_from_stamp`)."""
     import json
 
-    from mcgyvr.derived import DerivedNumbersError, class_tolerances
+    from mcgyvr.derived import DerivedNumbersError
     from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
-    from mcgyvr.fleet.lock import LockRefusedError, write
+    from mcgyvr.fleet.lock import LockRefusedError, tolerances, write, write_from_stamp
     from mcgyvr.fleet.roots import HOME_DIR, is_live, lock_root
 
-    dev_root = lock_root("dev")
-    assert dev_root is not None, "the dev lock root is the run root, a path"
-    root = Path(args.root) if args.root else dev_root
+    if args.stamp is not None:
+        # A stamp folder holds its own setup and is its own dev root.
+        taken = [
+            flag
+            for flag, value in (
+                ("--fleet", args.fleet),
+                ("--policy", args.policy),
+                ("--root", args.root),
+            )
+            if value is not None
+        ]
+        if taken:
+            print(
+                f"error: {', '.join(taken)} with --stamp: the stamp folder holds "
+                "the setup and is where its lock is written",
+                file=sys.stderr,
+            )
+            return Exit.USAGE
+        root = Path(args.stamp)
+    else:
+        if args.fleet is None:
+            print("error: --evidence needs --fleet", file=sys.stderr)
+            return Exit.USAGE
+        dev_root = lock_root("dev")
+        assert dev_root is not None, "the dev lock root is the run root, a path"
+        root = Path(args.root) if args.root else dev_root
     if is_live(root):
         print(
             f"error: {root} is or lies under a folder live fleets are read from (the "
@@ -4944,6 +4970,14 @@ def _fleet_lock(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    if args.stamp is not None:
+        try:
+            tree = write_from_stamp(root)
+        except LockRefusedError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"locked: {tree}")
+        return 0
     # One authoritative parser: ``fleet.yaml`` and ``policy.yaml`` are the
     # operator-authored files ``mcgyvr.fleet.files`` defines, so the lock reads
     # them through it rather than guessing JSON. Evidence stays JSON: a dev run
@@ -4965,16 +4999,13 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     except (json.JSONDecodeError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    # The class tolerances, looked up in `mcgyvr.derived`: the rule is pinned in
-    # `mcgyvr.fleet.lock`, the values are estimates the user can set. The lock
-    # weighs only warm decode against NVMe, so it reads decode's classes.
     try:
-        tolerances = {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
+        weighed = tolerances()
     except DerivedNumbersError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     try:
-        write(root, fleet, evidence, policy=policy, tolerances=tolerances)
+        write(root, fleet, evidence, policy=policy, tolerances=weighed)
     except LockRefusedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -5779,17 +5810,28 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "write the fleet lock from passing dev runs (into the dev root's lock tree)"
         ),
     )
-    flock.add_argument(
-        "--fleet",
-        required=True,
+    flock_from = flock.add_mutually_exclusive_group(required=True)
+    flock_from.add_argument(
+        "--evidence",
         metavar="PATH",
-        help="fleet.yaml to lock (units, rigs, fleets)",
+        help=(
+            "dev-run evidence (rig cards, combination validations, moves) as "
+            "JSON; needs --fleet"
+        ),
+    )
+    flock_from.add_argument(
+        "--stamp",
+        metavar="DIR",
+        help=(
+            "a sample's stamp folder (setup/ and evidence.json): the lock is "
+            "written from it into it, and it is promoted from there"
+        ),
     )
     flock.add_argument(
-        "--evidence",
-        required=True,
+        "--fleet",
+        default=None,
         metavar="PATH",
-        help="dev-run evidence (rig cards, combination validations, moves) as JSON",
+        help="fleet.yaml to lock (units, rigs, fleets), with --evidence",
     )
     flock.add_argument(
         "--policy",

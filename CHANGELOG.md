@@ -55,6 +55,37 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   had run first. Each rig is now read once per setup: the fleet is approved
   from the same reading.
 
+### Changed
+
+- **A stamp locks nothing; `mcgyvr fleet lock` is the one lock writer**
+  (owner: "one script that locks a fleet, one script that stamps a fleet
+  without locking").
+  - `mcgyvr.fleet.stamp.stamp` writes only the stamp folder,
+    `<data folder>/stamps/<fleet>/<run>/` (`setup/` and `evidence.json`). It
+    no longer locks, promotes or names a fleet live.
+  - New: `mcgyvr fleet lock --stamp DIR` (`mcgyvr.fleet.lock.write_from_stamp`)
+    writes the lock from a stamp folder into it. Promote and use it from there
+    as any other lock. `--stamp` and `--evidence` are mutually exclusive;
+    `--evidence` still needs `--fleet`.
+- **The user's own fleet is locked like any other, then promoted and named
+  live.** `mcgyvr.fleet.lock.write_unsampled` locks a fleet no sample could
+  run on, approved by `mcgyvr setup` on no evidence. It refuses unless the
+  caller says the user acknowledged that (`acknowledged=True`; `mcgyvr setup`
+  passes it for now, and will ask). `mcgyvr setup` then runs
+  `promote.promote` and `promote.use`, as for every live fleet.
+  `promote.approve_own` and `promote.approve_own_rigs` are gone, and
+  `is_own` moved to `mcgyvr.fleet.lock`.
+  - Same guarantees as before: no unit on a rig that was not read, no hosted
+    unit at a machine of yours, an mcorch policy's units awake, a layout that
+    reads back as pinned. New: a setup that names a unit on a rig that was not
+    read is refused even when other rigs were read.
+  - `promote` dates such a lock by its approval and puts a later approval of
+    the same day at `<date>-2`, `-3`. It carries the hosted units with it.
+  - Fixed: a live wake on a rig of your own fleet was refused, as its lock has
+    no combination record. `admit.host_is_locked` now answers for a lock
+    approved on no evidence from its layout, while that layout matches the
+    pin.
+
 ## [0.5.0] - 2026-10-13
 
 Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab

@@ -23,9 +23,12 @@ promoted folder whose layout still matches its own lock. It says whether the
 move from the fleet that was live is one that fleet's lock measured
 (:class:`Switch`), and starts nothing. Nothing here writes the dev root.
 
-:func:`approve_own` is the one other way a folder is written: ``mcgyvr setup``
-approves the user's own fleet of hosted units, which lays out no rig and so
-needs no dev lock, and names it live through :func:`use` like any other.
+Every live fleet comes this one way, whichever writer in
+:mod:`mcgyvr.fleet.lock` wrote its lock. A lock approved on no evidence
+(:func:`mcgyvr.fleet.lock.write_unsampled`: the user's own fleet, which no
+sample ran on) pins no combination record, so it is dated by the day of its
+approval, and a later approval of that day is ``<date>-2``, then ``-3``; it
+carries its hosted units with it, as no layout holds a unit on no rig.
 """
 
 from __future__ import annotations
@@ -38,7 +41,7 @@ import re
 import shutil
 import socket
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -52,6 +55,11 @@ from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import FleetError, layout_sha256, mcorch_units
+
+# LOCK_DIR is re-exported: a promoted folder holds its lock where the dev
+# root does.
+from mcgyvr.fleet.lock import LOCK_DIR as LOCK_DIR
+from mcgyvr.fleet.lock import approved_on_no_evidence
 from mcgyvr.fleet.roots import (
     TAG,
     LiveFleetError,
@@ -65,16 +73,6 @@ from mcgyvr.fleet.roots import (
 )
 from mcgyvr.fleet.spans import SpanError, check_spans
 
-#: Where a lock sits under the dev root and under a live fleet folder alike.
-LOCK_DIR = Path("records") / "fleet"
-#: The fleet ``mcgyvr setup`` approves from the setup it wrote (:func:`approve_own`),
-#: and who its lock says approved it.
-OWN_FLEET = "own"
-OWN_APPROVER = "mcgyvr setup"
-#: Every approver string a released own-fleet approval has written. ``mcgyvr
-#: init`` is the pre-rename command (v0.4.2 and earlier); a fleet it approved is
-#: the user's own, and is recognised as such when ``mcgyvr setup`` runs again.
-OWN_APPROVERS = frozenset({OWN_APPROVER, "mcgyvr init"})
 #: An IPv4 address in a spelling ``inet_aton`` reads and ``ipaddress`` does not:
 #: one to four parts, each decimal, octal (a leading 0) or hexadecimal (0x).
 _OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")
@@ -158,11 +156,36 @@ def _date_of(root: Path, name: str, records: list[Path]) -> str:
     return latest.date().isoformat()
 
 
+def _approval_day(name: str, lock: dict[str, Any]) -> str:
+    """The day a lock approved on no evidence was approved, ``YYYY-MM-DD``."""
+    stamp = lock.get("approved_at")
+    try:
+        approved = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        approved = None
+    if not isinstance(stamp, str) or approved is None:
+        raise PromoteRefusedError(
+            f"{name}: its lock, approved on no evidence, carries no approved_at "
+            f"to date it by ({stamp!r})"
+        )
+    return approved.date().isoformat()
+
+
+def _lock_day(root: Path, name: str, lock: dict[str, Any], ids: dict[str, str]) -> str:
+    """The day of ``name``'s lock under ``root``: its records' latest
+    ``validated_at``, or, for a lock approved on no evidence, which has no
+    record, the day of its approval."""
+    if approved_on_no_evidence(lock):
+        return _approval_day(name, lock)
+    return _date_of(root, name, _records(ids))
+
+
 def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
     """The day the lock under ``root`` validated ``name``'s layout, ``YYYY-MM-DD``.
 
     The latest ``validated_at`` among the combination records the lock wrote
-    for the layout (one combination record per rig of the layout). ``root`` is
+    for the layout (one combination record per rig of the layout); for a lock
+    approved on no evidence, the day of its approval. ``root`` is
     a dev root or a promoted folder, and ``fleet`` the loaded ``fleet.yaml``
     the lock was written from — the dev setup's, or
     the folder's own — which names the layout's pins.
@@ -172,8 +195,9 @@ def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
     lock_path = root / LOCK_DIR / f"{name}.json"
     if not lock_path.is_file():
         raise PromoteRefusedError(f"{name} has no lock at {lock_path}")
-    ids = _pinned(fleet, name, _read_json(lock_path), "the setup handed in")
-    return _date_of(root, name, _records(ids))
+    lock = _read_json(lock_path)
+    ids = _pinned(fleet, name, lock, "the setup handed in")
+    return _lock_day(root, name, lock, ids)
 
 
 def promote(dev_root: Path, setup: Path, name: str) -> Path:
@@ -222,29 +246,39 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
         )
     lock = _read_json(lock_path)
     ids = _pinned(dev_fleet, name, lock, str(setup / FLEET_FILENAME))
-    records = _records(ids)
+    unsampled = approved_on_no_evidence(lock)
+    records = [] if unsampled else _records(ids)
     for record in records:
         if not (dev_root / record).is_file():
             raise PromoteRefusedError(
                 f"{name}: the dev lock holds no combination record {record}"
             )
-    folder = fleets_dir() / tagged(name, _date_of(dev_root, name, records))
-    if folder.exists() or folder.is_symlink():
-        raise PromoteRefusedError(
-            f"{folder} already exists: a promoted fleet is a new folder, never "
-            "written over or in place of another; a re-lock on a new date is a "
-            "new folder"
-        )
+    day = _lock_day(dev_root, name, lock, ids)
+    folder = fleets_dir() / tagged(name, day)
+    later = 2
+    while folder.exists() or folder.is_symlink():
+        if not unsampled:
+            raise PromoteRefusedError(
+                f"{folder} already exists: a promoted fleet is a new folder, never "
+                "written over or in place of another; a re-lock on a new date is "
+                "a new folder"
+            )
+        # Each approval on no evidence is a lock of its own, so a later one of
+        # the same day is the next folder of that day.
+        folder = fleets_dir() / tagged(name, f"{day}-{later}")
+        later += 1
 
     block = fleets[name]
     layout = block.get("layout") or {}
-    in_layout = {slot[0] for slots in layout.values() for slot in slots if slot}
+    kept = {slot[0] for slots in layout.values() for slot in slots if slot}
+    if unsampled:
+        kept |= {unit for unit, body in dev_fleet["units"].items() if "rig" not in body}
     live_fleet_doc: dict[str, Any] = {
         "profile": "live",
         "units": {
             unit: copy.deepcopy(body)
             for unit, body in dev_fleet["units"].items()
-            if unit in in_layout
+            if unit in kept
         },
         "rigs": {
             rig: copy.deepcopy(body)
@@ -254,9 +288,7 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
         "fleets": {name: copy.deepcopy(block)},
     }
     policy = copy.deepcopy(dev_policy)
-    policy["ladder"] = [
-        unit for unit in dev_policy.get("ladder") or [] if unit in in_layout
-    ]
+    policy["ladder"] = [unit for unit in dev_policy.get("ladder") or [] if unit in kept]
     fleet_text = yaml.safe_dump(live_fleet_doc, sort_keys=False)
     policy_text = yaml.safe_dump(policy, sort_keys=False)
     try:
@@ -348,217 +380,6 @@ def on_a_users_machine(address: str) -> str | None:
     return None
 
 
-def is_own(name: str) -> bool:
-    """Whether the live name ``name`` is a folder :func:`approve_own` wrote."""
-    layout = split_name(name)[0]
-    if layout != OWN_FLEET:
-        return False
-    lock = fleets_dir() / name / LOCK_DIR / f"{OWN_FLEET}.json"
-    try:
-        return bool(_read_json(lock).get("approved_by") in OWN_APPROVERS)
-    except PromoteRefusedError:
-        return False
-
-
-def approve_own(setup: Path) -> Path:
-    """Write ``<config folder>/fleets/own@<today>/`` from the setup ``mcgyvr
-    init`` wrote at ``setup``; that folder.
-
-    The user's own fleet, approved by the product itself and by no dev
-    evidence: a stranger has none. Only a setup whose every unit is hosted is
-    approved: on no ``rig``, at an address that is not a machine of the user's
-    (:func:`on_a_users_machine`). Its fleet :data:`OWN_FLEET` lays out no rig,
-    so live admission reads none, and a machine of the user's is approved only
-    by a read of it, which ``init`` does not take. Its lock pins that empty
-    layout and says who approved it; the date in the folder's name is the day
-    of the approval, and a later folder of the same day is ``<date>-2``, then
-    ``-3``. Refused, with nothing written, when the setup cannot be read, holds
-    a unit on a rig or at a machine of the user's, already lays out rigs or
-    fleets, names an mcorch orchestrator (whose units a fleet with no rig
-    cannot hold awake), or would not load as a setup. It names nothing live:
-    :func:`use` does that, as for any promoted folder.
-    """
-    fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
-    policy = _read_setup(setup / POLICY_FILENAME, load_policy)
-    units = fleet.get("units") or {}
-    on_rigs = sorted(
-        f"{unit} (on {body['rig']})" for unit, body in units.items() if "rig" in body
-    )
-    if on_rigs:
-        raise PromoteRefusedError(
-            f"{', '.join(on_rigs)} sits on a rig, and a machine is not approved "
-            "for live work until it is read"
-        )
-    local = sorted(
-        f"{unit} ({why})"
-        for unit, body in units.items()
-        if (why := on_a_users_machine(str(body.get("address") or ""))) is not None
-    )
-    if local:
-        raise PromoteRefusedError(
-            f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
-            "a machine is not approved for live work until it is read"
-        )
-    if fleet.get("rigs") or fleet.get("fleets"):
-        raise PromoteRefusedError(
-            f"{setup / FLEET_FILENAME} lays out rigs or fleets of its own; a "
-            "fleet laid out on rigs is promoted from its lock"
-        )
-    try:
-        mcorch_units(policy, {}, name=OWN_FLEET)
-    except FleetError as exc:
-        raise PromoteRefusedError(
-            f"{exc}; a fleet that cannot serve its mcorch policy is not approved"
-        ) from exc
-    approved = datetime.now(UTC)
-    own = {**fleet, "profile": "live", "fleets": {OWN_FLEET: {"layout": {}}}}
-    lock = {
-        "layout_sha256": layout_sha256({}),
-        "next": [],
-        "switches": [],
-        "approved_by": OWN_APPROVER,
-        "approved_at": approved.isoformat(timespec="seconds"),
-    }
-    fleet_text = yaml.safe_dump(own, sort_keys=False)
-    policy_text = yaml.safe_dump(policy, sort_keys=False)
-    try:
-        parse(fleet_text, policy_text)
-    except ConfigError as exc:
-        raise PromoteRefusedError(
-            f"{OWN_FLEET}: the live fleet folder would not load as a setup: {exc}"
-        ) from exc
-    _pinned(load_fleet(fleet_text), OWN_FLEET, lock, "the live fleet.yaml")
-    day = approved.date().isoformat()
-    folder = fleets_dir() / tagged(OWN_FLEET, day)
-    later = 2
-    while folder.exists() or folder.is_symlink():
-        folder = fleets_dir() / tagged(OWN_FLEET, f"{day}-{later}")
-        later += 1
-    _build(
-        folder,
-        OWN_FLEET,
-        {
-            Path(FLEET_FILENAME): fleet_text.encode("utf-8"),
-            Path(POLICY_FILENAME): policy_text.encode("utf-8"),
-            LOCK_DIR / f"{OWN_FLEET}.json": (
-                json.dumps(lock, indent=2, sort_keys=True) + "\n"
-            ).encode("utf-8"),
-        },
-    )
-    return folder
-
-
-def _unit_id(unit: dict[str, Any]) -> str:
-    """``unt-`` for one unit init bound from a running backend, hashed over the
-    facts that stay: its engine, where it answers and the model it serves.
-
-    A backend init detects is already running, so it is not launched here and
-    has no image, weights, argv or env to hash. The id is the same spelling the
-    lock pins (:func:`mcgyvr.fleet.ids.digest`).
-    """
-    from mcgyvr.fleet import ids
-
-    engine = unit.get("engine")
-    return ids.digest(
-        "unt-",
-        {
-            "engine": engine if isinstance(engine, str) and engine else "llama.cpp",
-            "address": str(unit.get("address") or ""),
-            "model": str(unit.get("model") or ""),
-        },
-    )
-
-
-def approve_own_rigs(setup: Path, *, rigs: Mapping[str, str]) -> Path:
-    """Write ``<config folder>/fleets/own@<today>/`` with each rig laid out; that
-    folder.
-
-    :func:`approve_own` for a setup whose units sit on the user's own machines,
-    each read through the door's own reader before it is approved: the caller
-    hands the rig ids those reads named, and this writes the fleet ``own`` with
-    every rig laid out (each of its units awake) and the lock pinning that
-    layout. The rigs are the user's own machines, approved by no dev evidence:
-    a stranger has none. Refused, with no fleet folder written, when the setup
-    cannot be read, lays out no unit on a named rig, holds a hosted unit at a
-    machine of the user's, or would not load as a setup (the caller's read of a
-    rig may already have filed its rig file; that is the read's record, not
-    this approval's). It names nothing live: :func:`use` does that.
-    """
-    fleet = _read_setup(setup / FLEET_FILENAME, load_fleet)
-    policy = _read_setup(setup / POLICY_FILENAME, load_policy)
-    units = fleet.get("units") or {}
-    layout: dict[str, list[list[str]]] = {}
-    by_rig: dict[str, list[str]] = {}
-    for rig in rigs:
-        on_rig = [name for name, body in units.items() if str(body.get("rig")) == rig]
-        if not on_rig:
-            raise PromoteRefusedError(
-                f"{setup / FLEET_FILENAME} lays out no unit on {rig}; "
-                "nothing is approved"
-            )
-        by_rig[rig] = on_rig
-        layout[rig] = [[name, "awake"] for name in on_rig]
-    local = sorted(
-        f"{unit} ({why})"
-        for unit, body in units.items()
-        if "rig" not in body
-        and (why := on_a_users_machine(str(body.get("address") or ""))) is not None
-    )
-    if local:
-        raise PromoteRefusedError(
-            f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
-            "a machine is not approved for live work until it is read"
-        )
-    try:
-        mcorch_units(policy, layout, name=OWN_FLEET)
-    except FleetError as exc:
-        raise PromoteRefusedError(
-            f"{exc}; a fleet that cannot serve its mcorch policy is not approved"
-        ) from exc
-    own = copy.deepcopy(fleet)
-    own["profile"] = "live"
-    own["rigs"] = {rig: {"rig_id": rigs[rig]} for rig in rigs}
-    own["fleets"] = {OWN_FLEET: {"layout": layout}}
-    for on_rig in by_rig.values():
-        for name in on_rig:
-            own["units"][name]["unit_id"] = _unit_id(units[name])
-    approved = datetime.now(UTC)
-    lock = {
-        "layout_sha256": layout_sha256(layout_ids(own, layout)),
-        "next": [],
-        "switches": [],
-        "approved_by": OWN_APPROVER,
-        "approved_at": approved.isoformat(timespec="seconds"),
-    }
-    fleet_text = yaml.safe_dump(own, sort_keys=False)
-    policy_text = yaml.safe_dump(policy, sort_keys=False)
-    try:
-        parse(fleet_text, policy_text)
-    except ConfigError as exc:
-        raise PromoteRefusedError(
-            f"{OWN_FLEET}: the live fleet folder would not load as a setup: {exc}"
-        ) from exc
-    _pinned(load_fleet(fleet_text), OWN_FLEET, lock, "the live fleet.yaml")
-    day = approved.date().isoformat()
-    folder = fleets_dir() / tagged(OWN_FLEET, day)
-    later = 2
-    while folder.exists() or folder.is_symlink():
-        folder = fleets_dir() / tagged(OWN_FLEET, f"{day}-{later}")
-        later += 1
-    _build(
-        folder,
-        OWN_FLEET,
-        {
-            Path(FLEET_FILENAME): fleet_text.encode("utf-8"),
-            Path(POLICY_FILENAME): policy_text.encode("utf-8"),
-            LOCK_DIR / f"{OWN_FLEET}.json": (
-                json.dumps(lock, indent=2, sort_keys=True) + "\n"
-            ).encode("utf-8"),
-        },
-    )
-    return folder
-
-
 @dataclass(frozen=True)
 class Switch:
     """What ``use`` did: the pointer it wrote, and what the lock knows of the move."""
@@ -624,7 +445,7 @@ def use(name: str) -> Switch:
         raise PromoteRefusedError(f"{folder / FLEET_FILENAME} holds no fleet {layout}")
     lock = _read_json(folder / LOCK_DIR / f"{layout}.json")
     ids = _pinned(fleet, layout, lock, str(folder))
-    untagged_date = None if tag is not None else _date_of(folder, layout, _records(ids))
+    untagged_date = None if tag is not None else _lock_day(folder, layout, lock, ids)
 
     try:
         current = live_fleet()

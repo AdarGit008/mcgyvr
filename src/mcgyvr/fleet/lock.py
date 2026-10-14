@@ -8,6 +8,13 @@
 * one combination record per rig — a combination's validation, shared by
   every fleet that lists it.
 
+This module is the one writer of a lock. :func:`write` locks from dev-run
+evidence handed in; :func:`write_from_stamp` from a stamp folder
+(:mod:`mcgyvr.fleet.stamp`), the setup and evidence a green sample left; and
+:func:`write_unsampled` locks, on no evidence, a fleet of the user's that no
+sample could run on, once the user has acknowledged that. A lock reaches live
+only through :mod:`mcgyvr.fleet.promote`, whichever of the three wrote it.
+
 Committing them is the approval. Locking refuses, naming what failed, because a
 lock that could not prove a fact must not pretend it did. Every check here is
 arithmetic on the fleet file and the dev evidence; nothing reads a rig.
@@ -21,16 +28,26 @@ to each card, and then every unit on it names its cards.
 
 from __future__ import annotations
 
+import copy
 import json
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
+from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
+from mcgyvr.fleet import ids
+from mcgyvr.fleet.admit import layout_ids
+from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import (
     FleetError,
     combination_id,
     layout_sha256,
     mcorch_units,
 )
+from mcgyvr.fleet.roots import fleets_dir, split_name
 from mcgyvr.fleet.spans import (
     Span,
     SpanError,
@@ -41,9 +58,34 @@ from mcgyvr.fleet.spans import (
 )
 from mcgyvr.fleet.tolerance import tolerance_class
 
+#: Where a lock sits under the dev root and under a live fleet folder alike.
+LOCK_DIR = Path("records") / "fleet"
+#: The fleet :func:`write_unsampled` locks: the user's own, from the setup
+#: ``mcgyvr setup`` wrote.
+OWN_FLEET = "own"
+#: Who a lock :func:`write_unsampled` wrote says approved it: the product itself.
+OWN_APPROVER = "mcgyvr setup"
+#: Every approver string a released own-fleet approval has written. ``mcgyvr
+#: init`` is the pre-rename command (v0.4.2 and earlier); a fleet it approved is
+#: the user's own, and is recognised as such when ``mcgyvr setup`` runs again.
+OWN_APPROVERS = frozenset({OWN_APPROVER, "mcgyvr init"})
+
 
 class LockRefusedError(Exception):
     """The lock cannot be written: a dev run did not prove what it must."""
+
+
+def tolerances() -> dict[str, Any]:
+    """The class tolerances a lock weighs, as :func:`write` takes them.
+
+    Looked up in :mod:`mcgyvr.derived`: the rule is pinned here, the values are
+    estimates the user can set. The lock weighs only warm decode against NVMe,
+    so it reads decode's classes. Raises
+    :class:`mcgyvr.derived.DerivedNumbersError` when they cannot be read.
+    """
+    from mcgyvr.derived import class_tolerances
+
+    return {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
 
 
 def wake_limit_s(wake_s: float, tolerance: dict[str, Any]) -> float:
@@ -570,7 +612,7 @@ def write(
             )
             written.setdefault(combination, record)
 
-    fleet_dir = root / "records" / "fleet"
+    fleet_dir = root / LOCK_DIR
     fleet_dir.mkdir(parents=True, exist_ok=True)
     rig_ids = {name: block["rig_id"] for name, block in fleet.get("rigs", {}).items()}
     unit_ids = {
@@ -598,8 +640,229 @@ def write(
     for combination, record in written.items():
         rig_name = record["rig"]
         rig_id = rig_ids[rig_name]
-        rig_dir = root / "records" / "fleet" / "rigs" / rig_id
+        rig_dir = root / LOCK_DIR / "rigs" / rig_id
         rig_dir.mkdir(parents=True, exist_ok=True)
         (rig_dir / f"{combination}.json").write_text(
             json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+
+
+def write_from_stamp(stamp_dir: Path) -> Path:
+    """Write the fleet lock from the stamp folder ``stamp_dir``; the lock tree.
+
+    A stamp folder (:func:`mcgyvr.fleet.stamp.stamp`) holds the staged setup
+    (``setup/fleet.yaml``, ``setup/policy.yaml``) and the dev-run evidence a
+    green sample built (``evidence.json``). The lock is written by
+    :func:`write` into the stamp folder itself, as its dev root, so promoting
+    it (:func:`mcgyvr.fleet.promote.promote` with ``stamp_dir`` and its
+    ``setup/``) needs no lab checkout. Refused, naming what is wrong, when the
+    folder is not a stamp folder (a file of it missing or unreadable, evidence
+    that is not a JSON object), when the class tolerances cannot be read, or
+    when :func:`write` refuses the evidence.
+    """
+    from mcgyvr.derived import DerivedNumbersError
+    from mcgyvr.fleet.stamp import EVIDENCE_FILE, SETUP_DIR
+
+    if not stamp_dir.is_dir():
+        raise LockRefusedError(f"{stamp_dir} is not a stamp folder: it is no folder")
+    setup = stamp_dir / SETUP_DIR
+    try:
+        fleet = load_fleet((setup / FLEET_FILENAME).read_text(encoding="utf-8"))
+        policy = load_policy((setup / POLICY_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        raise LockRefusedError(
+            f"{stamp_dir} is not a stamp folder: its setup cannot be read: {exc}"
+        ) from exc
+    evidence_path = stamp_dir / EVIDENCE_FILE
+    try:
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise LockRefusedError(
+            f"{stamp_dir} is not a stamp folder: {evidence_path} cannot be read: {exc}"
+        ) from exc
+    if not isinstance(evidence, dict):
+        raise LockRefusedError(
+            f"{stamp_dir} is not a stamp folder: {evidence_path} holds no "
+            "dev-run evidence object"
+        )
+    try:
+        weighed = tolerances()
+    except DerivedNumbersError as exc:
+        raise LockRefusedError(str(exc)) from exc
+    write(stamp_dir, fleet, evidence, policy=policy, tolerances=weighed)
+    return stamp_dir / LOCK_DIR
+
+
+def approved_on_no_evidence(record: Mapping[str, Any]) -> bool:
+    """Whether the fleet lock ``record`` is one :func:`write_unsampled` wrote:
+    approved by the product itself, on no dev evidence."""
+    return record.get("approved_by") in OWN_APPROVERS
+
+
+def is_own(name: str) -> bool:
+    """Whether the live name ``name`` is the user's own fleet: a folder promoted
+    from a lock :func:`write_unsampled` wrote, which ``mcgyvr setup`` may
+    replace with a later approval of its own, as it may no other live fleet."""
+    if split_name(name)[0] != OWN_FLEET:
+        return False
+    path = fleets_dir() / name / LOCK_DIR / f"{OWN_FLEET}.json"
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(record, dict) and approved_on_no_evidence(record)
+
+
+def _unit_id(unit: Mapping[str, Any]) -> str:
+    """``unt-`` for one unit setup bound from a running backend, hashed over the
+    facts that stay: its engine, where it answers and the model it serves.
+
+    A backend setup detects is already running, so it is not launched here and
+    has no image, weights, argv or env to hash. The id is the same spelling the
+    lock pins (:func:`mcgyvr.fleet.ids.digest`).
+    """
+    engine = unit.get("engine")
+    return ids.digest(
+        "unt-",
+        {
+            "engine": engine if isinstance(engine, str) and engine else "llama.cpp",
+            "address": str(unit.get("address") or ""),
+            "model": str(unit.get("model") or ""),
+        },
+    )
+
+
+def write_unsampled(
+    dev_root: Path,
+    setup: Path,
+    *,
+    rigs: Mapping[str, str],
+    acknowledged: bool,
+) -> Path:
+    """Lock the user's own fleet :data:`OWN_FLEET` on no evidence; the lock tree.
+
+    For a fleet no sample could run on: the setup ``mcgyvr setup`` wrote at
+    ``setup``, its units hosted or on the user's own machines. Such a fleet is
+    locked, approved by the product itself (:data:`OWN_APPROVER`) on empty
+    evidence -- a stranger has none -- but only once the user has acknowledged
+    that: ``acknowledged`` must be ``True``, and asking is the caller's.
+
+    ``rigs`` maps each rig the caller read (through the door's own reader) to
+    the rig id that read named, and may be empty. Each is laid out with every
+    unit on it awake, and each such unit gets the id the lock pins; hosted
+    units are carried as they are. Written under ``dev_root``, as a stamp folder
+    is laid out: the fleet's setup in ``setup/`` and the lock, which pins that
+    layout and says who approved it and when, in the lock tree. No combination
+    record is written: nothing was validated. From there it is promoted
+    (:func:`mcgyvr.fleet.promote.promote` with ``dev_root`` and its ``setup/``)
+    and named live (:func:`mcgyvr.fleet.promote.use`) as any lock is.
+
+    Refused, with nothing written, when not acknowledged; when the setup cannot
+    be read, or already lays out rigs or fleets (such a fleet is locked from
+    its dev evidence); when a unit sits on a rig that was not read (a machine
+    is approved only by a read of it), or a rig read holds no unit; when a
+    hosted unit's address is a machine of the user's
+    (:func:`mcgyvr.fleet.promote.on_a_users_machine`); when an mcorch policy's
+    units are not awake in the layout; or when the fleet would not load as a
+    setup.
+    """
+    from mcgyvr.fleet.promote import on_a_users_machine
+    from mcgyvr.fleet.stamp import SETUP_DIR
+
+    if acknowledged is not True:
+        raise LockRefusedError(
+            f"{OWN_FLEET}: a fleet no sample ran on is locked on no evidence only "
+            "once you acknowledge that, and it was not acknowledged"
+        )
+    fleet_path, policy_path = setup / FLEET_FILENAME, setup / POLICY_FILENAME
+    try:
+        fleet = load_fleet(fleet_path.read_text(encoding="utf-8"))
+        policy = load_policy(policy_path.read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        raise LockRefusedError(f"{setup}: the setup cannot be read: {exc}") from exc
+    if fleet.get("rigs") or fleet.get("fleets"):
+        raise LockRefusedError(
+            f"{fleet_path} lays out rigs or fleets of its own; a fleet laid out "
+            "on rigs is locked from its dev evidence"
+        )
+    units = fleet.get("units") or {}
+    unread = sorted(
+        f"{unit} (on {body['rig']})"
+        for unit, body in units.items()
+        if "rig" in body and str(body["rig"]) not in rigs
+    )
+    if unread:
+        raise LockRefusedError(
+            f"{', '.join(unread)} sits on a rig that was not read, and a machine "
+            "is not approved for live work until it is read"
+        )
+    layout: dict[str, list[list[str]]] = {}
+    for rig in rigs:
+        on_rig = [
+            unit
+            for unit, body in units.items()
+            if "rig" in body and str(body["rig"]) == rig
+        ]
+        if not on_rig:
+            raise LockRefusedError(
+                f"{fleet_path} lays out no unit on {rig}; nothing is approved"
+            )
+        layout[rig] = [[unit, "awake"] for unit in on_rig]
+    local = sorted(
+        f"{unit} ({why})"
+        for unit, body in units.items()
+        if "rig" not in body
+        and (why := on_a_users_machine(str(body.get("address") or ""))) is not None
+    )
+    if local:
+        raise LockRefusedError(
+            f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
+            "a machine is not approved for live work until it is read"
+        )
+    try:
+        mcorch_units(policy, layout, name=OWN_FLEET)
+    except FleetError as exc:
+        raise LockRefusedError(
+            f"{exc}; a fleet that cannot serve its mcorch policy is not approved"
+        ) from exc
+
+    own = copy.deepcopy(fleet)
+    own["profile"] = "live"
+    if rigs:
+        own["rigs"] = {rig: {"rig_id": rigs[rig]} for rig in rigs}
+    own["fleets"] = {OWN_FLEET: {"layout": layout}}
+    for slots in layout.values():
+        for unit, _state in slots:
+            own["units"][unit]["unit_id"] = _unit_id(units[unit])
+    record = {
+        "layout_sha256": layout_sha256(layout_ids(own, layout)),
+        "next": [],
+        "switches": [],
+        "approved_by": OWN_APPROVER,
+        "approved_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+    fleet_text = yaml.safe_dump(own, sort_keys=False)
+    policy_text = yaml.safe_dump(policy, sort_keys=False)
+    try:
+        parse(fleet_text, policy_text)
+    except ConfigError as exc:
+        raise LockRefusedError(
+            f"{OWN_FLEET}: the fleet would not load as a setup: {exc}"
+        ) from exc
+    # The layout as it reads back from the file written is the one pinned.
+    written = load_fleet(fleet_text)
+    if layout_sha256(layout_ids(written, layout)) != record["layout_sha256"]:
+        raise LockRefusedError(
+            f"{OWN_FLEET}: the layout written does not read back as the one pinned"
+        )
+
+    staged = dev_root / SETUP_DIR
+    staged.mkdir(parents=True, exist_ok=True)
+    (staged / FLEET_FILENAME).write_text(fleet_text, encoding="utf-8")
+    (staged / POLICY_FILENAME).write_text(policy_text, encoding="utf-8")
+    tree = dev_root / LOCK_DIR
+    tree.mkdir(parents=True, exist_ok=True)
+    (tree / f"{OWN_FLEET}.json").write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return tree

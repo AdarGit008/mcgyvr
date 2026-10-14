@@ -5,12 +5,13 @@ until the config folder's ``live.json`` names a promoted fleet whose lock it can
 hold the rigs to. A stranger has no dev evidence to lock from, so ``init``
 approves what it bound itself, through the one path live reads:
 
-* **Only hosted units bound:** ``init`` writes a fleet folder of its own beside
-  the promoted ones, ``<config folder>/fleets/own@<today>/``, holding the setup
-  it wrote, a fleet ``own`` whose layout names no rig, and that fleet's lock,
-  which says ``mcgyvr setup`` approved it. ``live.json`` names it, as ``mcgyvr
-  fleet use`` would. Live admission then admits a run without reading any rig:
-  the fleet has none, and a hosted unit is not a machine of the user's.
+* **Only hosted units bound:** ``init`` locks a fleet ``own`` whose layout
+  names no rig, on no evidence (:func:`mcgyvr.fleet.lock.write_unsampled`; the
+  lock says ``mcgyvr setup`` approved it), promotes it beside the promoted
+  ones, ``<config folder>/fleets/own@<today>/``, holding the setup it wrote,
+  and ``live.json`` names it, as ``mcgyvr fleet use`` would. Live admission
+  then admits a run without reading any rig: the fleet has none, and a hosted
+  unit is not a machine of the user's.
 * **A machine of the user's is not approved by init:** a unit on a rig, or a
   "hosted" unit whose address is a loopback, private, link-local or otherwise
   non-public address, or a name only a local network answers (``localhost``, a
@@ -48,7 +49,7 @@ from mcgyvr.detect import Backend, Detection
 from mcgyvr.exits import Exit
 from mcgyvr.fleet import admission
 from mcgyvr.fleet.admit import admit_live
-from mcgyvr.fleet.promote import LOCAL_SUFFIXES, LOCK_DIR, PromoteRefusedError, is_own
+from mcgyvr.fleet.promote import LOCAL_SUFFIXES, LOCK_DIR, PromoteRefusedError
 from mcgyvr.fleet.roots import fleets_dir, is_fleet_name, live_file, live_fleet
 
 HOSTED = "model=hosted-model,address=https://api.hosted.example/v1,api_key_env=K"
@@ -584,18 +585,6 @@ def test_a_remote_rig_that_cannot_be_read_is_not_approved(
     assert not live_file().exists()
     assert not fleets_dir().exists()
     assert "No fleet was made live" in said and "box.invalid" in said, said
-
-
-def test_is_own_recognises_the_pre_rename_approver() -> None:
-    """A fleet ``mcgyvr init`` approved before the rename is still init's own."""
-    name = "own@2026-01-02"
-    folder = fleets_dir() / name
-    (folder / LOCK_DIR).mkdir(parents=True)
-    (folder / LOCK_DIR / "own.json").write_text(
-        json.dumps({"approved_by": "mcgyvr init"}), encoding="utf-8"
-    )
-
-    assert is_own(name) is True
 
 
 #: A "hosted" unit at a machine of the user's, bound or written after the
