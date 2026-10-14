@@ -1103,6 +1103,8 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
             detection=_setup_synthetic_detection(plans, window=ctx_per_slot),
             use_case="coding",
             profile="dev",
+            # Auto-wake on: the launch specs are emitted here and kept.
+            compose_dir=path,
         )
         if not staged.written:
             raise _SetupInteractiveError("the staged setup was not written")
@@ -1299,7 +1301,9 @@ def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
     from mcgyvr.fleet.roots import staging_dir
 
     named = Path(args.path) if args.path else named_config_path()
-    return named if named is not None else staging_dir(run_id)
+    # Absolute: the staged folder is written into the setup as the folder its
+    # launch specs are kept in (`serving.compose_dir`), read from anywhere.
+    return named.absolute() if named is not None else staging_dir(run_id)
 
 
 def _setup(args: argparse.Namespace) -> int:
@@ -1333,6 +1337,7 @@ def _setup(args: argparse.Namespace) -> int:
             mcorch=args.mcorch,
             window=args.window,
             session_sandbox=args.session_sandbox,
+            compose_dir=path,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.

@@ -61,6 +61,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   read, and with nothing named and no fleet live there is no config: the
   refusal says to run `mcgyvr setup` or set `$MCGYVR_CONFIG`.
 
+- **Auto-wake is on for the fleet setup makes live.** Setup writes
+  `serving.enable_sleep_wake: true` and `serving.compose_dir` naming the staged
+  folder, where its launch specs are emitted and kept, so a request refused by
+  a unit that is down is a door `serve up` of that unit's launch spec and the
+  request again. Live wakes a rig only when the live fleet's lock names it,
+  whether the lock was written from a stamp or on no evidence.
+
 - **One reader reads a machine, and one id names it.**
   - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
     tool. The door ships it to a rig as one read-only line
