@@ -143,10 +143,9 @@ def test_the_local_units_limit_reaches_the_wire_for_a_contract_with_no_cap(
     from mcgyvr.worker.prompt import build_prompt
 
     seen = caps_sent(monkeypatch)
-    # Room to read its own prompt: the shared prose contract allows 64 tokens.
-    work = load_contract(
-        PROSE_CONTRACT.replace("max_input_tokens: 64", "max_input_tokens: 16384")
-    )
+    # A chat run: a raw connection that states no cap and is sent none on the
+    # rider's own rungs, while a ride still carries the local unit's limit.
+    work = load_contract("id: sky\ntask_type: chat\ntask: Why is the sky blue?\n")
     assert work.limits.max_output_tokens is None
 
     dispatch_prompt(pool(2048), RIDE, build_prompt(work), work)

@@ -27,7 +27,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
-from mcgyvr.contract import Contract, auto_reply_cap
+from mcgyvr.contract import Contract
 
 
 class TokenCount(StrEnum):
@@ -218,8 +218,7 @@ def check_contract_fits(
     request the window cannot hold.
 
     The contract already states how large its reply may be
-    (``limits.max_output_tokens``, sized to the task type by
-    :func:`~mcgyvr.contract.output_cap`), so whether the two fit together is
+    (``limits.max_output_tokens``), so whether the two fit together is
     knowable from the contract, the prompt text and the rung — with no backend
     reached and no attempt spent. A refusal that arrives here therefore arrives
     at zero spend, which is what makes it worth having: the same request sent
@@ -402,64 +401,11 @@ def sized_reply_cap(
     cap sized "the same way" in two places is how a check passes on a request
     that then comes back cut.
 
-    A raw-text reply (``prose`` / ``media_artifact``) is uncapped: its
-    ``limits.max_output_tokens`` is ``None``, and this returns ``None`` before
-    the rung's own ``output_tokens`` is consulted — an uncapped reply stays
-    uncapped on every rung of one's own. On a ride it is given the ceiling
-    the rung carries, where it carries one (below).
-
-    **They are not the same kind of statement, and that is the whole argument.**
-    A contract's cap is written by whoever wrote the work and says what this
-    unit of work is worth spending. A rung's is written by whoever owns the rig
-    and says what that backend needs to finish a reply at all. Neither can
-    answer the other's question: a contract cannot know that a model further
-    up the ladder thinks out loud before it writes, and a rung cannot know whether
-    the work in front of it is a docstring or a refactor. So where both have
-    spoken about the number sent to one particular backend, the backend's own
-    answer is the one used, and the contract's is what a rung that stayed
-    silent falls back to.
-
-    The two obvious alternatives each name a failure this one avoids.
-
-    *The lower of the two* — which is what ``attempts.*`` does with
-    ``limits.attempts``, and the reason that precedent must not simply be
-    copied — re-creates the truncation. A cut reply is
-    ``reply[incomplete-reply]``, refused by :mod:`mcgyvr.worker.reply` rather
-    than applied, so it spends the rung and produces nothing. Under the
-    lower-of rule the contract's cap is the smaller number on exactly the rung
-    that declared it needs more.
-
-    *The higher of the two* fixes that case and forbids the opposite one, which
-    a rung also needs. Reply length, the unit's ``width`` and the unit's
-    ``request_timeout_s`` are three numbers that decide each other: a reply of N
-    tokens at the rung's per-stream rate has to finish inside the request
-    timeout, and the rate falls as the rung serves more streams at once. An
-    operator who has measured that and wants the rung held below the contract's
-    cap cannot say so under a ``max`` rule, and the failure arrives as a socket
-    timeout naming neither number.
-
-    What the override does *not* do is escape a bound. A rung's number is
-    checked against the rung's own window by
-    :func:`check_contract_against_rung`, which is the bound that matters,
-    because the window is the thing the cap actually competes for.
-
-    **A contract that stated no cap is sized, not overridden.** Its
-    ``limits.max_output_tokens`` is the loader's floor for the task type
-    (``max_output_tokens_declared`` is false), and the cap sent is
-    :func:`~mcgyvr.contract.auto_reply_cap`'s: the visible reply the target
-    needs — the floor plus twice the target's estimated tokens, the target
-    read from ``contract.target_content``, which the driver fills from the
-    workspace before it dispatches — plus a reasoning allowance for a model
-    that thinks before it writes. A rung's ``output_tokens`` is then a
-    ceiling rather than a replacement: the contract has already said, by
-    saying nothing, that the work is worth what its target needs, and the
-    rung says how much its backend can be given. Given the ``prompt``, the
-    reasoning allowance — and only that half — is also trimmed to the room
-    the rung's window leaves beside the prompt as charged, under the share
-    the contract is held to (:func:`held_share`), so a backend that does not
-    reason is not refused for headroom it never uses. The visible half is
-    never trimmed: a target too big to re-emit in the room left is refused
-    by the fit checks, by name, rather than sent to be cut.
+    A contract that states no cap is sent none. A raw-text reply (``prose`` /
+    ``media_artifact``) is uncapped on every rung of one's own; a model-written
+    ``code`` contract that states none never reaches here, because
+    :func:`check_cap_stated` refuses it before dispatch. On a ride it is given
+    the ceiling the rung carries, where it carries one (below).
 
     **A ceiling is the one place the lower of two numbers is sent.** A rung may
     carry an ``output_ceiling`` (:attr:`mcgyvr.local_pool.Endpoint.output_ceiling`):
@@ -479,28 +425,37 @@ def sized_reply_cap(
     riding = f"the ceiling of the unit rung {rung.source!r} stands in for"
     if declared is None:
         if ceiling is None:
-            return ReplyCap(None, "uncapped: a raw-text reply")
-        return ReplyCap(ceiling, f"uncapped raw-text reply, sent {riding}")
-    if contract.max_output_tokens_declared:
-        if rung.output_tokens is None:
-            cap = declared
-            basis = "the contract's limits.max_output_tokens"
-        else:
-            cap = rung.output_tokens
-            basis = f"rung {rung.source!r}'s output_tokens, in place of the contract's"
+            return ReplyCap(None, "uncapped: the contract states no cap")
+        return ReplyCap(ceiling, f"uncapped contract, sent {riding}")
+    if rung.output_tokens is None:
+        cap = declared
+        basis = "the contract's limits.max_output_tokens"
     else:
-        auto = auto_reply_cap(declared, contract.target_content)
-        cap, basis = auto.tokens, auto.basis
-        room = _room_beside(contract, rung, prompt, default_fraction)
-        if room is not None and room < cap:
-            cap = max(auto.visible, room)
-            basis += f"; reasoning trimmed to the {room} the window leaves"
-        if rung.output_tokens is not None and rung.output_tokens < cap:
-            cap = rung.output_tokens
-            basis += f"; bounded by rung {rung.source!r}'s output_tokens"
+        cap = rung.output_tokens
+        basis = f"rung {rung.source!r}'s output_tokens, in place of the contract's"
     if ceiling is not None and ceiling < cap:
         return ReplyCap(ceiling, f"{basis}; bounded by {riding}")
     return ReplyCap(cap, basis)
+
+
+def check_cap_stated(contract: Contract) -> PreflightIssue | None:
+    """Refuse a model-written ``code`` contract that states no output cap.
+
+    Owner decision (2026-10-14, e2e run 3 T1): the work mcgyvr's harness runs
+    is bounded by a number somebody wrote, and the contract's is what the work
+    is worth — only its author can say it, so nothing here invents one. The
+    contract still loads, and ``mcgyvr contract`` says what it is missing; this
+    is the refusal ``mcgyvr run`` makes before any model is called.
+    """
+    if not contract.needs_output_cap or contract.limits.max_output_tokens is not None:
+        return None
+    return PreflightIssue(
+        "output-cap-unstated",
+        f"contract {contract.id!r} is model-written {contract.task_type!r} work "
+        f"and states no limits.max_output_tokens, so no model is called for it. "
+        f"State limits.max_output_tokens: what the reply is worth, in output "
+        f"tokens, within the ceiling of the unit it runs on",
+    )
 
 
 def _room_beside(
@@ -604,14 +559,7 @@ def check_contract_against_rung(
         # names it. A message that said "lower the rung's room" about a cap the
         # contract declared would send an operator to edit a key that is not
         # set.
-        if not contract.max_output_tokens_declared:
-            # Sized from the target: the visible half alone fills the window,
-            # since the reasoning half was trimmed to the room left.
-            whose, fix = (
-                "the target needs a visible reply of",
-                "Decompose the target into smaller contracts",
-            )
-        elif rung.output_tokens is not None:
+        if rung.output_tokens is not None:
             whose, fix = (
                 f"rung {rung.source!r} declares its replies need",
                 "Lower that rung's `output_tokens`",

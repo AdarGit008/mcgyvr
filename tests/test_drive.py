@@ -387,6 +387,8 @@ stop_conditions: ["The interface is not stated."]
 acceptance: ["sh -c 'exit 0'"]
 context:
   max_input_tokens: 1024
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """

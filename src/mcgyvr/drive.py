@@ -62,6 +62,7 @@ from mcgyvr.gate.jev import JevCheck
 from mcgyvr.gate.output import ASR_WER, MEDIA_VALID, SAFETY_PASS, OutputChecks
 from mcgyvr.gate.preflight import (
     ServingWindow,
+    check_cap_stated,
     check_contract_against_rung,
     sized_reply_cap,
 )
@@ -111,6 +112,17 @@ class UnrunnableStepError(DriveError):
 
 class PromptTooLargeError(DriveError):
     """The assembled prompt does not fit the ceiling its own contract set."""
+
+
+class OutputCapUnstatedError(DriveError):
+    """A model-written ``code`` contract states no ``limits.max_output_tokens``.
+
+    Owner decision (2026-10-14, e2e run 3 T1): such a contract loads, and
+    ``mcgyvr contract`` says what it is missing, but it is never sent — no
+    number is invented for it. Refused at the seam that would have sent it,
+    before any model is called, and not a :class:`~mcgyvr.runner.RunnerError`:
+    the unit did nothing wrong, so the cooldown does not learn from it.
+    """
 
 
 class OutputCapTooLargeError(DriveError):
@@ -319,7 +331,10 @@ def refuse_unsendable(
 ) -> None:
     """Raise, before anything is sent, if this prompt cannot go to this rung.
 
-    Two questions, in this order. Does the assembled prompt fit the ceiling its
+    First, whether there is a cap to send at all: a model-written ``code``
+    contract that states no ``limits.max_output_tokens`` is never sent
+    (:class:`OutputCapUnstatedError`). Then two questions, in this order. Does
+    the assembled prompt fit the ceiling its
     own contract set (:class:`PromptTooLargeError`)? And does the contract fit
     the window the rung serves —
     :func:`~mcgyvr.gate.preflight.check_contract_against_rung`, which asks
@@ -349,6 +364,9 @@ def refuse_unsendable(
     """
     if contract.is_session:
         return
+    unstated = check_cap_stated(contract)
+    if unstated is not None:
+        raise OutputCapUnstatedError(f"{unstated}")
     if not prompt.fits:
         raise PromptTooLargeError(
             f"contract {contract.id!r}: the assembled prompt does not fit its "
@@ -875,8 +893,8 @@ def worker_attempt(
         # not, so fall back to the workspace's own copy. Its `sources` are read
         # off the same tree, in the same moment (`mcgyvr.worker.sources`): a
         # source that cannot be given raises here, before the first dispatch.
-        # The same contract is what is checked and dispatched below, because a
-        # contract that stated no cap is sized from this content (`reply_cap`).
+        # The same contract is what is checked and dispatched below, so the
+        # prompt measured against a unit's ceiling is the prompt that is sent.
         sized = replace(
             contract,
             target_content=contract.target_content or original,

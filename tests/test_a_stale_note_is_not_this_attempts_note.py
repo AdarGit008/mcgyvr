@@ -79,6 +79,8 @@ target: src/pkg/messy.py
 stop_conditions: ["The value is not stated."]
 demonstration: ["sh -c 'grep -q VALUE src/pkg/messy.py'"]
 acceptance: ["python -c 'import sys; sys.exit(0)'"]
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """

@@ -11,22 +11,18 @@ What must be true, and is asserted below: a rung may declare the room its
 replies need; that number is what reaches the wire on that rung and nowhere
 else; a rung that declares nothing still sends the contract's number; a
 declared room that does not fit the rung's own window is a named refusal rather
-than the truncation it was written to prevent. A contract that states no cap is
-sized from its target, with the rung's number as its ceiling
-(``tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py``).
+than the truncation it was written to prevent.
 """
 
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
 
 import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.local_pool import source_map
-from tests import livejournal as lj
 from tests.rungs import PROSE_CONTRACT, caps_sent
 from tests.rungs import ROOM_CONTRACT as CONTRACT
 
@@ -233,26 +229,6 @@ def test_the_rungs_room_is_what_the_fit_is_measured_against() -> None:
     assert "2048" in issue.message, (
         f"the refusal must name the reserve it actually enforced: {issue.message}"
     )
-
-
-# --- a contract that says nothing is sized, not refused -------------------
-
-
-def test_a_contract_with_no_cap_is_accepted_and_sized_per_attempt(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A contract that states no cap is no longer refused.
-
-    It used to be (``mcgyvr.cli._cap_undeclared``): a reply cut at a cap
-    nobody chose was spent silently. A cap nobody chose is now sized from the
-    target at each attempt and recorded with how it was reached, so the
-    contract is accepted and says so.
-    """
-    uncapped = CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
-    path = lj.make_contract(tmp_path / "impl.yaml", uncapped)
-
-    assert lj.main(["contract", str(path)]) == 0
-    assert "output cap sized from the target each attempt" in capsys.readouterr().out
 
 
 # --- a raw-text reply is uncapped ----------------------------------------

@@ -401,12 +401,7 @@ def _catalog(args: argparse.Namespace) -> int:
 def _contract(args: argparse.Namespace) -> int:
     import json
 
-    from mcgyvr.contract import (
-        REASONING_ALLOWANCE,
-        REWRITE_FACTOR,
-        ContractError,
-        load,
-    )
+    from mcgyvr.contract import ContractError, load
     from mcgyvr.escalate import how_judged
 
     try:
@@ -457,19 +452,18 @@ def _contract(args: argparse.Namespace) -> int:
             f"  risk:    {contract.risk} — verified by "
             f"{contract.verification.policy.replace('_', ' ')}"
         )
-    if contract.limits.max_output_tokens is None:
-        output_budget = "uncapped (raw text)"
-    elif not contract.max_output_tokens_declared and not contract.is_deterministic:
-        # Sized per attempt from the target the run reads, so the number is
-        # not known here; the floor is, and so is what is added to it.
+    if contract.limits.max_output_tokens is not None:
+        output_budget = f"<={contract.limits.max_output_tokens} output tokens"
+    elif contract.needs_output_cap:
+        # Valid, and never sent as it stands: the run refuses a model-written
+        # contract with no cap before any model is called, so say so here,
+        # where refusing costs nothing.
         output_budget = (
-            f"output cap sized from the target each attempt (from "
-            f"{contract.limits.max_output_tokens} for the type, plus "
-            f"{REWRITE_FACTOR}x the target and {REASONING_ALLOWANCE} for "
-            f"reasoning, within the unit's output_tokens)"
+            "no output cap stated — `mcgyvr run` refuses it until "
+            "`limits.max_output_tokens` is stated"
         )
     else:
-        output_budget = f"<={contract.limits.max_output_tokens} output tokens"
+        output_budget = "uncapped (raw text)"
     print(
         f"  limits:  {output_budget}, "
         f"<={contract.max_input_tokens} prompt tokens, "
