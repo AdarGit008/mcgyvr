@@ -365,7 +365,7 @@ def test_the_installed_wheel_answers_every_offline_command(
         (("capabilities",), "Shipped models"),
         (("catalog",), "Task types"),
         (("contract", "impl.yaml"), "valid"),
-        (("setup", "--api", HOSTED_UNIT), "Staged"),
+        (("setup", "--accept-unsampled", "--api", HOSTED_UNIT), "Staged"),
         (("config",), "valid"),
         (("local_pool",), "usable rung"),
         (("index", "--repo", repo), "Indexed"),
@@ -443,7 +443,15 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
     home, work, repo = _a_place(tmp_path)
     env = installed.env(home, **{KEY_ENV: "unused"})
     address = f"http://{HOSTED_HOST}:{listener.server_address[1]}"
-    init = _run(work, env, installed.mcgyvr, "setup", "--api", _hosted(address))
+    init = _run(
+        work,
+        env,
+        installed.mcgyvr,
+        "setup",
+        "--accept-unsampled",
+        "--api",
+        _hosted(address),
+    )
     assert init.returncode == 0 and "Approved your own fleet" in init.stdout, _ran(init)
 
     done = _run(

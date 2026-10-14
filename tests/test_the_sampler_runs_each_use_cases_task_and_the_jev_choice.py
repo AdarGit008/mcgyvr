@@ -58,9 +58,7 @@ def test_the_coding_sample_runs_the_bug_fix_on_the_staged_setup(
         ran.append(argv)
         return sd.accepted(argv)
 
-    monkeypatch.setattr(sampler, "run_contract", run_contract)
-
-    (outcome,) = sampler.task(setup, [fx.UNIT], tmp_path / "sample")
+    (outcome,) = sampler.task(setup, [fx.UNIT], tmp_path / "sample", run_contract)
 
     assert outcome.check == TASK_GATE and outcome.passed
     (argv,) = ran
@@ -86,10 +84,9 @@ def test_the_agent_sample_is_grounded_and_safety_checked(
         )
         return 0
 
-    monkeypatch.setattr(sampler, "run_contract", run_contract)
     monkeypatch.setattr(sampler, "safe", lambda answer: None)
 
-    grounded, safety = sampler.task(setup, [fx.UNIT], tmp_path / "sample")
+    grounded, safety = sampler.task(setup, [fx.UNIT], tmp_path / "sample", run_contract)
 
     assert (grounded.check, grounded.passed) == (TASK_GROUNDED, True)
     assert (safety.check, safety.passed) == (TASK_SAFETY, True)
@@ -128,7 +125,7 @@ def test_the_chat_sample_completes_once_per_unit_and_reads_back_what_it_serves(
     monkeypatch.setattr(sampler, "complete", complete)
     monkeypatch.setattr(sampler, "served", lambda unit: {"window": 8192, "slots": 4})
 
-    (outcome,) = sampler.task(setup, [fx.UNIT], tmp_path / "sample")
+    (outcome,) = sampler.task(setup, [fx.UNIT], tmp_path / "sample", sd.accepted)
 
     assert asked == [fx.UNIT]
     assert outcome.check == TASK_COMPLETION and outcome.passed
@@ -143,7 +140,7 @@ def test_a_chat_unit_serving_another_window_than_planned_is_red(
     monkeypatch.setattr(sampler, "complete", lambda where, unit: "ready")
     monkeypatch.setattr(sampler, "served", lambda unit: {"window": 4096, "slots": 4})
 
-    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample")
+    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", sd.accepted)
 
     (why,) = _task_reasons("chat", fx.fleet_doc(), [fx.UNIT], None, outcomes)
     assert "served window 4096, planned 8192" in why
@@ -153,10 +150,11 @@ def test_an_opted_in_jev_unit_gives_one_typed_choice(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     setup = _setup(tmp_path, "coding", jev=fx.UNIT)
-    monkeypatch.setattr(sampler, "run_contract", sd.accepted)
     monkeypatch.setattr(sampler, "choose", lambda where: ("ready", 0.93))
 
-    outcomes: list[Any] = sampler.task(setup, [fx.UNIT], tmp_path / "sample")
+    outcomes: list[Any] = sampler.task(
+        setup, [fx.UNIT], tmp_path / "sample", sd.accepted
+    )
 
     choice = next(one for one in outcomes if one.check == TASK_CHOICE)
     assert (choice.unit, choice.label, choice.probability) == (fx.UNIT, "ready", 0.93)
@@ -166,14 +164,13 @@ def test_a_jev_unit_that_cannot_answer_is_a_reason(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     setup = _setup(tmp_path, "coding", jev=fx.UNIT)
-    monkeypatch.setattr(sampler, "run_contract", sd.accepted)
 
     def refused(where: Path) -> tuple[str, float]:
         raise sampler.SamplerError("jev.unit binds no unit")
 
     monkeypatch.setattr(sampler, "choose", refused)
 
-    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample")
+    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", sd.accepted)
 
     choice = next(one for one in outcomes if one.check == TASK_CHOICE)
     assert not choice.passed and "binds no unit" in choice.why
@@ -181,6 +178,6 @@ def test_a_jev_unit_that_cannot_answer_is_a_reason(
 
 def test_a_media_gen_fleet_has_no_sample_task(tmp_path: Path) -> None:
     setup = _setup(tmp_path, "media-gen")
-    assert sampler.task(setup, [fx.UNIT], tmp_path / "sample") == []
+    assert sampler.task(setup, [fx.UNIT], tmp_path / "sample", sd.accepted) == []
     sample = Sample(setup=setup, fleet=fx.FLEET, reads=())
     assert sample.outcomes == ()

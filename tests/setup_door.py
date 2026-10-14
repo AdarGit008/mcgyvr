@@ -228,7 +228,6 @@ def interactive(
     open the door onto ``rig``, and answer each ``[y/N]`` by the first key of
     ``answers`` its question holds. The questions asked, in order."""
     from mcgyvr import cli, wake
-    from mcgyvr.fleet import sampler
     from mcgyvr.scan import Scan
     from mcgyvr.serving import rigfile
 
@@ -272,5 +271,5 @@ def interactive(
     monkeypatch.setattr(cli, "_setup_emit", _emit)
     monkeypatch.setattr(cli, "_confirm", confirm)
     monkeypatch.setattr(wake, "spawn_door", rig)
-    monkeypatch.setattr(sampler, "run_contract", accepted)
+    monkeypatch.setattr(cli, "_setup_run_contract", accepted)
     return asked

@@ -159,6 +159,7 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
         "mcorch": None,
         "window": None,
         "session_sandbox": None,
+        "accept_unsampled": False,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)

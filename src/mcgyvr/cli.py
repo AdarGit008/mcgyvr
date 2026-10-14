@@ -758,6 +758,7 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.mcorch is not None
         or args.window is not None
         or args.session_sandbox is not None
+        or args.accept_unsampled
     )
 
 
@@ -1110,14 +1111,17 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
 
-        if not _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+            _setup_start(rigs, scans, path)
+            approved, unapproved = _setup_sample(path, run_id, readings, rooms)
+        else:
             print(
                 "Containers were not started. The staged setup and its launch "
-                f"specs are at {path}."
+                f"specs are at {path}.\n"
             )
-            return 0
-        _setup_start(rigs, scans, path)
-        approved, unapproved = _setup_sample(path, run_id, readings, rooms)
+            approved, unapproved = _setup_unsampled(
+                path, NOT_STARTED, acknowledged=None, readings=readings
+            )
         decisions = staged.decisions + approved
         if decisions:
             print("What was decided, and why:")
@@ -1139,6 +1143,55 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
     except (ConfigError, CapabilityTableError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+#: Why a setup could not be sampled, each as the sentence setup prints.
+NOT_STARTED = "its containers were not started, so nothing of it runs to sample"
+ALL_HOSTED = "every unit in it is hosted, so there is no machine of yours to sample"
+FLAGS_START_NOTHING = (
+    "`mcgyvr setup` with flags binds the servers already answering and starts "
+    "none, so nothing mcgyvr launched runs to sample (the interactive `mcgyvr "
+    "setup` starts and samples them)"
+)
+#: What a lock on no evidence means, said before the user is asked for one.
+NO_EVIDENCE_MEANS = (
+    "A lock on no evidence approves the fleet as it is written: no reading of "
+    "its units' speed, card use or restarts stands behind it, so live admission "
+    "holds a run only to its layout and to the rigs it was read on, and nothing "
+    "alerts when a unit is slower or larger than it should be."
+)
+#: The question that acknowledges it.
+ACCEPT_UNSAMPLED = "Lock it approved on no evidence? [y/N] "
+
+
+def _setup_unsampled(
+    path: Path,
+    why: str,
+    *,
+    acknowledged: bool | None,
+    readings: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Lock the staged setup at ``path``, which could not be sampled for
+    ``why``, on no evidence -- only once the user acknowledges it.
+
+    Says why it could not be sampled and what a lock on no evidence means.
+    ``acknowledged`` is the flag path's ``--accept-unsampled``; ``None`` asks
+    (:data:`ACCEPT_UNSAMPLED`). Unacknowledged, nothing is locked and the
+    limit says how to lock it.
+    """
+    print(f"The fleet could not be sampled: {why}.")
+    print(NO_EVIDENCE_MEANS)
+    print()
+    if acknowledged is None:
+        acknowledged = _confirm(ACCEPT_UNSAMPLED)
+    if not acknowledged:
+        return (), (
+            "The fleet was not locked or made live: it could not be sampled "
+            f"({why}), and a fleet no sample ran on is locked on no evidence "
+            "only once you acknowledge that. Re-run `mcgyvr setup` with "
+            "`--accept-unsampled` to lock it.",
+        )
+    return _own_fleet_live(path, readings)
 
 
 def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
@@ -1166,6 +1219,11 @@ def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
         for rung in unit.rungs:
             rooms[rung] = mib
     return rooms
+
+
+def _setup_run_contract(argv: list[str]) -> int:
+    """``mcgyvr run`` with ``argv``, in this process: the sample task's run."""
+    return main(argv)
 
 
 def _setup_sample(
@@ -1196,7 +1254,7 @@ def _setup_sample(
             for rig in _rigs(path)
         }
         sampler.lay_out(path, rig_ids, rooms)
-        ran = sampler.run(path)
+        ran = sampler.run(path, run_contract=_setup_run_contract)
     except (sampler.SamplerError, PromoteRefusedError) as exc:
         return (), (f"The fleet was not sampled, so nothing was locked: {exc}.",)
     for failed in ran.failed:
@@ -1292,10 +1350,19 @@ def _setup(args: argparse.Namespace) -> int:
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    # What setup wrote is the user's own fleet; approving it is what lets a
-    # fresh `profile: live` setup run. A setup run that did not write is not one
-    # it bound, so it approves nothing.
-    approved, unapproved = _own_fleet_live(result.path) if result.written else ((), ())
+    # What setup wrote is the user's own fleet. The flags start nothing, so
+    # nothing of it is sampled: it is locked on no evidence, and only with
+    # `--accept-unsampled`. A setup run that did not write is not one it
+    # bound, so it locks nothing.
+    approved, unapproved = (
+        _setup_unsampled(
+            result.path,
+            _why_unsampled(result.path, args.use_case or "coding"),
+            acknowledged=args.accept_unsampled,
+        )
+        if result.written
+        else ((), ())
+    )
     decisions = result.decisions + approved
     if decisions:
         print("What was decided, and why:")
@@ -1322,6 +1389,15 @@ def _setup(args: argparse.Namespace) -> int:
         for limit in limits:
             print(f"  - {limit}")
     return 0
+
+
+def _why_unsampled(setup: Path, use_case: str) -> str:
+    """Why the flag path's staged setup at ``setup`` is not sampled."""
+    from mcgyvr.fleet.sample import MEDIA_GEN, MEDIA_NOT_BUILT
+
+    if use_case == MEDIA_GEN:
+        return MEDIA_NOT_BUILT
+    return FLAGS_START_NOTHING if _rigs(setup) else ALL_HOSTED
 
 
 def _own_fleet_live(
@@ -5774,6 +5850,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "written as `sandbox.sessions`: tempdir (the default: no container "
             "is built or started, and Docker is not needed) or docker (opt in "
             "to a task container, as code and media get)"
+        ),
+    )
+    setup.add_argument(
+        "--accept-unsampled",
+        action="store_true",
+        help=(
+            "lock the fleet setup binds approved on no evidence, and name it "
+            "live: setup with flags starts no container, so no sample runs on "
+            "what it binds. Without it nothing is locked, and the limits say "
+            "why. Nothing measured stands behind such a lock"
         ),
     )
     setup.set_defaults(func=_setup)

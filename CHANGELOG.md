@@ -44,6 +44,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   - A live `own` folder locked from a stamp is the user's own, which a later
     setup may name live in its place.
 
+- **A fleet setup could not sample is locked on no evidence only once you
+  say so.**
+  - A fleet with every unit hosted, one whose containers were not started, or
+    one whose use case has no sample (`media-gen`), is not sampled. Setup says
+    why, says what a lock on no evidence means, and asks "Lock it approved on
+    no evidence? [y/N]".
+  - `mcgyvr setup` with flags starts no container, so nothing it binds is
+    sampled: the new `--accept-unsampled` is the acknowledgment. Without it
+    nothing is locked or made live, and the limits say how to lock it. Setup
+    no longer approves its own fleet unasked.
+
 - **One reader reads a machine, and one id names it.**
   - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
     tool. The door ships it to a rig as one read-only line

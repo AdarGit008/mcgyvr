@@ -1,4 +1,10 @@
-"""``mcgyvr setup`` approves the user's own fleet for live work, and no more.
+"""``mcgyvr setup --accept-unsampled`` approves the user's own fleet for live
+work, and no more.
+
+Setup with flags starts no container, so no sample runs on what it binds, and
+``--accept-unsampled`` is the user's acknowledgment that it is locked on no
+evidence (without it nothing is locked:
+``test_a_fleet_setup_could_not_sample_is_locked_only_once_the_user_acknowledges``).
 
 A fresh ``init`` writes ``profile: live``, and live admission refuses a run
 until the config folder's ``live.json`` names a promoted fleet whose lock it can
@@ -94,7 +100,7 @@ def _init(
     found: Detection,
 ) -> int:
     monkeypatch.setattr("mcgyvr.initialize.detect", lambda _targets: found)
-    return cli.main(["setup", *flags, str(setup)])
+    return cli.main(["setup", "--accept-unsampled", *flags, str(setup)])
 
 
 def _no_read(rig: str, run_id: str, probe: Sequence[str]) -> int:

@@ -24,9 +24,10 @@ through the door, and hands the staged setup here. This module builds the
   task (:data:`~mcgyvr.fleet.sample.MEDIA_NOT_BUILT`), and the judge says so.
 
 Nothing here locks, promotes or names a fleet live, and nothing reaches a
-machine but through the door and the units' own endpoints. Every reach is a
-module-level function a test replaces: :func:`run_contract`,
-:func:`complete`, :func:`served`, :func:`choose`.
+machine but through the door and the units' own endpoints. ``mcgyvr run`` is
+handed in by the command line that runs it (``run_contract``: the offline core
+imports no part of the command line), and every other reach is a module-level
+function a test replaces: :func:`complete`, :func:`served`, :func:`choose`.
 """
 
 from __future__ import annotations
@@ -240,14 +241,13 @@ def _repository(where: Path, files: Mapping[str, str]) -> Path:
     return repo
 
 
-def run_contract(argv: list[str]) -> int:
-    """``mcgyvr run`` with ``argv``, in this process: the sample task's seam."""
-    from mcgyvr import cli
-
-    return cli.main(argv)
+#: ``mcgyvr run`` with its arguments, to its exit code.
+RunContract = Callable[[list[str]], int]
 
 
-def _contract_run(setup: Path, use_case: str, where: Path) -> dict[str, Any]:
+def _contract_run(
+    setup: Path, use_case: str, where: Path, run_contract: RunContract
+) -> dict[str, Any]:
     """Run the bundled sample contract on the staged setup; its result file."""
     sample = _bundled(use_case)
     where.mkdir(parents=True, exist_ok=True)
@@ -379,8 +379,14 @@ def _guarded(check: str, unit: str | None, call: Callable[[], Outcome]) -> Outco
         )
 
 
-def task(setup: Path, awake: Sequence[str], where: Path) -> list[Outcome]:
-    """The use case's sample task on the staged setup, and the Jev choice."""
+def task(
+    setup: Path, awake: Sequence[str], where: Path, run_contract: RunContract
+) -> list[Outcome]:
+    """The use case's sample task on the staged setup, and the Jev choice.
+
+    ``run_contract`` runs ``mcgyvr run`` for the ``coding`` and ``agent``
+    sample contracts.
+    """
     fleet, policy = _read(setup)
     use_case = str(policy.get("use_case") or DEFAULT_USE_CASE)
     jev_block = policy.get("jev")
@@ -391,7 +397,7 @@ def task(setup: Path, awake: Sequence[str], where: Path) -> list[Outcome]:
     if use_case == CODING_USE_CASE:
 
         def gate() -> Outcome:
-            done = _contract_run(setup, use_case, where / use_case)
+            done = _contract_run(setup, use_case, where / use_case, run_contract)
             outcome = str(done.get("outcome"))
             return Outcome(
                 check=TASK_GATE,
@@ -407,7 +413,7 @@ def task(setup: Path, awake: Sequence[str], where: Path) -> list[Outcome]:
         sample = _bundled(use_case)
         done: dict[str, Any] = {}
         try:
-            done = _contract_run(setup, use_case, where / use_case)
+            done = _contract_run(setup, use_case, where / use_case, run_contract)
         except Exception as exc:
             done = {"outcome": "error", "detail": f"{type(exc).__name__}: {exc}"}
         answer = str(done.get("answer") or "")
@@ -473,7 +479,12 @@ def task(setup: Path, awake: Sequence[str], where: Path) -> list[Outcome]:
     return outcomes
 
 
-def run(setup: Path, *, mint: Callable[[], str] | None = None) -> Ran:
+def run(
+    setup: Path,
+    *,
+    run_contract: RunContract,
+    mint: Callable[[], str] | None = None,
+) -> Ran:
     """Sample the laid-out staged setup at ``setup``: the door's reads of every
     rig and awake unit, and the use case's task between them.
 
@@ -513,7 +524,7 @@ def run(setup: Path, *, mint: Callable[[], str] | None = None) -> Ran:
             load = f"{width}x{window}" if width and window else None
             read(rig, (str(slot[0]),), load)
     _reply_ceilings(setup, reads)
-    outcomes = task(setup, awake, setup / "sample")
+    outcomes = task(setup, awake, setup / "sample", run_contract)
     for rig in layout:
         read(rig)
     return Ran(
