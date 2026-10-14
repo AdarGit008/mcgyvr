@@ -42,8 +42,8 @@ units:
 
 rigs:
   local:
-    # Identity digest over {host, hardware, system} — compute with
-    # `mcgyvr.fleet.ids.digest("rig-", fields)`.
+    # The machine's one id: a digest over its machine id and its cards' names
+    # and sizes, as `mcgyvr scan --rig local` reads it (`mcgyvr.fleet.ids.rig_id`).
     rig_id: "rig-0000000000000000"
 
 fleets:
