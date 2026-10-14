@@ -1103,6 +1103,8 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
             force=True,
             detection=_setup_synthetic_detection(plans, window=ctx_per_slot),
             use_case="coding",
+            # The staged setup's internal marker: the door starts and reads a
+            # fleet no lock holds yet. The fleet promoted from it is `live`.
             profile="dev",
             # Auto-wake on: the launch specs are emitted here and kept.
             compose_dir=path,

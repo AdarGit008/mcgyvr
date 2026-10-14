@@ -147,3 +147,18 @@ def test_a_door_read_that_fails_is_a_red_sample(
     assert "read --host" in captured.err and "exited 1" in captured.err
     assert "no stamp: own" in captured.out
     assert not live_file().exists()
+
+
+def test_a_second_setup_of_the_day_is_a_new_folder_named_live_in_its_place(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sd.interactive(monkeypatch, sd.FakeRig(), {START: True, LOCK: True})
+    assert cli.main(["setup"]) == 0
+    first = json.loads(live_file().read_text(encoding="utf-8"))["fleet"]
+
+    sd.interactive(monkeypatch, sd.FakeRig(), {START: True, LOCK: True})
+    assert cli.main(["setup"]) == 0
+
+    second = json.loads(live_file().read_text(encoding="utf-8"))["fleet"]
+    assert second == f"{first}-2"
+    assert (fleets_dir() / first).is_dir(), "the folder before is kept"

@@ -1094,8 +1094,9 @@ def initialize(
 
     ``profile`` is the run profile init writes into ``fleet.yaml`` (``live`` or
     ``dev``). It defaults to ``live``, so a fresh setup runs under live
-    admission rules; the setup wizard passes ``dev`` for its bootstrap phase
-    and the final lock is what promotes it to ``live``.
+    admission rules; the setup wizard passes ``dev`` for the setup it stages
+    in the data folder -- the door starts and reads a staged fleet that no
+    lock holds yet -- and the fleet it promotes from there is ``live``.
 
     ``use_case`` is which of the four use cases the install serves, and
     ``deployment`` is how it is run (``hybrid`` or ``local-only``). When

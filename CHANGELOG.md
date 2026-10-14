@@ -42,7 +42,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     fleet and name it live? [y/N]" it is locked from the stamp, promoted and
     named live. A red sample is never locked: the stamp's reasons are printed.
   - A live `own` folder locked from a stamp is the user's own, which a later
-    setup may name live in its place.
+    setup may name live in its place; a second setup of the same day is
+    promoted to the next folder of that day (`own@<date>-2`).
 
 - **A fleet setup could not sample is locked on no evidence only once you
   say so.**
