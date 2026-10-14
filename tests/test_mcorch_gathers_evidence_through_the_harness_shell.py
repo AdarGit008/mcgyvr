@@ -196,6 +196,7 @@ def test_prose_proposes_from_the_document_and_the_rung_sees_a_digest() -> None:
         [
             {
                 "task_type": "code",
+                "max_output_tokens": 1024,
                 "task": "Document paginate.",
                 "target": "pkg/listing.py",
                 "stop_conditions": ["The behaviour is unclear."],
@@ -231,21 +232,20 @@ def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() ->
         kind="code", target="pkg/listing.py", symbol="paginate", ready_to_run=True
     )
     turn = _respond(_after_read(_tools("Write", "Bash")), rung, jev, "classifier")
-    assert [name for name, _ in jev.asked] == [
-        "kind",
-        "target",
-        "symbol",
-        "ready_to_run",
-    ]
-    assert turn.trace.contracts == 1
+    # The classifier states no reply cap, and a `code` contract must (owner,
+    # 2026-10-14): its proposal is refused at decomposition, by name, and no
+    # contract is put to the readiness question.
+    assert [name for name, _ in jev.asked] == ["kind", "target", "symbol"]
+    assert turn.trace.contracts == 0
     digest = rung.calls[0].turns[-1]["content"]
-    assert "paginate" in digest and "ready:" in digest
+    assert "max_output_tokens" in digest, digest
 
     # Nothing from the classifier (it is not sure of the kind) → prose is asked.
     proposals = json.dumps(
         [
             {
                 "task_type": "code",
+                "max_output_tokens": 1024,
                 "task": "Doc.",
                 "target": "pkg/listing.py",
                 "stop_conditions": ["x"],

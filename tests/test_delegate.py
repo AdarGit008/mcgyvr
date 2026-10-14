@@ -67,6 +67,7 @@ DOCSTRING_REPLY = json.dumps(
     [
         {
             "task_type": "code",
+            "max_output_tokens": 1024,
             "task": "document listing()",
             "target": "listing.py",
             "stop_conditions": ["the function's behaviour is ambiguous"],
@@ -137,6 +138,7 @@ def test_proposals_from_reply_reads_a_json_array() -> None:
     assert proposals == (
         Proposal(
             task_type="code",
+            max_output_tokens=1024,
             task="document listing()",
             target="listing.py",
             stop_conditions=("the function's behaviour is ambiguous",),
@@ -155,6 +157,7 @@ def test_proposals_from_reply_carries_deps_and_optional_fields() -> None:
         [
             {
                 "task_type": "code",
+                "max_output_tokens": 1024,
                 "task": "page the items before returning",
                 "target": "listing.py",
                 "interface": "listing(items, size=10) -> list",
@@ -215,6 +218,7 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
     assert proposals == (
         Proposal(
             task_type="code",
+            max_output_tokens=1024,
             task="document listing()",
             target="listing.py",
             stop_conditions=("the function's behaviour is ambiguous",),

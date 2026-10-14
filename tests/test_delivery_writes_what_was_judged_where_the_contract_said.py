@@ -357,6 +357,7 @@ def test_two_symbols_from_one_file_emit_a_contract_the_loader_takes(
     lj.git(root, "commit", "-qm", "seed")
     proposal = Proposal(
         task_type="code",
+        max_output_tokens=1024,
         task="main() should use both helpers.",
         target="main.py",
         interface="main() -> int",

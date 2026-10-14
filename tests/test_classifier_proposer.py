@@ -331,10 +331,16 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
     assert len(sent) == 2
 
 
-def test_decompose_emits_a_validated_contract_through_the_classifier_proposer(
+def test_decompose_refuses_the_classifiers_code_proposal_for_its_missing_cap(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import mcgyvr.contract as contract_module
+    """The classifier names a kind, a target and a symbol, and no reply cap.
+
+    A model-written `code` contract states what its reply is worth (owner,
+    2026-10-14), and the classifier has no question that could say it, so its
+    `code` proposal reaches the decomposer with none and is refused there,
+    naming the field, rather than emitted to be refused at dispatch.
+    """
     import mcgyvr.decision as decision
 
     config = parse(cfg(ORCHESTRATOR))
@@ -364,8 +370,7 @@ def test_decompose_emits_a_validated_contract_through_the_classifier_proposer(
     assert propose is not None
     result = decompose(repo, "document listing", propose=propose, config=config)
 
-    assert result.refusals == ()
-    (contract,) = result.contracts
-    assert contract.task_type == "code"
-    assert contract.target == "listing.py"
-    assert contract_module.loads(result.documents[0]) == contract
+    assert result.contracts == ()
+    (refused,) = result.refusals
+    assert refused.subject == "listing.py"
+    assert "max_output_tokens" in refused.reason, refused.reason
