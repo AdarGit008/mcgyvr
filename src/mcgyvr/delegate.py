@@ -204,8 +204,9 @@ def _reply_format() -> str:
         "and the located checker command is filled in as acceptance.\n"
         '- "risk" (string, optional): "low", "medium" or "high"; omit to take '
         "the default.\n"
-        '- "max_output_tokens" (whole number, optional): the reply cap; omit '
-        "and the type's own evidence sizes it.\n"
+        '- "max_output_tokens" (whole number, required for task_type code): '
+        "the reply cap, what the reply is worth in output tokens; a code "
+        "proposal without one is refused.\n"
         "Omit optional fields rather than writing null. Return [] when nothing "
         "can be proposed."
     )

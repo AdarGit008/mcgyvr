@@ -51,6 +51,7 @@ units:
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+    window: 32768
 ladder:
 - local_qwen-7b
 """

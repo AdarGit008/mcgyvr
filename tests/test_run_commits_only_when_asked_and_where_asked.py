@@ -34,6 +34,7 @@ units:
     address: http://localhost:11434
     model: qwen2.5-coder:7b
     rig: local
+    window: 32768
 ladder:
 - cheap
 """

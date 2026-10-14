@@ -1,31 +1,20 @@
-"""A derived output cap is a runtime budget, not part of the contract's identity.
+"""An output cap is identity only when the contract states one.
 
-A digest of ``dumps(contract)`` names a contract by what it says, so the
-emitted form must not depend on ``data/task-catalog.json``. ``output_cap``
-derives the cap from the contract's evidence — for ``code``, from its own
-fields — a derived number written into the emitted form would let one flipped
-``needs_commands`` boolean change the digest of every contract that declares no
-cap.
-
-So, as with ``depends_on``, the *resolved* value lives on the loaded object, the
-*declared* value lives in the serialised form. A contract that declares
-``max_output_tokens`` carries that number as identity; a contract that does not
-carries ``null``, whatever the catalog later says, and the loader re-derives the
-runtime budget on every parse.
+A digest of ``dumps(contract)`` names a contract by what it says. A contract
+that declares ``max_output_tokens`` carries that number as identity; one that
+does not carries ``null``, and nothing is derived for it on load — no number
+from ``data/task-catalog.json`` can re-key it. Owner decision (2026-10-14): a
+model-written ``code`` contract that states no cap is refused at dispatch
+rather than sized
+(``tests/test_a_code_contract_states_its_cap_or_is_refused_at_dispatch.py``),
+so the loaded object carries ``None`` exactly as the emitted form does.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
-from pathlib import Path
-from typing import Any
+from mcgyvr.contract import dumps, loads, parse
 
-import pytest
-
-from mcgyvr.contract import RUNNING_ALLOWANCE, dumps, loads, output_cap, parse
-
-# A `code` contract whose acceptance derives the running allowance.
+# A `code` contract that states no cap.
 WITH_COMMANDS = """
 id: fetch-retry
 task_type: code
@@ -38,36 +27,17 @@ scope:
   allow: ["src/**/*.py"]
 """
 
-# A `code` contract whose `no_semantic_change` flag derives the structural
-# allowance — no command, so behaviour does not have to be written.
-NO_COMMANDS = """
-id: document
-task_type: code
-task: Document the fetch helper.
-target: src/pkg/fetch.py
-stop_conditions:
-  - The helper's behaviour is not stated anywhere in the repo.
-no_semantic_change: true
-scope:
-  allow: ["src/**/*.py"]
-"""
-
 DECLARED = WITH_COMMANDS + "limits:\n  max_output_tokens: 2048\n"
 
 PROSE = WITH_COMMANDS + "output_schema: prose\n"
 
 
-def test_a_derived_cap_stays_on_the_loaded_object_and_not_in_the_emitted_form() -> None:
-    """The runtime budget is derived; the identity carries the declaration only."""
+def test_an_unstated_cap_is_null_loaded_and_emitted() -> None:
+    """Nothing is derived: the loaded object and the identity both say none."""
     contract = loads(WITH_COMMANDS)
 
-    assert contract.limits.max_output_tokens == output_cap(
-        "code", evidence=contract.evidence
-    ), "the loaded object must still carry the derived runtime cap"
-    assert '"max_output_tokens": null' in dumps(contract), (
-        "a derived cap leaked into the emitted form, so the catalog still "
-        "re-keys the identity"
-    )
+    assert contract.limits.max_output_tokens is None
+    assert '"max_output_tokens": null' in dumps(contract)
 
 
 def test_a_declared_cap_is_part_of_the_identity() -> None:
@@ -79,7 +49,7 @@ def test_a_declared_cap_is_part_of_the_identity() -> None:
 
 
 def test_the_round_trip_still_holds_for_both_shapes() -> None:
-    """``parse(dumps(c)) == c``, derived or declared."""
+    """``parse(dumps(c)) == c``, stated or not."""
     assert parse(dumps(loads(WITH_COMMANDS))) == loads(WITH_COMMANDS)
     assert parse(dumps(loads(DECLARED))) == loads(DECLARED)
 
@@ -91,43 +61,3 @@ def test_a_prose_reply_is_uncapped_and_still_round_trips() -> None:
     assert contract.limits.max_output_tokens is None
     assert '"max_output_tokens": null' in dumps(contract)
     assert parse(dumps(contract)) == contract
-
-
-def test_editing_the_catalog_does_not_move_the_identity(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
-) -> None:
-    """Flipping ``needs_commands`` changes the runtime cap, not the digest.
-
-    A `code` contract with `no_semantic_change: true` derives the structural
-    allowance. Flipping the ``no_semantic_change`` evidence kind to need a
-    command would derive the running allowance — and the emitted form must not
-    move either way, because the cap was never declared.
-    """
-    import mcgyvr.catalog as catalog_module
-    from mcgyvr.catalog import catalog as catalog_fn
-
-    before = dumps(loads(NO_COMMANDS))
-    cap_before = loads(NO_COMMANDS).limits.max_output_tokens
-
-    raw: dict[str, Any] = json.loads(
-        catalog_module.catalog_path().read_text(encoding="utf-8")
-    )
-    for evidence in raw["evidence_kinds"]:
-        if evidence["name"] == "no_semantic_change":
-            evidence["needs_commands"] = True
-    path = tmp_path / "task-catalog.json"
-    path.write_text(json.dumps(raw), encoding="utf-8")
-    monkeypatch.setattr("mcgyvr.catalog.catalog_path", lambda: path)
-    catalog_fn.cache_clear()
-    request.addfinalizer(catalog_fn.cache_clear)
-
-    # The runtime cap moved — that is the catalog doing its job.
-    cap_after = loads(NO_COMMANDS).limits.max_output_tokens
-    assert cap_after != cap_before, "flipping the evidence did not move the cap"
-    assert cap_after == RUNNING_ALLOWANCE
-    # The emitted form did not — that is identity not reading the catalog.
-    assert dumps(loads(NO_COMMANDS)) == before
-    assert (
-        hashlib.sha256(dumps(loads(NO_COMMANDS)).encode()).hexdigest()
-        == hashlib.sha256(before.encode()).hexdigest()
-    )

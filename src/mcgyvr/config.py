@@ -528,8 +528,9 @@ ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
 #: The ``output_tokens`` a hosted unit is written with when ``setup --api``
-#: names none: the room its replies are given, and the ceiling of the cap a
-#: contract that states none is sized to (`mcgyvr.gate.preflight.reply_cap`).
+#: names none: the room its replies are given, and the ceiling a `code`
+#: contract's stated cap is held to on a unit whose window setup cannot read
+#: (`mcgyvr.gate.preflight.UnitCeiling`). Never sent in place of that cap.
 #: A hosted unit is the one most likely to serve a reasoning model, which bills
 #: hidden reasoning against the same number: the e2e run of 2026-10-13 saw
 #: DeepSeek's dearer rung spend 16216 tokens on a duration parser, and empty
@@ -599,21 +600,25 @@ UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "window",
         "int",
-        "Tokens this unit serves in one request. Read it back off the \
-"
-        "running process, not hoped for.",
+        "Tokens this unit serves in one request. Read it back off the "
+        "running process, not hoped for: `setup` reads it off a local "
+        "backend and writes it, and lists a unit it could not read as not "
+        "configured. Less the prompt, it is the ceiling a `code` contract's "
+        "`limits.max_output_tokens` is held to on this unit; a unit with "
+        "neither `window` nor `output_tokens` refuses code dispatch.",
         min_value=1,
         bind_hint="e.g. 4096 -- what the unit reports, not what you hoped for",
     ),
     Field(
         "output_tokens",
         "int",
-        "Room a reply on this unit is given, the `max_tokens` its backend is "
-        "actually sent, hidden reasoning included. It replaces a cap a "
-        "contract states, and bounds the cap of one that states none, which "
-        "is sized from its target. A hosted reasoning model needs tens of "
-        "thousands; `setup --api` writes "
-        f"{API_OUTPUT_TOKENS}.",
+        "Room a reply on this unit is given, hidden reasoning included: a "
+        "ceiling a `code` contract's `limits.max_output_tokens` is held to, "
+        "beside the room `window` leaves for the prompt (the smaller of the "
+        "two where both are set). It never replaces the contract's cap, "
+        "which is sent exactly; a cap above the ceiling is refused by name. "
+        "A hosted reasoning model needs tens of thousands; `setup --api` "
+        f"writes {API_OUTPUT_TOKENS}.",
         min_value=1,
         bind_hint="e.g. 2048 -- the reply length this unit needs",
     ),

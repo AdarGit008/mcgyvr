@@ -138,9 +138,9 @@ class Proposal:
     allow: tuple[str, ...] = ()
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
-    #: The reply cap the proposal states, written on the document, or
-    #: ``None`` to leave it unset so each attempt sizes it from the target
-    #: (:func:`mcgyvr.contract.auto_reply_cap`).
+    #: The reply cap the proposal states, written on the document. Required
+    #: of a model-written ``code`` proposal, which is refused without one
+    #: (owner, 2026-10-14); ``None`` for a type that carries no cap.
     max_output_tokens: int | None = None
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
@@ -455,6 +455,19 @@ def _emit(
     built = _load(document)
     if isinstance(built, Refusal):
         return Refusal(proposal.target, built.reason)
+    if built.needs_output_cap and built.limits.max_output_tokens is None:
+        # Valid to the loader, and certain to be refused at dispatch (owner,
+        # 2026-10-14): a model-written contract states what its reply is
+        # worth. Emitting it would hand `mcgyvr run` a refusal; naming it
+        # here costs nothing.
+        return Refusal(
+            proposal.target,
+            f"a model-written {proposal.task_type!r} contract states "
+            "limits.max_output_tokens — what its reply is worth, in output "
+            "tokens — and this proposal states no max_output_tokens, so "
+            "`mcgyvr run` would refuse it before any model is called. State "
+            "max_output_tokens on the proposal",
+        )
     resized = _resize(built, document, ceiling)
     if isinstance(resized, Refusal):
         return Refusal(proposal.target, resized.reason)
@@ -756,12 +769,10 @@ def _document(
 def _reply_cap(proposal: Proposal) -> int | None:
     """The ``limits.max_output_tokens`` a delegated contract is written with.
 
-    The proposal's own figure, or none. A whole-file contract that states no
-    cap is sized at each attempt from the target the run reads
-    (:func:`mcgyvr.contract.auto_reply_cap`, through
-    :func:`mcgyvr.gate.preflight.reply_cap`) — a number this module could only
-    have fixed at the size the type alone suggests, which a reasoning model
-    spends before it writes a line (the e2e run of 2026-10-13).
+    The proposal's own figure, or none. Nothing is derived here: a number this
+    module chose would be a number nobody chose, and a model-written ``code``
+    contract that states none is refused before it is emitted (owner,
+    2026-10-14).
     """
     return proposal.max_output_tokens
 
@@ -860,6 +871,7 @@ def _proposal_of(built: Contract) -> Proposal:
         interface=built.interface,
         allow=built.scope.allow,
         forbid=built.scope.forbid,
+        max_output_tokens=built.limits.max_output_tokens,
         stop_conditions=built.stop_conditions,
         acceptance=built.acceptance,
         demonstration=built.demonstration,

@@ -301,6 +301,7 @@ units:
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+    window: 32768
 ladder:
 - local_qwen-7b
 """
@@ -387,6 +388,8 @@ stop_conditions: ["The interface is not stated."]
 acceptance: ["sh -c 'exit 0'"]
 context:
   max_input_tokens: 1024
+limits:
+  max_output_tokens: 256
 scope:
   allow: ["src/**"]
 """

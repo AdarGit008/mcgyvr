@@ -120,7 +120,6 @@ HUB_WORDS = {
 WORDS_NOT_YET_MOVED: dict[str, dict[str, int]] = {
     "capacity.py": {"hub": 2, "relief": 10, "rider": 1},
     "config.py": {"hub": 18, "hitchhik": 3, "relief": 68, "rider": 19},
-    "contract.py": {"relief": 1, "rider": 1},
     "docgen.py": {"hub": 1, "relief": 5},
     "emit.py": {"hitchhik": 1, "rider": 1},
     "escalate.py": {"hub": 5, "relief": 47, "rider": 8},

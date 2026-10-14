@@ -87,11 +87,16 @@ tests/test_a_card_from_another_vendor_is_read_by_name_and_size.py	integration	fu
 tests/test_a_card_in_a_different_slot_is_a_different_rig.py	integration	functional	agreed	agreed	
 tests/test_a_card_no_installed_tool_reads_and_no_source_sizes_is_left_out_of_the_id.py	integration	functional	agreed	agreed	
 tests/test_a_changed_argument_setting_that_is_not_a_mode_is_refused_by_name.py	unit	behavior|functional	agreed	disputed	
+tests/test_a_chat_or_agent_run_is_a_raw_connection_with_no_limits.py			unreviewed	unreviewed	
 tests/test_a_chat_or_agent_run_is_a_session_kept_in_the_journal.py			unreviewed	unreviewed	
 tests/test_a_checker_run_on_the_host_is_handed_no_credential.py	integration	logic|functional	agreed	disputed	
 tests/test_a_checker_run_on_the_host_writes_no_cache_where_the_workspace_points.py	integration	logic|functional	agreed	disputed	
 tests/test_a_checker_that_runs_workspace_config_runs_where_the_task_runs.py	integration	logic	agreed	agreed	
 tests/test_a_co_resident_unit_waits_for_a_healthy_neighbour.py	unit	functional|logic	agreed	disputed	
+tests/test_a_code_contract_states_its_cap_or_is_refused_at_dispatch.py			unreviewed	unreviewed	
+tests/test_a_code_contracts_cap_is_sent_exactly_within_its_units_ceiling.py			unreviewed	unreviewed	
+tests/test_a_code_proposal_without_a_cap_is_refused_at_decomposition.py			unreviewed	unreviewed	
+tests/test_a_code_run_that_cannot_reach_a_rung_of_its_climb_fails_before_the_first_attempt.py			unreviewed	unreviewed	
 tests/test_a_command_told_where_the_config_is_does_not_advise_saying_it_again.py	integration|e2e	behavior	disputed	agreed	
 tests/test_a_commit_lands_on_the_branch_it_was_sent_to.py			unreviewed	unreviewed	
 tests/test_a_config_digest_does_not_mint_the_retired_cfg_prefix.py	unit	infra|logic	agreed	disputed	
@@ -104,7 +109,6 @@ tests/test_a_contract_too_big_for_its_rung_fails_before_it_is_sent.py	integratio
 tests/test_a_correction_says_how_the_work_landed.py	integration|e2e	functional	disputed	agreed	
 tests/test_a_corrupt_wake_cache_does_not_shorten_a_wake.py	unit	functional	agreed	agreed	
 tests/test_a_daemon_that_does_not_answer_is_refused_before_the_envelope.py	integration|e2e	logic|operational	disputed	disputed	
-tests/test_a_delegated_contract_leaves_its_cap_to_the_target_sizing.py			unreviewed	unreviewed	
 tests/test_a_delete_is_proved_not_agreed.py	integration	infra	derived	derived	reads tests/DELETES.tsv and the files it names, and runs git to recover one from the history: a guard over the repository, not a run of it
 tests/test_a_derived_cap_is_not_identity.py	unit	functional	agreed	agreed	
 tests/test_a_dev_round_may_serve_any_launch_spec.py	integration|e2e	logic	disputed	agreed	
@@ -179,7 +183,6 @@ tests/test_a_locked_unit_reserves_the_cards_its_shards_name.py	unit	functional	a
 tests/test_a_machine_with_no_card_is_read_as_having_none.py	integration	functional	agreed	agreed	
 tests/test_a_machines_name_never_changes_which_number_it_gets.py	unit	logic	agreed	agreed	
 tests/test_a_machines_short_id_covers_its_id_and_every_cards_name_and_size.py	integration	functional	agreed	agreed	
-tests/test_a_model_contract_without_a_declared_cap_is_sized_not_refused.py			unreviewed	unreviewed	
 tests/test_a_model_is_sized_from_its_header_before_it_is_downloaded.py	unit|integration	functional	disputed	agreed	
 tests/test_a_model_listed_twice_is_bound_once_and_the_second_listing_is_named.py	integration|unit	behavior|functional	disputed	disputed	
 tests/test_a_model_split_across_cards_is_sized_card_by_card_from_its_tensor_table.py	unit	functional	agreed	agreed	
@@ -348,7 +351,6 @@ tests/test_an_mtp_head_is_charged_to_the_card_and_moves_the_floor.py	unit	functi
 tests/test_an_mtp_unit_emits_its_spec_flags_and_a_plain_unit_renders_as_before.py	unit	functional	agreed	agreed	
 tests/test_an_offline_plan_reads_the_cache_then_the_shipped_catalog.py	unit|integration	functional	disputed	agreed	
 tests/test_an_unconfigured_machine_says_where_setup_lives.py	integration|e2e	behavior	disputed	agreed	
-tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py			unreviewed	unreviewed	
 tests/test_an_unreadable_field_names_itself_and_why.py	integration	functional	agreed	agreed	
 tests/test_availability.py	unit|integration	functional	disputed	agreed	
 tests/test_baseline_observation.py			unreviewed	unreviewed	
@@ -522,25 +524,27 @@ tests/test_setup_carries_the_measured_jev_recommendation_as_prose_only.py	unit	i
 tests/test_setup_flow_scan.py			unreviewed	unreviewed	
 tests/test_setup_leaves_the_skill.py	integration	infra	agreed	agreed	
 tests/test_setup_names_every_init_option_and_the_commands_before_it.py	integration|unit	infra	disputed	agreed	
+tests/test_setup_writes_the_window_a_local_backend_serves.py			unreviewed	unreviewed	
 tests/test_skill_packaging.py	integration	functional|infra	agreed	disputed	
 tests/test_sleeping_a_card_takes_every_rung_it_serves.py	integration|e2e	logic	disputed	agreed	
 tests/test_spelling_is_not_independence.py	unit	logic	agreed	agreed	
 tests/test_structured_and_preflight.py	unit	functional	agreed	agreed	
 tests/test_telemetry_runs_no_lab_code.py	integration|unit	infra	disputed	agreed	
 tests/test_the_breadth_a_run_asked_for_is_stated_whatever_the_verdict.py	integration	functional	agreed	agreed	
+tests/test_the_cap_rules_are_stated_where_an_author_reads_them.py			unreviewed	unreviewed	
 tests/test_the_ci_test_job_installs_the_js_toolchain_so_a_js_test_cannot_skip_for_ever.py	integration|unit	infra	disputed	agreed	
 tests/test_the_classifier_offers_no_type_whose_contract_it_cannot_complete.py	unit|integration	logic	disputed	agreed	
 tests/test_the_classifier_proposer_asks_the_jev_unit_when_one_is_bound.py	integration|unit	behavior|functional	disputed	disputed	
 tests/test_the_coding_rank_reads_only_bash_only_rows_and_evalplus_below_them.py	unit	functional|logic	agreed	disputed	
 tests/test_the_config_folder_and_the_data_folder_follow_the_users_environment.py	unit	behavior	agreed	agreed	
 tests/test_the_constant_steps_once_an_expert_is_on_the_host.py	unit	infra	agreed	agreed	
+tests/test_the_contract_preview_states_the_cap_rule_of_its_task_type.py			unreviewed	unreviewed	
 tests/test_the_contract_tests_run_against_a_candidate_hub_schema.py	unit	infra	agreed	agreed	
 tests/test_the_docgen_guard_never_writes_the_committed_setup.py	integration|unit	infra	disputed	agreed	
 tests/test_the_door_serves_a_ladder_and_leaves_it_up.py	e2e	operational	agreed	agreed	
 tests/test_the_door_sleeps_a_vllm_card_with_its_process_kept.py	integration|e2e	operational	disputed	agreed	
 tests/test_the_draws_of_one_attempt_are_dispatched_together_within_the_units_width.py	integration	functional	agreed	agreed	
 tests/test_the_engine_the_gate_runs_is_packaged_and_matches_its_pin_from_the_package_alone.py	integration|e2e	tools	disputed	agreed	
-tests/test_the_example_contracts_leave_the_cap_to_the_target_sizing.py			unreviewed	unreviewed	
 tests/test_the_example_fleet_and_policy_load.py	unit	functional	agreed	agreed	
 tests/test_the_facade_hangs_up_on_the_rung_when_its_client_has_gone.py	integration	operational	agreed	agreed	
 tests/test_the_fleet_and_its_policy_are_two_files.py	unit	functional	agreed	agreed	

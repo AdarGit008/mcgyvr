@@ -12,8 +12,9 @@ read of the tree for a worker follows:
   ``.git`` is refused rather than followed;
 - never a file the sandbox's non-git copy leaves behind for holding a secret
   (``.env``, keys, credential folders), nor a binary or oversized file;
-- whole, and bounded by the contract's `context.max_input_tokens` through the
-  prompt's existing fit check — never silently truncated.
+- whole — never silently truncated. An agent run is a raw connection to a
+  model (owner, 2026-10-14), so no prompt ceiling bounds them
+  (``tests/test_a_chat_or_agent_run_is_a_raw_connection_with_no_limits.py``).
 
 A source that cannot be read refuses the attempt before anything is sent.
 """
@@ -116,11 +117,10 @@ def test_a_contract_without_sources_has_no_sources_section() -> None:
     assert "SOURCES" not in build_prompt(chat).user
 
 
-def test_sources_count_against_the_prompt_ceiling_and_are_never_cut() -> None:
+def test_sources_are_never_cut() -> None:
     big = "word " * 4000
     contract = replace(loads(AGENT), source_content=(big, TESTS))
     prompt = build_prompt(contract)
-    assert not prompt.fits
     assert big in prompt.user
 
 

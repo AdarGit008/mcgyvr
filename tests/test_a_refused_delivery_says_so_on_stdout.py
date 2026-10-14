@@ -38,6 +38,7 @@ units:
   cheap:
     address: http://127.0.0.1:9
     model: any-model
+    window: 32768
 """
 
 FORMAT = """

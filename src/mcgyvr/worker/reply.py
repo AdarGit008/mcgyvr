@@ -354,7 +354,10 @@ def empty_at_cap(reply: Completion) -> ReplyError | None:
     same cap, and when the reasoning uses all of it the visible reply is empty
     (the e2e run of 2026-10-13: ``reply_sha256`` the hash of ``""``, stop
     ``length``, on both rungs). What fixes that is a larger cap, so the
-    refusal names the cap, what was spent, and the two keys that raise it.
+    refusal names the cap, what was spent, and the key that raises it: the
+    contract's own, which is the number sent, within the ceiling of the unit
+    it runs on — a unit's ``output_tokens`` bounds the cap and never replaces
+    it (owner, 2026-10-14).
 
     Only a reply the backend said it cut (``truncated``) with no text beyond
     whitespace qualifies: an empty reply that *completed* is the model's own
@@ -376,9 +379,9 @@ def empty_at_cap(reply: Completion) -> ReplyError | None:
     return ReplyError(
         "empty-reply",
         f"the model used {spent_on} on hidden reasoning{reasoning} and returned "
-        f"no visible reply. Raise the contract's `limits.max_output_tokens`, or "
-        f"leave it unset so the cap is sized from the target; a unit's "
-        f"`units.<unit>.output_tokens` bounds or replaces it",
+        f"no visible reply. Raise the contract's `limits.max_output_tokens` "
+        f"within the unit's ceiling — its `window` less the prompt, or its "
+        f"`output_tokens`",
     )
 
 

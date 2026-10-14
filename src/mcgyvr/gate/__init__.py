@@ -34,6 +34,9 @@ from mcgyvr.gate.preflight import (
     ReplyCap,
     ServingWindow,
     TokenCount,
+    UnitCeiling,
+    check_cap_stated,
+    check_cap_within_ceiling,
     check_clean_tree,
     check_contract_against_rung,
     check_contract_fits,
@@ -41,6 +44,7 @@ from mcgyvr.gate.preflight import (
     check_window_fraction,
     reply_cap,
     sized_reply_cap,
+    unit_ceiling,
 )
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
@@ -70,6 +74,9 @@ __all__ = [
     "TokenCount",
     "ToolFailedError",
     "ToolUnavailableError",
+    "UnitCeiling",
+    "check_cap_stated",
+    "check_cap_within_ceiling",
     "check_clean_tree",
     "check_contract_against_rung",
     "check_contract_fits",
@@ -77,4 +84,5 @@ __all__ = [
     "check_window_fraction",
     "reply_cap",
     "sized_reply_cap",
+    "unit_ceiling",
 ]

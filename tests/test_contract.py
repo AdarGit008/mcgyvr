@@ -28,7 +28,6 @@ from mcgyvr.contract import (
     dumps,
     load,
     loads,
-    output_cap,
     parse,
     task_types,
 )
@@ -162,9 +161,7 @@ def test_defaults_are_applied() -> None:
     assert contract.type_check is False
     assert contract.risk == "medium"
     assert contract.verification.policy == "gate_only"
-    assert contract.limits.max_output_tokens == output_cap(
-        contract.task_type, evidence=contract.evidence
-    )
+    assert contract.limits.max_output_tokens is None
     assert contract.limits.attempts == 2
     assert contract.scope.forbid == ()
 
@@ -179,18 +176,15 @@ def test_a_media_artifact_output_schema_is_accepted() -> None:
     assert contract.output_schema == "media_artifact"
 
 
-def test_raw_text_replies_are_uncapped_but_whole_file_is_not() -> None:
-    """prose and media_artifact carry no output cap; whole_file still derives one."""
+def test_no_reply_cap_is_derived_for_a_contract_that_states_none() -> None:
+    """Whatever the reply's shape, an unstated cap loads as ``None``."""
     prose = loads(MINIMAL + "\noutput_schema: prose\n")
     media = loads(MINIMAL + "\noutput_schema: media_artifact\n")
     whole = loads(MINIMAL)
 
     assert prose.limits.max_output_tokens is None
     assert media.limits.max_output_tokens is None
-    assert whole.limits.max_output_tokens == output_cap(
-        whole.task_type, evidence=whole.evidence
-    )
-    assert whole.limits.max_output_tokens is not None
+    assert whole.limits.max_output_tokens is None
 
 
 # --- acceptance: a glob target on a model-tier type is rejected -------------

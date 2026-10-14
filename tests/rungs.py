@@ -128,11 +128,13 @@ units:
     model: {POOLED}
     api_key_env: HUB_KEY
     width: 1
+    window: 32768
   other:
     address: {other}
     model: {OTHER}
     api_key_env: HUB_KEY
     width: 1
+    window: 32768
 ladder: [pooled, other]
 """
 
@@ -177,7 +179,7 @@ PROSE_CONTRACT = (
 )
 
 
-def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int]]:
+def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int | None]]:
     """Record the rung and the cap of every request the driver dispatches.
 
     The substitution is the seam the whole project is built on:
@@ -188,7 +190,7 @@ def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int]]:
     from mcgyvr import drive
     from mcgyvr.runner import Completion, StopReason
 
-    seen: list[tuple[str, int]] = []
+    seen: list[tuple[str, int | None]] = []
 
     def fake_dispatch(
         source_map: Any, rung: str, request: Any, *, capacity: Any = None
@@ -239,6 +241,7 @@ units:
     address: {address}
     model: qwen2.5-coder-3b
     width: 1
+    window: 32768
 ladder: [local_fast]
 fanout: idle
 relief:

@@ -129,11 +129,6 @@
       "says": "How many candidates one attempt draws when its caller names none: one, the breadth of an install that sets none.",
       "set_by": "config breadth.draws"
     },
-    "contract.py:CAP_STEP": {
-      "kind": "choice",
-      "says": "The step, in tokens, a reply cap of a contract that declares none is rounded up to.",
-      "set_by": "contract limits.max_output_tokens"
-    },
     "contract.py:CONTEXT_FIELDS": {
       "kind": "choice",
       "says": "The input ceiling a contract carries when it declares none, and the least a declared one may be.",
@@ -141,7 +136,7 @@
     },
     "contract.py:Contract.limits": {
       "kind": "choice",
-      "says": "The reply cap and the number of tries a contract built in code carries when it states none.",
+      "says": "The number of tries a contract built in code carries when it states none; it states no reply cap.",
       "set_by": "contract limits"
     },
     "contract.py:Contract.max_input_tokens": {
@@ -154,31 +149,6 @@
       "says": "The tries a contract carries when it declares none, the least a declared count may be, and the bounds of a share of the window.",
       "set_by": "contract limits"
     },
-    "contract.py:MIN_CAP": {
-      "kind": "choice",
-      "says": "The smallest reply cap a contract that declares none is given, in tokens.",
-      "set_by": "contract limits.max_output_tokens"
-    },
-    "contract.py:NEW_FILE_STEP": {
-      "kind": "choice",
-      "says": "The reply room, in tokens, added to the cap of a contract that creates a file, which arrives with its declarations as well as its body.",
-      "set_by": "contract limits.max_output_tokens"
-    },
-    "contract.py:REASONING_ALLOWANCE": {
-      "kind": "choice",
-      "says": "The reply room, in tokens, added to the cap of a contract that states none for the hidden reasoning a reasoning model spends before it writes: the 16216 the e2e run of 2026-10-13 saw, with half again on top.",
-      "set_by": "contract limits.max_output_tokens"
-    },
-    "contract.py:REWRITE_FACTOR": {
-      "kind": "choice",
-      "says": "How many times the target's estimated tokens the cap of a contract that states none holds for the visible reply: the file once, the estimator's under-count and room to grow.",
-      "set_by": "contract limits.max_output_tokens"
-    },
-    "contract.py:RUNNING_ALLOWANCE": {
-      "kind": "choice",
-      "says": "The reply cap, in tokens, of a contract that declares none and whose change a command must run afterwards.",
-      "set_by": "contract limits.max_output_tokens"
-    },
     "contract.py:SCHEMA": {
       "kind": "fact",
       "says": "The least schema version a contract may declare: versions count from one.",
@@ -188,11 +158,6 @@
       "kind": "choice",
       "says": "The version of the contract format this code reads and writes.",
       "reason": "a code or version other programs or files read"
-    },
-    "contract.py:STRUCTURAL_ALLOWANCE": {
-      "kind": "choice",
-      "says": "The reply cap, in tokens, of a contract that declares none and whose reply is prose or an edit a parser can check.",
-      "set_by": "contract limits.max_output_tokens"
     },
     "cooldown.py:CONSECUTIVE_FAILURES": {
       "kind": "estimate",

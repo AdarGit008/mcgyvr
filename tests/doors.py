@@ -45,6 +45,7 @@ units:
     model: a-model
     rig: rig
     engine: vllm
+    window: 32768
 ladder:
 - only
 sandbox:
@@ -83,12 +84,14 @@ units:
     engine: {engine}
     rig: srv2_3b
     width: 2
+    window: 32768
   {RUNG_7B}:
     address: http://{HOST}:8002
     model: qwen2.5-coder-7b
     engine: {engine}
     rig: srv2_7b
     width: 2
+    window: 32768
 ladder:
 - {RUNG_3B}
 - {RUNG_7B}

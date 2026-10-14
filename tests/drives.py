@@ -46,11 +46,13 @@ units:
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+    window: 32768
   local_qwen-14b:
     address: http://localhost:11434
     model: qwen2.5-coder:14b
     rig: workstation
     width: 2
+    window: 32768
 ladder:
 - local_qwen-7b
 - local_qwen-14b
@@ -97,6 +99,7 @@ units:
     model: qwen2.5-coder:7b
     rig: workstation
     width: 2
+    window: 32768
 ladder:
 - local_qwen-7b
 """
@@ -138,23 +141,27 @@ units:
     model: qwen2.5-coder-3b
     rig: fast-rig
     width: 1
+    window: 32768
   local_smart:
     address: http://smart-box.example:8001
     model: qwen2.5-coder-7b
     rig: smart-rig
     width: 1
+    window: 32768
   api_big:
     address: https://api.example.com/v1
     model: vendor-large
     rig: vendor
     width: 1
     api_key_env: EXAMPLE_API_KEY
+    window: 32768
   api_bigger:
     address: https://big.example.com/v1
     model: vendor-largest
     rig: vendor-big
     width: 4
     api_key_env: EXAMPLE_API_KEY
+    window: 32768
 ladder:
 - local_fast
 - local_smart
