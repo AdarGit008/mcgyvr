@@ -5727,7 +5727,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     setup = sub.add_parser(
         "setup",
         help=(
-            "scan, plan, download, emit and write a config bound to what is reachable"
+            "read each rig, plan, stage, start and sample a fleet, and lock it "
+            "live on your yes"
         ),
     )
     setup.add_argument(
