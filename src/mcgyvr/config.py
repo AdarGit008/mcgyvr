@@ -1991,31 +1991,36 @@ def named_config_path() -> Path | None:
 
 
 def config_path() -> Path:
-    """Locate the config directory: the override, then cwd, then the live fleet.
+    """Locate the config directory: the override, else the live fleet.
 
-    The live fleet is the folder the config folder's ``live.json`` names
-    (:func:`mcgyvr.fleet.roots.live_fleet_dir`; the config folder is
-    ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written by ``mcgyvr fleet
-    promote``, named by ``mcgyvr fleet use``. With no override, no
-    ``fleet.yaml`` here and no fleet named live, the answer is the working
-    directory: where ``mcgyvr setup`` writes and where a missing config is
-    reported. A path that depends on an environment variable only some shells
-    export is a config that is found from one terminal and not another, so
-    no fourth place is consulted; the two variables that move these places,
-    ``$MCGYVR_CONFIG`` and ``$MCGYVR_HOME``, are named in the version line's
-    config path.
+    The override is ``$MCGYVR_CONFIG`` (a command's ``--config`` is handed to
+    :func:`load` directly). The live fleet is the folder the config folder's
+    ``live.json`` names (:func:`mcgyvr.fleet.roots.live_fleet_dir`; the config
+    folder is ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written by ``mcgyvr fleet
+    promote``, named by ``mcgyvr fleet use``, as ``mcgyvr setup`` does when it
+    locks a fleet. The working directory is not consulted: a ``fleet.yaml``
+    there is a setup nobody named and nobody promoted. With neither, there is
+    no config, and :class:`ConfigMissingError` says so. A path that depends on
+    an environment variable only some shells export is a config that is found
+    from one terminal and not another, so no third place is consulted; the two
+    variables that move these places, ``$MCGYVR_CONFIG`` and ``$MCGYVR_HOME``,
+    are named in the version line's config path.
     """
     override = named_config_path()
     if override is not None:
         return override
-    local = Path.cwd()
-    if (local / FLEET_FILENAME).is_file():
-        return local
     try:
         live = live_fleet_dir()
     except LiveFleetError as exc:
         raise ConfigFileError(str(exc)) from exc
-    return live if live is not None else local
+    if live is None:
+        from mcgyvr.fleet.roots import live_file
+
+        raise ConfigMissingError(
+            f"no setup is named: {CONFIG_PATH_ENV} is unset and no fleet is "
+            f"live ({live_file()} names none). {_absent_remedy(None)}"
+        )
+    return live
 
 
 def parse(
@@ -2444,8 +2449,8 @@ def _absent_remedy(path: Path | None) -> str:
             "name a file that already exists."
         )
     return (
-        f"Run `mcgyvr setup` to generate one, or set {CONFIG_PATH_ENV} "
-        f"to point at an existing file."
+        f"Run `mcgyvr setup` to set up and make a fleet live, or set "
+        f"{CONFIG_PATH_ENV} to point at an existing setup."
     )
 
 
@@ -2454,8 +2459,8 @@ def load(path: Path | None = None) -> Config:
 
     A setup is a directory holding ``fleet.yaml`` and ``policy.yaml``:
     ``path`` names that directory, and ``None`` locates it (the environment
-    override, then the working directory, then the live fleet folder the
-    config folder's ``live.json`` names). A policy
+    override, else the live fleet folder the config folder's ``live.json``
+    names; :func:`config_path`). A policy
     file is optional — a fleet with one unit and no policy is the smallest
     working install — but a fleet file is not. ``relief.yaml`` is read beside
     them when a sync has written one.

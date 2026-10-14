@@ -141,7 +141,7 @@ def _run(
         raise AssertionError(f"{rung} was dispatched")
 
     monkeypatch.setattr(drive, "dispatch", dispatch)
-    monkeypatch.chdir(setup)
+    monkeypatch.setenv("MCGYVR_CONFIG", str(setup))
     capsys.readouterr()
     argv = ["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
     return cli.main(argv), capsys.readouterr().err, dispatched

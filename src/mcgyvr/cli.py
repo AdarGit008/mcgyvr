@@ -94,9 +94,8 @@ from mcgyvr.serving import (
 #: The three places a config is looked for, in order, as every `--config`
 #: help line states them: one sentence, so no command names a fourth.
 CONFIG_DEFAULT_HELP = (
-    f"${CONFIG_PATH_ENV}, then the working directory when it holds fleet.yaml, "
-    f"then the live fleet folder under {FLEETS_SHOWN} that {LIVE_FILE_SHOWN} "
-    f"names — a directory holding fleet.yaml and policy.yaml"
+    f"${CONFIG_PATH_ENV}, else the live fleet folder under {FLEETS_SHOWN} that "
+    f"{LIVE_FILE_SHOWN} names — a directory holding fleet.yaml and policy.yaml"
 )
 #: Where `mcgyvr setup` writes when no path is given. Never a live fleet folder:
 #: those are written only by `mcgyvr fleet promote`, and never in place.
@@ -2163,7 +2162,10 @@ def _run(args: argparse.Namespace) -> int:
     # the supported bare install, and a path someone typed is not.
     chosen = Path(args.config) if args.config else None
     named = chosen if chosen is not None else named_config_path()
-    path = named if named is not None else resolve_config_path()
+    try:
+        path: Path | None = named if named is not None else resolve_config_path()
+    except ConfigError:
+        path = None
     try:
         config = load_config(chosen)
     except ConfigError as exc:
@@ -2250,7 +2252,8 @@ def _run(args: argparse.Namespace) -> int:
         # place and states the fact it actually has.
         reason = " ".join(str(config_error).split())
         print(
-            f"note: {path} is not usable ({reason}); this run goes on without "
+            f"note: {path or 'the config'} is not usable ({reason}); this run "
+            "goes on without "
             f"a config and sends its result to {where}"
         )
 
@@ -2802,8 +2805,8 @@ def _climb(
     to tell which one ran.
 
     Hence ``--config`` and no rung flag. It resolves the same way every other
-    command's does — ``$MCGYVR_CONFIG``, then the working directory, then
-    the live fleet folder the config folder's ``live.json`` names — because a
+    command's does — ``$MCGYVR_CONFIG``, else the live fleet folder the
+    config folder's ``live.json`` names — because a
     second resolution order for the same file is a
     second file as far as an operator debugging one is concerned. The config is
     loaded once, in :func:`_run`, because the journal dir is read off it before
@@ -4969,9 +4972,9 @@ def add_config(
     ``fleet alerts`` and the ``rig`` agent had no way to name it, so the flag a
     user learned on ``run`` was refused elsewhere (e2e run 2, R9). Every verb
     that reads the setup now takes it, with ``run``'s meaning and precedence:
-    the directory (or one merged file) it names wins over ``$MCGYVR_CONFIG``,
-    the working directory and the live fleet, and leaving it off takes that
-    chain. ``tests/test_every_command_that_reads_a_config_takes_dash_dash_config.py``
+    the directory (or one merged file) it names wins over ``$MCGYVR_CONFIG``
+    and the live fleet, and leaving it off takes that chain.
+    ``tests/test_every_command_that_reads_a_config_takes_dash_dash_config.py``
     walks the parser so a new verb cannot miss it.
 
     ``dest`` is for a verb whose older spelling is kept beside the flag (a
@@ -6414,8 +6417,8 @@ class _Version(argparse.Action):
 
     Two lines and not one, because they are two identities: the wheel is the
     code, and the config is the setup. The config is the one `load()` locates —
-    `$MCGYVR_CONFIG`, then a working directory holding `fleet.yaml`, then the
-    fleet the config folder's `live.json` names — so the path printed is the
+    `$MCGYVR_CONFIG`, else the fleet the config folder's `live.json` names —
+    so the path printed is the
     config a run typed at this prompt would load. No config prints
     `none`; one that is there and cannot be read prints why, because a
     version line that swallowed that would be the one lie an operator

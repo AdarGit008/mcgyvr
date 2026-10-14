@@ -55,6 +55,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     nothing is locked or made live, and the limits say how to lock it. Setup
     no longer approves its own fleet unasked.
 
+- **The working directory is no longer a config.** A command that reads a
+  setup reads `$MCGYVR_CONFIG` (or its `--config`), else the live fleet that
+  `$MCGYVR_HOME/live.json` names. A `fleet.yaml` where the command runs is not
+  read, and with nothing named and no fleet live there is no config: the
+  refusal says to run `mcgyvr setup` or set `$MCGYVR_CONFIG`.
+
 - **One reader reads a machine, and one id names it.**
   - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
     tool. The door ships it to a rig as one read-only line

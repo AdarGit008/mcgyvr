@@ -22,10 +22,10 @@ runtime", with a pointer file choosing which fleet is live.
   ``test_use_switches_between_verified_fleets_and_says_whether_the_move_is_locked``.
 * The live lock root is the folder ``live.json`` names; with none there is no
   live lock. Dev reads the run root. No reader reads the working directory.
-* The config is ``$MCGYVR_CONFIG``, then ``./fleet.yaml``, then the live fleet
-  folder — never ``~/.mcgyvr/config``. ``mcgyvr setup`` with no path stages in
-  the override, else a folder of the run's own under the data folder, and
-  never in the working directory.
+* The config is ``$MCGYVR_CONFIG``, else the live fleet folder — never
+  ``./fleet.yaml`` and never ``~/.mcgyvr/config``. ``mcgyvr setup`` with no
+  path stages in the override, else a folder of the run's own under the data
+  folder, and never in the working directory.
 """
 
 from __future__ import annotations
@@ -369,7 +369,7 @@ def test_fleet_alerts_reads_the_lock_root_the_profile_names(
     assert roots_seen == [None, fleets() / "flt-05", dev], roots_seen
 
 
-def test_the_config_is_the_override_then_the_working_directory_then_the_live_fleet(
+def test_the_config_is_the_override_then_the_live_fleet_and_never_the_working_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr.config import ConfigMissingError, config_path, load
@@ -389,8 +389,8 @@ def test_the_config_is_the_override_then_the_working_directory_then_the_live_fle
     assert set(load().units) == {"live_unit"}
 
     small_setup(work, "cwd_unit")
-    assert config_path() == work
-    assert set(load().units) == {"cwd_unit"}
+    assert config_path() == folder, "a fleet.yaml where the command runs is not read"
+    assert set(load().units) == {"live_unit"}
 
     named = small_setup(tmp_path / "named", "named_unit")
     monkeypatch.setenv("MCGYVR_CONFIG", str(named))
