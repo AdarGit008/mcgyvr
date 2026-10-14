@@ -220,7 +220,12 @@ def _local_pool(args: argparse.Namespace) -> int:
     # nobody can check.
     # A family is a cost class rather than a location, so printing it says how
     # dear a rung is to ask without saying which machine answers.
-    print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
+    #
+    # The rungs are listed in the order the ladder names them, which is the
+    # order work climbs them. That is cheapest first only when the ladder was
+    # written so, and the header says the order the list is in, not the one a
+    # ladder usually has.
+    print(f"{config.path}: {len(pool)} usable rung(s), in ladder order:\n")
     ladder_budget = 0
     for rung in pool.rungs:
         budget = int((config.get("attempts") or {}).get(rung.name, 1))

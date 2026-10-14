@@ -447,6 +447,7 @@ tests/test_javascript_adapter.py	unit	functional	agreed	agreed
 tests/test_jev.py	unit	functional	agreed	agreed	
 tests/test_live_refuses_an_mcorch_setup_whose_fleet_lacks_its_units_awake.py	integration	logic	agreed	agreed	
 tests/test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py	unit	logic	agreed	agreed	
+tests/test_local_pool_lists_its_rungs_in_ladder_order_and_says_so.py			unreviewed	unreviewed	
 tests/test_mcgyvr_delegate_authors_by_the_configured_strategy_too.py	unit	logic|functional	agreed	disputed	
 tests/test_mcgyvr_mcorch_serve_binds_the_rung_and_the_jev_unit_from_the_config.py	unit|integration	functional	disputed	agreed	
 tests/test_mcgyvr_read_json_carries_the_checker_the_repository_declares.py	integration|e2e	functional	disputed	agreed	
