@@ -433,12 +433,13 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "int",
         "What the worker's reply may spend, in output tokens: what the *work* "
         "is worth, counting any reasoning a model does before it writes. "
-        "Leave it out and each attempt sizes it from the target: the type's "
-        "allowance, twice the target's estimated tokens, and a reasoning "
-        "allowance; the journal records the number and how. A reply cut off "
-        "at the cap is a named failure, never applied to a file. Not bounded "
-        "by `context.max_input_tokens`. A raw-text reply (`prose` / "
-        "`media_artifact`) carries no cap.",
+        "Model-written `code` must state it: without it the contract is "
+        "valid, and `mcgyvr run` refuses it before any model is called. Sent "
+        "exactly; refused by name if above the ceiling of a unit the run may "
+        "reach (its `window` less the prompt, or its `output_tokens`). A "
+        "reply cut off at the cap is a named failure, never applied to a "
+        "file. `chat` and `agent` are a raw connection: stating it there is "
+        "refused. A deterministic operation has no cap.",
         default=None,
         min_value=1,
     ),

@@ -531,6 +531,7 @@ tests/test_spelling_is_not_independence.py	unit	logic	agreed	agreed
 tests/test_structured_and_preflight.py	unit	functional	agreed	agreed	
 tests/test_telemetry_runs_no_lab_code.py	integration|unit	infra	disputed	agreed	
 tests/test_the_breadth_a_run_asked_for_is_stated_whatever_the_verdict.py	integration	functional	agreed	agreed	
+tests/test_the_cap_rules_are_stated_where_an_author_reads_them.py			unreviewed	unreviewed	
 tests/test_the_ci_test_job_installs_the_js_toolchain_so_a_js_test_cannot_skip_for_ever.py	integration|unit	infra	disputed	agreed	
 tests/test_the_classifier_offers_no_type_whose_contract_it_cannot_complete.py	unit|integration	logic	disputed	agreed	
 tests/test_the_classifier_proposer_asks_the_jev_unit_when_one_is_bound.py	integration|unit	behavior|functional	disputed	disputed	
