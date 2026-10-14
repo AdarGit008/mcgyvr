@@ -1654,6 +1654,18 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"log, never written. Drop output_schema; 'prose' is the "
                 f"default."
             )
+        # A session is a raw connection to a model (owner, 2026-10-14, e2e
+        # run 3 T1): mcgyvr wraps no harness around it, so it sends no output
+        # cap and measures no prompt or window. A cap stated anyway would read
+        # as a bound nothing enforces.
+        stated = data["limits"]["max_output_tokens"]
+        if stated is not None:
+            raise ContractSchemaError(
+                f"limits.max_output_tokens: {stated} is stated, but a "
+                f"{kind.name!r} run is a raw connection to a model and mcgyvr "
+                f"sets no limits on it: no output cap is sent, and no prompt or "
+                f"window check is made. Drop limits.max_output_tokens."
+            )
     else:
         _check_destination(data, kind, target, allow, forbid)
 

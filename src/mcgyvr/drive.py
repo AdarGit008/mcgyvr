@@ -342,7 +342,13 @@ def refuse_unsendable(
 
     A rung that declared no window enforces only the first question — the check
     has no number to measure against, and inventing one is the defect it ends.
+
+    A session (``chat``, ``agent``) is asked neither question. It is a raw
+    connection to a model, and mcgyvr wraps no harness around one (owner,
+    2026-10-14, e2e run 3 T1): no output cap, no prompt check, no window check.
     """
+    if contract.is_session:
+        return
     if not prompt.fits:
         raise PromptTooLargeError(
             f"contract {contract.id!r}: the assembled prompt does not fit its "
