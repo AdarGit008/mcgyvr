@@ -935,7 +935,7 @@ def worker_attempt(
                 # contract declares; chat declares none and accepts on the spot.
                 return gate_prose_workspace(contract, space)
             # The gate is handed the sandbox, not a bare path, because a
-            # contract's acceptance commands are arbitrary shell and run inside
+            # contract's acceptance commands run any program they name, inside
             # a sandbox and nowhere else. `gate_workspace` takes the
             # sandbox and judges whatever is in it right now, so the draw
             # `best_of` just wrote is what the verdict is about.
@@ -1629,7 +1629,7 @@ def gate_in_sandbox(
 def task_ceiling(config: Config | None = None) -> float | None:
     """The policy's ``task_timeout_s``, or ``None`` where no config settles it.
 
-    A contract's acceptance command is arbitrary shell, and this is the ceiling
+    A contract's acceptance command runs any program it names, and this is the ceiling
     one that hangs is held to.
 
     ``config`` is the run's own — the one ``--config`` named — and when a caller

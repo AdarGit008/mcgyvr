@@ -223,7 +223,7 @@ def best_of(
 
     ``gate(sandbox)`` judges the draw that is currently in that sandbox's
     workspace. It is handed the sandbox rather than a bare path on purpose: the
-    contract's acceptance commands are arbitrary shell and run inside a sandbox
+    contract's acceptance commands run any program they name, inside a sandbox
     and nowhere else, so a gate that received only a ``Path`` could not run them
     and every real caller would have to close over a sandbox it was not given —
     the workspace is not enough to gate.

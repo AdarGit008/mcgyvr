@@ -376,6 +376,7 @@ tests/test_code_contract_derives_evidence.py			unreviewed	unreviewed
 tests/test_comfyui_engine.py	unit	functional	agreed	agreed	
 tests/test_compose.py	unit	logic|functional	agreed	disputed	
 tests/test_config.py	unit	functional	agreed	agreed	
+tests/test_config_lists_its_ladder_in_ladder_order_and_says_so.py	integration	functional	derived	derived	writes a setup to disk and runs `mcgyvr config` through cli.main: what the command prints
 tests/test_contract.py	unit	functional	agreed	agreed	
 tests/test_ctrl_c_hangs_up_on_every_dispatch_in_flight_before_it_stops_the_command.py	unit	behavior	agreed	agreed	
 tests/test_decision.py	unit	functional	agreed	agreed	

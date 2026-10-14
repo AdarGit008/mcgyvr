@@ -180,7 +180,7 @@ def _config(args: argparse.Namespace) -> int:
             f"x{unit.width or 1}  ({credential})"
         )
 
-    print("\nLadder, cheapest first:")
+    print("\nLadder, in ladder order:")
     for name in config.ladder.names:
         print(f"  {name:<16} {config.units[name].model:<32}")
 
