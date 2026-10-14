@@ -1,8 +1,9 @@
 """Per-task sandbox: one task, one throwaway workspace, torn down after.
 
-Acceptance commands are arbitrary shell from a contract, running on someone
-else's machine — so a task runs in a throwaway workspace, and in a container
-when the ``docker`` mode is configured and a daemon answers. This package
+A contract's acceptance commands run without a shell, but each runs whatever
+program it names, on the host unless a container holds it — so a task runs in
+a throwaway workspace, and in a container when the ``docker`` mode is
+configured and a daemon answers. This package
 provides the isolation those commands run in, in two modes that share one
 interface (:mod:`mcgyvr.sandbox.base`):
 

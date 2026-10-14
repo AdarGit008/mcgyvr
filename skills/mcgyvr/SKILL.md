@@ -201,8 +201,9 @@ what the run came to. The file's keys:
   no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
-- `committed`, `commit`, `branch`, `handoff` — where the work went. Not
-  committed (the default), the accepted file is left in the working tree.
+- `delivery` — where the work went: left uncommitted in the tree (the
+  default), the commit, or why it was refused (as `detail`).
+  `committed`, `commit`, `branch`, `handoff` are the commit as fields.
 - `answer` — a `chat`, `agent` or `media` reply; never written to the tree.
 - `session_record` — a session's record (question, answer, unit, times,
   outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.
@@ -243,7 +244,7 @@ answer. Report it to whoever owns the machine; the remedy is in
 `skills/mcgyvr/SETUP.md`.
 
 When `outcome` is `accepted`, the change is in `target` (a rename's: in
-each file `detail` names), uncommitted (a session changes nothing: its
+each file `delivery` names), uncommitted (a session changes nothing: its
 reply is `answer`).
 Review it there and commit it yourself. To have mcgyvr commit instead, run
 with `--commit` or `--branch NAME` on a tree where those files are

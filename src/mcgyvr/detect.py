@@ -606,8 +606,9 @@ def detect(
             f"Sandbox: no Docker daemon ({docker_how}), so `sandbox.mode: "
             f"docker` is refused here. `sandbox.mode: tempdir` (or "
             f"`sandbox.allow_fallback: true`) runs tasks in a temp directory, "
-            f"the explicitly weaker mode: acceptance commands are arbitrary "
-            f"shell from a contract."
+            f"the explicitly weaker mode: a contract's acceptance commands run "
+            f"without a shell, but each runs whatever program it names, on the "
+            f"host."
         )
     if cpu_count is None:
         provenance.pop("cpu_count")

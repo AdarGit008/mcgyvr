@@ -89,6 +89,7 @@ tests/test_a_card_no_installed_tool_reads_and_no_source_sizes_is_left_out_of_the
 tests/test_a_changed_argument_setting_that_is_not_a_mode_is_refused_by_name.py	unit	behavior|functional	agreed	disputed	
 tests/test_a_chat_or_agent_run_is_a_raw_connection_with_no_limits.py			unreviewed	unreviewed	
 tests/test_a_chat_or_agent_run_is_a_session_kept_in_the_journal.py			unreviewed	unreviewed	
+tests/test_a_chat_run_does_not_print_the_head_note.py	integration	behavior	derived	derived	runs `mcgyvr run` through cli.main on a git repository with the dispatch scripted: what a session run says about the tree
 tests/test_a_checker_run_on_the_host_is_handed_no_credential.py	integration	logic|functional	agreed	disputed	
 tests/test_a_checker_run_on_the_host_writes_no_cache_where_the_workspace_points.py	integration	logic|functional	agreed	disputed	
 tests/test_a_checker_that_runs_workspace_config_runs_where_the_task_runs.py	integration	logic	agreed	agreed	
@@ -147,6 +148,7 @@ tests/test_a_head_whose_worker_goes_silent_fails_fast_as_no_path.py	unit|integra
 tests/test_a_heartbeats_machine_reading_never_holds_the_agents_sending_thread.py	unit	logic	agreed	agreed	
 tests/test_a_host_advertises_the_units_it_shares_and_never_a_relief_or_hosted_rung.py	unit	functional	agreed	agreed	
 tests/test_a_host_turns_sharing_on_and_off_while_connected_and_the_hub_hears_within_a_second.py	integration	operational|behavior	agreed	disputed	
+tests/test_a_hosted_stand_in_is_said_to_come_from_below_the_verifier_on_the_ladder.py	unit	functional	derived	derived	picks a reviewer off a parsed config, reads a schema field and runs initialize in-process: what the stand-in rule is said to be
 tests/test_a_hosted_unit_waits_for_its_reply_however_long_it_takes.py			unreviewed	unreviewed	
 tests/test_a_hostile_session_command_is_refused_by_name_and_starts_nothing.py	unit|integration	logic	disputed	agreed	
 tests/test_a_javascript_rename_follows_a_namespace_import_and_no_other_receiver.py			unreviewed	unreviewed	
@@ -217,6 +219,7 @@ tests/test_a_recorded_run_is_written_under_the_orchestrator_that_ran_it.py	integ
 tests/test_a_red_sample_stamps_nothing_and_says_why.py	integration	logic	agreed	agreed	
 tests/test_a_reformatted_line_is_not_charged_with_its_pre_existing_lint.py			unreviewed	unreviewed	
 tests/test_a_refusal_about_the_live_fleet_names_the_pointer_it_read.py	integration	behavior|functional	agreed	disputed	
+tests/test_a_refusal_names_the_reviewer_that_refused.py	unit	logic	derived	derived	calls judge with a scripted review and a reviewer picked off a parsed config: the words a refusal carries
 tests/test_a_refusal_of_a_key_is_never_far_larger_than_the_file_it_refuses.py	unit	functional	agreed	agreed	
 tests/test_a_refusal_prints_no_control_character_of_a_gate_list_raw.py	integration	functional	agreed	agreed	
 tests/test_a_refusal_with_no_server_answering_blames_the_missing_server_not_the_cards.py	unit	behavior|functional	agreed	disputed	
@@ -381,6 +384,7 @@ tests/test_delegate.py	integration	functional	agreed	agreed
 tests/test_delivery_checks_run_with_or_without_commit.py	integration	logic|functional	agreed	disputed	
 tests/test_delivery_does_not_load_a_delivered_checker_config_on_the_host.py	unit|integration	logic	disputed	agreed	
 tests/test_delivery_judges_a_changed_argument_by_the_same_setting_as_the_sandbox.py	integration	functional	agreed	agreed	
+tests/test_delivery_says_where_the_change_went_beside_the_judgement_not_over_it.py	integration	behavior	derived	derived	runs `mcgyvr run` through cli.main on a git repository with the dispatch scripted, with and without a commit: what the result file says
 tests/test_delivery_writes_what_was_judged_where_the_contract_said.py	integration	functional	agreed	agreed	
 tests/test_derived_numbers.py	integration|unit	infra	disputed	agreed	
 tests/test_detect.py	unit	functional	agreed	agreed	
@@ -449,6 +453,7 @@ tests/test_javascript_adapter.py	unit	functional	agreed	agreed
 tests/test_jev.py	unit	functional	agreed	agreed	
 tests/test_live_refuses_an_mcorch_setup_whose_fleet_lacks_its_units_awake.py	integration	logic	agreed	agreed	
 tests/test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py	unit	logic	agreed	agreed	
+tests/test_local_pool_lists_its_rungs_in_ladder_order_and_says_so.py	integration	functional	derived	derived	writes a setup to disk and runs `mcgyvr local_pool` through cli.main: what the command prints
 tests/test_mcgyvr_delegate_authors_by_the_configured_strategy_too.py	unit	logic|functional	agreed	disputed	
 tests/test_mcgyvr_mcorch_serve_binds_the_rung_and_the_jev_unit_from_the_config.py	unit|integration	functional	disputed	agreed	
 tests/test_mcgyvr_read_json_carries_the_checker_the_repository_declares.py	integration|e2e	functional	disputed	agreed	
@@ -613,6 +618,7 @@ tests/test_the_tests_find_their_places_by_marker_not_by_depth.py	integration	inf
 tests/test_the_tunnels_table_lets_through_only_what_the_session_needs.py	unit|integration	logic	disputed	agreed	
 tests/test_the_two_ram_gates_hold_back_different_margins.py	unit	functional	agreed	agreed	
 tests/test_the_users_own_setting_beats_the_shipped_estimate.py	unit	functional	agreed	agreed	
+tests/test_the_weaker_mode_says_commands_run_without_a_shell_on_the_host.py	unit	functional	derived	derived	calls initialize, detect, choose_mode and reads a schema field and a module docstring in-process, the machine stubbed: what the weaker mode is said to be
 tests/test_there_are_exactly_four_task_types.py			unreviewed	unreviewed	
 tests/test_triage.py	unit	logic	agreed	agreed	
 tests/test_tts_engine.py	unit	functional	agreed	agreed	

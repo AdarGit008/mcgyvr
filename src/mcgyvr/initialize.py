@@ -915,7 +915,8 @@ def _limits(
             f"picks the next dearer local rung with another model; a hosted "
             f"unit never reviews on its own, and reviews — spending money on "
             f"every review — only when `verifier.unit` names it, or stands in "
-            f"for a dearer named one whose own model wrote the work. Work with no "
+            f"for a hosted named one above it on the ladder whose own model "
+            f"wrote the work. Work with no "
             f"such local rung above it is accepted and labelled unverified. "
             f"`orchestrator` is still unbound."
         )
@@ -929,9 +930,11 @@ def _limits(
         )
     if not detection.docker:
         limits.append(
-            "sandbox.mode is `tempdir`, the explicitly weaker mode. "
-            "Acceptance commands are arbitrary shell from a contract, so "
-            "install Docker before running contracts you did not write."
+            "sandbox.mode is `tempdir`, the explicitly weaker mode. A "
+            "contract's acceptance commands run without a shell, but each runs "
+            "whatever program it names, on the host, with only the host's "
+            "process, network and resource isolation, so install Docker "
+            "before running contracts you did not write."
         )
     return tuple(limits)
 

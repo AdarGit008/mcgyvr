@@ -172,8 +172,9 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "`docker` runs each task in its own container, torn down after; with "
         "no Docker daemon answering, the task is refused unless "
         "`allow_fallback` is on. `tempdir` is the explicitly weaker mode for "
-        "installs without Docker: acceptance commands are arbitrary shell from "
-        "a contract, running on someone else's machine.",
+        "installs without Docker: a contract's acceptance commands run without "
+        "a shell, but each runs whatever program it names, on the host, with "
+        "only the host's process, network and resource isolation.",
         default="docker",
         choices=("docker", "tempdir"),
     ),
@@ -946,7 +947,7 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
         "nearest this unit on the ladder whose model is not the builder's — "
         "the rungs below it first, dearest first, then the rungs above it, "
         "cheapest first. A local rung may always be the fallback; a hosted one "
-        "only when this unit is hosted and the rung is cheaper than it. The "
+        "only when this unit is hosted and the rung is below it on the ladder. The "
         "result and the journal name the fallback and say it stood in; with "
         "none, the work is accepted and labelled unverified, saying why.",
         bind_hint="name one of the units declared under `units`",

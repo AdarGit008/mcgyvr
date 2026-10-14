@@ -70,7 +70,9 @@ def test_without_commit_every_renamed_file_is_left_in_the_tree(
     assert imported.returncode == 0, imported.stderr
     assert lj.git(repo, "rev-parse", "HEAD").strip() == head, "a commit was made"
     assert "Left in src/pkg/web.py, src/pkg/use.py, not committed" in out
-    assert result["detail"] == "change left in src/pkg/web.py, src/pkg/use.py"
+    assert result["delivery"] == (
+        "not committed; change left in src/pkg/web.py, src/pkg/use.py"
+    )
 
 
 def test_commit_lands_every_renamed_file_in_one_commit(

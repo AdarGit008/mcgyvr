@@ -955,9 +955,11 @@ def stand_in_rung(
     **A hosted stand-in only for a hosted verifier, and only from below it.**
     A local rung costs nothing to ask and always qualifies. A hosted rung
     costs money per request. Naming a hosted ``verifier.unit`` is the
-    operator choosing to spend on review, so a hosted rung cheaper than it may
-    stand in; a hosted rung dearer than it, or any hosted rung standing in for
-    a local verifier, would spend money nobody chose to spend on review.
+    operator choosing to spend on review, so a hosted rung below it on the
+    climb may stand in; a hosted rung above it, or any hosted rung standing in
+    for a local verifier, would spend money nobody chose to spend on review.
+    The rule reads the rung's place on the climb, never a price, and every
+    sentence that explains it says so.
 
     ``None`` is a builder the pool does not offer, a climb holding neither
     ``unit`` nor the builder, or no rung that qualifies.
@@ -1099,8 +1101,8 @@ def _standing_in(
         return NoReviewer(
             f"{wrote}, and a model does not review its own output; no other unit "
             f"was available to review it instead — a fallback is a usable rung "
-            f"whose model is not the builder's, local, or hosted and cheaper than "
-            f"a hosted `verifier.unit`"
+            f"whose model is not the builder's, local, or hosted and below a "
+            f"hosted `verifier.unit` on the ladder"
         )
     return _askable(
         source_map,
