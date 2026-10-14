@@ -4939,17 +4939,41 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
 
 
 def _fleet_lock(args: argparse.Namespace) -> int:
-    """Write the fleet lock from the fleet, evidence and policy files named."""
+    """Write the fleet lock from the fleet, evidence and policy files named, or
+    from a stamp folder (:func:`mcgyvr.fleet.lock.write_from_stamp`)."""
     import json
 
-    from mcgyvr.derived import DerivedNumbersError, class_tolerances
+    from mcgyvr.derived import DerivedNumbersError
     from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
-    from mcgyvr.fleet.lock import LockRefusedError, write
+    from mcgyvr.fleet.lock import LockRefusedError, tolerances, write, write_from_stamp
     from mcgyvr.fleet.roots import HOME_DIR, is_live, lock_root
 
-    dev_root = lock_root("dev")
-    assert dev_root is not None, "the dev lock root is the run root, a path"
-    root = Path(args.root) if args.root else dev_root
+    if args.stamp is not None:
+        # A stamp folder holds its own setup and is its own dev root.
+        taken = [
+            flag
+            for flag, value in (
+                ("--fleet", args.fleet),
+                ("--policy", args.policy),
+                ("--root", args.root),
+            )
+            if value is not None
+        ]
+        if taken:
+            print(
+                f"error: {', '.join(taken)} with --stamp: the stamp folder holds "
+                "the setup and is where its lock is written",
+                file=sys.stderr,
+            )
+            return Exit.USAGE
+        root = Path(args.stamp)
+    else:
+        if args.fleet is None:
+            print("error: --evidence needs --fleet", file=sys.stderr)
+            return Exit.USAGE
+        dev_root = lock_root("dev")
+        assert dev_root is not None, "the dev lock root is the run root, a path"
+        root = Path(args.root) if args.root else dev_root
     if is_live(root):
         print(
             f"error: {root} is or lies under a folder live fleets are read from (the "
@@ -4959,6 +4983,14 @@ def _fleet_lock(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    if args.stamp is not None:
+        try:
+            tree = write_from_stamp(root)
+        except LockRefusedError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"locked: {tree}")
+        return 0
     # One authoritative parser: ``fleet.yaml`` and ``policy.yaml`` are the
     # operator-authored files ``mcgyvr.fleet.files`` defines, so the lock reads
     # them through it rather than guessing JSON. Evidence stays JSON: a dev run
@@ -4980,16 +5012,13 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     except (json.JSONDecodeError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    # The class tolerances, looked up in `mcgyvr.derived`: the rule is pinned in
-    # `mcgyvr.fleet.lock`, the values are estimates the user can set. The lock
-    # weighs only warm decode against NVMe, so it reads decode's classes.
     try:
-        tolerances = {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
+        weighed = tolerances()
     except DerivedNumbersError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     try:
-        write(root, fleet, evidence, policy=policy, tolerances=tolerances)
+        write(root, fleet, evidence, policy=policy, tolerances=weighed)
     except LockRefusedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -5794,17 +5823,28 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "write the fleet lock from passing dev runs (into the dev root's lock tree)"
         ),
     )
-    flock.add_argument(
-        "--fleet",
-        required=True,
+    flock_from = flock.add_mutually_exclusive_group(required=True)
+    flock_from.add_argument(
+        "--evidence",
         metavar="PATH",
-        help="fleet.yaml to lock (units, rigs, fleets)",
+        help=(
+            "dev-run evidence (rig cards, combination validations, moves) as "
+            "JSON; needs --fleet"
+        ),
+    )
+    flock_from.add_argument(
+        "--stamp",
+        metavar="DIR",
+        help=(
+            "a sample's stamp folder (setup/ and evidence.json): the lock is "
+            "written from it into it, and it is promoted from there"
+        ),
     )
     flock.add_argument(
-        "--evidence",
-        required=True,
+        "--fleet",
+        default=None,
         metavar="PATH",
-        help="dev-run evidence (rig cards, combination validations, moves) as JSON",
+        help="fleet.yaml to lock (units, rigs, fleets), with --evidence",
     )
     flock.add_argument(
         "--policy",

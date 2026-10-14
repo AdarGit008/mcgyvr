@@ -44,14 +44,14 @@ from tests import onedoor
 from tests._paths import REPO
 from tests.doors import RUNG_7B, UNITS, compose_dir, compose_file, door_log, ladder
 from tests.fleetlocks import (
+    BOX1_EVIDENCE,
+    BOX1_FLEET,
     EVIDENCE,
     FLEET,
     LOCK_DATE,
     MODELLED,
     POLICY,
     RIG2,
-    BOX1_EVIDENCE,
-    BOX1_FLEET,
     TOLERANCES,
     U3B,
     U7B,

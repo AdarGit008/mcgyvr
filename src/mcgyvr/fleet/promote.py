@@ -52,6 +52,9 @@ from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import FleetError, layout_sha256, mcorch_units
+
+# Re-exported: a promoted folder holds its lock where the dev root does.
+from mcgyvr.fleet.lock import LOCK_DIR as LOCK_DIR
 from mcgyvr.fleet.roots import (
     TAG,
     LiveFleetError,
@@ -65,8 +68,6 @@ from mcgyvr.fleet.roots import (
 )
 from mcgyvr.fleet.spans import SpanError, check_spans
 
-#: Where a lock sits under the dev root and under a live fleet folder alike.
-LOCK_DIR = Path("records") / "fleet"
 #: The fleet ``mcgyvr setup`` approves from the setup it wrote (:func:`approve_own`),
 #: and who its lock says approved it.
 OWN_FLEET = "own"

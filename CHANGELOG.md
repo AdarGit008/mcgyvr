@@ -7,6 +7,21 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Changed
+
+- **A stamp locks nothing; `mcgyvr fleet lock` is the one lock writer**
+  (owner: "one script that locks a fleet, one script that stamps a fleet
+  without locking").
+  - `mcgyvr.fleet.stamp.stamp` writes only the stamp folder,
+    `<data folder>/stamps/<fleet>/<run>/` (`setup/` and `evidence.json`). It
+    no longer locks, promotes or names a fleet live.
+  - New: `mcgyvr fleet lock --stamp DIR` (`mcgyvr.fleet.lock.write_from_stamp`)
+    writes the lock from a stamp folder into it. Promote and use it from there
+    as any other lock. `--stamp` and `--evidence` are mutually exclusive;
+    `--evidence` still needs `--fleet`.
+
 ## [0.5.0] - 2026-10-13
 
 Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab

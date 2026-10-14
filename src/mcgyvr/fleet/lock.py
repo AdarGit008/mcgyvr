@@ -8,6 +8,11 @@
 * one combination record per rig — a combination's validation, shared by
   every fleet that lists it.
 
+This module is the one writer of a lock. :func:`write` locks from dev-run
+evidence handed in; :func:`write_from_stamp` from a stamp folder
+(:mod:`mcgyvr.fleet.stamp`), the setup and evidence a green sample left. A lock
+reaches live only through :mod:`mcgyvr.fleet.promote`.
+
 Committing them is the approval. Locking refuses, naming what failed, because a
 lock that could not prove a fact must not pretend it did. Every check here is
 arithmetic on the fleet file and the dev evidence; nothing reads a rig.
@@ -42,9 +47,25 @@ from mcgyvr.fleet.spans import (
 )
 from mcgyvr.fleet.tolerance import tolerance_class
 
+#: Where a lock sits under the dev root and under a live fleet folder alike.
+LOCK_DIR = Path("records") / "fleet"
+
 
 class LockRefusedError(Exception):
     """The lock cannot be written: a dev run did not prove what it must."""
+
+
+def tolerances() -> dict[str, Any]:
+    """The class tolerances a lock weighs, as :func:`write` takes them.
+
+    Looked up in :mod:`mcgyvr.derived`: the rule is pinned here, the values are
+    estimates the user can set. The lock weighs only warm decode against NVMe,
+    so it reads decode's classes. Raises
+    :class:`mcgyvr.derived.DerivedNumbersError` when they cannot be read.
+    """
+    from mcgyvr.derived import class_tolerances
+
+    return {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
 
 
 def wake_limit_s(wake_s: float, tolerance: dict[str, Any]) -> float:
@@ -575,7 +596,7 @@ def write(
             )
             written.setdefault(combination, record)
 
-    fleet_dir = root / "records" / "fleet"
+    fleet_dir = root / LOCK_DIR
     fleet_dir.mkdir(parents=True, exist_ok=True)
     rig_ids = {name: block["rig_id"] for name, block in fleet.get("rigs", {}).items()}
     unit_ids = {
@@ -603,8 +624,55 @@ def write(
     for combination, record in written.items():
         rig_name = record["rig"]
         rig_id = rig_ids[rig_name]
-        rig_dir = root / "records" / "fleet" / "rigs" / rig_id
+        rig_dir = root / LOCK_DIR / "rigs" / rig_id
         rig_dir.mkdir(parents=True, exist_ok=True)
         (rig_dir / f"{combination}.json").write_text(
             json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+
+
+def write_from_stamp(stamp_dir: Path) -> Path:
+    """Write the fleet lock from the stamp folder ``stamp_dir``; the lock tree.
+
+    A stamp folder (:func:`mcgyvr.fleet.stamp.stamp`) holds the staged setup
+    (``setup/fleet.yaml``, ``setup/policy.yaml``) and the dev-run evidence a
+    green sample built (``evidence.json``). The lock is written by
+    :func:`write` into the stamp folder itself, as its dev root, so promoting
+    it (:func:`mcgyvr.fleet.promote.promote` with ``stamp_dir`` and its
+    ``setup/``) needs no lab checkout. Refused, naming what is wrong, when the
+    folder is not a stamp folder (a file of it missing or unreadable, evidence
+    that is not a JSON object), when the class tolerances cannot be read, or
+    when :func:`write` refuses the evidence.
+    """
+    from mcgyvr.derived import DerivedNumbersError
+    from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
+    from mcgyvr.fleet.stamp import EVIDENCE_FILE, SETUP_DIR
+
+    if not stamp_dir.is_dir():
+        raise LockRefusedError(f"{stamp_dir} is not a stamp folder: it is no folder")
+    setup = stamp_dir / SETUP_DIR
+    try:
+        fleet = load_fleet((setup / "fleet.yaml").read_text(encoding="utf-8"))
+        policy = load_policy((setup / "policy.yaml").read_text(encoding="utf-8"))
+    except (OSError, FleetFileError) as exc:
+        raise LockRefusedError(
+            f"{stamp_dir} is not a stamp folder: its setup cannot be read: {exc}"
+        ) from exc
+    evidence_path = stamp_dir / EVIDENCE_FILE
+    try:
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise LockRefusedError(
+            f"{stamp_dir} is not a stamp folder: {evidence_path} cannot be read: {exc}"
+        ) from exc
+    if not isinstance(evidence, dict):
+        raise LockRefusedError(
+            f"{stamp_dir} is not a stamp folder: {evidence_path} holds no "
+            "dev-run evidence object"
+        )
+    try:
+        weighed = tolerances()
+    except DerivedNumbersError as exc:
+        raise LockRefusedError(str(exc)) from exc
+    write(stamp_dir, fleet, evidence, policy=policy, tolerances=weighed)
+    return stamp_dir / LOCK_DIR
