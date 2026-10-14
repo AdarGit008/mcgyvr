@@ -172,8 +172,9 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "`docker` runs each task in its own container, torn down after; with "
         "no Docker daemon answering, the task is refused unless "
         "`allow_fallback` is on. `tempdir` is the explicitly weaker mode for "
-        "installs without Docker: acceptance commands are arbitrary shell from "
-        "a contract, running on someone else's machine.",
+        "installs without Docker: a contract's acceptance commands run without "
+        "a shell, but each runs whatever program it names, on the host, with "
+        "only the host's process, network and resource isolation.",
         default="docker",
         choices=("docker", "tempdir"),
     ),

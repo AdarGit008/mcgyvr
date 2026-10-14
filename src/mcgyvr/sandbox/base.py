@@ -1032,10 +1032,11 @@ def check_network(network: str) -> str:
 
 
 _WEAKER_MODE_NOTE = (
-    "This is the explicitly weaker mode: acceptance commands are arbitrary "
-    "shell from a contract and run on the host, not inside a container. "
-    "Credentials are still kept out and each task still gets a throwaway git "
-    "workspace, but process, network and resource isolation are the host's."
+    "This is the explicitly weaker mode: a contract's acceptance commands run "
+    "without a shell, but each runs whatever program it names, on the host, "
+    "not inside a container. Credentials are still kept out and each task "
+    "still gets a throwaway git workspace, but process, network and resource "
+    "isolation are the host's."
 )
 
 

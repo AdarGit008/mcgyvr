@@ -609,6 +609,7 @@ tests/test_the_tests_find_their_places_by_marker_not_by_depth.py	integration	inf
 tests/test_the_tunnels_table_lets_through_only_what_the_session_needs.py	unit|integration	logic	disputed	agreed	
 tests/test_the_two_ram_gates_hold_back_different_margins.py	unit	functional	agreed	agreed	
 tests/test_the_users_own_setting_beats_the_shipped_estimate.py	unit	functional	agreed	agreed	
+tests/test_the_weaker_mode_says_commands_run_without_a_shell_on_the_host.py			unreviewed	unreviewed	
 tests/test_there_are_exactly_four_task_types.py			unreviewed	unreviewed	
 tests/test_triage.py	unit	logic	agreed	agreed	
 tests/test_tts_engine.py	unit	functional	agreed	agreed	
