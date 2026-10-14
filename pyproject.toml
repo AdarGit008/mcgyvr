@@ -139,16 +139,3 @@ ignore_errors = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -n auto --strict-markers"
-markers = [
-  "unit: nothing outside the process: no disk, no database, no server",
-  "integration: a real file, a real database, or the app through a test client",
-  "e2e: a process of our own, started for real",
-  "behavior: what a person asking for this gets",
-  "functional: a rule of the product, end to end within its level",
-  "infra: a guard over the repository rather than the product",
-  "logic: one decision, taken on its own",
-  "operational: what happens when something is slow, absent or broken",
-  "tools: the scripts beside the product rather than the product",
-  "disputed: the two classification passes read this file differently",
-  "unreviewed: no pass has classified this file yet",
-]

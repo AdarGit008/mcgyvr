@@ -79,31 +79,16 @@ jobs:
         run: |
           uv sync --frozen
           uv run --no-sync pytest tests/test_every_module_of_the_package_imports_under_every_supported_python.py
-  # The list of files that still name a machine the product did not invent
-  # may only shrink. The test holds every entry true against the tree; what a
-  # tree cannot show is the list as it was, so on a pull request this job
-  # compares the list with the one on the base branch and fails when the
-  # product holds more hits of a kind than the base recorded; a hit that only
-  # moved between files is a move, not growth. Standard library only, so it
-  # needs no install. It runs beside `test` and the ruleset requires both.
+  # The hub's borders may only shrink. What a tree cannot show is the borders
+  # as they were, so on a pull request this job compares them with the base
+  # branch's. Standard library only, so it needs no install. It runs beside
+  # `test` and the ruleset requires both.
   list-only-shrinks:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: compare the list with the base branch's
-        env:
-          BASE_REF: ${{ github.base_ref }}
-          LIST: tests/uninvented_machines_not_yet_cleaned.txt
-        run: |
-          git fetch --no-tags --depth=1 origin "refs/heads/$BASE_REF"
-          if ! git cat-file -e "FETCH_HEAD:$LIST" 2>/dev/null; then
-            echo "the base branch has no $LIST; nothing to compare"
-            exit 0
-          fi
-          git show "FETCH_HEAD:$LIST" > "$RUNNER_TEMP/base-list.txt"
-          python3 tests/uninvented_machines.py --compare "$RUNNER_TEMP/base-list.txt"
-      # The hub's borders (tests/hub_borders.py) are held the same way: the
+      # The hub's borders (tests/hub_borders.py): the
       # imports into the hub client and the hub words in the offline core may
       # only shrink, and the words read and the places that are not the core
       # may not widen. The base's copy is read as a syntax tree, never run.

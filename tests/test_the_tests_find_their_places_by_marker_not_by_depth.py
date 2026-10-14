@@ -17,12 +17,12 @@ Four files are outside the rule, and none of them is a test file the levels
 reorganise.
 
 * :mod:`tests._paths` is the derivation.
-* ``tests/uninvented_machines.py`` and ``tests/hub_borders.py`` are run **by
-  their path** — ``python tests/uninvented_machines.py --compare`` is what CI
-  runs — and each puts the checkout on ``sys.path`` only inside its
-  ``__main__`` block. A module-level ``from tests._paths import ...`` would
-  therefore fail exactly when CI runs them, so each keeps a derivation of its
-  own. Neither is collected, and neither moves.
+* ``tests/hub_borders.py`` is run **by its path** — ``python
+  tests/hub_borders.py --compare`` is what CI runs — and puts the checkout on
+  ``sys.path`` only inside its ``__main__`` block; ``tests/uninvented_machines.py``
+  is imported from it there. A module-level ``from tests._paths import ...``
+  would therefore fail exactly when CI runs them, so each keeps a derivation
+  of its own. Neither is collected, and neither moves.
 * ``tests/rig_schema.py`` is **copied into a throw-away tree and run from
   there** (``test_a_re_pin_rewrites_every_copy_and_its_digests``), so its
   ``FIXTURES`` must be the fixtures beside *the copy*. Derived from a marker,

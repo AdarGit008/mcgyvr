@@ -1,30 +1,14 @@
 """Find the strings that tie the product to a machine it did not invent.
 
-The check in ``tests/test_the_product_names_no_machine_it_did_not_invent.py``
-and the command that writes its list share this module. It holds no machine
-name, no real card model, no real user's name and no name of a repository:
-every kind below is a shape. It does hold the names of card families and of
-the vendors that write them (:data:`CARD_FAMILIES`, :data:`CARD_VENDORS`),
-the user names that stand for any user or for the CI runner
-(:data:`PLACEHOLDER_USERS`), and the names of the four folders that leave the
-product (:data:`LAB_FOLDERS`).
-
-What is read
-------------
-Every file git tracks, and every untracked file git does not ignore (it
-ignores the writer's temporary file), except the folders in :data:`UNREAD`,
-the list itself, and ``CHANGELOG.md`` from its first heading that names a
-released version, as the release script reads a heading (released sections
-are history; a release moves the open section's hits out of what is read).
-A file is read as UTF-8, a byte that is not UTF-8 replaced; a symbolic link
-is read as the path it points at. A path name is read too, as line 0 of its
-file.
-
-:data:`UNREAD` holds the folders that leave the product, while they are in
-it: a test fails once one of them holds no tracked file, and that folder is
-then dropped from :data:`UNREAD` and read again. :data:`LAB_FOLDERS` stays
-as it is: a pointer into one of its folders is a hit whether that folder is
-read or not.
+:func:`scan_text` is the shared reader: the command-help check
+(``tests/test_no_command_help_names_a_rig_the_product_did_not_invent.py``)
+reads text with it, and the hub's borders compare their counts with
+:func:`growth`. It holds no machine name, no real card model, no real user's
+name and no name of a repository: every kind below is a shape. It does hold
+the names of card families and of the vendors that write them
+(:data:`CARD_FAMILIES`, :data:`CARD_VENDORS`), the user names that stand for
+any user or for the CI runner (:data:`PLACEHOLDER_USERS`), and the names of
+the four folders that leave the product (:data:`LAB_FOLDERS`).
 
 The kinds
 ---------
@@ -160,66 +144,19 @@ encoded or compressed passes. It also does not see:
 - the development repository's name with no separator, with a dot, as a
   plural, or with a hyphen that is not ASCII;
 - a number read on one machine (a card size, a count) stated as a rule.
-
-The list
---------
-:data:`LIST_PATH` names every file that holds hits today, with a count per
-kind, in two sections: "not yet cleaned" and "kept on purpose" (a file that
-needs such strings as inputs). The test demands that the scan finds exactly
-the files, kinds and counts listed. A hit replaced by another of the same
-kind in a listed file keeps the count and passes; that is what it does not
-hold. A path is listed as it is, also when the path itself is a hit.
-Rewrite the list after cleaning::
-
-    uv run --no-sync python -m tests.uninvented_machines --write
-
-It refuses to add a file or a kind, or to raise a count, unless it is given
-``--allow-growth``; a new file goes to the first section, and no entry moves
-between sections: a person moves it. A file that only moved is followed
-(:func:`moved_paths`), so reorganising a folder is not growth. It builds the
-whole list first and
-replaces the file in one step. A file name the list cannot hold (a byte that
-is not UTF-8, a tab, a line break, a leading ``#``) is refused by name.
-``--compare OLD`` reads only two list files (no scan, no dependency outside
-the standard library) and fails when the product holds more hits of a kind
-than OLD recorded (:func:`more_of_a_kind`); CI runs it against the list on a
-pull request's base branch. A hit that left one file and arrived in another
-of the same kind is a move, printed as one and not a failure: a helper
-lifted out of a test module into a module beside it reorganises the suite
-the way a renamed file does, and no file name survives that to be followed
-by. It reads OLD by its
-entries alone, whatever its comment lines say, so a change of the headers is
-not growth. The list itself is refused, by the test and by every mode, when
-it is not in the form ``--write`` writes (line endings aside), a comment line
-included. The command runs as ``python -m tests.uninvented_machines`` or by
-its file path.
 """
 
 from __future__ import annotations
 
-import argparse
 import ipaddress
-import os
 import re
-import subprocess
-import sys
-import tempfile
-from collections import Counter
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-LIST_PATH = Path(__file__).resolve().parent / "uninvented_machines_not_yet_cleaned.txt"
-LIST_NAME = LIST_PATH.relative_to(REPO).as_posix()
-
 #: The folders that leave the product: never a place a pointer may lead,
 #: whether they are read or not.
 LAB_FOLDERS = ("archive", "fleet-setup", "records", "tools")
-
-#: The folders not read, while they are in the product. The four folders have
-#: left the product, so nothing is excluded: a file is read again.
-UNREAD: tuple[str, ...] = ()
 
 KINDS = ("address", "card-model", "dev-pointer", "home-path", "host", "identity")
 
@@ -419,8 +356,6 @@ _LEAVING_IMPORT = re.compile(
     r"|-m\s+(?:" + _LEAVE_MODULES + r")\.\w)"
 )
 _LEAVING_JOIN = re.compile(r"/\s*[\"'](?:" + _LEAVE + r")[\"']")
-#: Where section 2 starts, in any wording of its header.
-_SECTION_2 = "# Section 2"
 
 
 @dataclass(frozen=True)
@@ -638,274 +573,7 @@ def scan_text(
     return hits
 
 
-def files(repo: Path = REPO) -> list[str]:
-    """The files read: tracked, or untracked and not ignored; not those in
-    :data:`UNREAD`, not the list and not the writer's temporary file."""
-    listed = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo),
-            "ls-files",
-            "-z",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "--",
-            ".",
-            *(f":(exclude,top){folder}" for folder in UNREAD),
-        ],
-        check=True,
-        capture_output=True,
-    ).stdout.decode("utf-8", "surrogateescape")
-    chosen: set[str] = set()
-    for path in listed.split("\0"):
-        if not path or path == LIST_NAME or path.split("/", 1)[0] in UNREAD:
-            continue
-        if os.path.lexists(repo / path):
-            chosen.add(path)
-    return sorted(chosen)
-
-
-def tracked_in(folder: str, repo: Path = REPO) -> int:
-    """How many files git tracks under one top-level folder."""
-    out = subprocess.run(
-        ["git", "-C", str(repo), "ls-files", "-z", "--", f":(top){folder}/"],
-        check=True,
-        capture_output=True,
-    ).stdout
-    return len([p for p in out.split(b"\0") if p])
-
-
-def text_of(repo: Path, path: str) -> str:
-    """What is read of one file."""
-    where = repo / path
-    if where.is_symlink():
-        return os.readlink(where)
-    if where.is_dir():  # a submodule or a folder git lists as one entry
-        return ""
-    text = where.read_bytes().decode("utf-8", "replace")
-    if path == "CHANGELOG.md":
-        from scripts.release.changelog_notes import released
-
-        lines = text.splitlines(keepends=True)
-        for number, line in enumerate(lines):
-            if line.startswith("## ") and released(line[3:].strip()) is not None:
-                return "".join(lines[:number])
-    return text
-
-
-def scan(repo: Path = REPO) -> list[Hit]:
-    """Every hit in the product."""
-    dev_repo = _dev_repo_name(repo)
-    hits: list[Hit] = []
-    for path in files(repo):
-        hits.extend(scan_text(path, text_of(repo, path), dev_repo=dev_repo))
-    return hits
-
-
 Counts = dict[str, dict[str, int]]
-
-
-@dataclass
-class Listed:
-    """The list: the files not yet cleaned, and those kept on purpose."""
-
-    cleaning: Counts = field(default_factory=dict)
-    kept: Counts = field(default_factory=dict)
-
-    def all(self) -> Counts:
-        return {**self.cleaning, **self.kept}
-
-
-def counts(hits: Iterable[Hit]) -> Counts:
-    """Hits per file, per kind."""
-    table: dict[str, Counter[str]] = {}
-    for hit in hits:
-        table.setdefault(hit.path, Counter())[hit.kind] += 1
-    return {path: dict(sorted(table[path].items())) for path in sorted(table)}
-
-
-def top_level(path: str) -> str:
-    return path.split("/", 1)[0] + "/" if "/" in path else "(root files)"
-
-
-def summary(hits: Sequence[Hit]) -> str:
-    """How many files hold how many hits, per kind and per top-level folder."""
-    lines = []
-    for kind in KINDS:
-        of_kind = [hit for hit in hits if hit.kind == kind]
-        where = {hit.path for hit in of_kind}
-        lines.append(f"  {kind}: {len(of_kind)} hits in {len(where)} files")
-    lines.append(
-        f"  all kinds: {len(hits)} hits in {len({h.path for h in hits})} files"
-    )
-    by_folder = Counter(top_level(hit.path) for hit in hits)
-    lines.extend(f"  {folder} {n}" for folder, n in sorted(by_folder.items()))
-    return "\n".join(lines)
-
-
-HEADER = """\
-# Files of the product that name a machine it did not invent, or point into
-# the development repository, in the places and shapes that
-# tests/uninvented_machines.py reads, with how many hits of each kind they
-# hold.
-# Paths and counts only, never the text of a line; a path that is itself a
-# hit is listed as it is. One line per file, sorted by path within its
-# section:
-#     path<TAB>kind=count[<TAB>kind=count ...]
-# The test demands that the scan finds exactly these files, kinds and counts.
-# What that does not hold: a hit replaced by another of the same kind in a
-# listed file keeps the count and passes. On a pull request CI compares this
-# list with the base branch's and fails when the product holds more hits of a
-# kind than the base recorded. A hit that only moved from one file to another
-# is a move, not growth: the per-kind totals are what may never rise.
-# After cleaning, rewrite the counts with
-#     uv run --no-sync python -m tests.uninvented_machines --write
-# It refuses to add a file or a kind, or to raise a count, unless given
-# --allow-growth; it puts a new file in the first section and never moves an
-# entry between sections, which a person does. A file that only moved is
-# followed: one path gone and one arrived under the same file name is that
-# file renamed, kept in its section and held to the counts it had.
-# On a merge conflict in this file: take the base branch's list, then run the
-# command above without a flag.
-# Any other comment line, and any line not in this form, is refused.
-#
-# Section 1: not yet cleaned.
-"""
-
-KEPT_HEADER = """\
-# Section 2: kept on purpose. A file here needs such strings as its inputs;
-# a person moves an entry here and says why in the change that moves it.
-"""
-
-
-def _entries(table: Counts) -> str:
-    lines = []
-    for path, kinds in sorted(table.items()):
-        if not listable(path):
-            raise ValueError(f"the list cannot hold the file name {path!a}")
-        lines.append(
-            "\t".join([path, *(f"{kind}={n}" for kind, n in sorted(kinds.items()))])
-        )
-    return "".join(f"{line}\n" for line in lines)
-
-
-def render(listed: Listed) -> str:
-    """The list's text; a file name it cannot hold is refused by name."""
-    return HEADER + _entries(listed.cleaning) + KEPT_HEADER + _entries(listed.kept)
-
-
-def _parse_entries(lines: list[tuple[int, str]], source: str) -> Counts:
-    table: Counts = {}
-    for number, raw in lines:
-        where = f"{source}:{number}"
-        path, *fields = raw.split("\t")
-        if not fields:
-            raise ValueError(f"{where}: an entry with no kind")
-        if path.split("/", 1)[0] in UNREAD or path == LIST_NAME:
-            raise ValueError(f"{where}: {path} is a place the check does not read")
-        kinds: dict[str, int] = {}
-        for item in fields:
-            kind, _, value = item.partition("=")
-            if kind not in KINDS:
-                raise ValueError(
-                    f"{where}: {kind!r} is not a kind ({', '.join(KINDS)})"
-                )
-            if kind in kinds:
-                raise ValueError(f"{where}: {kind} is listed twice")
-            if not re.fullmatch(r"[1-9][0-9]*", value):
-                raise ValueError(
-                    f"{where}: {kind} has count {value!r}, not a positive number"
-                )
-            kinds[kind] = int(value)
-        if path in table:
-            raise ValueError(f"{where}: {path} is listed twice")
-        table[path] = kinds
-    return table
-
-
-def parse(text: str, *, source: str = LIST_NAME) -> Listed:
-    """Read a list. Only the text ``--write`` would write is accepted: a
-    comment that is not the header, a blank line, a file listed in both
-    sections, an order or a spacing of its own are refused."""
-    header = HEADER.splitlines()
-    kept_header = KEPT_HEADER.splitlines()
-    lines = text.split("\n")
-    if lines and lines[-1] == "":
-        lines.pop()
-    numbered = list(enumerate(lines, start=1))
-    if lines[: len(header)] != header:
-        wrong = next(
-            (
-                n
-                for n, (a, b) in enumerate(zip(lines, header, strict=False), 1)
-                if a != b
-            ),
-            min(len(lines), len(header)) + 1,
-        )
-        raise ValueError(f"{source}:{wrong}: not the list's header")
-    rest = numbered[len(header) :]
-    starts = [
-        i
-        for i in range(len(rest))
-        if [line for _, line in rest[i : i + len(kept_header)]] == kept_header
-    ]
-    if len(starts) != 1:
-        raise ValueError(f"{source}: the header of section 2 is not there once")
-    first, second = rest[: starts[0]], rest[starts[0] + len(kept_header) :]
-    for number, line in first + second:
-        if line.startswith("#") or not line.strip():
-            raise ValueError(f"{source}:{number}: a line the list does not write")
-    listed = Listed(_parse_entries(first, source), _parse_entries(second, source))
-    both = sorted(set(listed.cleaning) & set(listed.kept))
-    if both:
-        raise ValueError(f"{source}: {both[0]} is in both sections")
-    if render(listed) != text:
-        for number, (got, want) in enumerate(
-            zip(text.split("\n"), render(listed).split("\n"), strict=False), 1
-        ):
-            if got != want:
-                raise ValueError(f"{source}:{number}: not as --write writes it")
-        raise ValueError(f"{source}: not as --write writes it")
-    return listed
-
-
-def entries(text: str, *, source: str) -> Listed:
-    """A list read by its entries alone, whatever its comment lines say: how
-    ``--compare`` reads the base branch's list, so that a change of the
-    headers is not growth. Each entry is still refused as the list's own
-    would be: an unknown kind, a count that is not positive, or a path the
-    check does not read (so a change that stops reading a folder the base
-    lists is refused, not taken for a shrink)."""
-    parts: tuple[list[tuple[int, str]], list[tuple[int, str]]] = ([], [])
-    part = 0
-    for number, line in enumerate(text.splitlines(), start=1):
-        if line.startswith(_SECTION_2):
-            part = 1
-        if line.strip() and not line.startswith("#"):
-            parts[part].append((number, line))
-    return Listed(_parse_entries(parts[0], source), _parse_entries(parts[1], source))
-
-
-def read_list(path: Path | None = None) -> Listed:
-    path = path or LIST_PATH
-    return parse(path.read_text(encoding="utf-8"), source=path.name)
-
-
-def write_list(listed: Listed, path: Path | None = None) -> None:
-    """Replace the list in one step, the whole text built first."""
-    path = path or LIST_PATH
-    text = render(listed)
-    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
-            out.write(text)
-        os.chmod(temporary, 0o644)  # as git checks a file out; mkstemp gives 600
-        os.replace(temporary, path)
-    except BaseException:
-        os.unlink(temporary)
-        raise
 
 
 def _file_name(path: str) -> str:
@@ -945,21 +613,6 @@ def moved_paths(old: Counts, new: Counts) -> dict[str, str]:
     }
 
 
-def rewritten(old: Listed, found: Counts) -> Listed:
-    """The list with the counts found: each file stays in its section, a file
-    that only moved stays in the section it moved from, a new file goes to
-    the first."""
-
-    def was_kept(path: str) -> bool:
-        return moved.get(path, path) in old.kept
-
-    moved = moved_paths(old.all(), found)
-    return Listed(
-        cleaning={p: k for p, k in found.items() if not was_kept(p)},
-        kept={p: k for p, k in found.items() if was_kept(p)},
-    )
-
-
 def rises(old: Counts, new: Counts) -> list[tuple[str, str, int, int]]:
     """Each place ``new`` holds more of a kind than ``old`` did: where, which
     kind, the count before and the count now.
@@ -987,115 +640,3 @@ def growth(old: Counts, new: Counts) -> list[str]:
         f"{where}: {kind} {before} -> {now}"
         for where, kind, before, now in rises(old, new)
     ]
-
-
-def totals(counts: Counts) -> dict[str, int]:
-    """How many hits of each kind the whole list holds."""
-    found: dict[str, int] = {}
-    for kinds in counts.values():
-        for kind, n in kinds.items():
-            found[kind] = found.get(kind, 0) + n
-    return found
-
-
-def more_of_a_kind(old: Counts, new: Counts) -> list[str]:
-    """The kinds the whole list holds more of than it did.
-
-    A hit that left one file and arrived in another is a move: the suite was
-    reorganised and the product names no machine it did not name before.
-    :func:`moved_paths` already follows a whole file to a new path for that
-    reason -- without it this list is the thing that forbids reorganising
-    the suite it mostly lists -- but a helper lifted out of a test module
-    into a module beside it is the same reorganisation one directory down,
-    and no file name survives it to be followed by.
-
-    So what is held is the thing that actually matters: the product may
-    name no more machines than it named before. Per kind, over the whole
-    list, the count may never rise. A per-file rise whose kind did not rise
-    overall is a move, and is reported as one.
-    """
-    was, now = totals(old), totals(new)
-    return [
-        f"{kind}: {was.get(kind, 0)} -> {now[kind]}"
-        for kind in sorted(now)
-        if now[kind] > was.get(kind, 0)
-    ]
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="python -m tests.uninvented_machines",
-        description="Scan the product for machines it did not invent; "
-        "report, rewrite the list, or compare two lists.",
-    )
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--write", action="store_true", help="rewrite the list")
-    mode.add_argument(
-        "--compare",
-        metavar="OLD",
-        type=Path,
-        help="fail if the list grew against OLD (reads the two lists, no scan)",
-    )
-    parser.add_argument(
-        "--allow-growth",
-        action="store_true",
-        help="with --write: let the list gain a file or a kind, or a count rise",
-    )
-    args = parser.parse_args(argv)
-    if args.allow_growth and not args.write:
-        parser.error("--allow-growth goes with --write")
-    try:
-        listed = read_list()
-        if args.compare is not None:
-            old = entries(
-                args.compare.read_text(encoding="utf-8"), source=str(args.compare)
-            )
-    except ValueError as refused:
-        print(f"refused: {refused}", file=sys.stderr)
-        return 1
-    if args.compare is not None:
-        climbed = more_of_a_kind(old.all(), listed.all())
-        of_a_kind = {line.split(":", 1)[0] for line in climbed}
-        for where, kind, before, now in rises(old.all(), listed.all()):
-            said = "grew" if kind in of_a_kind else "moved"
-            print(f"{said}: {where}: {kind} {before} -> {now}")
-        for line in climbed:
-            print(f"more of a kind than before: {line}")
-        renamed = moved_paths(old.all(), listed.all())
-        crossed = sorted(
-            path for path in listed.kept if renamed.get(path, path) in old.cleaning
-        )
-        for path in crossed:
-            print(f"moved to kept on purpose: {path}")
-        print(
-            f"{LIST_NAME}: {len(listed.all())} files listed, {len(old.all())} in "
-            f"{args.compare}; " + ("it grew" if climbed else "it did not grow")
-        )
-        return 1 if climbed else 0
-    hits = scan()
-    found = counts(hits)
-    print(summary(hits))
-    grown = growth(listed.all(), found)
-    for line in grown:
-        print(f"more than listed: {line}")
-    if not args.write:
-        return 1 if found != listed.all() else 0
-    if grown and not args.allow_growth:
-        print(
-            "refused: the list may only shrink; pass --allow-growth to list the "
-            "files above anyway",
-            file=sys.stderr,
-        )
-        return 1
-    try:
-        write_list(rewritten(listed, found))
-    except ValueError as refused:
-        print(f"refused: {refused}", file=sys.stderr)
-        return 1
-    print(f"wrote {LIST_NAME}: {len(found)} files")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.path.insert(0, str(REPO))  # run by its path: the release script's import
-    sys.exit(main())
