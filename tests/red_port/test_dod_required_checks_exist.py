@@ -1,6 +1,6 @@
 """Every status check `main` requires is a check some workflow actually reports.
 
-``.github/rulesets/main.json`` names the contexts a pull request needs before it
+``.forgejo/rulesets/main.json`` names the contexts a pull request needs before it
 may merge. A required context no workflow job reports means either the committed
 ruleset is not the one in force, or every pull request waits forever on a check
 that can never report.
@@ -18,8 +18,8 @@ import re
 
 from tests._paths import REPO
 
-RULESETS = REPO / ".github" / "rulesets"
-WORKFLOWS = REPO / ".github" / "workflows"
+RULESETS = REPO / ".forgejo" / "rulesets"
+WORKFLOWS = REPO / ".forgejo" / "workflows"
 
 #: ``  test:`` at two-space indent under ``jobs:`` — how a job is declared.
 JOB = re.compile(r"^  ([A-Za-z0-9_-]+):", re.MULTILINE)
