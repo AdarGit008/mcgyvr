@@ -208,6 +208,44 @@ def _pinned_rig_id(root: Path, host: str) -> str | None:
     return rig_id if isinstance(rig_id, str) and rig_id else None
 
 
+def _laid_out_unsampled(root: Path, host: str) -> bool:
+    """Whether a lock under ``root`` approved on no evidence lays out ``host``.
+
+    Read from the ``fleet.yaml`` beside the lock, and only while that file's
+    layout still matches the lock's pin: a rig edited into the layout after the
+    approval is not locked by it.
+    """
+    import yaml
+
+    from mcgyvr.fleet.lock import LOCK_DIR, approved_on_no_evidence
+
+    try:
+        given = yaml.safe_load((root / "fleet.yaml").read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return False
+    fleets = given.get("fleets") if isinstance(given, dict) else None
+    if not isinstance(fleets, dict):
+        return False
+    for name, block in fleets.items():
+        layout = block.get("layout") if isinstance(block, dict) else None
+        if not isinstance(layout, dict) or host not in layout:
+            continue
+        try:
+            lock = json.loads(
+                (root / LOCK_DIR / f"{name}.json").read_text(encoding="utf-8")
+            )
+            pinned = layout_sha256(layout_ids(given, layout))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+        if (
+            isinstance(lock, dict)
+            and approved_on_no_evidence(lock)
+            and lock.get("layout_sha256") == pinned
+        ):
+            return True
+    return False
+
+
 def host_is_locked(root: Path, host: str) -> bool:
     """Whether the lock under ``root`` names ``host`` under the rig id it pins.
 
@@ -220,7 +258,13 @@ def host_is_locked(root: Path, host: str) -> bool:
     behind, still naming it. Reading every directory would let those answer for
     a machine that no longer exists — a second source of truth, and the older
     one — so only the pinned rig id's records answer (owner, 2026-09-16).
+
+    A lock approved on no evidence (:func:`mcgyvr.fleet.lock.write_unsampled`)
+    writes no combination record, as nothing was validated; for it the
+    layout answers (:func:`_laid_out_unsampled`).
     """
+    if _laid_out_unsampled(root, host):
+        return True
     rigs = root / "records" / "fleet" / "rigs"
     if not rigs.is_dir():
         return False

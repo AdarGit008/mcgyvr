@@ -1222,9 +1222,12 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Approve the setup ``setup`` wrote at ``setup`` as the user's own fleet and
     name it live; ``(decisions, limits)`` saying what was done, or why not.
 
-    Through the path every live fleet takes: a folder under the config folder
-    (:func:`mcgyvr.fleet.promote.approve_own`), named by ``live.json``
-    (:func:`mcgyvr.fleet.promote.use`), and admitted as any live fleet is. With
+    Through the path every live fleet takes: locked, on no evidence
+    (:func:`mcgyvr.fleet.lock.write_unsampled`), promoted to a folder under
+    the config folder (:func:`mcgyvr.fleet.promote.promote`), named by
+    ``live.json`` (:func:`mcgyvr.fleet.promote.use`), and admitted as any live
+    fleet is. The lock is written into a dev root of its own that is removed
+    once the folder is promoted: the folder holds all of it. With
     init's own fleet already live, a new folder is approved and named in its
     place, and the old one is kept. Any other live fleet is never replaced
     (``mcgyvr fleet use`` switches), and a machine of the user's is not
@@ -1232,14 +1235,12 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
     unit on is read first — the local machine without ssh, a remote one over
     ssh — and only then is the fleet approved with each of them laid out.
     """
-    from mcgyvr.fleet.promote import (
-        PromoteRefusedError,
-        approve_own,
-        approve_own_rigs,
-        is_own,
-        use,
-    )
+    import tempfile
+
+    from mcgyvr.fleet.lock import OWN_FLEET, LockRefusedError, is_own, write_unsampled
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote, use
     from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+    from mcgyvr.fleet.stamp import SETUP_DIR
 
     refused = (
         "A live run is refused until a fleet is live (`mcgyvr fleet use`); "
@@ -1256,18 +1257,17 @@ def _own_fleet_live(setup: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
         ), ()
     rigs = _rigs(setup)
     try:
-        if not rigs:
-            folder = approve_own(setup)
-        else:
-            rig_ids = {
-                rig: _read_local_rig(rig)
-                if rig == "localhost"
-                else _read_remote_rig(rig)
-                for rig in rigs
-            }
-            folder = approve_own_rigs(setup, rigs=rig_ids)
+        rig_ids = {
+            rig: _read_local_rig(rig) if rig == "localhost" else _read_remote_rig(rig)
+            for rig in rigs
+        }
+        with tempfile.TemporaryDirectory(prefix="mcgyvr-own-") as scratch:
+            dev = Path(scratch)
+            # TODO(setup): ask
+            write_unsampled(dev, setup, rigs=rig_ids, acknowledged=True)
+            folder = promote(dev, dev / SETUP_DIR, OWN_FLEET)
         switch = use(folder.name)
-    except PromoteRefusedError as exc:
+    except (LockRefusedError, PromoteRefusedError) as exc:
         if current is None:
             return (), (f"No fleet was made live: {exc}. {refused}",)
         return (), (
