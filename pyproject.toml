@@ -131,7 +131,7 @@ mypy_path = "src"
 
 # ggufscan.py is held byte-comparable with the evidence copy (see the ruff
 # exclusion above); it is shipped to the rig as text and checked by
-# tests/test_ggufscan_self_contained.py and tests/test_serving_vramfit.py.
+# tests/test_serving_vramfit.py.
 [[tool.mypy.overrides]]
 module = "mcgyvr.serving.ggufscan"
 ignore_errors = true

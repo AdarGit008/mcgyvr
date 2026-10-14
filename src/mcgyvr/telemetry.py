@@ -112,8 +112,7 @@ variable that is set and is not such an object is refused, as an unusable
 week later, when they cannot be told apart. Unset or empty, the row has no
 ``run_tags``. The round a run measured under and the product revision that
 dispatched it are tags like any other, said by whoever started it; the product
-runs no code of the development checkout to find them
-(``tests/test_telemetry_runs_no_lab_code.py``).
+runs no code of the development checkout to find them.
 """
 
 from __future__ import annotations

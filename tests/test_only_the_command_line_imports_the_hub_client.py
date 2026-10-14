@@ -30,10 +30,10 @@ import ast
 import re
 from collections.abc import Iterable
 
+from tests._paths import SRC
 from tests.hub_borders import (
     HUB_CLIENT,
     IMPORTS_NOT_YET_MOVED,
-    SRC,
     core_files,
 )
 from tests.wheels import (

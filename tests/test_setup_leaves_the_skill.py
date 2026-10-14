@@ -55,10 +55,8 @@ def _lever_bullet_hits(text: str) -> list[str]:
     """Levers introduced BY NAME as config levers — the bulleted
     `` - `lever` — ... `` lines a setup step uses.
 
-    Not a raw substring check: `ladder_spent` legitimately contains "ladder"
-    (``tests/test_the_skill_does_not_explain_the_ladder.py`` keeps it on its
-    exception list), so lever *usage* is matched rather than any occurrence of
-    the word.
+    Not a raw substring check: `ladder_spent` legitimately contains "ladder",
+    so lever *usage* is matched rather than any occurrence of the word.
     """
     return [lv for lv in LEVERS if re.search(rf"^- `{lv}` ", text, re.MULTILINE)]
 

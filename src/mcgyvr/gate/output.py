@@ -177,8 +177,7 @@ def _image_findings(name: str, data: bytes) -> list[Finding]:
     Only dimensions and decode completeness: a file whose header claims an
     image but whose dimensions are absent or whose payload is cut short is
     refused by name. Every offset and mask lives inside the per-format checker
-    bodies, because a module-level numeric constant would flip ``output.py``'s
-    classification in ``tests/numbers_coverage.json`` to *judging*.
+    bodies.
     """
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return _png_findings(name, data)
@@ -201,8 +200,7 @@ def _audio_findings(name: str, data: bytes) -> list[Finding]:
     file whose header claims audio but whose duration cannot be determined for
     the formats that state one, or whose page structure is cut short, is
     refused by name. Every offset and mask lives inside the per-format checker
-    bodies, because a module-level numeric constant would flip ``output.py``'s
-    classification in ``tests/numbers_coverage.json`` to *judging*.
+    bodies.
     """
     if data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WAVE":
         return _wav_findings(name, data)
@@ -224,9 +222,7 @@ def _video_findings(name: str, data: bytes) -> list[Finding]:
     file must be structurally complete: a file whose header claims video but
     whose duration is absent or zero, or whose boxes/elements/chunks overrun
     the end of the file, is refused by name. Every offset and mask lives
-    inside the per-format checker bodies, because a module-level numeric
-    constant would flip ``output.py``'s classification in
-    ``tests/numbers_coverage.json`` to *judging*.
+    inside the per-format checker bodies.
     """
     if len(data) >= 8 and data[4:8] == b"ftyp":
         return _mp4_findings(name, data)
