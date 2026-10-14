@@ -21,7 +21,7 @@ from tests.manifest import COLUMNS, KINDS, LEVELS, MANIFEST, OPEN, SOURCES, rows
 
 #: What is still unsettled, and may only shrink.
 STILL_DISPUTED = 277
-STILL_DERIVED = 11
+STILL_DERIVED = 10
 STILL_UNREVIEWED = 44
 
 

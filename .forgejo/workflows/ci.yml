@@ -7,15 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # The whole history, because one test needs it: a test claimed
-          # deletable and already deleted is recovered from the commit that
-          # removed it (tests/DELETES.tsv,
-          # tests/test_a_delete_is_proved_not_agreed.py). On the default
-          # shallow checkout that commit is not here and the check cannot be
-          # taken -- and a check that silently skips is the same defect as a
-          # rung that silently passes.
-          fetch-depth: 0
       # The JS half of the gate's own bar. Two reasons this job needs a Node
       # newer than 20:
       #

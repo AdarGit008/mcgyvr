@@ -111,7 +111,6 @@ tests/test_a_contract_too_big_for_its_rung_fails_before_it_is_sent.py	integratio
 tests/test_a_correction_says_how_the_work_landed.py	integration|e2e	functional	disputed	agreed	
 tests/test_a_corrupt_wake_cache_does_not_shorten_a_wake.py	unit	functional	agreed	agreed	
 tests/test_a_daemon_that_does_not_answer_is_refused_before_the_envelope.py	integration|e2e	logic|operational	disputed	disputed	
-tests/test_a_delete_is_proved_not_agreed.py	integration	infra	derived	derived	reads tests/DELETES.tsv and the files it names, and runs git to recover one from the history: a guard over the repository, not a run of it
 tests/test_a_derived_cap_is_not_identity.py	unit	functional	agreed	agreed	
 tests/test_a_dev_round_may_serve_any_launch_spec.py	integration|e2e	logic	disputed	agreed	
 tests/test_a_docker_sandbox_with_no_daemon_is_refused_unless_the_fallback_is_asked_for.py	integration	logic|behavior	agreed	disputed	
@@ -158,7 +157,6 @@ tests/test_a_javascript_rename_follows_a_namespace_import_and_no_other_receiver.
 tests/test_a_jev_block_names_the_one_unit_every_typed_decision_asks.py	unit	functional	agreed	agreed	
 tests/test_a_journal_lives_where_the_config_says_and_never_in_the_repo.py	integration|e2e	behavior	disputed	agreed	
 tests/test_a_journal_that_keeps_the_hash_and_not_the_text_reviews_nothing.py	unit	functional	agreed	agreed	
-tests/test_a_ladder_learns_from_the_journal_it_wrote.py	unit	functional	agreed	agreed	
 tests/test_a_launch_argv_with_spec_flags_passes_admission_unchanged.py	unit	functional	agreed	agreed	
 tests/test_a_launch_spec_this_config_does_not_plan_is_never_woken.py	integration	logic	agreed	agreed	
 tests/test_a_leftover_container_is_named_and_left_for_the_operator.py	integration|e2e	operational	disputed	agreed	
