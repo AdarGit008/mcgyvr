@@ -136,25 +136,18 @@ def _capabilities(args: argparse.Namespace) -> int:
         return 1
 
     models = table.fitting(args.vram) if args.vram else table.models
-    labels = ", ".join(c.label for c in table.card_classes) or "none declared"
-    classes = f"Card classes in the table: {labels}."
     if args.vram:
         print(
             f"Models that fit {args.vram:g} GB with working headroom. "
-            f"{ESTIMATES_NOTICE} {classes}\n"
+            f"{ESTIMATES_NOTICE}\n"
         )
     else:
-        print(f"Shipped models. {ESTIMATES_NOTICE} {classes}\n")
+        print(f"Shipped models. {ESTIMATES_NOTICE}\n")
 
     for model in models:
         backend = f" [{model.requires_backend} only]" if model.requires_backend else ""
         kept_out = "  not in a fit listing" if model.not_for_fit is not None else ""
         print(f"  {model.id:<28} {model.vram_gb_working:>5.1f} GB{backend}{kept_out}")
-
-    if table.caveats:
-        print("\nHarness caveats (ways a naive reading or benchmark run goes wrong):")
-        for caveat in table.caveats:
-            print(f"  {caveat.id} [{caveat.severity}] {caveat.summary}")
     return 0
 
 
@@ -5215,7 +5208,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         # argparse does not abbreviate subcommands the way it abbreviates
         # flags, so the short name is spelled out as an alias.
         aliases=["caps"],
-        help="show the shipped estimates by card class",
+        help="show the shipped model estimates",
     )
     caps.add_argument(
         "--vram",

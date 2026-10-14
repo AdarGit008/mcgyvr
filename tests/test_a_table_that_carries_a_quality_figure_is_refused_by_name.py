@@ -12,7 +12,7 @@ backend rather than a fact, so that block is not closed, and each backend
 under it is.
 
 Every table here is generated (:mod:`tests.table_fixture`), with invented
-classes, model ids and numbers.
+model ids and numbers.
 """
 
 from __future__ import annotations
@@ -31,33 +31,25 @@ from tests.table_fixture import table_document_with_every_block, write_table
 OPEN_LEVEL = "backends block"
 
 
-def _first_class(document: dict[str, Any]) -> str:
-    return str(document["card_classes"][0]["id"])
-
-
 #: Where each closed level's entry sits in a document with an entry at every level.
 ENTRY: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "table": lambda d: d,
-    "card class": lambda d: d["card_classes"][0],
-    "harness caveat": lambda d: d["harness_caveats"][0],
     "model row": lambda d: d["models"][0],
-    "reading": lambda d: d["models"][0]["throughput_tok_s"][0],
     "backend": lambda d: d["backends"]["some-server"],
-    "concurrency finding": lambda d: d["concurrency_findings"][0],
 }
 
 
-def _reading(document: dict[str, Any], figure: str) -> dict[str, Any]:
-    return {figure: 0.5, "backend": "some-server", "card_class": _first_class(document)}
+def _reading(figure: str) -> dict[str, Any]:
+    return {figure: 0.5, "backend": "some-server"}
 
 
 #: A quality figure under each name such a figure has been given, in the shape
 #: it would take: a list of readings, a map of scores, a metric's description,
 #: or the figure itself.
 QUALITY: dict[str, Callable[[dict[str, Any]], Any]] = {
-    "quality": lambda d: [_reading(d, "humaneval_plus_pass1")],
-    "invalid_measurements": lambda d: [_reading(d, "humaneval_plus_pass1")],
-    "disputed_measurements": lambda d: [_reading(d, "humaneval_plus_pass1")],
+    "quality": lambda d: [_reading("humaneval_plus_pass1")],
+    "invalid_measurements": lambda d: [_reading("humaneval_plus_pass1")],
+    "disputed_measurements": lambda d: [_reading("humaneval_plus_pass1")],
     "capabilities": lambda d: {"invented": 0.5},
     "quality_metric": lambda d: {"name": "invented", "dataset": "invented"},
     "humaneval_plus_pass1": lambda d: 0.5,

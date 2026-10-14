@@ -2,10 +2,7 @@
 
 Promises:
 
-1. Every reading in the shipped table is keyed by a card class the table
-   declares. A figure is an estimate for a class of card, not a reading of one
-   machine.
-2. The shipped table carries nothing that describes a machine, as far as a
+1. The shipped table carries nothing that describes a machine, as far as a
    check by keys and by the shape of values can see:
 
    * every key, at every level of the file, is one the product declares for
@@ -16,24 +13,21 @@ Promises:
    * every object in the file is an entry of a declared level, so no key sits
      where the check above does not reach; the loader refuses an object, or a
      list holding one, under any key that holds a value rather than entries;
-   * a declared card class carries exactly an id, a label and a nominal memory
-     size;
    * no text value, at any depth, has the shape of a calendar date, a network
      address or a home path (:data:`MACHINE_SHAPES`).
 
    What these checks cannot see: a machine, a card model, a vendor or a host
-   named in the prose of a declared field (a note, a class label or id, a
-   caveat's detail); a date written in a form the shapes do not know (a
-   two-digit year, a month and a year alone, dots between the parts); a number
+   named in the prose of a declared field (a note, a backend's limits); a
+   date written in a form the shapes do not know (a two-digit year, a month
+   and a year alone, dots between the parts); a number
    that belongs to one card (a core count, a memory bandwidth). Those are the
    word guard's and the reviewer's. The address shape cannot tell a four-part
    version number from an address, and would refuse one; the date shape would
    refuse a run of small numbers that ends in four digits, such as 1/2/2048.
-3. What the product prints about the shipped table calls its numbers estimates
+2. What the product prints about the shipped table calls its numbers estimates
    and never calls them measurements: the header of ``mcgyvr capabilities``
-   carries the notice the capability module states and names the card classes
-   the table declares, by their labels, and no line of that output says
-   "measured".
+   carries the notice the capability module states, and no line of that output
+   says "measured".
 """
 
 from __future__ import annotations
@@ -46,7 +40,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import capability
-from mcgyvr.capability import DECLARED_KEYS, READING_LISTS, load, table_path
+from mcgyvr.capability import DECLARED_KEYS, load, table_path
 from mcgyvr.cli import main
 
 _MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
@@ -84,42 +78,7 @@ def _walk(node: Any, where: str = "") -> Iterator[tuple[str, str | None, Any]]:
             yield from _walk(value, here)
 
 
-def _declared(document: dict[str, Any]) -> set[str]:
-    classes = document.get("card_classes")
-    assert isinstance(classes, list) and classes, "the table declares no card classes"
-    return {str(c["id"]) for c in classes}
-
-
-# --- 1. every reading is keyed by a declared class ---------------------------
-
-
-def test_every_reading_in_the_file_names_a_class_the_table_declares() -> None:
-    document = _document()
-    declared = _declared(document)
-    stray: list[str] = []
-    for model in document["models"]:
-        for field in READING_LISTS:
-            for index, entry in enumerate(model.get(field, [])):
-                if entry.get("card_class") not in declared:
-                    stray.append(
-                        f"{model['id']}.{field}[{index}]: {entry.get('card_class')!r}"
-                    )
-    for where, key, value in _walk(document):
-        if key == "card_class" and value not in declared:
-            stray.append(f"{where}: {value!r}")
-    assert not stray, "readings keyed by no declared class:\n" + "\n".join(stray)
-
-
-def test_every_reading_the_loader_hands_out_names_a_declared_class() -> None:
-    table = load()
-    declared = {c.id for c in table.card_classes}
-    readings = [m for model in table.models for m in model.throughput]
-
-    assert readings
-    assert {m.card_class for m in readings} <= declared
-
-
-# --- 2. nothing in the table describes a machine -----------------------------
+# --- 1. nothing in the table describes a machine -----------------------------
 
 
 def _entries(document: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
@@ -129,22 +88,13 @@ def _entries(document: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any
     every key but the block's own declared notes names a backend.
     """
     yield "table", "the table", document
-    for index, entry in enumerate(document.get("card_classes", [])):
-        yield "card class", f"card_classes[{index}]", entry
-    for index, entry in enumerate(document.get("harness_caveats", [])):
-        yield "harness caveat", f"harness_caveats[{index}]", entry
     for index, model in enumerate(document.get("models", [])):
         yield "model row", f"models[{index}]", model
-        for field in READING_LISTS:
-            for place, entry in enumerate(model.get(field, [])):
-                yield "reading", f"models[{index}].{field}[{place}]", entry
     backends = document.get("backends", {})
     yield "backends block", "backends", backends
     for name, entry in backends.items():
         if name not in DECLARED_KEYS["backends block"]:
             yield "backend", f"backends.{name}", entry
-    for index, entry in enumerate(document.get("concurrency_findings", [])):
-        yield "concurrency finding", f"concurrency_findings[{index}]", entry
 
 
 def test_every_key_in_the_shipped_table_is_one_the_product_declares() -> None:
@@ -187,15 +137,6 @@ def test_the_loader_reads_the_shipped_table_under_the_same_closed_keys() -> None
     assert load(table_path()).models
 
 
-def test_a_card_class_carries_only_an_id_a_label_and_its_memory() -> None:
-    for declared in _document()["card_classes"]:
-        assert set(declared) == DECLARED_KEYS["card class"], declared
-        assert isinstance(declared["id"], str) and declared["id"]
-        assert isinstance(declared["label"], str) and declared["label"]
-        assert isinstance(declared["memory_gb"], int | float)
-        assert declared["memory_gb"] > 0
-
-
 @pytest.mark.parametrize("shape", sorted(MACHINE_SHAPES))
 def test_no_text_in_the_shipped_table_has_the_shape_of_a_machine_record(
     shape: str,
@@ -226,7 +167,7 @@ def test_the_date_shape_does_not_read_a_run_of_small_numbers_as_a_date(
     assert not MACHINE_SHAPES["a calendar date"].search(text)
 
 
-# --- 3. what the product prints calls the numbers estimates -------------------
+# --- 2. what the product prints calls the numbers estimates -------------------
 
 
 def _printed(capsys: pytest.CaptureFixture[str], *argv: str) -> list[str]:
@@ -256,21 +197,6 @@ def test_the_capabilities_header_calls_the_numbers_estimates(
 
     assert headers, lines
     assert notice in headers[0], headers[0]
-
-
-@pytest.mark.parametrize("fit", [False, True], ids=["whole-table", "fitting-a-card"])
-def test_the_capabilities_header_names_the_classes_the_table_declares(
-    capsys: pytest.CaptureFixture[str], fit: bool
-) -> None:
-    labels = [c.label for c in load().card_classes]
-    assert labels
-
-    header = _headers(_printed(capsys, *(["--vram", _roomy_card_gb()] if fit else [])))[
-        0
-    ]
-
-    for label in labels:
-        assert label in header, header
 
 
 @pytest.mark.parametrize("fit", [False, True], ids=["whole-table", "fitting-a-card"])

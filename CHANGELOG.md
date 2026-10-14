@@ -88,6 +88,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Removed
 
+- **The capability table carries a model's facts and no measurement**
+  (schema version 4). Its card classes, speed readings (`throughput_tok_s`,
+  `seconds_per_image`, `seconds_per_clip`), harness caveats and concurrency
+  findings are gone, and a table that carries one is refused by its name.
+  `mcgyvr capabilities` lists each model's memory figure, without the card
+  classes and caveats it printed before. A version 3 table is refused.
 - **The model knowledge's online half**, `mcgyvr.knowledge.online` and
   `mcgyvr.knowledge.boards`: no command ran it. The cache, the shipped catalog
   and the geometry rows are read as before. The Hub's address `serve fetch`

@@ -3,7 +3,7 @@
 identically on both protocols, that the cap is genuinely sent by both and
 checked afterwards, that truncation is read from what the backend said and never
 inferred from what the text looks like, that a local endpoint needs no key, and
-that CAV-01 cannot be depended on silently.
+that a path not safe to measure through cannot be depended on silently.
 
 The transport is stubbed for most of it — replaced by a lookup that also
 *records* what was sent, since half these properties are about the request
@@ -513,7 +513,7 @@ def test_a_non_positive_timeout_is_refused() -> None:
         Request(prompt="p", max_output_tokens=8, timeout_s=0)
 
 
-# --- CAV-01: the dependency is allowed, the silence is not ---------------
+# --- a caveated path: the dependency is allowed, the silence is not ------
 
 
 def test_a_quality_sensitive_request_runs_on_the_compatible_path(

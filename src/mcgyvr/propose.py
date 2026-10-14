@@ -28,8 +28,8 @@ from dataclasses import dataclass
 LOCAL = "local"
 API = "api"
 
-# CAV-04: a marginal fit can run markedly slower rather than fail, which
-# makes it look like a working binding. Absolute, not a fraction — see
+# A marginal fit can run markedly slower rather than fail, which makes it
+# look like a working binding. Absolute, not a fraction — see
 # CapabilityTable.
 DEFAULT_HEADROOM_GB = 2.0
 
@@ -209,7 +209,7 @@ def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
 
 
 def _concurrency_note(rungs: Sequence[Rung]) -> str:
-    """What raising a unit's ``width`` does and does not buy (CON-02).
+    """What raising a unit's ``width`` does and does not buy.
 
     Stated in the proposal because this is the moment an operator decides what
     the machine is for, and because the failure it warns about is invisible
@@ -223,10 +223,10 @@ def _concurrency_note(rungs: Sequence[Rung]) -> str:
         f"Concurrency is written twice and only one of them is here. `init` "
         f"writes width: 1 for every unit on {named}, which is always honest; "
         f"raising it only helps if that backend was started with its "
-        f"parallel-slot setting enabled. CON-02 records that same-model "
-        f"concurrency scales only with server-side parallelism on, and that a "
-        f"single-slot server serializes the requests instead of refusing them — "
-        f"so an over-declared capacity is not an error you will see, it is a "
-        f"queue you will not. Distinct models are a different question: CON-01 "
-        f"records them running concurrently on one card."
+        f"parallel-slot setting enabled. Same-model concurrency scales only "
+        f"with server-side parallelism on, and a single-slot server serializes "
+        f"the requests instead of refusing them — so an over-declared capacity "
+        f"is not an error you will see, it is a queue you will not. Distinct "
+        f"models are a different question: they can run concurrently on one "
+        f"card."
     )
