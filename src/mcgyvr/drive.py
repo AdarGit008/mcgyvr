@@ -34,6 +34,7 @@ place a second place to be settled differently.
 
 from __future__ import annotations
 
+import subprocess
 import threading
 from dataclasses import dataclass, field, replace
 from functools import partial
@@ -43,6 +44,7 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.capacity import Outcome, SlotUnavailableError, run_batch
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import NoUsableDrawError, Unusable, best_of
+from mcgyvr.contract import is_pattern
 from mcgyvr.decision import jev_bound
 from mcgyvr.deliver import Accepted
 from mcgyvr.escalate import (
@@ -72,7 +74,7 @@ from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, Request, RunnerError, dispatch
 from mcgyvr.sandbox.base import nested_git
-from mcgyvr.scope import inside
+from mcgyvr.scope import Scope, inside
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, independent, verify
 from mcgyvr.wake import for_config as wake_for_config
@@ -277,7 +279,29 @@ def run_tool_step(
     # is held to the same ceiling.
     if timeout is None:
         timeout = task_ceiling()
-    result = sandbox.run(step.argv, timeout=timeout)
+    argv = step.argv
+    if is_pattern(step.target):
+        named = _named_by(step.target, sandbox.workspace)
+        if not named:
+            from mcgyvr.sandbox.base import CommandResult
+
+            # Exit 2, a usage error: not a code any tool reports as having
+            # done its job, so the floor stops here rather than gating a tree
+            # nothing touched.
+            return ToolOutcome(
+                step=step,
+                result=CommandResult(
+                    command=argv,
+                    exit_code=2,
+                    stdout="",
+                    stderr=(
+                        f"{step.target!r} names no file in the workspace, so "
+                        f"there is nothing for {step.tool.program} to run on."
+                    ),
+                ),
+            )
+        argv = step.argv_over(named)
+    result = sandbox.run(argv, timeout=timeout)
     if result.exit_code in DID_NOT_RUN and not result.timed_out:
         program = step.tool.program
         return ToolOutcome(
@@ -290,6 +314,23 @@ def run_tool_step(
             ),
         )
     return ToolOutcome(step=step, result=result)
+
+
+def _named_by(pattern: str, workspace: Path) -> tuple[str, ...]:
+    """The files in ``workspace`` that ``pattern`` names, sorted.
+
+    The files the gate would judge — tracked, plus untracked and not ignored,
+    the set ``git add -A`` takes — matched by :mod:`mcgyvr.scope`'s glob rules,
+    so a pattern names the same files here as it does in ``scope.allow``.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=workspace,
+        capture_output=True,
+        check=True,
+    ).stdout.decode("utf-8", "surrogateescape")
+    names = Scope.of([pattern])
+    return tuple(sorted({p for p in listed.split("\0") if p and names.permits(p)}))
 
 
 def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:

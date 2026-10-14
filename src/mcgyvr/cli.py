@@ -2409,7 +2409,13 @@ def _floor(
     either. What is counted is what ran.
     """
     from mcgyvr.deterministic import tool_steps
-    from mcgyvr.drive import DriveError, gate_workspace, run_tool_step, task_ceiling
+    from mcgyvr.drive import (
+        DriveError,
+        acceptance_for,
+        gate_workspace,
+        run_tool_step,
+        task_ceiling,
+    )
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.telemetry import correct, observe
 
@@ -2494,6 +2500,19 @@ def _floor(
 
     try:
         with sandbox:
+            # The baseline `_climb` checks before a rung is charged, checked
+            # here before the tool runs: a suite already red on the unchanged
+            # tree is the contract's or the tree's problem, and judging it
+            # after the tool would file it as the tool's change, `rejected`.
+            # No row yet — the run has not started its work.
+            acceptance = acceptance_for(contract, sandbox, config=config)
+            if acceptance is not None:
+                baseline = acceptance.baseline()
+                for note in baseline.notes:
+                    print(f"note: {note}")
+                report.notes.extend(baseline.notes)
+                if baseline.issue is not None:
+                    return _error(report, str(baseline.issue))
             result = observe(
                 work,
                 path=recording.path,
@@ -2667,7 +2686,7 @@ def _climb(
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
-    from mcgyvr.escalate import ascent, escalate
+    from mcgyvr.escalate import Outcome, ascent, escalate
     from mcgyvr.fleet_manager import hook_for as fleet_hook_for
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
@@ -2756,6 +2775,7 @@ def _climb(
             f"{contract.id} is a {contract.task_type!r} contract and "
             f"starts on the {route.floor.name!r} family; nothing in {config.path} "
             f"can run it. {route.reason}",
+            outcome=Outcome.NOTHING_TO_RUN.value,
         )
 
     # Before the sandbox, for the reason the paragraph above gives: an install
