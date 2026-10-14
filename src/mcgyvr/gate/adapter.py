@@ -292,6 +292,18 @@ def trusted_stdout(
 _DETAIL_LIMIT = 200
 
 
+def added_by_resolved_path(
+    changes: Sequence[FileChange], repo: Path
+) -> dict[Path, tuple[str, frozenset[int]]]:
+    """Map each file's resolved absolute path to its repo-relative path and added lines.
+
+    Linters report absolute filenames; the change set carries repo-relative ones.
+    Resolving both sides is what lets a lint diagnostic be matched back to the
+    right file's added-line set.
+    """
+    return {(repo / c.path).resolve(): (c.path, c.added_lines) for c in changes}
+
+
 def _first_complaint(stderr: str) -> str:
     """The tool's first non-empty line of stderr, clipped; ``""`` if it said nothing."""
     for line in stderr.splitlines():

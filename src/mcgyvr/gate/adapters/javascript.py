@@ -48,6 +48,7 @@ from mcgyvr.gate.adapter import (
     LanguageAdapter,
     ToolFailedError,
     ToolRunner,
+    added_by_resolved_path,
     trusted_stdout,
 )
 from mcgyvr.gate.changeset import FileChange
@@ -183,7 +184,7 @@ class JavaScriptAdapter(LanguageAdapter):
             raise ToolFailedError(
                 _ESLINT, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
-        added = _added_by_resolved_path(files, repo)
+        added = added_by_resolved_path(files, repo)
         findings: list[Finding] = []
         for result in results:
             resolved = self._runner.host_path(result.get("filePath", "")).resolve()
@@ -440,15 +441,3 @@ def _package_manager(repo: Path) -> str:
 
 def _paths(changes: Sequence[FileChange]) -> list[str]:
     return [c.path for c in changes]
-
-
-def _added_by_resolved_path(
-    changes: Sequence[FileChange], repo: Path
-) -> dict[Path, tuple[str, frozenset[int]]]:
-    """Map each file's resolved absolute path to its relative path and added lines.
-
-    eslint reports absolute filenames; the change set carries repo-relative
-    ones. Resolving both sides is what lets a diagnostic be matched back to the
-    right file's added-line set.
-    """
-    return {(repo / c.path).resolve(): (c.path, c.added_lines) for c in changes}

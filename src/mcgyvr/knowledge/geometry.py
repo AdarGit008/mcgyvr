@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.knowledge import store
-from mcgyvr.knowledge.record import KnowledgeError, Weights
+from mcgyvr.knowledge.record import KnowledgeError, Weights, _text
 
 #: The version of a geometry document, the shipped file's and each cache file's.
 SCHEMA_VERSION = 1
@@ -118,12 +118,6 @@ def shipped_path() -> Path:
     if checkout.is_file():
         return checkout
     raise KnowledgeError(f"model geometry not found (looked for {SHIPPED_FILENAME})")
-
-
-def _text(raw: Any, where: str) -> str:
-    if not isinstance(raw, str) or not raw:
-        raise KnowledgeError(f"{where} is not a non-empty string")
-    return raw
 
 
 def parse(raw: Any, where: str, *, origin: str) -> Geometry:

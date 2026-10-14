@@ -473,13 +473,6 @@ def _log(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
 
-def _ipv4(text: str) -> ipaddress.IPv4Address | None:
-    try:
-        return ipaddress.IPv4Address(text)
-    except ValueError:
-        return None
-
-
 def _alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -1430,7 +1423,7 @@ class Sessions:
         own.append(ipaddress.IPv4Interface(hello.address))
         servers: list[tuple[str, int]] = []
         for endpoint in session.traversal.stun[: sessionwire.MAX_STUN_ENDPOINTS]:
-            host = _ipv4(endpoint.host)
+            host = sessionwire._ipv4(endpoint.host)
             if host is not None and tunnel.may_aim_at(host, None, own):
                 servers.append((str(host), endpoint.port))
         if not servers:
@@ -2000,7 +1993,7 @@ def endpoint_hosts(
 def endpoint_kind(host: str) -> str:
     """``lan`` for an address on a LAN, ``public`` for one the owner named
     beyond it (a forwarded port, a public address)."""
-    found = _ipv4(host)
+    found = sessionwire._ipv4(host)
     return "lan" if found is not None and tunnel.is_lan(found) else "public"
 
 
