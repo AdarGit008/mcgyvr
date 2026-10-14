@@ -76,10 +76,12 @@ def _scan_rig(
 def test_the_rig_reports_where_ssh_reached_it_and_the_addresses_it_holds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def answered(binary: str, *args: str, timeout: float = 30.0) -> str | None:
-        if binary == "ip" and args == ("-4", "-o", "addr", "show"):
-            return IP_ADDR
-        return None
+    def answered(
+        argv: tuple[str, ...], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
+        if tuple(argv) == ("ip", "-4", "-o", "addr", "show"):
+            return IP_ADDR, None
+        return None, None
 
     monkeypatch.setattr(rigscan, "_run", answered)
     monkeypatch.setenv("SSH_CONNECTION", f"198.51.100.7 52000 {LAN} 22")
@@ -100,7 +102,7 @@ def test_the_rig_reports_where_ssh_reached_it_and_the_addresses_it_holds(
 
 
 def test_a_rig_not_reached_over_ssh_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(rigscan, "_run", lambda *a, **k: None)
+    monkeypatch.setattr(rigscan, "_run", lambda *a, **k: (None, None))
     monkeypatch.delenv("SSH_CONNECTION", raising=False)
 
     payload = rigscan.scan()

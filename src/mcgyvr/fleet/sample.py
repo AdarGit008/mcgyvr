@@ -26,12 +26,12 @@ back and says, plan section 8.2:
 
 What the reads measured becomes the dev-run evidence ``mcgyvr fleet lock``
 already reads (:mod:`mcgyvr.fleet.lock`): the rig file the user's scan saved
-(:mod:`mcgyvr.serving.rigfile`) gives each card's MiB, the last read's
-snapshot names the rig and gives the card's reserve as the combination's
-overhead, and each unit's card peak is the highest card reading around the
-sample (its card and its load's peak), its steady card the last read's. The
-evidence carries ``passed`` as the sample's verdict. Nothing here reads a rig
-or writes a file.
+(:mod:`mcgyvr.serving.rigfile`) gives each card's MiB, the last read's rig
+id names the machine and its snapshot gives the card's reserve as the
+combination's overhead, and each unit's card peak is the highest card reading
+around the sample (its card and its load's peak), its steady card the last
+read's. The evidence carries ``passed`` as the sample's verdict. Nothing here
+reads a rig or writes a file.
 """
 
 from __future__ import annotations
@@ -355,9 +355,14 @@ def _task_reasons(
     return [f"use case: {use_case!r} has no sample"]
 
 
-def _rig_block(saved: Any, snapshot: Mapping[str, Any]) -> dict[str, Any]:
-    """``card_mib`` for a one-card rig, else ``cards`` held card by card."""
+def _rig_block(
+    saved: Any, snapshot: Mapping[str, Any], rig_id: object
+) -> dict[str, Any]:
+    """``card_mib`` for a one-card rig, else ``cards`` held card by card; the
+    rig id the last read named, and its snapshot."""
     block: dict[str, Any] = {}
+    if isinstance(rig_id, str) and rig_id:
+        block["rig_id"] = rig_id
     if len(saved.cards) == 1:
         block["card_mib"] = saved.cards[0].total_mib
     else:
@@ -462,7 +467,7 @@ def judge(sample: Sample) -> Verdict:
         if backends:
             comb["attention_backend"] = backends
         comb["envelope"] = sample.envelope
-        rigs[rig] = _rig_block(saved, snapshot)
+        rigs[rig] = _rig_block(saved, snapshot, rows[-1].get("observed_rig_id"))
         combinations.append(comb)
 
     why.extend(_task_reasons(use_case, fleet, awake, jev, sample.outcomes))

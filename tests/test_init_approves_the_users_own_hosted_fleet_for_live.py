@@ -38,6 +38,7 @@ import subprocess
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -254,31 +255,22 @@ RIG_ID = "rig-" + "2" * 64
 #: back for each, shaped as rig ids are.
 REMOTE_RIG_IDS = {"box1": "rig-" + "1" * 64, "box2": "rig-" + "3" * 64}
 
-#: A ``rig-snapshot.sh`` reading for the invented local machine, every declared
-#: key ``mcgyvr.fleet.ids.rig_id`` hashes, printed as the reader prints them.
-SNAPSHOT_SCRIPT = """\
-#!/usr/bin/env bash
-cat <<'EOF'
-hostname=box.invalid
-cpu_model=FakeCPU
-cpu_max_mhz=100
-ram_mt_s=3200
-pl1_uw=125000000
-pl2_uw=250000000
-gpu_name=FakeGPU
-gpu_vram_mib=8192
-gpu_cc=8.6
-gpu_slot=0
-os_machine_id=0000000000000000
-kernel=6.1.0
-driver=550.54.15
-docker=26.1.4
-EOF
-"""
-
-#: What the shipped rig scanner answers for the invented local machine.
-LOCAL_SCAN = {
-    "machine": {"id": "id-localhost", "host": "localhost", "kernel": "6.1.0"},
+#: What the one reader answers for the invented local machine: its machine id,
+#: its one card (what names it), and the capacity scan of the same card.
+LOCAL_SCAN: dict[str, Any] = {
+    "machine": {"id": "0" * 16, "host": "localhost", "kernel": "6.1.0"},
+    "cards": [
+        {
+            "vendor": "nvidia",
+            "index": 0,
+            "name": "FakeGPU",
+            "total_mib": 8192,
+            "used_mib": 0,
+            "free_mib": 8192,
+        }
+    ],
+    "unread": [],
+    "unsized": [],
     "gpus": [
         {
             "index": 0,
@@ -286,6 +278,7 @@ LOCAL_SCAN = {
             "vram": {"total_mib": 8192, "used_mib": 0, "free_mib": 8192},
         }
     ],
+    "snapshot": {"hostname": "localhost", "driver": "550.54.15"},
 }
 
 
@@ -359,25 +352,22 @@ def test_a_hosted_unit_at_a_user_machine_is_not_approved_beside_a_local_rig(
     assert "No fleet was made live" in said and "machine of yours" in said, said
 
 
-def test_read_local_rig_runs_the_doors_readers_locally(
+def test_read_local_rig_runs_the_one_reader_locally(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """The genuine reader runs ``rigscan`` and ``rig-snapshot.sh`` on this
-    machine, writes the rig file, and returns the rig id the snapshot names."""
+    """The genuine reader runs ``rigscan`` on this machine, writes the rig file,
+    and returns the rig id its reading names."""
+    from mcgyvr.fleet import ids
     from mcgyvr.serving import rigfile
 
-    gates = tmp_path / "gates"
-    gates.mkdir()
-    (gates / "rig-snapshot.sh").write_text(SNAPSHOT_SCRIPT, encoding="utf-8")
-    monkeypatch.setattr("mcgyvr.serving.run.GATE_SCRIPTS", gates)
     monkeypatch.setattr("mcgyvr.serving.rigscan.scan", lambda: LOCAL_SCAN)
     rigs = tmp_path / "rigs"
     monkeypatch.setattr("mcgyvr.serving.rigfile.rigs_dir", lambda: rigs)
 
     rig_id = cli._read_local_rig("localhost")
 
-    assert rig_id.startswith("rig-") and len(rig_id) == 68, rig_id
+    assert rig_id == ids.rig_id(LOCAL_SCAN)
     saved = rigfile.read("localhost")
     assert saved is not None and saved.rig == "localhost"
 
@@ -388,32 +378,12 @@ def _done(
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
 
-#: What the shipped ``rig-snapshot.sh`` prints for the invented remote rig:
-#: every key :func:`mcgyvr.fleet.ids.rig_id` hashes.
-SNAPSHOT = """\
-hostname=box.invalid
-cpu_model=FakeCPU
-cpu_max_mhz=100
-ram_mt_s=3200
-pl1_uw=125000000
-pl2_uw=250000000
-gpu_name=FakeGPU
-gpu_vram_mib=8192
-gpu_cc=8.6
-gpu_slot=0
-os_machine_id=0000000000000000
-kernel=6.1.0
-driver=550.54.15
-docker=26.1.4
-"""
-
-
-def test_read_remote_rig_reads_the_snapshot_over_the_read_only_ssh_line(
+def test_read_remote_rig_reads_the_one_reader_over_the_read_only_ssh_line(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The remote reader ships ``rig-snapshot.sh`` over
-    ``ssh_read_only`` — not the door — and returns the rig id the snapshot
-    names."""
+    """The remote reader ships ``rigscan`` over ``ssh_read_only`` — not the
+    door — and returns the rig id its reading names."""
+    from mcgyvr.fleet import ids
     from mcgyvr.serving import gatelib
 
     seen: dict[str, str] = {}
@@ -423,15 +393,15 @@ def test_read_remote_rig_reads_the_snapshot_over_the_read_only_ssh_line(
     ) -> subprocess.CompletedProcess[str]:
         seen["host"] = host
         seen["command"] = command
-        return _done(SNAPSHOT)
+        return _done(json.dumps(LOCAL_SCAN))
 
     monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
 
     rig_id = cli._read_remote_rig("box.invalid")
 
-    assert rig_id.startswith("rig-") and len(rig_id) == 68, rig_id
+    assert rig_id == ids.rig_id(LOCAL_SCAN)
     assert seen["host"] == "box.invalid"
-    assert seen["command"] == gatelib.rig_snapshot_read_command()
+    assert seen["command"] == gatelib.scan_read_command()
 
 
 def test_read_remote_rig_refuses_on_a_nonzero_ssh_exit(
@@ -452,15 +422,20 @@ def test_read_remote_rig_refuses_on_a_nonzero_ssh_exit(
     assert "no route to host" in str(excinfo.value)
 
 
-def test_read_remote_rig_refuses_when_the_snapshot_names_no_rig_id(
+def test_read_remote_rig_refuses_when_the_reading_names_no_rig_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A snapshot missing the declared keys hashes no rig id: refused."""
+    """A reading whose card size was not read hashes no rig id: refused."""
+    unread = {
+        **LOCAL_SCAN,
+        "cards": [{**LOCAL_SCAN["cards"][0], "total_mib": None}],
+        "unread": [{"field": "card.nvidia.0.total", "why": "printed [N/A]"}],
+    }
 
     def ssh_read_only(
         host: str, command: str, timeout: float | None = 120.0
     ) -> subprocess.CompletedProcess[str]:
-        return _done("hostname=box.invalid\n")
+        return _done(json.dumps(unread))
 
     monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
 

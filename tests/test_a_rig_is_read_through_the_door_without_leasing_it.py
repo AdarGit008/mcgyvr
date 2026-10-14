@@ -115,7 +115,7 @@ def test_a_read_files_its_rig_id_units_and_what_else_holds_the_card(
 
     result = read_door(root)
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     rig = rig_row(journal)
     assert rig["fleet"] == FLEET_NAME and rig["rig"] == "box2"
     assert rig["rig_id"] == LOCKED_BOX2
@@ -159,7 +159,7 @@ def test_card_over_room_and_a_restart_alert_on_a_live_read(
 
     result = read_door(root)
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     three = unit_rows(journal, UNIT_3B)
     assert three["card_mib"]["alert"] is True, "3600 MiB is over its 3573 MiB room"
     assert three["restarts"]["alert"] is True
@@ -214,7 +214,7 @@ def test_read_probe_runs_the_locks_harness_on_the_rig_and_its_figures_are_judged
 
     result = read_door(root, "--probe", "box2_3b")
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     assert [line for line in onedoor.ssh_log(root) if "mcgyvr-harness" in line]
     three = unit_rows(journal, UNIT_3B)
     assert three["warm_decode_tok_s"]["observed"] == 125.0
@@ -233,7 +233,7 @@ def test_read_probe_does_not_probe_a_unit_with_work_in_flight(
 
     result = read_door(root, "--probe", "box2_3b")
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     assert not [line for line in onedoor.ssh_log(root) if "mcgyvr-harness" in line]
     assert "warm_decode_tok_s" not in unit_rows(journal, UNIT_3B)
     assert "busy" in result.stdout and "box2_3b" in result.stdout

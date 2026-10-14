@@ -72,9 +72,9 @@ def test_the_evidence_is_the_dev_run_evidence_from_the_reads_and_the_rig_file(
     assert verdict.green, verdict.why
     evidence = verdict.evidence
     assert evidence is not None
-    assert evidence["rigs"] == {fx.RIG: {"card_mib": 12288, "snapshot": fx.SNAPSHOT}}, (
-        "the card is the rig file's, the snapshot the last read's"
-    )
+    assert evidence["rigs"] == {
+        fx.RIG: {"card_mib": 12288, "rig_id": fx.rig_id(), "snapshot": fx.SNAPSHOT}
+    }, "the card is the rig file's, the rig id and the snapshot the last read's"
     assert evidence["moves"] == []
     (comb,) = evidence["combinations"]
     assert comb["rig"] == fx.RIG

@@ -4,13 +4,12 @@ Gate 7 (``07-teardown.py``) once asked ``docker ps --filter name=^<RUN_ID>-``
 and called the rig clean when that came back empty. A step that started a
 container under any other name — a driver's own ``--name``, a server left by
 hand, a name with a typo in the prefix — left it running on the rig, held the
-card, and the run exited green. ``rig-snapshot.sh`` already prints
-``containers=`` (every container up, by id, or ``none``), gate 2 refuses a
-reading that is not ``none``, and gate 7 re-reads the rig; nothing compared
-the two.
+card, and the run exited green. The rig's runtime reader (``rig-units.sh``)
+already lists every container up, which gate 2 reads as ``containers=`` (by
+id, or ``none``), and gate 7 re-reads the rig; nothing compared the two.
 
 So gate 7 lists every container up after the step (``docker ps`` with id and
-name, and the reader's own ``containers=`` beside it) and names each one that
+name, and the runtime reader's own ``containers=`` beside it) and names each one that
 gate 2's reading did not carry — exit 1, whatever it is called. The
 ``<RUN_ID>-`` prefix survives only as the label of "named for this run"
 against "NOT named for this run", so the operator reading the line knows
@@ -87,9 +86,9 @@ def test_the_prefix_filter_is_no_longer_what_gate_7_asks_docker(tmp_path: Path) 
 
 
 def test_a_container_the_rigs_reader_lists_is_named_by_id(tmp_path: Path) -> None:
-    """The second reading: ``rig-snapshot.sh``'s ``containers=`` after the
-    step, taken in the same breath as the rest of the rig. An id there that
-    ``docker ps`` did not list is still a container up on the rig."""
+    """The second reading: the runtime reader's ``containers=`` after the
+    step, taken with the rest of the rig. An id there that ``docker ps`` did
+    not list is still a container up on the rig."""
     root = onedoor.fixture_repo(tmp_path)
     flag = tmp_path / "step-ran"
     onedoor.add_step(

@@ -1,21 +1,21 @@
-"""A card no installed tool reads and no source sizes is left out of the short id.
+"""A card no installed tool reads and no source sizes is left out of the rig id.
 
 Beside the cards a machine's tools read, sysfs may show display adapters that
-no card tool installed there reads and whose memory size it does not publish:
-a management adapter, an integrated one, a virtual display. Such a card is
-listed in the reading with its size unread and named in ``Reading.unsized``,
-and the short id leaves it out: the id of a card beside it is the id of that
-card alone, and a machine whose only card is such an adapter gets the id of a
-machine with no card. A card of a vendor whose tool is installed, and a card
-whose size file is there but cannot be taken, keep the refusal. A display
-entry that gives no PCI vendor id is named as one without a vendor id, and,
-since no tool reads it, is left out when it publishes no size.
+no card tool installed there reads and whose memory size it does not publish: a
+management adapter, an integrated one, a virtual display. Such a card is listed
+in the reading with its size unread and named in its ``unsized`` list, and the
+rig id (:func:`mcgyvr.fleet.ids.rig_id`) leaves it out: the id of a card beside
+it is the id of that card alone, and a machine whose only card is such an
+adapter gets the id of a machine with no card. A card of a vendor whose tool is
+installed, and a card whose size file is there but cannot be taken, keep the
+refusal. A display entry that gives no PCI vendor id is named as one without a
+vendor id, and, since no tool reads it, is left out when it publishes no size.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 import pytest
 
@@ -25,32 +25,35 @@ from tests.machinereader import (
     Staged,
     SysfsCard,
     expected_unsized,
-    machine_read_text,
+    machine_reading,
+    reading,
     run,
+    unread,
 )
-
-if TYPE_CHECKING:
-    from mcgyvr.fleet.machine import Reading
 
 CARD_LINE = b"0, 7919, 0, 7919, Example Card V\n"
 TOOL_CARD = SysfsCard(number=0, vendor="0x10de", device="0x00aa")
 
 
-def _read(staged: Staged, where: Path) -> Reading:
-    from mcgyvr.fleet import machine
-
+def _read(staged: Staged, where: Path) -> dict[str, Any]:
     ran = run(staged, where)
     assert ran.returncode == 0, ran.stderr
     assert ran.unexpected == (), ran.unexpected
-    return machine.parse(ran.stdout)
+    return reading(ran.stdout)
+
+
+def _rig_id(document: dict[str, Any]) -> str:
+    from mcgyvr.fleet import ids
+
+    return ids.rig_id(document)
+
+
+def _keys(document: dict[str, Any]) -> list[str]:
+    return [f"card.{c['vendor']}.{c['index']}" for c in document["cards"]]
 
 
 def _with_tool(*sysfs: SysfsCard) -> Staged:
-    return Staged(
-        first_tool=CARD_LINE,
-        first_tool_processes={0: (b"", 0)},
-        sysfs=(TOOL_CARD, *sysfs),
-    )
+    return Staged(first_tool=CARD_LINE, sysfs=(TOOL_CARD, *sysfs))
 
 
 @pytest.mark.parametrize(
@@ -61,38 +64,33 @@ def _with_tool(*sysfs: SysfsCard) -> Staged:
 def test_an_adapter_beside_a_card_its_tool_reads_leaves_the_id_of_that_card(
     pci: str, vendor: str, tmp_path: Path
 ) -> None:
-    from mcgyvr.fleet import machine
-
     adapter = SysfsCard(number=1, vendor=pci, device="0x00bb")
     both = _read(_with_tool(adapter), tmp_path / "both")
     alone = _read(_with_tool(), tmp_path / "alone")
     key = f"card.{vendor}.1"
-    assert key in {c.key for c in both.cards}
-    assert both.unsized == (key,)
-    assert machine.short_id(both) == machine.short_id(alone)
+    assert key in _keys(both)
+    assert both["unsized"] == [key]
+    assert _rig_id(both) == _rig_id(alone)
 
 
 def test_a_lone_adapter_gives_the_id_of_a_machine_with_no_card(
     tmp_path: Path,
 ) -> None:
     """The id then covers the machine id and no card, and the reading says so."""
-    from mcgyvr.fleet import machine
-
     adapter = SysfsCard(number=0, vendor="0xfff0", device="0x00bb")
     lone = _read(Staged(sysfs=(adapter,)), tmp_path / "lone")
     none = _read(Staged(), tmp_path / "none")
-    assert [c.key for c in lone.cards] == ["card.pci-0xfff0.0"]
-    assert lone.unsized == ("card.pci-0xfff0.0",)
-    assert none.cards == ()
-    assert machine.short_id(lone) == machine.short_id(none)
+    assert _keys(lone) == ["card.pci-0xfff0.0"]
+    assert lone["unsized"] == ["card.pci-0xfff0.0"]
+    assert none["cards"] == []
+    assert _rig_id(lone) == _rig_id(none)
 
 
 def test_the_size_reason_of_an_adapter_names_no_tool_that_may_read_it(
     tmp_path: Path,
 ) -> None:
     adapter = SysfsCard(number=1, vendor="0xfff0", device="0x00bb")
-    reading = _read(_with_tool(adapter), tmp_path)
-    why = {u.field: u.why for u in reading.unread}["card.pci-0xfff0.1.total"]
+    why = unread(_read(_with_tool(adapter), tmp_path))["card.pci-0xfff0.1.total"]
     assert "no card tool installed here reads its vendor" in why
     assert "may read it" not in why
 
@@ -100,14 +98,12 @@ def test_the_size_reason_of_an_adapter_names_no_tool_that_may_read_it(
 def test_a_card_whose_vendors_tool_is_installed_and_fails_keeps_the_refusal(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.fleet import machine
-
     staged = Staged(first_tool=b"", first_tool_exit=3, sysfs=(TOOL_CARD,))
-    reading = _read(staged, tmp_path)
-    assert [c.key for c in reading.cards] == ["card.nvidia.0"]
-    assert reading.unsized == ()
+    document = _read(staged, tmp_path)
+    assert _keys(document) == ["card.nvidia.0"]
+    assert document["unsized"] == []
     with pytest.raises(ValueError, match=r"card\.nvidia\.0\.total"):
-        machine.short_id(reading)
+        _rig_id(document)
 
 
 @pytest.mark.parametrize(
@@ -118,13 +114,11 @@ def test_a_card_whose_vendors_tool_is_installed_and_fails_keeps_the_refusal(
 def test_a_size_file_that_is_there_but_not_taken_keeps_the_refusal(
     raw: dict[str, bytes], tmp_path: Path
 ) -> None:
-    from mcgyvr.fleet import machine
-
     adapter = SysfsCard(number=1, vendor="0xfff0", device="0x00bb", raw=raw)
-    reading = _read(_with_tool(adapter), tmp_path)
-    assert reading.unsized == ()
+    document = _read(_with_tool(adapter), tmp_path)
+    assert document["unsized"] == []
     with pytest.raises(ValueError, match=r"card\.pci-0xfff0\.1\.total"):
-        machine.short_id(reading)
+        _rig_id(document)
 
 
 @pytest.mark.parametrize(
@@ -135,17 +129,15 @@ def test_a_size_file_that_is_there_but_not_taken_keeps_the_refusal(
 def test_a_display_entry_with_no_vendor_id_is_named_as_one_and_left_out(
     raw: dict[str, bytes], tmp_path: Path
 ) -> None:
-    from mcgyvr.fleet import machine
-
     entry = SysfsCard(number=2, vendor=None, device="0x00cc", raw=raw)
-    reading = _read(_with_tool(entry), tmp_path / "with")
+    document = _read(_with_tool(entry), tmp_path / "with")
     alone = _read(_with_tool(), tmp_path / "alone")
-    assert "card.unknown.2" in {c.key for c in reading.cards}
-    assert reading.unsized == ("card.unknown.2",)
-    unread = {u.field: u.why for u in reading.unread}
-    assert "no PCI vendor id" in unread["card.unknown.2.vendor"]
-    assert not [f for f in unread if "pci" in f]
-    assert machine.short_id(reading) == machine.short_id(alone)
+    assert "card.unknown.2" in _keys(document)
+    assert document["unsized"] == ["card.unknown.2"]
+    named = unread(document)
+    assert "no PCI vendor id" in named["card.unknown.2.vendor"]
+    assert not [f for f in named if "pci" in f]
+    assert _rig_id(document) == _rig_id(alone)
 
 
 def test_a_name_file_that_is_there_but_not_readable_falls_back_to_the_pci_name(
@@ -154,8 +146,6 @@ def test_a_name_file_that_is_there_but_not_readable_falls_back_to_the_pci_name(
     """A card whose name file is there but not readable keeps its id by the
     name the PCI ids give.
     """
-    from mcgyvr.fleet import machine
-
     card = SysfsCard(
         number=0,
         vendor="0x1002",
@@ -164,18 +154,16 @@ def test_a_name_file_that_is_there_but_not_readable_falls_back_to_the_pci_name(
         vram_total_bytes=8192 * MIB,
         vram_used_bytes=0,
     )
-    reading = _read(Staged(sysfs=(card,)), tmp_path)
-    (read,) = reading.cards
-    assert read.name == "PCI 0x1002:0x00aa"
-    assert "card.amd.0.name" not in {u.field for u in reading.unread}
-    assert machine.short_id(reading).startswith(machine.SHORT_ID_PREFIX)
+    document = _read(Staged(sysfs=(card,)), tmp_path)
+    (read,) = document["cards"]
+    assert read["name"] == "PCI 0x1002:0x00aa"
+    assert "card.amd.0.name" not in unread(document)
+    assert _rig_id(document).startswith("rig-")
 
 
 def test_every_invented_machine_names_exactly_its_unsized_cards(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.fleet import machine
-
     for number, m in enumerate(shapes()):
-        reading = machine.parse(machine_read_text(m, tmp_path / str(number)))
-        assert reading.unsized == expected_unsized(m), m.label
+        document = machine_reading(m, tmp_path / str(number))
+        assert tuple(document["unsized"]) == expected_unsized(m), m.label

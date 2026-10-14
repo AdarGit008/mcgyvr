@@ -26,15 +26,14 @@ import ipaddress
 import json
 import os
 import re
-import subprocess
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet.roots import FolderError, rigs_dir
-from mcgyvr.scan import SSH_TIMEOUT_S, ModelOnDisk, Network, Scan
+from mcgyvr.scan import ModelOnDisk, Network, Scan
 
 #: What a rig name may be: a plain file name, as an ssh alias is.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -293,6 +292,17 @@ def from_scan(rig: str, scan: Scan, read_at: str | None = None) -> Rig:
     )
 
 
+def from_reading(
+    rig: str, reading: Mapping[str, Any], read_at: str | None = None
+) -> Rig:
+    """The rig file of ``rig`` from one reading of it (:mod:`~.rigscan`)."""
+    try:
+        scan = Scan.from_json(json.dumps(reading))
+    except (ValueError, KeyError, TypeError) as exc:
+        raise RigFileError(f"{rig}: the reading is not one this takes ({exc})") from exc
+    return from_scan(rig, scan, read_at)
+
+
 def path(rig: str) -> Path:
     """The rig file for ``rig``: ``<rig-file folder>/<rig>.json``, or refused.
 
@@ -447,31 +457,19 @@ def required(host: str, what: str) -> Rig:
     return saved
 
 
-def door_check(host: str, saved: Rig, used: Iterable[int] | None, what: str) -> Rig:
-    """Read ``host`` again under the door, say what moved, refuse a fleet that no
-    longer fits. Returns the reading.
+def door_check(
+    host: str, saved: Rig, now: Rig, used: Iterable[int] | None, what: str
+) -> Rig:
+    """Hold ``now``, the door's one reading of ``host``, to its rig file: say what
+    moved, refuse a fleet that no longer fits. Returns ``now``.
 
-    The scan goes through :func:`mcgyvr.serving.gatelib.ssh`, so only a process
-    the door started reaches the rig, and only the rig the door was opened for.
+    The reading is the gate's own, taken through
+    :func:`mcgyvr.serving.gatelib.ssh` (so only a process the door started
+    reaches the rig, and only the rig the door was opened for); this reads
+    nothing itself.
     """
     from mcgyvr.serving import gatelib
 
-    try:
-        done = gatelib.ssh(host, gatelib.scan_read_command(), timeout=SSH_TIMEOUT_S)
-    except subprocess.TimeoutExpired:
-        gatelib.refuse(
-            f"{what}: {host} did not answer the rig scan in {SSH_TIMEOUT_S:.0f}s; "
-            "a rig that cannot be read is not compared, and nothing is started on it"
-        )
-    if done.returncode != 0:
-        gatelib.refuse(
-            f"{what}: the rig scan could not run on {host}: "
-            f"{done.stderr.strip()[:300] or '(no stderr)'}"
-        )
-    try:
-        now = from_scan(host, Scan.from_json(done.stdout))
-    except (ValueError, KeyError, TypeError):
-        gatelib.refuse(f"{what}: the rig scan on {host} printed no scan this reads")
     changes = moved(saved, now)
     for change in changes:
         print(f"{what}: moved since the rig file of {saved.read_at}: {change.said()}")

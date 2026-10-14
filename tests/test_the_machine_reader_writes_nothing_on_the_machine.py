@@ -1,13 +1,14 @@
 """The machine reader writes nothing on the machine it reads.
 
-The reader holds no here-string and no here-document, which bash may back with
-a temporary file; every tool's output reaches it through a pipe. Where the
-system can trace it, a run over a tool that prints a large answer and a tool
-whose answer is read by python, traced with
-every process it starts, opens no file for writing and makes no call that
-creates, removes, renames, links or truncates a file or folder, outside the
-stub tools' own folder and ``/dev/null``. What is traced is those calls; a
-write through another call is not seen.
+The one reader (:mod:`mcgyvr.serving.rigscan`) imports no temporary-file
+module and opens every file it reads for reading only; every tool's output
+reaches it through a pipe. Where the system can trace it, a run of its short
+reading, shipped as ``python3 -I -B -``, over a tool that prints a large answer
+and a tool that answers JSON, traced with every process it starts, opens no
+file for writing and makes no call that creates, removes, renames, links or
+truncates a file or folder, outside the stub tools' own folder and
+``/dev/null``. What is traced is those calls; a write through another call is
+not seen.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -23,13 +25,13 @@ import pytest
 from tests.machinereader import READER, Staged, run
 
 
-def _code_lines(text: str) -> list[str]:
-    return [line for line in text.splitlines() if not line.lstrip().startswith("#")]
-
-
-def test_the_reader_holds_no_here_string_and_no_here_document() -> None:
-    lines = [line for line in _code_lines(READER.read_text("utf-8")) if "<<" in line]
-    assert not lines, lines
+def test_the_reader_opens_no_file_to_write_and_makes_no_temporary_one() -> None:
+    text = READER.read_text("utf-8")
+    assert not re.search(r"^\s*(?:import|from)\s+tempfile\b", text, re.MULTILINE)
+    opens = re.findall(r"\bopen\([^)]*\)", text)
+    assert opens
+    writing = [call for call in opens if re.search(r"""["'][wax+]""", call)]
+    assert not writing, writing
 
 
 _OPEN_WRITES = re.compile(r"O_WRONLY|O_RDWR|O_CREAT|O_TRUNC|O_APPEND")
@@ -92,8 +94,6 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
     tracer = _tracer(tmp_path)
     if tracer is None:
         pytest.skip("strace cannot trace here")
-    bash = shutil.which("bash")
-    assert bash
     rows = "".join(
         f"{i}, 7919, 0, 7919, Example Card {'W' * 3900}\n" for i in range(20)
     )
@@ -106,7 +106,6 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
     }
     staged = Staged(
         first_tool=rows.encode(),
-        first_tool_processes={i: (b"", 0) for i in range(20)},
         second_tool=json.dumps(second).encode(),
         tool_seconds=120,
     )
@@ -123,13 +122,15 @@ def test_a_large_answer_is_read_without_a_file_being_written(tmp_path: Path) -> 
             _TRACED,
             "-o",
             str(trace),
-            bash,
-            "-s",
+            sys.executable,
+            "-I",
+            "-",
+            "--cards",
         ),
     )
     assert ran.returncode == 0, ran.stderr
-    unread = [line for line in ran.stdout.splitlines() if line.startswith("unread=")]
-    assert ran.stdout.count("\ncard=") == 21, unread
+    document = json.loads(ran.stdout)
+    assert len(document["cards"]) == 21, document["unread"]
     written = [
         line
         for one in sorted(trace.parent.iterdir())

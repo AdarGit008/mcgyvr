@@ -38,6 +38,7 @@ import pytest
 import yaml
 
 from mcgyvr.exits import Exit
+from tests import onedoor
 from tests.liveruns import (
     FIRST,
     SECOND,
@@ -123,12 +124,11 @@ def test_a_rig_that_is_not_the_rig_it_was_locked_on_is_refused_naming_it(
     door: FakeDoor,
     events: list[tuple[str, str]],
 ) -> None:
-    from mcgyvr.fleet.ids import rig_id
-
     go_live(tmp_path)
-    moved = snapshot_text("box1", kernel="7.0.0-32-generic")
+    # Another card at box1's address: another machine, by its rig id.
+    moved = snapshot_text("box1", gpu_vram_mib="16384")
     door.readings["box1"] = moved + matching("box1")[len(snapshot_text("box1")) :]
-    read_as = rig_id(dict(line.split("=", 1) for line in moved.splitlines() if line))
+    read_as = onedoor.rig_id_of_text(moved)
 
     code, err = climb(tmp_path, monkeypatch, capsys, events, "moved")
 

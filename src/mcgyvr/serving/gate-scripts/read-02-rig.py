@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """read, rig — one reading of the rig, held to the user's rig file, and filed.
 
-One reader goes to the rig on stdin, ``rig-snapshot.sh`` then
-``rig-units.sh``, over the door's ssh: the rig's facts and machine id,
-every container and its restart count, every card holder by pid and container,
-and each unit's sleep and in-flight page. Nothing lands on the rig's disk.
+Two readers go to the rig over the door's ssh, neither landing on its disk:
+the one reader of the machine (:mod:`mcgyvr.serving.rigscan`, as ``python3 -I -B -``)
+for its facts, its cards and its rig id, and the runtime reader
+(``rig-units.sh``, on stdin to ``bash -s``) for every container and its
+restart count, every card holder by pid and container, and each unit's sleep
+and in-flight page.
 
 **Compared, never acted on.** The rig is held to the user's own rig file
 (:mod:`mcgyvr.serving.rigfile`) by gate 2's own user check, and a rig that is
@@ -33,6 +35,7 @@ from mcgyvr.serving.gatelib import (
     door_required,
     need,
     refuse,
+    scan_read_command,
     ssh,
 )
 
@@ -93,26 +96,36 @@ def main() -> int:
 
     saved = rigfile.required(host, "read")
 
-    reader = (
+    try:
+        scanned = ssh(host, scan_read_command(), timeout=READ_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        refuse(f"read: {host} did not answer in {READ_TIMEOUT_S}s; nothing is filed")
+    if scanned.returncode != 0:
+        refuse(f"read: {host} could not be read: {scanned.stderr.strip()[:500]}")
+    try:
+        machine = json.loads(scanned.stdout)
+    except ValueError:
+        refuse(f"read: the reader on {host} printed no reading; nothing is filed")
+
+    units = (
         "set -- "
         + " ".join(shlex.quote(arg) for arg in args)
-        + "\n"
-        + (HERE / "rig-snapshot.sh").read_text(encoding="utf-8")
         + "\n"
         + (HERE / "rig-units.sh").read_text(encoding="utf-8")
     )
     try:
-        done = ssh(host, "bash -s", timeout=READ_TIMEOUT_S, input=reader)
+        done = ssh(host, "bash -s", timeout=READ_TIMEOUT_S, input=units)
     except subprocess.TimeoutExpired:
         refuse(f"read: {host} did not answer in {READ_TIMEOUT_S}s; nothing is filed")
     if done.returncode != 0:
         refuse(f"read: {host} could not be read: {done.stderr.strip()[:500]}")
     try:
-        read.parse(done.stdout)
-    except read.ReadError as exc:
+        read.reading(machine, done.stdout)
+        now = rigfile.from_reading(host, machine)
+    except (read.ReadError, rigfile.RigFileError) as exc:
         refuse(f"read: {exc}")
 
-    rigfile.door_check(host, saved, None, "read")
+    rigfile.door_check(host, saved, now, None, "read")
 
     source = Path(harness.__file__).read_text(encoding="utf-8")
 
@@ -123,6 +136,7 @@ def main() -> int:
     try:
         recorded = read.record(
             host,
+            machine,
             done.stdout,
             run_id=run_id,
             profile=profile,

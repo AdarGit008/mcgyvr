@@ -166,7 +166,7 @@ class Report:
 
         self.reads += 1
         return hardware.Report(
-            machine_id="mch-example",
+            machine_id="rig-example",
             ram_total_mb=65536,
             ram_free_mb=1000 + self.reads,
             cards=(

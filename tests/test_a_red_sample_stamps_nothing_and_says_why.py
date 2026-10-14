@@ -226,8 +226,9 @@ def test_an_opted_in_jev_that_gives_no_valid_choice_is_red(
 
 
 def test_a_lock_refusal_is_red_by_the_locks_own_message(setup: Path) -> None:
-    """The reads name another rig than the one the staged setup pins."""
-    moved = {**fx.SNAPSHOT, "driver": "501.00"}
+    """The reads name another rig than the one the staged setup pins: another
+    machine answers at its address."""
+    moved = {**fx.SNAPSHOT, "os_machine_id": "f0f0f0f0f0f0f0f0"}
     fx.read(setup, fx.READS[0], text=fx.reader_text(snapshot=moved))
     fx.read(setup, fx.READS[1], text=fx.reader_text(snapshot=moved), load=None)
 

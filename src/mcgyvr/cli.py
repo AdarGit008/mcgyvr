@@ -1317,62 +1317,30 @@ def _rigs(setup: Path) -> tuple[str, ...]:
 
 
 def _read_local_rig(rig: str) -> str:
-    """Read the local machine with the door's own readers, no ssh, and write its
-    rig file; return the rig id the lock pins.
+    """Read the local machine with the one reader, no ssh, and write its rig
+    file; return the rig id the lock pins.
 
-    The machine mcgyvr runs on is reached directly: the door's scanner
-    (:mod:`mcgyvr.serving.rigscan`) for the rig file, and the door's snapshot
-    reader (``rig-snapshot.sh``) for the rig id (:func:`mcgyvr.fleet.ids.rig_id`).
+    The machine mcgyvr runs on is reached directly: the one reader
+    (:mod:`mcgyvr.serving.rigscan`) run here is the same copy the door ships to
+    a remote rig, so the rig file this writes reads the same when the door
+    re-reads it, and its reading names the rig (:func:`mcgyvr.fleet.ids.rig_id`).
     Nothing here ssh's; a remote machine is read over ssh by
     :func:`_read_remote_rig`.
     """
-    import json
-    import subprocess
-
-    from mcgyvr import scan as scan_module
     from mcgyvr.fleet import ids
     from mcgyvr.fleet.promote import PromoteRefusedError
-    from mcgyvr.fleet.read import ReadError
-    from mcgyvr.fleet.read import parse as parse_reading
     from mcgyvr.serving import rigfile, rigscan
-    from mcgyvr.serving.run import GATE_SCRIPTS
 
-    # The door's own scanner, run locally: the same copy the door ships to a
-    # remote rig, so the rig file this writes reads the same when the door
-    # re-reads it.
-    measured = scan_module.Scan.from_json(json.dumps(rigscan.scan()))
+    reading = rigscan.scan()
     try:
-        done = subprocess.run(
-            ["bash", str(GATE_SCRIPTS / "rig-snapshot.sh")],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=60.0,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise PromoteRefusedError(f"{rig}: the local snapshot timed out") from exc
-    except OSError as exc:
-        raise PromoteRefusedError(
-            f"{rig}: the local snapshot could not start: {exc}"
-        ) from exc
-    if done.returncode != 0:
-        raise PromoteRefusedError(
-            f"{rig}: the local snapshot could not run: "
-            f"{done.stderr.strip()[:300] or '(no stderr)'}"
-        )
-    try:
-        snapshot = parse_reading(done.stdout).snapshot
-    except ReadError as exc:
-        raise PromoteRefusedError(f"{rig}: {exc}") from exc
-    try:
-        rig_id = ids.rig_id(snapshot)
+        rig_id = ids.rig_id(reading)
     except ValueError as exc:
         raise PromoteRefusedError(f"{rig}: {exc}") from exc
-    # Both readers succeeded before anything is written: a refusal leaves the
+    # The id is named before anything is written: a refusal leaves the
     # rig-folder untouched. A rig file that will not write is a refusal, not a
     # traceback: the fleet is not approved for lack of a read's record.
     try:
-        rigfile.write(rigfile.from_scan(rig, measured))
+        rigfile.write(rigfile.from_reading(rig, reading))
     except (OSError, rigfile.RigFileError) as exc:
         raise PromoteRefusedError(
             f"{rig}: its rig file could not be written: {exc}"
@@ -1381,48 +1349,40 @@ def _read_local_rig(rig: str) -> str:
 
 
 def _read_remote_rig(rig: str) -> str:
-    """Read ``rig``'s snapshot over the sanctioned read-only ssh line and
-    return the rig id the lock pins.
+    """Read ``rig`` over the sanctioned read-only ssh line and return the rig
+    id the lock pins.
 
     The wizard runs outside the door, so the door-gated ssh
     (:func:`mcgyvr.serving.gatelib.ssh`) is not usable here; the one sanctioned
     read of a remote rig from outside is
-    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the door's own
-    ``rig-snapshot.sh`` as one read-only line
-    (``echo <base64> | base64 -d | bash -s``) and prints the reader's
-    ``key=value`` snapshot. A rig that cannot be read is a refusal, not a
-    traceback, and nothing here writes a rig file: the door's ``serve up``
-    gate 2 already filed the rig file during the wizard.
+    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the one reader
+    (:mod:`mcgyvr.serving.rigscan`) as one read-only line
+    (``echo <base64> | base64 -d | python3 -I -B -``). A rig that cannot be read is a
+    refusal, not a traceback.
     """
     import subprocess
 
     from mcgyvr.fleet import ids
     from mcgyvr.fleet.promote import PromoteRefusedError
-    from mcgyvr.fleet.read import ReadError
-    from mcgyvr.fleet.read import parse as parse_reading
     from mcgyvr.serving import gatelib
 
-    command = gatelib.rig_snapshot_read_command()
     try:
-        done = gatelib.ssh_read_only(rig, command)
+        done = gatelib.ssh_read_only(rig, gatelib.scan_read_command())
     except subprocess.TimeoutExpired as exc:
-        raise PromoteRefusedError(f"{rig}: the remote snapshot timed out") from exc
+        raise PromoteRefusedError(f"{rig}: the remote read timed out") from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise PromoteRefusedError(
-            f"{rig}: the remote snapshot could not start: {exc}"
+            f"{rig}: the remote read could not start: {exc}"
         ) from exc
     if done.returncode != 0:
         raise PromoteRefusedError(
-            f"{rig}: the remote snapshot could not run: "
+            f"{rig}: the remote read could not run: "
             f"{done.stderr.strip()[:300] or '(no stderr)'}"
         )
     try:
-        snapshot = parse_reading(done.stdout).snapshot
-    except ReadError as exc:
-        raise PromoteRefusedError(f"{rig}: {exc}") from exc
-    try:
-        rig_id = ids.rig_id(snapshot)
-    except ValueError as exc:
+        reading = json.loads(done.stdout)
+        rig_id = ids.rig_id(reading)
+    except (ValueError, AttributeError, TypeError) as exc:
         raise PromoteRefusedError(f"{rig}: {exc}") from exc
     return rig_id
 

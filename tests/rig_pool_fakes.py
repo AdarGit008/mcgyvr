@@ -274,7 +274,7 @@ def report() -> Any:
     from mcgyvr.rig import hardware, protocol
 
     return hardware.Report(
-        machine_id="mch-example",
+        machine_id="rig-example",
         ram_total_mb=65536,
         ram_free_mb=60000,
         cards=(

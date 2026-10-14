@@ -28,6 +28,8 @@ class State:
     hub: str
     pid: int
     connected: bool
+    #: The hub's row id for the rig (its ack's ``rig_id``), not the machine's
+    #: ``rig-`` id.
     rig_id: str | None
     heartbeat_s: int | None
     last_ack_at: float | None

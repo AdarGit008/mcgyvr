@@ -64,6 +64,7 @@ from typing import Any, ClassVar
 
 import pytest
 
+from tests import onedoor
 from tests._paths import REPO
 from tests.reads import C_3B, C_7B, RUN_ID, Rig, _load_rows, go_live, metrics, rig_text
 
@@ -512,7 +513,7 @@ def read_box2(rig: Rig) -> Any:
 
     return read.record(
         "box2",
-        rig_text(),
+        *onedoor.split_reading(rig_text()),
         run_id=RUN_ID,
         profile="live",
         probe=("box2_3b",),
@@ -657,7 +658,7 @@ def test_a_llamacpp_load_files_pace_null_with_the_reason(tmp_path: Path) -> None
 
     read.record(
         "box1",
-        text,
+        *onedoor.split_reading(text),
         run_id=RUN_ID,
         profile="live",
         probe=("box1_deepseek",),

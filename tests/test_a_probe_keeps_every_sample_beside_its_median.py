@@ -35,6 +35,7 @@ from typing import Any
 
 import pytest
 
+from tests import onedoor
 from tests.reads import (
     HARNESS_PY,
     RUN_ID,
@@ -184,7 +185,7 @@ def test_a_read_files_every_sample_on_the_units_rows_unjudged(tmp_path: Path) ->
 
     done = read.record(
         "box2",
-        rig_text(),
+        *onedoor.split_reading(rig_text()),
         run_id=RUN_ID,
         profile="live",
         probe=("box2_3b",),

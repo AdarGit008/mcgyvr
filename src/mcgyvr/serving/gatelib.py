@@ -13,11 +13,12 @@ that decides whether a run may proceed belongs in a gate, where the door can
 see it in :data:`~mcgyvr.serving.run.SEQUENCE`.
 
 One narrow exception is named, not hidden: :func:`ssh_read_only` opens a rig
-for a read-only detection command — the remote scan, the ``*.gguf`` discovery,
-the shipped-reader header read ``mcgyvr recommend`` runs, and the shipped
-``rig-snapshot.sh`` snapshot read first approval takes — without the
-door. It admits only those four command shapes, so launch, sleep, wake and
-every step still require the door through :func:`ssh`.
+for a read-only detection command — the shipped reader
+(:mod:`mcgyvr.serving.rigscan`, the one reader of a machine, which ``mcgyvr
+scan --rig``, ``mcgyvr recommend`` and first approval take), the ``*.gguf``
+discovery and the shipped-reader header read ``mcgyvr recommend`` runs —
+without the door. It admits only those three command shapes, so launch,
+sleep, wake and every step still require the door through :func:`ssh`.
 
 Nothing here runs at import. A product module imports this, and a module that
 read the environment or touched a descriptor on import would make "import
@@ -258,9 +259,8 @@ def ssh(
 
     The other ssh spawns are the shims' own lease check (:func:`_direct_ssh`),
     which applies the same door rule, and :func:`ssh_read_only`, the one
-    sanctioned read-only detection path (the remote scan, the ``*.gguf``
-    discovery, the shipped-reader header read and the shipped
-    ``rig-snapshot.sh`` snapshot read). This function refuses — exit 2,
+    sanctioned read-only detection path (the shipped reader, the ``*.gguf``
+    discovery and the shipped-reader header read). This function refuses — exit 2,
     naming the door — unless this process descends from
     ``mcgyvr.serving.run`` and ``host`` is the one it was opened for.
     ``BatchMode=yes`` so a host that wants a password fails in seconds instead
@@ -291,14 +291,14 @@ def ssh(
     )
 
 
-#: The fixed suffix of the one read-only line that ships the rig scanner.
-_SCAN_READ_SUFFIX = " | base64 -d | python3 -"
+#: The fixed suffix of the one read-only line that ships the one reader.
+#: Isolated (``-I``): the rig's working folder and the user's site folder give
+#: it no module, so a ``json.py`` planted where it runs changes no reading; and
+#: ``-B``: it writes no bytecode on the rig, which keeps nothing of the read.
+_SCAN_READ_SUFFIX = " | base64 -d | python3 -I -B -"
 
 #: The fixed middle of the one read-only line that ships the header reader.
 _HEADER_READ_MIDDLE = " | base64 -d | python3 - "
-
-#: The fixed suffix of the one read-only line that ships the rig snapshot reader.
-_RIG_SNAPSHOT_READ_SUFFIX = " | base64 -d | bash -s"
 
 
 def _header_read_blob() -> str:
@@ -317,32 +317,17 @@ def _header_read_blob() -> str:
 
 
 def _scan_read_blob() -> str:
-    """The shipped rig scanner, base64-encoded, the only payload it ships.
+    """The shipped reader, base64-encoded, the only payload it ships.
 
-    Read lazily so importing gatelib still touches nothing. The scanner is
+    Read lazily so importing gatelib still touches nothing. The reader is
     :mod:`mcgyvr.serving.rigscan`, the one copy, read by file — the same
-    single-copy rule as the header reader, because the far end measures the
-    machine and two scanners would be two opinions about what the same rig
+    single-copy rule as the header reader, because the far end reads the
+    machine and two readers would be two opinions about what the same rig
     reported.
     """
     from mcgyvr.serving import rigscan
 
     source = Path(rigscan.__file__)
-    return base64.b64encode(source.read_bytes()).decode("ascii")
-
-
-def _rig_snapshot_read_blob() -> str:
-    """The shipped rig snapshot reader, base64-encoded, the only payload it ships.
-
-    Read lazily so importing gatelib still touches nothing. The reader is the
-    door's ``rig-snapshot.sh`` under :data:`mcgyvr.serving.run.GATE_SCRIPTS`,
-    the one copy, read by file — the same single-copy rule as the scanner and
-    the header reader, because the far end measures the machine and two
-    readers would be two opinions about what the same rig reported.
-    """
-    from mcgyvr.serving.run import GATE_SCRIPTS
-
-    source = GATE_SCRIPTS / "rig-snapshot.sh"
     return base64.b64encode(source.read_bytes()).decode("ascii")
 
 
@@ -364,25 +349,24 @@ def _single_quote(token: str) -> str:
 
 
 def scan_read_command() -> str:
-    """The one read-only remote line that scans a rig.
+    """The one read-only remote line that reads a rig whole.
 
-    The scanner ships as ``python3 -`` and nothing lands on the rig's disk; the
-    blob never comes back. It takes no argument: the scanner measures the
-    machine it runs on, so a fresh rig needs only python3 plus the tools the
-    scanner reads.
+    The reader ships as ``python3 -I -B -`` and nothing lands on the rig's
+    disk; the blob never comes back. It takes no argument: the reader reads the machine
+    it runs on, so a fresh rig needs only python3 plus the tools it reads.
     """
     return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX}"
 
 
-def rig_snapshot_read_command() -> str:
-    """The one read-only remote line that reads a rig's snapshot.
+def cards_read_command() -> str:
+    """The door's remote line that reads a rig's cards alone (``--cards``).
 
-    The reader ships as ``bash -s`` and nothing lands on the rig's disk; the
-    blob never comes back. It takes no argument: the reader measures the
-    machine it runs on, so a fresh rig needs only bash plus the tools the
-    reader reads.
+    The same shipped reader, asked for its short reading: what a serve step
+    files of the card after it acts, with no timed copy and no disk walk. It is
+    sent through :func:`ssh` under the door, and :func:`ssh_read_only` does not
+    admit it: the read-only line carries no argument.
     """
-    return f"echo {_rig_snapshot_read_blob()}{_RIG_SNAPSHOT_READ_SUFFIX}"
+    return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX} --cards"
 
 
 def header_read_command(path: str) -> str:
@@ -400,15 +384,11 @@ def header_read_command(path: str) -> str:
 def _read_only_command(command: str) -> bool:
     """Whether ``command`` is a sanctioned read-only detection line.
 
-    Four shapes are admitted, and nothing else:
+    Three shapes are admitted, and nothing else:
 
-    * the shipped-scan line ``echo <scanner> | base64 -d | python3 -``, whose
-      payload is exactly the shipped rig scanner (base64) and which carries no
-      argument;
-    * the shipped snapshot-read line
-      ``echo <snapshot reader> | base64 -d | bash -s``, whose payload is
-      exactly the shipped ``rig-snapshot.sh`` (base64) and which carries no
-      argument;
+    * the shipped-reader line ``echo <reader> | base64 -d | python3 -I -B -``, whose
+      payload is exactly the shipped :mod:`mcgyvr.serving.rigscan` (base64)
+      and which carries no argument;
     * the model-store discovery line ``mcgyvr recommend`` builds,
       ``find '<dir>' -maxdepth 1 -name '*.gguf' -print``, whose directory is
       one single-quoted token with no embedded quote;
@@ -419,16 +399,12 @@ def _read_only_command(command: str) -> bool:
     The quote is what makes a directory or a path a filename argument on the
     far shell and never a command, so the sanction refuses one it could not
     prove was quoted. The base64 is the lock that keeps an arbitrary script
-    out of the read-only path: only the shipped scanner, snapshot reader or
-    header reader matches.
+    out of the read-only path: only the shipped reader or header reader
+    matches.
     """
     if command.startswith("echo ") and command.endswith(_SCAN_READ_SUFFIX):
         blob = command[len("echo ") : -len(_SCAN_READ_SUFFIX)]
         return blob == _scan_read_blob()
-
-    if command.startswith("echo ") and command.endswith(_RIG_SNAPSHOT_READ_SUFFIX):
-        blob = command[len("echo ") : -len(_RIG_SNAPSHOT_READ_SUFFIX)]
-        return blob == _rig_snapshot_read_blob()
 
     prefix = "find "
     suffix = " -maxdepth 1 -name '*.gguf' -print"
@@ -460,8 +436,8 @@ def ssh_read_only(
     """Open ssh for a sanctioned read-only detection command, outside the door.
 
     The ONE exception to the door rule, and it is narrow: ``command`` must be
-    the shipped-scan line, the shipped snapshot-read line, the ``*.gguf``
-    discovery shape, or the shipped-reader header-read shape
+    the shipped-reader line, the ``*.gguf`` discovery shape, or the
+    shipped-reader header-read shape
     :func:`_read_only_command` admits. Nothing that launches, sleeps, wakes,
     writes, or runs a step is admitted here; those all still require the door
     through :func:`ssh`. The door's launch/sleep/wake path is untouched.
@@ -469,8 +445,8 @@ def ssh_read_only(
     if not _read_only_command(command):
         refuse(
             "ssh_read_only refused: the command is not a sanctioned read-only "
-            "detection line (only the shipped scan, the shipped snapshot read, "
-            "the *.gguf discovery and the shipped-reader header read are "
+            "detection line (only the shipped reader, the *.gguf discovery and "
+            "the shipped-reader header read are "
             f"admitted), not {shlex.quote(command)[:80]}"
         )
     return subprocess.run(
@@ -649,17 +625,15 @@ def _over_ssh(
 def os_machine_id() -> str:
     """What tells this machine from another with the same hostname.
 
-    systemd's machine id where there is one — two cloud images or containers
-    are both `ubuntu` and a lease judged stale by hostname alone would let a
-    dev run take a live run's rig — and the hostname where there is not.
+    The machine's id as the one reader derives it
+    (:func:`mcgyvr.serving.rigscan.machine_id`: systemd's machine id where
+    there is one, hashed) — two cloud images or containers are both `ubuntu`
+    and a lease judged stale by hostname alone would let a dev run take a live
+    run's rig — and the hostname where no id can be read.
     """
-    try:
-        raw = Path("/etc/machine-id").read_text(encoding="utf-8").strip()
-    except OSError:
-        raw = ""
-    return (
-        raw[:12] if LEASE_TOKEN.fullmatch(raw or "-") and raw else socket.gethostname()
-    )
+    from mcgyvr.serving import rigscan
+
+    return rigscan.machine_id() or socket.gethostname()
 
 
 @dataclass(frozen=True)

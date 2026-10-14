@@ -25,8 +25,8 @@ Owner rulings on ``python -m mcgyvr.serving.run read``:
   log is searched for the token, as the lock's ``measure_vllm.py`` does, and the
   line the reader matched is filed beside it
   (``tests/test_a_vllm_backend_read_searches_the_whole_log_and_records_its_line.py``).
-  The rig row files the parsed snapshot beside ``observed_rig_id``, so the
-  lock's ``evidence.rigs.<rig>.snapshot`` check can be fed from the row.
+  The rig row files the reading's snapshot beside ``observed_rig_id``, the
+  rig id the machine's reading names, which a sample's evidence hands the lock.
 
 No rig is reached: the reading is canned text, the rig's harness a stand-in,
 and the door runs against :mod:`tests.onedoor`'s stubs.
@@ -323,15 +323,16 @@ def test_a_vllm_units_attention_backend_is_filed_and_null_when_its_log_names_non
     assert "alert" not in three and "alert" not in seven
 
 
-def test_the_rig_row_files_the_snapshot_its_rig_id_is_named_by(tmp_path: Path) -> None:
-    from mcgyvr.fleet.ids import rig_id
-
+def test_the_rig_row_files_the_snapshot_beside_the_rig_id_its_reading_names(
+    tmp_path: Path,
+) -> None:
     journal = go_live(tmp_path)
 
     record(rig_text(), "live", Rig())
 
     row = rig_row(journal)
-    assert rig_id(row["snapshot"]) == row["observed_rig_id"]
+    assert row["observed_rig_id"] == onedoor.rig_id_of_text(rig_text())
+    assert row["snapshot"] == onedoor.split_reading(rig_text())[0]["snapshot"]
     assert "container" not in row["snapshot"] and "gpu_app" not in row["snapshot"]
 
 
@@ -387,4 +388,6 @@ def test_a_backend_row_is_decoded_from_a_reader_line() -> None:
 
     parsed = read.parse("backend=8001,FLASH_ATTN\nbackend=8002,none\n")
     assert parsed.backend == {8001: "FLASH_ATTN", 8002: None}
-    assert "backend" not in parsed.snapshot
+    # A row the runtime reader does not print is refused, never filed.
+    with pytest.raises(read.ReadError):
+        read.parse("kernel=7.0.0\n")

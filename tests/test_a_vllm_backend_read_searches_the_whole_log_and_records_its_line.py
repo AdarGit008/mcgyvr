@@ -192,16 +192,16 @@ def _encoded(text: str) -> str:
     return base64.b64encode(text.encode("utf-8")).decode("ascii")
 
 
-def test_a_backend_line_row_is_decoded_and_never_lands_in_the_snapshot() -> None:
-    """A row the parser does not know becomes a snapshot field, and the rig id
-    is hashed over the snapshot — so this row is parsed, not swept up."""
+def test_a_backend_line_row_is_decoded_as_a_row_of_its_own() -> None:
+    """The runtime reader's rows are parsed by their key; a row it does not
+    print is refused, so this one must be known to be kept."""
     parsed = read.parse(
         f"backend=8001,FLASH_ATTN\nbackend_line=8001,{_encoded(SELECTING)}\n"
         "backend=8002,none\nbackend_line=8002,\n"
     )
     assert parsed.backend_line == {8001: SELECTING, 8002: ""}
     assert parsed.backend == {8001: "FLASH_ATTN", 8002: None}
-    assert "backend_line" not in parsed.snapshot
+    assert parsed.machine == {}
 
 
 @pytest.mark.parametrize(

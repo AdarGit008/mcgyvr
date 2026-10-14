@@ -25,7 +25,7 @@ import pytest
 
 from tests import rig_schema
 from tests.machine_shapes import shapes
-from tests.machinereader import machine_read_text
+from tests.machinereader import machine_read_text, reading
 from tests.rig_fake_hub import Peer, Server
 
 TOKEN = "mhr_0123456789abcdef_" + "s" * 43
@@ -189,8 +189,8 @@ def test_status_says_what_is_kept_and_never_the_secret(
     assert "not joined" in capsys.readouterr().out
     cli("rig", "join", "https://hub.example.com", "--token", TOKEN)
     machine = next(m for m in shapes() if not m.cards)
-    text = machine_read_text(machine, tmp_path / "reader")
-    monkeypatch.setattr(hardware, "run_reader", lambda: text)
+    document = reading(machine_read_text(machine, tmp_path / "reader"))
+    monkeypatch.setattr(hardware, "read_machine", lambda: document)
     state.write(
         state.State(
             hub="https://hub.example.com",
@@ -208,7 +208,7 @@ def test_status_says_what_is_kept_and_never_the_secret(
     assert "https://hub.example.com" in out
     assert "mhr_0123456789abcdef" in out and SECRET not in out
     assert "r-example" in out
-    assert "mch-" in out and "0 cards" in out
+    assert "rig-" in out and "0 cards" in out
 
 
 def test_leave_forgets_the_token_and_says_the_rig_stays_on_the_hub(
@@ -237,12 +237,12 @@ def test_joined_to_a_hub_the_agent_says_hello_beats_and_ends_when_revoked(
     tmp_path: Path,
 ) -> None:
     from mcgyvr.exits import Exit
-    from mcgyvr.fleet import machine as reader
+    from mcgyvr.fleet import ids
     from mcgyvr.rig import hardware
 
     shape = next(m for m in shapes() if m.cards and all(c.total_mib for c in m.cards))
-    text = machine_read_text(shape, tmp_path / "reader")
-    monkeypatch.setattr(hardware, "run_reader", lambda: text)
+    document = reading(machine_read_text(shape, tmp_path / "reader"))
+    monkeypatch.setattr(hardware, "read_machine", lambda: document)
     seen: list[dict[str, Any]] = []
 
     def hub(peer: Peer) -> None:
@@ -282,7 +282,7 @@ def test_joined_to_a_hub_the_agent_says_hello_beats_and_ends_when_revoked(
     hello, beat = seen
     rig_schema.validate(hello, schema, "#/$defs/Hello")
     rig_schema.validate(beat, schema, "#/$defs/Heartbeat")
-    assert hello["body"]["machine_id"] == reader.short_id(reader.parse(text))
+    assert hello["body"]["machine_id"] == ids.rig_id(document)
     assert len(hello["body"]["cards"]) == len(shape.cards)
     err = capsys.readouterr().err
     assert "revoked" in err and SECRET not in err

@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 import yaml
 
+from tests import onedoor
 from tests.reads import FLEET, FLEET_NAME, RUN_ID, UNIT_3B, rig_text, unit_rows
 
 #: An invented rig id, the one both setups declare for box2.
@@ -77,7 +78,13 @@ def go_live(tmp_path: Path) -> tuple[Path, Path]:
 def read(card: int, profile: str, **more: Any) -> None:
     from mcgyvr.fleet import read
 
-    read.record("box2", rig_text(card_3b=card), run_id=RUN_ID, profile=profile, **more)
+    read.record(
+        "box2",
+        *onedoor.split_reading(rig_text(card_3b=card)),
+        run_id=RUN_ID,
+        profile=profile,
+        **more,
+    )
 
 
 def test_a_named_setup_read_over_its_own_room_pulls_no_live_unit(

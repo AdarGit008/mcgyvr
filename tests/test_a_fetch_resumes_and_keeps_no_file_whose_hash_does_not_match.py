@@ -475,9 +475,9 @@ def test_the_fetcher_and_the_rig_scan_name_the_same_weights_folder(
     from mcgyvr.serving import fetcher
 
     monkeypatch.delenv("MCGYVR_WEIGHTS", raising=False)
-    assert fetcher.weights_dir() == rigscan._default_weights_dir()
+    assert fetcher.weights_dir() == rigscan.default_weights_dir()
     monkeypatch.setenv("MCGYVR_WEIGHTS", str(tmp_path / "w"))
-    assert fetcher.weights_dir() == rigscan._default_weights_dir()
+    assert fetcher.weights_dir() == rigscan.default_weights_dir()
     assert os.fspath(tmp_path / "w") == fetcher.weights_dir()
 
 

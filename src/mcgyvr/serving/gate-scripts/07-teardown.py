@@ -80,8 +80,9 @@ _rig = SourceFileLoader(
     "_gate02", str(Path(__file__).resolve().parent / "02-rig.py")
 ).load_module()
 
-#: The keys a rig reading reports. `uptime_since` is added because a reboot is
-#: the loudest possible "this is not the machine you measured on".
+#: The snapshot keys (:data:`mcgyvr.serving.rigscan.SNAPSHOT_KEYS`) a run is held
+#: to from start to end. `uptime_since` is among them because a reboot is the
+#: loudest possible "this is not the machine you measured on".
 COMPARED = (
     "uptime_since",
     "cpu_max_mhz",
@@ -295,9 +296,9 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
         return 1
     seen["rig_after"] = post
 
-    # The reader's own account of the daemon, taken in the same breath as the
-    # rest of the rig: a container it lists that `docker ps` did not is named
-    # by id, so the two readings cannot disagree quietly.
+    # The runtime reader's own account of the daemon (rig-units.sh, read with
+    # the rest of the rig): a container it lists that `docker ps` did not is
+    # named by id, so the two readings cannot disagree quietly.
     unseen = _ids(post.get("containers")) - before - set(up or {})
     if unseen:
         print(

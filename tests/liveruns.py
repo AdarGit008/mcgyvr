@@ -79,10 +79,7 @@ def snapshot_text(host: str, **override: str) -> str:
 
 
 def rig_id_of(host: str) -> str:
-    from mcgyvr.fleet.ids import rig_id
-
-    text = snapshot_text(host)
-    return rig_id(dict(line.split("=", 1) for line in text.splitlines() if line))
+    return onedoor.rig_id_of_text(snapshot_text(host))
 
 
 def fleet(profile: str = "live") -> dict[str, Any]:
@@ -238,7 +235,7 @@ class FakeDoor:
             return 2
         read.record(
             host,
-            self.readings[host],
+            *onedoor.split_reading(self.readings[host]),
             run_id=run_id,
             profile="live",
             probe=tuple(probe),

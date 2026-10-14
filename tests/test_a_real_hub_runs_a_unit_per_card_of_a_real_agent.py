@@ -320,7 +320,7 @@ def test_two_models_run_on_two_cards_of_one_rig_and_one_stops_alone(hub: Hub) ->
         hub.cli("models", "add", model, "--copies", "1")
     hub.serve()
     assert hub.fleet()["placement"] == "card"
-    hub.rig("two", Machine("mch-example-two", 2, MODELS))
+    hub.rig("two", Machine("rig-example-two", 2, MODELS))
 
     def two_ready() -> list[dict[str, Any]] | None:
         ready = _ready(hub.units())
@@ -374,7 +374,7 @@ def test_two_models_run_on_two_cards_of_one_rig_and_one_stops_alone(hub: Hub) ->
 def test_a_rig_whose_agent_lacks_multi_session_is_taken_whole(hub: Hub) -> None:
     hub.cli("models", "add", ALPHA, "--copies", "1")
     hub.serve()
-    machine = Machine("mch-example-whole", 2, MODELS, multi_session=False)
+    machine = Machine("rig-example-whole", 2, MODELS, multi_session=False)
     hub.rig("whole", machine)
 
     ready = hub.wait(lambda: _ready(hub.units()), "a unit on the rig")

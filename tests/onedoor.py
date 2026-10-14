@@ -25,7 +25,7 @@ because the door derives its repo root from its own file — holding:
   ``RIG``/``LIVE`` readings the stubs answer, and a run is filed under
   ``--out-root out`` (a folder the fixture makes);
 * ``stubs/``, first on the PATH :func:`door_env` builds: the ``ssh`` reads the
-  rig-snapshot request off its command line and answers from
+  shipped reader off its command line and answers from ``rigscan.json`` and
   ``snapshot.txt`` (or ``snapshot-moved.txt`` once a flag file the test names
   exists — the reading box1 gave after a hard lock wiped its BIOS profile), the
   geometry read from ``geometry.json`` (one row seeded from a recorded
@@ -123,7 +123,7 @@ RIG: dict[str, dict[str, str]] = {
 }
 RIG_KEYS = frozenset(RIG["box1"])
 RIG_READ_ON = "2026-09-26"
-#: What ``rig-snapshot.sh`` prints beyond the declared keys: the two VRAM
+#: What the snapshot holds beyond the declared keys: the two VRAM
 #: figures a placement spends, the host memory, the thread count, the name
 #: the daemon must answer to (gate 3), and the two idle readings gate 2 holds
 #: to ``none``. box1's are a recorded scan. The kernel, MemTotal, swap and
@@ -160,9 +160,77 @@ LIVE: dict[str, dict[str, str]] = {
 
 
 def snapshot_lines(host: str, **override: str) -> str:
-    """One ``rig-snapshot.sh`` reading for ``host``, as the rig prints it."""
+    """One snapshot of ``host`` as ``key=value`` lines: the one reader's
+    snapshot, and the two idle readings the runtime reader gives."""
     values = {"uptime_since": UPTIME, **RIG[host], **LIVE[host], **override}
     return "".join(f"{k}={v}\n" for k, v in values.items())
+
+
+#: The rows the runtime reader (``rig-units.sh``) prints; every other line of a
+#: test's reading text is the one reader's snapshot.
+RUNTIME_ROWS = ("container", "gpu_app", "sleeping", "status", "backend", "backend_line")
+
+
+def machine_reading(snapshot: dict[str, str]) -> dict[str, object]:
+    """The one reader's document of a rig whose snapshot is ``snapshot``.
+
+    Its machine id is the snapshot's ``os_machine_id`` (else one derived from
+    the host name, as the reader derives it), and its one card is the
+    snapshot's first card, so :func:`mcgyvr.fleet.ids.rig_id` names it as the
+    reader's own document would.
+    """
+    import hashlib
+
+    host = snapshot.get("hostname", "box")
+    machine_id = (
+        snapshot.get("os_machine_id")
+        or hashlib.sha256(f"host:{host}".encode()).hexdigest()[:16]
+    )
+    cards = []
+    if snapshot.get("gpu_name") and str(snapshot.get("gpu_vram_mib", "")).isdigit():
+        total = int(snapshot["gpu_vram_mib"])
+        used = int(snapshot.get("gpu_used_mib", "0") or 0)
+        cards.append(
+            {
+                "vendor": "nvidia",
+                "index": 0,
+                "name": snapshot["gpu_name"].replace("_", " "),
+                "total_mib": total,
+                "used_mib": used,
+                "free_mib": max(total - used, 0),
+            }
+        )
+    return {
+        "machine": {"id": machine_id, "id_from": "/etc/machine-id", "host": host},
+        "cards": cards,
+        "card_sources": ["nvidia-smi"] if cards else [],
+        "unsized": [],
+        "unread": [],
+        "snapshot": dict(snapshot),
+    }
+
+
+def split_reading(text: str) -> tuple[dict[str, object], str]:
+    """A test's one reading text as the door takes it: the one reader's
+    document (its snapshot lines) and the runtime reader's rows."""
+    snapshot: dict[str, str] = {}
+    rows: list[str] = []
+    for line in text.splitlines():
+        key, sep, value = line.partition("=")
+        if not sep:
+            continue
+        if key in RUNTIME_ROWS:
+            rows.append(line)
+        elif key not in ("containers", "gpu_procs"):
+            snapshot[key] = value
+    return machine_reading(snapshot), "".join(f"{row}\n" for row in rows)
+
+
+def rig_id_of_text(text: str) -> str:
+    """The rig id a reading text names, as the door's read names it."""
+    from mcgyvr.fleet.ids import rig_id
+
+    return rig_id(split_reading(text)[0])
 
 
 def executable(path: Path, text: str) -> Path:
@@ -201,28 +269,11 @@ if [ -e "$STUBS/ssh-down" ]; then
   exit 255
 fi
 case $cmd in
+  # The runtime reader (rig-units.sh) on stdin: what holds the rig, from the
+  # same snapshot file the shipped reader answers from.
   "bash -s")
     cat >/dev/null
-    if [ -f "$STUBS/moved-flag" ] && [ -e "$(cat "$STUBS/moved-flag")" ]; then
-      f="$STUBS/snapshot-moved.txt"
-    else
-      f="$STUBS/snapshot.txt"
-    fi
-    # While the daemon lists serving units (serving-names), the rig reads
-    # busy: the card is held and containers are up, as a serving rig is --
-    # by the ids `ps` gives them, one per serving unit.
-    if [ -s "$STUBS/serving-names" ]; then
-      ids= ; n=10
-      while read -r name; do
-        [ -n "$name" ] || continue
-        n=$((n + 1))
-        ids="${ids:+$ids;}c0ffee0000$n"
-      done < "$STUBS/serving-names"
-      sed -e "s/^containers=.*/containers=$ids/" \
-          -e 's/^gpu_procs=.*/gpu_procs=4242,llama-server,5584MiB/' "$f"
-    else
-      cat "$f"
-    fi ;;
+    python3 "$STUBS/rig-answer.py" units "$STUBS" ;;
   # The lock's own harness, shipped to the rig by a `read --probe`: the test
   # writes what it measured at 127.0.0.1 into harness.json.
   *"mcgyvr-harness"*) cat >/dev/null; cat "$STUBS/harness.json" ;;
@@ -232,10 +283,12 @@ case $cmd in
     printf '%s\\n' "$cmd" > "$STUBS/linktime-cmd.txt"
     cat > "$STUBS/linktime-source.txt"
     cat "$STUBS/linktime.json" ;;
-  # The shipped rig scanner, which ends the line with no argument after it
-  # (`mcgyvr scan --rig`, and a user-mode door run reading the rig again):
-  # answered from rigscan.json.
-  *"| base64 -d | python3 -") cat "$STUBS/rigscan.json" ;;
+  # The one reader, shipped whole (`mcgyvr scan --rig`, gate 2, gate 7, a
+  # `read`): rigscan.json with the snapshot of snapshot.txt folded in.
+  *"| base64 -d | python3 -I -B -") python3 "$STUBS/rig-answer.py" whole "$STUBS" ;;
+  # Its short reading (`--cards`), which a serve step files of the card.
+  *"| base64 -d | python3 -I -B - --cards")
+    python3 "$STUBS/rig-answer.py" cards "$STUBS" ;;
   # The weights fetcher a `serve fetch` ships, with its job, on stdin: run
   # as written, by this machine's python3, under a HOME of the stub's own,
   # so its weights folder is `rig-home/.cache/mcgyvr/weights`.
@@ -469,8 +522,114 @@ def docker_stub_text(body: str) -> str:
     return DOCKER_PROLOGUE + body
 
 
+#: How the ssh stub answers the two readers the door ships, from the files a
+#: test writes: ``snapshot.txt`` (or ``snapshot-moved.txt`` once the moved flag
+#: exists) and ``rigscan.json``. ``whole`` is the one reader's document, its
+#: snapshot read off the snapshot file; ``cards`` its short reading, the first
+#: card's used and free MiB from ``STUB_USED`` and ``STUB_FREE``; ``units`` is
+#: the runtime reader: a container row per id the snapshot file's
+#: ``containers=`` names and per serving unit, and a card holder per process
+#: its ``gpu_procs=`` names (or the one a serving rig has). The snapshot file's
+#: own runtime rows (``container=``, ``gpu_app=``, ``sleeping=``, ...) pass
+#: through as they are.
+RIG_ANSWER = """\
+import hashlib, json, os, re, sys
+
+how, stubs = sys.argv[1], sys.argv[2]
+flag = os.path.join(stubs, "moved-flag")
+name = "snapshot.txt"
+if os.path.isfile(flag) and os.path.exists(open(flag).read().strip()):
+    name = "snapshot-moved.txt"
+lines = []
+if os.path.isfile(os.path.join(stubs, name)):
+    lines = open(os.path.join(stubs, name)).read().splitlines()
+pairs = [line.split("=", 1) for line in lines if "=" in line]
+runtime = ("container", "gpu_app", "sleeping", "status", "backend", "backend_line")
+snapshot = {k: v for k, v in pairs if k not in runtime + ("containers", "gpu_procs")}
+serving = []
+names = os.path.join(stubs, "serving-names")
+if os.path.isfile(names):
+    serving = [n.strip() for n in open(names) if n.strip()]
+if how == "units":
+    said = dict(p for p in pairs if p[0] in ("containers", "gpu_procs"))
+    for number, ident in enumerate(
+        i for i in said.get("containers", "none").split(";") if i and i != "none"
+    ):
+        print(f"container=stranger-{number},{ident},-,0")
+    for number, unit in enumerate(serving, start=11):
+        print(f"container={unit},c0ffee0000{number},mcgyvr,0")
+    procs = [p for p in said.get("gpu_procs", "none").split(";") if p and p != "none"]
+    if serving:
+        procs = ["4242,llama-server,5584MiB"]
+    for proc in procs:
+        pid, process, mib = proc.split(",")
+        print(f"gpu_app={pid},{mib.removesuffix('MiB')},none,{process}")
+    for key, value in pairs:
+        if key in runtime:
+            print(f"{key}={value}")
+    raise SystemExit(0)
+document = json.load(open(os.path.join(stubs, "rigscan.json")))
+if how == "cards":
+    used, free = os.environ.get("STUB_USED", ""), os.environ.get("STUB_FREE", "")
+    document["cards"] = [
+        {
+            "vendor": "nvidia",
+            "index": 0,
+            "name": snapshot.get("gpu_name", "Example Card"),
+            "total_mib": int(snapshot.get("gpu_vram_mib", "0") or 0),
+            "used_mib": int(used) if used.isdigit() else None,
+            "free_mib": int(free) if free.isdigit() else None,
+        }
+    ]
+    document["unread"] = [] if used.isdigit() and free.isdigit() else [
+        {"field": "card.nvidia.0.used", "why": "the stub card answered nothing"}
+    ]
+else:
+    # A snapshot file that names no card reads the card off the scan, as the
+    # reader's own snapshot is read off the same card call.
+    first = (document.get("gpus") or [None])[0]
+    if first is not None and "gpu_name" not in snapshot:
+        vram = first["vram"]
+        snapshot = {
+            "gpu_name": "_".join(first["name"].split()),
+            "gpu_vram_mib": str(vram["total_mib"]),
+            "gpu_cc": "8.6",
+            "gpu_slot": "00000000:01:00.0",
+            "driver": "580.178.04",
+            "gpu_reserve_mib": str(vram.get("reserved_mib", 0)),
+            "gpu_used_mib": str(vram["used_mib"]),
+            "gpu_free_mib": str(vram["free_mib"]),
+            **snapshot,
+        }
+    document["snapshot"] = {"gpu_others": "", **snapshot}
+    document.setdefault("unread", [])
+    # The machine and its card as the reader names them, so the rig id this
+    # reading names is the one tests.onedoor.machine_reading names.
+    machine = dict(document.get("machine") or {})
+    if snapshot.get("os_machine_id"):
+        machine["id"] = snapshot["os_machine_id"]
+    elif not re.fullmatch("[0-9a-f]{16}", str(machine.get("id", ""))):
+        host = snapshot.get("hostname", machine.get("host", "box"))
+        machine["id"] = hashlib.sha256(f"host:{host}".encode()).hexdigest()[:16]
+    document["machine"] = machine
+    if "cards" not in document and snapshot.get("gpu_vram_mib", "").isdigit():
+        document["cards"] = [
+            {
+                "vendor": "nvidia",
+                "index": 0,
+                "name": snapshot.get("gpu_name", "").replace("_", " "),
+                "total_mib": int(snapshot["gpu_vram_mib"]),
+                "used_mib": 0,
+                "free_mib": int(snapshot["gpu_vram_mib"]),
+            }
+        ]
+print(json.dumps(document))
+"""
+
+
 def ssh_stub(where: Path) -> Path:
     """The ``ssh`` that stands behind the shim in ``where``. Reaches nothing."""
+    (where / "rig-answer.py").write_text(RIG_ANSWER, encoding="utf-8")
     return executable(where / "ssh", SSH_STUB)
 
 

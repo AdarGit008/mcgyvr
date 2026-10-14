@@ -76,7 +76,7 @@ def record(folder: Path, text: str, profile: str, rig: Rig, **more: Any) -> Any:
 
     return read.record(
         "box2",
-        text,
+        *onedoor.split_reading(text),
         run_id=RUN_ID,
         profile=profile,
         probe=("box2_3b",),

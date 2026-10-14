@@ -148,7 +148,7 @@ def _agent_frames() -> list[str]:
     )
     hello = p.hello(
         "h1",
-        machine_id="mch-example",
+        machine_id="rig-example",
         agent_version="1.0",
         ram_total_mb=1,
         ram_free_mb=1,

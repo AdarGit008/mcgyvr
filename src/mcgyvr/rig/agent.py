@@ -209,6 +209,8 @@ class _Session:
         self._told = acked
         self._errors = errors
         self.acked: set[str] = set()
+        #: The hub's own row id for this rig, from its ack: not the machine's
+        #: ``rig-`` id (:func:`mcgyvr.fleet.ids.rig_id`), which the hello sends.
         self.rig_id: str | None = None
         self.interval: int | None = None
         self.last_error: protocol.Error | None = None
@@ -258,7 +260,7 @@ def _judge(failure: Exception, last_error: protocol.Error | None) -> Exception:
 
 
 def _aside(job: Callable[[], None]) -> None:
-    threading.Thread(target=job, name="rig-machine-read", daemon=True).start()
+    threading.Thread(target=job, name="rig-reading", daemon=True).start()
 
 
 class _Readings:

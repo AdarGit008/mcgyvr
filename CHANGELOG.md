@@ -7,6 +7,32 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Changed (breaking)
+
+- **One reader reads a machine, and one id names it.**
+  - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
+    tool. The door ships it to a rig as one read-only line
+    (`echo <base64> | base64 -d | python3 -I -B -`), and the product imports
+    it locally.
+  - Its one JSON document carries the short reading (machine id, host, every
+    card on any vendor, RAM), the capacity scan, and the snapshot the door's
+    gates hold a run to. A field that cannot be read is named in `unread`
+    with the reason. It is never filled in.
+  - The door's own `rig-snapshot.sh` and `machine-read.sh` are gone, and so is
+    the text parser `mcgyvr.fleet.machine`. What holds a rig at run time (its
+    containers and card holders) is still read by `rig-units.sh`.
+  - A machine has one id, `rig-` over its machine id and its cards' names and
+    sizes (`mcgyvr.fleet.ids.rig_id`). The lock pins it, live admission
+    compares it, and a rig's hub hears it as the hello's `machine_id`. The
+    `mch-` prefix is retired.
+  - The kernel, the driver, docker and the CPU's clock are no longer in the
+    id: a driver upgrade no longer mints a new rig. Ids and locks written
+    before this release do not match: read each rig again and lock again.
+  - `ssh_read_only` admits the shipped reader's exact bytes and no snapshot
+    line.
+
 ## [0.5.0] - 2026-10-13
 
 Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
