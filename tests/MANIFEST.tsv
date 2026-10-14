@@ -622,7 +622,6 @@ tests/test_the_two_ram_gates_hold_back_different_margins.py	unit	functional	agre
 tests/test_the_users_own_setting_beats_the_shipped_estimate.py	unit	functional	agreed	agreed	
 tests/test_the_weaker_mode_says_commands_run_without_a_shell_on_the_host.py	unit	functional	derived	derived	calls initialize, detect, choose_mode and reads a schema field and a module docstring in-process, the machine stubbed: what the weaker mode is said to be
 tests/test_there_are_exactly_four_task_types.py			unreviewed	unreviewed	
-tests/test_triage.py	unit	logic	agreed	agreed	
 tests/test_tts_engine.py	unit	functional	agreed	agreed	
 tests/test_two_models_on_one_url_are_alternatives.py	integration	functional	agreed	agreed	
 tests/test_two_rungs_on_one_rig_are_two_bounds.py	unit	functional	agreed	agreed	

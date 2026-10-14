@@ -189,7 +189,6 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.sharding",
     "mcgyvr.serving.shardlaunch",
     "mcgyvr.serving.vramfit",
-    "mcgyvr.triage",
     "mcgyvr.wake",
     "mcgyvr.weights",
     "mcgyvr.whole",
