@@ -156,7 +156,7 @@ def edited(original: dict[str, Any]) -> dict[str, Any]:
 
 
 def combination_files(root: Path) -> list[Path]:
-    return sorted((root / "records" / "fleet" / "rigs" / RIG2).glob("cmb-*.json"))
+    return sorted((root / "lock" / "rigs" / RIG2).glob("cmb-*.json"))
 
 
 #: The fixture's two llama.cpp units on box1, as the lock names them.
@@ -309,7 +309,7 @@ def flt05_records() -> tuple[str, str]:
     from mcgyvr.fleet.layout import combination_id
 
     cmb = combination_id(RIG2, [(U7B, "awake"), (U3B, "asleep")])
-    return "records/fleet/flt-05.json", f"records/fleet/rigs/{RIG2}/{cmb}.json"
+    return "lock/flt-05.json", f"lock/rigs/{RIG2}/{cmb}.json"
 
 
 def locked(

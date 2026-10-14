@@ -102,7 +102,7 @@ def write_box1(lock: Any, root: Path, evidence: dict[str, Any]) -> Any:
 
 
 def approved(root: Path, rig_id: str) -> list[dict[str, Any]]:
-    where = root / "records" / "fleet" / "rigs" / rig_id
+    where = root / "lock" / "rigs" / rig_id
     return [
         json.loads(path.read_text(encoding="utf-8"))["approved"]
         for path in sorted(where.glob("cmb-*.json"))

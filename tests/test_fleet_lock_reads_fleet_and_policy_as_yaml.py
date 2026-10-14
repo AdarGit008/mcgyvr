@@ -45,4 +45,4 @@ def test_fleet_lock_reads_fleet_and_policy_as_yaml(tmp_path: Path) -> None:
         "mcgyvr must be able to: lock a fleet from fleet.yaml and policy.yaml, "
         f"not only from JSON (got {refused!r})"
     )
-    assert (tmp_path / "records" / "fleet" / "flt-05.json").is_file()
+    assert (tmp_path / "lock" / "flt-05.json").is_file()

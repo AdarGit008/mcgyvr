@@ -188,7 +188,7 @@ def test_a_pull_clears_only_when_its_validation_is_recommitted(
     assert set(alerts.pulled(journal, lock_root)) == {CMB}, (
         "a clean reading later does not clear a pull"
     )
-    record = lock_root / "records" / "fleet" / "rigs" / RIG2 / f"{CMB}.json"
+    record = lock_root / "lock" / "rigs" / RIG2 / f"{CMB}.json"
     record.parent.mkdir(parents=True)
     record.write_text(json.dumps({"validated_at": "2000-01-01T00:00:00Z"}))
     assert set(alerts.pulled(journal, lock_root)) == {CMB}, (

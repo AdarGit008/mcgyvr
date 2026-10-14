@@ -48,6 +48,9 @@ DATA_NAME = "mcgyvr"
 DATA_DIR = f"~/.local/state/{DATA_NAME}"
 #: Where each live fleet folder sits under the config folder.
 FLEETS_DIR = "fleets"
+#: Where a fleet's lock sits in the folder that holds it: a live fleet folder,
+#: a stamp folder, or the dev root.
+LOCK_DIR = Path("lock")
 #: Where ``mcgyvr setup`` stages each run under the data folder.
 SETUPS_DIR = "setup"
 #: The pointer naming the fleet live runs.

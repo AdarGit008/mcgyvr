@@ -21,6 +21,7 @@ from mcgyvr.fleet.layout import (
     layout_sha256,
     mcorch_units,
 )
+from mcgyvr.fleet.roots import LOCK_DIR
 
 
 class LiveRefusedError(Exception):
@@ -83,7 +84,7 @@ def admit_live(
     if fleet_name not in fleets:
         raise LiveRefusedError(f"{fleet_name} is not a fleet of this setup")
 
-    lock_path = root / "records" / "fleet" / f"{fleet_name}.json"
+    lock_path = root / LOCK_DIR / f"{fleet_name}.json"
     if not lock_path.is_file():
         raise LiveRefusedError(f"{fleet_name} has no lock in its fleet folder")
     lock_record = json.loads(lock_path.read_text(encoding="utf-8"))
@@ -217,7 +218,7 @@ def _laid_out_unsampled(root: Path, host: str) -> bool:
     """
     import yaml
 
-    from mcgyvr.fleet.lock import LOCK_DIR, approved_on_no_evidence
+    from mcgyvr.fleet.lock import approved_on_no_evidence
 
     try:
         given = yaml.safe_load((root / "fleet.yaml").read_text(encoding="utf-8"))
@@ -265,7 +266,7 @@ def host_is_locked(root: Path, host: str) -> bool:
     """
     if _laid_out_unsampled(root, host):
         return True
-    rigs = root / "records" / "fleet" / "rigs"
+    rigs = root / LOCK_DIR / "rigs"
     if not rigs.is_dir():
         return False
     pinned = _pinned_rig_id(root, host)

@@ -205,7 +205,7 @@ def test_fleet_lock_writes_the_dev_root_and_refuses_anything_under_home_mcgyvr(
     args = ("fleet", "lock", "--fleet", str(fleet_file), "--evidence", str(evidence))
 
     assert cli(*args) == 0
-    assert (dev / "records" / "fleet" / "flt-05.json").is_file()
+    assert (dev / "lock" / "flt-05.json").is_file()
     assert tree(work) == {}, "fleet lock wrote into the working directory"
 
     assert cli(*args, "--root", str(fleets() / "flt-05")) != 0, (

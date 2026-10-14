@@ -68,6 +68,7 @@ from mcgyvr.fleet.roots import (
     HOME_DIR,
     HOME_ENV,
     LIVE_FILE_SHOWN,
+    LOCK_DIR,
     RIGS_SHOWN,
     STAGING_SHOWN,
     FolderError,
@@ -5211,7 +5212,7 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     except LockRefusedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    print(f"locked: {root / 'records' / 'fleet'}")
+    print(f"locked: {root / LOCK_DIR}")
     return 0
 
 

@@ -68,6 +68,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   request again. Live wakes a rig only when the live fleet's lock names it,
   whether the lock was written from a stamp or on no evidence.
 
+- **A fleet's lock sits in `lock/`.** The lock tree inside a live fleet
+  folder, a stamp folder and the dev root is `lock/` (`lock/<fleet>.json`,
+  `lock/rigs/<rig->/<combination>.json`), no longer `records/fleet/`. A
+  folder locked before this release is not read: lock and promote it again.
+
 - **One reader reads a machine, and one id names it.**
   - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
     tool. The door ships it to a rig as one read-only line

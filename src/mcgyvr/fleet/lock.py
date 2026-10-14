@@ -47,6 +47,9 @@ from mcgyvr.fleet.layout import (
     layout_sha256,
     mcorch_units,
 )
+
+# LOCK_DIR is re-exported: the lock tree this module writes.
+from mcgyvr.fleet.roots import LOCK_DIR as LOCK_DIR
 from mcgyvr.fleet.roots import fleets_dir, split_name
 from mcgyvr.fleet.spans import (
     Span,
@@ -58,8 +61,6 @@ from mcgyvr.fleet.spans import (
 )
 from mcgyvr.fleet.tolerance import tolerance_class
 
-#: Where a lock sits under the dev root and under a live fleet folder alike.
-LOCK_DIR = Path("records") / "fleet"
 #: The fleet :func:`write_unsampled` locks: the user's own, from the setup
 #: ``mcgyvr setup`` wrote.
 OWN_FLEET = "own"
