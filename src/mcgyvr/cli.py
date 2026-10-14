@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, TextIO
 
 import yaml
 
-from mcgyvr import __version__
+from mcgyvr import __version__, atomic
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import PROBE_TIMEOUT_S
@@ -2285,13 +2285,7 @@ def _copy(source: Path, target: Path) -> None:
     ``.part`` for the next reader to wonder about.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging = target.with_name(f".{target.name}.part")
-    try:
-        staging.write_bytes(source.read_bytes())
-        os.replace(staging, target)
-    except OSError:
-        staging.unlink(missing_ok=True)
-        raise
+    atomic.write(target, source.read_bytes())
 
 
 def _sessions(args: argparse.Namespace) -> int:
@@ -4106,9 +4100,7 @@ def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
 
 def _atomic_write(path: Path, text: str) -> None:
     """Write ``text`` beside ``path`` and move it over atomically."""
-    staged = path.with_name(f".{path.name}.tmp")
-    staged.write_text(text, encoding="utf-8")
-    os.replace(staged, path)
+    atomic.write(path, text)
 
 
 def _stamp_launch(

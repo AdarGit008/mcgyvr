@@ -47,6 +47,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from mcgyvr import atomic
 from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
@@ -651,12 +652,10 @@ def use(name: str) -> Switch:
 
 
 def _point(pointer: Path, name: str, since: str) -> None:
-    staged = pointer.with_name(f".{pointer.name}.tmp")
-    staged.write_text(
+    atomic.write(
+        pointer,
         json.dumps({"fleet": name, "since": since}, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
     )
-    os.replace(staged, pointer)
 
 
 def tag(name: str) -> Path:

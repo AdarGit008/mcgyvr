@@ -2,6 +2,7 @@
   "_doc": "Which python files of the package the check in test_every_number_the_product_judges_with_says_what_it_is.py judges. Every file under src/mcgyvr/ is named once: `judging` when its numbers are classified in the `constants` block of data/numbers.json, or the reason it is not, from the closed list the test states. This is development state and never ships.",
   "files": {
     "__init__.py": "holds no number that sizes or judges",
+    "atomic.py": "holds no number that sizes or judges",
     "availability.py": "judging",
     "capability.py": "judging",
     "capacity.py": "judging",

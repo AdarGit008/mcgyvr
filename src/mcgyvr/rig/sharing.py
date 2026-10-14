@@ -45,6 +45,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from mcgyvr import atomic
 from mcgyvr.fleet import roots
 from mcgyvr.rig import hardware, protocol, sessionwire
 
@@ -279,11 +280,5 @@ def save(sharing: Sharing) -> Path:
     read(data)  # what is written is what reads
     target = path()
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    staging = target.parent / f".{SHARING_FILE}.{os.getpid()}.part"
-    try:
-        staging.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        os.replace(staging, target)
-    except OSError:
-        staging.unlink(missing_ok=True)
-        raise
+    atomic.write(target, json.dumps(data, indent=2) + "\n")
     return target

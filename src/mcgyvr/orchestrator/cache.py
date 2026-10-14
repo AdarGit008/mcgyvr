@@ -42,6 +42,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
+from mcgyvr import atomic
 from mcgyvr.orchestrator.index import (
     DEFAULT_MAX_FILE_BYTES,
     FileIndex,
@@ -430,9 +431,7 @@ def _write(
     }
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(payload), encoding="utf-8")
-        os.replace(temporary, path)
+        atomic.write(path, json.dumps(payload))
     except OSError as exc:
         return False, f"cache not written ({type(exc).__name__})"
     return True, ""
