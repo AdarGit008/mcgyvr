@@ -668,6 +668,12 @@ def build(
             "model": rung.model,
             "width": 1,
         }
+        if backend is not None and backend.window is not None:
+            # The context length the backend serves, read off it by the sweep:
+            # the ceiling a `code` contract's cap is held to beside its prompt
+            # (owner, 2026-10-14). One it could not read is not written, and
+            # `_limits` names the unit as not configured.
+            unit["window"] = backend.window
         if backend is not None and backend.kind == "vllm":
             unit["engine"] = "vllm"
         unit["rig"] = _rig_name(backend, rung.source)
@@ -681,9 +687,9 @@ def build(
             "model": api.model,
             "api_key_env": api.api_key_env,
             "width": 1,
-            # Written, not left to the cap a contract states: a hosted
-            # reasoning model spends its cap on hidden reasoning before it
-            # writes, so its unit says how much room it is given.
+            # Written, because a hosted unit's window cannot be read off it:
+            # this is the ceiling a `code` contract's cap is held to on it, and
+            # never the number sent in its place (owner, 2026-10-14).
             "output_tokens": api.output_tokens,
         }
     ordered_api_units = tuple(api_units)
@@ -887,6 +893,18 @@ def _limits(
     chosen.
     """
     limits = list(detection.notes) + list(proposal.notes)
+    backends = {backend.name: backend for backend in detection.backends}
+    for rung in proposal.rungs:
+        backend = backends.get(rung.source)
+        if backend is None or backend.window is None:
+            limits.append(
+                f"units.{rung.name}.window: the context length {rung.source} "
+                f"serves could not be read, so none is written. A `code` "
+                f"contract's cap is held to its unit's ceiling, so a code "
+                f"dispatch to {rung.name} refuses until "
+                f"`units.{rung.name}.window` or `units.{rung.name}.output_tokens` "
+                f"is set."
+            )
     if api_units:
         # What a bound API unit costs, said where every other cost is said.
         named = ", ".join(f"{u.name} (${u.api_key_env})" for u in api_units)

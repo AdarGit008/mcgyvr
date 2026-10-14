@@ -794,8 +794,8 @@ def test_init_warns_of_review_spend_only_for_a_named_hosted_reviewer() -> None:
     )
     said = " ".join(
         _limits(
-            SimpleNamespace(notes=(), docker=True),  # type: ignore[arg-type]
-            SimpleNamespace(notes=()),  # type: ignore[arg-type]
+            SimpleNamespace(notes=(), docker=True, backends=()),  # type: ignore[arg-type]
+            SimpleNamespace(notes=(), rungs=()),  # type: ignore[arg-type]
             (hosted,),
         )
     )

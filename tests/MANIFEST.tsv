@@ -523,6 +523,7 @@ tests/test_setup_carries_the_measured_jev_recommendation_as_prose_only.py	unit	i
 tests/test_setup_flow_scan.py			unreviewed	unreviewed	
 tests/test_setup_leaves_the_skill.py	integration	infra	agreed	agreed	
 tests/test_setup_names_every_init_option_and_the_commands_before_it.py	integration|unit	infra	disputed	agreed	
+tests/test_setup_writes_the_window_a_local_backend_serves.py			unreviewed	unreviewed	
 tests/test_skill_packaging.py	integration	functional|infra	agreed	disputed	
 tests/test_sleeping_a_card_takes_every_rung_it_serves.py	integration|e2e	logic	disputed	agreed	
 tests/test_spelling_is_not_independence.py	unit	logic	agreed	agreed	
