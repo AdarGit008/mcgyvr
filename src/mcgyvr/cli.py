@@ -452,23 +452,33 @@ def _contract(args: argparse.Namespace) -> int:
             f"  risk:    {contract.risk} — verified by "
             f"{contract.verification.policy.replace('_', ' ')}"
         )
-    if contract.limits.max_output_tokens is not None:
-        output_budget = f"<={contract.limits.max_output_tokens} output tokens"
-    elif contract.needs_output_cap:
-        # Valid, and never sent as it stands: the run refuses a model-written
-        # contract with no cap before any model is called, so say so here,
-        # where refusing costs nothing.
-        output_budget = (
-            "no output cap stated — `mcgyvr run` refuses it until "
-            "`limits.max_output_tokens` is stated"
+    # The cap model is decided by task type (owner, 2026-10-14), and this line
+    # says which rule the contract is under. A deterministic operation calls
+    # no model, so it has no reply to cap and no model attempts to count, and
+    # prints no line at all.
+    if contract.is_session:
+        print(
+            f"  limits:  raw connection: no output cap, no prompt checks, "
+            f"{contract.limits.attempts} attempt(s)"
         )
-    else:
-        output_budget = "uncapped (raw text)"
-    print(
-        f"  limits:  {output_budget}, "
-        f"<={contract.max_input_tokens} prompt tokens, "
-        f"{contract.limits.attempts} attempt(s)"
-    )
+    elif not contract.is_deterministic:
+        if contract.limits.max_output_tokens is not None:
+            output_budget = f"<={contract.limits.max_output_tokens} output tokens"
+        elif contract.needs_output_cap:
+            # Valid, and never sent as it stands: the run refuses a
+            # model-written contract with no cap before any model is called,
+            # so say so here, where refusing costs nothing.
+            output_budget = (
+                "no output cap stated — `mcgyvr run` refuses it until "
+                "`limits.max_output_tokens` is stated"
+            )
+        else:
+            output_budget = "uncapped (raw text)"
+        print(
+            f"  limits:  {output_budget}, "
+            f"<={contract.max_input_tokens} prompt tokens, "
+            f"{contract.limits.attempts} attempt(s)"
+        )
     if reply:
         if contract.acceptance:
             print(

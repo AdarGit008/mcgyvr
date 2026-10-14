@@ -535,6 +535,7 @@ tests/test_the_classifier_proposer_asks_the_jev_unit_when_one_is_bound.py	integr
 tests/test_the_coding_rank_reads_only_bash_only_rows_and_evalplus_below_them.py	unit	functional|logic	agreed	disputed	
 tests/test_the_config_folder_and_the_data_folder_follow_the_users_environment.py	unit	behavior	agreed	agreed	
 tests/test_the_constant_steps_once_an_expert_is_on_the_host.py	unit	infra	agreed	agreed	
+tests/test_the_contract_preview_states_the_cap_rule_of_its_task_type.py			unreviewed	unreviewed	
 tests/test_the_contract_tests_run_against_a_candidate_hub_schema.py	unit	infra	agreed	agreed	
 tests/test_the_docgen_guard_never_writes_the_committed_setup.py	integration|unit	infra	disputed	agreed	
 tests/test_the_door_serves_a_ladder_and_leaves_it_up.py	e2e	operational	agreed	agreed	
