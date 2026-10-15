@@ -13,8 +13,8 @@ lock: gate 1 admits its ``serve up`` only for units the fleet lock names
 live cleans units of ours the fleet does not name
 (``tests/test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py``).
 
-**Gate 2 is not widened.** Every run takes the rig's lease and tears down
-what it displaced, and a ``serve up`` onto a busy card is refused
+**Gate 2 is not widened.** Every run takes the rig's lease, a rig another
+live run holds is refused, and a ``serve up`` onto a busy card is refused
 (``tests/test_the_door_serves_a_ladder_and_leaves_it_up.py``).
 """
 

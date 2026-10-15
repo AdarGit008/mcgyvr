@@ -19,14 +19,14 @@ runtime reader, ``rig-units.sh``.
 THE RIG IS LEASED HERE, before it is read. Gate 5's claim on the RUN_ID is per
 envelope, so two steps could still land on one rig together; the contended
 resource is the rig, so the lease sits on it, at ``~/.mcgyvr/lease``, and every
-run takes it before it spends rig time. The lease is taken whatever holds it
-(owner's ruling R1, 2026-09-06), the displaced run is named, and its
-containers — by the run id its lease carries — are removed here, so this
-run's step opens on an idle rig, and again by gate 7 for anything that came
-back. A lease whose holder is a pid on this machine that
-is gone is stale: named, not silently ignored, and taken. The door releases the
-lease on every way out, and the shims refuse a displaced run's next touch of
-the rig, so a displaced run yields by the machine and not by convention.
+run takes it before it spends rig time. No run takes a rig another live run
+holds (owner's ruling, 2026-10-15: "no one can take from no one"), whichever
+door wrote the lease: a held rig is refused here, in one line naming the
+holder, before anything else reaches the rig — nothing is read, listed,
+stopped or written. A lease whose holder is gone (:meth:`Lease.is_stale`: a
+pid on this machine that no process has any more, or that a later process has
+since been given) is stale: named, not silently ignored, and reclaimed; nothing
+of the dead run is torn down. The door releases the lease on every way out.
 
 A machine that is not idle is not refused: a container or a card holder up
 before the run is reported and left as it is, since mcgyvr did not start it.
@@ -46,6 +46,7 @@ from mcgyvr.serving.gatelib import (
     Lease,
     door_required,
     export,
+    held_by,
     lease_read,
     lease_take,
     need,
@@ -148,81 +149,14 @@ def snapshot(host: str) -> dict[str, str]:
     return {**reading(host)["snapshot"], **held(host)}
 
 
-def teardown_displaced(
-    host: str, displaced: Lease, who: str, keep: frozenset[str] = frozenset()
-) -> None:
-    """Remove the containers a displaced run left, by the names that are ours.
-
-    The one place the door removes a container it did not start, and the
-    exception is the point: the door does not repair a machine it found wrong,
-    because it cannot know what it found — here it can. The lease names the
-    run, the run names its containers (`<RUN_ID>-<role>`), and its serve units
-    are named `mcgyvr-<host>-<service>` (`mcgyvr emit`), so both prefixes are
-    torn down: R1 says a run may take the rig from it, and a displaced serve
-    must not keep holding the card.
-
-    ``keep`` names containers that are not the displaced run's whatever their
-    prefix: the units a ``serve up`` has itself just started, which carry the
-    same ``mcgyvr-`` prefix as the serve it displaced.
-    """
-    if displaced.run_id == "none":
-        print(f"{who}: the displaced run had minted no run id; nothing to tear down")
-        return
-    prefixes = (f"{displaced.run_id}-", "mcgyvr-")
-    try:
-        listed = subprocess.run(
-            ["docker", "ps", "--format", "{{.Names}}"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        listed = None
-    if listed is None or listed.returncode != 0:
-        print(
-            f"{who}: the daemon on {host} could not be asked for the displaced "
-            f"run's containers; any named {displaced.run_id}-* or mcgyvr-* "
-            "are still up",
-            file=sys.stderr,
-        )
-        return
-    names = [
-        n.strip()
-        for n in listed.stdout.splitlines()
-        if n.startswith(prefixes) and n.strip() not in keep
-    ]
-    if not names:
-        print(f"{who}: nothing of the displaced run ({displaced.run_id}) is up")
-        return
-    removed = subprocess.run(
-        ["docker", "rm", "-f", *names],
-        capture_output=True,
-        text=True,
-        timeout=180,
-        check=False,
-    )
-    if removed.returncode != 0:
-        print(
-            f"{who}: could not remove {' '.join(names)}: "
-            f"{removed.stderr.strip()[:300]}",
-            file=sys.stderr,
-        )
-        return
-    print(
-        f"{who}: torn down what this run displaced ({displaced.holder}, "
-        f"run {displaced.run_id}): {' '.join(names)}"
-    )
-
-
-def take_lease(host: str) -> tuple[Lease, Lease | None]:
-    """This run's lease on ``host``, and the lease it displaced, if any.
+def take_lease(host: str) -> Lease:
+    """This run's lease on ``host``, or refused (exit 2) if a live run holds it.
 
     Judged and written in a loop, because the rig is shared: what was read
-    can change before it is written over, and a write that finds a
-    different holder comes back to be judged again rather than overwriting
-    a run that was never named. Three changes of hands and the run gives up
-    naming the last one.
+    can change before it is written, and a write that finds a different
+    holder comes back to be judged again rather than overwriting a run that
+    was never named. Three changes of hands and the run gives up naming the
+    last one.
     """
     step = step_name(Path(need("RUN_STEP_FILE")))
     # The door's pid, not this gate's: the gate exits, the door holds the run.
@@ -232,29 +166,21 @@ def take_lease(host: str) -> tuple[Lease, Lease | None]:
         if held is None:
             held = lease_take(host, mine, held=None)
             if held is None:
-                return mine, None
+                return mine
             continue
         if held.lease_id == mine.lease_id:
-            return mine, None
-        if held.is_stale():
-            print(
-                f"gate 2: a stale lease on {host}: {held.describe()} — that "
-                "run is gone from this machine, so it died without releasing. "
-                "Taken over; nothing of it is torn down unasked",
-                file=sys.stderr,
-            )
-            held = lease_take(host, mine, held=held)
-            if held is None:
-                return mine, None
-            continue
+            return mine
+        if not held.is_stale():
+            refuse(f"gate 2: {held_by(host, held)}")
         print(
-            f"gate 2: {host} is leased by {held.describe()}; this run takes "
-            "it (R1) and tears down what it displaced"
+            f"gate 2: a stale lease on {host}: {held.describe()} — that "
+            "run is gone from this machine, so it died without releasing. "
+            "Reclaimed; nothing of it is torn down unasked",
+            file=sys.stderr,
         )
-        displaced = held
         held = lease_take(host, mine, held=held)
         if held is None:
-            return mine, displaced
+            return mine
     refuse(
         f"gate 2: the lease on {host} changed hands three times while this run "
         "tried to take it; last seen: "
@@ -278,11 +204,7 @@ def main_user(host: str) -> int:
     (:func:`rigfile.door_check`).
     """
     saved = rigfile.required(host, "gate 2")
-    mine, displaced = take_lease(host)
-    export("RUN_LEASE", mine.line())
-    export("RUN_DISPLACED", displaced.raw if displaced is not None else "")
-    if displaced is not None:
-        teardown_displaced(host, displaced, "gate 2")
+    export("RUN_LEASE", take_lease(host).line())
 
     document = reading(host)
     live = {**document["snapshot"], **held(host)}

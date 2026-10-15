@@ -327,12 +327,13 @@ def split_ladder(compose_dir: Path, *, across: str) -> str:
     )
 
 
-#: A serve of another run, on another machine, holding box1 (the lease format of
-#: ``tests/red_port/test_dod_rig_lease.py``).
-DEV_SERVE_LEASE = (
+#: A serve of another run, on another machine, still holding box1 (the lease
+#: format of ``tests/red_port/test_dod_rig_lease.py``).
+HELD_SERVE_RUN = "2026-09-06-box1-serve-up"
+HELD_SERVE_LEASE = (
     "lease_id=deadbeefdeadbeef holder=someone@elsewhere "
-    "machine=elsewhere0000 pid=1 started_at=2026-09-06T01:02:03Z "
-    "step=serve-up run_id=2026-09-06-box1-serve-up"
+    "machine=elsewhere0000 pid=1 pid_start=none started_at=2026-09-06T01:02:03Z "
+    f"step=serve-up run_id={HELD_SERVE_RUN}"
 )
 
 

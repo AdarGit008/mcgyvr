@@ -15,9 +15,10 @@ user picked from the locked set, and nothing else:
 * the Waker wakes a unit only along a listed switch: it spawns one door run
   toward a fleet the current one lists, and nothing toward one it does not.
 
-A dev run holding the rig's lease is displaced by gate 2's existing rule (live
-outranks dev); tearing down its serve units is P0
-(``tests/test_a_live_run_tears_down_the_serve_units_of_the_dev_run_it_displaced.py``).
+A run holding the rig's lease is never displaced: a run that finds the rig
+held by another live run is refused at gate 2, and the holder's serve units
+are left up
+(``tests/test_a_serve_on_a_rig_another_live_run_holds_is_refused_and_leaves_its_units_up.py``).
 """
 
 from __future__ import annotations

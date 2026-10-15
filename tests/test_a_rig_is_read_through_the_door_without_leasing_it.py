@@ -2,13 +2,13 @@
 
 Owner ruling D2: ``python -m mcgyvr.serving.run read --host H [--probe
 UNIT...]`` is a fixed sequence of the door's own, beside ``serve``, which
-cannot read a serving rig: gate 2 takes the rig's lease, a live run tears
-down what it displaced, and a busy rig is refused unless the run is ``serve
+cannot read a serving rig: gate 2 takes the rig's lease, a rig another
+live run holds is refused, and a busy rig is refused unless the run is ``serve
 down``. ``read`` changes nothing on the rig:
 
 * **The config is settled.**
 * **The rig is held to the user's rig file and nothing else.** No lease, no
-  teardown of a displaced run, no refusal of a busy rig. A rig with no rig file
+  refusal of a held or a busy rig. A rig with no rig file
   is refused, and nothing is filed.
 * **One reader is shipped to the rig**: its facts and ``os_machine_id`` (so its
   rig id, :func:`mcgyvr.fleet.ids.rig_id`), every container with its restart

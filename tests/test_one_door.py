@@ -139,8 +139,7 @@ ALLOWED: dict[str, str] = {
     "src/mcgyvr/serving/gatelib.py": (
         "the ssh spawns in src/: gatelib.ssh, which refuses outside "
         "the door and to any host but the door's — gate 2, gate 7, the geometry "
-        "read and the serving harness (contract.ssh) all go through it — the "
-        "shims' own lease check, which admits the same way, and "
+        "read and the serving harness (contract.ssh) all go through it — and "
         "gatelib.ssh_read_only, the sanctioned read-only detection path "
         "(the shipped one reader, the `*.gguf` discovery, and the "
         "shipped-reader header read `mcgyvr recommend` runs) that admits "
@@ -156,10 +155,8 @@ ALLOWED: dict[str, str] = {
         "gatelib, then execs the next docker on PATH at -H ssh://RUN_HOST"
     ),
     "tests/red_port/test_dod_rig_lease.py": (
-        "`docker run` and `ssh` LINES inside steps a test runs under the door: "
-        "the ssh asks the stub rig what its lease says, and the launch proves "
-        "the shim refuses it once the run's lease is gone — the test asserts it "
-        "never reached the daemon"
+        "an `ssh` LINE inside a step a test runs under the door: it asks the "
+        "stub rig what its lease says while the run holds it"
     ),
     "src/mcgyvr/sandbox/docker.py": (
         "the local sandbox — a container on this machine, not a rig"

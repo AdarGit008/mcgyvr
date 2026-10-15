@@ -14,6 +14,7 @@ one that records what would have been sent.
 
 from __future__ import annotations
 
+import dataclasses
 import subprocess
 from pathlib import Path
 
@@ -26,16 +27,18 @@ HOST = "served.invalid"
 LEASE = gatelib.Lease(
     lease_id="0123456789abcdef",
     holder="someone@typing.invalid",
-    machine="typing",
+    machine=gatelib.os_machine_id(),
     pid=4242,
     started_at="2026-01-01T00:00:00Z",
     step="up",
 )
+#: A lease its holder left behind: a door on this machine that is gone.
+STALE = dataclasses.replace(LEASE, lease_id="fedcba9876543210", pid=4_000_000_000)
 
 
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Every lease script a run sends: read, take a free machine, take over a
-    held lease, stamp and release."""
+    """Every lease script a run sends: read, take a free machine, reclaim a
+    stale lease, stamp and release."""
     sent: list[str] = []
 
     def machine(
@@ -47,7 +50,7 @@ def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.setattr(gatelib, "_over_ssh", machine)
     gatelib.lease_read(HOST)
     gatelib.lease_take(HOST, LEASE, held=None)
-    gatelib.lease_take(HOST, LEASE, held=LEASE)
+    gatelib.lease_take(HOST, LEASE, held=STALE)
     gatelib.lease_stamp(HOST, LEASE, "run-1")
     gatelib.lease_release(HOST, LEASE.lease_id)
     return sent

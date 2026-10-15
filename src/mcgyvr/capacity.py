@@ -1474,7 +1474,7 @@ class Capacity:
         rather than pretending otherwise: a request from a second machine, or
         from something that is not mcgyvr, is not drained and is not asked. The
         rig lease is the guard there and it is a decision procedure rather than
-        a mutex on requests (R1, ``gatelib``).
+        a mutex on requests (``gatelib``).
 
         ``timeout`` bounds the wait for each slot; ``None`` blocks until every
         one of them frees. A caller should pass the longest
