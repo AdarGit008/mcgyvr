@@ -2,8 +2,8 @@
 
 Gate 7 (``07-teardown.py``) once asked ``docker ps --filter name=^<RUN_ID>-``
 and called the rig clean when that came back empty. A step that started a
-container under any other name — a driver's own ``--name``, a server left by
-hand, a name with a typo in the prefix — left it running on the rig, held the
+container under any other name — a server left by hand, a name with a typo
+in the prefix — left it running on the rig, held the
 card, and the run exited green. The rig's runtime reader (``rig-units.sh``)
 already lists every container up, which gate 2 reads as ``containers=`` (by
 id, or ``none``), and gate 7 re-reads the rig; nothing compared the two.

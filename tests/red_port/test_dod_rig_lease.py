@@ -7,7 +7,8 @@ mutual exclusion, not partitioning.
 
 Gate 5 claims the RUN_ID (``.<RUN_ID>.running`` in the envelope) so two
 invocations of one step cannot run at once. That claim is per-envelope, so it does
-not stop two different steps, or a laptop and box1, landing on one rig together.
+not stop two different serve steps, or a laptop and box1, landing on one rig
+together.
 The contended resource is the rig, so there is a second claim there: a lease at
 ``~/.mcgyvr/lease`` on the rig itself, taken at gate 2 — before any rig time
 is spent and before the envelope exists — and released on every way out.
@@ -46,8 +47,8 @@ from tests import onedoor
 from tests.onedoor import Scenario
 
 CONFIG_VAR = "MCGYVR_CONFIG"
-CAMPAIGN = "alpha"
-RUN_ID = f"{onedoor.RUN_DATE}-box1-probe"
+FOLDER = "alpha"
+RUN_ID = onedoor.run_id(Scenario(FOLDER, "1-probe.sh"))
 
 SETUP_CONFIG = """\
 units:
@@ -75,7 +76,7 @@ def _foreign(
 ) -> str:
     return (
         f"lease_id=deadbeefdeadbeef holder={holder} "
-        f"machine={machine} pid={pid} started_at={SINCE} campaign=other "
+        f"machine={machine} pid={pid} started_at={SINCE} "
         f"step=probe run_id={DISPLACED_RUN}"
     )
 
@@ -112,9 +113,9 @@ def _setup(tmp_path: Path) -> dict[str, str]:
 
 def _probe(root: Path, tmp_path: Path, after: str = "") -> Scenario:
     onedoor.add_step(
-        root, CAMPAIGN, "1-probe.sh", onedoor.probe_step(tmp_path / "e", after=after)
+        root, FOLDER, "1-probe.sh", onedoor.probe_step(tmp_path / "e", after=after)
     )
-    return Scenario(CAMPAIGN, "1-probe.sh")
+    return Scenario(FOLDER, "1-probe.sh")
 
 
 # --- taking and releasing ----------------------------------------------------
@@ -279,7 +280,7 @@ def test_a_lease_the_door_did_not_write_is_still_displaced_and_torn_down(
     onedoor.plant_lease(
         root,
         f"holder={ELSEWHERE} pid=1 started_at={SINCE} "
-        f"campaign=other step=probe run_id={DISPLACED_RUN}",
+        f"step=probe run_id={DISPLACED_RUN}",
     )
     onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
     done = onedoor.door(root, _probe(root, tmp_path))

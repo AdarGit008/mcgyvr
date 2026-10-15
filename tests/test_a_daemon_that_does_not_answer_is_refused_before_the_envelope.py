@@ -2,14 +2,12 @@
 
 Gate 3's contract says the daemon "must be reachable now". A check that only
 finds a docker CLI on PATH passes gates 1-5 with the daemon stopped: the
-envelope is made, ``RUN_ID`` minted, and the first ``image_digest`` failure
-lands inside the step — after ``start_stamp``/``round_stamp`` — so the artifact
-carries WORKLOAD/START/ROUND and then REFUSED rows whose reason is the daemon,
-filed against the arm.
+envelope is made, ``RUN_ID`` minted, and the first docker failure lands inside
+the step, after the run is filed.
 
 So gate 3 (``03-image.py``) asks ``docker info`` — the ``docker`` on the
 door's PATH, which lands on the rig's daemon — and refuses with exit 2 when
-it fails, before gate 4, the envelope and the step.
+it fails, before the envelope and the step.
 """
 
 from __future__ import annotations
