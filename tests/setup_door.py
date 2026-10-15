@@ -207,8 +207,8 @@ def gate_1(
     from tests._paths import REPO
 
     gate = by_path(
-        "gate_01_round",
-        REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-round.py",
+        "gate_01_config",
+        REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-config.py",
     )
     door = {
         **os.environ,

@@ -1,6 +1,6 @@
 """A staged setup may serve any launch spec: the live ladder's, or its own.
 
-Gate 1 (``src/mcgyvr/serving/gate-scripts/01-round.py``) admits a ``serve up``
+Gate 1 (``src/mcgyvr/serving/gate-scripts/01-config.py``) admits a ``serve up``
 and ``down`` under a setup ``mcgyvr setup`` staged in the data folder whatever
 launch spec they name: nothing of it is locked yet, and setup starts and
 samples it itself (:func:`mcgyvr.fleet.roots.runs_live`; owner ruling N11 in

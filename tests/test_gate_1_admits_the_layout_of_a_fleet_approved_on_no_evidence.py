@@ -32,14 +32,14 @@ from tests._paths import REPO
 from tests.doors import UNITS
 from tests.fleetlocks import BOX1_EVIDENCE, BOX1_FLEET
 
-GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-round.py"
+GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-config.py"
 RIG = "box.invalid"
 RIG_ID = "rig-" + "2" * 64
 CONTAINER = "mcgyvr-box-local"
 
 
 def _gate() -> Any:
-    return by_path("gate_01_round", GATE_1)
+    return by_path("gate_01_config", GATE_1)
 
 
 def _unsampled_live(tmp_path: Path) -> Path:

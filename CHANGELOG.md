@@ -231,6 +231,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- **The door's gate 1 is `01-config.py`** (was `01-round.py`), named for
+  what it does: it names the config the run is under and admits a live
+  `serve up` only for units the lock names. A refusal there now reads
+  `run.py: REFUSED at 01-config.py — ...`; the gate itself is unchanged.
 - **A stamp locks nothing; `mcgyvr fleet lock` is the one lock writer**
   (owner: "one script that locks a fleet, one script that stamps a fleet
   without locking").

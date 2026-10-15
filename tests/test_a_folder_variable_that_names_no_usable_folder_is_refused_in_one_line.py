@@ -29,7 +29,7 @@ from mcgyvr.fleet import roots
 from tests._helpers import by_path
 from tests._paths import REPO
 
-GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-round.py"
+GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-config.py"
 #: Values that name no folder: one is not absolute, one cannot be expanded.
 UNUSABLE = ("relative/folder", "~<user>/x")
 #: What the installed ``mcgyvr`` command runs.
@@ -81,7 +81,7 @@ def test_the_first_gate_refuses_a_live_serve_by_the_variables_name(
 ) -> None:
     monkeypatch.setenv("RUN_HOST", "served.invalid")
     monkeypatch.setenv("RUN_SERVE_EXPECTED", "u1")
-    gate = by_path("gate_01_round", GATE_1)
+    gate = by_path("gate_01_config", GATE_1)
 
     with pytest.raises(SystemExit):
         gate.refuse_unless_the_fleet_lock_names("up", "none")
@@ -165,7 +165,7 @@ def test_the_first_gate_refuses_a_folder_it_cannot_search_by_its_path(
 ) -> None:
     monkeypatch.setenv("RUN_HOST", "served.invalid")
     monkeypatch.setenv("RUN_SERVE_EXPECTED", "u1")
-    gate = by_path("gate_01_round", GATE_1)
+    gate = by_path("gate_01_config", GATE_1)
 
     with pytest.raises(SystemExit):
         gate.refuse_unless_the_fleet_lock_names("up", "none")
