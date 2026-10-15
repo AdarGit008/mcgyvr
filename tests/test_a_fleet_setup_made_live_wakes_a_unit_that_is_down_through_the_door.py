@@ -7,7 +7,10 @@ staged folder, which is kept -- so the live fleet it promotes yields a waker
 is a door ``serve up`` of its launch spec, then the request again. Live wakes
 only a rig its lock names (:func:`mcgyvr.fleet.admit.host_is_locked`), which
 holds both for a fleet locked from its sample's stamp and for one locked on no
-evidence.
+evidence -- and so does the door: each live ``serve up`` passes gate 1's own
+check (:func:`tests.setup_door.gate_1`), which admits the containers a lock
+approved on no evidence lays out on the rig as it admits the ones a measured
+lock's records name.
 
 The rig is :class:`tests.setup_door.FakeRig` behind the door; nothing reaches
 a machine.
@@ -40,7 +43,7 @@ WAYS = {
 def test_the_live_fleet_setup_made_wakes_a_refused_unit_through_the_door(
     monkeypatch: pytest.MonkeyPatch, way: str
 ) -> None:
-    rig = sd.FakeRig()
+    rig = sd.FakeRig(gate_1=True)
     sd.interactive(monkeypatch, rig, WAYS[way])
     assert cli.main(["setup"]) == 0
     (staged,) = (data_home() / "setup").iterdir()
@@ -59,6 +62,7 @@ def test_the_live_fleet_setup_made_wakes_a_refused_unit_through_the_door(
 
     rig.calls.clear()
     rig.up.clear()
+    rig.gate_1_said.clear()
     (rung,) = config.ladder.names
     sent: list[int] = []
 
@@ -73,6 +77,8 @@ def test_the_live_fleet_setup_made_wakes_a_refused_unit_through_the_door(
     ((verb, direction, host, spec, *_),) = rig.calls
     assert (verb, host, spec) == ("serve", sd.RIG, f"compose.{sd.RIG}.yml")
     assert direction in ("up", "wake")
+    if direction == "up":
+        assert rig.gate_1_said == [("live", 0)], "the door's gate 1 admitted it"
 
 
 def test_the_staged_setup_says_auto_wake_is_on(

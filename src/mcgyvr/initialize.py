@@ -806,6 +806,13 @@ def _opt_in_decisions(
     return said
 
 
+def unit_names(detection: Detection) -> tuple[str, ...]:
+    """The units :func:`initialize` writes for ``detection``'s servers, by name,
+    in ladder order: what ``jev`` and ``mcorch`` may name. Hosted units the
+    caller adds are not among them."""
+    return tuple(rung.name for rung in propose(sources=_sources_for(detection)).rungs)
+
+
 def _sources_for(detection: Detection) -> list[AvailableSource]:
     """Detected backends as proposal inputs, in the order they were found.
 

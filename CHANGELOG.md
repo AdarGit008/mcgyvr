@@ -109,6 +109,20 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     nothing is locked or made live, and the limits say how to lock it. Setup
     no longer approves its own fleet unasked.
 
+- **The interactive `mcgyvr setup` asks the use case, Jev and mcorch before
+  it plans.** It planned `coding` only.
+  - After the rigs it asks "What is this setup for: coding, chat, agent or
+    media-gen? [coding]", then "Dedicate a unit to Jev, which answers typed
+    decisions? [y/N]", and, for `coding` with Jev on, "Run mcorch, the local
+    orchestrator, on a unit? [y/N]". These are the interactive `--use-case`,
+    `--jev` and `--mcorch`. Enter is coding, no Jev and no mcorch.
+  - With several units it asks which one is Jev and which runs mcorch;
+    Enter is the first. mcorch runs at the window each slot is launched at.
+  - The answer is planned, staged and sampled. Jev's and mcorch's units are
+    laid out awake and probed, and the sample asks the Jev unit its typed
+    choice. `media-gen` has no sample yet: setup says so, starts nothing,
+    and asks before it locks the fleet on no evidence.
+
 - **The working directory is no longer a config.** A command that reads a
   setup reads `$MCGYVR_CONFIG` (or its `--config`), else the live fleet that
   `$MCGYVR_HOME/live.json` names. A `fleet.yaml` where the command runs is not
@@ -121,6 +135,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   a unit that is down is a door `serve up` of that unit's launch spec and the
   request again. Live wakes a rig only when the live fleet's lock names it,
   whether the lock was written from a stamp or on no evidence.
+  - The door's gate 1 now admits that `serve up` for a fleet locked on no
+    evidence too. It admits the containers the lock's layout places on that
+    rig, while the live `fleet.yaml` still matches the lock's pin, and
+    nothing else (`mcgyvr.fleet.admit.unsampled_containers`, the rule
+    `host_is_locked` reads). Before, the waker passed and the door refused.
+    A lock written from a stamp is still read from its combination records
+    alone.
+  - Such a lock now pins each laid-out unit's container,
+    `"containers": {"<rig>": {"<unit>": "<container>"}}`, as a stamp's
+    combination records name them. A container edited into the live
+    `fleet.yaml` afterwards is refused by gate 1 and unlocks its rig for the
+    waker. A lock on no evidence written before this has no `containers`, so
+    its rigs' containers are refused: lock it again with `mcgyvr setup`.
 
 - **A fleet's lock sits in `lock/`.** The lock tree inside a live fleet
   folder, a stamp folder and the dev root is `lock/` (`lock/<fleet>.json`,
@@ -201,6 +228,21 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     no combination record. `admit.host_is_locked` now answers for a lock
     approved on no evidence from its layout, while that layout matches the
     pin.
+
+### Removed
+
+- **The capability table carries a model's facts and no measurement**
+  (schema version 4). Its card classes, speed readings (`throughput_tok_s`,
+  `seconds_per_image`, `seconds_per_clip`), harness caveats and concurrency
+  findings are gone, and a table that carries one is refused by its name.
+  `mcgyvr capabilities` lists each model's memory figure, without the card
+  classes and caveats it printed before. A version 3 table is refused.
+- **The `measure` dependency group.** Only the lab's token-estimator
+  measurement used it, and the lab carries the group itself.
+- **The model knowledge's online half**, `mcgyvr.knowledge.online` and
+  `mcgyvr.knowledge.boards`: no command ran it. The cache, the shipped catalog
+  and the geometry rows are read as before. The Hub's address `serve fetch`
+  downloads from is `mcgyvr.serving.fetchlist.HUB`.
 
 ## [0.5.0] - 2026-10-13
 

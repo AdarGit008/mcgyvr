@@ -7,8 +7,6 @@
 # holds how work moves; fleet.yaml holds what runs where. Unknown keys are
 # refused, never ignored — a file that does not say what it means is refused
 # rather than read under the wrong rules.
-#
-# A concrete dev setup lives with the lab's fleet records, not in this product.
 
 units:
   # One unit = one process at one address. The name (here `local`) is yours.
@@ -42,8 +40,8 @@ units:
 
 rigs:
   local:
-    # Identity digest over {host, hardware, system} — compute with
-    # `mcgyvr.fleet.ids.digest("rig-", fields)` (see the lab's fleet-identity plan).
+    # The machine's one id: a digest over its machine id and its cards' names
+    # and sizes, as `mcgyvr scan --rig local` reads it (`mcgyvr.fleet.ids.rig_id`).
     rig_id: "rig-0000000000000000"
 
 fleets:

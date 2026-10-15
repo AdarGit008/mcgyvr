@@ -478,7 +478,7 @@ def test_no_rung_of_a_written_config_carries_the_quality_caveat(
     for rung in pool.rungs:
         runner = runner_for(pool.bind(rung.name))
         assert runner.quality_safe, (
-            f"{rung.name} dispatches on a path CAV-01 invalidates, so this "
+            f"{rung.name} dispatches on a path not safe to measure through, so this "
             f"install cannot serve a measurement"
         )
 

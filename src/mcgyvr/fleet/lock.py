@@ -736,6 +736,28 @@ def _unit_id(unit: Mapping[str, Any]) -> str:
     )
 
 
+def pinned_containers(
+    fleet: Mapping[str, Any], layout: Mapping[str, Any]
+) -> dict[str, dict[str, str]]:
+    """``rig -> unit -> container`` for each unit ``layout`` places on a rig
+    that names the container it launches as; a unit naming none is left out.
+    What a lock approved on no evidence pins (:func:`write_unsampled`), and
+    what :mod:`mcgyvr.fleet.admit` compares the live ``fleet.yaml`` to."""
+    units = fleet.get("units") or {}
+    pinned: dict[str, dict[str, str]] = {}
+    for rig, slots in layout.items():
+        on_rig: dict[str, str] = {}
+        for slot in slots or ():
+            if not isinstance(slot, list | tuple) or not slot:
+                continue
+            body = units.get(slot[0])
+            container = body.get("container") if isinstance(body, Mapping) else None
+            if isinstance(container, str) and container:
+                on_rig[str(slot[0])] = container
+        pinned[str(rig)] = on_rig
+    return pinned
+
+
 def write_unsampled(
     dev_root: Path,
     setup: Path,
@@ -756,7 +778,9 @@ def write_unsampled(
     unit on it awake, and each such unit gets the id the lock pins; hosted
     units are carried as they are. Written under ``dev_root``, as a stamp folder
     is laid out: the fleet's setup in ``setup/`` and the lock, which pins that
-    layout and says who approved it and when, in the lock tree. No combination
+    layout and the container each of its units launches as
+    (:func:`pinned_containers`) and says who approved it and when, in the lock
+    tree. No combination
     record is written: nothing was validated. From there it is promoted
     (:func:`mcgyvr.fleet.promote.promote` with ``dev_root`` and its ``setup/``)
     and named live (:func:`mcgyvr.fleet.promote.use`) as any lock is.
@@ -839,6 +863,11 @@ def write_unsampled(
             own["units"][unit]["unit_id"] = _unit_id(units[unit])
     record = {
         "layout_sha256": layout_sha256(layout_ids(own, layout)),
+        # Each rig's units by the container they launch as, as a measured
+        # lock's combination records name them (`approved.<unit>.container`):
+        # the hash pins unit ids, which a container edited into fleet.yaml
+        # afterwards leaves as they were, so the container is pinned here.
+        "containers": pinned_containers(own, layout),
         "next": [],
         "switches": [],
         "approved_by": OWN_APPROVER,

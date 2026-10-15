@@ -1,16 +1,13 @@
-"""A text in the shipped table names a card only by its class.
+"""No text in the shipped table describes a card.
 
 Promise: no text of the shipped capability table, at any depth, states a
 card's memory size, an amount of a card's memory a server held, a fraction of
 a card, a card's core count or a card's memory bandwidth. A text names a card
-by a class the table declares, or by nothing ("the card", "a card of a larger
-class"). A declared class's own label and id are read from the table and are
-not taken for a card's size where one stands whole and names the class; a
-size that only contains one, or a card named by one, is still a card's size.
+by nothing more than "the card" or "a card with little memory to spare".
 
-Every figure of the table is an estimate for a card class. A text that gives a
-card's size, cores or share of memory describes the one card that was read,
-not the class, and a reader takes that card's shape for a rule.
+The table states a model's facts. A text that gives a card's size, cores or
+share of memory describes the one card a figure was read on, and a reader
+takes that card's shape for a rule.
 
 The check is by the shape of the words around a number (:data:`CARD_SHAPES`).
 The controls below show that each shape sees what it is for, and leaves alone a
@@ -26,12 +23,12 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
-from mcgyvr.capability import load, table_path
+from mcgyvr.capability import table_path
 
 #: An amount of memory of the size a card holds: a number, then MB, GB or TB,
 #: or their binary forms.
@@ -40,7 +37,7 @@ _SIZE = r"~?\d+(?:\.\d+)?[\s-]*[MGT]i?B\b"
 #: What names a card, or the memory on one.
 _CARD = r"(?:cards?|gpus?|vram|class(?:es)?|boards?|devices?)"
 
-#: The shapes of a text that describe a card rather than a class of card.
+#: The shapes of a text that describe a card.
 CARD_SHAPES: dict[str, re.Pattern[str]] = {
     "a card's memory size": re.compile(
         rf"{_SIZE}[\s-]*(?:of\s+)?{_CARD}\b"
@@ -75,35 +72,8 @@ CARD_SHAPES: dict[str, re.Pattern[str]] = {
 }
 
 
-def _declared_names() -> tuple[str, ...]:
-    """Every declared class's label and id, as the loader reads them."""
-    classes = load(table_path()).card_classes
-    assert classes, "the shipped table declares no card class"
-    return tuple(name for c in classes for name in (c.label, c.id))
-
-
-#: A word that names a card itself. A declared class name that one of these
-#: follows names a card by its size, not the class.
-_CARD_WORD = r"(?:cards?|gpus?|vram|boards?|devices?)\b"
-
-
-def _unlabelled(text: str, names: Iterable[str]) -> str:
-    """``text`` with every declared class name taken out, longest first, so a
-    class named by its own label or id is not read as a card's size.
-
-    A name is taken out only where it stands whole, not inside a longer word
-    or number (nor before a ``/``, as in a bandwidth), and where no word that
-    names a card follows it.
-    """
-    for name in sorted(names, key=len, reverse=True):
-        whole = rf"(?<![\w.]){re.escape(name)}(?![\w./])(?![\s-]*{_CARD_WORD})"
-        text = re.sub(whole, "a declared class", text, flags=re.IGNORECASE)
-    return text
-
-
-def _shapes_in(text: str, names: Iterable[str]) -> list[str]:
-    plain = _unlabelled(text, names)
-    return [shape for shape, pattern in CARD_SHAPES.items() if pattern.search(plain)]
+def _shapes_in(text: str) -> list[str]:
+    return [shape for shape, pattern in CARD_SHAPES.items() if pattern.search(text)]
 
 
 def _texts(node: Any, where: str = "") -> Iterator[tuple[str, str]]:
@@ -127,27 +97,15 @@ def _shipped_texts() -> list[tuple[str, str]]:
 
 
 @pytest.mark.parametrize("shape", sorted(CARD_SHAPES))
-def test_no_text_in_the_shipped_table_describes_a_card_rather_than_its_class(
-    shape: str,
-) -> None:
-    names = _declared_names()
+def test_no_text_in_the_shipped_table_describes_a_card(shape: str) -> None:
     texts = _shipped_texts()
     assert texts
 
     offending = [
-        f"{where}: {text}"
-        for where, text in texts
-        if CARD_SHAPES[shape].search(_unlabelled(text, names))
+        f"{where}: {text}" for where, text in texts if CARD_SHAPES[shape].search(text)
     ]
 
     assert not offending, f"texts that state {shape}:\n" + "\n".join(offending)
-
-
-def test_a_declared_class_is_not_read_as_a_card_size() -> None:
-    names = _declared_names()
-
-    for name in names:
-        assert not _shapes_in(f"on a card of the {name} class", names), name
 
 
 # --- the controls: each shape sees what it is for, and nothing else ------------
@@ -189,11 +147,8 @@ SEEN: dict[str, tuple[str, ...]] = {
     ),
 }
 
-#: Names an invented table might declare for a class: a label and an id.
-INVENTED_NAMES: tuple[str, ...] = ("24 GB class", "24gb")
-
 #: Invented texts no shape may see: a model's size, speeds, ratios, a hit rate,
-#: a qualitative share of a card, and a card named by its class.
+#: a qualitative share of a card, and a card named by no figure.
 UNSEEN: tuple[str, ...] = (
     "a weight set of ~40 GB, not the file this row describes",
     "runs with ~7 GB on the card under partial offload",
@@ -216,31 +171,6 @@ def test_each_shape_sees_what_it_is_for(shape: str, text: str) -> None:
     assert CARD_SHAPES[shape].search(text), (shape, text)
 
 
-@pytest.mark.parametrize(
-    ("shape", "text"),
-    [(shape, text) for shape, texts in SEEN.items() for text in texts],
-)
-def test_a_shape_stays_seen_once_the_class_names_are_taken_out(
-    shape: str, text: str
-) -> None:
-    """A size that contains a declared name, or a card named by one, is still
-    a card's size: taking the class names out must not hide it."""
-    for names in (_declared_names(), INVENTED_NAMES):
-        assert shape in _shapes_in(text, names), (shape, text, names)
-
-
 @pytest.mark.parametrize("text", UNSEEN)
-def test_no_shape_sees_a_models_size_a_speed_or_a_class(text: str) -> None:
-    assert not _shapes_in(text, ()), text
-
-
-def test_a_class_label_is_taken_out_and_an_undeclared_size_is_not() -> None:
-    names = INVENTED_NAMES
-    size = ["a card's memory size"]
-
-    assert not _shapes_in("on a card of the 24 GB class", names)
-    assert not _shapes_in("on a card of the 24gb class", names)
-    assert _shapes_in("on a card of the 10 GB class", names) == size
-    assert _shapes_in("on a card of the 124 GB class", names) == size
-    assert _shapes_in("on a 24GB card", names) == size
-    assert _shapes_in("a 124GB card", names) == size
+def test_no_shape_sees_a_models_size_a_speed_or_a_plain_card(text: str) -> None:
+    assert not _shapes_in(text), text

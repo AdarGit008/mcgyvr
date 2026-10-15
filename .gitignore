@@ -11,9 +11,6 @@ dist/
 build/
 *.egg-info/
 node_modules/
-# A campaign driver's stop sentinel. Nothing in this repository reads or writes
-# it, and one left by an old checkout must never be committed.
-.campaign-stop
 
 # graphify's output directory. `graphify-out/` holds a generated knowledge graph
 # of the tree (graph.json, graph.html, GRAPH_REPORT.md) plus its extraction

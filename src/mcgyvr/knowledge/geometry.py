@@ -12,8 +12,7 @@ for all of its numbers (``gguf-header-range:<repo>@<revision>/<file>``, read
 over HTTP ``Range``, never a weight). It is kept per file at a revision:
 
 * the **cache**, ``$MCGYVR_HOME/knowledge/geometry/``, one file per
-  ``repo@revision/file``, written by :func:`write` when an online run read the
-  header;
+  ``repo@revision/file``, written by :func:`write`;
 * the **shipped** rows, ``data/model-geometry.json``, the headers of the
   shipped catalog's files, so a machine with no network and no cache can still
   size them.
