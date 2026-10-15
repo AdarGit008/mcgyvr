@@ -1,4 +1,4 @@
-# mcgyvr fleet.yaml — what runs where. LOCKED by `mcgyvr fleet lock`.
+# mcgyvr fleet.yaml — what runs where. LOCKED when `mcgyvr setup` locks it.
 #
 # Copy this into a setup directory beside policy.yaml and edit it. The meaning of every
 # key, its type and its default is in `skills/mcgyvr/SETUP.md` (generated from
@@ -7,8 +7,6 @@
 # holds how work moves; fleet.yaml holds what runs where. Unknown keys are
 # refused, never ignored — a file that does not say what it means is refused
 # rather than read under the wrong rules.
-
-profile: dev          # live | dev — live outranks dev on the rigs
 
 units:
   # One unit = one process at one address. The name (here `local`) is yours.

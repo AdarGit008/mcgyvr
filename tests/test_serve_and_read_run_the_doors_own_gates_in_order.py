@@ -1,15 +1,10 @@
-"""Without a gate list, `serve` and `read` run only the door's own gates.
+"""`serve` and `read` run the door's own gates, in the door's order.
 
-A gate list is something a caller adds. A caller that adds none gets the
-door's runs as they are: every gate of the door, in the door's order, each
-under the door's run root, and the same exit status for the same gate
-outcomes. A door gate that writes a line that is not ``KEY=VALUE`` is
-refused quoting the whole line, as before.
-
-One change to these runs is deliberate: a door gate that exports a value
-holding a NUL is refused by name, with status 2, and the lease is released.
-Before, the door raised ValueError when it started the next process with
-that value, and the lease was never released.
+Every gate of the door, in the door's order, each under the door's run root,
+and the same exit status for the same gate outcomes. A door gate that writes a
+line that is not ``KEY=VALUE`` is refused quoting the whole line, and one that
+exports a value holding a NUL is refused by name, with status 2, and the lease
+is released.
 """
 
 from __future__ import annotations
@@ -19,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.serving import run
-from tests import callergates as cg
+from tests import fakedoor as cg
 
 
 def _lines(log: Path) -> list[tuple[str, str]]:
@@ -141,7 +136,6 @@ def test_a_door_gate_exporting_a_nul_is_refused_by_name_and_the_lease_released(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The one deliberate change to a run with no gate list."""
     cg.clean_door_env(monkeypatch)
     log = tmp_path / "order.log"
     gates = cg.fake_door(tmp_path, monkeypatch, log)

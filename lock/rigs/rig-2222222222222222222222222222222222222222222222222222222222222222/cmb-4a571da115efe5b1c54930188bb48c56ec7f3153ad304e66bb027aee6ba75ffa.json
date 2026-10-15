@@ -1,0 +1,31 @@
+{
+  "approved": {
+    "box2_3b": {
+      "address": "http://box2:8001",
+      "attention_backend": "FLASH_ATTN",
+      "baseline_tok_s": 106.0,
+      "engine": "vllm",
+      "kv_cache_memory_bytes": 452984832,
+      "prefill_tok_s": 3100.0,
+      "warm_decode_tok_s": 105.0
+    },
+    "box2_7b": {
+      "address": "http://box2:8002",
+      "attention_backend": "FLASH_ATTN",
+      "baseline_tok_s": 57.4,
+      "engine": "vllm",
+      "kv_cache_memory_bytes": 2147483648,
+      "prefill_tok_s": 1420.0,
+      "warm_decode_tok_s": 57.0
+    }
+  },
+  "card_mib": 12000,
+  "envelope": "records/evidence/2026-09-11-fleet-box2/flt-02",
+  "overhead_mib": 600,
+  "restarts": {
+    "box2_3b": 0,
+    "box2_7b": 0
+  },
+  "rig": "box2",
+  "validated_at": "2026-09-11T10:30:00Z"
+}

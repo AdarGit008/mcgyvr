@@ -217,7 +217,6 @@ def test_a_check_given_no_unit_name_or_time_keeps_the_run_time_and_names_what_it
                     "tolerance_pct": {"warm_decode_tok_s": 48.0},
                 }
             },
-            profile="live",
             journal_dir=journal,
             stamp=STAMP,
             run_id="run-20260915T120000-0a1b2c3d",

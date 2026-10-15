@@ -37,7 +37,8 @@ def compose_file(root: Path, names: tuple[str, ...] = UNITS) -> Path:
 CONFIG_VAR = "MCGYVR_CONFIG"
 
 
-#: A setup under development: same rig, its own file, ``profile: dev``.
+#: A setup under development: same rig, its own file, outside the config
+#: folder, so nothing locked holds it (:func:`mcgyvr.fleet.roots.runs_live`).
 DEV_LADDER = """\
 units:
   only:
@@ -54,8 +55,8 @@ sandbox:
 
 
 def dev_config(path: Path) -> Path:
-    """A dev config this door run reads its profile from."""
-    path.write_text("profile: dev\n" + DEV_LADDER, encoding="utf-8")
+    """A setup outside the config folder, which this door run reads."""
+    path.write_text(DEV_LADDER, encoding="utf-8")
     return path
 
 
@@ -135,15 +136,13 @@ def config_file(
     specs: Path | None,
     switch: bool | None,
     engine: str = "vllm",
-    profile: str | None = None,
 ) -> Path:
     """A config on disk. ``switch=None`` writes no ``serving:`` block at all.
 
-    ``profile=None`` writes no ``profile:`` key, which loads as ``live``. The
-    tests that act on a card pass ``"dev"``: under
-    ``mcgyvr-lab/records/plans/fleet-identity.md`` a live config that holds launch specs
-    acts only on an approved fleet shape, and these tests pin the wake
-    mechanism, which a dev run may exercise freely.
+    The file is written where the test says, outside the config folder, so a
+    run under it is held to no lock (:func:`mcgyvr.fleet.roots.runs_live`):
+    these tests pin the wake mechanism, which a setup that is not the live
+    fleet may exercise freely.
 
     Loaded here rather than left for ``mcgyvr run`` to load, so that a config
     the schema does not know says so at the line that wrote it.
@@ -151,8 +150,6 @@ def config_file(
     from mcgyvr.config import load
 
     text = ladder(engine=engine) + f"journal:\n  dir: {journal}\n"
-    if profile is not None:
-        text += f"profile: {profile}\n"
     if switch is not None:
         text += "serving:\n"
         text += f"  enable_sleep_wake: {'true' if switch else 'false'}\n"
@@ -245,8 +242,7 @@ def ladder_text(
         "    width: 2\n" + room(large_mib) + "ladder:\n"
         f"- {FAST}\n"
         f"- {SMALL}\n"
-        f"- {LARGE}\n"
-        "profile: dev\n" + serving
+        f"- {LARGE}\n" + serving
     )
 
 
@@ -331,12 +327,12 @@ def split_ladder(compose_dir: Path, *, across: str) -> str:
     )
 
 
-#: A dev serve, on another machine, holding box1 (the lease format of
+#: A serve of another run, on another machine, holding box1 (the lease format of
 #: ``tests/red_port/test_dod_rig_lease.py``).
 DEV_SERVE_LEASE = (
-    "lease_id=deadbeefdeadbeef profile=dev holder=someone@elsewhere "
+    "lease_id=deadbeefdeadbeef holder=someone@elsewhere "
     "machine=elsewhere0000 pid=1 started_at=2026-09-06T01:02:03Z "
-    "campaign=live-box1 step=serve-up run_id=2026-09-06-live-box1-serve-up"
+    "step=serve-up run_id=2026-09-06-box1-serve-up"
 )
 
 

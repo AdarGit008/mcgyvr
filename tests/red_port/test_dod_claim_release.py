@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.serving import run
+from tests.fakedoor import compose_file
 from tests.onedoor import executable
 
 RUN_ID = "2026-09-06-claim-probe"
@@ -65,6 +66,13 @@ def _gates(where: Path, out_dir: Path, refuse_at: str) -> Path:
     return where
 
 
+def _serve_down(tmp_path: Path) -> list[str]:
+    """A ``serve down`` of two invented units: the door's whole sequence."""
+    compose = compose_file(tmp_path / "compose.yaml")
+    argv = ["serve", "down", "--host", "box1", "--compose", str(compose)]
+    return [*argv, "--date", "2026-09-06"]
+
+
 def _claim(out_dir: Path) -> Path:
     from mcgyvr.serving import gatelib
 
@@ -80,21 +88,7 @@ def test_a_gate_after_the_envelope_that_refuses_leaves_no_claim_behind(
     monkeypatch.setattr(run, "GATE_SCRIPTS", gates)
     monkeypatch.setattr(run, "BIN", gates / "bin")
 
-    step = tmp_path / "step.sh"
-    executable(step, "#!/usr/bin/env bash\nexit 0\n")
-    status = run.main(
-        [
-            "step",
-            "--host",
-            "box1",
-            "--campaign",
-            "claim-probe",
-            "--step",
-            str(step),
-            "--date",
-            "2026-09-06",
-        ]
-    )
+    status = run.main(_serve_down(tmp_path))
 
     assert status != 0, "the fixture must actually refuse"
     assert not _claim(out_dir).exists(), (
@@ -120,21 +114,7 @@ def test_a_run_that_reaches_the_end_still_releases(
     monkeypatch.setattr(run, "GATE_SCRIPTS", gates)
     monkeypatch.setattr(run, "BIN", gates / "bin")
     try:
-        step = tmp_path / "step.sh"
-        executable(step, "#!/usr/bin/env bash\nexit 0\n")
-        run.main(
-            [
-                "step",
-                "--host",
-                "box1",
-                "--campaign",
-                "claim-probe",
-                "--step",
-                str(step),
-                "--date",
-                "2026-09-06",
-            ]
-        )
+        run.main(_serve_down(tmp_path))
     finally:
         monkeypatch.undo()
     assert not _claim(out_dir).exists(), "a completed run releases its claim"

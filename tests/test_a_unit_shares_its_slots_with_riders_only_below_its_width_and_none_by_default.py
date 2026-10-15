@@ -132,27 +132,20 @@ def test_the_fleet_file_refuses_a_share_and_points_to_the_policy() -> None:
 
 
 def _lock(root: Path, policy: str) -> dict[str, bytes]:
-    from mcgyvr.cli import main
+    from mcgyvr.fleet.files import load_fleet, load_policy
+    from mcgyvr.fleet.lock import tolerances, write
 
     root.mkdir()
     (root / "fleet.yaml").write_text(FLEET_YAML, encoding="utf-8")
     (root / "policy.yaml").write_text(policy, encoding="utf-8")
     (root / "evidence.json").write_text(json.dumps(EVIDENCE), encoding="utf-8")
-    code = main(
-        [
-            "fleet",
-            "lock",
-            "--fleet",
-            str(root / "fleet.yaml"),
-            "--evidence",
-            str(root / "evidence.json"),
-            "--policy",
-            str(root / "policy.yaml"),
-            "--root",
-            str(root),
-        ]
+    write(
+        root,
+        load_fleet(FLEET_YAML),
+        EVIDENCE,
+        policy=load_policy(policy),
+        tolerances=tolerances(),
     )
-    assert code == 0
     inputs = {"fleet.yaml", "policy.yaml", "evidence.json"}
     written = {
         str(path.relative_to(root)): path.read_bytes()

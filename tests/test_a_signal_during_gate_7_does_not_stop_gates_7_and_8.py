@@ -125,7 +125,7 @@ def test_an_interrupt_before_gate_7_still_exits_130_and_releases_the_claim(
             assert time.monotonic() < deadline, "the step never reached its hang"
             time.sleep(0.1)
         run_id = onedoor.read_env_file(tmp_path / "e")["RUN_ID"]
-        assert (onedoor.envelope(root, "alpha") / f".{run_id}.running").is_file()
+        assert (onedoor.envelope(root, PROBE) / f".{run_id}.running").is_file()
         os.killpg(proc.pid, signal.SIGINT)
         proc.wait(timeout=90)
         with contextlib.suppress(ProcessLookupError):

@@ -75,7 +75,6 @@ def _vllm(port: int, container: str, room: int, kv: int) -> dict[str, Any]:
 
 
 FLEET: dict[str, Any] = {
-    "profile": "live",
     "units": {
         "box2_3b": {
             **_vllm(8001, "mcgyvr-box2-3b", 3573, 1207959552),
@@ -337,14 +336,13 @@ class Rig:
         )
 
 
-def record(text: str, profile: str, rig: Rig, **more: Any) -> Any:
+def record(text: str, rig: Rig, **more: Any) -> Any:
     from mcgyvr.fleet import read
 
     return read.record(
         "box2",
         *onedoor.split_reading(text),
         run_id=RUN_ID,
-        profile=profile,
         probe=("box2_3b",),
         measure=rig,
         **more,
@@ -409,7 +407,6 @@ def check(
     observations: Sequence[Mapping[str, Any]],
     journal: Path,
     *,
-    profile: str = "live",
     stamp: Mapping[str, str] = STAMP,
     run_id: str = ALERT_RUN_ID,
     approved: Mapping[str, Any] = APPROVED,
@@ -418,7 +415,6 @@ def check(
         alerts.check(
             observations,
             approved=approved,
-            profile=profile,
             journal_dir=journal,
             stamp=stamp,
             run_id=run_id,

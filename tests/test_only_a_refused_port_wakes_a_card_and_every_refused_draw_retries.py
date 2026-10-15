@@ -40,7 +40,6 @@ def waker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> wake.Waker:
         journal=tmp_path / "journal",
         specs=compose_dir(tmp_path, with_spec=True),
         switch=True,
-        profile="dev",
     )
     made = wake.for_config(load(path))
     assert made is not None

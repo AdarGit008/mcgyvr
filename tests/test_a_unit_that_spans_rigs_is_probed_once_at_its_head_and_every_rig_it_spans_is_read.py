@@ -70,7 +70,6 @@ def journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     folder = home / ".mcgyvr" / "fleets" / "whole"
     folder.mkdir(parents=True)
     fleet = sf.fleet()
-    fleet["profile"] = "live"
     journal = tmp_path / "journal"
     (folder / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
     policy = {"ladder": [sf.BIG, sf.SMALL], "journal": {"dir": str(journal)}}

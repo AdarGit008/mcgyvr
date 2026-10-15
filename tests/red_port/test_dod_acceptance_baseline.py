@@ -33,7 +33,6 @@ from pathlib import Path
 import pytest
 
 LADDER = """\
-profile: dev
 units:
   local:
     address: http://localhost:8080

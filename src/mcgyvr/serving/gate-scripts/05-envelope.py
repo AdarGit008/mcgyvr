@@ -10,11 +10,8 @@ door READS and never executes:
                                          admitted only if its `### START` (or,
                                          for a JSON artifact, its `run_id`
                                          field) carries a run_id THIS step
-                                         minted, and is moved to
+                                         minted on this host, and is moved to
                                          <name>.superseded-<run_id>.<ext> first
-    # RUN_APPENDS:   c.tsv [...]         another step created it; this one adds
-                                         to it, and gate 8 checks the prefix
-                                         survived
 
 WHY WRITE-ONCE. Two measurements filed under one name are one measurement with
 the other's history erased. Nothing recorded is overwritten and nothing is
@@ -38,8 +35,8 @@ directory the door made, never a link.
 
 THE ENVELOPE HEADER. Once the RUN_ID is claimed, the run's identity is filed
 beside the artifacts the step will write, as ``<RUN_ID>.run.json``: the run,
-the campaign and step, the host, the round and product digest, the profile,
-and the path of the config it was read under (``none`` when there is none).
+the step, the host, and the path of the config it was read under (``none``
+when there is none).
 Written once, before the step, so a step that dies before its own START still
 left a record of what was about to measure; a header already there under this
 RUN_ID is refused, because two door invocations never share a run id.
@@ -49,12 +46,8 @@ The envelope is the run's own folder in the door's log under the data folder,
 ``$MCGYVR_DATA`` or ``$XDG_STATE_HOME`` moves it), and the header also files
 the run's mode, the command it was opened with, the rig as gate 2 read it
 before the step, and the compose file's text. Gate 7 adds the rest at the end
-(``<RUN_ID>.end.json``). A run's campaign is a name for its envelope and
-nothing more.
-
-A ``step`` RUN THAT NAMES AN OUT-ROOT (``--out-root DIR``, :data:`OUT_ROOT_VAR`)
-is filed under ``DIR/<date>-<campaign>/``. The folder exists, or the run is
-refused: the door never makes the folder a run is filed under.
+(``<RUN_ID>.end.json``). The RUN_ID is ``<date>-<host>-<step>[-<suffix>]``
+(:func:`mcgyvr.serving.gatelib.run_id_of`).
 
 Every check happens before anything is written; then the lease on the rig is
 stamped, and the envelope, the claim, the header and the moves aside are made.
@@ -62,7 +55,6 @@ stamped, and the envelope, the claim, the header and the moves aside are made.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -74,7 +66,6 @@ from pathlib import Path
 import mcgyvr
 from mcgyvr.fleet.roots import FolderError
 from mcgyvr.serving.gatelib import (
-    OUT_ROOT_VAR,
     USER_MODE,
     artifact_escape,
     claim,
@@ -93,12 +84,9 @@ from mcgyvr.serving.gatelib import (
     step_name,
 )
 
-DIRECTIVES = ("RUN_ARTIFACTS", "RUN_REWRITES", "RUN_APPENDS")
+DIRECTIVES = ("RUN_ARTIFACTS", "RUN_REWRITES")
 PLAIN_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
 RUN_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-#: The variable a caller sets to declare its campaign's sibling steps, as a
-#: JSON list of step file paths; the door itself knows no campaign folder.
-SIBLINGS_ENV = "MCGYVR_DOOR_SIBLINGS"
 #: `### START ... run_id=<id>` on the file's first START line.
 START_RUN_ID = re.compile(r"^###\s+START\s+.*\brun_id=(\S+)", re.MULTILINE)
 
@@ -143,47 +131,14 @@ def start_run_id(path: Path) -> str | None:
     return None
 
 
-def step_of_run_id(run_id: str, campaign: str, steps: list[str]) -> str | None:
-    """Parse a run id back to the step that minted it, by LONGEST match.
+def minted_by(run_id: str, host: str, step: str) -> bool:
+    """Whether ``run_id`` is one this ``step`` minted on ``host``.
 
-    `<date>-<campaign>-<step>[-<suffix>]`, and a suffix can spell another step's
-    name, so the longest candidate wins and the caller checks for the ambiguity
-    before minting.
+    ``<date>-<host>-<step>[-<suffix>]``: the id gate 5 mints
+    (:func:`mcgyvr.serving.gatelib.run_id_of`), with any suffix.
     """
-    prefix = f"-{campaign}-"
-    if prefix not in run_id:
-        return None
-    tail = run_id.split(prefix, 1)[1]
-    matches = [s for s in steps if tail == s or tail.startswith(f"{s}-")]
-    return max(matches, key=len) if matches else None
-
-
-def _siblings(step: str) -> list[str]:
-    """The step names a run id may parse back to.
-
-    The door is single-mode and knows no campaign folder, so a caller that
-    needs cross-step ``RUN_APPENDS`` (or a suffix that must not forge a
-    sibling step's name) declares its campaign's sibling steps in
-    ``MCGYVR_DOOR_SIBLINGS``: a JSON list of step file paths. Unset, only the
-    current step qualifies.
-    """
-    names = [step]
-    raw = os.environ.get(SIBLINGS_ENV, "")
-    if not raw:
-        return names
-    try:
-        declared = json.loads(raw)
-    except ValueError as error:
-        refuse(f"gate 5: {SIBLINGS_ENV} is not JSON: {error}")
-    if not isinstance(declared, list) or not all(
-        isinstance(path, str) for path in declared
-    ):
-        refuse(f"gate 5: {SIBLINGS_ENV} is not a JSON list of step file paths")
-    for path in declared:
-        name = step_name(Path(path))
-        if name not in names:
-            names.append(name)
-    return names
+    named = f"{re.escape(host)}-{re.escape(step)}"
+    return re.fullmatch(rf"\d{{4}}-\d{{2}}-\d{{2}}-{named}(?:-.+)?", run_id) is not None
 
 
 def header_path(out_dir: Path, run_id: str) -> Path:
@@ -191,9 +146,7 @@ def header_path(out_dir: Path, run_id: str) -> Path:
     return out_dir / f"{run_id}.run.json"
 
 
-def header_record(
-    run_id: str, step_name: str, campaign: str, run_date: str
-) -> dict[str, str]:
+def header_record(run_id: str, step_name: str, run_date: str) -> dict[str, str]:
     """The run's identity, from what gates 1-5 established.
 
     Every value is one the door exported or minted — nothing here is read
@@ -203,13 +156,9 @@ def header_record(
     """
     return {
         "run_id": run_id,
-        "campaign": campaign,
         "step": step_name,
         "host": need("RUN_HOST"),
         "date": run_date,
-        "round": need("RUN_ROUND"),
-        "product_sha256": need("RUN_PRODUCT_SHA256"),
-        "profile": need("RUN_PROFILE"),
         "config": need("RUN_CONFIG"),
         "mcgyvr_version": mcgyvr.__version__,
         "started_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -219,32 +168,31 @@ def header_record(
 def user_header(record: dict[str, str]) -> dict[str, object]:
     """A user-mode run's header: ``record``, and what its log files beside it.
 
-    The command the door was opened with, the rig as gate 2 read it before
-    the step, and the compose file's text when the run serves one.
+    The command the door was opened with, the driver it ran with
+    (``RUN_DRIVER``, when one ran), the rig as gate 2 read it before the
+    step, and the compose file's text when the run serves one.
     """
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
     compose = os.environ.get("RUN_COMPOSE")
     text = Path(compose).read_text(encoding="utf-8") if compose else None
+    driver = os.environ.get("RUN_DRIVER")
     return {
         **record,
         "mode": USER_MODE,
         "command": os.environ.get("RUN_COMMAND", ""),
+        # The driver whose checks ran between the door's gates, when one did.
+        **({"driver": driver} if driver else {}),
         "rig_before": pre,
         "compose_file": compose,
         "compose": text,
     }
 
 
-def envelope(run_date: str, campaign: str, run_id: str) -> Path:
-    """Where this run is filed (:func:`gatelib.envelope_of`): under a step
-    run's ``--out-root``, else the run's own folder of the door's log."""
+def envelope(run_date: str, run_id: str) -> Path:
+    """Where this run is filed: its own folder of the door's log
+    (:func:`gatelib.envelope_of`)."""
     try:
-        return envelope_of(
-            out_root=os.environ.get(OUT_ROOT_VAR, ""),
-            run_date=run_date,
-            campaign=campaign,
-            run_id=run_id,
-        )
+        return envelope_of(run_date, run_id)
     except (FolderError, RuntimeError) as exc:
         refuse(f"gate 5: the data folder cannot be named: {exc}. Nothing is minted")
 
@@ -256,7 +204,7 @@ def write_header(path: Path, record: Mapping[str, object]) -> None:
 def main() -> int:
     door_required("gate 5")
     step_file = Path(need("RUN_STEP_FILE"))
-    campaign = need("RUN_CAMPAIGN")
+    host = need("RUN_HOST")
     suffix = os.environ.get("RUN_SUFFIX", "")
 
     declared = declarations(step_file)
@@ -264,7 +212,7 @@ def main() -> int:
     if not every:
         refuse(
             f"gate 5: {step_file} declares no '# RUN_ARTIFACTS: <name> ...' "
-            "(or RUN_REWRITES / RUN_APPENDS) line, so the door cannot guard "
+            "(or RUN_REWRITES) line, so the door cannot guard "
             "what it writes or parse it back at gate 8. A step that names "
             "nothing it produces is not run"
         )
@@ -286,25 +234,15 @@ def main() -> int:
     if not RUN_DATE_RE.match(run_date):
         refuse(f"gate 5: RUN_DATE={run_date!r} is not YYYY-MM-DD")
 
-    # `<n>-<name>.sh` -> `<name>`, matching how a run id is parsed back.
+    # `<n>-<name>.py` -> `<name>`, matching how a run id is parsed back.
     step = step_name(step_file)
-    siblings = _siblings(step)
-    if suffix:
-        for other in siblings:
-            named = f"{step}-{suffix}"
-            if other != step and (named == other or named.startswith(f"{other}-")):
-                refuse(
-                    f"gate 5: --suffix {suffix!r} would mint a run id that "
-                    f"reads as step {other!r}; a run id names exactly one step"
-                )
-
-    run_id = run_id_of(run_date, campaign, step_file, suffix)
+    run_id = run_id_of(run_date, host, step_file, suffix)
     if not PLAIN_NAME.match(run_id):
         refuse(
             f"gate 5: RUN_ID {run_id!r} is not [A-Za-z0-9_.-]+; it names "
             "containers (<RUN_ID>-<role>) and must be legal as a docker name prefix"
         )
-    out_dir = envelope(run_date, campaign, run_id)
+    out_dir = envelope(run_date, run_id)
     escape = envelope_escape(out_dir)
     if escape is not None:
         refuse(f"gate 5: {escape}. Nothing is minted into a directory that is a link")
@@ -356,13 +294,11 @@ def main() -> int:
                 "so no step can claim it; a file the door did not produce is "
                 "never superseded by one it does"
             )
-        writer = step_of_run_id(old, campaign, siblings)
-        if writer != step:
+        if not minted_by(old, host, step):
             refuse(
-                f"gate 5: {name} was written by run_id={old}"
-                + (f" (step {writer})" if writer else "")
-                + f", not by {campaign}/{step}; a step may supersede its "
-                "own artifact and never another step's"
+                f"gate 5: {name} was written by run_id={old}, not by step "
+                f"{step} on {host}; a step may supersede its own artifact and "
+                "never another step's"
             )
         if old == run_id:
             refuse(
@@ -380,44 +316,6 @@ def main() -> int:
             )
         aside_of[name] = aside
 
-    append_state: dict[str, dict[str, object]] = {}
-    for name in declared["RUN_APPENDS"]:
-        path = out_dir / name
-        linked(name)
-        if not path.exists():
-            refuse(
-                f"gate 5: {name} is declared under RUN_APPENDS and does not "
-                f"exist under {out_dir}; this step appends to a file another "
-                "step creates, and that step has not run through the door yet"
-            )
-        old = start_run_id(path)
-        if not old:
-            refuse(
-                f"gate 5: {name} exists and its ### START carries no run_id=, "
-                "so the door did not produce it; nothing recorded outside the "
-                "door is appended to"
-            )
-        if not step_of_run_id(old, campaign, siblings):
-            refuse(
-                f"gate 5: {name} was written by run_id={old}, which names no "
-                f"step of campaign {campaign}; a step appends only to a file "
-                "this campaign produced"
-            )
-        raw = path.read_bytes()
-        append_state[name] = {
-            "size": len(raw),
-            "sha256": hashlib.sha256(raw).hexdigest(),
-        }
-
-    # The run's out-root, when one was named, is the folder the envelope is
-    # made under, and a folder that went away meanwhile is not re-made here.
-    out_root = os.environ.get(OUT_ROOT_VAR, "")
-    if out_root and not Path(out_root).is_dir():
-        refuse(
-            f"gate 5: the out-root {out_root} is no longer a directory; the "
-            "door files under a folder that exists and never makes one. "
-            "Nothing is minted"
-        )
     # Judged after the artifacts, so a re-run is told about its file first —
     # `probe.tsv carries run_id=...` says more than `a header exists` — and
     # before anything is made, so a header that is already there costs
@@ -429,7 +327,7 @@ def main() -> int:
             f"this RUN_ID ({run_id}) has been made before. Two door invocations "
             "never share a run id: a same-day re-run takes --suffix"
         )
-    record = header_record(run_id, step, campaign, run_date)
+    record = header_record(run_id, step, run_date)
     header_doc: Mapping[str, object] = user_header(record)
 
     # A live run that displaced another run of this step, from another
@@ -476,7 +374,8 @@ def main() -> int:
     export("RUN_STEP", step)
     export("RUN_HOST", need("RUN_HOST"))
     export("RUN_DECLARED", json.dumps(declared, separators=(",", ":")))
-    export("RUN_APPEND_STATE", json.dumps(append_state, separators=(",", ":")))
+    # Nothing is appended to: every run files into an envelope of its own.
+    export("RUN_APPEND_STATE", "{}")
     # What was moved aside, so gate 8 can put it back if this run never
     # writes the successor: a rewrite pass that filed nothing must not leave
     # the earlier pass vacated under its own name.

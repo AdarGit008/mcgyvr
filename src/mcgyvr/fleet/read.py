@@ -229,7 +229,7 @@ def parse(text: str) -> Reading:
 class Live:
     """The fleet the config folder's ``live.json`` names, and its folder.
 
-    Or, with ``locked`` false, a fleet of a dev setup named by ``read --fleet``:
+    Or, with ``locked`` false, a fleet of a setup named by ``read --fleet``:
     its folder is the setup, and it holds no lock.
     """
 
@@ -280,7 +280,7 @@ def engine_of(unit: Mapping[str, Any]) -> str:
 
 
 def named(fleet_name: str, setup: Path | None) -> Live:
-    """Fleet ``fleet_name`` of the dev setup at ``setup``, unlocked, or why not."""
+    """Fleet ``fleet_name`` of the setup at ``setup``, unlocked, or why not."""
     from mcgyvr.fleet.files import FleetFileError, load_fleet
 
     if setup is None:
@@ -483,14 +483,12 @@ def load_spec(spec: str) -> tuple[int, int]:
 
 @dataclass
 class _Filing:
-    """Where one read's rows go, and the dev alerts held back until all are filed."""
+    """Where one read's rows go."""
 
     journal: Path
     stamp: dict[str, str]
     stamps: dict[str, str]
-    profile: str
     done: Recorded
-    raised: list[str] = field(default_factory=list)
 
     def unit_stamp(self, unit_id: str) -> dict[str, str]:
         return {**self.stamp, "unit_id": unit_id}
@@ -505,28 +503,17 @@ class _Filing:
         observations: Sequence[Mapping[str, Any]],
         approved: Mapping[str, Any],
     ) -> None:
-        """File and judge each observation on its own: one dev alert stops no other.
-
-        :func:`mcgyvr.fleet.alerts.check` files a row before it raises a dev
-        alert, so every row is filed and the raise waits for :func:`record`.
-        """
-        for observation in observations:
-            try:
-                self.done.alerts.extend(
-                    alerts.check(
-                        [observation],
-                        approved=approved,
-                        profile=self.profile,
-                        journal_dir=self.journal,
-                        stamp=self.unit_stamp(unit_id),
-                        run_id=self.stamps["run_id"],
-                        lease_id=self.stamps["lease_id"],
-                    )
-                )
-            except alerts.AlertError:
-                field_name = str(observation["field"])
-                self.raised.append(f"{observation.get('unit', unit_id)} {field_name}")
-                self.done.alerts.append({"unit_id": unit_id, "field": field_name})
+        """File and judge each observation."""
+        self.done.alerts.extend(
+            alerts.check(
+                observations,
+                approved=approved,
+                journal_dir=self.journal,
+                stamp=self.unit_stamp(unit_id),
+                run_id=self.stamps["run_id"],
+                lease_id=self.stamps["lease_id"],
+            )
+        )
 
 
 def record(
@@ -535,7 +522,6 @@ def record(
     text: str,
     *,
     run_id: str,
-    profile: str,
     probe: Sequence[str] = (),
     measure: Measure | None = None,
     load: str | None = None,
@@ -546,9 +532,8 @@ def record(
 
     Owner, 2026-09-15 (B2, "probe first, judge after"): every figure is measured
     first — the probes, then the loads — and only then is each row filed and
-    judged, so an alert on one figure stops no other being measured or filed. A
-    dev profile raises :class:`mcgyvr.fleet.alerts.AlertError` at the end, after
-    the rig row is filed, when anything alerted; live only warns.
+    judged, so an alert on one figure stops no other being measured or filed:
+    an alert warns, and stops nothing.
     """
     from mcgyvr.fleet.probe import journal_dir
 
@@ -573,7 +558,6 @@ def record(
             "lease_id": f"read-{run_id.rsplit('-', 1)[1]}",
             "at": at,
         },
-        profile=profile,
         done=done,
     )
 
@@ -615,8 +599,6 @@ def record(
     where.mkdir(parents=True, exist_ok=True)
     with (where / RIG_ROWS).open("a", encoding="utf-8") as rows:
         rows.write(json.dumps(row, sort_keys=True) + "\n")
-    if filing.raised:
-        raise alerts.AlertError(f"a dev read alerts on {', '.join(filing.raised)}")
     return done
 
 
@@ -936,9 +918,7 @@ def _file_load(
     if alert is None:
         return
     filing.done.alerts.append(alert)
-    if filing.profile == "dev":
-        filing.raised.append(f"{name} load_peak_mib")
-    elif not warned:
+    if not warned:
         print(
             _warning(observation, filing.unit_stamp(unit_id), unit_id), file=sys.stderr
         )

@@ -205,7 +205,6 @@ def repo(tmp_path: Path) -> Path:
 def config(tmp_path: Path) -> Path:
     path = tmp_path / "mcgyvr.yaml"
     path.write_text(
-        "profile: dev\n"
         "units:\n"
         "  local_qwen-7b:\n"
         "    address: http://localhost:11434\n"

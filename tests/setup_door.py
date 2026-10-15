@@ -106,8 +106,8 @@ class FakeRig:
         if self.serve_fails:
             return 1
         if self.gate_1 and direction == "up":
-            profile, status = gate_1(env, opts.host, compose, opts.unit)
-            self.gate_1_said.append((profile, status))
+            held, status = gate_1(env, opts.host, compose, opts.unit)
+            self.gate_1_said.append((held, status))
             if status:
                 return status
         services = yaml.safe_load(compose.read_text(encoding="utf-8"))["services"]
@@ -119,7 +119,7 @@ class FakeRig:
         return 0
 
     def _read(self, rest: list[str], setup: Path) -> int:
-        from mcgyvr.fleet import alerts, read
+        from mcgyvr.fleet import read
 
         parser = argparse.ArgumentParser()
         for flag in ("--host", "--fleet", "--run-id", "--load"):
@@ -130,20 +130,16 @@ class FakeRig:
         if self.read_fails:
             return 1
         doc = yaml.safe_load((setup / "fleet.yaml").read_text(encoding="utf-8"))
-        try:
-            read.record(
-                opts.host,
-                *onedoor.split_reading(self._reader(doc, opts.fleet, opts.host)),
-                run_id=opts.run_id,
-                profile="dev",
-                probe=tuple(opts.probe),
-                measure=self._measure(doc),
-                load=opts.load,
-                fleet_name=opts.fleet,
-                setup=setup,
-            )
-        except alerts.AlertError:
-            return 1
+        read.record(
+            opts.host,
+            *onedoor.split_reading(self._reader(doc, opts.fleet, opts.host)),
+            run_id=opts.run_id,
+            probe=tuple(opts.probe),
+            measure=self._measure(doc),
+            load=opts.load,
+            fleet_name=opts.fleet,
+            setup=setup,
+        )
         return 0
 
     def _reader(self, doc: dict[str, Any], fleet: str, rig: str) -> str:
@@ -197,8 +193,8 @@ def gate_1(
     env: dict[str, str], host: str, compose: Path, units: list[str]
 ) -> tuple[str, int]:
     """The door's gate 1 on a ``serve up`` of ``compose`` on ``host``, in this
-    process: the profile it named, and ``0`` admitted or the status it refused
-    with.
+    process: ``live`` when the run was held to the live lock, and ``0``
+    admitted or the status it refused with.
 
     Under the variables the door sets (``src/mcgyvr/serving/run.py``): the
     containers the launch spec declares, and the ``--unit`` ones alone when
@@ -229,11 +225,14 @@ def gate_1(
     }
     with mock.patch.dict(os.environ, door, clear=True):
         try:
-            which, _source = gate.profile()
-            gate.refuse_unless_the_fleet_lock_names("up", which)
+            source = gate.config()
+            gate.refuse_unless_the_fleet_lock_names("up", source)
+            from mcgyvr.fleet.roots import runs_live
+
+            held = source == "none" or runs_live(Path(source))
         except SystemExit as refused:
             return "refused", int(refused.code or 1)
-    return which, 0
+    return ("live" if held else "not held"), 0
 
 
 def accepted(argv: list[str], *, outcome: str = "accepted") -> int:

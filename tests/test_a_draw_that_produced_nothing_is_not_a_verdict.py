@@ -203,7 +203,6 @@ def test_every_draw_refusing_is_a_failed_attempt_and_says_why(repo: Path) -> Non
 # --------------------------------------------------------------------------
 
 LADDER = """\
-profile: dev
 units:
   local_qwen-7b:
     address: http://localhost:11434

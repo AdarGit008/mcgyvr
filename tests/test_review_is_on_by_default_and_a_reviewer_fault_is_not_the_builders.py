@@ -55,7 +55,6 @@ BASE = "VALUE = 0\n"
 #: Two keyless rungs on two invented hosts, cheapest first, two different
 #: models. The smallest ladder on which a reviewer can be picked at all.
 TWO_RUNGS = """\
-profile: dev
 units:
   small:
     address: http://localhost:18001
@@ -77,7 +76,6 @@ ladder:
 #: The same ladder with a rung between the two that serves the builder's model
 #: under another unit name and another spelling of the model.
 WITH_A_TWIN = """\
-profile: dev
 units:
   small:
     address: http://localhost:18001
@@ -104,7 +102,6 @@ ladder:
 """
 
 ONE_RUNG = """\
-profile: dev
 units:
   small:
     address: http://localhost:18001
@@ -717,7 +714,6 @@ def test_a_picked_reviewer_on_a_sleeping_card_is_woken(
 #: dearer and independent, and it is still never picked by itself: asking it
 #: spends money nobody chose to spend on review.
 LOCAL_THEN_HOSTED = """\
-profile: dev
 units:
   small:
     address: http://localhost:18001

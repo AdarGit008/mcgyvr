@@ -122,7 +122,6 @@ def _run(
 
     config = tmp_path / "mcgyvr.yaml"
     config.write_text(
-        "profile: dev\n"
         "units:\n"
         "  local_qwen-7b:\n"
         "    address: http://localhost:11434\n"

@@ -29,7 +29,6 @@ TOLERANCES: dict[str, Any] = {"warm_decode_class_pct": CLASSES}
 
 
 FLEET: dict[str, Any] = {
-    "profile": "live",
     "units": {
         "box2_3b": {
             "rig": "box2",

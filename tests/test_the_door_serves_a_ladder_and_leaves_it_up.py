@@ -100,9 +100,7 @@ def test_serve_up_brings_the_file_up_asks_each_unit_and_leaves_it_running(
     ), asked
 
     record = json.loads(
-        (
-            onedoor.serve_envelope(root, "serve-up", "live-box1") / "serve-up.json"
-        ).read_text()
+        (onedoor.serve_envelope(root, "serve-up") / "serve-up.json").read_text()
     )
     assert record["mode"] == "up" and record["host"] == "box1"
     assert [u["container"] for u in record["units"]] == list(UNITS)
@@ -158,9 +156,7 @@ def test_serve_down_opens_on_the_serving_rig_and_requires_nothing_left(
         line.startswith(f"compose -f {compose} -p mcgyvr down") for line in log
     ), log
     record = json.loads(
-        (
-            onedoor.serve_envelope(root, "serve-down", "live-box1") / "serve-down.json"
-        ).read_text()
+        (onedoor.serve_envelope(root, "serve-down") / "serve-down.json").read_text()
     )
     assert record["mode"] == "down" and record["remaining"] == []
 
@@ -185,9 +181,5 @@ def test_up_then_down_on_one_day_file_under_one_envelope(tmp_path: Path) -> None
     assert up.returncode == 0, (up.stdout, up.stderr)
     down = onedoor.serve_door(root, "down", compose, env_extra={CONFIG_VAR: str(dev)})
     assert down.returncode == 0, (down.stdout, down.stderr)
-    assert (
-        onedoor.serve_envelope(root, "serve-up", "live-box1") / "serve-up.json"
-    ).is_file()
-    assert (
-        onedoor.serve_envelope(root, "serve-down", "live-box1") / "serve-down.json"
-    ).is_file()
+    assert (onedoor.serve_envelope(root, "serve-up") / "serve-up.json").is_file()
+    assert (onedoor.serve_envelope(root, "serve-down") / "serve-down.json").is_file()

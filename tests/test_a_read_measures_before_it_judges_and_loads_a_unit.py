@@ -2,14 +2,10 @@
 
 Owner rulings on ``python -m mcgyvr.serving.run read``:
 
-* **B2, "probe first, judge after".** Under the dev profile
-  :func:`mcgyvr.fleet.alerts.check` raises on the first alert, so a read that
-  judged a unit's card before it ran any probe would stop a unit one MiB over
-  its room before measuring anything. :func:`mcgyvr.fleet.read.record` measures
-  first (the probes, then the loads), files every row (units, probes, loads),
-  and judges after. Under dev it raises
-  :class:`~mcgyvr.fleet.alerts.AlertError` at the end, once the rig row is
-  filed, if anything alerted. Live only warns.
+* **B2, "probe first, judge after".** :func:`mcgyvr.fleet.read.record`
+  measures first (the probes, then the loads), files every row (units, probes,
+  loads), and judges after, so a unit one MiB over its room is still measured
+  whole. An alert warns and stops nothing.
 * **B1, "add a load mode to read".** ``read --host H --probe UNIT --load WxN``
   runs W concurrent requests on the rig at 127.0.0.1, each filling the unit's
   N-token window (its prompt plus ``max_tokens``). While they run it samples the
@@ -71,16 +67,15 @@ from tests.reads import (
 # --- B2: probe first, judge after ------------------------------------------------
 
 
-def test_a_dev_read_over_room_still_probes_files_what_it_measured_then_raises(
+def test_a_read_over_room_still_probes_and_files_what_it_measured(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.fleet import alerts
-
     journal = go_live(tmp_path)
     rig = Rig()
 
-    with pytest.raises(alerts.AlertError):
-        record(rig_text(card_3b=3574), "dev", rig)
+    done = record(rig_text(card_3b=3574), rig)
+
+    assert {(a["unit_id"], a["field"]) for a in done.alerts} == {(UNIT_3B, "card_mib")}
 
     assert [spec.get("mode", "probe") for spec in rig.specs] == ["probe"], rig.specs
     three = unit_rows(journal, UNIT_3B)
@@ -89,13 +84,10 @@ def test_a_dev_read_over_room_still_probes_files_what_it_measured_then_raises(
     assert three["card_mib"]["observed"] == 3574 and three["card_mib"]["alert"] is True
 
 
-def test_a_dev_read_files_every_units_rows_before_it_raises(tmp_path: Path) -> None:
-    from mcgyvr.fleet import alerts
-
+def test_a_read_files_every_units_rows_whatever_alerted(tmp_path: Path) -> None:
     journal = go_live(tmp_path)
 
-    with pytest.raises(alerts.AlertError):
-        record(rig_text(card_3b=3574, restarts_7b="1"), "dev", Rig())
+    record(rig_text(card_3b=3574, restarts_7b="1"), Rig())
 
     three = unit_rows(journal, UNIT_3B)
     seven = unit_rows(journal, UNIT_7B)
@@ -111,7 +103,7 @@ def test_a_load_files_one_row_with_its_peak_samples_container_times_and_restarts
 ) -> None:
     journal = go_live(tmp_path)
 
-    record(rig_text(), "live", Rig(), load=LOAD)
+    record(rig_text(), Rig(), load=LOAD)
 
     (row,) = _load_rows(journal)
     assert row["unit_id"] == UNIT_3B and row["unit"] == "box2_3b"
@@ -127,14 +119,10 @@ def test_a_load_files_one_row_with_its_peak_samples_container_times_and_restarts
 
 
 def test_a_load_peak_over_room_alerts_like_the_card(tmp_path: Path) -> None:
-    from mcgyvr.fleet import alerts
-
     journal = go_live(tmp_path)
-    record(rig_text(), "live", Rig(load_mib=(3100, 3600)), load=LOAD)
+    done = record(rig_text(), Rig(load_mib=(3100, 3600)), load=LOAD)
     assert _load_rows(journal)[0]["alert"] is True
-
-    with pytest.raises(alerts.AlertError):
-        record(rig_text(), "dev", Rig(load_mib=(3600,)), load=LOAD)
+    assert "load_peak_mib" in {alert["field"] for alert in done.alerts}
 
 
 def test_the_load_asked_of_the_rig_is_w_requests_filling_the_units_window(
@@ -143,7 +131,7 @@ def test_the_load_asked_of_the_rig_is_w_requests_filling_the_units_window(
     go_live(tmp_path)
     rig = Rig()
 
-    record(rig_text(), "live", rig, load=LOAD)
+    record(rig_text(), rig, load=LOAD)
 
     (load,) = [spec for spec in rig.specs if spec.get("mode") == "load"]
     assert (load["width"], load["window"]) == (8, 4096)
@@ -157,9 +145,7 @@ def test_a_unit_with_work_in_flight_is_neither_probed_nor_loaded(
     journal = go_live(tmp_path)
     rig = Rig()
 
-    done = record(
-        rig_text(status=(f"8001,{page(metrics(2))}",)), "live", rig, load=LOAD
-    )
+    done = record(rig_text(status=(f"8001,{page(metrics(2))}",)), rig, load=LOAD)
 
     assert rig.specs == []
     assert done.busy == {"box2_3b": 2}
@@ -175,7 +161,7 @@ def test_a_load_that_did_not_complete_every_request_is_still_judged(
     (``tests/test_a_load_runs_thirty_seconds_then_gives_its_verdict.py``)."""
     journal = go_live(tmp_path)
 
-    record(rig_text(), "live", Rig(load_mib=(3600,), completed=5), load=LOAD)
+    record(rig_text(), Rig(load_mib=(3600,), completed=5), load=LOAD)
 
     (row,) = _load_rows(journal)
     assert row["completed"] == 5 and row["peak_mib"] == 3600
@@ -312,7 +298,7 @@ def test_a_vllm_units_attention_backend_is_filed_and_null_when_its_log_names_non
 ) -> None:
     journal = go_live(tmp_path)
 
-    record(rig_text(backend=("8001,FLASH_ATTN", "8002,none")), "live", Rig())
+    record(rig_text(backend=("8001,FLASH_ATTN", "8002,none")), Rig())
 
     three = unit_rows(journal, UNIT_3B)["attention_backend"]
     seven = unit_rows(journal, UNIT_7B)["attention_backend"]
@@ -328,7 +314,7 @@ def test_the_rig_row_files_the_snapshot_beside_the_rig_id_its_reading_names(
 ) -> None:
     journal = go_live(tmp_path)
 
-    record(rig_text(), "live", Rig())
+    record(rig_text(), Rig())
 
     row = rig_row(journal)
     assert row["observed_rig_id"] == onedoor.rig_id_of_text(rig_text())

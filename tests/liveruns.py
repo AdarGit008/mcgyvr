@@ -82,9 +82,8 @@ def rig_id_of(host: str) -> str:
     return onedoor.rig_id_of_text(snapshot_text(host))
 
 
-def fleet(profile: str = "live") -> dict[str, Any]:
+def fleet() -> dict[str, Any]:
     return {
-        "profile": profile,
         "units": {
             FIRST: {
                 "rig": "box2",
@@ -165,21 +164,21 @@ def home() -> Path:
     return Path(os.environ["HOME"])
 
 
-def write_setup(where: Path, journal: Path, profile: str) -> Path:
+def write_setup(where: Path, journal: Path) -> Path:
     from mcgyvr.fleet import lock
 
     where.mkdir(parents=True, exist_ok=True)
-    (where / "fleet.yaml").write_text(yaml.safe_dump(fleet(profile)), encoding="utf-8")
+    (where / "fleet.yaml").write_text(yaml.safe_dump(fleet()), encoding="utf-8")
     policy = {"ladder": [FIRST, SECOND], "journal": {"dir": str(journal)}}
     (where / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
-    lock.write(where, fleet(profile), EVIDENCE, tolerances=TOLERANCES)
+    lock.write(where, fleet(), EVIDENCE, tolerances=TOLERANCES)
     return where
 
 
 def go_live(tmp_path: Path) -> Path:
     """Promote the fleet into this HOME and name it live; return its folder."""
     folder = write_setup(
-        home() / ".mcgyvr" / "fleets" / FLEET_NAME, tmp_path / "journal", "live"
+        home() / ".mcgyvr" / "fleets" / FLEET_NAME, tmp_path / "journal"
     )
     (home() / ".mcgyvr" / "live.json").write_text(
         json.dumps({"fleet": FLEET_NAME}), encoding="utf-8"
@@ -237,7 +236,6 @@ class FakeDoor:
             host,
             *onedoor.split_reading(self.readings[host]),
             run_id=run_id,
-            profile="live",
             probe=tuple(probe),
             measure=lambda unit, spec: HARNESS,
         )

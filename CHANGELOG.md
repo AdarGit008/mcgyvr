@@ -11,6 +11,70 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed (breaking)
 
+- **`mcgyvr fleet lock`, `fleet promote` and `fleet tag` are gone.**
+  `mcgyvr setup` locks and promotes the fleet it sampled through the library
+  (`mcgyvr.fleet.lock.write_from_stamp`, `write_unsampled`, `write`, and
+  `mcgyvr.fleet.promote.promote`), which stays; `mcgyvr fleet use` still
+  names a promoted folder live. `fleet tag`, the one-off rename of folders
+  promoted before 2026-09-16, goes with `promote.tag`; such a folder still
+  reads and is still named by `fleet use`. `$MCGYVR_RUN_ROOT` is gone with
+  the verbs' default root. A setup that stamped a fleet the user did not lock
+  keeps the stamp and says a later `mcgyvr setup` locks again.
+
+- **The door runs its own gates and nothing else: `step`, campaigns and gate
+  lists are the lab's.**
+  - `python -m mcgyvr.serving.run` has three verbs, `serve`, `read` and
+    `link`. The `step` verb is gone, with `--campaign`, `--out-root`,
+    `--model`/`--parallel`/`--ctx-per-slot`/`--ubatch`, and the sibling
+    declaration `$MCGYVR_DOOR_SIBLINGS`.
+  - `--gates FILE` and `$MCGYVR_DOOR_GATES` are gone: no verb takes a
+    caller's gate list, and no door product code opens carries one.
+  - A run's RUN_ID is `<date>-<host>-<step>[-<suffix>]` (a serve run's was
+    `<date>-live-<host>-<step>`), filed in the door's log as before; its
+    header names no campaign, round or product digest; the rig lease names no
+    campaign; gate 1 exports no `RUN_ROUND` or `RUN_PRODUCT_SHA256`; gate 5
+    reads no `RUN_APPENDS`.
+  - `$MCGYVR_RUN_ROOT` no longer moves where the door's gates run.
+  - The seam for a driver outside the package: `mcgyvr.serving.run.Driver`
+    (checks run before and after each door entry, and after gates 7 and 8),
+    taken by `serve`, `read`, `link` and `through` (the serve sequence under
+    an environment the driver builds, with `run_entry`, `pin_config`, `BIN`
+    and `ROOT`). Its checks add refusals and never skip, move or stand in
+    for a door gate.
+  - `$MCGYVR_DOOR_DRIVER=package.module:attr` names a `Driver` the door
+    itself imports (from its `sys.path`, e.g. `PYTHONPATH`) and runs between
+    its gates on `serve`, `read` and `link`, so nothing outside the package
+    has to pose as the door to add checks. Unset, there is none and a run is
+    as before. A value that is not `package.module:attr`, cannot be imported
+    or is not a `Driver` is refused in one line, exit 2, before any gate. A
+    check that raises, or changes, removes or adds a name it does not declare
+    in `Driver.private` (`RUN_` names the door does not set), is a refusal,
+    and the door's names are put back. The variable is handed to no gate;
+    the run exports `RUN_DRIVER` (`module:attr`), and a serve run's header
+    files it as `driver`.
+
+- **There is one kind of run: `profile: live|dev` is gone.**
+  - `fleet.yaml` no longer holds `profile`, and a file that still says it is
+    refused as any unknown key is; nothing is migrated. `mcgyvr setup` and a
+    promotion no longer write it, and the rig lease names no profile.
+  - A run is held to the live fleet's lock whenever a fleet is live
+    (`mcgyvr.fleet.roots.runs_live`): `mcgyvr run`, `serve wake`, `manage`,
+    `mcorch serve` are admitted by a read of its rigs, the waker wakes only
+    along the lock, and gate 1 admits a `serve up` only for units the lock
+    names, whatever setup the command was given. The exception is a setup in
+    the data folder: the staging folder `mcgyvr setup` starts and samples
+    before anything of it is locked, which runs everything. With no fleet
+    live, a setup named outside the config folder is held to no lock; a run
+    under no config at all, or one in the config folder, still is.
+  - Every run takes the rig's lease whatever holds it and tears down what it
+    displaced (R1); the run displaced yields at its next touch of the rig. A
+    held rig is no longer refused.
+  - An alert from a read or a probe warns and stops nothing: no run raises on
+    one. `mcgyvr fleet alerts` reads the live fleet's lock and takes no
+    `--config`.
+  - The door's read gate is `read-01-config.py`, and `RUN_PROFILE` is no
+    longer exported; `RUN_CONFIG` is.
+
 - **`mcgyvr setup` stages in the data folder and writes nothing where it
   runs.**
   - Each run stages its `fleet.yaml` and `policy.yaml` in a folder of its own,

@@ -4,7 +4,7 @@ Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample green = fleet STAMPED;
 sample red = no stamp, report why. Round 8: until P10 lands, a plan with a
 llama.cpp sleeper samples red, "the swap isn't built yet (P10)"; media-gen
 waits for P11. A stamp locks nothing, so a lock's refusal of a stamp is
-``fleet lock``'s to report
+:func:`mcgyvr.fleet.lock.write_from_stamp`'s to report
 (``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
 "Stamps nothing" is checked on disk: no promoted folder, no ``live.json``
@@ -68,7 +68,6 @@ def _red(setup: Path, sample_: Any) -> str:
 
 @pytest.fixture
 def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
     return fx.staged(tmp_path)
 
@@ -102,7 +101,6 @@ def test_a_use_case_task_that_did_not_run_is_red(setup: Path) -> None:
 def test_a_probe_the_harness_could_not_take_is_red_with_the_reads_reason(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
     setup = fx.staged(tmp_path)
     fx.read(setup, fx.READS[0], harness=fx.Harness(fails="connection refused"))
@@ -128,7 +126,6 @@ def test_a_rig_with_no_read_is_red(setup: Path) -> None:
 def test_a_rig_with_no_rig_file_is_red(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     setup = fx.staged(tmp_path)
     _read_twice(setup)
     said = _red(setup, _sample(setup))
@@ -138,7 +135,6 @@ def test_a_rig_with_no_rig_file_is_red(
 def test_a_sleeper_is_red_until_the_swap_is_built(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
     setup = fx.staged(tmp_path, fleet=fx.fleet_doc(asleep=True))
     fx.read(setup, fx.READS[0], text=fx.reader_text(strong=True))
@@ -152,7 +148,6 @@ def test_a_sleeper_is_red_until_the_swap_is_built(
 def test_a_media_gen_sample_is_red_until_it_is_built(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
     setup = fx.staged(tmp_path, policy=fx.policy_doc(tmp_path, "media-gen"))
     _read_twice(setup)
@@ -173,7 +168,6 @@ def test_a_chat_unit_serving_other_than_planned_is_red(
 ) -> None:
     from mcgyvr.fleet import sample
 
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
     setup = fx.staged(tmp_path, policy=fx.policy_doc(tmp_path, "chat"))
     _read_twice(setup)
@@ -189,7 +183,6 @@ def test_an_agent_sample_needs_both_grounded_and_safety(
 ) -> None:
     from mcgyvr.fleet import sample
 
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
     setup = fx.staged(tmp_path, policy=fx.policy_doc(tmp_path, "agent"))
     _read_twice(setup)
@@ -210,7 +203,6 @@ def test_an_opted_in_jev_that_gives_no_valid_choice_is_red(
 ) -> None:
     from mcgyvr.fleet import sample
 
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
     fx.rig_file()
     policy = fx.policy_doc(tmp_path)
     policy["jev"] = {"unit": fx.UNIT}

@@ -50,12 +50,11 @@ from tests.reads import (
 )
 
 
-def setup_folder(tmp_path: Path, profile: str = "dev") -> tuple[Path, Path]:
+def setup_folder(tmp_path: Path) -> tuple[Path, Path]:
     """A setup holding FLEET, with no lock and no live pointer: (folder, journal)."""
     folder = tmp_path / "setup"
     folder.mkdir()
-    fleet = {**FLEET, "profile": profile}
-    (folder / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
+    (folder / "fleet.yaml").write_text(yaml.safe_dump(FLEET), encoding="utf-8")
     journal = tmp_path / "journal"
     policy = {"ladder": ["box2_3b", "box2_7b"], "journal": {"dir": str(journal)}}
     (folder / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
@@ -71,14 +70,13 @@ def declared(folder: Path) -> dict[str, Any]:
     return loaded
 
 
-def record(folder: Path, text: str, profile: str, rig: Rig, **more: Any) -> Any:
+def record(folder: Path, text: str, rig: Rig, **more: Any) -> Any:
     from mcgyvr.fleet import read
 
     return read.record(
         "box2",
         *onedoor.split_reading(text),
         run_id=RUN_ID,
-        profile=profile,
         probe=("box2_3b",),
         measure=rig,
         fleet_name=FLEET_NAME,
@@ -148,7 +146,7 @@ def test_a_named_fleet_needs_a_setup_to_read_it_from() -> None:
 def test_every_row_says_it_was_not_a_lock_and_names_its_setup(tmp_path: Path) -> None:
     folder, journal = setup_folder(tmp_path)
 
-    record(folder, rig_text(), "live", Rig())
+    record(folder, rig_text(), Rig())
 
     rig_id = declared(folder)["rigs"]["box2"]["rig_id"]
     filed = rows(journal)
@@ -163,7 +161,7 @@ def test_every_row_says_it_was_not_a_lock_and_names_its_setup(tmp_path: Path) ->
 def test_a_probe_with_no_lock_is_filed_unjudged_not_failed(tmp_path: Path) -> None:
     folder, journal = setup_folder(tmp_path)
 
-    done = record(folder, rig_text(), "dev", Rig())
+    done = record(folder, rig_text(), Rig())
 
     assert done.failed == {}
     assert done.probed["box2_3b"]["warm_decode_tok_s"] == 126.7
@@ -179,7 +177,7 @@ def test_the_card_and_a_loads_peak_are_judged_against_the_declared_room(
 ) -> None:
     folder, journal = setup_folder(tmp_path)
 
-    done = record(folder, rig_text(card_3b=3400), "live", Rig(), load=LOAD)
+    done = record(folder, rig_text(card_3b=3400), Rig(), load=LOAD)
 
     assert done.loads["box2_3b"]["peak_mib"] == 3500
     three = unit_rows(journal, UNIT_3B)
@@ -192,7 +190,7 @@ def test_the_card_and_a_loads_peak_are_judged_against_the_declared_room(
 def test_a_loads_peak_over_the_declared_room_alerts(tmp_path: Path) -> None:
     folder, journal = setup_folder(tmp_path)
 
-    record(folder, rig_text(), "live", Rig(load_mib=(3100, 3600)), load=LOAD)
+    record(folder, rig_text(), Rig(load_mib=(3100, 3600)), load=LOAD)
 
     assert unit_rows(journal, UNIT_3B)["load_peak_mib"]["alert"] is True
 
@@ -204,7 +202,7 @@ def test_the_door_reads_a_named_fleet_from_the_config_it_ran_under(
     tmp_path: Path,
 ) -> None:
     root = onedoor.fixture_repo(tmp_path, host="box2")
-    folder, journal = setup_folder(tmp_path, profile="live")
+    folder, journal = setup_folder(tmp_path)
     reading(root, status=(f"8001,{page(metrics(0))}",))
     measured = {
         "figures": {"warm_decode_tok_s": 125.0, "prefill_tok_s": 11500.0},

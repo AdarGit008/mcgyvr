@@ -1,7 +1,6 @@
 """The fleet lock: what production may run, written only from passing dev runs.
 
-``mcgyvr fleet lock`` writes two kinds of file (the lab's fleet-identity plan,
-§4):
+A lock is two kinds of file (the lab's fleet-identity plan, §4):
 
 * one fleet lock file — the layout's sha256, the fleet's ``next`` list, and
   each switch's dev evidence;
@@ -473,9 +472,9 @@ def write(
 ) -> None:
     """Write the fleet lock from passing dev runs, refusing what it cannot pin.
 
-    ``root`` is the dev root the lock tree is written under — the checkout,
-    where committing the lock is the approval. A live lock is never written
-    here: ``mcgyvr fleet promote`` copies it (:mod:`mcgyvr.fleet.promote`).
+    ``root`` is the folder the lock tree is written under, of the caller's
+    choosing. A live lock is never written here:
+    :func:`mcgyvr.fleet.promote.promote` copies it into a live fleet folder.
     """
     units = fleet.get("units", {})
     fleets = fleet.get("fleets", {})
@@ -856,7 +855,6 @@ def write_unsampled(
         ) from exc
 
     own = copy.deepcopy(fleet)
-    own["profile"] = "live"
     if rigs:
         own["rigs"] = {rig: {"rig_id": rigs[rig]} for rig in rigs}
     own["fleets"] = {OWN_FLEET: {"layout": layout}}

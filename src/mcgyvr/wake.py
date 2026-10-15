@@ -772,13 +772,15 @@ class Waker:
         # fleet the config folder's live.json names, never whatever directory
         # the run was started in — there is no switch to be along, so the wake
         # is refused
-        # before any door run. No live.json is no live lock.
-        if self._config.get("profile") == "live":
+        # before any door run. No live.json is no live lock. A run that is not
+        # held to the live lock (`runs_live`) wakes along no switch.
+        from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, runs_live
+
+        if runs_live(self._config.path):
             from mcgyvr.fleet.admit import host_is_locked
-            from mcgyvr.fleet.roots import LiveFleetError, lock_root
 
             try:
-                root = lock_root("live")
+                root = live_fleet_dir()
             except LiveFleetError as exc:
                 print(f"warning: {exc}", file=sys.stderr)
                 return False

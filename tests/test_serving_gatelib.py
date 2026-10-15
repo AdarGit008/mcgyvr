@@ -24,10 +24,7 @@ import pytest
 from mcgyvr.serving import gatelib
 from tests._paths import REPO
 
-DOOR = (
-    "python -m mcgyvr.serving.run --host H --campaign C --model M "
-    "--ctx-per-slot N [--step PATH]"
-)
+DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 SSH = "ssh"
 
 #: A stand-in for the door: a file whose path ends in mcgyvr/serving/run.py,

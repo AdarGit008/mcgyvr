@@ -97,7 +97,6 @@ def fleet_doc(*, asleep: bool = False) -> dict[str, Any]:
         units[STRONG] = unit(STRONG, STRONG_ID, 8082, STRONG_CONTAINER, room_mib=5000)
         slots.append([STRONG, "asleep"])
     return {
-        "profile": "dev",
         "units": units,
         "rigs": {RIG: {"rig_id": rig_id()}},
         "fleets": {FLEET: {"layout": {RIG: slots}, "next": []}},
@@ -245,7 +244,6 @@ def read(
         RIG,
         *onedoor.split_reading(reader_text() if text is None else text),
         run_id=run_id,
-        profile="live",
         probe=probe,
         measure=Harness() if harness is None else harness,
         load=load,

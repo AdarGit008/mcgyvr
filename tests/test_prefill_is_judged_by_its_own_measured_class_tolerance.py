@@ -90,7 +90,6 @@ def _judged(
                 }
             ],
             approved=approved,
-            profile="live",
             journal_dir=journal,
             stamp=stamp,
             run_id=RUN_ID,

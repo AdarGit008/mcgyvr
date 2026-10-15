@@ -113,7 +113,8 @@ def test_a_no_to_the_lock_leaves_the_stamp_and_names_nothing_live(
 
     out = capsys.readouterr().out
     (stamp,) = (stamps_dir() / "own").iterdir()
-    assert f"mcgyvr fleet lock --stamp {stamp}" in out
+    assert f"the stamp is kept at {stamp}" in out
+    assert "fleet lock" not in out, "no command locks a stamp of its own"
     assert not live_file().exists()
 
 

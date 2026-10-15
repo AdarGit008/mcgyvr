@@ -263,7 +263,6 @@ def test_a_capacity_built_from_a_config_takes_the_gauge_too(tmp_path: Path) -> N
         "    width: 1\n"
         "ladder:\n"
         "- fast\n"
-        "profile: dev\n"
     )
 
     with_gauge = Capacity.of(config, root=tmp_path / "a", gauge=Gauge(tmp_path / "g"))

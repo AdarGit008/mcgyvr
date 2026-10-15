@@ -3,9 +3,9 @@
 Owner, Round 4 (2026-10-07): the owner's confirm is approval to run the
 SAMPLE -- start the servers and run the sample check task. A green sample is
 the fleet STAMPED. Plan section 8.2: the sample's results are written as the
-dev-run evidence JSON ``fleet lock`` already reads; the stamp holds it, and the
-chain every live fleet takes runs from there -- ``fleet lock --stamp`` ->
-``fleet promote`` -> ``fleet use``
+dev-run evidence JSON the lock is written from; the stamp holds it, and the
+chain every live fleet takes runs from there -- ``lock.write_from_stamp`` ->
+``promote.promote`` -> ``fleet use``
 (``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
 * **The evidence is read from the door's own read rows** (P7a, Round 8):
@@ -51,10 +51,9 @@ def _read_twice(setup: Path) -> None:
 
 @pytest.fixture
 def no_lab(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A run root that holds no lab file, and must stay empty."""
+    """A folder of the test's own, which nothing writes into."""
     root = tmp_path / "no-lab-root"
     root.mkdir()
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(root))
     return root
 
 

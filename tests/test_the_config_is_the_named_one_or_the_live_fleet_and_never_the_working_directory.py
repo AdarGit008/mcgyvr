@@ -25,7 +25,6 @@ def _setup(folder: Path, unit: str) -> Path:
     (folder / "fleet.yaml").write_text(
         yaml.safe_dump(
             {
-                "profile": "live",
                 "units": {unit: {"address": "http://127.0.0.1:9/v1", "model": "m"}},
             }
         ),

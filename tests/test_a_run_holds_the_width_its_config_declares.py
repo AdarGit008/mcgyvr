@@ -38,7 +38,6 @@ import pytest
 from tests import livejournal as lj
 
 ONE_WIDE = """\
-profile: dev
 units:
   local_qwen-7b:
     address: http://localhost:11434

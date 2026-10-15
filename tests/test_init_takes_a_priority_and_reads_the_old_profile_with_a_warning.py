@@ -1,15 +1,13 @@
 """`mcgyvr setup` takes a priority, and reads the old `--profile` with a warning.
 
 What init's composed ladder optimises for is one of three things: throughput,
-quality or cost. It used to be free text under `--profile`, a word the config
-already uses for something else (`profile: live|dev`, which runs are allowed),
-and free text the decision could only guess at.
+quality or cost. It used to be free text under `--profile`, free text the
+decision could only guess at.
 
 `--priority throughput|quality|cost` is the option now. `--profile` is still
 read for one release: a known word maps onto that priority, any other text is
-ignored, and either way stderr says it is deprecated, what to type instead,
-and that the config's `profile: live|dev` is a different setting. When both
-are given, `--priority` wins.
+ignored, and either way stderr says it is deprecated and what to type
+instead. When both are given, `--priority` wins.
 
 The seam is `cli.initialize`: only the priority it is handed is checked, and
 nothing is detected or written.
@@ -81,7 +79,6 @@ def test_an_old_profile_naming_a_priority_maps_to_it_and_warns(
     assert [call["priority"] for call in handed] == [want]
     assert "deprecated" in err
     assert f"--priority {want}" in err
-    assert "live|dev" in err
 
 
 def test_an_old_profile_of_other_text_is_ignored_with_a_warning(
@@ -95,7 +92,6 @@ def test_an_old_profile_of_other_text_is_ignored_with_a_warning(
     assert "ignored" in err
     assert "'fast and cheap'" in err
     assert "throughput|quality|cost" in err
-    assert "live|dev" in err
 
 
 def test_priority_wins_over_the_old_profile_and_says_so(

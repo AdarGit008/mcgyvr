@@ -1038,15 +1038,6 @@ MANAGER_FIELDS: tuple[Field, ...] = (
 
 SCHEMA: tuple[Field, ...] = (
     Field(
-        "profile",
-        "enum",
-        "Which setup this file is: `live` or `dev`. A fleet fact: live \
-"
-        "outranks dev on the rigs.",
-        choices=("live", "dev"),
-        default="live",
-    ),
-    Field(
         "use_case",
         "enum",
         "Which of the four use cases this install serves: `coding` (scoped "
@@ -1996,9 +1987,9 @@ def config_path() -> Path:
     The override is ``$MCGYVR_CONFIG`` (a command's ``--config`` is handed to
     :func:`load` directly). The live fleet is the folder the config folder's
     ``live.json`` names (:func:`mcgyvr.fleet.roots.live_fleet_dir`; the config
-    folder is ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written by ``mcgyvr fleet
-    promote``, named by ``mcgyvr fleet use``, as ``mcgyvr setup`` does when it
-    locks a fleet. The working directory is not consulted: a ``fleet.yaml``
+    folder is ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written and named live by
+    ``mcgyvr setup`` when it locks a fleet, and named by ``mcgyvr fleet use``.
+    The working directory is not consulted: a ``fleet.yaml``
     there is a setup nobody named and nobody promoted. With neither, there is
     no config, and :class:`ConfigMissingError` says so. A path that depends on
     an environment variable only some shells export is a config that is found
@@ -2057,7 +2048,7 @@ def parse(
 
 #: The keys that belong in ``fleet.yaml``. Everything else in a merged
 #: document is policy, but for the relief block, which is ``relief.yaml``'s.
-_FLEET_ONLY = frozenset({"profile", "units", "rigs", "fleets"})
+_FLEET_ONLY = frozenset({"units", "rigs", "fleets"})
 _RELIEF_ONLY = frozenset({"relief"})
 
 

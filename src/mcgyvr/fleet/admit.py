@@ -293,15 +293,16 @@ def unsampled_containers(root: Path, host: str) -> set[str]:
 def host_is_locked(root: Path, host: str) -> bool:
     """Whether the lock under ``root`` names ``host`` under the rig id it pins.
 
-    ``root`` is the lock root the caller's profile reads
-    (:func:`mcgyvr.fleet.roots.lock_root`), never the working directory.
+    ``root`` is the live fleet's folder
+    (:func:`mcgyvr.fleet.roots.live_fleet_dir`), never the working directory.
 
     A record's ``rig`` field is the rig's NAME; its identity is the rig id of
-    the directory it sits in. ``mcgyvr fleet lock`` writes one directory per
-    rig id and never prunes, so a rig whose id changed leaves its old records
-    behind, still naming it. Reading every directory would let those answer for
-    a machine that no longer exists — a second source of truth, and the older
-    one — so only the pinned rig id's records answer (owner, 2026-09-16).
+    the directory it sits in. :func:`mcgyvr.fleet.lock.write` writes one
+    directory per rig id and never prunes, so a rig whose id changed leaves
+    its old records behind, still naming it. Reading every directory would let
+    those answer for a machine that no longer exists — a second source of
+    truth, and the older one — so only the pinned rig id's records answer
+    (owner, 2026-09-16).
 
     A lock approved on no evidence (:func:`mcgyvr.fleet.lock.write_unsampled`)
     writes no combination record, as nothing was validated; for it the

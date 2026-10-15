@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr import cli, derived
+from mcgyvr import derived
 from mcgyvr.fleet import roots
 from tests._paths import REPO
 
@@ -73,29 +73,6 @@ def test_moving_the_config_folder_keeps_both_it_and_its_default_guarded(
     assert roots.is_live(Path.home() / ".mcgyvr")
     assert not roots.is_live(tmp_path / "elsewhere")
     assert not roots.is_live(tmp_path / f"{moved.name}-other")
-
-
-@pytest.mark.parametrize("under", ["moved", "default"])
-def test_a_lock_refused_under_a_guarded_folder_says_which_folders_are_guarded(
-    under: str,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """Refused under either folder, without calling it the live one."""
-    _unset(monkeypatch)
-    moved = tmp_path / "settings"
-    monkeypatch.setenv("MCGYVR_HOME", str(moved))
-    folder = moved if under == "moved" else Path.home() / ".mcgyvr"
-    root = folder / "fleets" / "any"
-    lock = ["fleet", "lock", "--fleet", "f.yaml", "--evidence", "e.json"]
-
-    assert cli.main([*lock, "--root", str(root)]) == 1
-
-    said = capsys.readouterr().err
-    assert said.startswith(f"error: {root} "), said
-    assert roots.HOME_DIR in said, said
-    assert "is the live root" not in said, said
 
 
 def test_the_default_stays_guarded_through_a_home_reached_by_a_link(

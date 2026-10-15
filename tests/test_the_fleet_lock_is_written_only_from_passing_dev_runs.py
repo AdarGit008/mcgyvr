@@ -284,19 +284,6 @@ def test_a_fleet_switch_is_locked_on_a_rig_move_another_switch_ran(
     assert (tmp_path / "lock" / "flt-06.json").is_file()
 
 
-def test_mcgyvr_fleet_lock_is_a_command() -> None:
-    from mcgyvr.cli import main
-
-    code: object
-    try:
-        code = main(["fleet", "lock", "--help"])
-    except SystemExit as exited:
-        code = exited.code
-    assert code == 0, (
-        f"mcgyvr must be able to: lock a fleet with `mcgyvr fleet lock` (exit {code})"
-    )
-
-
 def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:
     """The limit is the lock's tolerance added to the validated wake, whatever
     that tolerance is; the values are the measurement branch's."""

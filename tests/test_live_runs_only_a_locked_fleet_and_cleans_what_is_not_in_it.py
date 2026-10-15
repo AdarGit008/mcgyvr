@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import copy
 import importlib
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -148,8 +149,9 @@ def test_the_waker_does_not_wake_toward_a_fleet_nobody_locked(
     """A refused port on a live setup with no locked fleet spawns nothing.
 
     The file is written here rather than through ``config_file``: this is the
-    live, no-lock case itself, and it must not borrow a helper whose callers
-    declare ``profile: dev``.
+    live, no-lock case itself, so it is written in the config folder, where a
+    setup is held to the live lock (:func:`mcgyvr.fleet.roots.runs_live`), and
+    no ``live.json`` names a fleet.
     """
     from mcgyvr import wake
     from mcgyvr.config import load
@@ -158,7 +160,8 @@ def test_the_waker_does_not_wake_toward_a_fleet_nobody_locked(
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     spawned = door_log(monkeypatch)
     specs = compose_dir(tmp_path, with_spec=True)
-    live = tmp_path / "live.yaml"
+    live = Path(os.environ["HOME"]) / ".mcgyvr" / "live.yaml"
+    live.parent.mkdir(parents=True, exist_ok=True)
     live.write_text(
         ladder(engine="vllm")
         + f"journal:\n  dir: {tmp_path / 'j'}\n"

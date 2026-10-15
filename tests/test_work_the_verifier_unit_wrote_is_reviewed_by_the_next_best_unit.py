@@ -53,7 +53,6 @@ KEY = "ZETA_TEST_KEY"
 
 #: The e2e shape: two hosted rungs, the dearer one named to review.
 HOSTED_PAIR = f"""\
-profile: dev
 units:
   flash:
     address: https://flash.example.invalid
@@ -76,7 +75,6 @@ verifier:
 
 #: Three keyless rungs, cheapest first, three different models.
 THREE_LOCAL = """\
-profile: dev
 units:
   small:
     address: http://localhost:18001
@@ -105,7 +103,6 @@ ladder:
 #: A rung between the two that serves the builder's model under another unit
 #: name and another spelling of the model.
 WITH_A_TWIN = """\
-profile: dev
 units:
   small:
     address: http://localhost:18001
@@ -132,7 +129,6 @@ ladder:
 """
 
 ONE_RUNG = """\
-profile: dev
 units:
   small:
     address: http://localhost:18001
@@ -146,7 +142,6 @@ ladder:
 
 #: A keyless rung, then a hosted one serving another model.
 LOCAL_THEN_HOSTED = f"""\
-profile: dev
 units:
   small:
     address: http://localhost:18001

@@ -45,10 +45,7 @@ from typing import NoReturn
 
 #: How a run is started. Named in every refusal, because the operator reading
 #: one is the operator most inclined to work around it.
-DOOR = (
-    "python -m mcgyvr.serving.run --host H --campaign C --model M "
-    "--ctx-per-slot N [--step PATH]"
-)
+DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 
 #: What an ancestor's command line carries when it is the door: the module
 #: file by path (matched on its suffix, so a copy of the door in a test tree
@@ -121,10 +118,6 @@ def root() -> Path:
 USER_MODE = "user"
 #: The folder of the door's log, under the data folder.
 DOOR_LOG = "door"
-#: The variable the door names a ``step`` run's ``--out-root`` in: the folder
-#: the run's envelope is made under, as ``<it>/<date>-<campaign>/``. Unset on
-#: every other run, and on a step run that names none.
-OUT_ROOT_VAR = "RUN_OUT_ROOT"
 
 
 def step_name(step_file: Path) -> str:
@@ -132,25 +125,21 @@ def step_name(step_file: Path) -> str:
     return re.sub(r"^\d+-", "", step_file.stem)
 
 
-def run_id_of(run_date: str, campaign: str, step_file: Path, suffix: str) -> str:
-    """The RUN_ID gate 5 mints: ``<date>-<campaign>-<step>[-<suffix>]``."""
-    return f"{run_date}-{campaign}-{step_name(step_file)}" + (
+def run_id_of(run_date: str, host: str, step_file: Path, suffix: str) -> str:
+    """The RUN_ID gate 5 mints: ``<date>-<host>-<step>[-<suffix>]``."""
+    return f"{run_date}-{host}-{step_name(step_file)}" + (
         f"-{suffix}" if suffix else ""
     )
 
 
-def envelope_of(*, out_root: str, run_date: str, campaign: str, run_id: str) -> Path:
-    """Where a run's envelope is made, the one rule the door and gate 5 share.
+def envelope_of(run_date: str, run_id: str) -> Path:
+    """Where a run's envelope is made: its own folder of the door's log.
 
-    Under ``out_root`` when a step run names one (``<out_root>/<date>-
-    <campaign>/``); else the run's own folder of the door's log under the data
-    folder (``<data folder>/door/<date>/<RUN_ID>/``). The data folder is named
-    by :func:`mcgyvr.fleet.roots.data_home`, imported only here, so a shim
+    ``<data folder>/door/<date>/<RUN_ID>/``. The data folder is named by
+    :func:`mcgyvr.fleet.roots.data_home`, imported only here, so a shim
     loading this file by path needs nothing beyond the stdlib; it raises what
     that raises when the folder cannot be named.
     """
-    if out_root:
-        return Path(out_root) / f"{run_date}-{campaign}"
     from mcgyvr.fleet.roots import data_home
 
     return data_home() / DOOR_LOG / run_date / run_id
@@ -588,7 +577,7 @@ def release(out_dir: Path, run_id: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# the rig lease: one run on a rig at a time, and live outranks dev
+# the rig lease: one run on a rig at a time, and the newest takes it
 # --------------------------------------------------------------------------
 
 #: Where a rig keeps the lease on itself. ON the rig, because the rig is the
@@ -596,8 +585,6 @@ def release(out_dir: Path, run_id: str) -> None:
 #: of them would be a lock only one of them could see.
 LEASE_DIR = "~/.mcgyvr"
 LEASE_FILE = f"{LEASE_DIR}/lease"
-#: The profile that yields (owner's ruling R1, 2026-09-06: live outranks dev).
-DEV = "dev"
 #: What a lease value may be: one whitespace-free token that survives a
 #: single-quoted shell line and a `k=v` stamp as-is. Matched whole.
 LEASE_TOKEN = re.compile(r"[A-Za-z0-9._@:+/-]+")
@@ -628,8 +615,8 @@ def os_machine_id() -> str:
     The machine's id as the one reader derives it
     (:func:`mcgyvr.serving.rigscan.machine_id`: systemd's machine id where
     there is one, hashed) — two cloud images or containers are both `ubuntu`
-    and a lease judged stale by hostname alone would let a dev run take a live
-    run's rig — and the hostname where no id can be read.
+    and a lease judged stale by hostname alone would be taken from a run that
+    is still alive — and the hostname where no id can be read.
     """
     from mcgyvr.serving import rigscan
 
@@ -651,12 +638,10 @@ class Lease:
     """
 
     lease_id: str
-    profile: str
     holder: str
     machine: str
     pid: int
     started_at: str
-    campaign: str
     step: str
     run_id: str = "none"
     raw: str = ""
@@ -664,12 +649,10 @@ class Lease:
     def line(self) -> str:
         pairs = (
             ("lease_id", self.lease_id),
-            ("profile", self.profile),
             ("holder", self.holder),
             ("machine", self.machine),
             ("pid", str(self.pid)),
             ("started_at", self.started_at),
-            ("campaign", self.campaign),
             ("step", self.step),
             ("run_id", self.run_id),
         )
@@ -701,12 +684,10 @@ class Lease:
             pid = 0
         return cls(
             lease_id=fields.get("lease_id", "?"),
-            profile=fields.get("profile", "?"),
             holder=fields.get("holder", "?"),
             machine=fields.get("machine", "?"),
             pid=pid,
             started_at=fields.get("started_at", "?"),
-            campaign=fields.get("campaign", "?"),
             step=fields.get("step", "?"),
             run_id=fields.get("run_id", "none"),
             raw=line,
@@ -714,8 +695,8 @@ class Lease:
 
     def describe(self) -> str:
         return (
-            f"{self.holder} (pid {self.pid} on {self.machine}, profile "
-            f"{self.profile}, {self.campaign}/{self.step}, run {self.run_id}, "
+            f"{self.holder} (pid {self.pid} on {self.machine}, "
+            f"step {self.step}, run {self.run_id}, "
             f"since {self.started_at})"
         )
 
@@ -728,7 +709,7 @@ class Lease:
 
         Decidable only here: a pid on another machine cannot be asked. A
         lease from elsewhere is therefore never stale by this test, and is
-        honoured (a dev run refuses, a live run displaces) — the operator on
+        honoured (a run displaces it and names it) — the operator on
         that machine is the one who can tell. A pid that is alive but is not
         the door — the number reused by something else since — is gone too.
         """
@@ -757,15 +738,13 @@ def whoami() -> str:
     return f"{user}@{socket.gethostname()}"
 
 
-def new_lease(profile: str, campaign: str, step: str, pid: int) -> Lease:
+def new_lease(step: str, pid: int) -> Lease:
     return Lease(
         lease_id=secrets.token_hex(8),
-        profile=profile,
         holder=whoami(),
         machine=os_machine_id(),
         pid=pid,
         started_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        campaign=campaign,
         step=step,
     )
 
@@ -819,8 +798,8 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
     ``held`` is what the caller read: ``None`` for a free rig, and the write
     is then ``set -C`` (noclobber) — the rig's shell refuses to overwrite, so
     of two runs arriving at once exactly one holds the rig, and the other is
-    handed back what it found. A held lease is written over — what a live
-    run does (R1), and what a stale one earns — but only if the rig still
+    handed back what it found. A held lease is written over — what a run
+    does (R1), and what a stale one earns — but only if the rig still
     holds exactly that lease (compare-and-swap on its id): a holder that
     changed meanwhile comes back for the caller to judge again. An empty
     file, and a file with no id to compare, are taken outright: nothing a
@@ -945,8 +924,8 @@ def yield_if_displaced(host: str, *, via: Transport, what: str) -> None:
         f"({mine.lease_id}) — "
         + (f"held by {held.describe()}" if held is not None else "it is gone")
         + ". Another run took the rig; this one yields (owner's ruling R1, "
-        "2026-09-06: live outranks dev, enforced by the machine), and nothing "
-        "more is started on it"
+        "2026-09-06, enforced by the machine), and nothing more is started on "
+        "it"
     )
 
 

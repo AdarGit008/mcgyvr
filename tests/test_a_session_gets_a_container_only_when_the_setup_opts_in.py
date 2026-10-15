@@ -105,7 +105,6 @@ def _config(tmp_path: Path, sandbox: str = "") -> Path:
     """A one-rung dev setup; ``sandbox`` is the block's body, if any."""
     path = tmp_path / "mcgyvr.yaml"
     path.write_text(
-        "profile: dev\n"
         "units:\n"
         "  local_qwen-7b:\n"
         "    address: http://localhost:11434\n"

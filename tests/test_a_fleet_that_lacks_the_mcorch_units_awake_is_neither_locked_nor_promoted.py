@@ -7,10 +7,11 @@ slot does not count: an mcorch conversation cannot wait for a wake. A policy
 that names no ``jev`` unit cannot be held by any layout, and says so.
 
 The one check is :func:`mcgyvr.fleet.layout.mcorch_units`, on the raw policy
-and layout. ``mcgyvr fleet lock`` holds every fleet of the file to it, beside
-the refusal of a ladder naming a unit the fleet lacks; ``mcgyvr fleet promote``
-holds the fleet it promotes to it, and writes nothing when it refuses. A
-``proposer`` orchestrator is untouched by both.
+and layout. The lock (:func:`mcgyvr.fleet.lock.write`) holds every fleet of
+the file to it, beside the refusal of a ladder naming a unit the fleet lacks;
+:func:`mcgyvr.fleet.promote.promote` holds the fleet it promotes to it, and
+writes nothing when it refuses. A ``proposer`` orchestrator is untouched by
+both.
 """
 
 from __future__ import annotations
@@ -96,7 +97,7 @@ def test_a_proposer_orchestrator_is_untouched() -> None:
     mcorch_units(POLICY, {}, name="flt-05")
 
 
-# --- mcgyvr fleet lock ----------------------------------------------------------
+# --- the lock ------------------------------------------------------------------
 
 
 def test_lock_refuses_a_fleet_whose_jev_unit_is_asleep(tmp_path: Path) -> None:
@@ -126,7 +127,7 @@ def test_lock_leaves_a_proposer_policy_as_it_was(tmp_path: Path) -> None:
     assert (tmp_path / LOCK_DIR / "flt-05.json").is_file()
 
 
-# --- mcgyvr fleet promote -------------------------------------------------------
+# --- the promotion -------------------------------------------------------------
 
 
 def test_promote_refuses_a_fleet_whose_agent_is_asleep_and_writes_nothing(

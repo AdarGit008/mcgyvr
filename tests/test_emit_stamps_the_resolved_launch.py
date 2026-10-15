@@ -160,7 +160,6 @@ def _config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
     config = tmp_path / "config"
     config.mkdir()
     (config / FLEET_FILENAME).write_text(
-        "profile: dev\n"
         "units:\n"
         "  local_qwen2.5-coder-3b:\n"
         "    address: http://localhost:8080\n"
@@ -232,7 +231,6 @@ def test_dev_emit_fills_only_what_a_unit_does_not_state(
     config, out = _config_dir(tmp_path, monkeypatch)
     fleet_path = config / FLEET_FILENAME
     fleet_path.write_text(
-        "profile: dev\n"
         "units:\n"
         "  local_qwen2.5-coder-3b:\n"
         "    address: http://localhost:8080\n"

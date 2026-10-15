@@ -53,7 +53,6 @@ def test_the_live_fleet_setup_made_wakes_a_refused_unit_through_the_door(
     config = load()
 
     assert config.path == live
-    assert config.get("profile") == "live"
     assert config.get("serving.enable_sleep_wake") is True
     assert config.get("serving.compose_dir") == str(staged)
     assert (staged / f"compose.{sd.RIG}.yml").is_file()

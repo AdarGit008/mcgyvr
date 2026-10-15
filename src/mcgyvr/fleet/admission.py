@@ -3,7 +3,7 @@
 What :func:`mcgyvr.fleet.admit.admit_live` is handed as ``observed`` is the door's
 ``read`` of each rig of the live fleet (:mod:`mcgyvr.fleet.read`), never a
 guess, and the lock is read from the live fleet's own folder
-(:func:`mcgyvr.fleet.roots.lock_root`), never the working directory.
+(:func:`mcgyvr.fleet.roots.live_fleet_dir`), never the working directory.
 
 :func:`admit` refuses (:class:`~mcgyvr.fleet.admit.LiveRefusedError`) when no
 fleet is named or it has no lock, when the config the command loaded holds a

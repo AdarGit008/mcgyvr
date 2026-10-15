@@ -1,6 +1,7 @@
 """A fleet.yaml the lock accepts is a fleet.yaml a run can read.
 
-``mcgyvr fleet lock`` requires every unit to carry its ``unit_id``, and
+The fleet lock (:mod:`mcgyvr.fleet.lock`) requires every unit to carry its
+``unit_id``, and
 ``mcgyvr.fleet.files`` accepts it. ``mcgyvr.config`` validates the same file
 again for ``run``, ``pool``, ``emit`` and ``serve``; if it refused
 ``unit_id``, every locked setup would be unreadable by the commands that serve
@@ -13,7 +14,6 @@ from mcgyvr import config
 from tests._paths import REPO
 
 FLEET = """\
-profile: live
 units:
   box2_7b:
     rig: box2

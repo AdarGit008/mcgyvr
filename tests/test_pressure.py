@@ -69,7 +69,6 @@ units:
 ladder:
 - {FAST}
 - {SMART}
-profile: dev
 """
 
 

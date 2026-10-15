@@ -4,9 +4,8 @@ Promise: when the variable that moves mcgyvr's config folder names no usable
 folder, a command refuses with one line, never a traceback. A value that names
 no folder at all (not an absolute path, or a home that cannot be expanded) is
 refused by the variable's name; a folder that is there and cannot be searched
-is refused by the path that could not be used; ``fleet lock``'s guard also
-refuses one that loops back on itself where Python raises on the loop (3.12),
-and other readers see it as holding no live.json.
+is refused by the path that could not be used; one that loops back on itself
+is seen as holding no live.json.
 Every reader of the pointer naming the live fleet refuses it as it refuses a
 pointer that cannot be read, so a run, a probe or the door's first gate says
 why it cannot tell which fleet is live. The version line still prints, and
@@ -39,7 +38,6 @@ ENTRY = "from mcgyvr.cli import main; raise SystemExit(main())"
 COMMANDS = (
     ("config",),
     ("fleet", "use", "any"),
-    ("fleet", "tag", "any"),
     ("fleet", "probe"),
     ("fleet", "alerts"),
 )
@@ -86,7 +84,7 @@ def test_the_first_gate_refuses_a_live_serve_by_the_variables_name(
     gate = by_path("gate_01_round", GATE_1)
 
     with pytest.raises(SystemExit):
-        gate.refuse_unless_the_fleet_lock_names("up", "live")
+        gate.refuse_unless_the_fleet_lock_names("up", "none")
 
     said = capsys.readouterr().err
     assert "gate 1: $MCGYVR_HOME=" in said, said
@@ -170,7 +168,7 @@ def test_the_first_gate_refuses_a_folder_it_cannot_search_by_its_path(
     gate = by_path("gate_01_round", GATE_1)
 
     with pytest.raises(SystemExit):
-        gate.refuse_unless_the_fleet_lock_names("up", "live")
+        gate.refuse_unless_the_fleet_lock_names("up", "none")
 
     said = capsys.readouterr().err
     assert "gate 1: " in said and str(unsearchable) in said, said
@@ -187,23 +185,3 @@ def test_the_version_line_says_a_folder_it_cannot_search_cannot_be_read(
     lines = capsys.readouterr().out.splitlines()
     assert lines[1].startswith("config: unreadable ("), lines
     assert str(unsearchable) in lines[1], lines
-
-
-def test_a_config_folder_that_loops_back_on_itself_is_refused_in_one_line(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """On Python 3.12 a link to itself never resolves; on later Pythons it
-    resolves and the folder is seen as holding no live.json."""
-    loop = tmp_path / "settings"
-    loop.symlink_to(loop)
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("MCGYVR_HOME", str(loop))
-    dev = tmp_path / "dev"
-    lock = ["fleet", "lock", "--fleet", "f.yaml", "--evidence", "e.json"]
-
-    assert cli.main([*lock, "--root", str(dev)]) == 1
-
-    said = capsys.readouterr().err
-    assert said.startswith("error: "), said
-    assert str(loop) in said, said
-    assert said.count("\n") == 1, said
