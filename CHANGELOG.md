@@ -39,8 +39,19 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     (checks run before and after each door entry, and after gates 7 and 8),
     taken by `serve`, `read`, `link` and `through` (the serve sequence under
     an environment the driver builds, with `run_entry`, `pin_config`, `BIN`
-    and `ROOT`). A driver is a door by the seal's rule; its checks add
-    refusals and never skip, move or stand in for a door gate.
+    and `ROOT`). Its checks add refusals and never skip, move or stand in
+    for a door gate.
+  - `$MCGYVR_DOOR_DRIVER=package.module:attr` names a `Driver` the door
+    itself imports (from its `sys.path`, e.g. `PYTHONPATH`) and runs between
+    its gates on `serve`, `read` and `link`, so nothing outside the package
+    has to pose as the door to add checks. Unset, there is none and a run is
+    as before. A value that is not `package.module:attr`, cannot be imported
+    or is not a `Driver` is refused in one line, exit 2, before any gate. A
+    check that raises, or changes, removes or adds a name it does not declare
+    in `Driver.private` (`RUN_` names the door does not set), is a refusal,
+    and the door's names are put back. The variable is handed to no gate;
+    the run exports `RUN_DRIVER` (`module:attr`), and a serve run's header
+    files it as `driver`.
 
 - **There is one kind of run: `profile: live|dev` is gone.**
   - `fleet.yaml` no longer holds `profile`, and a file that still says it is

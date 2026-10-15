@@ -80,11 +80,23 @@ start is reported and left as it is.
 
 A DRIVER OUTSIDE THIS PACKAGE. :func:`serve`, :func:`read`, :func:`link` and
 :func:`through` take a :class:`Driver`: checks of the driver's own that the
-door runs between its entries, and never in place of any of them. A driver is
-code that is itself a door by the seal's rule (its command line ends in
-``mcgyvr/serving/run.py``), which this package's code never is: the door's
-gates refuse to run under anything else. Its checks can add a refusal, and
-never skip, move or stand in for a door gate.
+door runs between its entries, and never in place of any of them. The door
+itself loads one named by ``$MCGYVR_DOOR_DRIVER=package.module:attr``
+(:func:`load_driver`), importable from its ``sys.path`` (``PYTHONPATH``),
+before any gate runs: unset, there is none (:data:`NO_DRIVER`); a value that
+is not ``package.module:attr``, cannot be imported, or names no
+:class:`Driver` is refused in one line, exit 2, and the run never starts
+without it. The driver runs in the door's own process, so what its checks
+start is under the door by the seal's own reading of it and nothing has to
+pose as the door. Its checks can add a refusal and names of its own
+(``Driver.private``), and never skip, move or stand in for a door gate: one
+that raises, or changes a name the door set, is a refusal, and the door's
+names are put back. The variable is
+handed to no gate and reaches no rig; the run exports the driver's
+``module:attr`` as ``RUN_DRIVER``, and a serve run's header files it as
+``driver``, so a run says what checks it carried. A driver is code in the
+door's process, so code that rewrites this module from inside it is the
+operator's, the limit the seal already names.
 
 THE CONTRACT WITH A GATE SCRIPT. The door's own gates are executables under
 ``gate-scripts/``. A gate reads the run from the environment (:data:`EXPORTED`),
@@ -97,6 +109,7 @@ seam that lets a test stub a gate is the seam that lets a caller do it.
 from __future__ import annotations
 
 import argparse
+import importlib
 import ipaddress
 import os
 import re
@@ -106,8 +119,8 @@ import signal
 import subprocess
 import sys
 import types
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NoReturn
@@ -369,6 +382,9 @@ EXPORTED = (
     # ended, how it ended: what the run files in its log.
     "RUN_COMMAND",
     "RUN_STEP_EXIT",
+    # The driver $MCGYVR_DOOR_DRIVER named (`module:attr`), when one runs:
+    # a serve run's header files it, so a run says what checks it carried.
+    "RUN_DRIVER",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
@@ -383,31 +399,205 @@ def _nothing(_env: dict[str, str]) -> int:
     return 0
 
 
+#: The names a driver may not take as its own: every name the door sets or a
+#: gate of its exports, the descriptor it hands a gate, and the driver's name.
+DOOR_NAMES = frozenset(
+    {
+        *EXPORTED,
+        *(name for entry in (*READ_SEQUENCE, LEASE_RELEASE) for name in entry.exports),
+        "RUN_EXPORT_FD",
+    }
+)
+#: What a driver's own name looks like: the door's vocabulary, so no shell
+#: can hand one in (the door refuses an inherited ``RUN_*``).
+PRIVATE_NAME = re.compile(r"RUN_[A-Z0-9_]+")
+
+
 @dataclass(frozen=True)
 class Driver:
     """The checks a driver outside this package runs inside one door run.
 
     ``before(script, env)`` runs before the door's entry ``script`` starts and
     ``after(script, env)`` once it has admitted the run; ``env`` is the run's
-    environment, and a check may add names to it, each listed in ``private``.
-    A non-zero ``before`` or ``after`` ends the run as a door gate's refusal
-    does: the door's entries after it do not run, the lease is still
-    released, and the door exits 2 whatever the check returned. ``last(env)``
-    runs after gates 7 and 8, before the lease is released, and only when the
-    run got as far as gate 5; a non-zero ``last`` is the run's exit when the
-    step and gates 7 and 8 passed. The lease is released with none of
-    ``private``. A driver adds checks; it never skips, moves or stands in for a
-    door entry. The door's own commands drive with none (:data:`NO_DRIVER`).
+    environment, and a check may add names to it, each listed in ``private``
+    (``RUN_`` names, none of :data:`DOOR_NAMES`). A non-zero ``before`` or
+    ``after`` ends the run as a door gate's refusal does: the door's entries
+    after it do not run, the lease is still released, and the door exits 2
+    whatever the check returned. So does a check that raises, and, for a
+    driver the door loaded itself, one that changes, removes or adds a name
+    that is not in ``private``: the door's names are put back as they were
+    before it ran (:func:`_check`). ``last(env)`` runs after
+    gates 7 and 8, before the lease is released, and only when the run got as
+    far as gate 5; a non-zero ``last`` is the run's exit when the step and
+    gates 7 and 8 passed. The lease is released with none of ``private``. A
+    driver adds checks; it never skips, moves or stands in for a door entry.
+    The door's own commands drive with none (:data:`NO_DRIVER`), unless
+    ``$MCGYVR_DOOR_DRIVER`` names one (:func:`load_driver`). ``named`` is
+    that name, set by the loader; the run exports it as ``RUN_DRIVER``.
     """
 
     before: Callable[[str, dict[str, str]], int] = _admits
     after: Callable[[str, dict[str, str]], int] = _admits
     last: Callable[[dict[str, str]], int] = _nothing
     private: frozenset[str] = frozenset()
+    named: str = ""
+
+    def __post_init__(self) -> None:
+        taken = sorted(
+            name
+            for name in self.private
+            if name in DOOR_NAMES or PRIVATE_NAME.fullmatch(name) is None
+        )
+        if taken:
+            raise ValueError(
+                f"a driver's own names are RUN_ names the door does not set; "
+                f"{', '.join(taken)} cannot be one: a check could then change "
+                "what a door gate reads"
+            )
 
 
 #: The door's own commands: no checks but the door's.
 NO_DRIVER = Driver()
+
+#: Names the driver the door runs: ``package.module:attr``, a
+#: :class:`Driver` importable from the door's ``sys.path``. Unset, the door
+#: runs with none (:data:`NO_DRIVER`).
+DRIVER_ENV = "MCGYVR_DOOR_DRIVER"
+#: What ``$MCGYVR_DOOR_DRIVER`` must look like: a dotted module and one name.
+DRIVER_SPEC = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*"
+)
+
+
+class DriverError(Exception):
+    """``$MCGYVR_DOOR_DRIVER`` names no driver the door can run."""
+
+
+def load_driver(environ: Mapping[str, str]) -> Driver:
+    """The driver ``$MCGYVR_DOOR_DRIVER`` names in ``environ``, or none.
+
+    Unset is :data:`NO_DRIVER`. Set, it is imported before any gate runs, and
+    a value that is not ``package.module:attr``, a module that cannot be
+    imported, a name it does not hold or an object that is not a
+    :class:`Driver` raises :class:`DriverError`: the door refuses the run,
+    and never runs one without the checks it was named to carry. An empty
+    value is a value. Run as ``python -m``, this module is ``__main__`` and a
+    driver builds its ``Driver`` from ``mcgyvr.serving.run``; either class is
+    the door's.
+    """
+    named = environ.get(DRIVER_ENV)
+    if named is None:
+        return NO_DRIVER
+    if DRIVER_SPEC.fullmatch(named) is None:
+        raise DriverError(
+            f"{DRIVER_ENV}={named!r} is not package.module:attr, the driver the "
+            "door imports and runs between its gates; unset it to run with none"
+        )
+    module_name, attr = named.split(":")
+    try:
+        module = importlib.import_module(module_name)
+    except Exception as escape:  # any failure to import is one refusal
+        raise DriverError(
+            f"{DRIVER_ENV}={named!r}: {module_name} cannot be imported "
+            f"({type(escape).__name__}: {escape}); the door runs no run without "
+            "the driver it was named"
+        ) from escape
+    try:
+        found = getattr(module, attr)
+    except AttributeError:
+        raise DriverError(
+            f"{DRIVER_ENV}={named!r}: {module_name} has no {attr}; the door runs "
+            "no run without the driver it was named"
+        ) from None
+    except Exception as escape:  # a driver built on first read may refuse
+        raise DriverError(
+            f"{DRIVER_ENV}={named!r}: {attr} could not be read "
+            f"({type(escape).__name__}: {escape}); the door runs no run without "
+            "the driver it was named"
+        ) from escape
+    door = sys.modules.get(DOOR_MODULE)
+    kinds = (Driver,) if door is None else (Driver, getattr(door, "Driver", Driver))
+    if not isinstance(found, kinds):
+        raise DriverError(
+            f"{DRIVER_ENV}={named!r} is a {type(found).__name__}, not a "
+            "mcgyvr.serving.run.Driver"
+        )
+    return replace(found, named=named)
+
+
+def _named(env: dict[str, str], driver: Driver) -> None:
+    """``env`` without ``$MCGYVR_DOOR_DRIVER``, naming the driver as
+    ``RUN_DRIVER`` when one was loaded. The variable is the door's to read:
+    no gate is handed it, and nothing reaches a rig with it."""
+    env.pop(DRIVER_ENV, None)
+    if driver.named:
+        env["RUN_DRIVER"] = driver.named
+
+
+def _check(driver: Driver, where: str, script: str, env: dict[str, str]) -> int:
+    """One of ``driver``'s checks: its status, or 2 when it broke the seam.
+
+    A check that raises is refused here, saying what it raised; the door's
+    own :class:`RefusedError` goes on to the caller as a gate's does, except
+    from ``last``, whose refusal is the run's exit. A driver the door loaded
+    itself (``named``, from ``$MCGYVR_DOOR_DRIVER``) is also refused when a
+    check changed, removed or added a name it does not declare in
+    ``private``, and the names it touched are put back as the door set them,
+    so nothing after it (the lease release included) reads a value the door
+    did not set. A process that calls :func:`through` itself is a door by the
+    seal's rule, and nothing here holds it to more than that.
+    """
+    held = dict(env)
+    what = f"{where} {script}" if script else where
+    try:
+        if where == "before":
+            status = driver.before(script, env)
+        elif where == "after":
+            status = driver.after(script, env)
+        else:
+            status = driver.last(env)
+    except RefusedError as refusal:
+        _restore(env, held, driver.private)
+        if where != "last":
+            raise
+        print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
+        return refusal.status or 2
+    except Exception as escape:  # a check that breaks is a refusal
+        print(
+            f"run.py: REFUSED — the driver's check {what} raised "
+            f"{type(escape).__name__}: {escape}",
+            file=sys.stderr,
+        )
+        _restore(env, held, driver.private)
+        return 2
+    touched = sorted(
+        ({k for k in held if env.get(k) != held[k]} | (set(env) - set(held)))
+        - driver.private
+    )
+    if driver.named and touched:
+        print(
+            f"run.py: REFUSED — the driver's check {what} changed "
+            f"{', '.join(touched)}, which it does not declare its own; a driver "
+            "adds names of its own and changes none of the door's",
+            file=sys.stderr,
+        )
+        _restore(env, held, driver.private)
+        return 2
+    if status == 0:
+        return 0
+    return status if isinstance(status, int) else 2
+
+
+def _restore(
+    env: dict[str, str], held: dict[str, str], private: frozenset[str]
+) -> None:
+    """Put every name of ``env`` that is not in ``private`` back as ``held``."""
+    for key in [k for k in env if k not in private and k not in held]:
+        del env[key]
+    for key, value in held.items():
+        if key not in private:
+            env[key] = value
+
 
 #: `KEY=VALUE`, where VALUE runs to end of line. Anything else on the export
 #: descriptor is a
@@ -819,6 +1009,7 @@ def serve(argv: list[str], driver: Driver = NO_DRIVER) -> int:
         RUN_COMMAND=_command("serve", argv),
         **fetch,
     )
+    _named(env, driver)
     if opts.date:
         env["RUN_DATE"] = opts.date
     return through(SERVE_SEQUENCE, env, driver=driver)
@@ -847,7 +1038,7 @@ def through(
         try:
             check_manifest()
             for entry in sequence:
-                if driver.before(entry.script, env) != 0:
+                if _check(driver, "before", entry.script, env) != 0:
                     return _stop_driver(entry.script, "before")
                 args = step_args if entry.script == "06-step.py" else None
                 status = run_entry(entry, env, args)
@@ -855,7 +1046,7 @@ def through(
                     if entry.script != "06-step.py":
                         return _stop(entry, status, env)
                     step_status = status
-                if driver.after(entry.script, env) != 0:
+                if _check(driver, "after", entry.script, env) != 0:
                     return _stop_driver(entry.script, "after")
         except RefusedError as refusal:
             print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
@@ -869,7 +1060,7 @@ def through(
             )
 
         env["RUN_STEP_EXIT"] = "interrupted" if interrupted else str(step_status)
-        after = _always(env, driver.last)
+        after = _always(env, lambda held: _check(driver, "last", "", held))
         if interrupted:
             return 130
         return step_status or after
@@ -989,17 +1180,18 @@ def read(argv: list[str], driver: Driver = NO_DRIVER) -> int:
         RUN_READ_FLEET=opts.fleet,
         RUN_COMMAND=_command("read", argv),
     )
+    _named(env, driver)
     try:
         check_manifest()
         for entry in READ_SEQUENCE:
-            if driver.before(entry.script, env) != 0:
+            if _check(driver, "before", entry.script, env) != 0:
                 return _stop_driver(entry.script, "before")
             status = run_entry(entry, env)
             if status == 2:
                 return _stop(entry, status, env)
             if status != 0:
                 return status
-            if driver.after(entry.script, env) != 0:
+            if _check(driver, "after", entry.script, env) != 0:
                 return _stop_driver(entry.script, "after")
     except RefusedError as refusal:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
@@ -1084,10 +1276,11 @@ def link(argv: list[str], driver: Driver = NO_DRIVER) -> int:
         RUN_LINK=" ".join(timer),
         RUN_COMMAND=_command("link", argv),
     )
+    _named(env, driver)
     try:
         check_manifest()
         for entry in LINK_SEQUENCE:
-            if driver.before(entry.script, env) != 0:
+            if _check(driver, "before", entry.script, env) != 0:
                 return _stop_driver(entry.script, "before")
             status = run_entry(entry, env)
             if status != 0:
@@ -1102,12 +1295,16 @@ def link(argv: list[str], driver: Driver = NO_DRIVER) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     given = list(sys.argv[1:] if argv is None else argv)
-    if given[:1] == ["serve"]:
-        return serve(given[1:])
-    if given[:1] == ["read"]:
-        return read(given[1:])
-    if given[:1] == ["link"]:
-        return link(given[1:])
+    verbs = {"serve": serve, "read": read, "link": link}
+    if given[:1] and given[0] in verbs:
+        # Before any gate, and before the verb reads its own arguments: a run
+        # named a driver carries it, or does not start.
+        try:
+            driver = load_driver(os.environ)
+        except DriverError as refusal:
+            print(f"run.py: REFUSED — {refusal}", file=sys.stderr)
+            return 2
+        return verbs[given[0]](given[1:], driver)
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run",
         description="the one access point to the rigs",
@@ -1115,7 +1312,10 @@ def main(argv: list[str] | None = None) -> int:
             "The verbs, each with its own --help: `serve "
             "up|down|sleep|wake|fetch` starts, stops, sleeps or wakes a "
             "ladder on a rig, or fetches weights onto it; `read` reads a rig; "
-            "and `link` times a link on one"
+            "and `link` times a link on one. $MCGYVR_DOOR_DRIVER=package."
+            "module:attr names a driver whose checks run between the door's "
+            "gates on every verb (unset: none); one the door cannot import is "
+            "refused before any gate"
         ),
     )
     parser.add_argument("verb", nargs="?", choices=("serve", "read", "link"))
