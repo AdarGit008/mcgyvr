@@ -38,6 +38,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   - The door has no hook for code outside it: nothing names a driver, a
     check or a step of a caller's, and no library function runs the serve
     sequence for one. The door runs its own gates and its own serve steps.
+  - A serve step declares its records as `# RUN_REWRITES:` JSON files, each
+    carrying its `run_id`; the write-once `# RUN_ARTIFACTS:` directive, the
+    TSV `### START run_id=` stamp and gate 7's TSV `### RIGMOVED` line are
+    gone (a moved rig is stamped in a `<name>.RIGMOVED` sidecar), and gates
+    7 and 8 read no `RUN_APPENDS`; `RUN_APPEND_STATE` is no longer exported.
 
 - **There is one kind of run: `profile: live|dev` is gone.**
   - `fleet.yaml` no longer holds `profile`, and a file that still says it is

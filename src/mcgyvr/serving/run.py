@@ -217,7 +217,6 @@ SEQUENCE: tuple[Entry, ...] = (
             "RUN_STEP",
             "RUN_HOST",
             "RUN_DECLARED",
-            "RUN_APPEND_STATE",
             "RUN_SUPERSEDED",
         ),
     ),

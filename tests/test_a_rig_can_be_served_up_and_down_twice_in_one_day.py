@@ -1,15 +1,12 @@
 """A rig can be served up and down twice in one day.
 
-Gate 5 (``src/mcgyvr/serving/gate-scripts/05-envelope.py``) refuses a write-once
-artifact that already exists in ``records/evidence/<date>-live-<host>/``, and a
-suffix changes the RUN_ID and not the file name. The Waker gives every wake a
-RUN_ID of its own (``--suffix``, ``mcgyvr.wake``), so ``serve-up.py`` and
-``serve-down.py`` declare their records as ones they may write again
-(``# RUN_REWRITES: serve-up.json`` / ``serve-down.json``): the day's second
-``serve up`` or ``serve down`` of a host supersedes the first one's record
-instead of being refused before anything is started or stopped. A live fleet
-that can be woken or stopped through the door once a day cannot be switched,
-slept or measured around.
+The Waker gives every wake a RUN_ID of its own (``--suffix``,
+``mcgyvr.wake``), and ``serve-up.py`` and ``serve-down.py`` declare their
+records as ones they may write again (``# RUN_REWRITES: serve-up.json`` /
+``serve-down.json``), so gate 5 (``src/mcgyvr/serving/gate-scripts/
+05-envelope.py``) never refuses the day's second ``serve up`` or ``serve
+down`` of a host for the first one's record. A live fleet that can be woken
+or stopped through the door once a day cannot be switched or slept.
 """
 
 from __future__ import annotations

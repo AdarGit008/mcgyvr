@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 """gate 5 — the envelope, and RUN_ID.
 
-A step declares what it writes on one comment line per directive, which the
-door READS and never executes:
+A serve step declares what it writes on one comment line, which the door
+READS and never executes:
 
-    # RUN_ARTIFACTS: a.tsv [b.tsv ...]   created here; write-once
-    # RUN_REWRITES:  b.tsv [...]         created here, and this step may run
-                                         again over it; the existing file is
-                                         admitted only if its `### START` (or,
-                                         for a JSON artifact, its `run_id`
-                                         field) carries a run_id THIS step
-                                         minted on this host, and is moved to
-                                         <name>.superseded-<run_id>.<ext> first
+    # RUN_REWRITES: serve-up.json [...]   created here, and this step may run
+                                          again over it; the existing file is
+                                          admitted only if its `run_id` field
+                                          carries a run_id THIS step minted on
+                                          this host, and is moved to
+                                          <name>.superseded-<run_id>.<ext> first
 
-WHY WRITE-ONCE. Two measurements filed under one name are one measurement with
-the other's history erased. Nothing recorded is overwritten and nothing is
-deleted: the superseded file stays on disk beside its replacement.
+Nothing recorded is overwritten and nothing is deleted: the superseded file
+stays on disk beside its replacement.
 
-WHY THE RUN_ID MAY NOT BE REUSED. It names the containers gate 7 looks for, the
-`### START` of exactly one run, and any `### RIGMOVED` stamp. Two invocations
+WHY THE RUN_ID MAY NOT BE REUSED. It names the containers gate 7 looks for,
+the artifact of exactly one run, and any `RIGMOVED` stamp. Two invocations
 sharing one id make all three ambiguous, so a same-day re-run takes --suffix.
 And two invocations at the same moment mint the same id and would both pass
 write-once, so the id is CLAIMED here — `.<RUN_ID>.running` in the envelope,
@@ -37,8 +34,8 @@ THE ENVELOPE HEADER. Once the RUN_ID is claimed, the run's identity is filed
 beside the artifacts the step will write, as ``<RUN_ID>.run.json``: the run,
 the step, the host, and the path of the config it was read under (``none``
 when there is none).
-Written once, before the step, so a step that dies before its own START still
-left a record of what was about to measure; a header already there under this
+Written once, before the step, so a step that dies before it writes anything
+still left a record of what was about to run; a header already there under this
 RUN_ID is refused, because two door invocations never share a run id.
 
 The envelope is the run's own folder in the door's log under the data folder,
@@ -84,15 +81,13 @@ from mcgyvr.serving.gatelib import (
     step_name,
 )
 
-DIRECTIVES = ("RUN_ARTIFACTS", "RUN_REWRITES")
+DIRECTIVES = ("RUN_REWRITES",)
 PLAIN_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
 RUN_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-#: `### START ... run_id=<id>` on the file's first START line.
-START_RUN_ID = re.compile(r"^###\s+START\s+.*\brun_id=(\S+)", re.MULTILINE)
 
 
 def declarations(step_file: Path) -> dict[str, list[str]]:
-    """The three directives, read as text. The step is never executed to learn them."""
+    """The directive, read as text. The step is never executed to learn it."""
     text = step_file.read_text(encoding="utf-8", errors="replace")
     out: dict[str, list[str]] = {}
     for directive in DIRECTIVES:
@@ -108,27 +103,18 @@ def declarations(step_file: Path) -> dict[str, list[str]]:
     return out
 
 
-def start_run_id(path: Path) -> str | None:
-    """The run_id an artifact carries, in either of its two shapes.
+def artifact_run_id(path: Path) -> str | None:
+    """The run_id a JSON artifact carries as its ``run_id`` field.
 
-    A TSV opens with a `### START ... run_id=<id>` stamp; a JSON artifact
-    carries its run_id as a field. Both are written by the step the door
-    admits, and both must say which run produced them before a rewrite may
-    supersede them.
+    Written by the step the door admits; it must say which run produced the
+    file before a rewrite may supersede it.
     """
-    text = path.read_text(encoding="utf-8", errors="replace")
-    match = START_RUN_ID.search(text)
-    if match:
-        return match.group(1)
-    if path.suffix == ".json":
-        try:
-            doc = json.loads(text)
-        except ValueError:
-            return None
-        run_id = doc.get("run_id") if isinstance(doc, dict) else None
-        if isinstance(run_id, str):
-            return run_id
-    return None
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except ValueError:
+        return None
+    run_id = doc.get("run_id") if isinstance(doc, dict) else None
+    return run_id if isinstance(run_id, str) else None
 
 
 def minted_by(run_id: str, host: str, step: str) -> bool:
@@ -207,8 +193,8 @@ def main() -> int:
     every = [name for names in declared.values() for name in names]
     if not every:
         refuse(
-            f"gate 5: {step_file} declares no '# RUN_ARTIFACTS: <name> ...' "
-            "(or RUN_REWRITES) line, so the door cannot guard "
+            f"gate 5: {step_file} declares no '# RUN_REWRITES: <name> ...' "
+            "line, so the door cannot guard "
             "what it writes or parse it back at gate 8. A step that names "
             "nothing it produces is not run"
         )
@@ -266,15 +252,6 @@ def main() -> int:
                 "never guarded"
             )
 
-    for name in declared["RUN_ARTIFACTS"]:
-        linked(name)
-        if (out_dir / name).exists():
-            refuse(
-                f"gate 5: {name} already exists under {out_dir}; an artifact "
-                "is written once. Move it aside deliberately if this is a "
-                "re-run — the door does not overwrite evidence"
-            )
-
     # Every rewrite is JUDGED before any is MOVED, so a refusal on the second
     # leaves the first where it was.
     aside_of: dict[str, str] = {}
@@ -283,10 +260,10 @@ def main() -> int:
         linked(name)
         if not path.exists():
             continue
-        old = start_run_id(path)
+        old = artifact_run_id(path)
         if not old:
             refuse(
-                f"gate 5: {name} exists and its ### START carries no run_id=, "
+                f"gate 5: {name} exists and carries no run_id, "
                 "so no step can claim it; a file the door did not produce is "
                 "never superseded by one it does"
             )
@@ -313,7 +290,7 @@ def main() -> int:
         aside_of[name] = aside
 
     # Judged after the artifacts, so a re-run is told about its file first —
-    # `probe.tsv carries run_id=...` says more than `a header exists` — and
+    # `serve-up.json carries run_id=...` says more than `a header exists` — and
     # before anything is made, so a header that is already there costs
     # nothing: a run made before under this id is a run id reused.
     header = header_path(out_dir, run_id)
@@ -370,8 +347,6 @@ def main() -> int:
     export("RUN_STEP", step)
     export("RUN_HOST", need("RUN_HOST"))
     export("RUN_DECLARED", json.dumps(declared, separators=(",", ":")))
-    # Nothing is appended to: every run files into an envelope of its own.
-    export("RUN_APPEND_STATE", "{}")
     # What was moved aside, so gate 8 can put it back if this run never
     # writes the successor: a rewrite pass that filed nothing must not leave
     # the earlier pass vacated under its own name.
