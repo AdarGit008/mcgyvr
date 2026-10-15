@@ -35,23 +35,14 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     campaign; gate 1 exports no `RUN_ROUND` or `RUN_PRODUCT_SHA256`; gate 5
     reads no `RUN_APPENDS`.
   - `$MCGYVR_RUN_ROOT` no longer moves where the door's gates run.
-  - The seam for a driver outside the package: `mcgyvr.serving.run.Driver`
-    (checks run before and after each door entry, and after gates 7 and 8),
-    taken by `serve`, `read`, `link` and `through` (the serve sequence under
-    an environment the driver builds, with `run_entry`, `pin_config`, `BIN`
-    and `ROOT`). Its checks add refusals and never skip, move or stand in
-    for a door gate.
-  - `$MCGYVR_DOOR_DRIVER=package.module:attr` names a `Driver` the door
-    itself imports (from its `sys.path`, e.g. `PYTHONPATH`) and runs between
-    its gates on `serve`, `read` and `link`, so nothing outside the package
-    has to pose as the door to add checks. Unset, there is none and a run is
-    as before. A value that is not `package.module:attr`, cannot be imported
-    or is not a `Driver` is refused in one line, exit 2, before any gate. A
-    check that raises, or changes, removes or adds a name it does not declare
-    in `Driver.private` (`RUN_` names the door does not set), is a refusal,
-    and the door's names are put back. The variable is handed to no gate;
-    the run exports `RUN_DRIVER` (`module:attr`), and a serve run's header
-    files it as `driver`.
+  - The door has no hook for code outside it: nothing names a driver, a
+    check or a step of a caller's, and no library function runs the serve
+    sequence for one. The door runs its own gates and its own serve steps.
+  - A serve step declares its records as `# RUN_REWRITES:` JSON files, each
+    carrying its `run_id`; the write-once `# RUN_ARTIFACTS:` directive, the
+    TSV `### START run_id=` stamp and gate 7's TSV `### RIGMOVED` line are
+    gone (a moved rig is stamped in a `<name>.RIGMOVED` sidecar), and gates
+    7 and 8 read no `RUN_APPENDS`; `RUN_APPEND_STATE` is no longer exported.
 
 - **There is one kind of run: `profile: live|dev` is gone.**
   - `fleet.yaml` no longer holds `profile`, and a file that still says it is

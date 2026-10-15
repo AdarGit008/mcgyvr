@@ -189,7 +189,6 @@ def _fetch(
             *extra,
         ],
         stubs=stubs,
-        run_root=usermode.install_root(tmp_path),
         cwd=tmp_path,
         env_extra={
             "MCGYVR_CONFIG": str(usermode.dev_setup(tmp_path)),

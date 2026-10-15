@@ -8,9 +8,9 @@ resolved against one daemon and a container started on another is the hole
 gate 3 closes, so the daemon the door's ``docker`` reaches must answer, and
 must answer as the machine gate 2 read.
 
-In user mode (a door run from an install, ``--mode user``) there is no
-``hosts.json`` and no declared docker version: the daemon must answer and be
-the machine gate 2 read, and the version it runs is said, not compared.
+The rig file declares no docker version to hold the daemon to: the daemon
+must answer and be the machine gate 2 read, and the version it runs is said,
+not compared.
 """
 
 from __future__ import annotations

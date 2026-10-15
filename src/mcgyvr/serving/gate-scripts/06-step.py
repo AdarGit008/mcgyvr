@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""gate 6 — the step: the serve step of a serve run, or a driver's own.
+"""gate 6 — the step: the door's own serve step for the run's direction.
 
-It runs from the run root with the run exported to it and the arguments the
-run hands it; its stdout and stderr are the operator's and the door adds
-nothing to them.
+It runs from the run root with the run exported to it; its stdout and stderr
+are the operator's and the door adds nothing to them.
 
 Its exit status is a RESULT, not a refusal: a step that fails has measured
 something (that this cell does not run), so gates 7 and 8 still run and the
@@ -80,14 +79,11 @@ def main() -> int:
         f"(RUN_ID={need('RUN_ID')})",
         file=sys.stderr,
     )
-    argv = [step, *sys.argv[1:]]
-    if os.environ.get("RUN_SERVE"):
-        # The door's own serve step is mcgyvr code that imports the package;
-        # run it on the door's interpreter, not on the ``python3`` a cleared
-        # PATH finds (uv tool / pipx put the package in an isolated venv the
-        # system interpreter cannot see).
-        argv = [sys.executable, step, *sys.argv[1:]]
-    return _run(argv)
+    # The serve step is mcgyvr code that imports the package; run it on the
+    # door's interpreter, not on the ``python3`` a cleared PATH finds (uv tool
+    # / pipx put the package in an isolated venv the system interpreter cannot
+    # see).
+    return _run([sys.executable, step])
 
 
 if __name__ == "__main__":

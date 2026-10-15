@@ -77,16 +77,16 @@ def test_a_version_key_is_retired() -> None:
 
 # --- the door ------------------------------------------------------------------
 
-CAMPAIGN = "config-probe"
+FOLDER = "config-probe"
 
 
 def _probe(root: Path, env_file: Path) -> onedoor.Scenario:
-    """A campaign step that records the config the door handed it."""
+    """A step that records the config the door handed it."""
     after = f"printf 'RUN_CONFIG=%s\\n' \"${{RUN_CONFIG:-}}\" >> '{env_file}'\n"
     step = onedoor.add_step(
-        root, CAMPAIGN, "1-probe.sh", onedoor.probe_step(env_file, after=after)
+        root, FOLDER, "1-probe.sh", onedoor.probe_step(env_file, after=after)
     )
-    return onedoor.Scenario(folder=CAMPAIGN, step=str(step))
+    return onedoor.Scenario(folder=FOLDER, step=str(step))
 
 
 def test_the_step_is_handed_the_config_it_runs_under(tmp_path: Path) -> None:

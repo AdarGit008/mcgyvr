@@ -11,26 +11,25 @@ directory the door's environment leads with, and answers by the remote
 command it is handed.
 
 Everything here is built around one idea: a :class:`Scenario` is a step a
-driver runs under the door's gates, and :func:`door` is the only code that
+test runs under the door's gates, and :func:`door` is the only code that
 knows how that becomes an argv. A test never spells ``--host`` itself. The
-door has no verb that runs a caller's step; a driver outside the package does
-it through the door's library seam (:func:`mcgyvr.serving.run.through`), so
-the fixture holds a driver of its own (:data:`DRIVER_REL`), a door by the
-seal's rule, and that is what a scenario runs.
+door runs no caller's step, so :func:`door` installs the scenario's step as
+the fixture door's own ``serve down`` step (:data:`STEP_REL`) and runs the
+real door, ``python <fixture>/src/mcgyvr/serving/run.py serve down``, on a
+compose file whose one unit is never up: every gate and the step's place in
+the sequence are the door's own.
 
 The fixture (:func:`fixture_repo`) is a throw-away checkout the door can be
 run FROM — it is invoked as ``python <fixture>/src/mcgyvr/serving/run.py``,
 because the door derives its repo root from its own file — holding:
 
 * a copy of ``src/mcgyvr/serving/`` (the door, its gates and its shims) and
-  nothing else of a checkout: it is no lab checkout, so the door runs in
-  user mode. The rigs are described by user rig files under
+  nothing else of a checkout. The rigs are described by user rig files under
   ``$MCGYVR_RIGS/<rig>.json``, written for this tree from the same
   ``RIG``/``LIVE`` readings the stubs answer, and a run is filed in the
   door's log under ``$MCGYVR_DATA``, ``data/`` in the tree;
-* ``driver/mcgyvr/serving/run.py``, the driver a scenario runs: it loads the
-  tree's door by path and runs the scenario's step through
-  :func:`mcgyvr.serving.run.through`;
+* ``compose.scenario.yml``, the compose file a scenario's ``serve down`` is
+  handed (:data:`SCENARIO_UNIT`, never up);
 * ``stubs/``, first on the PATH :func:`door_env` builds: the ``ssh`` reads the
   shipped reader off its command line and answers from ``rigscan.json`` and
   ``snapshot.txt`` (or ``snapshot-moved.txt`` once a flag file the test names
@@ -38,15 +37,6 @@ because the door derives its repo root from its own file — holding:
   geometry read from ``geometry.json`` (one row seeded from a recorded
   envelope), and the rest with canned lines; the ``docker`` logs every argv it
   is handed and answers ``info``, ``version``, ``image inspect`` and ``ps``.
-
-The driver-seam tests do not go through the door: :func:`bare_env` puts the
-same two stubs on PATH with ``RUN_HOST`` set. A driver and the emitter's two
-rig-reaching functions prove the door before anything else, though, so a
-test that must get PAST that proof runs them under :func:`fake_door` — a
-stand-in whose path ends in ``mcgyvr/serving/run.py``, which is what
-``gatelib.under_door`` reads off /proc — with ``RUN_ROOT`` naming this tree
-and ``RUN_BIN`` its shim directory, where the emitter finds the real shims by
-path.
 """
 
 from __future__ import annotations
@@ -65,66 +55,28 @@ from tests._paths import REPO as REPO
 
 #: The door and everything it spawns. Copied whole into a fixture.
 SERVING_SRC = REPO / "src" / "mcgyvr" / "serving"
-#: The door's shim directory — what it exports as ``RUN_BIN``, and where a
-#: step run bare under a fake door is told to find the shims.
+#: The door's shim directory — what it exports as ``RUN_BIN``.
 BIN = SERVING_SRC / "gate-scripts" / "bin"
 DOOR_REL = Path("src") / "mcgyvr" / "serving" / "run.py"
-#: The fixture's driver: its path ends in ``mcgyvr/serving/run.py``, which is
-#: what ``gatelib.under_door`` reads a door by, and it runs a step of its own
-#: through the fixture door's library seam.
-DRIVER_REL = Path("driver") / "mcgyvr" / "serving" / "run.py"
-DRIVER = """\
+#: Where a scenario's step is installed: the fixture door's own ``serve down``
+#: step, which gate 6 runs on the door's interpreter.
+STEP_REL = Path("src") / "mcgyvr" / "serving" / "gate-scripts" / "serve-down.py"
+#: The direction a scenario is run as. A ``serve down`` expects none of the
+#: compose file's units up after the step, so a step that starts nothing passes
+#: gate 7.
+STEP_DIRECTION = "down"
+#: The one unit of the compose file a scenario's ``serve down`` is handed.
+SCENARIO_UNIT = "mcgyvr-scenario-9001"
+#: Runs a scenario's bash step in the installed step's own process, so the
+#: step's ``$$`` is the process gate 6 started. The step's ``# RUN_...:``
+#: directive lines are copied above it, where gate 5 reads them.
+LAUNCHER = """\
 #!/usr/bin/env python3
-\"\"\"A test's driver: one step under the fixture door's fixed gates.\"\"\"
-import argparse
-import importlib.util
+{directives}
+\"\"\"A test's step, run as the fixture door's serve step: {step}.\"\"\"
 import os
-import shlex
-import signal
-import sys
-from datetime import UTC, datetime
-from pathlib import Path
 
-TREE = Path(__file__).resolve().parents[3]
-spec = importlib.util.spec_from_file_location(
-    "fixture_door", TREE / "src" / "mcgyvr" / "serving" / "run.py"
-)
-door = importlib.util.module_from_spec(spec)
-# Registered before it runs: a dataclass looks its module up by name.
-sys.modules["fixture_door"] = door
-spec.loader.exec_module(door)
-
-
-def main(argv):
-    step_args = []
-    if "--" in argv:
-        cut = argv.index("--")
-        argv, step_args = argv[:cut], argv[cut + 1 :]
-    parser = argparse.ArgumentParser(prog="driver")
-    parser.add_argument("--host", required=True)
-    parser.add_argument("--step", required=True)
-    parser.add_argument("--suffix", default="")
-    parser.add_argument("--date", default="")
-    opts = parser.parse_args(argv)
-    env = dict(os.environ)
-    env["PATH"] = f"{door.BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
-    door.pin_config(env)
-    env.update(
-        RUN_ROOT=str(TREE),
-        RUN_BIN=str(door.BIN),
-        RUN_STEP_FILE=str(Path(opts.step).resolve()),
-        RUN_HOST=opts.host,
-        RUN_SUFFIX=opts.suffix,
-        RUN_DATE=opts.date or datetime.now(UTC).strftime("%Y-%m-%d"),
-        RUN_COMMAND=shlex.join(["driver", *sys.argv[1:]]),
-    )
-    return door.through(door.SERVE_SEQUENCE, env, step_args=step_args)
-
-
-if __name__ == "__main__":
-    signal.signal(signal.SIGTERM, door._sigterm)
-    signal.signal(signal.SIGINT, door._sigterm)
-    sys.exit(main(sys.argv[1:]))
+os.execv("/bin/bash", ["bash", {step!r}])
 """
 
 RUN_DATE = "2026-09-05"
@@ -146,11 +98,6 @@ TOOLKIT_DIGEST = "nvidia/cuda@sha256:" + "a" * 64
 UPTIME = "2026-09-01T08:11:08Z"
 #: The rig's own ``$HOME`` as the ssh stub answers it.
 RIG_HOME = "/home/x"
-#: What ``bare_env`` names as the rig. RFC 6761 reserves ``.invalid``: it never
-#: resolves, so a driver's health probe fails at once and no real machine is
-#: touched by a test that runs a driver bare.
-BARE_HOST = "rig.invalid"
-
 #: The rig's facts the fixture's snapshot and its rig file carry. Strings,
 #: because that is what a ``k=v`` line carries.
 RIG: dict[str, dict[str, str]] = {
@@ -696,7 +643,7 @@ def ssh_stub(where: Path) -> Path:
 
 
 #: What the docker stub calls a container the run did NOT name: no ``RUN_ID-``
-#: prefix, the shape a driver's own ``--name`` or a hand-started server has.
+#: prefix, the shape a hand-started server has.
 STRAY_NAME = "vllm-someone-elses"
 
 
@@ -887,9 +834,8 @@ def fixture_repo(tmp_path: Path, *, host: str = "box1") -> Path:
     """A throw-away checkout the door can be run from and write into.
 
     The machine behind the stubs reads as ``host``'s declaration (box1 unless
-    said otherwise); :func:`rig_stub` changes that. The checkout is no lab
-    checkout, so the door runs in user mode against the rig files under
-    :func:`rigs_home`.
+    said otherwise); :func:`rig_stub` changes that. The door holds it to the
+    rig files under :func:`rigs_home`.
     """
     root = tmp_path / "repo"
     (root / "tests").mkdir(parents=True)
@@ -903,7 +849,11 @@ def fixture_repo(tmp_path: Path, *, host: str = "box1") -> Path:
         root / "src" / "mcgyvr" / "serving",
         ignore=shutil.ignore_patterns("__pycache__"),
     )
-    executable(root / DRIVER_REL, DRIVER)
+    (root / "compose.scenario.yml").write_text(
+        f"services:\n  scenario:\n    container_name: {SCENARIO_UNIT}\n"
+        "    command: [--port, '9001']\n",
+        encoding="utf-8",
+    )
     for name in ("box1", "box2"):
         folder = rigs_home(root) / "rigs"
         folder.mkdir(parents=True, exist_ok=True)
@@ -927,55 +877,26 @@ def add_step(root: Path, folder: str, filename: str, body: str) -> Path:
     return executable(path, body)
 
 
-def probe_step(
-    env_file: Path,
-    *,
-    after: str = "",
-    end_line: str | None = None,
-    directive: str = "RUN_ARTIFACTS",
-) -> str:
-    """A step that writes a conforming ``probe.tsv`` by hand and records the
+def probe_step(env_file: Path, *, after: str = "") -> str:
+    """A step that writes a conforming ``probe.json`` and records the
     environment the door handed it in ``env_file``.
 
-    It hand-writes every stamp, so it depends on nothing in ``_common.sh``:
+    It writes its one declared artifact by hand and depends on nothing else:
     the gates around the step are what these tests are about. ``after`` runs
-    once the artifact is complete (a flag for a stub); ``end_line`` replaces
-    the ``### END`` line, for the parse gate; ``directive`` is the comment
-    line the file is declared under (``RUN_REWRITES`` for a step that may run
-    twice over it). The round it stamps is the one the door handed it, and
-    both START and END name the run it was handed (``end_line`` may carry a
-    ``%s`` for it, or not).
+    once the artifact is complete (a flag for a stub). The artifact names the
+    run it was handed, which gate 5 reads before a re-run supersedes it.
     """
-    # `%s` is filled with "$RUN_ID" by the printf below: END names the run it
-    # closes, as START names the one it opens, and gate 8 reads both.
-    end = end_line or (
-        f"### END uptime_since={UPTIME} pl1_uw=95000000 pl2_uw=120000000 "
-        "cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s"
-    )
-    rig = " ".join(f"{k}={v}" for k, v in RIG["box1"].items())
     return (
         "#!/usr/bin/env bash\n"
-        f"# {directive}: probe.tsv\n"
+        "# RUN_REWRITES: probe.json\n"
         "set -euo pipefail\n"
         '[ -n "${RUN_ID:-}" ] || { echo "probe: RUN_ID is unset; start me '
         'through python -m mcgyvr.serving.run" >&2; exit 2; }\n'
-        f"printf 'RUN_ID=%s\\nRUN_OUT_DIR=%s\\nRUN_HOST=%s\\nRUN_ROUND=%s\\n"
-        "RUN_PRODUCT_SHA256=%s\\nRUN_STEP=%s\\n' "
-        '"$RUN_ID" "${RUN_OUT_DIR:-}" "${RUN_HOST:-}" "${RUN_ROUND:-}" '
-        f'"${{RUN_PRODUCT_SHA256:-}}" "${{RUN_STEP:-}}" > \'{env_file}\'\n'
-        'out="${RUN_OUT_DIR:?}/probe.tsv"\n'
-        "{\n"
-        "printf '### WORKLOAD digest=none comparable_with=microbenchmark-only\\n'\n"
-        f"printf '### START uptime_since={UPTIME} pl1_uw=95000000 "
-        "pl2_uw=120000000 pl1_source=constraint_0_power_limit_uw "
-        'cpu_max_mhz=4600 ram_mt_s=3600 run_id=%s\\n\' "$RUN_ID"\n'
-        "printf '### ROUND id=%s product_sha256=%s\\n' "
-        '"${RUN_ROUND:-}" "${RUN_PRODUCT_SHA256:-}"\n'
-        f"printf '### RIG {rig}\\n'\n"
-        "printf '%s\\tprobe\\tCONFIG\\timg=sha256:%s\\n' "
-        f'"${{RUN_HOST:-nohost}}" {LOCAL_ID_HEX}\n'
-        f"printf '{end}\\n' \"$RUN_ID\"\n"
-        '} > "$out"\n' + after + "\n"
+        "printf 'RUN_ID=%s\\nRUN_OUT_DIR=%s\\nRUN_HOST=%s\\nRUN_STEP=%s\\n' "
+        '"$RUN_ID" "${RUN_OUT_DIR:-}" "${RUN_HOST:-}" "${RUN_STEP:-}" '
+        f"> '{env_file}'\n"
+        'printf \'{"run_id": "%s", "host": "%s"}\\n\' '
+        '"$RUN_ID" "${RUN_HOST:-}" > "${RUN_OUT_DIR:?}/probe.json"\n' + after + "\n"
     )
 
 
@@ -986,15 +907,14 @@ def probe_step(
 
 @dataclass(frozen=True)
 class Scenario:
-    """A step the fixture's driver runs. ``step`` is a file name under
-    ``steps/<folder>/``, or a path relative to the fixture root (or
+    """A step a test runs under the door's gates. ``step`` is a file name
+    under ``steps/<folder>/``, or a path relative to the fixture root (or
     absolute); ``folder`` only groups a test's steps."""
 
     folder: str
     step: str
     host: str = "box1"
     suffix: str = ""
-    step_args: tuple[str, ...] = ()
     date: str = RUN_DATE
 
 
@@ -1007,16 +927,30 @@ def _step_path(root: Path, scenario: Scenario) -> Path:
     return root / step
 
 
+def install(root: Path, scenario: Scenario) -> Path:
+    """Install ``scenario``'s step as the fixture door's own serve step."""
+    step = _step_path(root, scenario)
+    directives = [
+        line
+        for line in step.read_text(encoding="utf-8").splitlines()
+        if line.startswith("# RUN_")
+    ]
+    return executable(
+        root / STEP_REL,
+        LAUNCHER.format(directives="\n".join(directives), step=str(step)),
+    )
+
+
 def _command(root: Path, scenario: Scenario | None) -> list[str]:
-    """The ONLY place the driver's path and argv shape are known."""
+    """The ONLY place the door's path and a scenario's argv shape are known."""
     if scenario is None:
         return [sys.executable, str(root / DOOR_REL), "--help"]
-    argv = [sys.executable, str(root / DRIVER_REL), "--host", scenario.host]
-    argv += ["--step", str(_step_path(root, scenario)), "--date", scenario.date]
+    install(root, scenario)
+    argv = [sys.executable, str(root / DOOR_REL), "serve", STEP_DIRECTION]
+    argv += ["--host", scenario.host, "--compose", str(root / "compose.scenario.yml")]
+    argv += ["--date", scenario.date]
     if scenario.suffix:
         argv += ["--suffix", scenario.suffix]
-    if scenario.step_args:
-        argv += ["--", *scenario.step_args]
     return argv
 
 
@@ -1088,10 +1022,11 @@ def door_help(root: Path) -> subprocess.CompletedProcess[str]:
 
 
 def run_id(scenario: Scenario) -> str:
-    """The RUN_ID gate 5 mints for ``scenario``: ``<date>-<host>-<step>``."""
+    """The RUN_ID gate 5 mints for ``scenario``: ``<date>-<host>-<step>``, the
+    step being the serve step it is installed as."""
     from mcgyvr.serving.gatelib import step_name
 
-    named = step_name(Path(scenario.step))
+    named = step_name(STEP_REL)
     return f"{scenario.date}-{scenario.host}-{named}" + (
         f"-{scenario.suffix}" if scenario.suffix else ""
     )

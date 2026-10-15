@@ -7,7 +7,7 @@ process the door started, and only to the host the door was opened for. That
 rule lives here and not in a gate because it guards the gates themselves: a
 gate that could reach a rig by hand would be a gate that reads a machine
 nobody compared with its declaration. :func:`door_required` is the same rule
-for a whole script: every gate and every driver calls it before anything
+for a whole script: every gate and every step calls it before anything
 else, so a hand-set ``RUN_*`` environment admits nothing. Everything else
 that decides whether a run may proceed belongs in a gate, where the door can
 see it in :data:`~mcgyvr.serving.run.SEQUENCE`.
@@ -203,10 +203,10 @@ def door_required(what: str) -> None:
     """Refuse — exit 2, naming the door and ``what`` — unless this is a door run.
 
     A gate script's ``main()`` calls this FIRST, before any subprocess; a
-    driver calls it at startup. Two things are required: an ancestor that is
+    step calls it at startup. Two things are required: an ancestor that is
     the door (:func:`under_door`, read from /proc), AND the door's own mark on
     the environment — ``RUN_EXPORT_FD`` for a gate, which the door sets per
-    entry, or ``RUN_ID`` for a step or a driver, which gate 5 exported. The
+    entry, or ``RUN_ID`` for a step, which gate 5 exported. The
     environment alone was never enough: every ``RUN_*`` can be typed into a
     shell, and a caller that guarded itself on those alone reached a real
     ``ssh <rig>`` by hand, with no shim on PATH to stop it.

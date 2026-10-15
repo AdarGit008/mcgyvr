@@ -3,11 +3,10 @@
 Gate 7 (``07-teardown.py``): ``docker ps --filter "name=^<RUN_ID>-"``, any
 line -> stderr names it, exit 1. The first cut also ``rm -f``'d every match,
 silently. Docker's name filter is an unanchored regex, ``RUN_ID`` is
-``<date>-<campaign>-<step>[-<suffix>]`` and both step names and suffixes carry
-dashes, so a no-suffix run's filter ``^…-probe-`` also matches
-``…-probe-pass2-lcps`` (a ``--suffix pass2`` run of the same step) and
-``…-probe-again-vsweep`` (a step named ``probe-again``): a run tearing down
-could kill a neighbouring run's container, and say nothing.
+``<date>-<host>-<step>[-<suffix>]`` and both step names and suffixes carry
+dashes, so a no-suffix run's filter ``^…-serve-down-`` also matches
+``…-serve-down-pass2-lcps`` (a ``--suffix pass2`` run of the same step): a run
+tearing down could kill a neighbouring run's container, and say nothing.
 
 So the door names what it found and stops there; killing is the operator's
 call, with the name in hand.

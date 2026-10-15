@@ -8,7 +8,7 @@ used to end that Python wrapper at once and leave the step itself, reparented,
 still running while gate 7 read the rig. A terminal's Ctrl-C reaches the step
 directly, but the wrapper answered its own copy with a SIGKILL of the step a
 quarter second later, racing the step's INT/TERM trap — the trap that removes
-the container it had started (``default-step.sh``, ``$CURRENT``).
+the container it had started.
 
 So whatever the signal and however it is delivered, the step gets it once,
 runs its trap to the end, and is gone before gate 7's first ``docker ps``.
