@@ -591,7 +591,11 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
         prog="python -m mcgyvr.serving.run serve",
         description=(
             "start a live ladder on a rig and leave it running, or stop it; put "
-            "its units to sleep or wake them; or fetch weights onto it"
+            "its units to sleep or wake them; or fetch weights onto it. One run "
+            "holds a rig at a time (its lease, ~/.mcgyvr/lease on the rig): a "
+            "rig another live run holds is refused before anything reaches it, "
+            "naming that run, and nothing of that run is touched — wait for it "
+            "or end it. A lease whose run died on this machine is reclaimed"
         ),
     )
     parser.add_argument(

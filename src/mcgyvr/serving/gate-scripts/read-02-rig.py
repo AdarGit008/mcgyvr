@@ -11,7 +11,7 @@ and in-flight page.
 **Compared, never acted on.** The rig is held to the user's own rig file
 (:mod:`mcgyvr.serving.rigfile`) by gate 2's own user check, and a rig that is
 not its file is refused with nothing filed. Unlike gate 2 this takes no
-lease, tears down no displaced run and refuses no busy rig: a read is how a
+lease and refuses no held or busy rig: a read is how a
 serving rig is looked at.
 
 **Filed** under the journal of the fleet read, the live one or with

@@ -11,6 +11,28 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed (breaking)
 
+- **No run takes a rig another live run holds.** Owner's ruling, 2026-10-15:
+  "no one can take from no one".
+  - A `serve up`, `down`, `sleep`, `wake` or `fetch` that finds the rig's
+    lease (`~/.mcgyvr/lease` on the rig) held by a run that is still live is
+    refused at gate 2 (exit 2), whichever door wrote the lease, before
+    anything else reaches the rig: nothing is read, listed, stopped or
+    written. The refusal is one line naming the holder's run, its
+    `user@host`, pid and start, and says to wait for that run or end it.
+  - A live run no longer displaces another (the 0.5.0 rule that a live run
+    took a rig from a dev one): no run tears down another run's containers,
+    `RUN_DISPLACED` is no longer exported, and the shims no longer re-read
+    the lease before a `docker run` or an ssh that launches one.
+  - A stale lease is still reclaimed, named on stderr, with nothing of its
+    run torn down. Stale means: the lease carries an id, names THIS machine,
+    and its pid is gone — no process has it, or the process that has it now
+    started at another time than the lease records. A lease records that
+    start as `pid_start` (the kernel's `/proc/<pid>/stat` start time); a
+    lease without one is judged by its pid alone. A lease from another
+    machine, or one with no id, is never stale: wait for it, or remove it by
+    hand.
+  - An empty lease file still holds nothing.
+
 - **`mcgyvr fleet lock`, `fleet promote` and `fleet tag` are gone.**
   `mcgyvr setup` locks and promotes the fleet it sampled through the library
   (`mcgyvr.fleet.lock.write_from_stamp`, `write_unsampled`, `write`, and
@@ -57,9 +79,6 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     before anything of it is locked, which runs everything. With no fleet
     live, a setup named outside the config folder is held to no lock; a run
     under no config at all, or one in the config folder, still is.
-  - Every run takes the rig's lease whatever holds it and tears down what it
-    displaced (R1); the run displaced yields at its next touch of the rig. A
-    held rig is no longer refused.
   - An alert from a read or a probe warns and stops nothing: no run raises on
     one. `mcgyvr fleet alerts` reads the live fleet's lock and takes no
     `--config`.
