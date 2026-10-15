@@ -63,14 +63,8 @@ from mcgyvr.serving.gatelib import (
     need,
 )
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from importlib.machinery import SourceFileLoader
+from mcgyvr.serving.rigread import snapshot
 
-#: Reuse gate 2's reader rather than keeping a second copy: a teardown that read
-#: the rig differently from the gate that admitted it could not diff the two.
-_rig = SourceFileLoader(
-    "_gate02", str(Path(__file__).resolve().parent / "02-rig.py")
-).load_module()
 
 #: The snapshot keys (:data:`mcgyvr.serving.rigscan.SNAPSHOT_KEYS`) a run is held
 #: to from start to end. `uptime_since` is among them because a reboot is the
@@ -266,7 +260,7 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
             status = 1
 
     try:
-        post = _rig.snapshot(need("RUN_HOST"))
+        post = snapshot(need("RUN_HOST"))
     except SystemExit:
         # `snapshot` refuses by exiting; here that is a finding and not a
         # refusal — the run is simply not green, and gate 8 still runs.

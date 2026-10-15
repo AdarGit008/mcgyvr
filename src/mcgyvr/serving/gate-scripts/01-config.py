@@ -39,41 +39,7 @@ from mcgyvr.serving.gatelib import (
 )
 
 
-def config() -> str:
-    """Where the run's config was read from: ``none`` when there is no config.
-
-    Refuses on a config that is there and cannot be read, and on a named
-    (``$MCGYVR_CONFIG``) config that is not there: both are files somebody
-    chose, and a run that went on under some other config would be the
-    silent landing gate 1 exists to prevent. The absent *default* is the one
-    silence: nobody chose it, and it is the live fleet's.
-    """
-    try:
-        loaded = configlib.load()
-    except configlib.ConfigMissingError as absent:
-        if configlib.named_config_path() is not None:
-            refuse(
-                f"gate 1: {absent}. {configlib.CONFIG_PATH_ENV} names a config "
-                "that is not there, and a run made under some other one would "
-                "not be the run that was asked for. Nothing is measured under "
-                "a config nobody can name"
-            )
-        return "none"
-    except configlib.ConfigError as error:
-        refuse(
-            f"gate 1: the config cannot be read: {error}. A run whose config "
-            "cannot be read cannot say which fleet it ran under, and nothing "
-            "is measured under an unknown one"
-        )
-    except (OSError, RuntimeError) as error:
-        # A `~nobody` in the variable, a working directory that went away:
-        # a config the gate cannot even locate is refused with the reason,
-        # not left as a traceback.
-        refuse(
-            f"gate 1: the config cannot be located: {error!r}. Nothing is "
-            "measured under a config nobody can name"
-        )
-    return str(loaded.path)
+from mcgyvr.serving.rigread import config
 
 
 def units_the_fleet_lock_names(rig: str) -> set[str]:
