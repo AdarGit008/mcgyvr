@@ -62,8 +62,9 @@ THE RUN ROOT. The door's gates run from the tree its own file sits in
 directory as ``RUN_BIN``, so a step derives neither from the other.
 
 GATE ORDER IS THE POINT, NOT AN IMPLEMENTATION DETAIL. Gates 1-4 write nothing:
-gate 1 reaches no rig, gate 2 takes the rig's lease (a run tears down what it
-displaced) and reads the rig, gates 3-4 only read, and none launches anything,
+gate 1 reaches no rig, gate 2 takes the rig's lease (a rig another live run
+holds is refused, untouched) and reads the rig, gates 3-4 only read, and none
+launches anything,
 so a machine that is not what it claims leaves no artifact to clean up. Gate 5
 stamps the lease and makes the envelope. Gates 7-8 run after the step whatever
 it did.
@@ -195,11 +196,12 @@ SEQUENCE: tuple[Entry, ...] = (
     ),
     Entry(
         "02-rig.py",
-        "gate 2: the rig is leased to this run and read again, and held to "
-        f"your rig file ({RIGS_SHOWN}/<rig>.json, written by "
-        "`mcgyvr scan --rig`): what moved is said, and the run is refused only "
-        "when the fleet no longer fits",
-        exports=("RUN_LEASE", "RUN_DISPLACED", "RUN_PRE_RIG"),
+        "gate 2: the rig is leased to this run — refused, untouched, if "
+        "another live run holds it; a dead run's lease is reclaimed — and read "
+        f"again, and held to your rig file ({RIGS_SHOWN}/<rig>.json, written "
+        "by `mcgyvr scan --rig`): what moved is said, and the run is refused "
+        "only when the fleet no longer fits",
+        exports=("RUN_LEASE", "RUN_PRE_RIG"),
     ),
     Entry(
         "03-image.py",

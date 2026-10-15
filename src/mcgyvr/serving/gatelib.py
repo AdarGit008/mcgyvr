@@ -246,8 +246,7 @@ def ssh(
 ) -> subprocess.CompletedProcess[str]:
     """How everything in this repository reaches a rig.
 
-    The other ssh spawns are the shims' own lease check (:func:`_direct_ssh`),
-    which applies the same door rule, and :func:`ssh_read_only`, the one
+    The other ssh spawn is :func:`ssh_read_only`, the one
     sanctioned read-only detection path (the shipped reader, the ``*.gguf``
     discovery and the shipped-reader header read). This function refuses — exit 2,
     naming the door — unless this process descends from
@@ -577,7 +576,7 @@ def release(out_dir: Path, run_id: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# the rig lease: one run on a rig at a time, and the newest takes it
+# the rig lease: one run on a rig at a time, and no run takes it from another
 # --------------------------------------------------------------------------
 
 #: Where a rig keeps the lease on itself. ON the rig, because the rig is the
@@ -588,18 +587,16 @@ LEASE_FILE = f"{LEASE_DIR}/lease"
 #: What a lease value may be: one whitespace-free token that survives a
 #: single-quoted shell line and a `k=v` stamp as-is. Matched whole.
 LEASE_TOKEN = re.compile(r"[A-Za-z0-9._@:+/-]+")
-#: The environment variables a run carries its own lease in and the lease it
-#: displaced (gate 2 exports both), read by the shims, gate 5 and gate 7.
+#: The environment variable a run carries its own lease in (gate 2 exports
+#: it), read by gate 5 and the lease release.
 LEASE_VAR = "RUN_LEASE"
-DISPLACED_VAR = "RUN_DISPLACED"
 #: How every lease script reaches the rig: a POSIX shell is pinned, as the
 #: snapshot pins one, so `set -C` and `>` mean what the lease needs them to
 #: mean whatever the rig's login shell is. The script goes on stdin.
 LEASE_SHELL = "bash -s -- lease"
 
 #: How a lease script runs on the rig: ``(host, command, stdin) ->`` a
-#: completed process. The gates hand in :func:`ssh`; a shim hands in the real
-#: ssh directly, because the shim IS what ``ssh`` on PATH resolves to.
+#: completed process. The gates hand in :func:`ssh`.
 Transport = Callable[[str, str, "str | None"], "subprocess.CompletedProcess[str]"]
 
 
@@ -623,18 +620,35 @@ def os_machine_id() -> str:
     return rigscan.machine_id() or socket.gethostname()
 
 
+def process_start(pid: int) -> str | None:
+    """When process ``pid`` on this machine started, or ``None`` if it cannot
+    be read (no such process, or no ``/proc``).
+
+    The kernel's own count (``/proc/<pid>/stat`` field 22, clock ticks since
+    boot), which no process sets: it tells the process that took a lease from
+    a later one the kernel gave the same pid, whichever program either is.
+    """
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+        start = stat.rsplit(")", 1)[1].split()[19]
+    except (OSError, IndexError):
+        return None
+    return start if start.isdigit() else None
+
+
 @dataclass(frozen=True)
 class Lease:
     """One run's hold on one rig, as the line at ``~/.mcgyvr/lease`` says it.
 
     ``lease_id`` is minted per run and is what makes a lease *this* run's:
     the file is compared by it before it is released or rewritten, so a run
-    never removes a lease another run took from it. ``holder`` is
-    ``user@host`` for a person; ``machine`` and ``pid`` — the door's pid on
-    that machine — are the only way to tell a dead run's lease from a live
-    one's, and only from the machine the pid is on. ``run_id`` is ``none``
+    never removes a lease it does not hold. ``holder`` is ``user@host`` for a
+    person; ``machine``, ``pid`` — the door's pid on that machine — and
+    ``pid_start`` — when that process started (:func:`process_start`) — are
+    the only way to tell a dead run's lease from a live one's, and only from
+    the machine the pid is on (:meth:`is_stale`). ``run_id`` is ``none``
     until gate 5 mints one. ``raw`` is the line as read off the rig, kept so a
-    lease the door did not write can still be named and handed on whole.
+    lease the door did not write can still be named whole.
     """
 
     lease_id: str
@@ -644,6 +658,7 @@ class Lease:
     started_at: str
     step: str
     run_id: str = "none"
+    pid_start: str = "none"
     raw: str = ""
 
     def line(self) -> str:
@@ -652,6 +667,7 @@ class Lease:
             ("holder", self.holder),
             ("machine", self.machine),
             ("pid", str(self.pid)),
+            ("pid_start", self.pid_start),
             ("started_at", self.started_at),
             ("step", self.step),
             ("run_id", self.run_id),
@@ -672,7 +688,7 @@ class Lease:
         A line the door did not write — a field missing, a pid that is not a
         number — is still a lease: something holds the rig, and it is handed
         back with what could be read (and the raw line) so a refusal can
-        name it and a live run can hand it on to gate 7 whole.
+        name it.
         """
         line = text.strip().splitlines()[0].strip() if text.strip() else ""
         if not line:
@@ -690,6 +706,7 @@ class Lease:
             started_at=fields.get("started_at", "?"),
             step=fields.get("step", "?"),
             run_id=fields.get("run_id", "none"),
+            pid_start=fields.get("pid_start", "none"),
             raw=line,
         )
 
@@ -705,28 +722,37 @@ class Lease:
         return bool(re.fullmatch(r"[0-9a-f]{16}", self.lease_id))
 
     def is_stale(self) -> bool:
-        """Whether the holder is a door on THIS machine that is gone.
+        """Whether the run that holds this lease is gone, so a door may reclaim it.
 
-        Decidable only here: a pid on another machine cannot be asked. A
-        lease from elsewhere is therefore never stale by this test, and is
-        honoured (a run displaces it and names it) — the operator on
-        that machine is the one who can tell. A pid that is alive but is not
-        the door — the number reused by something else since — is gone too.
+        Stale only when all of these hold, and honoured (live) otherwise:
+
+        * the lease carries an id (:attr:`has_id`), so it can be replaced
+          only if it is still exactly this lease;
+        * its ``machine`` is THIS machine: a pid on another machine cannot be
+          asked, so a lease from elsewhere is never stale here — a door on
+          that machine, or its operator, is the one who can tell;
+        * and its pid is gone: no process has it, or the process that has it
+          now started at another time than ``pid_start`` (the run died and
+          the kernel gave its pid to something else). A lease that names no
+          ``pid_start``, or whose process start cannot be read, is judged by
+          the pid alone.
+
+        Whichever door wrote the lease — the product's, or any other writing
+        this format — the rule is the same, because it asks the kernel about
+        the process and never what program it is.
         """
-        if self.machine != os_machine_id() or self.pid <= 0:
+        if not self.has_id or self.machine != os_machine_id() or self.pid <= 0:
             return False
         try:
             os.kill(self.pid, 0)
-        except ProcessLookupError:
-            return True
+        except (ProcessLookupError, OverflowError):
+            return True  # no such process; past the largest pid there is none
         except PermissionError:
-            pass  # alive, somebody else's; judged by its command line below
-        try:
-            raw = Path(f"/proc/{self.pid}/cmdline").read_bytes()
-        except OSError:
-            return False  # cannot tell: honoured
-        argv = [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
-        return not is_door(argv)
+            pass  # alive, somebody else's; judged by its start below
+        if self.pid_start == "none":
+            return False
+        now = process_start(self.pid)
+        return now is not None and now != self.pid_start
 
 
 def whoami() -> str:
@@ -739,13 +765,36 @@ def whoami() -> str:
 
 
 def new_lease(step: str, pid: int) -> Lease:
+    """A new lease for the door whose pid is ``pid`` on this machine."""
     return Lease(
         lease_id=secrets.token_hex(8),
         holder=whoami(),
         machine=os_machine_id(),
         pid=pid,
+        pid_start=process_start(pid) or "none",
         started_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         step=step,
+    )
+
+
+def held_by(host: str, held: Lease) -> str:
+    """The one line a run is refused with when a live run holds ``host``.
+
+    Names the holder's run (or its step, before it has minted a run id), who
+    holds it and from which host, and what to do. No run takes a rig another
+    live run holds (owner's ruling, 2026-10-15: "no one can take from no one").
+    """
+    who = f" of {held.holder}" if held.holder != "?" else ""
+    run = (
+        f"run {held.run_id}{who}"
+        if held.run_id != "none"
+        else f"a {held.step} run{who} that has no run id yet"
+    )
+    return (
+        f"{host} is held by {run} (pid {held.pid}, since {held.started_at}), "
+        "and no run takes a rig another live run holds. Wait for that run to "
+        "end, or end it, then run this again; a run that died on another "
+        f"machine leaves its lease to be removed by hand ({LEASE_FILE} on {host})"
     )
 
 
@@ -766,9 +815,12 @@ def _lease_script(
 #: written and a crash mid-write leaves the old lease, not an empty file.
 _READ = f"cat {LEASE_FILE} 2>/dev/null || true\n"
 _TAKE_FREE = "mkdir -p {dir} || exit 4\nset -C\nprintf '%s\\n' '{line}' > {file}\n"
-_TAKE_OVER = (
+#: A stale lease is replaced only if it is still exactly the one judged stale;
+#: an empty file (``held`` empty) only while it still holds nothing but blanks.
+_TAKE_STALE = (
     "mkdir -p {dir} || exit 4\nf={file}\n"
-    "[ -z '{held}' ] || grep -qs -- 'lease_id={held} ' \"$f\" || exit 3\n"
+    "if [ -z '{held}' ]; then grep -qs -- '[^[:space:]]' \"$f\" && exit 3; "
+    "else grep -qs -- 'lease_id={held} ' \"$f\" || exit 3; fi\n"
     'printf \'%s\\n\' \'{line}\' > "$f.$$" && mv -f "$f.$$" "$f"\n'
 )
 _STAMP = (
@@ -798,12 +850,13 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
     ``held`` is what the caller read: ``None`` for a free rig, and the write
     is then ``set -C`` (noclobber) — the rig's shell refuses to overwrite, so
     of two runs arriving at once exactly one holds the rig, and the other is
-    handed back what it found. A held lease is written over — what a run
-    does (R1), and what a stale one earns — but only if the rig still
-    holds exactly that lease (compare-and-swap on its id): a holder that
-    changed meanwhile comes back for the caller to judge again. An empty
-    file, and a file with no id to compare, are taken outright: nothing a
-    run can be told to wait for is in them.
+    handed back what it found. Otherwise ``held`` is a lease the caller judged
+    stale (:meth:`Lease.is_stale`) — never a live one: no run takes a rig
+    another live run holds — and it is replaced only if the rig still holds
+    exactly that lease (compare-and-swap on its id): a holder that changed
+    meanwhile comes back for the caller to judge again. An empty file holds
+    nothing a run can be told to wait for, and is written over while it is
+    still empty.
     """
     if held is None:
         done = _lease_script(
@@ -819,12 +872,14 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
         if now is not None:
             return None  # written, and only the exit was lost
         held_id = ""  # exists and empty: a write that never finished
+    elif held.is_stale():
+        held_id = held.lease_id
     else:
-        held_id = held.lease_id if held.has_id else ""
+        refuse(f"lease: {held_by(host, held)}")
     done = _lease_script(
         _over_ssh,
         host,
-        _TAKE_OVER.format(
+        _TAKE_STALE.format(
             dir=LEASE_DIR, file=LEASE_FILE, held=held_id, line=lease.line()
         ),
     )
@@ -863,8 +918,8 @@ def lease_stamp(host: str, lease: Lease, run_id: str) -> Lease:
     refuse(
         f"gate 5: the lease on {host} is no longer this run's — "
         + (
-            f"held by {now.describe()}: another run took the rig, and this "
-            "one yields (owner's ruling R1, 2026-09-06)"
+            f"held by {now.describe()}: it was removed by hand and another run "
+            "took the free rig"
             if now is not None
             else "it is gone: removed by hand, or the rig's home was reset"
         )
@@ -890,109 +945,6 @@ def lease_of_run() -> Lease | None:
     """The lease this process's run holds, from the environment gate 2 exported."""
     raw = os.environ.get(LEASE_VAR, "")
     return Lease.parse(raw) if raw else None
-
-
-def displaced_by_run() -> Lease | None:
-    """The lease this run displaced at gate 2, if any."""
-    raw = os.environ.get(DISPLACED_VAR, "")
-    return Lease.parse(raw) if raw else None
-
-
-def yield_if_displaced(host: str, *, via: Transport, what: str) -> None:
-    """Refuse — the run yields — when the rig's lease is no longer this run's.
-
-    Called by the shims before they reach the rig, for the calls that spend
-    it. ``via`` is the real ssh: the shim is what ``ssh`` on PATH resolves
-    to, and a check that went through PATH would be checking itself. A rig
-    that cannot be reached for its lease is not refused here — the call
-    about to be made will fail on its own, and say so.
-    """
-    mine = lease_of_run()
-    if mine is None:
-        return
-    try:
-        done = via(host, LEASE_SHELL, _READ)
-    except (subprocess.TimeoutExpired, OSError):
-        return
-    if done.returncode != 0:
-        return
-    held = Lease.parse(done.stdout)
-    if held is not None and held.lease_id == mine.lease_id:
-        return
-    refuse(
-        f"{what} refused: the lease on {host} is no longer this run's "
-        f"({mine.lease_id}) — "
-        + (f"held by {held.describe()}" if held is not None else "it is gone")
-        + ". Another run took the rig; this one yields (owner's ruling R1, "
-        "2026-09-06, enforced by the machine), and nothing more is started on "
-        "it"
-    )
-
-
-#: The docker verbs that spend a rig: anything that starts a process on it.
-#: `ps`, `inspect`, `logs`, `rm`, `info`, and `compose down` read or clean and
-#: are let through, so a displaced run can still tear down and gate 7 can
-#: still look.
-DOCKER_SPENDS = frozenset({"run", "create", "start", "restart", "exec"})
-COMPOSE_SPENDS = frozenset({"up", "start", "run", "restart", "exec"})
-
-
-def docker_spends(argv: list[str]) -> bool:
-    """Whether a docker command line starts something on the rig.
-
-    Read from the non-option words, so a global option's value (`--log-level
-    info run`) cannot hide the verb and `container run` reads as `run`.
-    """
-    words = [arg for arg in argv if not arg.startswith("-")]
-    for index, word in enumerate(words):
-        if word in DOCKER_SPENDS:
-            return True
-        if word == "container" and index + 1 < len(words):
-            return words[index + 1] in DOCKER_SPENDS
-        if word == "compose":
-            return any(later in COMPOSE_SPENDS for later in words[index + 1 :])
-    return False
-
-
-#: The same verbs in a docker line shipped over plain ssh (the drivers' way).
-#: A launch that never says `docker` — a bare server, another engine, a
-#: script piped to `bash -s` — is the stated limit: the seal is against every
-#: code path in this repository, all of which launch through docker.
-#: Read token by token within one shell command (`;`, `&&`, `|` end it), so
-#: `x-run` in a container name is never the verb `run`.
-SSH_SPENDS = re.compile(
-    r"\bdocker(?:\s+(?![;&|])\S+)*?\s+"
-    r"(?:(?:container\s+)?(?:run|create|start|restart|exec)"
-    r"|compose(?:\s+(?![;&|])\S+)*?\s+(?:up|start|run|restart|exec))(?=\s|$)"
-)
-
-
-def ssh_spends(argv: list[str]) -> bool:
-    return SSH_SPENDS.search(" ".join(argv)) is not None
-
-
-def _direct_ssh(real: str) -> Transport:
-    """The real ssh, for a shim's own lease check — admitted like any other.
-
-    Under the door and to the door's host, or refused: this is the second
-    ssh spawn in the repository beside :func:`ssh`, and it applies the same
-    rule, so a caller that reached it without a door is told so.
-    """
-
-    def via(
-        host: str, command: str, stdin: str | None
-    ) -> subprocess.CompletedProcess[str]:
-        _admit("the lease check", host)
-        return subprocess.run(
-            [real, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, command],
-            input=stdin,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
-
-    return via
 
 
 # --------------------------------------------------------------------------
@@ -1143,8 +1095,6 @@ def shim_ssh(argv: list[str], *, own: Path) -> NoReturn:
     real = next_on_path("ssh", skip=own)
     if real is None:
         refuse("ssh refused: no ssh on PATH beyond the door's own shim")
-    if ssh_spends(argv):
-        yield_if_displaced(host, via=_direct_ssh(real), what="ssh")
     os.execv(real, [real, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", *argv])
 
 
@@ -1185,8 +1135,4 @@ def shim_docker(argv: list[str], *, own: Path) -> NoReturn:
     real = next_on_path("docker", skip=own)
     if real is None:
         refuse("docker refused: no docker on PATH beyond the door's own shim")
-    if docker_spends(argv):
-        real_ssh = next_on_path("ssh", skip=own)
-        if real_ssh is not None:
-            yield_if_displaced(host, via=_direct_ssh(real_ssh), what="docker")
     os.execv(real, [real, "-H", f"ssh://{host}", *argv])

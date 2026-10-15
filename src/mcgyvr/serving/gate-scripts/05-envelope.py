@@ -67,7 +67,6 @@ from mcgyvr.serving.gatelib import (
     artifact_escape,
     claim,
     claim_path,
-    displaced_by_run,
     door_required,
     envelope_escape,
     envelope_of,
@@ -303,23 +302,9 @@ def main() -> int:
     record = header_record(run_id, step, run_date)
     header_doc: Mapping[str, object] = user_header(record)
 
-    # A live run that displaced another run of this step, from another
-    # machine, on the same day, would mint the run id that run's lease
-    # carries — and gate 7 would then tear down this run's own containers as
-    # the displaced run's. One fleet, two hosts, one id: refused, with the
-    # suffix that tells them apart.
-    displaced = displaced_by_run()
-    if displaced is not None and displaced.run_id == run_id:
-        refuse(
-            f"gate 5: this run would mint RUN_ID {run_id}, which the run it "
-            f"displaced at gate 2 ({displaced.describe()}) already carries; "
-            "two runs never share a run id, and gate 7 could not tell this "
-            "run's containers from the displaced run's. Re-run with --suffix"
-        )
-
-    # The rig's lease learns the RUN_ID, so a live run that displaces this
-    # one can name its containers; and if the lease is no longer this run's
-    # by now, this run yields here, before anything is minted.
+    # The rig's lease learns the RUN_ID, so a run refused this rig can name
+    # the run that holds it; and if the lease is no longer this run's by now,
+    # this run is refused here, before anything is minted.
     lease = lease_of_run()
     if lease is not None:
         lease_stamp(need("RUN_HOST"), lease, run_id)

@@ -1,9 +1,12 @@
-"""The rig is leased, a run takes it from the one holding it, and the one it was
-taken from yields — enforced by the machine.
+"""The rig is leased, and no run takes it from a live run that holds it.
 
-R1: a run preempts the run holding the rig, that run yields, and the machine
-enforces it rather than a convention. R3: one fleet (box1, box2) is shared —
-mutual exclusion, not partitioning.
+Owner's ruling, 2026-10-15: "no one can take from no one". A run that finds the
+rig's lease held by a run that is still live — whichever door wrote it, the
+product's or the lab's — is refused before it touches the rig, naming the
+holder; it does not take the lease, and nothing of the holder's is torn down.
+A lease whose holder is gone is stale and is reclaimed, so a run that crashed
+does not lock a rig forever. R3: one fleet (box1, box2) is shared — mutual
+exclusion, not partitioning.
 
 Gate 5 claims the RUN_ID (``.<RUN_ID>.running`` in the envelope) so two
 invocations of one step cannot run at once. That claim is per-envelope, so it does
@@ -18,14 +21,14 @@ What must be observably true:
 * while a run is in progress the rig's lease names it (who holds it, from
   which pid, and since when), and when the run is over — finished, refused
   after gate 2, or interrupted — the lease is gone;
-* a run takes the lease whatever holds it, names what it displaced,
-  and tears down the displaced run's containers — at gate 2, so its own step
-  runs on an idle rig, and again at gate 7 for anything that came back;
-* a lease whose holder is a pid on this machine that is gone is stale: it is
-  named, not silently ignored, and taken over;
-* a run whose lease was taken from it under its feet yields: its next
-  touch of the rig through the door's shims is refused naming the new holder,
-  and it does not release a lease that is no longer its own.
+* a lease held by a live run refuses the new run at gate 2 in one line that
+  names the holder's run and host and says to wait or end that run; the
+  lease is left as it was, no container is listed or removed, the rig is not
+  read, and nothing is filed;
+* a lease is stale only when its holder is a pid on THIS machine that is
+  gone — no process has that pid, or the process that has it now started at
+  another time than the one the lease recorded (the pid was reused). A stale
+  lease is named, not silently ignored, and reclaimed.
 
 Every rig here is the stub behind the shims; the lease lives in the stub's
 own home. Nothing reaches a machine.
@@ -38,7 +41,10 @@ import getpass
 import os
 import signal
 import socket
+import subprocess
+import sys
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -65,7 +71,8 @@ sandbox:
 #: Another operator's run, on another machine, holding the rig.
 ELSEWHERE = "someone@elsewhere"
 SINCE = "2026-09-06T01:02:03Z"
-DISPLACED_RUN = "2026-09-06-other-probe"
+HOLDER_RUN = "2026-09-06-other-probe"
+LEASE_ID = "deadbeefdeadbeef"
 
 
 def _foreign(
@@ -73,11 +80,15 @@ def _foreign(
     holder: str = ELSEWHERE,
     pid: int = 1,
     machine: str = "elsewhere0000",
+    pid_start: str = "none",
+    step: str = "probe",
+    run_id: str = HOLDER_RUN,
 ) -> str:
+    """A lease line as a door writes it, for a run that is not this one."""
     return (
-        f"lease_id=deadbeefdeadbeef holder={holder} "
-        f"machine={machine} pid={pid} started_at={SINCE} "
-        f"step=probe run_id={DISPLACED_RUN}"
+        f"lease_id={LEASE_ID} holder={holder} "
+        f"machine={machine} pid={pid} pid_start={pid_start} started_at={SINCE} "
+        f"step={step} run_id={run_id}"
     )
 
 
@@ -85,6 +96,10 @@ def _machine() -> str:
     from mcgyvr.serving.gatelib import os_machine_id
 
     return os_machine_id()
+
+
+def _me() -> str:
+    return f"{getpass.getuser()}@{socket.gethostname()}"
 
 
 def _dead_pid() -> int:
@@ -98,6 +113,28 @@ def _dead_pid() -> int:
         except PermissionError:
             pass
         candidate -= 1
+
+
+def _started(pid: int) -> str:
+    """When ``pid`` started, as the kernel says it (``/proc/<pid>/stat`` field
+    22, clock ticks since boot): what tells one process from a later one that
+    was given the same pid."""
+    stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    return stat.rsplit(")", 1)[1].split()[19]
+
+
+@contextlib.contextmanager
+def _a_live_door(*door_argv: str) -> Iterator[subprocess.Popen[bytes]]:
+    """A live process on this machine whose command line is a door's: what a
+    run in progress is, as far as a lease's pid can tell."""
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(600)", *door_argv]
+    )
+    try:
+        yield proc
+    finally:
+        proc.kill()
+        proc.wait(timeout=30)
 
 
 @pytest.fixture
@@ -173,92 +210,130 @@ def test_the_lease_is_released_on_an_interrupt(
     assert onedoor.read_lease(root) is None, "an interrupted run kept the lease"
 
 
-# --- a stale lease -------------------------------------------------------------
+# --- a live holder is never displaced -------------------------------------------
+
+#: The door's own command lines, as a lease's pid would show them: the
+#: product's (``python -m mcgyvr.serving.run``) and the lab's
+#: (``tools/door/door.py``), which writes the same lease file in the same
+#: format, with its run id from the start.
+PRODUCT_DOOR = ("-m", "mcgyvr.serving.run", "serve", "up", "--host", "box1")
+LAB_DOOR = ("tools/door/door.py", "--host", "box1", "--campaign", "c", "--step", "s")
 
 
-def test_a_stale_lease_is_named_and_taken_over(root: Path, tmp_path: Path) -> None:
-    """The holder is a pid on THIS machine that is gone: the lease is stale.
-    Named — an operator should know a run died without releasing — and taken,
-    because a dead run holds nothing."""
-    me = f"{getpass.getuser()}@{socket.gethostname()}"
-    onedoor.plant_lease(root, _foreign(holder=me, pid=_dead_pid(), machine=_machine()))
+def _refused_untouched(
+    root: Path, tmp_path: Path, line: str, *, names: tuple[str, ...]
+) -> str:
+    """Run the door against a rig whose lease is ``line`` and a container up;
+    assert it was refused at gate 2 with the rig untouched. Returns stderr."""
+    onedoor.plant_lease(root, line)
+    onedoor.containers_up(root, f"{HOLDER_RUN}-lcps")
     done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
-    assert done.returncode == 0, done.stderr[-1500:]
-    assert "stale" in (done.stdout + done.stderr), done.stdout + done.stderr
-    assert onedoor.read_lease(root) is None
-
-
-# --- a run displaces the holder -------------------------------------------------
-
-
-def test_a_run_takes_a_held_lease_and_tears_down_what_it_displaced(
-    root: Path, tmp_path: Path
-) -> None:
-    """Another run holds the rig and its container is up. This run takes the
-    lease, names what it displaced,
-    removes the displaced run's container by name — so its own step opens
-    on an idle rig — and is green."""
-    onedoor.plant_lease(root, _foreign())
-    onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
-    done = onedoor.door(root, _probe(root, tmp_path))
     said = done.stdout + done.stderr
-    assert done.returncode == 0, done.stderr[-1500:]
-    assert ELSEWHERE in said, said
-    removed = [
-        line
-        for line in onedoor.docker_log(root)
-        if line.startswith("rm") and f"{DISPLACED_RUN}-lcps" in line
-    ]
-    assert removed, onedoor.docker_log(root)
+    assert done.returncode == 2, (done.returncode, said[-1500:])
+    refusal = [ln for ln in done.stderr.splitlines() if "is held by" in ln]
+    assert len(refusal) == 1, said
+    for name in names:
+        assert name in refusal[0], (name, refusal[0])
+    assert "wait" in refusal[0].lower(), refusal[0]
+    assert "stale" not in said, said
+    assert onedoor.read_lease(root) == line + "\n", "the holder's lease was touched"
+    assert onedoor.docker_log(root) == [], "the holder's daemon was reached"
+    assert all(entry.endswith("bash -s -- lease") for entry in onedoor.ssh_log(root)), (
+        f"the rig was reached beyond its lease: {onedoor.ssh_log(root)}"
+    )
+    assert not (tmp_path / "e").exists(), "the step ran on a held rig"
+    assert onedoor.written_under_records(root) == [], "a refused run filed"
+    return done.stderr
+
+
+def test_a_lease_a_run_on_another_machine_holds_refuses_this_run(
+    root: Path, tmp_path: Path
+) -> None:
+    """Another operator's run, from another machine: its pid cannot be asked
+    from here, so it is live. This run is refused, naming that run and its
+    host, and nothing of it is touched."""
+    _refused_untouched(root, tmp_path, _foreign(), names=(HOLDER_RUN, "elsewhere"))
+
+
+def test_a_lease_whose_run_has_minted_no_id_yet_refuses_this_run(
+    root: Path, tmp_path: Path
+) -> None:
+    """A product run between gate 2 and gate 5 holds a lease with no run id."""
+    line = _foreign(step="serve-up", run_id="none")
+    _refused_untouched(root, tmp_path, line, names=("serve-up", "elsewhere"))
+
+
+@pytest.mark.parametrize("door_argv", [PRODUCT_DOOR, LAB_DOOR], ids=["product", "lab"])
+def test_a_live_door_on_this_machine_holds_its_lease_whichever_door_it_is(
+    root: Path, tmp_path: Path, door_argv: tuple[str, ...]
+) -> None:
+    """A door on THIS machine is still running and holds the rig. Whether it
+    is the product's door or the lab's, its pid is alive and is the very
+    process that took the lease: live, so this run is refused."""
+    with _a_live_door(*door_argv) as holder:
+        line = _foreign(
+            holder=_me(),
+            pid=holder.pid,
+            machine=_machine(),
+            pid_start=_started(holder.pid),
+        )
+        _refused_untouched(
+            root, tmp_path, line, names=(HOLDER_RUN, socket.gethostname())
+        )
+
+
+def test_a_lease_the_door_did_not_write_is_honoured(root: Path, tmp_path: Path) -> None:
+    """No lease_id on the line — a hand-written lease, or an older door's.
+    Something holds the rig and nothing says it is gone: refused, untouched."""
+    line = f"holder={ELSEWHERE} pid=1 started_at={SINCE} step=probe run_id={HOLDER_RUN}"
+    _refused_untouched(root, tmp_path, line, names=(HOLDER_RUN, "elsewhere"))
+
+
+def test_a_dead_pid_on_a_machine_with_this_hostname_but_another_id_is_honoured(
+    root: Path, tmp_path: Path
+) -> None:
+    """Two machines named alike: a dead pid here says nothing about a run
+    there. Not stale, and not taken."""
+    line = _foreign(holder=_me(), pid=_dead_pid())
+    _refused_untouched(root, tmp_path, line, names=(HOLDER_RUN,))
+
+
+# --- a stale lease ---------------------------------------------------------------
+
+
+def test_a_stale_lease_is_named_and_reclaimed(root: Path, tmp_path: Path) -> None:
+    """The holder is a pid on THIS machine that is gone: the lease is stale.
+    Named — an operator should know a run died without releasing — and
+    reclaimed, because a dead run holds nothing. Nothing of it is torn down."""
+    onedoor.plant_lease(
+        root, _foreign(holder=_me(), pid=_dead_pid(), machine=_machine())
+    )
+    onedoor.containers_up(root, f"{HOLDER_RUN}-lcps")
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
+    said = done.stdout + done.stderr
+    assert "stale" in said, said
+    assert (tmp_path / "e").exists(), f"the step did not run: {said[-1500:]}"
+    removed = [line for line in onedoor.docker_log(root) if line.startswith("rm")]
+    assert removed == [], f"a stale run's containers were torn down: {removed}"
     assert onedoor.read_lease(root) is None
 
 
-def test_gate_7_tears_down_a_displaced_run_that_came_back_during_the_step(
+def test_a_pid_that_another_process_has_since_taken_is_stale(
     root: Path, tmp_path: Path
 ) -> None:
-    """The displaced step retries its launch after gate 2 removed its
-    container; gate 7 finds it up after the step and removes it again, by
-    the name the lease gave it, and this run is still green."""
-    onedoor.plant_lease(root, _foreign())
-    onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
-    names = onedoor.stubs_dir(root) / "serving-names"
-    came_back = f"printf '%s\\n' '{DISPLACED_RUN}-lcps' >> '{names}'\n"
-    done = onedoor.door(root, _probe(root, tmp_path, after=came_back))
+    """The holder's pid is alive, but the process that has it started at
+    another time than the lease recorded: the run died and its pid was
+    reused. Alive is not enough; it must be the same process."""
+    with _a_live_door(*PRODUCT_DOOR) as other:
+        reused = str(int(_started(other.pid)) + 1)
+        line = _foreign(
+            holder=_me(), pid=other.pid, machine=_machine(), pid_start=reused
+        )
+        onedoor.plant_lease(root, line)
+        done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
     assert done.returncode == 0, done.stderr[-1500:]
-    removed = [
-        line
-        for line in onedoor.docker_log(root)
-        if line.startswith("rm") and f"{DISPLACED_RUN}-lcps" in line
-    ]
-    assert len(removed) >= 2, onedoor.docker_log(root)
-    assert names.read_text(encoding="utf-8").strip() == "", "the container is up"
-
-
-# --- the displaced run yields ---------------------------------------------------
-
-
-def test_a_run_whose_lease_was_taken_yields_at_its_next_touch_of_the_rig(
-    root: Path, tmp_path: Path
-) -> None:
-    """Mid-step, another run takes the rig (the lease is overwritten under this
-    run). The step's next `docker run` through the shim is refused naming the
-    new holder, the step fails, the run is not green, and the lease — no
-    longer this run's — is left as the other run wrote it."""
-    taken = _foreign()
-    lease = onedoor.rig_lease(root)
-    after = (
-        f"printf '%s\\n' '{taken}' > '{lease}'\n"
-        "docker run --name probe-x some/image:tag\n"
-    )
-    done = onedoor.door(root, _probe(root, tmp_path, after), env_extra=_setup(tmp_path))
-    assert done.returncode != 0, "the run went on under someone else's lease"
-    assert ELSEWHERE in done.stderr, done.stderr
-    launches = [line for line in onedoor.docker_log(root) if line.startswith("run ")]
-    assert launches == [], f"the launch reached the daemon: {launches}"
-    assert onedoor.read_lease(root) == taken + "\n", onedoor.read_lease(root)
-
-
-# --- what an adversarial pass found -----------------------------------------------
+    assert "stale" in done.stderr, done.stderr
+    assert onedoor.read_lease(root) is None
 
 
 def test_an_empty_lease_file_holds_nothing(root: Path, tmp_path: Path) -> None:
@@ -271,126 +346,13 @@ def test_an_empty_lease_file_holds_nothing(root: Path, tmp_path: Path) -> None:
     assert onedoor.read_lease(root) is None
 
 
-def test_a_lease_the_door_did_not_write_is_still_displaced_and_torn_down(
-    root: Path, tmp_path: Path
-) -> None:
-    """No lease_id on the line — a hand-written lease, or an older door's. A
-    run still names it, takes the rig, and removes its run's containers
-    by the run id it does carry."""
-    onedoor.plant_lease(
-        root,
-        f"holder={ELSEWHERE} pid=1 started_at={SINCE} "
-        f"step=probe run_id={DISPLACED_RUN}",
-    )
-    onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
-    done = onedoor.door(root, _probe(root, tmp_path))
-    assert done.returncode == 0, done.stderr[-1500:]
-    removed = [
-        line
-        for line in onedoor.docker_log(root)
-        if line.startswith("rm") and f"{DISPLACED_RUN}-lcps" in line
-    ]
-    assert removed, onedoor.docker_log(root)
-    assert onedoor.read_lease(root) is None
+def test_a_lease_names_the_start_of_the_process_that_holds_it() -> None:
+    """What the staleness rule reads back is written by every door: the
+    holder's pid and the kernel's start time of that very process."""
+    from mcgyvr.serving.gatelib import Lease, new_lease
 
-
-def test_a_run_that_would_mint_the_displaced_runs_id_is_refused_with_suffix(
-    root: Path, tmp_path: Path
-) -> None:
-    """One fleet, two hosts, one step, one day: this run's RUN_ID would be
-    the displaced run's, and gate 7 could not tell their containers apart.
-    Gate 5 refuses, naming --suffix; the lease is released."""
-    line = _foreign().replace(f"run_id={DISPLACED_RUN}", f"run_id={RUN_ID}")
-    onedoor.plant_lease(root, line)
-    onedoor.containers_up(root, f"{RUN_ID}-lcps")
-    done = onedoor.door(root, _probe(root, tmp_path))
-    assert done.returncode == 2, (done.returncode, done.stderr[-1500:])
-    assert "--suffix" in done.stderr and RUN_ID in done.stderr, done.stderr
-    assert not (tmp_path / "e").exists(), "the step ran under a shared run id"
-    assert onedoor.read_lease(root) is None
-
-
-def test_a_pid_that_is_alive_but_is_not_a_door_is_stale(
-    root: Path, tmp_path: Path
-) -> None:
-    """The holder's pid was reused by something else since the run died.
-    Alive is not enough: the process at that pid must be the door."""
-    me = f"{getpass.getuser()}@{socket.gethostname()}"
-    onedoor.plant_lease(root, _foreign(holder=me, pid=1, machine=_machine()))
-    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
-    assert done.returncode == 0, done.stderr[-1500:]
-    assert "stale" in done.stderr, done.stderr
-    assert onedoor.read_lease(root) is None
-
-
-def test_a_dead_pid_on_a_machine_with_this_hostname_but_another_id_is_honoured(
-    root: Path, tmp_path: Path
-) -> None:
-    """Two machines named alike: a dead pid here says nothing about a run
-    there. Not stale: the run takes the rig from it as from any holder, and
-    says so, and does not call it stale."""
-    me = f"{getpass.getuser()}@{socket.gethostname()}"
-    onedoor.plant_lease(root, _foreign(holder=me, pid=_dead_pid()))
-    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
-    said = done.stdout + done.stderr
-    assert done.returncode == 0, (done.returncode, done.stderr[-1500:])
-    assert "stale" not in said, said
-    assert "is leased by" in said, said
-
-
-@pytest.mark.parametrize(
-    "argv, spends",
-    [
-        (["run", "--name", "x", "img"], True),
-        (["container", "run", "img"], True),
-        (["--log-level", "info", "run", "img"], True),
-        (["compose", "-f", "c.yml", "up", "-d"], True),
-        (["compose", "-f", "c.yml", "down"], False),
-        (["ps", "--format", "{{.Names}}"], False),
-        (["rm", "-f", "x-run"], False),
-        (["logs", "run-x"], False),
-    ],
-)
-def test_the_docker_verbs_that_spend_a_rig_are_the_ones_checked(
-    argv: list[str], spends: bool
-) -> None:
-    from mcgyvr.serving.gatelib import docker_spends
-
-    assert docker_spends(argv) is spends, argv
-
-
-@pytest.mark.parametrize(
-    "line, spends",
-    [
-        ("box1 docker run -d img", True),
-        ("box1 docker container run img", True),
-        ("box1 nohup docker run img", True),
-        ("box1 docker ps && docker run img", True),
-        ("box1 docker compose -p x up -d", True),
-        ("box1 docker compose -p x down", False),
-        ("box1 docker logs x-run", False),
-        ("box1 nvidia-smi --query-gpu=memory.used", False),
-    ],
-)
-def test_the_ssh_lines_that_spend_a_rig_are_the_ones_checked(
-    line: str, spends: bool
-) -> None:
-    from mcgyvr.serving.gatelib import ssh_spends
-
-    assert ssh_spends(line.split()) is spends, line
-
-
-def test_a_run_whose_lease_was_taken_yields_at_a_container_run_too(
-    root: Path, tmp_path: Path
-) -> None:
-    taken = _foreign()
-    lease = onedoor.rig_lease(root)
-    after = (
-        f"printf '%s\\n' '{taken}' > '{lease}'\n"
-        "docker container run --name probe-x some/image:tag\n"
-    )
-    done = onedoor.door(root, _probe(root, tmp_path, after), env_extra=_setup(tmp_path))
-    assert done.returncode != 0
-    assert ELSEWHERE in done.stderr, done.stderr
-    launches = [line for line in onedoor.docker_log(root) if "run " in line]
-    assert launches == [], launches
+    lease = new_lease("probe", os.getpid())
+    assert lease.pid_start == _started(os.getpid())
+    parsed = Lease.parse(lease.line())
+    assert parsed is not None and parsed.pid_start == lease.pid_start
+    assert not parsed.is_stale(), "this very process read as gone"

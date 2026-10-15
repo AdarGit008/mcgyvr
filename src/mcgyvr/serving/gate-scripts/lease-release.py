@@ -4,10 +4,10 @@
 Not an entry in SEQUENCE: the door spawns this in the `finally` that also
 releases gate 5's claim, so a refusal at gate 3, a step that died, an
 interrupt during the step and a clean finish all end here. The lease is
-removed only if it is still this run's (its lease_id): a run that was
-displaced under R1 leaves the displacing run's lease alone. A rig that cannot
-be reached is said, not refused — this runs after the verdict, and the lease
-it could not remove reads as stale to the next run on this machine, by pid.
+removed only if it is still this run's (its lease_id), so a lease removed by
+hand and taken by another run is left alone. A rig that cannot be reached is
+said, not refused — this runs after the verdict, and the lease it could not
+remove reads as stale to the next run on this machine once this door is gone.
 """
 
 from __future__ import annotations
