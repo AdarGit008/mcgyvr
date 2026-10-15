@@ -35,21 +35,20 @@ Four decisions shape it:
   bounded way to run many things at once; supplying a contract loop here would
   be inventing an escalation policy.
 
-**CON-02, which is why a number here is not a promise.** The capability table
-measured same-model concurrency at 1.6-3.1x *with the backend's parallel-slot
-setting enabled*, and recorded that a single-slot server serializes the requests
-rather than refusing them. So a unit declared ``width: 4`` in front of a
-single-slot backend will accept four dispatches, run them one after another, and
-look from here exactly like a source that is merely slow. This module enforces
-the declaration; it cannot enforce the server. :func:`mcgyvr.propose.propose`
-says so where an operator will read it, and :attr:`Usage.waited_seconds` is where
-the symptom shows up afterwards.
+**Why a number here is not a promise.** Same-model concurrency scales only
+*with the backend's parallel-slot setting enabled*, and a single-slot server
+serializes the requests rather than refusing them. So a unit declared
+``width: 4`` in front of a single-slot backend will accept four dispatches, run
+them one after another, and look from here exactly like a source that is
+merely slow. This module enforces the declaration; it cannot enforce the
+server. :func:`mcgyvr.propose.propose` says so where an operator will read it,
+and :attr:`Usage.waited_seconds` is where the symptom shows up afterwards.
 
 **Where the width comes from.** ``units.*.width`` is a declaration, and a
 declaration is a guess: :func:`mcgyvr.initialize.initialize` writes ``1``
 because it cannot know whether a backend was started with its parallel-slot
-setting on, which is honest and leaves CON-04's measured 8.5x at sixteen
-concurrent requests on a batching server unused. Some backends will answer the
+setting on, which is honest and leaves what concurrent requests gain on a
+batching server unused. Some backends will answer the
 question — llama.cpp states its slot count on ``GET /slots`` and
 ``/props.total_slots`` — so :meth:`Capacity.of` takes an optional
 :class:`WidthProbe`, and three rules follow from it:
@@ -65,12 +64,13 @@ question — llama.cpp states its slot count on ``GET /slots`` and
   number a rig stated and a number an operator typed must not look alike to
   anyone reading a report when only one of the two is evidence.
 * A reported width **smaller** than the declared one is refused, not lowered.
-  This is the CON-02 paragraph above made visible: quietly correcting the bound
-  would leave the config still wrong, the operator still guessing, and the next
-  rig still able to serialize a batch in silence. Refusing names the
-  disagreement at the one moment both numbers are in hand. It is deliberately
-  the same rule as :meth:`Capacity.hold`'s "two answers to one question",
-  pointed at the machine rather than at a stale config.
+  This is the paragraph above on why a number is not a promise, made
+  visible: quietly correcting the bound would leave the config still wrong,
+  the operator still guessing, and the next rig still able to serialize a
+  batch in silence. Refusing names the disagreement at the one moment both
+  numbers are in hand. It is deliberately the same rule as
+  :meth:`Capacity.hold`'s "two answers to one question", pointed at the
+  machine rather than at a stale config.
 
 **A bound can belong to a named rung of a source.** The constructor's ``rungs``
 mapping gives a rung a :class:`RungWidth` of its own on a source;

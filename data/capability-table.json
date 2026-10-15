@@ -1,40 +1,6 @@
 {
-  "schema_version": 3,
-  "_purpose": "Estimates of what a model costs to serve, so that serving can be sized without a benchmark of your machine; `mcgyvr setup` does not read them. Every figure is an estimate for a card class. One card was read per class, so a class is a rough guide: speed depends on the card, not only on its memory. Most figures were taken through another server program (each reading's `backend` says which), with a file of the same model, usually of the same quantisation type; a reading's `note` says when it was not. None is a reading of your machine.",
-  "card_classes": [
-    { "id": "6gb", "label": "6 GB class", "memory_gb": 6 },
-    { "id": "12gb", "label": "12 GB class", "memory_gb": 12 }
-  ],
-  "harness_caveats": [
-    {
-      "id": "CAV-01",
-      "severity": "critical",
-      "summary": "One server program's native generate API gave benchmark results far below those of the same weights served by llama-server, for some models.",
-      "detail": "Seen for the qwen2.5-coder 7b and 14b rows; yi-coder and deepseek-coder-v2 were scored correctly through the same path.",
-      "consequence": "No benchmark reading taken through that path is shipped."
-    },
-    {
-      "id": "CAV-02",
-      "severity": "high",
-      "summary": "One server program resolved qwen3-coder-30b-a3b's tag to a weight set of ~18 GB, not the Q2_K file this row describes.",
-      "detail": "On a card with less memory than that set needs, part of it spills to host memory, so a reading taken through the tag is of that set and its spill, not of this row's file. This row's Q2_K file was read under llama-server with some of its layers on the card (partial offload), and the row's memory figure is that resident part.",
-      "consequence": "Bind an explicit quantised file under llama-server."
-    },
-    {
-      "id": "CAV-03",
-      "severity": "medium",
-      "summary": "The benchmark reading of gpt-oss-20b is disputed: it is attributed to an output budget too small in the harness.",
-      "detail": "First attributed to the MXFP4 quantisation; a later investigation attributed it to the harness's output token budget, not to the quantisation.",
-      "consequence": "No figure of that reading is shipped."
-    },
-    {
-      "id": "CAV-04",
-      "severity": "medium",
-      "summary": "A model that fits a card's memory only marginally can run markedly slower rather than fail, so a marginal fit can look like a working one.",
-      "detail": "qwen2.5-coder:7b, read on a card with little memory left beside it, ran markedly slower than on a card of a larger class. The two cards differ in more than memory, so the cause is not isolated.",
-      "consequence": "A fit listing (`mcgyvr capabilities --vram`) keeps headroom for the KV cache above a model's memory figure, so a marginal fit is not listed as fitting."
-    }
-  ],
+  "schema_version": 4,
+  "_purpose": "What a model costs to serve, so that serving can be sized without a benchmark of your machine; `mcgyvr setup` does not read it. Each row is a model's facts: its size, its weights and the memory it takes to serve. A memory figure is an estimate, mostly read through another server program with a file of the same model, usually of the same quantisation type; a row's `not_for_fit` says when it is not the model's own footprint. None is a reading of your machine.",
   "models": [
     {
       "id": "qwen2.5-coder:1.5b",
@@ -42,11 +8,7 @@
       "params_b": 1.5,
       "quant": "q4_K_M",
       "weights_gb": 0.99,
-      "vram_gb_working": 1.5,
-      "throughput_tok_s": [
-        { "value": 130.6, "card_class": "6gb", "backend": "ollama" },
-        { "value": 54.29, "card_class": "12gb", "backend": "ollama" }
-      ]
+      "vram_gb_working": 1.5
     },
     {
       "id": "qwen2.5-coder:3b",
@@ -54,11 +16,7 @@
       "params_b": 3,
       "quant": "q4_K_M",
       "weights_gb": 1.9,
-      "vram_gb_working": 2.4,
-      "throughput_tok_s": [
-        { "value": 87.8, "card_class": "6gb", "backend": "ollama" },
-        { "value": 96.97, "card_class": "12gb", "backend": "ollama" }
-      ]
+      "vram_gb_working": 2.4
     },
     {
       "id": "qwen2.5-coder:7b",
@@ -67,11 +25,7 @@
       "params_b": 7,
       "quant": "q4_K_M",
       "weights_gb": 4.7,
-      "vram_gb_working": 5.0,
-      "throughput_tok_s": [
-        { "value": 30.4, "card_class": "6gb", "backend": "ollama", "caveat": "CAV-04" },
-        { "value": 57.59, "card_class": "12gb", "backend": "ollama" }
-      ]
+      "vram_gb_working": 5.0
     },
     {
       "id": "qwen2.5-coder:14b",
@@ -80,10 +34,7 @@
       "params_b": 14,
       "quant": "q4_K_M",
       "weights_gb": 9.0,
-      "vram_gb_working": 9.5,
-      "throughput_tok_s": [
-        { "value": 32.18, "card_class": "12gb", "backend": "ollama" }
-      ]
+      "vram_gb_working": 9.5
     },
     {
       "id": "yi-coder:9b",
@@ -91,10 +42,7 @@
       "params_b": 9,
       "quant": "q4",
       "weights_gb": 5.0,
-      "vram_gb_working": 5.5,
-      "throughput_tok_s": [
-        { "value": 57.35, "card_class": "12gb", "backend": "ollama" }
-      ]
+      "vram_gb_working": 5.5
     },
     {
       "id": "deepseek-coder-v2:16b",
@@ -103,10 +51,7 @@
       "architecture": "moe",
       "quant": "q4",
       "weights_gb": 8.9,
-      "vram_gb_working": 9.4,
-      "throughput_tok_s": [
-        { "value": 110.35, "card_class": "12gb", "backend": "ollama" }
-      ]
+      "vram_gb_working": 9.4
     },
     {
       "id": "qwen3-coder-30b-a3b",
@@ -118,10 +63,6 @@
       "weights_gb": 3.0,
       "vram_gb_working": 3.0,
       "requires_backend": "llama-server",
-      "throughput_tok_s": [
-        { "value": 13.0, "card_class": "6gb", "backend": "llama-server", "note": "-ngl 10 partial GPU offload" },
-        { "value": 24.19, "card_class": "12gb", "backend": "ollama", "note": "Q4, through the tag (CAV-02)" }
-      ],
       "not_for_fit": "its memory figure is the resident part under partial offload, not the file",
       "notes": "Requires an explicit GGUF quant under llama-server."
     },
@@ -134,10 +75,7 @@
       "quant": "MXFP4",
       "weights_gb": 4.9,
       "vram_gb_working": 4.9,
-      "throughput_tok_s": [
-        { "value": 15.4, "card_class": "6gb", "backend": "llama-server" }
-      ],
-      "not_for_fit": "its benchmark reading is disputed and not shipped (CAV-03)"
+      "not_for_fit": "its benchmark reading is disputed and not shipped"
     },
     {
       "id": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
@@ -147,10 +85,6 @@
       "weights_gb": 5.29,
       "vram_gb_working": 9.9,
       "requires_backend": "vllm",
-      "throughput_tok_s": [
-        { "value": 67.5, "card_class": "12gb", "backend": "vllm" },
-        { "value": 489.0, "card_class": "12gb", "backend": "vllm", "note": "aggregate at 16 concurrent (CON-04)" }
-      ],
       "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint",
       "notes": "vram_gb_working is the server's configured allocation, which its gpu-memory-utilization setting gives as a share of the card, not an intrinsic footprint — the fit rule's assumptions do not transfer to this backend unchanged."
     },
@@ -162,11 +96,7 @@
       "weights_gb": 9.29,
       "vram_gb_working": 11.6,
       "requires_backend": "vllm",
-      "throughput_tok_s": [
-        { "value": 19.5, "card_class": "12gb", "backend": "vllm", "caveat": "CAV-04" }
-      ],
-      "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint",
-      "notes": "Its reading carries CAV-04: it was taken with the server set to allocate nearly all of the card, and with eager execution."
+      "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint"
     }
   ],
   "backends": {
@@ -174,52 +104,12 @@
     "ollama": {
       "wire_protocol": "ollama",
       "strengths": ["multiple distinct models resident concurrently", "GGUF native", "setup in one command"],
-      "limits": ["no continuous batching", "no structured-output enforcement", "backend-native generate API is unsafe for benchmark measurement (CAV-01)"]
+      "limits": ["no continuous batching", "no structured-output enforcement", "backend-native generate API is unsafe for benchmark measurement"]
     },
     "vllm": {
       "wire_protocol": "openai",
-      "strengths": ["continuous batching (8.5x at 16 concurrent, CON-04)", "JSON-schema structured output", "prefix caching", "sleep/wake model swap (CON-06)"],
-      "limits": ["one model per process", "VRAM allocation is configured, not intrinsic — footprint is gpu-memory-utilization, not weight size", "needs Docker on newer glibc", "a card with little memory to spare beside the weights leaves it little room to batch in (CAV-04)"],
-      "card_class": "12gb"
+      "strengths": ["continuous batching", "JSON-schema structured output", "prefix caching", "sleep/wake model swap"],
+      "limits": ["one model per process", "VRAM allocation is configured, not intrinsic — footprint is gpu-memory-utilization, not weight size", "needs Docker on newer glibc", "a card with little memory to spare beside the weights leaves it little room to batch in"]
     }
-  },
-  "concurrency_findings": [
-    {
-      "id": "CON-04",
-      "summary": "Continuous batching scaled sublinearly, to 8.5x at 16 concurrent requests.",
-      "detail": "Qwen2.5-Coder-7B-AWQ under vLLM on one card of the finding's class: 1 req 68 tok/s, 2 req 127 (1.9x), 4 req 168 (2.6x), 8 req 289 (4.7x), 12 req 402 (6.6x), 16 req 489 (8.5x). Per-request latency stayed within 0.39-2.01 s throughout.",
-      "consequence": "Per-source parallel capacity on a batching server can raise aggregate speed, with sublinear returns.",
-      "card_class": "12gb"
-    },
-    {
-      "id": "CON-05",
-      "summary": "Prefix caching returned a 43.3% hit rate on a shared 39-token prefix, and scales with prefix size.",
-      "detail": "Over short coding tasks sharing one system prompt; 19% wall-clock speedup at that prefix length.",
-      "consequence": "Directly relevant to the shared worker bundle: every local worker receives the same <=2 KB system prompt, which is roughly 50x the prefix measured here, so the benefit should be substantially larger in normal operation.",
-      "card_class": "12gb"
-    },
-    {
-      "id": "CON-06",
-      "summary": "A batching server can free nearly all the card memory it holds and return in about six seconds.",
-      "detail": "Sleep 4.74 s, offloading the weights to host RAM and freeing nearly all the card memory the server held; wake 1.09 s. The endpoint stays up throughout; a container restart for the same effect took ~60 s. KV cache AND prefix cache are discarded on wake.",
-      "consequence": "Can make two differently-sized rungs viable on one card. The discarded caches are the catch: a swap resets exactly the CON-05 benefit, so swapping mid-batch trades one optimization for another.",
-      "card_class": "12gb"
-    },
-    {
-      "id": "CON-01",
-      "summary": "Distinct models can run concurrently on one card.",
-      "detail": "Three models (1.5B + 3B + 16B MoE), resident together on one card, completed in 23.6 s wall against ~44 s serial, each holding its solo throughput.",
-      "card_class": "12gb"
-    },
-    {
-      "id": "CON-02",
-      "summary": "Same-model concurrency scales 1.6–3.1x with server-side parallelism enabled.",
-      "detail": "Requires the backend's parallel-slot setting; a single-slot server serializes same-model requests."
-    },
-    {
-      "id": "CON-03",
-      "summary": "Aggregate throughput across separate machines came close to the sum of each machine's own.",
-      "detail": "Separate machines share no bus, so requests on one do not contend with requests on another for it."
-    }
-  ]
+  }
 }

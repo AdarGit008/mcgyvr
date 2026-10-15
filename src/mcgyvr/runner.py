@@ -656,7 +656,7 @@ class Runner(ABC):
 
     protocol: ClassVar[Protocol]
     path: ClassVar[str]
-    # False marks a path a caveat invalidates for measurement (CAV-01). It
+    # False marks a path that is not safe to measure a model through. It
     # decides both the flag on every completion and whether a
     # quality-sensitive request is refused.
     quality_safe: ClassVar[bool] = True
@@ -891,7 +891,7 @@ class OpenAIRunner(Runner):
 
     One protocol rather than one integration per vendor, which is what makes
     adding a backend a config entry. It is also the path a measurement must run
-    on (CAV-01), so this is the quality-safe path.
+    on, so this is the quality-safe path.
     """
 
     protocol: ClassVar[Protocol] = Protocol.OPENAI

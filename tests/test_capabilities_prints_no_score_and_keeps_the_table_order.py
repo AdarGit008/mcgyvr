@@ -11,8 +11,8 @@ Promises:
   listing of what fits a card (``--vram``) leaves it out whatever the size,
   keeping the order of the rows it lists.
 
-The invented tables are generated (:mod:`tests.table_fixture`) over more than
-one shape of class set; the shipped table is read for its order only.
+The invented tables are generated (:mod:`tests.table_fixture`); the shipped
+table is read for its order only.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ import pytest
 from mcgyvr import capability
 from mcgyvr.capability import CapabilityTable, load
 from mcgyvr.cli import main
-from tests.table_fixture import CLASS_SHAPES, reading, table_document, write_table
+from tests.table_fixture import CARD_SIZES, table_document, write_table
 
 KEPT_OUT = "not in a fit listing"
 
@@ -40,9 +40,7 @@ ROWS: tuple[tuple[str, float, dict[str, Any]], ...] = (
 )
 
 
-def _document(shape: str) -> dict[str, Any]:
-    classes = CLASS_SHAPES[shape]
-    first = str(classes[0]["id"])
+def _document() -> dict[str, Any]:
     rows = [
         {
             "id": model_id,
@@ -50,18 +48,15 @@ def _document(shape: str) -> dict[str, Any]:
             "params_b": 3.0,
             "weights_gb": footprint,
             "vram_gb_working": footprint,
-            "throughput_tok_s": [reading(first, value=17.0 + footprint)],
             **extra,
         }
         for model_id, footprint, extra in ROWS
     ]
-    return table_document(classes=classes, rows=rows)
+    return table_document(rows=rows)
 
 
-def _invented(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, shape: str
-) -> CapabilityTable:
-    path = write_table(tmp_path, _document(shape))
+def _invented(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CapabilityTable:
+    path = write_table(tmp_path, _document())
     monkeypatch.setattr(capability, "table_path", lambda: path)
     return load(path)
 
@@ -82,14 +77,12 @@ def _rest(line: str, model: capability.Model) -> str:
     return rest.replace(KEPT_OUT, "", 1).strip()
 
 
-@pytest.mark.parametrize("shape", sorted(CLASS_SHAPES))
 def test_the_rows_print_in_table_order_with_no_score(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    shape: str,
 ) -> None:
-    table = _invented(tmp_path, monkeypatch, shape)
+    table = _invented(tmp_path, monkeypatch)
     by_id = {m.id: m for m in table.models}
 
     printed = _rows(capsys, set(by_id))
@@ -101,18 +94,15 @@ def test_the_rows_print_in_table_order_with_no_score(
         assert (KEPT_OUT in line) == (model.not_for_fit is not None), line
 
 
-@pytest.mark.parametrize("shape", sorted(CLASS_SHAPES))
 def test_a_fit_listing_leaves_out_a_kept_out_row_and_keeps_the_order(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    shape: str,
 ) -> None:
-    table = _invented(tmp_path, monkeypatch, shape)
+    table = _invented(tmp_path, monkeypatch)
     ids = {m.id for m in table.models}
-    sizes = [float(c["memory_gb"]) for c in CLASS_SHAPES[shape]]
 
-    for size in [*sizes, sum(m.vram_gb_working for m in table.models) * 3]:
+    for size in [*CARD_SIZES, sum(m.vram_gb_working for m in table.models) * 3]:
         printed = [
             line.split()[0] for line in _rows(capsys, ids, "--vram", f"{size:g}")
         ]

@@ -17,7 +17,7 @@ canonical name a model id is served from — where ``mcgyvr emit`` mounts it
 and the scan measured its disk.
 
 The Hub is ``HF_ENDPOINT`` when that is set (the Hub's own variable for a
-mirror), else :data:`mcgyvr.knowledge.online.HUB`; a plain ``http`` address
+mirror), else :data:`HUB`; a plain ``http`` address
 is refused unless it is this machine's loopback, since a token may go to it.
 """
 
@@ -31,9 +31,10 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from mcgyvr.knowledge import online
 from mcgyvr.knowledge.record import ModelRecord, Number, Weights
 
+#: The Hugging Face Hub, where a fetch list's files are downloaded from.
+HUB = "https://huggingface.co"
 #: The remote line the fetch step runs; the fetcher and its job come on stdin.
 REMOTE_COMMAND = "python3 - mcgyvr-fetch"
 #: The fetcher shipped to the rig, read by file: it is never imported there.
@@ -247,7 +248,7 @@ def endpoint(env: Mapping[str, str]) -> str:
     """The Hub's address: ``HF_ENDPOINT``, else the Hub's own."""
     named = env.get(ENDPOINT_ENV, "").strip()
     if not named:
-        return online.HUB
+        return HUB
     parsed = urllib.parse.urlsplit(named)
     host = parsed.hostname or ""
     try:
@@ -264,8 +265,10 @@ def endpoint(env: Mapping[str, str]) -> str:
 
 def url(want: Want, hub: str) -> str:
     """Where ``want`` is downloaded from on the Hub at ``hub``."""
-    resolved = online.resolve_url(want.repo, want.revision, want.file)
-    return hub + resolved[len(online.HUB) :]
+    return (
+        f"{hub}/{urllib.parse.quote(want.repo)}/resolve/"
+        f"{urllib.parse.quote(want.revision)}/{urllib.parse.quote(want.file)}"
+    )
 
 
 def payload(wants: Iterable[Want], hub: str, token_env: str, token: str | None) -> str:

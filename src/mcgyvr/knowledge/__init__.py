@@ -15,14 +15,6 @@ back to the shipped catalog."
   the serving sizer reads, kept per file at a revision with one source and
   one date for the whole row: the cache's, then the shipped ones.
 
-* :mod:`mcgyvr.knowledge.online` is the online half: the Hub's model API, each
-  GGUF file's header read over HTTP ``Range`` (never a weight), and the
-  refresh, which files what it read in the cache with
-  :func:`mcgyvr.knowledge.store.write`; no command runs it yet. Asked offline,
-  or under ``HF_HUB_OFFLINE``, it asks nothing.
-* :mod:`mcgyvr.knowledge.boards` reads the public leaderboards into scores
-  and orders records by them for a use case.
-
-Only ``online`` and ``boards`` open a socket. The offline read never knows
-which run wrote the cache.
+Nothing here opens a socket. The offline read never knows which run wrote
+the cache.
 """

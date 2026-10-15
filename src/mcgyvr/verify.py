@@ -784,7 +784,7 @@ def reviewer_for(
 
     The request is not marked ``quality_sensitive``. That flag means "this
     output will be read as a measurement of the model" and refuses a
-    quality-caveated backend outright (CAV-01); a review is work, and refusing
+    quality-caveated backend outright; a review is work, and refusing
     would turn the ordinary local install into one with no verifier at all
     while telling the operator nothing.
 
