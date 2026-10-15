@@ -24,8 +24,8 @@ back and says, plan section 8.2:
 * **no unit sleeps**: until P10 builds the llama.cpp swap, a fleet with an
   asleep slot is red (owner, Round 8).
 
-What the reads measured becomes the dev-run evidence ``mcgyvr fleet lock``
-already reads (:mod:`mcgyvr.fleet.lock`): the rig file the user's scan saved
+What the reads measured becomes the dev-run evidence the lock is written
+from (:mod:`mcgyvr.fleet.lock`): the rig file the user's scan saved
 (:mod:`mcgyvr.serving.rigfile`) gives each card's MiB, the last read's rig
 id names the machine and its snapshot gives the card's reserve as the
 combination's overhead, and each unit's card peak is the highest card reading

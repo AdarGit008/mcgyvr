@@ -51,12 +51,3 @@ def test_a_help_naming_the_config_folder_names_it_by_its_variable(
     assert VARIABLE in said, said
     bare = said.replace(roots.FLEETS_SHOWN, "").replace(roots.LIVE_FILE_SHOWN, "")
     assert roots.HOME_DIR not in bare, said
-
-
-def test_the_lock_guard_names_the_moved_folder_and_its_default(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    said = _help(("fleet", "lock"), capsys)
-
-    assert f"config folder ({VARIABLE}, else {roots.HOME_DIR})" in said, said
-    assert f"or under {roots.HOME_DIR} is refused" in said, said

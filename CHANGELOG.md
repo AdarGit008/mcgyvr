@@ -11,6 +11,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed (breaking)
 
+- **`mcgyvr fleet lock`, `fleet promote` and `fleet tag` are gone.**
+  `mcgyvr setup` locks and promotes the fleet it sampled through the library
+  (`mcgyvr.fleet.lock.write_from_stamp`, `write_unsampled`, `write`, and
+  `mcgyvr.fleet.promote.promote`), which stays; `mcgyvr fleet use` still
+  names a promoted folder live. `fleet tag`, the one-off rename of folders
+  promoted before 2026-09-16, goes with `promote.tag`; such a folder still
+  reads and is still named by `fleet use`. `$MCGYVR_RUN_ROOT` is gone with
+  the verbs' default root. A setup that stamped a fleet the user did not lock
+  keeps the stamp and says a later `mcgyvr setup` locks again.
+
 - **The door runs its own gates and nothing else: `step`, campaigns and gate
   lists are the lab's.**
   - `python -m mcgyvr.serving.run` has three verbs, `serve`, `read` and
@@ -24,8 +34,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     header names no campaign, round or product digest; the rig lease names no
     campaign; gate 1 exports no `RUN_ROUND` or `RUN_PRODUCT_SHA256`; gate 5
     reads no `RUN_APPENDS`.
-  - `$MCGYVR_RUN_ROOT` no longer moves where the door's gates run; it only
-    names the folder `mcgyvr fleet lock` and `fleet promote` default to.
+  - `$MCGYVR_RUN_ROOT` no longer moves where the door's gates run.
   - The seam for a driver outside the package: `mcgyvr.serving.run.Driver`
     (checks run before and after each door entry, and after gates 7 and 8),
     taken by `serve`, `read`, `link` and `through` (the serve sequence under

@@ -164,9 +164,6 @@ MINTED_PREFIXES = ("RUN_", "DOCKER_")
 #: and never from the caller's cwd. From an installed wheel it is
 #: ``site-packages/``.
 ROOT = HERE.parents[2]
-#: Names the folder ``mcgyvr fleet lock`` and ``fleet promote`` default to
-#: (:func:`run_root`). The door's gates run from :data:`ROOT` whatever it says.
-ROOT_ENV = "MCGYVR_RUN_ROOT"
 
 
 class RefusedError(Exception):
@@ -448,38 +445,6 @@ def pin_config(env: dict[str, str]) -> None:
             f"({escape!r}); name the config file by an absolute path",
         )
     env[CONFIG_PATH_ENV] = str(path)
-
-
-def run_root() -> Path:
-    """The folder ``mcgyvr fleet lock`` and ``fleet promote`` default to:
-    ``$MCGYVR_RUN_ROOT`` when it is set, else the checkout.
-
-    A value that is set names a directory that exists, or it is refused: it is
-    never created. Resolved, so one spelling of it is used.
-    """
-    named = os.environ.get(ROOT_ENV)
-    if named is None:
-        return ROOT
-    # Absolute, or refused: a relative value lands somewhere different from
-    # every directory the door is invoked in, which is the one thing a root
-    # is for not doing. `~` is not absolute either, and a `~user` the shell
-    # did not expand is a value nobody checked.
-    try:
-        path = Path(named).expanduser()
-        usable = bool(named) and path.is_absolute() and path.is_dir()
-    except (OSError, RuntimeError):
-        # An unreadable parent, a `~nobody` — a root the door cannot judge
-        # is a root it does not use, and says so rather than tracing back.
-        usable = False
-    if not usable:
-        _refuse(
-            2,
-            f"{ROOT_ENV}={named!r} is not an existing directory named by an "
-            "absolute path, and it is never created, because a folder made "
-            "silently is one nobody looks in. Name a directory that exists, "
-            f"or unset the variable to use the tree the door runs from ({ROOT})",
-        )
-    return path.resolve()
 
 
 def _command(verb: str, argv: list[str]) -> str:

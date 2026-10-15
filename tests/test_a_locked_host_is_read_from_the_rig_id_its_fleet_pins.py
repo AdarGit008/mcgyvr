@@ -1,6 +1,6 @@
 """A host is locked by its own rig id's records, not by any record naming it.
 
-``mcgyvr fleet lock`` writes one directory per rig id and never prunes: when a
+:func:`mcgyvr.fleet.lock.write` writes one directory per rig id and never prunes: when a
 rig's id changes, the records of the id it had stay where they are. They still
 carry ``"rig": "box1"``, because that field is the rig's NAME, not its identity.
 A glob of ``*/cmb-*.json`` across every directory matched on that name would let

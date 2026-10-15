@@ -4,8 +4,8 @@ Owner: "one script that locks a fleet, one script that stamps a fleet without
 locking". A green sample's stamp is a folder of its own under the data folder,
 ``<data folder>/stamps/<fleet>/<run_id>/``, holding the staged setup and the
 dev-run evidence, and nothing else: no lock, no promoted folder, no
-``live.json``. :func:`mcgyvr.fleet.lock.write_from_stamp` (``mcgyvr fleet lock
---stamp DIR``) is what locks it, into the stamp folder as its dev root, and the
+``live.json``. :func:`mcgyvr.fleet.lock.write_from_stamp` (``mcgyvr setup`` calls it on
+the user's yes) is what locks it, into the stamp folder as its dev root, and the
 chain every live fleet takes runs from there: lock -> promote -> use.
 
 No rig is reached: the rig is invented and its reads are canned.
@@ -38,10 +38,9 @@ def _read_twice(setup: Path, **first: Any) -> None:
 
 @pytest.fixture
 def no_lab(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A run root that holds no lab file, and must stay empty."""
+    """A folder of the test's own, which nothing writes into."""
     root = tmp_path / "no-lab-root"
     root.mkdir()
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(root))
     return root
 
 
@@ -188,59 +187,3 @@ def test_a_malformed_stamp_folder_is_refused_by_what_is_wrong(
     with pytest.raises(lock.LockRefusedError, match=word):
         lock.write_from_stamp(folder)
     assert not (folder / LOCK_DIR).exists()
-
-
-def test_fleet_lock_stamp_locks_the_stamp_folder(
-    setup: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    from mcgyvr.cli import main
-    from mcgyvr.fleet import stamp
-
-    _read_twice(setup)
-    done = stamp.stamp(_sample(setup), run_id="sample-1")
-    assert done.folder is not None, done.why
-    capsys.readouterr()
-
-    assert main(["fleet", "lock", "--stamp", str(done.folder)]) == 0
-
-    assert str(done.folder / LOCK_DIR) in capsys.readouterr().out
-    assert (done.folder / LOCK_DIR / f"{fx.FLEET}.json").is_file()
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [
-        ("--evidence", "e.json"),
-        ("--fleet", "f.yaml"),
-        ("--policy", "p.yaml"),
-        ("--root", "elsewhere"),
-    ],
-)
-def test_fleet_lock_stamp_takes_nothing_the_stamp_already_holds(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], extra: tuple[str, str]
-) -> None:
-    from mcgyvr.cli import main
-
-    code: object
-    try:
-        code = main(["fleet", "lock", "--stamp", str(tmp_path), *extra])
-    except SystemExit as exited:
-        code = exited.code
-    assert code == 2
-    assert extra[0] in capsys.readouterr().err
-    assert not (tmp_path / LOCK_DIR).exists()
-
-
-def test_fleet_lock_needs_a_stamp_or_evidence(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    from mcgyvr.cli import main
-
-    code: object
-    try:
-        code = main(["fleet", "lock", "--fleet", "f.yaml"])
-    except SystemExit as exited:
-        code = exited.code
-    assert code == 2
-    said = capsys.readouterr().err
-    assert "--stamp" in said and "--evidence" in said, said

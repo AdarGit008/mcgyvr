@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import importlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -211,6 +212,8 @@ BOX1_EVIDENCE: dict[str, Any] = {
 
 #: The lock fixture's fleet, every unit naming a model so a folder loads.
 MODELLED: dict[str, Any] = copy.deepcopy(FLEET)
+for _name, _unit in MODELLED["units"].items():
+    _unit.setdefault("model", f"model-{_name}")
 
 
 #: The dev policy a setup directory holds: a ladder over every unit, and one
@@ -272,7 +275,6 @@ def dev_setup(
     _flow_lock().write(
         dev, locked_fleet, EVIDENCE, policy=POLICY, tolerances=TOLERANCES
     )
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(dev))
     setup = tmp_path / "setup"
     setup.mkdir()
     (setup / "fleet.yaml").write_text(
@@ -286,6 +288,22 @@ def dev_setup(
         yaml.safe_dump(SETUP_POLICY, sort_keys=False), encoding="utf-8"
     )
     return dev, setup
+
+
+def promote_fleet(dev: Path, setup: Path, name: str) -> int:
+    """Promote fleet ``name`` from the lock under ``dev``: 0, or 1 when refused.
+
+    :func:`mcgyvr.fleet.promote.promote`, as ``mcgyvr setup`` calls it: there is
+    no command that promotes a lock of the caller's own.
+    """
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote
+
+    try:
+        promote(dev, setup, name)
+    except PromoteRefusedError as refused:
+        print(f"error: {refused}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def cli(*argv: str) -> int:

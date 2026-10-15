@@ -3,16 +3,16 @@
 Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample GREEN = fleet STAMPED;
 sample red = no stamp, and why. Owner, 2026-10-14: "one script that locks a
 fleet, one script that stamps a fleet without locking". Plan section 8.2: the
-sample's results are the dev-run evidence ``mcgyvr fleet lock`` reads.
+sample's results are the dev-run evidence the lock is written from.
 
 :func:`stamp` judges the sample (:func:`mcgyvr.fleet.sample.judge`) and, only
 when it is green, writes the stamp folder ``<data folder>/stamps/<fleet>/
 <run_id>/`` (:func:`folder`; owner call, Round 8): ``setup/`` (the staged
 ``fleet.yaml`` and ``policy.yaml``) and ``evidence.json``. That is all a stamp
-is. Locking it is :func:`mcgyvr.fleet.lock.write_from_stamp`'s (``mcgyvr fleet
-lock --stamp DIR``), which writes the lock into the stamp folder as a dev root
-of its own, so a stamp from an install needs no lab checkout; from there the
-fleet takes the path every live fleet takes, promote then use
+is. Locking it is :func:`mcgyvr.fleet.lock.write_from_stamp`'s, which
+``mcgyvr setup`` calls on the user's yes: it writes the lock into the stamp
+folder as a dev root of its own, so a stamp from an install needs no lab
+checkout; from there the fleet takes the path every live fleet takes, promote then use
 (:mod:`mcgyvr.fleet.promote`). Nothing is started or stopped here: what runs is
 the sample's.
 
@@ -58,10 +58,7 @@ class Stamp:
     def lines(self) -> list[str]:
         """What a caller prints: the stamp and where it is, or each reason."""
         if self.folder is not None:
-            return [
-                f"stamped: {self.fleet} ({self.folder})",
-                f"lock it: mcgyvr fleet lock --stamp {self.folder}",
-            ]
+            return [f"stamped: {self.fleet} ({self.folder})"]
         return [f"no stamp: {self.fleet}", *(f"  {reason}" for reason in self.why)]
 
 

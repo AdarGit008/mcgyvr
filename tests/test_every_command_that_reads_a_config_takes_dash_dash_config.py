@@ -26,7 +26,7 @@ import pytest
 from mcgyvr.cli import build_parser, main
 
 #: Commands that read no setup, and why — so they take no ``--config``. A
-#: command is listed by its words as typed (``fleet lock``), and only a leaf:
+#: command is listed by its words as typed (``fleet use``), and only a leaf:
 #: a group (``fleet``, ``rig``) runs nothing of its own.
 READS_NO_CONFIG = {
     "capabilities": "the shipped estimates table, nothing configured",
@@ -38,13 +38,7 @@ READS_NO_CONFIG = {
     "index": "indexes a repository",
     "resolve": "resolves a target against a repository's index",
     "read": "reads regions of a repository",
-    "fleet lock": "reads the files it is given as the required --fleet/--policy",
-    "fleet promote": (
-        "reads the dev setup it is given as the required --setup; the default "
-        "chain could land on the live fleet, which promote never reads from"
-    ),
     "fleet use": "names a promoted folder live; reads the promoted folders only",
-    "fleet tag": "renames a promoted folder",
     "fleet probe": "probes the live fleet by its lock, by definition not a setup",
     "fleet alerts": "reads the live fleet's journal and lock, not a setup",
     "rig status": "reads the kept credentials and the agent's last state",

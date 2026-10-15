@@ -401,8 +401,6 @@ class Switch:
     moves: list[dict[str, Any]] = field(default_factory=list)
     #: Why the move is unmeasured, when it is and a fleet was live.
     unmeasured: str | None = None
-    #: The lock date of an untagged folder, ``None`` for a tagged one.
-    untagged_date: str | None = None
 
 
 def _measured(previous: str, layout: str) -> tuple[bool, list[dict[str, Any]], str]:
@@ -435,19 +433,18 @@ def use(name: str) -> Switch:
     """
     if not is_fleet_name(name):
         raise PromoteRefusedError(f"{name!r} cannot name a fleet folder")
-    layout, tag = split_name(name)
+    layout, _tag = split_name(name)
     folder = fleets_dir() / name
     if not folder.is_dir():
         raise PromoteRefusedError(
-            f"{name} has no live fleet folder {folder}: `mcgyvr fleet promote "
-            f"{layout} --setup DIR` first"
+            f"{name} has no live fleet folder {folder}: `mcgyvr setup` promotes "
+            "the fleet it locks"
         )
     fleet = _read_setup(folder / FLEET_FILENAME, load_fleet)
     if layout not in (fleet.get("fleets") or {}):
         raise PromoteRefusedError(f"{folder / FLEET_FILENAME} holds no fleet {layout}")
     lock = _read_json(folder / LOCK_DIR / f"{layout}.json")
-    ids = _pinned(fleet, layout, lock, str(folder))
-    untagged_date = None if tag is not None else _lock_day(folder, layout, lock, ids)
+    _pinned(fleet, layout, lock, str(folder))
 
     try:
         current = live_fleet()
@@ -470,7 +467,6 @@ def use(name: str) -> Switch:
         locked=locked,
         moves=moves,
         unmeasured=unmeasured,
-        untagged_date=untagged_date,
     )
 
 
@@ -479,39 +475,3 @@ def _point(pointer: Path, name: str, since: str) -> None:
         pointer,
         json.dumps({"fleet": name, "since": since}, indent=2, sort_keys=True) + "\n",
     )
-
-
-def tag(name: str) -> Path:
-    """Rename ``<config folder>/fleets/<name>/`` to ``<name>@<its lock date>/``;
-    the folder.
-
-    For a folder promoted before the ruling. A rename and nothing else: the
-    files inside are what they were, and the config folder's ``live.json`` follows when
-    it named the folder. Refused when ``name`` already carries a tag, has no
-    folder, or the tagged name is taken.
-    """
-    if TAG in name:
-        raise PromoteRefusedError(f"{name} already carries the date of its lock")
-    if not is_fleet_name(name):
-        raise PromoteRefusedError(f"{name!r} cannot name a fleet folder")
-    folder = fleets_dir() / name
-    if not folder.is_dir():
-        raise PromoteRefusedError(f"{name} has no live fleet folder {folder}")
-    fleet = _read_setup(folder / FLEET_FILENAME, load_fleet)
-    target = fleets_dir() / tagged(name, lock_date(folder, fleet, name))
-    if target.exists() or target.is_symlink():
-        raise PromoteRefusedError(f"{target} already exists; {folder} is left as it is")
-    try:
-        current = live_fleet()
-    except LiveFleetError as exc:
-        raise PromoteRefusedError(str(exc)) from exc
-    os.rename(folder, target)
-    if current == name:
-        # The same config under its dated name: `since` is kept.
-        since = json.loads(live_file().read_text(encoding="utf-8")).get("since")
-        _point(
-            live_file(),
-            target.name,
-            str(since) if since else datetime.now(UTC).isoformat(timespec="seconds"),
-        )
-    return target

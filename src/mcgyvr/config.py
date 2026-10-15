@@ -1987,9 +1987,9 @@ def config_path() -> Path:
     The override is ``$MCGYVR_CONFIG`` (a command's ``--config`` is handed to
     :func:`load` directly). The live fleet is the folder the config folder's
     ``live.json`` names (:func:`mcgyvr.fleet.roots.live_fleet_dir`; the config
-    folder is ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written by ``mcgyvr fleet
-    promote``, named by ``mcgyvr fleet use``, as ``mcgyvr setup`` does when it
-    locks a fleet. The working directory is not consulted: a ``fleet.yaml``
+    folder is ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written and named live by
+    ``mcgyvr setup`` when it locks a fleet, and named by ``mcgyvr fleet use``.
+    The working directory is not consulted: a ``fleet.yaml``
     there is a setup nobody named and nobody promoted. With neither, there is
     no config, and :class:`ConfigMissingError` says so. A path that depends on
     an environment variable only some shells export is a config that is found

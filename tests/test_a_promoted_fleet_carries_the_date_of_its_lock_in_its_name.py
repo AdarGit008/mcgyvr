@@ -4,21 +4,18 @@ Owner ruling: "all fleets get tagged with date - promote with the date in
 fleet name - switching between verified fleets is a common action during
 runtime".
 
-* ``mcgyvr fleet promote <fleet> --setup <dev dir>`` is invoked with the plain
-  fleet name and writes ``~/.mcgyvr/fleets/<fleet>@<YYYY-MM-DD>/``, where the
+* :func:`mcgyvr.fleet.promote.promote` is handed the plain fleet name and
+  writes ``~/.mcgyvr/fleets/<fleet>@<YYYY-MM-DD>/``, where the
   date is the lock's own: the latest ``validated_at`` among the combination
   records the lock wrote for that fleet's layout. Never today's date.
 * Inside the folder nothing is renamed: ``fleet.yaml`` keys the fleet by its
   plain name and the lock sits at ``lock/<fleet>.json``, so a tagged
-  folder and a folder promoted before the ruling have one shape, and tagging
-  one is a rename.
+  folder and a folder promoted before the ruling have one shape.
 * A re-lock on a new date gets a new folder beside the old one, which stays as
   a verified config. The same tagged name is refused, as any existing folder.
 * A name that already carries a tag is refused by ``promote``: the date is the
   lock's to say. A lock whose records carry no ``validated_at`` cannot be dated
   and is refused, with nothing written.
-* ``mcgyvr fleet tag <fleet>`` renames a folder promoted before the ruling to
-  ``<fleet>@<its lock date>``; a pointer naming it follows the rename.
 """
 
 from __future__ import annotations
@@ -41,8 +38,7 @@ from tests.fleetlocks import (
     fleets,
     flt05_records,
     listing,
-    live_json,
-    name_live,
+    promote_fleet,
     tree,
 )
 
@@ -67,14 +63,15 @@ def test_promote_writes_the_folder_under_the_fleet_name_and_its_lock_date(
     before = tree(dev)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     assert today != LOCK_DATE, "the fixture's lock date must not be today"
+    from mcgyvr.fleet.promote import promote
 
-    assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
+    written_to = promote(dev, setup, "flt-05")
 
     assert [path.name for path in fleets().iterdir()] == [TAGGED], (
         "the promoted folder is named <fleet>@<the lock's validated_at date>"
     )
     folder = fleets() / TAGGED
-    assert str(folder) in capsys.readouterr().out, "promote reports the folder it wrote"
+    assert written_to == folder, "promote returns the folder it wrote"
 
     lock, record = flt05_records()
     written = tree(folder)
@@ -109,16 +106,16 @@ def test_a_relock_on_a_new_date_is_promoted_beside_the_old_folder(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dev, setup = dev_setup(tmp_path, monkeypatch)
-    assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
+    assert promote_fleet(dev, setup, "flt-05") == 0
     old = tree(fleets() / TAGGED)
 
-    assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) != 0, (
+    assert promote_fleet(dev, setup, "flt-05") != 0, (
         "the same lock promoted twice is the same tagged folder, which exists"
     )
     assert sorted(path.name for path in fleets().iterdir()) == [TAGGED]
 
     _relock(dev, "2026-09-12T08:00:00Z")
-    assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
+    assert promote_fleet(dev, setup, "flt-05") == 0
     assert sorted(path.name for path in fleets().iterdir()) == [
         TAGGED,
         "flt-05@2026-09-12",
@@ -129,8 +126,8 @@ def test_a_relock_on_a_new_date_is_promoted_beside_the_old_folder(
 def test_promote_takes_the_plain_fleet_name_and_refuses_a_tagged_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    _dev, setup = dev_setup(tmp_path, monkeypatch)
-    assert cli("fleet", "promote", TAGGED, "--setup", str(setup)) != 0
+    dev, setup = dev_setup(tmp_path, monkeypatch)
+    assert promote_fleet(dev, setup, TAGGED) != 0
     assert "plain" in capsys.readouterr().err
     assert listing(fleets()) == []
 
@@ -144,46 +141,9 @@ def test_a_lock_whose_records_carry_no_date_is_refused_and_nothing_is_written(
     undated["validated_at"] = None
     record.write_text(json.dumps(undated), encoding="utf-8")
 
-    assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) != 0
+    assert promote_fleet(dev, setup, "flt-05") != 0
     assert "validated_at" in capsys.readouterr().err
     assert listing(fleets()) == []
-
-
-def test_tag_renames_a_folder_promoted_before_the_ruling_to_its_lock_date(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    _dev, setup = dev_setup(tmp_path, monkeypatch)
-    assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
-    # A folder as `promote` wrote it before the ruling: the same files, no tag.
-    (fleets() / TAGGED).rename(fleets() / "flt-05")
-    untagged = tree(fleets() / "flt-05")
-    name_live("flt-05")
-
-    assert cli("fleet", "tag", "flt-05") == 0
-    assert sorted(path.name for path in fleets().iterdir()) == [TAGGED]
-    assert tree(fleets() / TAGGED) == untagged, "tag is a rename and nothing else"
-    assert json.loads(live_json().read_text(encoding="utf-8"))["fleet"] == TAGGED, (
-        "the live pointer named the folder, so it follows the rename"
-    )
-    assert TAGGED in capsys.readouterr().out
-
-
-def test_tag_refuses_a_tagged_name_a_missing_folder_and_an_occupied_target(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _dev, setup = dev_setup(tmp_path, monkeypatch)
-    assert cli("fleet", "tag", "flt-05") != 0, "nothing to tag"
-
-    assert cli("fleet", "promote", "flt-05", "--setup", str(setup)) == 0
-    assert cli("fleet", "tag", TAGGED) != 0, "already tagged"
-
-    (fleets() / TAGGED).rename(fleets() / "flt-05")
-    occupied = fleets() / TAGGED
-    occupied.mkdir()
-    (occupied / "keep.txt").write_text("mine", encoding="utf-8")
-    before = (listing(fleets()), tree(fleets()))
-    assert cli("fleet", "tag", "flt-05") != 0, "the tagged name is taken"
-    assert (listing(fleets()), tree(fleets())) == before
 
 
 def test_a_live_name_is_a_fleet_or_a_fleet_at_a_date() -> None:

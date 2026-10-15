@@ -25,7 +25,15 @@ from typing import Any
 
 import pytest
 
-from tests.fleetlocks import FLT02, MODELLED, cli, dev_setup, fleets, live_json
+from tests.fleetlocks import (
+    FLT02,
+    MODELLED,
+    cli,
+    dev_setup,
+    fleets,
+    live_json,
+    promote_fleet,
+)
 
 DATE = "2026-09-11"
 FLT05, FLT02_TAGGED, FLT07 = f"flt-05@{DATE}", f"flt-02@{DATE}", f"flt-07@{DATE}"
@@ -39,9 +47,9 @@ def _three_fleets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """flt-05 (next: flt-02), flt-02 (next: flt-05) and flt-07 (next: []), promoted."""
     fleet = copy.deepcopy(MODELLED)
     fleet["fleets"]["flt-07"] = {"layout": {"box2": copy.deepcopy(FLT02)}, "next": []}
-    _dev, setup = dev_setup(tmp_path, monkeypatch, locked_fleet=fleet)
+    dev, setup = dev_setup(tmp_path, monkeypatch, locked_fleet=fleet)
     for name in ("flt-05", "flt-02", "flt-07"):
-        assert cli("fleet", "promote", name, "--setup", str(setup)) == 0
+        assert promote_fleet(dev, setup, name) == 0
 
 
 def test_use_switches_to_any_verified_fleet_whether_or_not_the_lock_lists_the_move(
@@ -102,7 +110,7 @@ def test_use_still_refuses_no_folder_and_a_layout_that_no_longer_matches_its_loc
     assert not live_json().exists()
 
 
-def test_use_accepts_an_untagged_folder_and_says_how_to_tag_it(
+def test_use_accepts_an_untagged_folder(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     _three_fleets(tmp_path, monkeypatch)
@@ -110,8 +118,7 @@ def test_use_accepts_an_untagged_folder_and_says_how_to_tag_it(
 
     assert cli("fleet", "use", "flt-05") == 0
     assert _live()["fleet"] == "flt-05"
-    said = capsys.readouterr().out
-    assert "untagged" in said and "mcgyvr fleet tag flt-05" in said and FLT05 in said
+    capsys.readouterr()
 
     assert cli("fleet", "use", FLT02_TAGGED) == 0, (
         "a locked move from an untagged fleet"

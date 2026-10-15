@@ -56,7 +56,6 @@ def _own_home_and_session(
         "PI_SESSION_FILE",
         "CLAUDE_CONFIG_DIR",
         "MCGYVR_CONFIG",
-        "MCGYVR_RUN_ROOT",
         "MCGYVR_HOME",
         "MCGYVR_DATA",
         "MCGYVR_RUN_TAGS",
