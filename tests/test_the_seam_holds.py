@@ -336,7 +336,9 @@ def _crossings(
     """
     offenders: list[str] = []
     for module in modules:
-        if module == THE_COMMAND_LINE_ENTRYPOINT:
+        if module == THE_COMMAND_LINE_ENTRYPOINT or module.startswith(
+            f"{THE_COMMAND_LINE_ENTRYPOINT}."
+        ):
             continue
         for imported in sorted(imports(module)):
             if (module, imported) in THE_DOCKER_DETECTION_CROSSINGS:
@@ -404,13 +406,16 @@ def test_every_module_is_on_one_side_of_the_seam() -> None:
     ``src/mcgyvr/`` that is a legal module name is here, in exactly one place,
     and a new one fails this until somebody says which half it is in.
     """
+    tree = _the_tree()
+    entrypoint = {THE_COMMAND_LINE_ENTRYPOINT} | {
+        m for m in tree if m.startswith(f"{THE_COMMAND_LINE_ENTRYPOINT}.")
+    }
     classified = (
         set(BELOW_THE_SEAM)
         | set(ABOVE_THE_SEAM)
         | set(SHARED_ACROSS_THE_SEAM)
-        | {THE_COMMAND_LINE_ENTRYPOINT}
+        | entrypoint
     )
-    tree = _the_tree()
 
     assert tree - classified == set(), (
         "modules under src/mcgyvr/ are in neither half and are not written "
@@ -436,7 +441,7 @@ def test_every_module_is_on_one_side_of_the_seam() -> None:
         list(BELOW_THE_SEAM)
         + list(ABOVE_THE_SEAM)
         + list(SHARED_ACROSS_THE_SEAM)
-        + [THE_COMMAND_LINE_ENTRYPOINT]
+        + sorted(entrypoint)
     )
     assert len(listed) == len(set(listed)), (
         "a module is written down twice; each is on one side of the seam, "

@@ -318,14 +318,12 @@ def interactive(
             }
         }
     }
-    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
-    monkeypatch.setattr(cli, "_ask_setup_rigs", lambda prompt=None: (RIG,))
-    monkeypatch.setattr(cli, "_setup_scan_rigs", scan_rigs)
-    monkeypatch.setattr(cli, "_setup_placements", lambda rigs, scans: plan)
-    monkeypatch.setattr(cli, "_setup_downloads", lambda plans, scans, prompt=None: ())
-    monkeypatch.setattr(
-        cli,
-        "_setup_rooms",
+    monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
+    monkeypatch.setattr(cli.commands.setup, "_ask_setup_rigs", lambda prompt=None: (RIG,))
+    monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", scan_rigs)
+    monkeypatch.setattr(cli.commands.setup, "_setup_placements", lambda rigs, scans: plan)
+    monkeypatch.setattr(cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ())
+    monkeypatch.setattr(cli.commands.setup, "_setup_rooms",
         lambda path, ctx: {
             name: ROOM_MIB
             for name, unit in yaml.safe_load(
@@ -334,9 +332,9 @@ def interactive(
             if "rig" in unit
         },
     )
-    monkeypatch.setattr(cli, "_setup_emit", _emit)
-    monkeypatch.setattr(cli, "_confirm", confirm)
-    monkeypatch.setattr(cli, "_ask", ask)
+    monkeypatch.setattr(cli.commands.setup, "_setup_emit", _emit)
+    monkeypatch.setattr(cli.commands.setup, "_confirm", confirm)
+    monkeypatch.setattr(cli.commands.setup, "_ask", ask)
     monkeypatch.setattr(wake, "spawn_door", rig)
-    monkeypatch.setattr(cli, "_setup_run_contract", accepted)
+    monkeypatch.setattr(cli.commands.setup, "_setup_run_contract", accepted)
     return asked

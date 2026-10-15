@@ -64,7 +64,7 @@ def test_accept_unsampled_is_a_decision_so_setup_does_not_prompt(
 ) -> None:
     import argparse
 
-    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
     args = cli.build_parser().parse_args(["setup", "--accept-unsampled"])
     assert isinstance(args, argparse.Namespace)
     assert not cli._setup_is_interactive(args)

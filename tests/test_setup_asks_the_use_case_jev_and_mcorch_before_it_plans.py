@@ -63,7 +63,7 @@ def _planned_after(monkeypatch: pytest.MonkeyPatch, asked: list[str]) -> list[in
         at.append(len(asked))
         return planned(rigs, scans)
 
-    monkeypatch.setattr(cli, "_setup_placements", placements)
+    monkeypatch.setattr(cli.commands.setup, "_setup_placements", placements)
     return at
 
 
@@ -123,7 +123,7 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
         ran.append(yaml.safe_load(contract.read_text(encoding="utf-8"))["id"])
         return sd.accepted(argv)
 
-    monkeypatch.setattr(cli, "_setup_run_contract", run_contract)
+    monkeypatch.setattr(cli.commands.setup, "_setup_run_contract", run_contract)
 
     assert cli.main(["setup"]) == 0
 
@@ -223,7 +223,7 @@ def test_with_several_units_setup_asks_which_one_and_enter_is_the_first(
         asked.append(question)
         return next(answers)
 
-    monkeypatch.setattr(cli, "_ask", ask)
+    monkeypatch.setattr(cli.commands.setup, "_ask", ask)
 
     assert cli._setup_pick_unit("Jev", ("a", "b")) == "a"
     assert cli._setup_pick_unit("mcorch", ("a", "b")) == "b"

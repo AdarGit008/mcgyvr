@@ -105,7 +105,7 @@ def test_the_flags_reach_the_command(
         seen.update(kwargs)
         return initialize(path, detection=KEYLESS_RIG, **kwargs)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(cli, "initialize", fake_initialize)
+    monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
     (unit,) = _unit_names(tmp_path)
     code = lj.main(
         [

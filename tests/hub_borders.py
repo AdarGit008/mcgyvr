@@ -20,9 +20,9 @@ from tests._paths import REPO, SRC
 HUB_CLIENT = "mcgyvr.rig"
 
 #: What is not the offline core, relative to ``src/mcgyvr/``: the command line
-#: and the hub client.
-NOT_CORE_FILES = frozenset({"cli.py"})
-NOT_CORE_DIRS = frozenset({"rig"})
+#: (a ``cli/`` package after the cli.py split) and the hub client.
+NOT_CORE_FILES = frozenset()
+NOT_CORE_DIRS = frozenset({"rig", "cli"})
 
 #: The imports into the hub client, or into the command line, from the offline
 #: core that the tree still has, as ``(importer, imported)``: a module by its

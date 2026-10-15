@@ -35,7 +35,7 @@ def handed(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         calls.append(kwargs)
         return InitResult(path=path, created=False, written=False)
 
-    monkeypatch.setattr(cli, "initialize", fake_initialize)
+    monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
     return calls
 
 

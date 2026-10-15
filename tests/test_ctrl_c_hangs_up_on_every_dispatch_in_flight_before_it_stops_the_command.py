@@ -89,7 +89,7 @@ def test_every_command_runs_under_it(
         hang.set_defaults(func=command)
         return parser, hang
 
-    monkeypatch.setattr(cli, "_build", build)
+    monkeypatch.setattr(cli.dispatcher, "_build", build)
     with pytest.raises(KeyboardInterrupt):
         cli.main(["hang"])
     assert hung_up == ["hang_up_all"]

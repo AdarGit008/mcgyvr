@@ -168,28 +168,28 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
 def test_setup_is_interactive_only_on_a_tty_without_flags(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
     assert cli._setup_is_interactive(_setup_namespace())
     assert not cli._setup_is_interactive(_setup_namespace(api=["model=m"]))
     assert not cli._setup_is_interactive(_setup_namespace(force=True))
     assert not cli._setup_is_interactive(_setup_namespace(use_case="chat"))
     assert not cli._setup_is_interactive(_setup_namespace(session_sandbox="docker"))
 
-    monkeypatch.setattr(cli, "_stdin_isatty", lambda: False)
+    monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: False)
     assert not cli._setup_is_interactive(_setup_namespace())
 
 
 def test_setup_routes_to_interactive_only_on_a_tty_without_flags(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
     interactive: list[Path] = []
 
     def fake_interactive(path: Path, run_id: str = "") -> int:
         interactive.append(path)
         return 0
 
-    monkeypatch.setattr(cli, "_setup_interactive", fake_interactive)
+    monkeypatch.setattr(cli.commands.setup, "_setup_interactive", fake_interactive)
     target = tmp_path / "setup"
     assert cli.main(["setup", str(target)]) == 0
     assert interactive == [target]
@@ -198,21 +198,21 @@ def test_setup_routes_to_interactive_only_on_a_tty_without_flags(
 def test_setup_with_a_flag_keeps_the_flag_driven_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
     interactive: list[Path] = []
 
     def fake_interactive(path: Path, run_id: str = "") -> int:
         interactive.append(path)
         return 0
 
-    monkeypatch.setattr(cli, "_setup_interactive", fake_interactive)
+    monkeypatch.setattr(cli.commands.setup, "_setup_interactive", fake_interactive)
     seen: list[Path] = []
 
     def fake_initialize(path: Path, **_: object) -> InitResult:
         seen.append(path)
         return InitResult(path=path, created=True, written=False)
 
-    monkeypatch.setattr(cli, "initialize", fake_initialize)
+    monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
     target = tmp_path / "setup"
     assert cli.main(["setup", "--api", _api("deepseek-flash"), str(target)]) == 0
     assert interactive == []
@@ -533,7 +533,7 @@ def test_setup_emit_declares_the_priced_context_window(
         seen.append(list(argv))
         return 0
 
-    monkeypatch.setattr(cli, "main", fake_main)
+    monkeypatch.setattr(cli.dispatcher, "main", fake_main)
     cli._setup_emit(tmp_path / "setup", 32768)
     assert seen == [
         [
@@ -609,7 +609,7 @@ def test_setup_writes_through_the_initialize_engine(
         seen.append(path)
         return InitResult(path=path, created=True, written=False)
 
-    monkeypatch.setattr(cli, "initialize", fake_initialize)
+    monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
     target = tmp_path / "setup"
     assert cli.main(["setup", str(target)]) == 0
     assert seen == [target]

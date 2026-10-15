@@ -427,7 +427,7 @@ def test_the_setup_flag_reaches_init(
         asked.update(kwargs)
         raise InitError("stub: nothing is written")
 
-    monkeypatch.setattr(cli, "initialize", fake_initialize)
+    monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
 
     code = cli.main(["setup", str(tmp_path / "setup"), "--session-sandbox", "docker"])
 

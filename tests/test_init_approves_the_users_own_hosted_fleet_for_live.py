@@ -361,8 +361,8 @@ def test_a_hosted_unit_at_a_user_machine_is_not_approved_beside_a_local_rig(
 def _reads(monkeypatch: pytest.MonkeyPatch, named: Callable[[str], str]) -> None:
     """Every rig init reads answers with a reading ``named`` names the rig id
     of (or refuses, as ``named`` raises): the read stands in for the machine."""
-    monkeypatch.setattr("mcgyvr.cli._read_rig", lambda rig: {"named": named(rig)})
-    monkeypatch.setattr("mcgyvr.cli._rig_id", lambda rig, reading: reading["named"])
+    monkeypatch.setattr("mcgyvr.cli.commands.setup._read_rig", lambda rig: {"named": named(rig)})
+    monkeypatch.setattr("mcgyvr.cli.commands.setup._rig_id", lambda rig, reading: reading["named"])
 
 
 def test_read_rig_runs_the_one_reader_locally(
