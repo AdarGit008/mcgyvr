@@ -1,12 +1,6 @@
 {
   "schema_version": 2,
   "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`, `chat`, `agent` and `media`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change.",
-  "vendored_from": {
-    "repo": "AdarGit008/local-ai",
-    "status": "archived",
-    "date": "2026-08-01",
-    "_note": "The starting vocabulary was inherited from local-ai's triage map. It was inherited, not validated."
-  },
 
   "families": [
     {
@@ -79,7 +73,7 @@
     },
     {
       "name": "failing_test_first",
-      "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit. Carried in the contract's `demonstration` list, not `acceptance`: the two lists have opposite baseline expectations, and one flat list cannot say which command is which (#183).",
+      "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit. Carried in the contract's `demonstration` list, not `acceptance`: the two lists have opposite baseline expectations, and one flat list cannot say which command is which.",
       "needs_commands": true,
       "baseline": "fail"
     },
@@ -100,7 +94,7 @@
     }
   ],
 
-  "_evidence_note": "`baseline` states what the evidence's commands must do on the unchanged tree — `pass` for a regression signal, `fail` for a demonstration — and is only meaningful where `needs_commands` is true. It is data here rather than a rule in code so that the contract loader can check each command-needing kind against the right contract list (`acceptance` for pass, `demonstration` for fail) without naming any evidence kind (#183).",
+  "_evidence_note": "`baseline` states what the evidence's commands must do on the unchanged tree — `pass` for a regression signal, `fail` for a demonstration — and is only meaningful where `needs_commands` is true. It is data here rather than a rule in code so that the contract loader can check each command-needing kind against the right contract list (`acceptance` for pass, `demonstration` for fail) without naming any evidence kind.",
 
   "deterministic_operations": [
     {

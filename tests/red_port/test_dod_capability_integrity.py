@@ -14,9 +14,7 @@ from typing import Any
 
 import pytest
 
-from tests.table_fixture import CLASSES, reading, table_document, write_table
-
-CLASS = str(CLASSES[0]["id"])
+from tests.table_fixture import table_document, write_table
 
 
 def _table(tmp_path: Path, models: list[dict[str, Any]]) -> Path:
@@ -30,7 +28,6 @@ def _model(**overrides: Any) -> dict[str, Any]:
         "params_b": 7.0,
         "vram_gb_working": 5.0,
         "weights_gb": 4.0,
-        "throughput_tok_s": [reading(CLASS, value=100.0)],
     }
     row.update(overrides)
     return row
@@ -52,9 +49,7 @@ def test_a_loaded_table_is_structurally_immutable(tmp_path: Path) -> None:
     table = load(_table(tmp_path, [_model()]))
 
     assert isinstance(table.models, tuple)
-    assert isinstance(table.caveats, tuple)
     model = table.models[0]
-    assert isinstance(model.throughput, tuple)
     # A model is a frozen record; assignment is refused at runtime.
     with pytest.raises(dataclasses.FrozenInstanceError):
         model.vram_gb_working = 0.5  # type: ignore[misc]

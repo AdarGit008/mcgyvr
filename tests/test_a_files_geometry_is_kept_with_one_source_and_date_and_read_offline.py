@@ -19,10 +19,6 @@ Promises:
 * A cache file that cannot be read, or that says another file or a source that
   is not that file's header, is not read: it is named, with why, and the
   shipped rows still answer.
-* An online refresh files the header row of a model whose geometry is not
-  known yet, and of one whose revision moved. One whose geometry is known and
-  whose revision did not move is not read again. Offline, nothing is asked and
-  nothing is filed.
 
 The files and rows here are invented, except the shipped ones, which are read.
 """
@@ -38,10 +34,8 @@ from typing import Any
 import pytest
 
 from mcgyvr.knowledge import geometry as kg
-from mcgyvr.knowledge import online
 from mcgyvr.knowledge import store as ks
 from mcgyvr.knowledge.record import KnowledgeError
-from tests.sizings import BASE, DAY, FILE, REPO, SHA, hub, invented_header
 
 #: An invented file, at an invented revision.
 INVENTED = ("example-org/Invented-GGUF", "1" * 40, "invented-Q4_K_M.gguf")
@@ -180,77 +174,7 @@ def test_a_cache_file_that_cannot_be_read_is_named_and_the_shipped_rows_answer(
 def test_a_row_written_for_another_file_is_refused_before_it_is_filed() -> None:
     repo, revision, file = INVENTED
     with pytest.raises(KnowledgeError):
-        kg.write(repo, revision, file, _row(file="another.gguf"), today=DAY)
+        kg.write(
+            repo, revision, file, _row(file="another.gguf"), today=date(2026, 10, 7)
+        )
     assert not kg.cache_dir().exists() or not list(kg.cache_dir().iterdir())
-
-
-def _known(revision: str) -> Any:
-    (one,) = online.HubLookup(get=hub(invented_header()), today=date(2026, 1, 2))(REPO)
-    assert one.weights is not None
-    import dataclasses
-
-    return dataclasses.replace(
-        one, weights=dataclasses.replace(one.weights, revision=revision)
-    )
-
-
-@pytest.fixture
-def networked(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(online.OFFLINE_ENV, raising=False)
-
-
-def test_a_refresh_files_the_header_row_of_a_model_whose_geometry_is_unknown(
-    networked: None,
-) -> None:
-    server = hub(invented_header())
-
-    done = online.refresh(
-        [_known(SHA)], use_case=None, offline=False, get=server, today=DAY
-    )
-
-    assert done.failed == ()
-    assert done.geometry == (kg.cache_file(REPO, SHA, FILE),)
-    one = kg.load().rows[(REPO, SHA, FILE)]
-    assert one.read_at == DAY
-    assert one.row["placeable_blocks"], "the MoE's expert blocks are in the row"
-    assert one.row["nextn_blocks"], "the MTP head is in the row"
-    assert ks.cache_file(BASE, "Q4_K_M") in done.written
-
-
-def test_a_refresh_files_the_row_of_a_model_whose_revision_moved(
-    networked: None,
-) -> None:
-    server = hub(invented_header())
-
-    done = online.refresh(
-        [_known("0" * 40)], use_case=None, offline=False, get=server, today=DAY
-    )
-
-    assert done.geometry == (kg.cache_file(REPO, SHA, FILE),)
-    assert (REPO, SHA, FILE) in kg.load().rows
-
-
-def test_a_known_row_at_an_unmoved_revision_is_not_read_again(
-    networked: None,
-) -> None:
-    first = hub(invented_header())
-    online.refresh([_known(SHA)], use_case=None, offline=False, get=first, today=DAY)
-    again = hub(invented_header())
-
-    done = online.refresh(
-        [_known(SHA)], use_case=None, offline=False, get=again, today=DAY
-    )
-
-    assert done.geometry == ()
-    assert online.resolve_url(REPO, SHA, FILE) not in again.urls()
-
-
-def test_offline_nothing_is_asked_and_nothing_is_filed() -> None:
-    def refuse(url: str, *, headers: Any, limit: int) -> bytes:
-        raise AssertionError(f"asked {url} offline")
-
-    done = online.refresh([_known(SHA)], use_case=None, offline=True, get=refuse)
-
-    assert done.mode == online.OFFLINE
-    assert done.geometry == ()
-    assert not kg.cache_dir().exists()

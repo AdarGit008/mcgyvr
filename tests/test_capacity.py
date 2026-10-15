@@ -14,8 +14,8 @@ asserts the ceiling was *reached*.
 The wall-clock test measures this module and nothing else. Its jobs sleep; they
 do not talk to a model. What it demonstrates is that the executor genuinely
 overlaps work and that the bound shapes how much — not that a backend gets
-faster, which is CON-01's and CON-04's measurement and was taken on real
-hardware this test has no access to.
+faster, which only a measurement on real hardware can show, and this test has
+no access to any.
 """
 
 from __future__ import annotations
@@ -345,8 +345,7 @@ def test_a_mixed_batch_runs_two_sources_at_once_rather_than_in_series() -> None:
 
     The jobs sleep rather than generate, so what this shows is that the executor
     overlaps work and that the per-source bound shapes how much. It is not a
-    throughput claim about a backend: that is CON-01 (three models on one card,
-    23.6 s against ~44 s serial) and CON-04, both measured on hardware.
+    throughput claim about a backend: only a measurement on hardware makes one.
 
     **This asserted a stopwatch until #200 and flaked.** It ran six 50 ms jobs
     and required them to beat the 300 ms serial floor by 30%; on a loaded box it
@@ -387,7 +386,7 @@ def test_a_mixed_batch_runs_two_sources_at_once_rather_than_in_series() -> None:
 
 
 def test_capacity_one_serializes_and_that_is_visible() -> None:
-    """A single-slot source is the CON-02 case, and it must not look concurrent."""
+    """A single-slot source serializes, and it must not look concurrent."""
     capacity = Capacity({"spare": 1})
     observer = Observer()
 
@@ -690,7 +689,8 @@ def test_without_a_probe_no_width_is_confirmed() -> None:
 
 
 def test_a_declared_width_the_machine_contradicts_is_refused_by_name() -> None:
-    """CON-02's invisible queue, made visible the moment the rig can be asked.
+    """A single-slot server's invisible queue, made visible the moment the rig
+    can be asked.
 
     Lowering the bound silently would leave the config still wrong and the
     operator's evidence for "my rig is slow" still indistinguishable from their

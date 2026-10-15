@@ -11,8 +11,10 @@ Promises:
 * No text of the shipped task catalog names a coding benchmark or says the
   capability table ranks or orders models: the catalog's warrants cite no
   figure the table does not carry.
-* Every caveat id the product's code cites is one the shipped table carries,
-  so a citation stays true when a caveat's text is rewritten.
+* The product's code cites no harness caveat or concurrency finding by its id
+  (``CAV-01``, ``CON-02``): those are the lab's measurements, and the product
+  carries none of them, so such a citation would point at nothing it ships.
+  The code says the reason instead.
 
 The checks read the shipped files; they name no model and no figure of them.
 """
@@ -49,8 +51,8 @@ SCORE = re.compile(
     re.IGNORECASE,
 )
 
-#: A caveat id as the product's code cites one.
-CAVEAT_ID = re.compile(r"\bCAV-\d+\b")
+#: A harness caveat's or a concurrency finding's id, as code would cite one.
+FINDING_ID = re.compile(r"\b(?:CAV|CON)-\d+\b")
 
 
 def _walk(node: Any, where: str = "") -> Iterator[tuple[str, str | None, Any]]:
@@ -129,13 +131,10 @@ def test_no_text_of_the_shipped_catalog_names_a_benchmark_or_a_ranking_table() -
     assert not said, "catalog texts that cite a quality figure:\n" + "\n".join(said)
 
 
-def test_every_caveat_the_code_cites_is_one_the_table_carries() -> None:
-    carried = {str(c["id"]) for c in _document(table_path())["harness_caveats"]}
+def test_the_code_cites_no_caveat_or_finding_by_its_id() -> None:
     cited = {
         f"{path.relative_to(SRC)}: {found}"
         for path in sorted(SRC.rglob("*.py"))
-        for found in CAVEAT_ID.findall(path.read_text(encoding="utf-8"))
-        if found not in carried
+        for found in FINDING_ID.findall(path.read_text(encoding="utf-8"))
     }
-    assert carried
-    assert not cited, "caveats cited but not carried:\n" + "\n".join(sorted(cited))
+    assert not cited, "ids of the lab's findings:\n" + "\n".join(sorted(cited))
