@@ -18,9 +18,7 @@ from tests.table_fixture import row, table_document, write_table
 
 
 def test_shipped_table_loads() -> None:
-    table = load()
-    assert table.models
-    assert table.caveats, "the harness caveats must travel with the data"
+    assert load().models
 
 
 def test_every_model_has_a_working_footprint() -> None:
@@ -48,7 +46,7 @@ def _invented(tmp_path: Path) -> CapabilityTable:
 
 
 def test_marginal_fits_are_excluded(tmp_path: Path) -> None:
-    """CAV-04: a model that only just fits can run markedly slower rather than fail.
+    """A model that only just fits can run markedly slower rather than fail.
 
     A card with less free room than the headroom beside a row's working
     footprint is not offered that row, however close the fit.

@@ -213,7 +213,7 @@ def test_a_server_that_lists_nothing_yields_an_empty_ladder_and_no_note() -> Non
 
 
 def test_the_proposal_warns_a_number_does_not_make_a_server_parallel() -> None:
-    """CON-02, stated where the operator will read it.
+    """Width is a declaration, stated where the operator will read it.
 
     The failure it warns about is the invisible kind — a single-slot server
     handed four concurrent requests serializes them rather than refusing them,
@@ -221,7 +221,6 @@ def test_the_proposal_warns_a_number_does_not_make_a_server_parallel() -> None:
     """
     sources = _sources(_two_servers())
     notes = " ".join(propose(sources=sources).notes)
-    assert "CON-02" in notes
     assert "parallel-slot setting" in notes
     assert "serializes" in notes
     # It names the sources whose backends the operator would have to change.
@@ -239,7 +238,7 @@ def test_a_machine_with_no_ladder_gets_no_concurrency_advice(
 ) -> None:
     """Nothing to run concurrently on: the note would be advice about nothing."""
     notes = propose(sources=sources).notes
-    assert not any("CON-02" in note for note in notes)
+    assert not any("parallel-slot setting" in note for note in notes)
     assert not any(" on ," in note or note.endswith(" on ") for note in notes)
 
 

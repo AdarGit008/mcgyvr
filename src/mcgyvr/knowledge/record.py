@@ -78,7 +78,8 @@ class Board:
     ``ranks`` is what it ranks: a use case (``chat``, ``agent``, ``coding``)
     or a part of ``media-gen`` (``image``, ``asr``). ``metric`` is the one
     figure of it a score carries, and ``better`` says which way is better.
-    ``url`` and ``format`` are where the online half reads it.
+    ``url`` and ``format`` are where the board is published and what it is
+    served as.
     """
 
     id: str
