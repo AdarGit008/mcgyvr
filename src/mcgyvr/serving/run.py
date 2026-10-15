@@ -189,7 +189,7 @@ class Entry:
 #: list.
 SEQUENCE: tuple[Entry, ...] = (
     Entry(
-        "01-round.py",
+        "01-config.py",
         "gate 1: the run knows which config it is under, and a `serve up` "
         "held to the live fleet's lock starts only units it names",
         exports=("RUN_CONFIG",),

@@ -22,7 +22,7 @@ from mcgyvr.fleet.admit import LiveRefusedError
 from tests._helpers import by_path
 from tests._paths import REPO
 
-GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-round.py"
+GATE_1 = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-config.py"
 #: The config folder's default, as a refusal must not name it once moved.
 DEFAULT_POINTER = "~/.mcgyvr/live.json"
 #: A fleet.yaml that loads and holds no fleet.
@@ -107,7 +107,7 @@ def test_the_first_gate_refusing_a_unit_the_live_lock_lacks_names_the_pointer_it
     (moved / "fleets" / "named").mkdir(parents=True)
     monkeypatch.setenv("RUN_HOST", "served.invalid")
     monkeypatch.setenv("RUN_SERVE_EXPECTED", "u1")
-    gate = by_path("gate_01_round", GATE_1)
+    gate = by_path("gate_01_config", GATE_1)
 
     with pytest.raises(SystemExit):
         gate.refuse_unless_the_fleet_lock_names("up", "none")

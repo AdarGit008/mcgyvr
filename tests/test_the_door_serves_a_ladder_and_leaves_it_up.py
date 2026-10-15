@@ -26,7 +26,7 @@ from tests.onedoor import STRAY_NAME
 
 def test_serve_is_a_fixed_sequence_of_the_doors_own_gates() -> None:
     assert [e.script for e in run.SERVE_SEQUENCE] == [
-        "01-round.py",
+        "01-config.py",
         "02-rig.py",
         "03-image.py",
         "05-envelope.py",

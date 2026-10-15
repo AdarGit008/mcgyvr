@@ -33,6 +33,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     hand.
   - An empty lease file still holds nothing.
 
+- **A rig that moved under a run is filed in the run's end record, not beside
+  its artifacts.** Gate 7 still holds the rig after the step to gate 2's
+  reading before it. Each key that moved is filed in `<RUN_ID>.end.json` as
+  `rig_moved`, `{"<key>": {"before": ..., "after": ...}}`, absent when nothing
+  moved, and the run's output says it in one line
+  (`gate 7: rig changed during the run: pl1_uw 95000000 -> 4095000000`). No
+  `<name>.RIGMOVED` sidecar is written, and the end record's `moved` list is
+  gone. A moved rig still makes the run not green: gate 7 exits 1, and the
+  door with it.
+
 - **`mcgyvr fleet lock`, `fleet promote` and `fleet tag` are gone.**
   `mcgyvr setup` locks and promotes the fleet it sampled through the library
   (`mcgyvr.fleet.lock.write_from_stamp`, `write_unsampled`, `write`, and
@@ -63,8 +73,8 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   - A serve step declares its records as `# RUN_REWRITES:` JSON files, each
     carrying its `run_id`; the write-once `# RUN_ARTIFACTS:` directive, the
     TSV `### START run_id=` stamp and gate 7's TSV `### RIGMOVED` line are
-    gone (a moved rig is stamped in a `<name>.RIGMOVED` sidecar), and gates
-    7 and 8 read no `RUN_APPENDS`; `RUN_APPEND_STATE` is no longer exported.
+    gone (a moved rig is filed in the run's end record), and gates 7 and 8
+    read no `RUN_APPENDS`; `RUN_APPEND_STATE` is no longer exported.
 
 - **There is one kind of run: `profile: live|dev` is gone.**
   - `fleet.yaml` no longer holds `profile`, and a file that still says it is
@@ -221,6 +231,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed
 
+- **The door's gate 1 is `01-config.py`** (was `01-round.py`), named for
+  what it does: it names the config the run is under and admits a live
+  `serve up` only for units the lock names. A refusal there now reads
+  `run.py: REFUSED at 01-config.py — ...`; the gate itself is unchanged.
 - **A stamp locks nothing; `mcgyvr fleet lock` is the one lock writer**
   (owner: "one script that locks a fleet, one script that stamps a fleet
   without locking").

@@ -15,7 +15,7 @@ Nothing recorded is overwritten and nothing is deleted: the superseded file
 stays on disk beside its replacement.
 
 WHY THE RUN_ID MAY NOT BE REUSED. It names the containers gate 7 looks for,
-the artifact of exactly one run, and any `RIGMOVED` stamp. Two invocations
+the artifact of exactly one run, and the run's end record. Two invocations
 sharing one id make all three ambiguous, so a same-day re-run takes --suffix.
 And two invocations at the same moment mint the same id and would both pass
 write-once, so the id is CLAIMED here — `.<RUN_ID>.running` in the envelope,

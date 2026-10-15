@@ -18,19 +18,15 @@ killing on that basis could stop a container this invocation did not start.
 The door does not repair a machine it found wrong: the kill is the operator's,
 with the name in hand.
 
-A RIG THAT MOVED IS STAMPED BESIDE THE ARTIFACTS. What a run wrote under two
-machine states has to say so, so every artifact this run wrote gets a
-`<name>.RIGMOVED` sidecar, the artifact itself left readable. The stamp is
-`k=v` throughout (`<key>=<after> <key>_start=<before>`).
+A RIG THAT MOVED IS FILED IN THE RUN'S END. What a run wrote under two
+machine states has to say so: each `COMPARED` key that reads differently after
+the step is filed in the run's end record as `rig_moved`
+(`{"<key>": {"before": ..., "after": ...}}`, absent when nothing moved), the
+run's output says it in one line, and the run is not green. The artifacts are
+left as the step wrote them.
 
 `docker` here is the door's shim, so `docker ps` asks the RIG's daemon — the
 same one gate 3 matched to the machine gate 2 read.
-
-A STAMP LANDS ONLY BESIDE ONE REGULAR FILE OF THE ENVELOPE. Before anything
-is written, every declared artifact is held to gatelib.artifact_escape: a
-symlink, a hard link or a path resolving elsewhere is named — with where it
-points — and left unstamped, and the run is not green. The envelope itself
-must be a directory and not a link.
 
 The rig may run things mcgyvr did not start, which gate 2 reported and
 admitted: a container up before the run is not this run's leftover in any
@@ -47,8 +43,8 @@ that starts asleep) is left down by a whole `up` and judged neither way; a
 whole `down` expects it gone like the rest. A `serve fetch` starts nothing, so
 anything up after it that was not up before is named. And the run's log gets
 its end, ``<RUN_ID>.end.json`` beside the header: the rig as read after the
-step, the containers up, the units serving, what was left or missing, and how
-the step exited.
+step, the containers up, the units serving, what was left or missing, what of
+the rig moved, and how the step exited.
 """
 
 from __future__ import annotations
@@ -295,54 +291,22 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
         )
         status = 1
 
-    moved = [key for key in COMPARED if pre.get(key) != post.get(key)]
-    seen["moved"] = moved
+    moved = {
+        key: {"before": pre.get(key), "after": post.get(key)}
+        for key in COMPARED
+        if pre.get(key) != post.get(key)
+    }
     if moved:
-        stamp = f"### RIGMOVED run_id={run_id} " + " ".join(
-            f"{key}={post.get(key, 'unread')} {key}_start={pre.get(key, 'unread')}"
-            for key in moved
-        )
+        seen["rig_moved"] = moved
         print(
-            "gate 7: THE RIG MOVED UNDER THIS RUN — "
-            + ", ".join(f"{k} ({pre.get(k)} -> {post.get(k)})" for k in moved)
-            + ". What the run wrote was not all written under one machine state; "
-            f"{stamp!r} is stamped beside it and the run is not green",
+            "gate 7: rig changed during the run: "
+            + ", ".join(
+                f"{key} {change['before']} -> {change['after']}"
+                for key, change in moved.items()
+            ),
             file=sys.stderr,
         )
         status = 1
-        declared = json.loads(need("RUN_DECLARED"))
-        out_dir = Path(need("RUN_OUT_DIR"))
-        escape = envelope_escape(out_dir)
-        if escape is not None:
-            print(f"gate 7: nothing is stamped: {escape}", file=sys.stderr)
-            return 1
-        for name in [n for names in declared.values() for n in names]:
-            path = out_dir / name
-            escape = artifact_escape(path, out_dir)
-            if escape is not None:
-                print(
-                    f"gate 7: {name} is left unstamped: {escape}. A stamp lands "
-                    "only in one regular file of the envelope, and a file "
-                    "reached through a link is not this run's evidence",
-                    file=sys.stderr,
-                )
-                continue
-            if not path.exists():
-                continue
-            sidecar = path.with_name(path.name + ".RIGMOVED")
-            escape = artifact_escape(sidecar, out_dir)
-            if escape is not None:
-                print(
-                    f"gate 7: {sidecar.name} is not written: {escape}",
-                    file=sys.stderr,
-                )
-                continue
-            sidecar.write_text(stamp + "\n", encoding="utf-8")
-            print(
-                f"gate 7: {name} is left readable; the stamp is beside it in "
-                f"{sidecar.name}",
-                file=sys.stderr,
-            )
     return status
 
 

@@ -122,7 +122,7 @@ def _dotted_name(path: Path) -> str | None:
 
     A ``.py`` file is a module when every path segment is a legal Python
     identifier. The staged gate scripts under ``serving/gate-scripts/`` are
-    not — ``01-round.py``, ``data-10-scan.py``, the directory itself — and no
+    not — ``01-config.py``, ``data-10-scan.py``, the directory itself — and no
     import statement can reach them.
     """
     rel = path.relative_to(SRC)
