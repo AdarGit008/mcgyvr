@@ -23,6 +23,7 @@ import json
 import os
 
 from mcgyvr import config as configlib
+from mcgyvr.fleet.admit import unsampled_containers
 from mcgyvr.fleet.roots import LOCK_DIR, LiveFleetError, live_file, lock_root
 from mcgyvr.serving.gatelib import (
     DEV,
@@ -89,6 +90,12 @@ def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
     under the run root. Gate 1 reaches no rig, so this is a read of local
     files only: a live serve up is matched against the lock offline, before
     any rig time is spent.
+
+    A lock approved on no evidence (``mcgyvr setup``'s own, written by
+    :func:`mcgyvr.fleet.lock.write_unsampled`) has no combination record; its
+    containers are the ones its layout places on ``rig``, and only while the
+    ``fleet.yaml`` beside it still hashes to its pin
+    (:func:`mcgyvr.fleet.admit.unsampled_containers`).
     """
     try:
         where = lock_root(which)
@@ -96,10 +103,13 @@ def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
         refuse(f"gate 1: {exc}. A live run cannot say which fleet it serves")
     if where is None:
         return set()
+    # A lock approved on no evidence writes no record, as nothing was
+    # validated; for it the pinned layout answers, by the rule the waker reads
+    # (`mcgyvr.fleet.admit.host_is_locked`).
+    locked = unsampled_containers(where, rig)
     rigs = where / LOCK_DIR / "rigs"
     if not rigs.is_dir():
-        return set()
-    locked: set[str] = set()
+        return locked
     for path in sorted(rigs.glob("*/cmb-*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
@@ -126,9 +136,10 @@ def refuse_unless_the_fleet_lock_names(serve: str, which: str) -> None:
     on 2026-09-10), and a live ``serve down`` is always admitted: stopping
     starts nothing unapproved, and it is the way out of a rig left in a state
     nobody locked. A live ``serve up`` is the one direction that starts
-    processes, so it is matched against the fleet lock here — offline, before
-    any rig is read. A ``serve up --unit`` starts only the units it names, so
-    only those are matched; a ``serve fetch`` starts nothing.
+    processes, so it is matched against the fleet lock here
+    (:func:`units_the_fleet_lock_names`) — offline, before any rig is read.
+    A ``serve up --unit`` starts only the units it names, so only those are
+    matched; a ``serve fetch`` starts nothing.
     """
     if serve != "up" or which == DEV:
         return

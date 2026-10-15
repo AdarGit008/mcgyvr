@@ -47,6 +47,8 @@ def test_a_green_sample_is_stamped_locked_promoted_and_named_live(
 
     out = capsys.readouterr().out
     assert [q.split("?")[0] + "?" for q in asked] == [
+        "What is this setup for: coding, chat, agent or media-gen?",
+        "Dedicate a unit to Jev, which answers typed decisions?",
         f"{START} on {sd.RIG}?",
         LOCK,
     ]
