@@ -19,46 +19,32 @@ running, and `compose down` is not promised to reach a profile.
 
 from __future__ import annotations
 
-import json
-import os
 import sys
-from pathlib import Path
 
 from mcgyvr.serving import servelib
-from mcgyvr.serving.gatelib import door_required, need
 
 
 def main() -> int:
-    door_required("serve-down")
-    host = need("RUN_HOST")
-    compose_file = Path(need("RUN_COMPOSE"))
-    out = Path(need("RUN_OUT_DIR")) / "serve-down.json"
-    expected = need("RUN_SERVE_EXPECTED").split()
-    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
-    try:
-        units = servelib.services(compose_file)
-    except servelib.ComposeError as exc:
-        print(f"serve-down: REFUSED — {exc}", file=sys.stderr)
+    ctx = servelib.serve_prologue("down")
+    if ctx is None:
         return 2
-    if sorted(expected) != sorted(s.container for s in units):
-        print(
-            "serve-down: REFUSED — the compose file no longer names the "
-            "containers the door read from it",
-            file=sys.stderr,
-        )
-        return 2
-    if only:
-        units = tuple(s for s in units if s.container in only)
-        expected = [s.container for s in units]
 
-    print(f"serve-down: docker compose down on {host}: {', '.join(expected)}")
-    stopped = servelib.down(compose_file, units if only else ())
+    only = ctx.only
+    expected = ctx.expected
+    if only:
+        units = tuple(s for s in ctx.units if s.container in only)
+        expected = [s.container for s in units]
+    else:
+        units = ctx.units
+
+    print(f"serve-down: docker compose down on {ctx.host}: {', '.join(expected)}")
+    stopped = servelib.down(ctx.compose_file, units if only else ())
     sleepers = () if only else tuple(s for s in units if s.asleep)
     if sleepers and stopped.returncode == 0:
-        stopped = servelib.down(compose_file, sleepers)
+        stopped = servelib.down(ctx.compose_file, sleepers)
     if stopped.returncode != 0:
         print(
-            f"serve-down: docker compose down failed on {host}: "
+            f"serve-down: docker compose down failed on {ctx.host}: "
             f"{stopped.stderr.strip()[:800]}",
             file=sys.stderr,
         )
@@ -68,19 +54,16 @@ def main() -> int:
         print(f"serve-down: {exc}", file=sys.stderr)
         up = None
     remaining = sorted(name for name in (up or []) if name in expected)
-    record = {
-        "run_id": need("RUN_ID"),
-        "host": host,
-        "mode": "down",
-        "compose_file": str(compose_file),
-        "compose_down_exit": stopped.returncode,
-        "only": sorted(only),
-        "expected": expected,
-        "remaining": remaining,
-        "daemon_read": up is not None,
-        "card_after": servelib.card(host),
-    }
-    out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    servelib.write_serve_record(
+        ctx,
+        "down",
+        {
+            "compose_down_exit": stopped.returncode,
+            "expected": expected,
+            "remaining": remaining,
+            "daemon_read": up is not None,
+        },
+    )
     if remaining:
         print(
             f"serve-down: still up after compose down: {' '.join(remaining)}",
