@@ -8,8 +8,12 @@ unsampled fleet, and the waker that passed it could not wake it through the
 door. Gate 1 now also admits the containers such a lock lays out on the rig,
 by the rule :func:`mcgyvr.fleet.admit.host_is_locked` already reads: only
 while the ``fleet.yaml`` beside the lock still hashes to the lock's pin, and
-only the units that layout places on that rig. A lock measured from dev
-evidence answers from its records alone, exactly as before.
+only the units that layout places on that rig, by the container the lock
+pinned for each (its ``containers``, as a measured lock's records name each
+unit's container): a container edited into ``fleet.yaml`` afterwards leaves
+the layout's hash as it was, and is refused by gate 1 and by
+``host_is_locked`` alike. A lock measured from dev evidence answers from its
+records alone, exactly as before.
 
 The door's first gate is called in this process with the variables the door
 would have set; nothing reaches a machine.
@@ -114,6 +118,29 @@ def test_an_edited_layout_is_refused(
     (folder / "fleet.yaml").write_text(yaml.safe_dump(live), encoding="utf-8")
 
     assert _serve_up(monkeypatch, RIG, CONTAINER) == 2, "an edited layout"
+
+
+def test_the_lock_pins_each_units_container_and_an_edited_one_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from mcgyvr.fleet.admit import host_is_locked
+    from mcgyvr.fleet.roots import LOCK_DIR
+
+    folder = _unsampled_live(tmp_path)
+    lock = json.loads((folder / LOCK_DIR / "own.json").read_text(encoding="utf-8"))
+    assert lock["containers"] == {RIG: {"local": CONTAINER}}
+    assert _serve_up(monkeypatch, RIG, CONTAINER) is None
+    assert host_is_locked(folder, RIG) is True
+
+    live = yaml.safe_load((folder / "fleet.yaml").read_text(encoding="utf-8"))
+    live["units"]["local"]["container"] = "mcgyvr-box-edited"
+    (folder / "fleet.yaml").write_text(yaml.safe_dump(live), encoding="utf-8")
+
+    assert _serve_up(monkeypatch, RIG, "mcgyvr-box-edited") == 2, "edited in"
+    assert _serve_up(monkeypatch, RIG, CONTAINER) == 2, "no longer laid out"
+    assert host_is_locked(folder, RIG) is False
 
 
 def test_a_measured_lock_answers_from_its_records_alone(

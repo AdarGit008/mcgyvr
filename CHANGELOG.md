@@ -89,6 +89,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     `host_is_locked` reads). Before, the waker passed and the door refused.
     A lock written from a stamp is still read from its combination records
     alone.
+  - Such a lock now pins each laid-out unit's container,
+    `"containers": {"<rig>": {"<unit>": "<container>"}}`, as a stamp's
+    combination records name them. A container edited into the live
+    `fleet.yaml` afterwards is refused by gate 1 and unlocks its rig for the
+    waker. A lock on no evidence written before this has no `containers`, so
+    its rigs' containers are refused: lock it again with `mcgyvr setup`.
 
 - **A fleet's lock sits in `lock/`.** The lock tree inside a live fleet
   folder, a stamp folder and the dev root is `lock/` (`lock/<fleet>.json`,
