@@ -3,8 +3,8 @@
 :func:`fake_door` swaps the door's own gate scripts for stand-ins that write
 one line each to a log and export what the door declares for them, so a test
 reads the whole order of a run, the lease release included, with no machine
-anywhere. The door is run in-process, through ``run.main`` or its library
-seam (``run.serve``, ``run.read``, ``run.link``, ``run.through``).
+anywhere. The door is run in-process, through ``run.main`` or a verb
+(``run.serve``, ``run.read``, ``run.link``).
 
 Every host, folder and container here is invented for the test.
 """

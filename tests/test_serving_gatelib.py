@@ -167,7 +167,7 @@ def test_every_run_variable_typed_in_by_hand_admits_nothing(
 
 def test_door_required_under_the_door_without_its_mark_exits_2(tmp_path: Path) -> None:
     """An ancestor is the door but neither RUN_EXPORT_FD (a gate) nor RUN_ID
-    (a step or a driver) is set: the door's sequence never ran this."""
+    (a step) is set: the door's sequence never ran this."""
     door = fake_door(tmp_path)
     code = "from mcgyvr.serving import gatelib; gatelib.door_required('gate 9')"
     result = under(door, [sys.executable, "-c", code], clean_env())

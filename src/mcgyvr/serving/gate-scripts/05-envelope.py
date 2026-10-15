@@ -168,20 +168,16 @@ def header_record(run_id: str, step_name: str, run_date: str) -> dict[str, str]:
 def user_header(record: dict[str, str]) -> dict[str, object]:
     """A user-mode run's header: ``record``, and what its log files beside it.
 
-    The command the door was opened with, the driver it ran with
-    (``RUN_DRIVER``, when one ran), the rig as gate 2 read it before the
-    step, and the compose file's text when the run serves one.
+    The command the door was opened with, the rig as gate 2 read it before
+    the step, and the compose file's text when the run serves one.
     """
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
     compose = os.environ.get("RUN_COMPOSE")
     text = Path(compose).read_text(encoding="utf-8") if compose else None
-    driver = os.environ.get("RUN_DRIVER")
     return {
         **record,
         "mode": USER_MODE,
         "command": os.environ.get("RUN_COMMAND", ""),
-        # The driver whose checks ran between the door's gates, when one did.
-        **({"driver": driver} if driver else {}),
         "rig_before": pre,
         "compose_file": compose,
         "compose": text,

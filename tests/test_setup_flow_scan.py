@@ -593,16 +593,11 @@ def test_the_serve_step_runs_on_the_doors_interpreter(
     monkeypatch.setenv("RUN_OUT_DIR", "/x")
     monkeypatch.setenv("RUN_ID", "r1")
 
-    # A serve run's step is mcgyvr code: run it on the door's interpreter.
+    # A serve run's step is mcgyvr code: run it on the door's interpreter,
+    # handed nothing of the door's own argv.
     monkeypatch.setenv("RUN_SERVE", "fetch")
     assert gate6.main() == 0
-    assert seen == [[sys.executable, str(step), "--host", "box1"]]
-
-    # A caller's own --step keeps its shebang and runs as itself.
-    monkeypatch.delenv("RUN_SERVE")
-    seen.clear()
-    assert gate6.main() == 0
-    assert seen == [[str(step), "--host", "box1"]]
+    assert seen == [[sys.executable, str(step)]]
 
 
 def test_setup_writes_through_the_initialize_engine(

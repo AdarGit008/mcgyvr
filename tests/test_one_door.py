@@ -9,8 +9,8 @@ it. So the complete set of places a rig is touched from is small, and it is decl
 HERE, each with a reason, so a new way to reach a rig has to be argued in a diff rather
 than slipped in as a file.
 
-THE ACCEPTED LIMIT, in one sentence: the proof every gate, step and driver
-applies is an ancestor's command line plus RUN_HOST, both of which an
+THE ACCEPTED LIMIT, in one sentence: the proof every gate and step applies
+is an ancestor's command line plus RUN_HOST, both of which an
 operator can forge with ``bash -c ... x/mcgyvr/serving/run.py``, so the seal
 is against every code path in this repository and not against an operator
 impersonating the door.
@@ -513,6 +513,5 @@ def test_a_gate_with_every_run_variable_typed_in_is_refused_before_any_subproces
 def test_no_python_sits_at_the_repo_root() -> None:
     loose = sorted(p.name for p in REPO.glob("*.py"))
     assert not loose, (
-        f"{loose} at the repo root: a driver that can be run bare prints "
-        "unstamped rows."
+        f"{loose} at the repo root: a script there can be run bare, outside the door."
     )
