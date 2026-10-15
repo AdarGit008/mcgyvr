@@ -61,7 +61,6 @@ def _own_home_and_session(
         "MCGYVR_DATA",
         "MCGYVR_RUN_TAGS",
         "MCGYVR_RIGS",
-        "MCGYVR_DOOR_GATES",
         "XDG_STATE_HOME",
     ):
         monkeypatch.delenv(name, raising=False)

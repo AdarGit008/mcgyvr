@@ -103,7 +103,7 @@ def test_a_fleet_file_that_names_a_profile_is_refused(value: str) -> None:
 
 
 def test_a_lease_names_no_profile() -> None:
-    lease = new_lease("live-srv1", "serve-up", 4242)
+    lease = new_lease("serve-up", 4242)
     assert "profile=" not in lease.line()
     parsed = Lease.parse(lease.line())
     assert parsed is not None and parsed.lease_id == lease.lease_id

@@ -45,10 +45,7 @@ from typing import NoReturn
 
 #: How a run is started. Named in every refusal, because the operator reading
 #: one is the operator most inclined to work around it.
-DOOR = (
-    "python -m mcgyvr.serving.run --host H --campaign C --model M "
-    "--ctx-per-slot N [--step PATH]"
-)
+DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 
 #: What an ancestor's command line carries when it is the door: the module
 #: file by path (matched on its suffix, so a copy of the door in a test tree
@@ -121,10 +118,6 @@ def root() -> Path:
 USER_MODE = "user"
 #: The folder of the door's log, under the data folder.
 DOOR_LOG = "door"
-#: The variable the door names a ``step`` run's ``--out-root`` in: the folder
-#: the run's envelope is made under, as ``<it>/<date>-<campaign>/``. Unset on
-#: every other run, and on a step run that names none.
-OUT_ROOT_VAR = "RUN_OUT_ROOT"
 
 
 def step_name(step_file: Path) -> str:
@@ -132,25 +125,21 @@ def step_name(step_file: Path) -> str:
     return re.sub(r"^\d+-", "", step_file.stem)
 
 
-def run_id_of(run_date: str, campaign: str, step_file: Path, suffix: str) -> str:
-    """The RUN_ID gate 5 mints: ``<date>-<campaign>-<step>[-<suffix>]``."""
-    return f"{run_date}-{campaign}-{step_name(step_file)}" + (
+def run_id_of(run_date: str, host: str, step_file: Path, suffix: str) -> str:
+    """The RUN_ID gate 5 mints: ``<date>-<host>-<step>[-<suffix>]``."""
+    return f"{run_date}-{host}-{step_name(step_file)}" + (
         f"-{suffix}" if suffix else ""
     )
 
 
-def envelope_of(*, out_root: str, run_date: str, campaign: str, run_id: str) -> Path:
-    """Where a run's envelope is made, the one rule the door and gate 5 share.
+def envelope_of(run_date: str, run_id: str) -> Path:
+    """Where a run's envelope is made: its own folder of the door's log.
 
-    Under ``out_root`` when a step run names one (``<out_root>/<date>-
-    <campaign>/``); else the run's own folder of the door's log under the data
-    folder (``<data folder>/door/<date>/<RUN_ID>/``). The data folder is named
-    by :func:`mcgyvr.fleet.roots.data_home`, imported only here, so a shim
+    ``<data folder>/door/<date>/<RUN_ID>/``. The data folder is named by
+    :func:`mcgyvr.fleet.roots.data_home`, imported only here, so a shim
     loading this file by path needs nothing beyond the stdlib; it raises what
     that raises when the folder cannot be named.
     """
-    if out_root:
-        return Path(out_root) / f"{run_date}-{campaign}"
     from mcgyvr.fleet.roots import data_home
 
     return data_home() / DOOR_LOG / run_date / run_id
@@ -653,7 +642,6 @@ class Lease:
     machine: str
     pid: int
     started_at: str
-    campaign: str
     step: str
     run_id: str = "none"
     raw: str = ""
@@ -665,7 +653,6 @@ class Lease:
             ("machine", self.machine),
             ("pid", str(self.pid)),
             ("started_at", self.started_at),
-            ("campaign", self.campaign),
             ("step", self.step),
             ("run_id", self.run_id),
         )
@@ -701,7 +688,6 @@ class Lease:
             machine=fields.get("machine", "?"),
             pid=pid,
             started_at=fields.get("started_at", "?"),
-            campaign=fields.get("campaign", "?"),
             step=fields.get("step", "?"),
             run_id=fields.get("run_id", "none"),
             raw=line,
@@ -710,7 +696,7 @@ class Lease:
     def describe(self) -> str:
         return (
             f"{self.holder} (pid {self.pid} on {self.machine}, "
-            f"{self.campaign}/{self.step}, run {self.run_id}, "
+            f"step {self.step}, run {self.run_id}, "
             f"since {self.started_at})"
         )
 
@@ -752,14 +738,13 @@ def whoami() -> str:
     return f"{user}@{socket.gethostname()}"
 
 
-def new_lease(campaign: str, step: str, pid: int) -> Lease:
+def new_lease(step: str, pid: int) -> Lease:
     return Lease(
         lease_id=secrets.token_hex(8),
         holder=whoami(),
         machine=os_machine_id(),
         pid=pid,
         started_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        campaign=campaign,
         step=step,
     )
 

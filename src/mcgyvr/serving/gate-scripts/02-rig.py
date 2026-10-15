@@ -226,7 +226,7 @@ def take_lease(host: str) -> tuple[Lease, Lease | None]:
     """
     step = step_name(Path(need("RUN_STEP_FILE")))
     # The door's pid, not this gate's: the gate exits, the door holds the run.
-    mine = new_lease(need("RUN_CAMPAIGN"), step, os.getppid())
+    mine = new_lease(step, os.getppid())
     held = lease_read(host)
     for _ in range(3):
         if held is None:

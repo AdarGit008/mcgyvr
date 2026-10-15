@@ -47,7 +47,7 @@ from tests.onedoor import Scenario
 
 CONFIG_VAR = "MCGYVR_CONFIG"
 CAMPAIGN = "alpha"
-RUN_ID = f"{onedoor.RUN_DATE}-{CAMPAIGN}-probe"
+RUN_ID = f"{onedoor.RUN_DATE}-box1-probe"
 
 SETUP_CONFIG = """\
 units:

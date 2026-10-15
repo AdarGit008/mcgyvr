@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""gate 6 — the caller's own script.
+"""gate 6 — the step: the serve step of a serve run, or a driver's own.
 
-The only part of a run the door does not fix. It runs from the repo root with
-the run exported to it and its own arguments after `--`; its stdout and stderr
-are the operator's and the door adds nothing to them.
+It runs from the run root with the run exported to it and the arguments the
+run hands it; its stdout and stderr are the operator's and the door adds
+nothing to them.
 
 Its exit status is a RESULT, not a refusal: a step that fails has measured
 something (that this cell does not run), so gates 7 and 8 still run and the

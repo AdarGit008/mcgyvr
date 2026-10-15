@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""read, config — which config a read is under, and no round.
+"""read, config — which config a read is under.
 
 The config is settled exactly as gate 1 settles it (``01-round.py``'s
 ``config()``, loaded rather than copied): the config ``mcgyvr`` itself would
-load, and ``none`` when there is none. A read measures nothing a round pins and
-must not append one to the round record (owner, 2026-09-15, D2), so the
-round half of gate 1 is not run.
+load, and ``none`` when there is none. A read starts nothing, so gate 1's
+admission of a ``serve up`` is not run.
 """
 
 from __future__ import annotations

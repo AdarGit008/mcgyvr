@@ -332,7 +332,7 @@ def split_ladder(compose_dir: Path, *, across: str) -> str:
 DEV_SERVE_LEASE = (
     "lease_id=deadbeefdeadbeef holder=someone@elsewhere "
     "machine=elsewhere0000 pid=1 started_at=2026-09-06T01:02:03Z "
-    "campaign=live-box1 step=serve-up run_id=2026-09-06-live-box1-serve-up"
+    "step=serve-up run_id=2026-09-06-box1-serve-up"
 )
 
 

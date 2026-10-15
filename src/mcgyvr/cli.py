@@ -6046,8 +6046,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         default=None,
         metavar="DIR",
         help=(
-            "where the lock tree is written (default: the run root — "
-            "$MCGYVR_RUN_ROOT, else the checkout). Anything in or under the config "
+            "where the lock tree is written (default: $MCGYVR_RUN_ROOT, else "
+            "the checkout). Anything in or under the config "
             f"folder (${HOME_ENV}, else {HOME_DIR}) or in or under {HOME_DIR} is "
             "refused: a live fleet comes only from `mcgyvr fleet promote`"
         ),

@@ -86,7 +86,7 @@ def _probe(root: Path, env_file: Path) -> onedoor.Scenario:
     step = onedoor.add_step(
         root, CAMPAIGN, "1-probe.sh", onedoor.probe_step(env_file, after=after)
     )
-    return onedoor.Scenario(campaign=CAMPAIGN, step=str(step))
+    return onedoor.Scenario(folder=CAMPAIGN, step=str(step))
 
 
 def test_the_step_is_handed_the_config_it_runs_under(tmp_path: Path) -> None:
@@ -135,13 +135,11 @@ def test_a_relative_config_path_is_read_where_the_operator_typed_it(
     ``MCGYVR_CONFIG`` must still mean the file beside the shell that typed it,
     which is what ``mcgyvr`` itself would load."""
     checkout = onedoor.fixture_repo(tmp_path / "checkout")
-    run_root = onedoor.fixture_repo(tmp_path / "run-root")
+    elsewhere = onedoor.fixture_repo(tmp_path / "elsewhere")
     _write(checkout, "dev.yaml", BASE_CONFIG)
     env_file = tmp_path / "env.txt"
     done = onedoor.door(
-        checkout,
-        _probe(run_root, env_file),
-        env_extra={CONFIG_VAR: "dev.yaml", "MCGYVR_RUN_ROOT": str(run_root)},
+        checkout, _probe(elsewhere, env_file), env_extra={CONFIG_VAR: "dev.yaml"}
     )
     assert done.returncode == 0, done.stderr[-1500:]
     assert onedoor.read_env_file(env_file).get("RUN_CONFIG") == str(checkout.resolve())

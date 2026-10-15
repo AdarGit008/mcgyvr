@@ -11,6 +11,28 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed (breaking)
 
+- **The door runs its own gates and nothing else: `step`, campaigns and gate
+  lists are the lab's.**
+  - `python -m mcgyvr.serving.run` has three verbs, `serve`, `read` and
+    `link`. The `step` verb is gone, with `--campaign`, `--out-root`,
+    `--model`/`--parallel`/`--ctx-per-slot`/`--ubatch`, and the sibling
+    declaration `$MCGYVR_DOOR_SIBLINGS`.
+  - `--gates FILE` and `$MCGYVR_DOOR_GATES` are gone: no verb takes a
+    caller's gate list, and no door product code opens carries one.
+  - A run's RUN_ID is `<date>-<host>-<step>[-<suffix>]` (a serve run's was
+    `<date>-live-<host>-<step>`), filed in the door's log as before; its
+    header names no campaign, round or product digest; the rig lease names no
+    campaign; gate 1 exports no `RUN_ROUND` or `RUN_PRODUCT_SHA256`; gate 5
+    reads no `RUN_APPENDS`.
+  - `$MCGYVR_RUN_ROOT` no longer moves where the door's gates run; it only
+    names the folder `mcgyvr fleet lock` and `fleet promote` default to.
+  - The seam for a driver outside the package: `mcgyvr.serving.run.Driver`
+    (checks run before and after each door entry, and after gates 7 and 8),
+    taken by `serve`, `read`, `link` and `through` (the serve sequence under
+    an environment the driver builds, with `run_entry`, `pin_config`, `BIN`
+    and `ROOT`). A driver is a door by the seal's rule; its checks add
+    refusals and never skip, move or stand in for a door gate.
+
 - **There is one kind of run: `profile: live|dev` is gone.**
   - `fleet.yaml` no longer holds `profile`, and a file that still says it is
     refused as any unknown key is; nothing is migrated. `mcgyvr setup` and a

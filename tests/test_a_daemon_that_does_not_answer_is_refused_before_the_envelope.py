@@ -26,11 +26,12 @@ def test_a_docker_cli_with_no_daemon_is_exit_2_with_nothing_written(
     root = onedoor.fixture_repo(tmp_path)
     onedoor.add_step(root, "alpha", "1-probe.sh", onedoor.probe_step(tmp_path / "e"))
     onedoor.docker_stub(onedoor.stubs_dir(root), daemon_down=True)
-    result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
+    probe = Scenario("alpha", "1-probe.sh")
+    result = onedoor.door(root, probe)
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "gate 3" in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
-    assert not onedoor.envelope(root, "alpha").exists()
+    assert not onedoor.envelope(root, probe).exists()
     assert not (tmp_path / "e").exists(), (
         "the step ran with no daemon to resolve a tag through"
     )

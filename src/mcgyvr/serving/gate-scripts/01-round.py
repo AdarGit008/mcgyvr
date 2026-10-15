@@ -15,9 +15,6 @@ units the fleet lock names for this rig, and a `serve down` always; any other
 — the staging folder `mcgyvr setup` starts and samples, which nothing has
 locked yet — runs everything, `serve up` and `down` included (the owner ruled
 N11 on 2026-09-10).
-
-No round is opened or pinned: the round is the lab's. RUN_ROUND and
-RUN_PRODUCT_SHA256 are exported as ``none``.
 """
 
 from __future__ import annotations
@@ -158,10 +155,8 @@ def main() -> int:
     if serve:
         refuse_unless_the_fleet_lock_names(serve, source)
 
-    export("RUN_ROUND", "none")
-    export("RUN_PRODUCT_SHA256", "none")
     export("RUN_CONFIG", source)
-    print(f"gate 1: no round pinned; config={source}")
+    print(f"gate 1: config={source}")
     return 0
 
 

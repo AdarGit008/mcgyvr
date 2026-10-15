@@ -31,7 +31,7 @@ from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.serving.gatelib import ssh
 
 #: The compose project every live unit is filed under on a rig. One name, so
-#: ``down`` finds exactly what ``up`` started and nothing a campaign left.
+#: ``down`` finds exactly what ``up`` started and nothing another run left.
 PROJECT = "mcgyvr"
 
 
