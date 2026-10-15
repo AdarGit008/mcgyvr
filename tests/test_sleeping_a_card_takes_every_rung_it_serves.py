@@ -133,7 +133,6 @@ def test_sleeping_the_card_takes_both_rungs_down_in_one_door_run(
         journal=tmp_path / "j",
         specs=specs,
         switch=True,
-        profile="dev",
     )
     spawned = door_log(monkeypatch)
 
@@ -170,7 +169,6 @@ def test_an_operators_own_sleep_is_not_gated_by_the_automatic_switch(
         journal=tmp_path / "j",
         specs=specs,
         switch=False,
-        profile="dev",
     )
     spawned = door_log(monkeypatch)
 
@@ -205,7 +203,6 @@ def test_a_dispatch_in_flight_is_never_cut_by_a_sleep(
         journal=tmp_path / "j",
         specs=specs,
         switch=True,
-        profile="dev",
     )
     spawned = door_log(monkeypatch)
 

@@ -2,8 +2,8 @@
 
 ``check`` judges observations against their locked values and files every one
 under the journal, stamped with the fleet, rig, combination and unit it was
-computed for. A live alert pulls its combination and warns once (the journal is
-the memory, so a repeat warns nowhere); a dev run with an alert fails. A pull
+computed for. An alert pulls its combination and warns once (the journal is
+the memory, so a repeat warns nowhere). A pull
 clears only when the combination's validation is re-committed; ``rejudge``
 re-checks the journal under a tighter rule and pulls nothing.
 (the lab's fleet-identity plan, §5 and §7.)
@@ -20,10 +20,6 @@ from typing import Any
 
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.roots import LOCK_DIR
-
-
-class AlertError(Exception):
-    """A dev run produced an alert, and a dev run must not."""
 
 
 class AllPulledError(Exception):
@@ -254,7 +250,6 @@ def check(
     observations: Iterable[Mapping[str, Any]],
     *,
     approved: Mapping[str, Any],
-    profile: str,
     journal_dir: Path,
     stamp: Mapping[str, str],
     run_id: str,
@@ -262,12 +257,12 @@ def check(
 ) -> Iterator[dict[str, Any]]:
     """Judge observations against locked values, file them, and yield alerts.
 
-    A dev run raises :class:`AlertError` on the first alert; a live run yields
-    each alert, warns once per unit-and-field, and the filed alert row is what
-    :func:`pulled` reads. An observation may carry its unit's name as ``unit``,
-    which the warning names, and the moment it was measured as ``at``, which
-    its row carries; without one, the row carries the run id's time. A row
-    judged by a percent carries it as ``tolerance_pct`` (:func:`_judged_pct`).
+    Each alert is yielded and warned once per unit-and-field, and the filed
+    alert row is what :func:`pulled` reads. An observation may carry its unit's
+    name as ``unit``, which the warning names, and the moment it was measured
+    as ``at``, which its row carries; without one, the row carries the run id's
+    time. A row judged by a percent carries it as ``tolerance_pct``
+    (:func:`_judged_pct`).
     """
     run_at = _run_at(run_id)
     for observed in observations:
@@ -302,8 +297,6 @@ def check(
 
         if alert is None:
             continue
-        if profile == "dev":
-            raise AlertError(f"a dev run alerts on {field}")
         if not warned:
             print(_warning(observed, stamp, unit_id), file=sys.stderr)
         yield alert
@@ -422,19 +415,19 @@ def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
 
     The journal and the lock are the two ``mcgyvr fleet alerts`` reads: the
     live fleet's ``<journal.dir>/fleet``, where ``mcgyvr fleet probe`` files
-    (:func:`mcgyvr.fleet.probe.journal_dir`), and ``lock_root("live")``. With no
+    (:func:`mcgyvr.fleet.probe.journal_dir`), and the live fleet's lock. With no
     fleet named live there is no layout to pull a unit from, so ``{}``. Anything
     that stops the pulls being read — ``live.json``, ``fleet.yaml``,
     ``policy.yaml``, a journal file — raises :class:`PullsUnreadableError`.
     """
     from mcgyvr.fleet.probe import ProbeError, _live, journal_dir
-    from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, lock_root
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 
     try:
         if live_fleet_dir() is None:
             return {}
         name, folder, fleet = _live(None)
-        return pulled_units(fleet, name, journal_dir(folder), lock_root("live"))
+        return pulled_units(fleet, name, journal_dir(folder), folder)
     except (
         LiveFleetError,
         ProbeError,

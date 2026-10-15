@@ -68,12 +68,6 @@ def test_every_observation_is_filed_under_the_journal_by_what_it_was_computed_fo
     assert list(scratch.iterdir()) == []
 
 
-def test_a_dev_run_with_an_alert_fails(tmp_path: Path) -> None:
-    alerts = _alerts()
-    with pytest.raises(alerts.AlertError, match="restarts"):
-        check(alerts, [seen("restarts", 1)], tmp_path / "journal", profile="dev")
-
-
 def test_a_single_restart_alerts_however_loose_everything_else(
     tmp_path: Path,
 ) -> None:

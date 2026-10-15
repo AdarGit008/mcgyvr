@@ -125,7 +125,6 @@ def judged(field: str, value: float, tmp_path: Path) -> list[dict[str, Any]]:
         alerts.check(
             [{"unit_id": UNIT_DS, "field": field, "observed": value}],
             approved=PLAIN,
-            profile="live",
             journal_dir=tmp_path / field,
             stamp=STAMP,
             run_id="run-20260915T120000-0a1b2c3d",

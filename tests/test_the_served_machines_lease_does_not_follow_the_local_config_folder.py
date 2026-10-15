@@ -25,7 +25,6 @@ from mcgyvr.serving import gatelib
 HOST = "served.invalid"
 LEASE = gatelib.Lease(
     lease_id="0123456789abcdef",
-    profile="live",
     holder="someone@typing.invalid",
     machine="typing",
     pid=4242,

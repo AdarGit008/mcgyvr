@@ -90,8 +90,7 @@ def ladder_text(
         f"- {FAST}\n"
         f"- {BIG}\n"
         f"- {API}\n"
-        "max_escalations: 2\n"
-        "profile: dev\n" + serving + manager
+        "max_escalations: 2\n" + serving + manager
     )
 
 

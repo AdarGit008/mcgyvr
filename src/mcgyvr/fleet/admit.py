@@ -250,8 +250,8 @@ def _laid_out_unsampled(root: Path, host: str) -> bool:
 def host_is_locked(root: Path, host: str) -> bool:
     """Whether the lock under ``root`` names ``host`` under the rig id it pins.
 
-    ``root`` is the lock root the caller's profile reads
-    (:func:`mcgyvr.fleet.roots.lock_root`), never the working directory.
+    ``root`` is the live fleet's folder
+    (:func:`mcgyvr.fleet.roots.live_fleet_dir`), never the working directory.
 
     A record's ``rig`` field is the rig's NAME; its identity is the rig id of
     the directory it sits in. ``mcgyvr fleet lock`` writes one directory per

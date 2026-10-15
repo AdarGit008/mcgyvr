@@ -93,7 +93,7 @@ def ladder_text(
         )
         names.append(API)
     text += "ladder:\n" + "".join(f"- {n}\n" for n in names)
-    return text + "profile: dev\n" + serving
+    return text + serving
 
 
 def write_spec(tmp_path: Path) -> Path:

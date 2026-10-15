@@ -67,7 +67,7 @@ def _setup(
 ) -> Path:
     setup = tmp_path / "setup"
     setup.mkdir(exist_ok=True)
-    fleet = {"profile": "live", "units": units, **more}
+    fleet = {"units": units, **more}
     (setup / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
     if policy is None:
         policy = {"use_case": "coding", "ladder": list(units)}
@@ -103,7 +103,7 @@ def test_a_hosted_fleet_is_locked_promoted_and_named_live(tmp_path: Path) -> Non
     assert folder == fleets_dir() / f"own@{_today()}"
     assert live_fleet() == folder.name and is_own(folder.name)
     live = yaml.safe_load((folder / "fleet.yaml").read_text(encoding="utf-8"))
-    assert live["profile"] == "live"
+    assert "profile" not in live
     assert live["units"] == {HOSTED: _hosted()}, "a hosted unit is carried as it is"
     assert live["fleets"] == {"own": {"layout": {}}}
     policy = yaml.safe_load((folder / "policy.yaml").read_text(encoding="utf-8"))

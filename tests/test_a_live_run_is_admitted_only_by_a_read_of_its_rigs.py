@@ -194,17 +194,21 @@ def test_a_plan_to_clean_or_restore_refuses_and_names_the_door_commands_it_does_
     assert dispatched(events) == []
 
 
-def test_a_dev_run_reads_no_rig(
+def test_a_run_under_a_staged_setup_reads_no_rig(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     door: FakeDoor,
     events: list[tuple[str, str]],
 ) -> None:
-    go_live(tmp_path)
-    dev = write_setup(tmp_path / "dev-setup", tmp_path / "dev-journal", "dev")
+    """A setup ``mcgyvr setup`` stages in the data folder is held to no lock,
+    with a fleet live or not, so no rig is read."""
+    from mcgyvr.fleet.roots import staging_dir
 
-    code, err = climb(tmp_path, monkeypatch, capsys, events, "dev", config=dev)
+    go_live(tmp_path)
+    staged = write_setup(staging_dir("20261015T000000-abcdef01"), tmp_path / "j")
+
+    code, err = climb(tmp_path, monkeypatch, capsys, events, "staged", config=staged)
 
     assert code == 0, err
     assert door.calls == []

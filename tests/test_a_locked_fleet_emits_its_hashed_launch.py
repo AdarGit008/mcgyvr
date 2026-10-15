@@ -64,7 +64,6 @@ def fleet() -> dict[str, Any]:
     """b-small as stamped: deepseek on box1, the vLLM pair on box2."""
     common = {"output_tokens": 2048, "request_timeout_s": 180}
     return {
-        "profile": "live",
         "units": {
             "box1_deepseek": {
                 **common,

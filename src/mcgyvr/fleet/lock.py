@@ -832,7 +832,6 @@ def write_unsampled(
         ) from exc
 
     own = copy.deepcopy(fleet)
-    own["profile"] = "live"
     if rigs:
         own["rigs"] = {rig: {"rig_id": rigs[rig]} for rig in rigs}
     own["fleets"] = {OWN_FLEET: {"layout": layout}}

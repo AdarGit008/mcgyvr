@@ -46,6 +46,7 @@ READS_NO_CONFIG = {
     "fleet use": "names a promoted folder live; reads the promoted folders only",
     "fleet tag": "renames a promoted folder",
     "fleet probe": "probes the live fleet by its lock, by definition not a setup",
+    "fleet alerts": "reads the live fleet's journal and lock, not a setup",
     "rig status": "reads the kept credentials and the agent's last state",
     "rig leave": "forgets the kept credentials",
     "rig share": "reads and writes the rig's own sharing file",
@@ -233,21 +234,6 @@ def test_the_rig_agent_shares_the_units_of_the_setup_dash_dash_config_names(
 
     assert main([*argv, "--config", str(elsewhere)]) == 0
     assert handed == [elsewhere]
-
-
-def test_fleet_alerts_refuses_a_setup_dash_dash_config_names_that_is_not_there(
-    elsewhere: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    journal = tmp_path / "journal"
-    journal.mkdir()
-    missing = tmp_path / "no"
-
-    code = main(
-        ["fleet", "alerts", "--journal", str(journal), "--config", str(missing)]
-    )
-
-    assert code == 1
-    assert str(missing) in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

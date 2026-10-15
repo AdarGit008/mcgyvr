@@ -63,8 +63,7 @@ What the config is for comes in with these, all optional:
   `cost` instead of the default ladder.
 - `--profile` — deprecated, removed in the release after next: use
   `--priority`. A word naming a priority maps onto it, other text is
-  ignored, and either way it warns. It is not the config's
-  `profile: live|dev`, a different setting that stays.
+  ignored, and either way it warns.
 - `--jev UNIT` — dedicate VRAM to a Jev unit, the written unit every
   typed decision asks; it is never slept or woken.
 - `--mcorch UNIT` with `--window TOKENS` — serve that unit as the
@@ -91,7 +90,7 @@ nothing.
 A setup is two files in one directory, and `mcgyvr setup` writes both
 (staged under the data folder, as above):
 
-- `fleet.yaml` — what runs where: `profile`, `units`, `rigs` and `fleets`.
+- `fleet.yaml` — what runs where: `units`, `rigs` and `fleets`.
 - `policy.yaml` — how work moves over those units: `ladder` and every other top-level key below but `relief`.
 
 A third file, `relief.yaml`, holds `relief`: the units other
@@ -142,7 +141,6 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `profile` | one of `live`, `dev` | no | `live` | Which setup this file is: `live` or `dev`. A fleet fact: live outranks dev on the rigs. |
 | `use_case` | one of `coding`, `chat`, `agent`, `media-gen` | no | `coding` | Which of the four use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint), `agent` (an un-gated session over the files a contract names as its sources) or `media-gen` (media_valid, safety and ASR-WER). |
 | `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: a non-chat use case provisions a local orchestrator unit, and chat is just the ladder serving text. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |

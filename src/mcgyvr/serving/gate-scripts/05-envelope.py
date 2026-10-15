@@ -38,8 +38,8 @@ directory the door made, never a link.
 
 THE ENVELOPE HEADER. Once the RUN_ID is claimed, the run's identity is filed
 beside the artifacts the step will write, as ``<RUN_ID>.run.json``: the run,
-the campaign and step, the host, the round and product digest, the profile,
-and the path of the config it was read under (``none`` when there is none).
+the campaign and step, the host, the round and product digest, and the path
+of the config it was read under (``none`` when there is none).
 Written once, before the step, so a step that dies before its own START still
 left a record of what was about to measure; a header already there under this
 RUN_ID is refused, because two door invocations never share a run id.
@@ -209,7 +209,6 @@ def header_record(
         "date": run_date,
         "round": need("RUN_ROUND"),
         "product_sha256": need("RUN_PRODUCT_SHA256"),
-        "profile": need("RUN_PROFILE"),
         "config": need("RUN_CONFIG"),
         "mcgyvr_version": mcgyvr.__version__,
         "started_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),

@@ -1,8 +1,9 @@
-"""The rig is leased, live outranks dev, and dev yields — enforced by the machine.
+"""The rig is leased, a run takes it from the one holding it, and the one it was
+taken from yields — enforced by the machine.
 
-R1: a live run preempts a dev run, dev yields, and the machine enforces it rather
-than a convention. R3: dev and prod share one fleet (box1, box2) — mutual
-exclusion, not partitioning.
+R1: a run preempts the run holding the rig, that run yields, and the machine
+enforces it rather than a convention. R3: one fleet (box1, box2) is shared —
+mutual exclusion, not partitioning.
 
 Gate 5 claims the RUN_ID (``.<RUN_ID>.running`` in the envelope) so two
 invocations of one step cannot run at once. That claim is per-envelope, so it does
@@ -13,17 +14,15 @@ is spent and before the envelope exists — and released on every way out.
 
 What must be observably true:
 
-* while a run is in progress the rig's lease names it (its profile, who holds
-  it, from which pid, and since when), and when the run is over — finished,
-  refused after gate 2, or interrupted — the lease is gone;
-* a ``dev`` run against a rig whose lease is held is refused at gate 2, naming
-  the holder and when the lease was taken, and touches nothing;
-* a ``live`` run takes the lease whatever holds it, names what it displaced,
+* while a run is in progress the rig's lease names it (who holds it, from
+  which pid, and since when), and when the run is over — finished, refused
+  after gate 2, or interrupted — the lease is gone;
+* a run takes the lease whatever holds it, names what it displaced,
   and tears down the displaced run's containers — at gate 2, so its own step
   runs on an idle rig, and again at gate 7 for anything that came back;
 * a lease whose holder is a pid on this machine that is gone is stale: it is
   named, not silently ignored, and taken over;
-* a dev run whose lease was taken from it under its feet yields: its next
+* a run whose lease was taken from it under its feet yields: its next
   touch of the rig through the door's shims is refused naming the new holder,
   and it does not release a lease that is no longer its own.
 
@@ -50,8 +49,7 @@ CONFIG_VAR = "MCGYVR_CONFIG"
 CAMPAIGN = "alpha"
 RUN_ID = f"{onedoor.RUN_DATE}-{CAMPAIGN}-probe"
 
-DEV_CONFIG = """\
-profile: dev
+SETUP_CONFIG = """\
 units:
   only:
     address: http://localhost:8080
@@ -70,14 +68,13 @@ DISPLACED_RUN = "2026-09-06-other-probe"
 
 
 def _foreign(
-    profile: str,
     *,
     holder: str = ELSEWHERE,
     pid: int = 1,
     machine: str = "elsewhere0000",
 ) -> str:
     return (
-        f"lease_id=deadbeefdeadbeef profile={profile} holder={holder} "
+        f"lease_id=deadbeefdeadbeef holder={holder} "
         f"machine={machine} pid={pid} started_at={SINCE} campaign=other "
         f"step=probe run_id={DISPLACED_RUN}"
     )
@@ -107,9 +104,9 @@ def root(tmp_path: Path) -> Path:
     return onedoor.fixture_repo(tmp_path)
 
 
-def _dev(tmp_path: Path) -> dict[str, str]:
-    config = tmp_path / "dev.yaml"
-    config.write_text(DEV_CONFIG, encoding="utf-8")
+def _setup(tmp_path: Path) -> dict[str, str]:
+    config = tmp_path / "setup.yaml"
+    config.write_text(SETUP_CONFIG, encoding="utf-8")
     return {CONFIG_VAR: str(config)}
 
 
@@ -133,7 +130,7 @@ def test_a_run_holds_the_lease_while_it_runs_and_releases_it_after(
     done = onedoor.door(root, _probe(root, tmp_path, after))
     assert done.returncode == 0, done.stderr[-1500:]
     held = during.read_text(encoding="utf-8")
-    for word in ("profile=live", "holder=", "pid=", "started_at="):
+    for word in ("holder=", "pid=", "started_at="):
         assert word in held, held
     assert getpass.getuser() in held and socket.gethostname() in held, held
     assert onedoor.read_lease(root) is None, "the lease outlived the run"
@@ -175,20 +172,7 @@ def test_the_lease_is_released_on_an_interrupt(
     assert onedoor.read_lease(root) is None, "an interrupted run kept the lease"
 
 
-# --- dev against a held rig -----------------------------------------------------
-
-
-def test_a_dev_run_refuses_a_held_rig_naming_the_holder_and_when(
-    root: Path, tmp_path: Path
-) -> None:
-    planted = onedoor.plant_lease(root, _foreign("live"))
-    before = planted.read_text(encoding="utf-8")
-    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
-    assert done.returncode == 2, (done.returncode, done.stderr[-1500:])
-    assert ELSEWHERE in done.stderr and SINCE in done.stderr, done.stderr
-    assert planted.read_text(encoding="utf-8") == before, "the refusal moved the lease"
-    assert onedoor.written_under_records(root) == [], "a refused run wrote"
-    assert not (tmp_path / "e").exists(), "the step ran on a held rig"
+# --- a stale lease -------------------------------------------------------------
 
 
 def test_a_stale_lease_is_named_and_taken_over(root: Path, tmp_path: Path) -> None:
@@ -196,26 +180,24 @@ def test_a_stale_lease_is_named_and_taken_over(root: Path, tmp_path: Path) -> No
     Named — an operator should know a run died without releasing — and taken,
     because a dead run holds nothing."""
     me = f"{getpass.getuser()}@{socket.gethostname()}"
-    onedoor.plant_lease(
-        root, _foreign("dev", holder=me, pid=_dead_pid(), machine=_machine())
-    )
-    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
+    onedoor.plant_lease(root, _foreign(holder=me, pid=_dead_pid(), machine=_machine()))
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
     assert done.returncode == 0, done.stderr[-1500:]
     assert "stale" in (done.stdout + done.stderr), done.stdout + done.stderr
     assert onedoor.read_lease(root) is None
 
 
-# --- live displaces dev ---------------------------------------------------------
+# --- a run displaces the holder -------------------------------------------------
 
 
-def test_a_live_run_takes_a_held_lease_and_tears_down_what_it_displaced(
+def test_a_run_takes_a_held_lease_and_tears_down_what_it_displaced(
     root: Path, tmp_path: Path
 ) -> None:
-    """A dev run holds the rig and its container is up. A live run (no config
-    named: live is the default) takes the lease, names what it displaced,
+    """Another run holds the rig and its container is up. This run takes the
+    lease, names what it displaced,
     removes the displaced run's container by name — so its own step opens
     on an idle rig — and is green."""
-    onedoor.plant_lease(root, _foreign("dev"))
+    onedoor.plant_lease(root, _foreign())
     onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
     done = onedoor.door(root, _probe(root, tmp_path))
     said = done.stdout + done.stderr
@@ -233,10 +215,10 @@ def test_a_live_run_takes_a_held_lease_and_tears_down_what_it_displaced(
 def test_gate_7_tears_down_a_displaced_run_that_came_back_during_the_step(
     root: Path, tmp_path: Path
 ) -> None:
-    """The displaced dev step retries its launch after gate 2 removed its
+    """The displaced step retries its launch after gate 2 removed its
     container; gate 7 finds it up after the step and removes it again, by
-    the name the lease gave it, and the live run is still green."""
-    onedoor.plant_lease(root, _foreign("dev"))
+    the name the lease gave it, and this run is still green."""
+    onedoor.plant_lease(root, _foreign())
     onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
     names = onedoor.stubs_dir(root) / "serving-names"
     came_back = f"printf '%s\\n' '{DISPLACED_RUN}-lcps' >> '{names}'\n"
@@ -251,24 +233,24 @@ def test_gate_7_tears_down_a_displaced_run_that_came_back_during_the_step(
     assert names.read_text(encoding="utf-8").strip() == "", "the container is up"
 
 
-# --- dev yields ------------------------------------------------------------------
+# --- the displaced run yields ---------------------------------------------------
 
 
-def test_a_dev_run_whose_lease_was_taken_yields_at_its_next_touch_of_the_rig(
+def test_a_run_whose_lease_was_taken_yields_at_its_next_touch_of_the_rig(
     root: Path, tmp_path: Path
 ) -> None:
-    """Mid-step, a live run takes the rig (the lease is overwritten under the
-    dev run). The dev step's next `docker run` through the shim is refused
-    naming the new holder, the step fails, the run is not green, and the
-    lease — no longer this run's — is left as the live run wrote it."""
-    taken = _foreign("live")
+    """Mid-step, another run takes the rig (the lease is overwritten under this
+    run). The step's next `docker run` through the shim is refused naming the
+    new holder, the step fails, the run is not green, and the lease — no
+    longer this run's — is left as the other run wrote it."""
+    taken = _foreign()
     lease = onedoor.rig_lease(root)
     after = (
         f"printf '%s\\n' '{taken}' > '{lease}'\n"
         "docker run --name probe-x some/image:tag\n"
     )
-    done = onedoor.door(root, _probe(root, tmp_path, after), env_extra=_dev(tmp_path))
-    assert done.returncode != 0, "the dev run went on under someone else's lease"
+    done = onedoor.door(root, _probe(root, tmp_path, after), env_extra=_setup(tmp_path))
+    assert done.returncode != 0, "the run went on under someone else's lease"
     assert ELSEWHERE in done.stderr, done.stderr
     launches = [line for line in onedoor.docker_log(root) if line.startswith("run ")]
     assert launches == [], f"the launch reached the daemon: {launches}"
@@ -281,9 +263,9 @@ def test_a_dev_run_whose_lease_was_taken_yields_at_its_next_touch_of_the_rig(
 def test_an_empty_lease_file_holds_nothing(root: Path, tmp_path: Path) -> None:
     """A write that never finished leaves a zero-byte file. Noclobber would
     refuse to write over it and no operator is named to wait for: it holds
-    nothing, and a run — dev included — takes the rig."""
+    nothing, and a run takes the rig."""
     onedoor.plant_lease(root, "")
-    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
     assert done.returncode == 0, done.stderr[-1500:]
     assert onedoor.read_lease(root) is None
 
@@ -292,11 +274,11 @@ def test_a_lease_the_door_did_not_write_is_still_displaced_and_torn_down(
     root: Path, tmp_path: Path
 ) -> None:
     """No lease_id on the line — a hand-written lease, or an older door's. A
-    live run still names it, takes the rig, and removes its run's containers
+    run still names it, takes the rig, and removes its run's containers
     by the run id it does carry."""
     onedoor.plant_lease(
         root,
-        f"profile=dev holder={ELSEWHERE} pid=1 started_at={SINCE} "
+        f"holder={ELSEWHERE} pid=1 started_at={SINCE} "
         f"campaign=other step=probe run_id={DISPLACED_RUN}",
     )
     onedoor.containers_up(root, f"{DISPLACED_RUN}-lcps")
@@ -311,13 +293,13 @@ def test_a_lease_the_door_did_not_write_is_still_displaced_and_torn_down(
     assert onedoor.read_lease(root) is None
 
 
-def test_a_live_run_that_would_mint_the_displaced_runs_id_is_refused_with_suffix(
+def test_a_run_that_would_mint_the_displaced_runs_id_is_refused_with_suffix(
     root: Path, tmp_path: Path
 ) -> None:
-    """One fleet, two hosts, one step, one day: the live run's RUN_ID would be
+    """One fleet, two hosts, one step, one day: this run's RUN_ID would be
     the displaced run's, and gate 7 could not tell their containers apart.
     Gate 5 refuses, naming --suffix; the lease is released."""
-    line = _foreign("dev").replace(f"run_id={DISPLACED_RUN}", f"run_id={RUN_ID}")
+    line = _foreign().replace(f"run_id={DISPLACED_RUN}", f"run_id={RUN_ID}")
     onedoor.plant_lease(root, line)
     onedoor.containers_up(root, f"{RUN_ID}-lcps")
     done = onedoor.door(root, _probe(root, tmp_path))
@@ -333,8 +315,8 @@ def test_a_pid_that_is_alive_but_is_not_a_door_is_stale(
     """The holder's pid was reused by something else since the run died.
     Alive is not enough: the process at that pid must be the door."""
     me = f"{getpass.getuser()}@{socket.gethostname()}"
-    onedoor.plant_lease(root, _foreign("dev", holder=me, pid=1, machine=_machine()))
-    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
+    onedoor.plant_lease(root, _foreign(holder=me, pid=1, machine=_machine()))
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
     assert done.returncode == 0, done.stderr[-1500:]
     assert "stale" in done.stderr, done.stderr
     assert onedoor.read_lease(root) is None
@@ -344,12 +326,15 @@ def test_a_dead_pid_on_a_machine_with_this_hostname_but_another_id_is_honoured(
     root: Path, tmp_path: Path
 ) -> None:
     """Two machines named alike: a dead pid here says nothing about a run
-    there. Not stale, so a dev run refuses it."""
+    there. Not stale: the run takes the rig from it as from any holder, and
+    says so, and does not call it stale."""
     me = f"{getpass.getuser()}@{socket.gethostname()}"
-    onedoor.plant_lease(root, _foreign("live", holder=me, pid=_dead_pid()))
-    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_dev(tmp_path))
-    assert done.returncode == 2, (done.returncode, done.stderr[-1500:])
-    assert "stale" not in done.stderr, done.stderr
+    onedoor.plant_lease(root, _foreign(holder=me, pid=_dead_pid()))
+    done = onedoor.door(root, _probe(root, tmp_path), env_extra=_setup(tmp_path))
+    said = done.stdout + done.stderr
+    assert done.returncode == 0, (done.returncode, done.stderr[-1500:])
+    assert "stale" not in said, said
+    assert "is leased by" in said, said
 
 
 @pytest.mark.parametrize(
@@ -394,14 +379,16 @@ def test_the_ssh_lines_that_spend_a_rig_are_the_ones_checked(
     assert ssh_spends(line.split()) is spends, line
 
 
-def test_a_dev_run_yields_at_a_container_run_too(root: Path, tmp_path: Path) -> None:
-    taken = _foreign("live")
+def test_a_run_whose_lease_was_taken_yields_at_a_container_run_too(
+    root: Path, tmp_path: Path
+) -> None:
+    taken = _foreign()
     lease = onedoor.rig_lease(root)
     after = (
         f"printf '%s\\n' '{taken}' > '{lease}'\n"
         "docker container run --name probe-x some/image:tag\n"
     )
-    done = onedoor.door(root, _probe(root, tmp_path, after), env_extra=_dev(tmp_path))
+    done = onedoor.door(root, _probe(root, tmp_path, after), env_extra=_setup(tmp_path))
     assert done.returncode != 0
     assert ELSEWHERE in done.stderr, done.stderr
     launches = [line for line in onedoor.docker_log(root) if "run " in line]

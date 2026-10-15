@@ -1,6 +1,6 @@
 """A caller's gate in phase ``before`` runs before anything is sent to the machine.
 
-The door's first gate settles the profile and reads no machine; the next one
+The door's first gate settles the config and reads no machine; the next one
 reaches it. A caller that must refuse a run before the machine is touched
 names its gate ``before`` in its gate list, and the door runs it between the
 two. A ``before`` gate that refuses ends the run with nothing sent to the
@@ -23,7 +23,7 @@ def _stopping_list(tmp_path: Path) -> tuple[Path, Path]:
     marker = tmp_path / "marker.log"
     cg.executable(
         root / "stop.py",
-        cg.gate_text(marker, "caller:stop", show=("RUN_PROFILE",), status=2),
+        cg.gate_text(marker, "caller:stop", show=("RUN_CONFIG",), status=2),
     )
     listed = cg.write_list(
         tmp_path / "gates.json", str(root), [cg.entry("stop.py", "before")]
@@ -46,8 +46,8 @@ def test_a_refusing_before_gate_ends_a_read_with_nothing_sent_to_the_machine(
 
     assert done.returncode == 2, done.stderr
     (line,) = cg.log_lines(marker)
-    assert "RUN_PROFILE=-" not in line, (
-        f"the before gate ran without the profile the door settles first: {line}"
+    assert "RUN_CONFIG=-" not in line, (
+        f"the before gate ran without the config the door settles first: {line}"
     )
     assert cg.log_lines(calls) == [], (
         "the machine was reached before the caller's before gate refused: "
@@ -59,7 +59,7 @@ def test_a_refusing_before_gate_ends_a_read_with_nothing_sent_to_the_machine(
 def test_a_refusing_before_gate_ends_a_serve_with_nothing_sent_to_the_machine(
     tmp_path: Path,
 ) -> None:
-    """The same for ``serve``: its profile gate runs, then the caller's gate."""
+    """The same for ``serve``: its config gate runs, then the caller's gate."""
     stubs, calls = cg.stub_machine(tmp_path)
     listed, marker = _stopping_list(tmp_path)
     run_root = cg.door_root(tmp_path)
@@ -77,16 +77,16 @@ def test_a_refusing_before_gate_ends_a_serve_with_nothing_sent_to_the_machine(
 
     assert done.returncode == 2, done.stderr
     (line,) = cg.log_lines(marker)
-    assert "RUN_PROFILE=-" not in line, line
+    assert "RUN_CONFIG=-" not in line, line
     assert cg.log_lines(calls) == [], cg.log_lines(calls)
     assert "stop.py" in done.stderr
 
 
 @pytest.mark.parametrize("verb", ["serve", "read"])
-def test_an_admitting_before_gate_runs_between_the_profile_and_the_machine(
+def test_an_admitting_before_gate_runs_between_the_config_and_the_machine(
     verb: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """In the order of a whole run: the profile, the caller's gate, the machine."""
+    """In the order of a whole run: the config, the caller's gate, the machine."""
     cg.clean_door_env(monkeypatch)
     log = tmp_path / "order.log"
     cg.fake_door(tmp_path, monkeypatch, log)

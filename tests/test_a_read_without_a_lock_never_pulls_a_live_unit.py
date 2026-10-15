@@ -24,7 +24,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-import pytest
 import yaml
 
 from tests import onedoor
@@ -75,14 +74,13 @@ def go_live(tmp_path: Path) -> tuple[Path, Path]:
     return folder, journal / "fleet"
 
 
-def read(card: int, profile: str, **more: Any) -> None:
+def read(card: int, **more: Any) -> None:
     from mcgyvr.fleet import read
 
     read.record(
         "box2",
         *onedoor.split_reading(rig_text(card_3b=card)),
         run_id=RUN_ID,
-        profile=profile,
         **more,
     )
 
@@ -90,7 +88,7 @@ def read(card: int, profile: str, **more: Any) -> None:
 def test_a_named_setup_read_over_its_own_room_pulls_no_live_unit(
     tmp_path: Path,
 ) -> None:
-    from mcgyvr.fleet.alerts import AlertError, live_pulled_units, pulled
+    from mcgyvr.fleet.alerts import live_pulled_units, pulled
 
     live_folder, journal = go_live(tmp_path)
     setup = tmp_path / "setup"
@@ -98,8 +96,7 @@ def test_a_named_setup_read_over_its_own_room_pulls_no_live_unit(
     assert live_pulled_units() == {}
 
     # A card over the setup's room, and inside the room the lock proved.
-    with pytest.raises(AlertError):
-        read(SETUP_ROOM + 1000, "dev", fleet_name=FLEET_NAME, setup=setup)
+    read(SETUP_ROOM + 1000, fleet_name=FLEET_NAME, setup=setup)
 
     card = unit_rows(journal, UNIT_3B)["card_mib"]
     assert card["alert"] is True, "the card is over the setup's own room"
@@ -113,7 +110,7 @@ def test_a_read_with_the_lock_still_pulls_its_live_unit(tmp_path: Path) -> None:
 
     _, journal = go_live(tmp_path)
 
-    read(LIVE_ROOM + 1000, "live")
+    read(LIVE_ROOM + 1000)
 
     card = unit_rows(journal, UNIT_3B)["card_mib"]
     assert card["alert"] is True and "locked" not in card

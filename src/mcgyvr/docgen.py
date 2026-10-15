@@ -388,8 +388,7 @@ def render_setup() -> str:
         "  `cost` instead of the default ladder.",
         "- `--profile` — deprecated, removed in the release after next: use",
         "  `--priority`. A word naming a priority maps onto it, other text is",
-        "  ignored, and either way it warns. It is not the config's",
-        "  `profile: live|dev`, a different setting that stays.",
+        "  ignored, and either way it warns.",
         "- `--jev UNIT` — dedicate VRAM to a Jev unit, the written unit every",
         "  typed decision asks; it is never slept or woken.",
         "- `--mcorch UNIT` with `--window TOKENS` — serve that unit as the",
@@ -416,8 +415,7 @@ def render_setup() -> str:
         "A setup is two files in one directory, and `mcgyvr setup` writes both",
         "(staged under the data folder, as above):",
         "",
-        f"- `{FLEET_FILENAME}` — what runs where: `profile`, `units`, `rigs` and "
-        "`fleets`.",
+        f"- `{FLEET_FILENAME}` — what runs where: `units`, `rigs` and `fleets`.",
         f"- `{POLICY_FILENAME}` — how work moves over those units: `ladder` and "
         "every other top-level key below but `relief`.",
         "",

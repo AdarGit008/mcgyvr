@@ -66,7 +66,6 @@ def _unit(rig: str, unit_id: str, port: int, **more: Any) -> dict[str, Any]:
 def fleet() -> dict[str, Any]:
     """A fresh copy of the fleet: two layouts, ``whole`` and ``resting``."""
     return {
-        "profile": "dev",
         "rigs": {A: {"rig_id": RIG_A}, B: {"rig_id": RIG_B}},
         "units": {
             BIG: _unit(

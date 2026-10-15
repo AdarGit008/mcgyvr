@@ -10,7 +10,7 @@ runtime", with a pointer file choosing which fleet is live.
   ``~/.mcgyvr/fleets/<fleet>@<lock date>/`` (owner, 2026-09-16: "all fleets
   get tagged with date"; the date is the lock's own, pinned in
   ``test_a_promoted_fleet_carries_the_date_of_its_lock_in_its_name``) —
-  ``fleet.yaml`` (profile live, that fleet's units, rigs and fleet block),
+  ``fleet.yaml`` (that fleet's units, rigs and fleet block),
   ``policy.yaml`` (the dev policy, its ladder filtered to those units) and the
   fleet's lock and combination records. It refuses, writing nothing, when the
   folder exists, the dev lock is missing, the layout no longer matches its
@@ -21,7 +21,7 @@ runtime", with a pointer file choosing which fleet is live.
   the move is one the live lock measured — pinned in
   ``test_use_switches_between_verified_fleets_and_says_whether_the_move_is_locked``.
 * The live lock root is the folder ``live.json`` names; with none there is no
-  live lock. Dev reads the run root. No reader reads the working directory.
+  live lock. No reader reads the working directory.
 * The config is ``$MCGYVR_CONFIG``, else the live fleet folder — never
   ``./fleet.yaml`` and never ``~/.mcgyvr/config``. ``mcgyvr setup`` with no
   path stages in the override, else a folder of the run's own under the data
@@ -42,7 +42,6 @@ import yaml
 
 from tests import livejournal as lj
 from tests import onedoor
-from tests._paths import REPO
 from tests.doors import RUNG_7B, UNITS, compose_dir, compose_file, door_log, ladder
 from tests.fleetlocks import (
     BOX1_EVIDENCE,
@@ -79,8 +78,7 @@ SMALLEST_POLICY = "ladder: [{name}]\n"
 
 def _roots() -> Any:
     return required(
-        "name the lock root by profile: the live fleet folder live.json names, "
-        "or the run root for dev",
+        "name the live lock: the fleet folder live.json names",
         lambda: importlib.import_module("mcgyvr.fleet.roots"),
     )
 
@@ -101,19 +99,11 @@ def promoted(fleet: str) -> str:
     return f"{fleet}@{LOCK_DATE}"
 
 
-def test_the_live_lock_is_the_fleet_folder_live_json_names_and_dev_is_the_run_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_live_lock_is_the_fleet_folder_live_json_names() -> None:
     roots = _roots()
-    monkeypatch.delenv("MCGYVR_RUN_ROOT", raising=False)
-    assert roots.lock_root("live") is None, "no live.json is no live lock"
+    assert roots.live_fleet_dir() is None, "no live.json is no live lock"
     name_live("flt-05")
-    assert roots.lock_root("live") == fleets() / "flt-05"
-    assert roots.lock_root("dev") == REPO
-    monkeypatch.setenv("MCGYVR_RUN_ROOT", str(tmp_path))
-    assert roots.lock_root("dev") == tmp_path
-    with pytest.raises(ValueError, match="prod"):
-        roots.lock_root("prod")
+    assert roots.live_fleet_dir() == fleets() / "flt-05"
 
 
 def test_the_live_waker_wakes_only_from_the_fleet_live_json_names(
@@ -126,7 +116,10 @@ def test_the_live_waker_wakes_only_from_the_fleet_live_json_names(
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     spawned = door_log(monkeypatch)
     specs = compose_dir(tmp_path, with_spec=True)
-    live = tmp_path / "live.yaml"
+    # In the config folder: held to the live lock whether or not a fleet is
+    # named live (`mcgyvr.fleet.roots.runs_live`).
+    live = fleets().parent / "live.yaml"
+    live.parent.mkdir(parents=True, exist_ok=True)
     live.write_text(
         ladder(engine="vllm")
         + f"journal:\n  dir: {tmp_path / 'j'}\n"
@@ -236,7 +229,6 @@ def test_promote_writes_a_new_fleet_folder_that_loads_as_a_live_setup(
     )
 
     live_fleet = load_fleet(written["fleet.yaml"].decode("utf-8"))
-    assert live_fleet["profile"] == "live"
     assert set(live_fleet["units"]) == {"box2_7b", "box2_3b"}
     assert live_fleet["units"]["box2_7b"]["unit_id"] == U7B
     assert live_fleet["units"]["box2_3b"]["unit_id"] == U3B
@@ -332,7 +324,7 @@ def test_use_refuses_a_folder_whose_layout_no_longer_matches_its_own_lock(
     assert not live_json().exists()
 
 
-def test_fleet_alerts_reads_the_lock_root_the_profile_names(
+def test_fleet_alerts_reads_the_live_fleets_lock_whatever_the_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr.fleet import alerts
@@ -361,12 +353,12 @@ def test_fleet_alerts_reads_the_lock_root_the_profile_names(
 
     config = small_setup(tmp_path / "dev-config", "u")
     (config / "fleet.yaml").write_text(
-        "profile: dev\n" + SMALLEST_FLEET.format(name="u"), encoding="utf-8"
+        SMALLEST_FLEET.format(name="u"), encoding="utf-8"
     )
     monkeypatch.setenv("MCGYVR_CONFIG", str(config))
     assert cli("fleet", "alerts", "--journal", journal) == 0
 
-    assert roots_seen == [None, fleets() / "flt-05", dev], roots_seen
+    assert roots_seen == [None, fleets() / "flt-05", fleets() / "flt-05"], roots_seen
 
 
 def test_the_config_is_the_override_then_the_live_fleet_and_never_the_working_dir(

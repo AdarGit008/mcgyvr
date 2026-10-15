@@ -467,7 +467,6 @@ def run(
     run_id = f"run-{moment:%Y%m%dT%H%M%S}-{token}"
     lease_id = f"probe-{token}"
     journal = journal_dir(folder)
-    profile = str(fleet.get("profile", "live"))
     report = Report()
     filed, unread = _read_rigs(reader, fleet, awake, measured, run_id, journal, report)
 
@@ -562,7 +561,6 @@ def run(
             alerts.check(
                 observations,
                 approved=approved,
-                profile=profile,
                 journal_dir=journal,
                 stamp=stamp,
                 run_id=run_id,

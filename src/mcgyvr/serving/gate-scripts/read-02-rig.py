@@ -76,11 +76,10 @@ def harness_on_rig(host: str, spec: str, source: str) -> str | None:
 
 def main() -> int:
     door_required("read")
-    from mcgyvr.fleet import alerts, harness, read
+    from mcgyvr.fleet import harness, read
 
     host = need("RUN_HOST")
     run_id = need("RUN_READ_ID")
-    profile = need("RUN_PROFILE")
     probe = os.environ.get("RUN_READ_PROBE", "").split()
     load = os.environ.get("RUN_READ_LOAD") or None
     # `read --fleet F`: F of the setup the run's config was loaded from, which
@@ -139,7 +138,6 @@ def main() -> int:
             machine,
             done.stdout,
             run_id=run_id,
-            profile=profile,
             probe=probe,
             measure=measure,
             load=load,
@@ -148,9 +146,6 @@ def main() -> int:
         )
     except read.ReadError as exc:
         refuse(f"read: {exc}")
-    except alerts.AlertError as exc:
-        print(f"read: {exc}", file=sys.stderr)
-        return 1
 
     seen = recorded.observed
     print(f"read: {host} rig_id={seen.rig_id} run_id={run_id}")

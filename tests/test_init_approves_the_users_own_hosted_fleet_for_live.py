@@ -6,8 +6,8 @@ Setup with flags starts no container, so no sample runs on what it binds, and
 evidence (without it nothing is locked:
 ``test_a_fleet_setup_could_not_sample_is_locked_only_once_the_user_acknowledges``).
 
-A fresh ``init`` writes ``profile: live``, and live admission refuses a run
-until the config folder's ``live.json`` names a promoted fleet whose lock it can
+Live admission refuses a run under the live fleet until the config folder's
+``live.json`` names a promoted fleet whose lock it can
 hold the rigs to. A stranger has no dev evidence to lock from, so ``init``
 approves what it bound itself, through the one path live reads:
 
@@ -164,7 +164,6 @@ def test_a_fresh_init_of_hosted_units_makes_its_own_fleet_live(
     # The setup init wrote, as a fleet whose layout names no rig.
     wrote = yaml.safe_load((setup / "fleet.yaml").read_text(encoding="utf-8"))
     live = yaml.safe_load((folder / "fleet.yaml").read_text(encoding="utf-8"))
-    assert live["profile"] == "live"
     assert live["units"] == wrote["units"]
     assert live["fleets"] == {"own": {"layout": {}}}
     policy = yaml.safe_load((folder / "policy.yaml").read_text(encoding="utf-8"))

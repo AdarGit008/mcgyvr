@@ -23,7 +23,6 @@ from tests import livejournal as lj
 KEY = "MCGYVR_TEST_NOTHING_TO_RUN_KEY"
 
 FLEET = f"""\
-profile: dev
 units:
   api_big:
     address: https://api.example.com/v1

@@ -19,15 +19,14 @@ runtime reader, ``rig-units.sh``.
 THE RIG IS LEASED HERE, before it is read. Gate 5's claim on the RUN_ID is per
 envelope, so two steps could still land on one rig together; the contended
 resource is the rig, so the lease sits on it, at ``~/.mcgyvr/lease``, and every
-run takes it before it spends rig time. Under a ``dev`` profile a held rig is a
-refusal naming the holder and since when (owner's ruling R1, 2026-09-06: live
-outranks dev). Under ``live`` the lease is taken whatever holds it, the
-displaced run is named, and its containers — by the run id its lease carries —
-are removed here, so this run's step opens on an idle rig, and again by gate 7
-for anything that came back. A lease whose holder is a pid on this machine that
+run takes it before it spends rig time. The lease is taken whatever holds it
+(owner's ruling R1, 2026-09-06), the displaced run is named, and its
+containers — by the run id its lease carries — are removed here, so this
+run's step opens on an idle rig, and again by gate 7 for anything that came
+back. A lease whose holder is a pid on this machine that
 is gone is stale: named, not silently ignored, and taken. The door releases the
 lease on every way out, and the shims refuse a displaced run's next touch of
-the rig, so dev yields by the machine and not by convention.
+the rig, so a displaced run yields by the machine and not by convention.
 
 A machine that is not idle is not refused: a container or a card holder up
 before the run is reported and left as it is, since mcgyvr did not start it.
@@ -44,7 +43,6 @@ from typing import Any
 
 from mcgyvr.serving import rigfile, servelib
 from mcgyvr.serving.gatelib import (
-    DEV,
     Lease,
     door_required,
     export,
@@ -160,12 +158,12 @@ def teardown_displaced(
     because it cannot know what it found — here it can. The lease names the
     run, the run names its containers (`<RUN_ID>-<role>`), and its serve units
     are named `mcgyvr-<host>-<service>` (`mcgyvr emit`), so both prefixes are
-    torn down: R1 says the live run may take the rig from it, and a displaced
-    dev serve must not keep holding the card.
+    torn down: R1 says a run may take the rig from it, and a displaced serve
+    must not keep holding the card.
 
     ``keep`` names containers that are not the displaced run's whatever their
-    prefix: the units a live ``serve up`` has itself just started, which carry
-    the same ``mcgyvr-`` prefix as the dev serve it displaced.
+    prefix: the units a ``serve up`` has itself just started, which carry the
+    same ``mcgyvr-`` prefix as the serve it displaced.
     """
     if displaced.run_id == "none":
         print(f"{who}: the displaced run had minted no run id; nothing to tear down")
@@ -212,7 +210,7 @@ def teardown_displaced(
         )
         return
     print(
-        f"{who}: torn down what this live run displaced ({displaced.holder}, "
+        f"{who}: torn down what this run displaced ({displaced.holder}, "
         f"run {displaced.run_id}): {' '.join(names)}"
     )
 
@@ -226,10 +224,9 @@ def take_lease(host: str) -> tuple[Lease, Lease | None]:
     a run that was never named. Three changes of hands and the run gives up
     naming the last one.
     """
-    profile = need("RUN_PROFILE")
     step = step_name(Path(need("RUN_STEP_FILE")))
     # The door's pid, not this gate's: the gate exits, the door holds the run.
-    mine = new_lease(profile, need("RUN_CAMPAIGN"), step, os.getppid())
+    mine = new_lease(need("RUN_CAMPAIGN"), step, os.getppid())
     held = lease_read(host)
     for _ in range(3):
         if held is None:
@@ -250,16 +247,9 @@ def take_lease(host: str) -> tuple[Lease, Lease | None]:
             if held is None:
                 return mine, None
             continue
-        if profile == DEV:
-            refuse(
-                f"gate 2: {host} is leased by {held.describe()}, and this run "
-                "is under a dev profile: dev yields, live outranks dev (owner's "
-                "ruling R1, 2026-09-06). Wait for that run, or run under the "
-                "live config if this IS the live run"
-            )
         print(
-            f"gate 2: {host} is leased by {held.describe()}; this live run "
-            "takes it (R1) and tears down what it displaced"
+            f"gate 2: {host} is leased by {held.describe()}; this run takes "
+            "it (R1) and tears down what it displaced"
         )
         displaced = held
         held = lease_take(host, mine, held=held)

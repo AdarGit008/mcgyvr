@@ -50,7 +50,6 @@ SERVED = f"/home/user/models/{DECLARED}.gguf"
 OTHER = "/home/user/models/deepseek-coder-v2-16b.gguf"
 
 LADDER = f"""\
-profile: dev
 units:
   local_big:
     address: http://box1:8080

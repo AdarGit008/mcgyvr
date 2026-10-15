@@ -1,19 +1,20 @@
-"""A ``dev`` round may serve any launch spec: the live ladder's, or its own.
+"""A staged setup may serve any launch spec: the live ladder's, or its own.
 
-Gate 1 (``src/mcgyvr/serving/gate-scripts/01-round.py``) admits a dev round's
-``serve up`` and ``down`` whatever launch spec they name: **dev runs
-everything** (owner ruling N11 in ``mcgyvr-lab/records/plans/sleep-wake.md``;
+Gate 1 (``src/mcgyvr/serving/gate-scripts/01-round.py``) admits a ``serve up``
+and ``down`` under a setup ``mcgyvr setup`` staged in the data folder whatever
+launch spec they name: nothing of it is locked yet, and setup starts and
+samples it itself (:func:`mcgyvr.fleet.roots.runs_live`; owner ruling N11 in
+``mcgyvr-lab/records/plans/sleep-wake.md``, that such a run runs everything;
 the intent is ``mcgyvr-lab/records/plans/fleet-identity.md`` §6).
 
-**Where the guard on a shared rig lives.** Live runs only a locked fleet:
-gate 1 admits a live ``serve up`` only for units the fleet lock names
+**Where the guard on a shared rig lives.** Every other run is held to the live
+lock: gate 1 admits its ``serve up`` only for units the fleet lock names
 (``tests/test_gate_1_admits_a_live_serve_up_only_from_the_fleet_lock.py``), and
 live cleans units of ours the fleet does not name
 (``tests/test_live_runs_only_a_locked_fleet_and_cleans_what_is_not_in_it.py``).
-Guarding dev at gate 1 as well would be the same rule in a second place.
 
-**Gate 2 is not widened.** It makes a dev run yield a rig another run holds,
-and refuses a ``serve up`` onto a busy card
+**Gate 2 is not widened.** Every run takes the rig's lease and tears down
+what it displaced, and a ``serve up`` onto a busy card is refused
 (``tests/test_the_door_serves_a_ladder_and_leaves_it_up.py``).
 """
 
@@ -58,9 +59,13 @@ def live_config(specs: Path) -> Path:
     return path
 
 
-def dev_config(path: Path) -> Path:
-    """A setup under development: same rig, its own file, ``profile: dev``."""
-    path.write_text("profile: dev\n" + LADDER, encoding="utf-8")
+def staged_config(root: Path) -> Path:
+    """A setup ``mcgyvr setup`` staged: same rig, a folder of the data folder
+    the fixture's door runs with (``onedoor.door_env``: ``root/data``)."""
+    folder = root / "data" / "setup" / "20261015T000000-abcdef01"
+    folder.mkdir(parents=True)
+    path = folder / "setup.yaml"
+    path.write_text(LADDER, encoding="utf-8")
     return path
 
 
@@ -81,48 +86,54 @@ def _brought_up(root: Path, spec: Path) -> bool:
     )
 
 
-def test_a_dev_round_may_run_the_live_configs_own_launch_spec(tmp_path: Path) -> None:
+def test_a_staged_setup_may_run_the_live_configs_own_launch_spec(
+    tmp_path: Path,
+) -> None:
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
     live_config(root)
-    dev = dev_config(tmp_path / "dev.yaml")
+    staged = staged_config(root)
     onedoor.serving(onedoor.stubs_dir(root), UNITS, already_up=True)
 
-    result = onedoor.serve_door(root, "down", compose, env_extra={CONFIG_VAR: str(dev)})
+    result = onedoor.serve_door(
+        root, "down", compose, env_extra={CONFIG_VAR: str(staged)}
+    )
 
     assert result.returncode == 0, (result.stdout, result.stderr[-1500:])
 
 
-def test_a_dev_round_may_bring_up_a_launch_spec_of_its_own(tmp_path: Path) -> None:
-    """A dev spec outside the live ``compose_dir`` is admitted by gate 1."""
+def test_a_staged_setup_may_bring_up_a_launch_spec_of_its_own(tmp_path: Path) -> None:
+    """A spec outside the live ``compose_dir`` is admitted by gate 1."""
     root = onedoor.fixture_repo(tmp_path)
     live_config(root)
     theirs = own_spec(root, tmp_path)
-    dev = dev_config(tmp_path / "dev.yaml")
+    staged = staged_config(root)
     onedoor.serving(onedoor.stubs_dir(root), UNITS)
 
-    result = onedoor.serve_door(root, "up", theirs, env_extra={CONFIG_VAR: str(dev)})
+    result = onedoor.serve_door(root, "up", theirs, env_extra={CONFIG_VAR: str(staged)})
 
     assert "gate 1:" not in result.stderr, (
-        "gate 1 refused a dev round its own launch spec. The owner ruled "
-        "that dev runs everything, serve up and down included.\n"
+        "gate 1 refused a staged setup its own launch spec. The owner ruled "
+        "that such a run runs everything, serve up and down included.\n"
         f"stderr: {result.stderr[-1500:]}"
     )
     assert result.returncode == 0, (result.stdout, result.stderr[-1500:])
     assert _brought_up(root, theirs), onedoor.docker_log(root)
 
 
-def test_a_dev_round_may_serve_when_no_live_ladder_is_configured(
+def test_a_staged_setup_may_serve_when_no_live_ladder_is_configured(
     tmp_path: Path,
 ) -> None:
-    """No live config at all: a dev round needs no live ladder to serve its
-    own."""
+    """No live config at all: a staged setup needs no live ladder to serve
+    its own."""
     root = onedoor.fixture_repo(tmp_path)
     compose = compose_file(root)
-    dev = dev_config(tmp_path / "dev.yaml")
+    staged = staged_config(root)
     onedoor.serving(onedoor.stubs_dir(root), UNITS)
 
-    result = onedoor.serve_door(root, "up", compose, env_extra={CONFIG_VAR: str(dev)})
+    result = onedoor.serve_door(
+        root, "up", compose, env_extra={CONFIG_VAR: str(staged)}
+    )
 
     assert "gate 1:" not in result.stderr, result.stderr[-1500:]
     assert result.returncode == 0, (result.stdout, result.stderr[-1500:])

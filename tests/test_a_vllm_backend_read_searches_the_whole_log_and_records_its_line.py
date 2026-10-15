@@ -242,7 +242,7 @@ def test_the_line_the_reader_matched_is_filed_beside_the_backend_and_not_judged(
     journal = go_live(tmp_path)
 
     text = _read_with_lines(**{"8001": "Using FLASH_ATTN", "8002": SELECTING})
-    read_record(text, "live", Rig())
+    read_record(text, Rig())
 
     three = unit_rows(journal, UNIT_3B)
     seven = unit_rows(journal, UNIT_7B)
@@ -262,7 +262,7 @@ def test_the_line_the_reader_matched_is_filed_beside_the_backend_and_not_judged(
 def test_a_reader_that_printed_no_line_files_an_empty_one(tmp_path: Path) -> None:
     journal = go_live(tmp_path)
 
-    read_record(rig_text(backend=("8001,FLASH_ATTN", "8002,none")), "live", Rig())
+    read_record(rig_text(backend=("8001,FLASH_ATTN", "8002,none")), Rig())
 
     assert unit_rows(journal, UNIT_3B)["attention_backend_line"]["observed"] == ""
     assert unit_rows(journal, UNIT_7B)["attention_backend_line"]["observed"] == ""

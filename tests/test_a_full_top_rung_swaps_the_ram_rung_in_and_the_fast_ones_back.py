@@ -116,7 +116,7 @@ def ladder_text(
             RAM, SWAP_HOST, 8083, "ram-coder-l", 9.0, role=ram_role, engine=ram_engine
         )
         + f"ladder:\n- {FLOOR}\n- {FAST_S}\n- {FAST_M}\n- {RAM}\n"
-        "profile: dev\n" + serving
+        + serving
     )
 
 

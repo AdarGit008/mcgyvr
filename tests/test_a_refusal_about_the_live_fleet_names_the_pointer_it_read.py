@@ -110,7 +110,7 @@ def test_the_first_gate_refusing_a_unit_the_live_lock_lacks_names_the_pointer_it
     gate = by_path("gate_01_round", GATE_1)
 
     with pytest.raises(SystemExit):
-        gate.refuse_unless_the_fleet_lock_names("up", "live")
+        gate.refuse_unless_the_fleet_lock_names("up", "none")
 
     said = capsys.readouterr().err
     assert "gate 1:" in said, said

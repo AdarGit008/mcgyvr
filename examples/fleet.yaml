@@ -10,8 +10,6 @@
 #
 # A concrete dev setup lives with the lab's fleet records, not in this product.
 
-profile: dev          # live | dev — live outranks dev on the rigs
-
 units:
   # One unit = one process at one address. The name (here `local`) is yours.
 

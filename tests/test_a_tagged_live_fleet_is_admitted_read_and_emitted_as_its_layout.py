@@ -71,7 +71,7 @@ def door(monkeypatch: pytest.MonkeyPatch, events: list[tuple[str, str]]) -> Fake
 
 def launchable() -> dict[str, Any]:
     """The admission fixture's fleet, each unit stating what a locked emit renders."""
-    doc = copy.deepcopy(fleet("live"))
+    doc = copy.deepcopy(fleet())
     doc["units"][FIRST] |= {
         "image": "vllm/vllm-openai@sha256:" + "a" * 64,
         "hf_cache": "/home/x/.cache/huggingface",
@@ -111,14 +111,14 @@ def test_the_live_fleet_reads_as_its_layout_from_its_tagged_folder(
     from mcgyvr.fleet import read
     from mcgyvr.fleet.alerts import live_pulled_units
     from mcgyvr.fleet.probe import _live
-    from mcgyvr.fleet.roots import live_fleet, live_fleet_dir, lock_root
+    from mcgyvr.fleet.roots import live_fleet, live_fleet_dir
 
     folder = go_live_tagged(tmp_path)
     monkeypatch.delenv("MCGYVR_CONFIG", raising=False)
     monkeypatch.chdir(tmp_path)
 
     assert live_fleet() == TAGGED
-    assert live_fleet_dir() == folder and lock_root("live") == folder
+    assert live_fleet_dir() == folder
     assert config_path() == folder
 
     live = read.live()

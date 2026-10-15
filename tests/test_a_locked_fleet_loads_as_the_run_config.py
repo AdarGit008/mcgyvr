@@ -13,7 +13,6 @@ from mcgyvr import config
 from tests._paths import REPO
 
 FLEET = """\
-profile: live
 units:
   box2_7b:
     rig: box2

@@ -107,7 +107,7 @@ class FakeRig:
         return 0
 
     def _read(self, rest: list[str], setup: Path) -> int:
-        from mcgyvr.fleet import alerts, read
+        from mcgyvr.fleet import read
 
         parser = argparse.ArgumentParser()
         for flag in ("--host", "--fleet", "--run-id", "--load"):
@@ -118,20 +118,16 @@ class FakeRig:
         if self.read_fails:
             return 1
         doc = yaml.safe_load((setup / "fleet.yaml").read_text(encoding="utf-8"))
-        try:
-            read.record(
-                opts.host,
-                *onedoor.split_reading(self._reader(doc, opts.fleet, opts.host)),
-                run_id=opts.run_id,
-                profile="dev",
-                probe=tuple(opts.probe),
-                measure=self._measure(doc),
-                load=opts.load,
-                fleet_name=opts.fleet,
-                setup=setup,
-            )
-        except alerts.AlertError:
-            return 1
+        read.record(
+            opts.host,
+            *onedoor.split_reading(self._reader(doc, opts.fleet, opts.host)),
+            run_id=opts.run_id,
+            probe=tuple(opts.probe),
+            measure=self._measure(doc),
+            load=opts.load,
+            fleet_name=opts.fleet,
+            setup=setup,
+        )
         return 0
 
     def _reader(self, doc: dict[str, Any], fleet: str, rig: str) -> str:

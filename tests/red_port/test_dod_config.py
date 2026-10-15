@@ -1,27 +1,23 @@
-"""A config says whether it is the live setup or a development one, and the
-default is live.
+"""A config names no profile: the door settles which config a run is under, and
+the default is live.
 
-The default is prod — ``~/.mcgyvr/config/mcgyvr.yaml`` is the unnamed fallback, a
-``dev.yaml`` is only ever reached through ``$MCGYVR_CONFIG``, and forgetting the
-variable lands on prod. Live outranks dev on a held rig (gate 2). A dev run may
-start and stop any ladder
-(``mcgyvr-lab/records/plans/fleet-identity.md`` §4), and what a dev serve may do
-is pinned in ``tests/test_a_dev_round_may_serve_any_launch_spec.py``, not here.
+The default is prod — the live fleet folder is the unnamed fallback, another
+setup is only ever reached through ``$MCGYVR_CONFIG`` or ``--config``, and
+forgetting the variable lands on prod. There is one kind of run (owner,
+2026-10-15: the dev side is the lab's); what a run under another setup may
+serve is pinned in ``tests/test_a_staged_setup_may_serve_any_launch_spec.py``, not
+here.
 
 What must be observably true:
 
-* a ``profile:`` key is read from the config, ``live`` or ``dev``, and a file
-  that says nothing is ``live`` — the safe value is the one you get for free;
-* a value that is neither is refused by the loader naming both;
-* the schema version does not move: a version-1 file without the key still
-  loads, and a version-1 file with it is still version 1;
-* ``mcgyvr setup`` writes the key at the schema's default, so the file says
-  what it is rather than leaving the reader to know the default;
-* the door hands every gate and the step the profile the config declares
-  (``RUN_PROFILE``), settled at gate 1 before any rig is read; with no config
-  at all it is ``live``;
+* a ``profile:`` key is refused by the loader, as any key the schema does not
+  know is;
+* the schema version does not move: a ``version`` key is refused;
+* the door hands every gate and the step the config the run is under
+  (``RUN_CONFIG``), settled at gate 1 before any rig is read; with no config
+  at all it is ``none``;
 * a config that is there and cannot be read is refused at gate 1 too: a run
-  whose config cannot be read cannot say which profile it ran under.
+  whose config cannot be read cannot say which fleet it ran under.
 """
 
 from __future__ import annotations
@@ -32,7 +28,6 @@ from typing import Any
 import pytest
 
 from tests import onedoor
-from tests.red_port.conftest import required
 
 CONFIG_VAR = "MCGYVR_CONFIG"
 
@@ -64,19 +59,12 @@ def _write(tmp_path: Path, name: str, text: str) -> Path:
 # --- the schema ----------------------------------------------------------------
 
 
-def test_a_config_that_says_nothing_is_live() -> None:
-    config = _parse(BASE_CONFIG)
-    assert config.get("profile") == "live", config.data
-
-
-def test_dev_is_read_and_a_third_value_is_refused_naming_both() -> None:
+def test_a_profile_key_is_refused() -> None:
     from mcgyvr.config import ConfigSchemaError
 
-    assert _parse("profile: dev\n" + BASE_CONFIG).get("profile") == "dev"
-    with pytest.raises(ConfigSchemaError) as refused:
-        _parse("profile: prod\n" + BASE_CONFIG)
-    said = str(refused.value)
-    assert "live" in said and "dev" in said, said
+    for value in ("live", "dev"):
+        with pytest.raises(ConfigSchemaError, match="profile"):
+            _parse(f"profile: {value}\n" + BASE_CONFIG)
 
 
 def test_a_version_key_is_retired() -> None:
@@ -87,47 +75,32 @@ def test_a_version_key_is_retired() -> None:
         _parse("version: 1\n" + BASE_CONFIG)
 
 
-def test_init_writes_the_profile_at_the_schemas_default() -> None:
-    from mcgyvr import config
-    from mcgyvr.detect import Detection
-    from mcgyvr.initialize import build
-    from mcgyvr.propose import Proposal
-
-    spec = next((f for f in config.SCHEMA if f.name == "profile"), None)
-    assert spec is not None, "profile is not a key of the schema"
-    assert spec.default == "live"
-    written = required(
-        "write the profile into a fresh config so the file says what it is",
-        lambda: build(Detection(), Proposal())["profile"],
-    )
-    assert written == spec.default
-
-
 # --- the door ------------------------------------------------------------------
 
-CAMPAIGN = "profile-probe"
+CAMPAIGN = "config-probe"
 
 
 def _probe(root: Path, env_file: Path) -> onedoor.Scenario:
-    """A campaign step that records the profile the door handed it."""
-    after = f"printf 'RUN_PROFILE=%s\\n' \"${{RUN_PROFILE:-}}\" >> '{env_file}'\n"
+    """A campaign step that records the config the door handed it."""
+    after = f"printf 'RUN_CONFIG=%s\\n' \"${{RUN_CONFIG:-}}\" >> '{env_file}'\n"
     step = onedoor.add_step(
         root, CAMPAIGN, "1-probe.sh", onedoor.probe_step(env_file, after=after)
     )
     return onedoor.Scenario(campaign=CAMPAIGN, step=str(step))
 
 
-def test_the_step_is_handed_the_profile_the_config_declares(tmp_path: Path) -> None:
+def test_the_step_is_handed_the_config_it_runs_under(tmp_path: Path) -> None:
     root = onedoor.fixture_repo(tmp_path)
-    dev = _write(tmp_path, "dev.yaml", "profile: dev\n" + BASE_CONFIG)
+    dev = _write(tmp_path, "dev.yaml", BASE_CONFIG)
     env_file = tmp_path / "env.txt"
     done = onedoor.door(root, _probe(root, env_file), env_extra={CONFIG_VAR: str(dev)})
     assert done.returncode == 0, done.stderr[-1500:]
     handed = onedoor.read_env_file(env_file)
-    assert handed.get("RUN_PROFILE") == "dev", handed
+    # A config named as one file is read from the folder it sits in.
+    assert handed.get("RUN_CONFIG") == str(dev.resolve().parent), handed
 
 
-def test_with_no_config_at_all_the_run_is_live(tmp_path: Path) -> None:
+def test_with_no_config_at_all_the_run_is_under_none(tmp_path: Path) -> None:
     """Forgetting the variable lands on prod: HOME holds no config, the cwd
     holds none, and nothing is named."""
     root = onedoor.fixture_repo(tmp_path)
@@ -135,7 +108,7 @@ def test_with_no_config_at_all_the_run_is_live(tmp_path: Path) -> None:
     done = onedoor.door(root, _probe(root, env_file))
     assert done.returncode == 0, done.stderr[-1500:]
     handed = onedoor.read_env_file(env_file)
-    assert handed.get("RUN_PROFILE") == "live", handed
+    assert handed.get("RUN_CONFIG") == "none", handed
 
 
 def test_a_config_that_cannot_be_read_is_refused_before_any_rig(
@@ -163,7 +136,7 @@ def test_a_relative_config_path_is_read_where_the_operator_typed_it(
     which is what ``mcgyvr`` itself would load."""
     checkout = onedoor.fixture_repo(tmp_path / "checkout")
     run_root = onedoor.fixture_repo(tmp_path / "run-root")
-    _write(checkout, "dev.yaml", "profile: dev\n" + BASE_CONFIG)
+    _write(checkout, "dev.yaml", BASE_CONFIG)
     env_file = tmp_path / "env.txt"
     done = onedoor.door(
         checkout,
@@ -171,7 +144,7 @@ def test_a_relative_config_path_is_read_where_the_operator_typed_it(
         env_extra={CONFIG_VAR: "dev.yaml", "MCGYVR_RUN_ROOT": str(run_root)},
     )
     assert done.returncode == 0, done.stderr[-1500:]
-    assert onedoor.read_env_file(env_file).get("RUN_PROFILE") == "dev"
+    assert onedoor.read_env_file(env_file).get("RUN_CONFIG") == str(checkout.resolve())
 
 
 def test_a_list_as_a_key_is_a_config_error_and_not_a_type_error() -> None:

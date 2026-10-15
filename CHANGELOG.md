@@ -11,6 +11,28 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed (breaking)
 
+- **There is one kind of run: `profile: live|dev` is gone.**
+  - `fleet.yaml` no longer holds `profile`, and a file that still says it is
+    refused as any unknown key is; nothing is migrated. `mcgyvr setup` and a
+    promotion no longer write it, and the rig lease names no profile.
+  - A run is held to the live fleet's lock whenever a fleet is live
+    (`mcgyvr.fleet.roots.runs_live`): `mcgyvr run`, `serve wake`, `manage`,
+    `mcorch serve` are admitted by a read of its rigs, the waker wakes only
+    along the lock, and gate 1 admits a `serve up` only for units the lock
+    names, whatever setup the command was given. The exception is a setup in
+    the data folder: the staging folder `mcgyvr setup` starts and samples
+    before anything of it is locked, which runs everything. With no fleet
+    live, a setup named outside the config folder is held to no lock; a run
+    under no config at all, or one in the config folder, still is.
+  - Every run takes the rig's lease whatever holds it and tears down what it
+    displaced (R1); the run displaced yields at its next touch of the rig. A
+    held rig is no longer refused.
+  - An alert from a read or a probe warns and stops nothing: no run raises on
+    one. `mcgyvr fleet alerts` reads the live fleet's lock and takes no
+    `--config`.
+  - The door's read gate is `read-01-config.py`, and `RUN_PROFILE` is no
+    longer exported; `RUN_CONFIG` is.
+
 - **`mcgyvr setup` stages in the data folder and writes nothing where it
   runs.**
   - Each run stages its `fleet.yaml` and `policy.yaml` in a folder of its own,

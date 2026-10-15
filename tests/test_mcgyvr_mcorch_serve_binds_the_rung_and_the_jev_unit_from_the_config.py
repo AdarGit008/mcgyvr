@@ -31,7 +31,6 @@ from tests import livejournal as lj
 from tests._helpers import write_setup
 
 SETUP = """\
-profile: dev
 deployment: local-only
 users: 2
 units:

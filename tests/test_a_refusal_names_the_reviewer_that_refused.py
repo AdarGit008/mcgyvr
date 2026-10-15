@@ -29,7 +29,6 @@ KEY = "ZETA_TEST_KEY"
 #: Two hosted rungs, the dearer one named to review: when it wrote the change,
 #: the rung below it stands in.
 HOSTED_PAIR = f"""\
-profile: dev
 units:
   flash:
     address: https://flash.example.invalid

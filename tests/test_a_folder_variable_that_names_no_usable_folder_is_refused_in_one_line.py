@@ -86,7 +86,7 @@ def test_the_first_gate_refuses_a_live_serve_by_the_variables_name(
     gate = by_path("gate_01_round", GATE_1)
 
     with pytest.raises(SystemExit):
-        gate.refuse_unless_the_fleet_lock_names("up", "live")
+        gate.refuse_unless_the_fleet_lock_names("up", "none")
 
     said = capsys.readouterr().err
     assert "gate 1: $MCGYVR_HOME=" in said, said
@@ -170,7 +170,7 @@ def test_the_first_gate_refuses_a_folder_it_cannot_search_by_its_path(
     gate = by_path("gate_01_round", GATE_1)
 
     with pytest.raises(SystemExit):
-        gate.refuse_unless_the_fleet_lock_names("up", "live")
+        gate.refuse_unless_the_fleet_lock_names("up", "none")
 
     said = capsys.readouterr().err
     assert "gate 1: " in said and str(unsearchable) in said, said

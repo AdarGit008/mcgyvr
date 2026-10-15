@@ -20,8 +20,7 @@ def test_the_example_fleet_loads() -> None:
     """``examples/fleet.yaml`` is a valid fleet file with the three blocks."""
     text = (REPO / "examples" / "fleet.yaml").read_text(encoding="utf-8")
     fleet = load_fleet(text)
-    assert set(fleet) == {"profile", "units", "rigs", "fleets"}
-    assert fleet["profile"] in {"live", "dev"}
+    assert set(fleet) == {"units", "rigs", "fleets"}
     assert fleet["units"], "the example names no units"
     assert fleet["fleets"], "the example names no fleets"
 

@@ -30,10 +30,9 @@ DOCKER = "27.1.0"
 RUN_DATE = "2026-10-07"
 #: Two invented units on card 0, as `mcgyvr emit` names a rig's units.
 UNITS = ("mcgyvr-box-a-fast-8001", "mcgyvr-box-a-strong-8002")
-#: A dev setup: a dev profile runs any compose file, so the stamped fleet
-#: gate 1 holds a live `serve up` to is not in the way of these tests.
+#: A setup outside the config folder runs any compose file, so the stamped
+#: fleet gate 1 holds a live `serve up` to is not in the way of these tests.
 DEV_SETUP = """\
-profile: dev
 units:
   only:
     address: http://box-a.invalid:8001

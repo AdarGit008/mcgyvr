@@ -684,19 +684,12 @@ def _mib(size_bytes: int) -> str:
     return f"{size_bytes / 1024 / 1024:.1f} MiB"
 
 
-#: Said by every deprecated ``--profile`` warning: the word also names the
-#: config's ``profile: live|dev``, which is a different setting and stays.
-_NOT_THE_CONFIG_PROFILE = (
-    "(this is not the config's `profile: live|dev`, a different setting that stays)"
-)
-
-
 def _setup_priority(args: argparse.Namespace) -> str | None:
     """The priority ``setup`` composes for, reading the old ``--profile``.
 
     ``--profile`` is deprecated: a word naming a priority maps onto it, any
     other text is ignored, and ``--priority`` wins when both are given. Each
-    case says so on stderr, and that the config's ``profile`` is another thing.
+    case says so on stderr.
     """
     priority: str | None = args.priority
     if args.profile is None:
@@ -710,19 +703,19 @@ def _setup_priority(args: argparse.Namespace) -> str | None:
     if priority is not None:
         print(
             f"{head}; --profile {args.profile!r} is ignored because "
-            f"`--priority {priority}` was given {_NOT_THE_CONFIG_PROFILE}",
+            f"`--priority {priority}` was given",
             file=sys.stderr,
         )
         return priority
     if word in PRIORITIES:
         print(
-            f"{head}; use `--priority {word}` {_NOT_THE_CONFIG_PROFILE}",
+            f"{head}; use `--priority {word}`",
             file=sys.stderr,
         )
         return word
     print(
         f"{head}; --profile {args.profile!r} names no priority ({names}), so it "
-        f"is ignored and the default ladder is written {_NOT_THE_CONFIG_PROFILE}",
+        "is ignored and the default ladder is written",
         file=sys.stderr,
     )
     return None
@@ -1103,9 +1096,6 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
             force=True,
             detection=_setup_synthetic_detection(plans, window=ctx_per_slot),
             use_case="coding",
-            # The staged setup's internal marker: the door starts and reads a
-            # fleet no lock holds yet. The fleet promoted from it is `live`.
-            profile="dev",
             # Auto-wake on: the launch specs are emitted here and kept.
             compose_dir=path,
         )
@@ -2844,8 +2834,8 @@ def _climb(
     # fleet is read through the door and held to its lock
     # (`mcgyvr.fleet.admission`). At the
     # top, the conservative place: a refused run costs no pool, no capacity slot
-    # and no sandbox. A dev run reads no rig.
-    if config.get("profile") == "live":
+    # and no sandbox. A run under a staged setup (`_live`) reads no rig.
+    if _live(config):
         refused = _admitted_live(config)
         if refused is not None:
             report.outcome = "error"
@@ -3007,7 +2997,7 @@ def _climb(
                 cooldown=cooldown,
                 reviewers=reviewers,
             )
-            if config.get("profile") == "live":
+            if _live(config):
                 driver = _warning_pulled_steps(driver)
 
             outcome = escalate(
@@ -3029,6 +3019,19 @@ def _climb(
             )
     except (DriveError, SandboxError, CapacityError) as exc:
         return _error(report, str(exc))
+
+
+def _live(config: Config) -> bool:
+    """Whether a command run under ``config`` is held to the live fleet's lock.
+
+    It is whenever a fleet is live, but under a setup in the data folder: the
+    staging folder ``mcgyvr setup`` starts and samples before anything of it is
+    locked, which is admitted against nothing
+    (:func:`mcgyvr.fleet.roots.runs_live`).
+    """
+    from mcgyvr.fleet.roots import runs_live
+
+    return runs_live(config.path)
 
 
 def _admitted_live(config: Config) -> str | None:
@@ -4004,7 +4007,7 @@ def _serve(args: argparse.Namespace) -> int:
     # starts nothing unapproved, and it is the way out.
     if (
         args.direction == "wake"
-        and config.get("profile") == "live"
+        and _live(config)
         and _admitted_live(config) is not None
     ):
         return Exit.REFUSED
@@ -4076,7 +4079,7 @@ def _manage(args: argparse.Namespace) -> int:
         print(f"nothing to manage: {why}")
         return Exit.OK
 
-    if config.get("profile") == "live" and _admitted_live(config) is not None:
+    if _live(config) and _admitted_live(config) is not None:
         return Exit.REFUSED
 
     # One manager per host: a second would throw switches on the same cards
@@ -5081,8 +5084,9 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
     """Serve the orchestrator rung as the agent, at an Anthropic Messages address.
 
     Refuses a config whose orchestrator is not ``type: mcorch`` — the command
-    has nothing to serve then — and, under a live profile, a fleet live
-    admission does not admit (:func:`_admitted_live`), as ``run`` is. Binds the
+    has nothing to serve then — and, under the live fleet (:func:`_live`), a
+    fleet live admission does not admit (:func:`_admitted_live`), as ``run``
+    is. Binds the
     loopback and the facade's own port unless told otherwise; prints where it
     listens and the writer id it journals under, so a reader can find the
     transcript; runs until interrupted.
@@ -5107,7 +5111,7 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return Exit.REFUSED
-    if config.get("profile") == "live" and _admitted_live(config) is not None:
+    if _live(config) and _admitted_live(config) is not None:
         return Exit.REFUSED
     try:
         bound = bind.bind(config, journal_dir=bind.journal_dir(config))
@@ -5138,7 +5142,8 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     from mcgyvr.derived import DerivedNumbersError
     from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
     from mcgyvr.fleet.lock import LockRefusedError, tolerances, write, write_from_stamp
-    from mcgyvr.fleet.roots import HOME_DIR, is_live, lock_root
+    from mcgyvr.fleet.roots import HOME_DIR, is_live
+    from mcgyvr.serving.run import run_root
 
     if args.stamp is not None:
         # A stamp folder holds its own setup and is its own dev root.
@@ -5163,9 +5168,7 @@ def _fleet_lock(args: argparse.Namespace) -> int:
         if args.fleet is None:
             print("error: --evidence needs --fleet", file=sys.stderr)
             return Exit.USAGE
-        dev_root = lock_root("dev")
-        assert dev_root is not None, "the dev lock root is the run root, a path"
-        root = Path(args.root) if args.root else dev_root
+        root = Path(args.root) if args.root else run_root()
     if is_live(root):
         print(
             f"error: {root} is or lies under a folder live fleets are read from (the "
@@ -5223,13 +5226,12 @@ def _fleet_alerts(args: argparse.Namespace) -> int:
 
     The journal is ``--journal``, else ``<journal.dir>/fleet`` of the live fleet
     — where ``mcgyvr fleet probe`` files (:func:`mcgyvr.fleet.probe.journal_dir`).
-    The lock is read from the root the config's profile names
-    (:func:`mcgyvr.fleet.roots.lock_root`) unless ``--root`` names one.
+    The lock is read from the live fleet's folder
+    (:func:`mcgyvr.fleet.roots.live_fleet_dir`) unless ``--root`` names one.
     """
-    from mcgyvr.config import ConfigMissingError, field_at
     from mcgyvr.fleet.alerts import pulled
     from mcgyvr.fleet.probe import ProbeError, journal_dir
-    from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, lock_root
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 
     if args.journal:
         journal = Path(args.journal)
@@ -5243,26 +5245,13 @@ def _fleet_alerts(args: argparse.Namespace) -> int:
     if args.root:
         root = Path(args.root)
     else:
-        chosen = Path(args.config) if getattr(args, "config", None) else None
         try:
-            profile = str(load_config(chosen).get("profile"))
-        except ConfigMissingError as exc:
-            if chosen is not None:
-                print(f"error: {exc}", file=sys.stderr)
-                return 1
-            spec = field_at("profile")
-            profile = str(spec.default) if spec is not None else "live"
-        except ConfigError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 1
-        try:
-            where = lock_root(profile)
+            # With no fleet named live there is no lock to clear a pull, so
+            # every pull the journal holds is listed.
+            root = live_fleet_dir()
         except LiveFleetError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
-        # With no fleet named live there is no lock to clear a pull, so every
-        # pull the journal holds is listed.
-        root = where
     for combination, entries in pulled(journal, root).items():
         for entry in entries:
             print(f"{combination} {entry['unit_id']} {entry['field']}")
@@ -5272,12 +5261,10 @@ def _fleet_alerts(args: argparse.Namespace) -> int:
 def _fleet_promote(args: argparse.Namespace) -> int:
     """Write a new live fleet folder from one fleet's dev lock, or refuse it."""
     from mcgyvr.fleet.promote import PromoteRefusedError, promote
-    from mcgyvr.fleet.roots import lock_root
+    from mcgyvr.serving.run import run_root
 
-    dev = lock_root("dev")
-    assert dev is not None, "the dev lock root is the run root, always a path"
     try:
-        folder = promote(dev, Path(args.setup), args.name)
+        folder = promote(run_root(), Path(args.setup), args.name)
     except PromoteRefusedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -5796,8 +5783,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         metavar="TEXT",
         help=(
             "deprecated, removed in the release after next: use --priority. "
-            "A word naming a priority maps onto it; other text is ignored. Not "
-            "the config's `profile: live|dev`"
+            "A word naming a priority maps onto it; other text is ignored"
         ),
     )
     setup.add_argument(
@@ -6060,7 +6046,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         default=None,
         metavar="DIR",
         help=(
-            "where the lock tree is written (default: the dev root — "
+            "where the lock tree is written (default: the run root — "
             "$MCGYVR_RUN_ROOT, else the checkout). Anything in or under the config "
             f"folder (${HOME_ENV}, else {HOME_DIR}) or in or under {HOME_DIR} is "
             "refused: a live fleet comes only from `mcgyvr fleet promote`"
@@ -6142,12 +6128,10 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
         default=None,
         metavar="DIR",
         help=(
-            "where the lock tree is read (default: the lock root the config's "
-            f"profile names — for live the fleet {LIVE_FILE_SHOWN} names, "
-            "for dev the dev root)"
+            "where the lock tree is read (default: the folder of the fleet "
+            f"{LIVE_FILE_SHOWN} names)"
         ),
     )
-    add_config(falerts, what="setup whose `profile` picks the lock root")
     falerts.set_defaults(func=_fleet_alerts)
 
     from mcgyvr.rig import verbs as rig_verbs

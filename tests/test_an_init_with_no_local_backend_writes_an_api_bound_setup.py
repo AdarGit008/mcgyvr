@@ -120,7 +120,6 @@ def test_the_written_setup_survives_the_loader_untouched(
     initialize(path, detection=BARE, api_units=(parse_api_unit(SPEC),))
 
     config = load_config(path)
-    assert config.get("profile") == "live"
     assert config.units["api_claude-opus-5"].requires_credential
 
 

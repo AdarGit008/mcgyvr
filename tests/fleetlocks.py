@@ -277,7 +277,7 @@ def dev_setup(
     setup.mkdir()
     (setup / "fleet.yaml").write_text(
         yaml.safe_dump(
-            {"profile": "dev", **(locked_fleet if file_fleet is None else file_fleet)},
+            locked_fleet if file_fleet is None else file_fleet,
             sort_keys=False,
         ),
         encoding="utf-8",

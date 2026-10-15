@@ -13,7 +13,7 @@ supplies; ``serve``, ``read``, ``link`` and ``step`` take a caller's own
 gates too (A CALLER'S GATES, below), which run inside the door's fixed order
 and never in place of any of it.
 
-THE STEP RUN (``step``, an advanced command) is the run: the door's profile
+THE STEP RUN (``step``, an advanced command) is the run: the door's config
 gate, the rig's lease and reading, its daemon, the envelope, then the
 caller's own ``--step``, then gates 7 and 8 whatever the step did, and the
 lease released last (:data:`STEP_SEQUENCE`). Its envelope is the user's door
@@ -85,7 +85,7 @@ naming a ``root`` folder and a list of gates, each ``{path, why, phase,
 exports[, timeout_s]}``. The door runs them inside its own run and never
 instead of any part of it; a ``before`` or ``after`` gate that refuses ends
 the run like a door gate that refuses. ``before`` runs after the door's
-profile gate, which reads no machine, and before anything is sent to one. On
+config gate, which reads no machine, and before anything is sent to one. On
 ``serve``, ``after``
 runs after the identity and daemon gates and before the envelope and the
 step, and ``always`` after gates 7 and 8, before the lease is released, and
@@ -130,7 +130,7 @@ version are not asked for: the rig is held to the user's own rig file
 (``<rig-file folder>/<rig>.json``, :mod:`mcgyvr.serving.rigfile`, written by
 ``mcgyvr scan --rig``). Each run reads the rig again, says what moved, and
 refuses only when the fleet no longer fits. Every gate is the same on every
-run: the profile and the live fleet's lock, the lease, the daemon that
+run: the config and the live fleet's lock, the lease, the daemon that
 answers and is the machine that was read, the envelope, the step, and the
 stray-container check. A serve run is filed under the data folder's
 ``door/<date>/<run_id>/`` (command, rig reading before and after, compose
@@ -273,13 +273,12 @@ class Entry:
 SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "01-round.py",
-        "gate 1: the run knows which profile it is under, and a live `serve "
-        "up` starts only units of the stamped fleet; a user's run pins no "
-        "round",
+        "gate 1: the run knows which config it is under, and a `serve up` "
+        "under the live fleet starts only units of its lock; a user's run "
+        "pins no round",
         exports=(
             "RUN_ROUND",
             "RUN_PRODUCT_SHA256",
-            "RUN_PROFILE",
             "RUN_CONFIG",
         ),
     ),
@@ -352,7 +351,7 @@ LEASE_RELEASE = Entry(
 )
 
 #: THE SERVE RUN (`python -m mcgyvr.serving.run serve up|down --host H
-#: --compose FILE`). The same fixed sequence as a step run: profile, rig,
+#: --compose FILE`). The same fixed sequence as a step run: config, rig,
 #: daemon, envelope, then the serve step, then gates 7 and 8. A live ladder
 #: is started and LEFT RUNNING, which gate 7 reads in its own serve
 #: vocabulary; `serve fetch --weights FILE` runs the same sequence: it leases
@@ -372,17 +371,17 @@ SERVE_SEQUENCE: tuple[Entry, ...] = tuple(
 STEP_SEQUENCE: tuple[Entry, ...] = SERVE_SEQUENCE
 
 #: THE READ RUN (`python -m mcgyvr.serving.run read --host H [--probe UNIT...
-#: [--load WxN]]`). A third fixed sequence: the profile is settled and no round
+#: [--load WxN]]`). A third fixed sequence: the config is settled and no round
 #: is opened, then one reader goes to the rig, is compared with the rig's
 #: file, and is filed. A plain read starts nothing on the rig; `--probe`
 #: and `--load` run the lock's harness there against idle units. There is no
 #: lease, no envelope, no teardown and no gate 7 or 8 in it.
 READ_SEQUENCE: tuple[Entry, ...] = (
     Entry(
-        "read-01-profile.py",
-        "read, profile: the read knows which profile it is under, as gate 1 "
+        "read-01-config.py",
+        "read, config: the read knows which config it is under, as gate 1 "
         "settles it, and no round is appended: a reading pins no tree",
-        exports=("RUN_PROFILE", "RUN_CONFIG"),
+        exports=("RUN_CONFIG",),
     ),
     Entry(
         "read-02-rig.py",
@@ -492,14 +491,14 @@ CALLER_EXPORT = re.compile(r"RUN_[A-Z0-9_]+")
 #: The phases of a caller's gate list.
 PHASES = ("before", "after", "always")
 #: Where each phase runs, as the door entry it follows. ``before`` follows the
-#: profile gate, which reads no machine, so it runs before the first gate that
+#: config gate, which reads no machine, so it runs before the first gate that
 #: reaches one. ``always`` is not here: on ``serve`` it runs after
 #: :data:`ALWAYS`, and a read has no such phase.
 SERVE_PHASES = {"before": "01-round.py", "after": "03-image.py"}
 #: A step run places its caller's gates as a serve run does: ``after`` once
 #: the rig is leased and read and its daemon answers, before the envelope.
 STEP_PHASES = SERVE_PHASES
-READ_PHASES = {"before": "read-01-profile.py", "after": "read-02-rig.py"}
+READ_PHASES = {"before": "read-01-config.py", "after": "read-02-rig.py"}
 #: A link run's one phase: ``before``, which runs before the timer reaches the
 #: rig. Nothing runs after the timer: its reading is the last line of the
 #: run's stdout, and that line is what its caller reads.
@@ -1549,7 +1548,7 @@ def _gates_help(verb: str, phases: str) -> str:
 #: ``--gates`` help says it.
 SERVE_PHASES_HELP = (
     "`before` gates run after the "
-    "profile and before anything is sent to the machine; `after` gates "
+    "config and before anything is sent to the machine; `after` gates "
     "after the identity and daemon gates and before the envelope and "
     "the step; `always` gates after gates 7 and 8 and before the lease "
     "is released, and only when the run got as far as gate 5. A "
@@ -1886,12 +1885,12 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
         help=_gates_help(
             "read",
             "`before` gates run after the "
-            "profile and before anything is sent to the machine. `after` gates "
+            "config and before anything is sent to the machine. `after` gates "
             "run after the machine is read and what was read is filed, so they "
             "cannot stop that filing, and only when the reading gate exited 0: "
             "it exits non-zero when it refused, and also after filing when a "
-            "probe or a load on the rig failed, or when a read under the dev "
-            "profile raised an alert. A read has no `always` phase, and a list "
+            "probe or a load on the rig failed. A read has no `always` phase, "
+            "and a list "
             "that asks for one is refused",
         ),
     )
@@ -2082,7 +2081,7 @@ def _link(argv: list[str]) -> int:
 #: What ``step --help`` says the step run is.
 STEP_HELP = (
     "advanced: run one script of your own on a rig, under the door's fixed "
-    "gates. The door settles the profile, leases the rig and reads it (held to "
+    "gates. The door settles the config, leases the rig and reads it (held to "
     f"your rig file, {RIGS_SHOWN}/RIG.json), checks that its docker daemon "
     "answers and is that machine, and makes the run's envelope; "
     "then it runs your --step with the run exported to it (RUN_ID, "

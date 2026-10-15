@@ -8,7 +8,7 @@ between verified fleets is a common action during runtime".
 
 :func:`promote` reads one fleet's dev lock from the dev root and writes
 ``~/.mcgyvr/fleets/<fleet>@<date>/`` — a setup of its own that ``mcgyvr
-config`` loads: ``fleet.yaml`` (profile live, that fleet's units, rigs and
+config`` loads: ``fleet.yaml`` (that fleet's units, rigs and
 fleet block), ``policy.yaml`` (the dev policy, its ladder filtered to those
 units) and the fleet's lock in its own lock tree. The date is the lock's
 own (:func:`lock_date`) and the folder's name is the only place it is
@@ -277,7 +277,6 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     if unsampled:
         kept |= {unit for unit, body in dev_fleet["units"].items() if "rig" not in body}
     live_fleet_doc: dict[str, Any] = {
-        "profile": "live",
         "units": {
             unit: copy.deepcopy(body)
             for unit, body in dev_fleet["units"].items()

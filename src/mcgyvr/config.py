@@ -1038,15 +1038,6 @@ MANAGER_FIELDS: tuple[Field, ...] = (
 
 SCHEMA: tuple[Field, ...] = (
     Field(
-        "profile",
-        "enum",
-        "Which setup this file is: `live` or `dev`. A fleet fact: live \
-"
-        "outranks dev on the rigs.",
-        choices=("live", "dev"),
-        default="live",
-    ),
-    Field(
         "use_case",
         "enum",
         "Which of the four use cases this install serves: `coding` (scoped "
@@ -2057,7 +2048,7 @@ def parse(
 
 #: The keys that belong in ``fleet.yaml``. Everything else in a merged
 #: document is policy, but for the relief block, which is ``relief.yaml``'s.
-_FLEET_ONLY = frozenset({"profile", "units", "rigs", "fleets"})
+_FLEET_ONLY = frozenset({"units", "rigs", "fleets"})
 _RELIEF_ONLY = frozenset({"relief"})
 
 

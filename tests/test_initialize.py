@@ -85,17 +85,8 @@ def test_the_generated_file_loads_without_edits(tmp_path: Path, label: str) -> N
     """The whole point: init's output is the loader's input, unmodified."""
     initialize(tmp_path / "setup", detection=_serving(label, "example-model-small"))
     config = load_config(tmp_path / "setup")
-    assert config.get("profile") == "live"
+    assert "profile" not in config.data
     assert "version" not in config.data
-
-
-def test_initialize_writes_the_profile_it_is_asked_for(tmp_path: Path) -> None:
-    """The written profile is the parameter, defaulting to live."""
-    initialize(tmp_path / "live", detection=KEYLESS_RIG)
-    assert load_config(tmp_path / "live").get("profile") == "live"
-
-    initialize(tmp_path / "dev", detection=KEYLESS_RIG, profile="dev")
-    assert load_config(tmp_path / "dev").get("profile") == "dev"
 
 
 def test_init_writes_the_use_case_and_its_deployment_default(tmp_path: Path) -> None:
@@ -360,7 +351,7 @@ def test_the_file_carries_comments_from_the_schema(tmp_path: Path) -> None:
     text = (path / "fleet.yaml").read_text(encoding="utf-8") + (
         path / "policy.yaml"
     ).read_text(encoding="utf-8")
-    assert "# Which setup this file is" in text
+    assert "# Which of the four use cases this install serves" in text
     assert "# Where this unit answers, including scheme and port." in text
     prose = " ".join(
         line.lstrip().removeprefix("#").strip()

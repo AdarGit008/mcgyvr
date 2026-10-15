@@ -187,7 +187,6 @@ def test_a_read_files_every_sample_on_the_units_rows_unjudged(tmp_path: Path) ->
         "box2",
         *onedoor.split_reading(rig_text()),
         run_id=RUN_ID,
-        profile="live",
         probe=("box2_3b",),
         measure=measure,
     )

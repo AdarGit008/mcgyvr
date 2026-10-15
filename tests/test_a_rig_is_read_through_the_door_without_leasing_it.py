@@ -6,7 +6,7 @@ UNIT...]`` is the door's third fixed sequence, beside the campaign run and
 lease, a live run tears down what it displaced, and a busy rig is refused
 unless the run is ``serve down``. ``read`` changes nothing on the rig:
 
-* **The profile is settled**, and no round is appended or pinned (the round is
+* **The config is settled**, and no round is appended or pinned (the round is
   the lab's).
 * **The rig is held to the user's rig file and nothing else.** No lease, no
   teardown of a displaced run, no refusal of a busy rig. A rig with no rig file
@@ -77,7 +77,7 @@ def box2(tmp_path: Path) -> Iterator[tuple[Path, Path]]:
 
 def test_read_is_a_fixed_sequence_with_one_reader_on_the_manifest() -> None:
     assert [entry.script for entry in run.READ_SEQUENCE] == [
-        "read-01-profile.py",
+        "read-01-config.py",
         "read-02-rig.py",
     ]
     for entry in run.READ_SEQUENCE:

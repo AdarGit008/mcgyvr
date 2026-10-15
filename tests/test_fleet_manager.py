@@ -95,10 +95,7 @@ def ladder_text(compose_dir: str | None, *, with_smart_spec: bool) -> str:
         "ladder:\n"
         f"- {FAST}\n"
         f"- {SMART}\n"
-        f"- {API_RUNG}\n"
-        + "max_escalations: 2\n"
-        + serving
-        + ("profile: dev\n" if not serving else "")
+        f"- {API_RUNG}\n" + "max_escalations: 2\n" + serving
     )
 
 

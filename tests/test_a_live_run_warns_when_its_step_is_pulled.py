@@ -4,14 +4,15 @@ Owner ruling: warn, do not refuse. A live probe alert pulls its combination
 (:func:`mcgyvr.fleet.alerts.pulled`), and a pull can rest on a false reading,
 so a pulled step is not refused:
 
-* **On the live profile, a pulled step warns once, before it is dispatched,**
+* **Under the live fleet, a pulled step warns once, before it is dispatched,**
   on stderr: the unit, each pulled field with its count, and ``see mcgyvr
   fleet alerts``. Then it is dispatched exactly as it would have been: the same
   rungs, the same attempts, the same outcome.
 * **A step whose combination is not pulled, or whose validation is newer than
   its alerts, prints nothing.**
 * **Pulls that cannot be read are one warning, and the run goes on.**
-* **A dev run is the same with pulls as without them.**
+* **A run under a setup ``mcgyvr setup`` staged is the same with pulls as
+  without them:** nothing locked holds it (:func:`mcgyvr.fleet.roots.runs_live`).
 * **The units a pull reaches are resolved in** :mod:`mcgyvr.fleet.alerts`
   (``pulled_units``).
 
@@ -71,9 +72,8 @@ OLDER = "2026-09-13T21:44:00Z"
 NEWER = "2026-09-15T09:00:00Z"
 
 
-def fleet(profile: str = "live") -> dict[str, Any]:
+def fleet() -> dict[str, Any]:
     return {
-        "profile": profile,
         "units": {
             FIRST: {
                 "rig": "box2",
@@ -114,12 +114,10 @@ def home() -> Path:
     return Path(os.environ["HOME"])
 
 
-def write_setup(
-    where: Path, journal: Path, profile: str, validated: dict[str, str]
-) -> None:
+def write_setup(where: Path, journal: Path, validated: dict[str, str]) -> None:
     """``fleet.yaml``, ``policy.yaml`` and the lock's ``validated_at`` per rig."""
     where.mkdir(parents=True, exist_ok=True)
-    (where / "fleet.yaml").write_text(yaml.safe_dump(fleet(profile)), encoding="utf-8")
+    (where / "fleet.yaml").write_text(yaml.safe_dump(fleet()), encoding="utf-8")
     policy = {"ladder": [FIRST, SECOND], "journal": {"dir": str(journal)}}
     (where / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
     for rig_id, at in validated.items():
@@ -137,7 +135,6 @@ def go_live(tmp_path: Path, validated: dict[str, str] | None = None) -> Path:
     write_setup(
         folder,
         journal,
-        "live",
         validated if validated is not None else {RIG_FIRST: OLDER, RIG_SECOND: OLDER},
     )
     (home() / ".mcgyvr" / "live.json").write_text(
@@ -317,12 +314,14 @@ def test_pulls_that_cannot_be_read_are_one_warning_and_the_run_goes_on(
     assert (code, rungs) == (clean_code, clean_rungs)
 
 
-def test_a_dev_run_is_unchanged_by_pulls(
+def test_a_run_under_a_staged_setup_is_unchanged_by_pulls(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    from mcgyvr.fleet.roots import staging_dir
+
     journal = go_live(tmp_path)
-    dev = tmp_path / "dev-setup"
-    write_setup(dev, journal, "dev", {})
+    dev = staging_dir("20261015T000000-abcdef01")
+    write_setup(dev, journal, {})
     clean_code, clean_rungs, clean_err = climb(
         tmp_path, monkeypatch, capsys, "clean", config=dev
     )

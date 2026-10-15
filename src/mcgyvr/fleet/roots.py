@@ -1,23 +1,28 @@
-"""Dev and live read different fleet locks, and a fleet moves one way: dev to live.
+"""Where live fleets are kept, and which setups a run is held to the live lock under.
 
 Owner, 2026-09-15: the config folder holds live fleets and the dev root holds
 the dev lock - 2 separate locks and fleets - data flows one way dev->live;
 "stamped for live = another fleet setup available for live (no overwrite, not
 in place of, new folder new files)"; "~/.mcgyvr/fleets/<name>/   live can
-switch between fleets runtime".
+switch between fleets runtime". The dev side is the lab's; the product keeps
+the live side, and one kind of run.
 
-* The dev lock is committed in the dev root — committing it is the approval.
 * A live fleet is a folder of its own, ``~/.mcgyvr/fleets/<fleet>@<date>/``,
-  written once by ``mcgyvr fleet promote`` and never in place. Owner,
-  2026-09-16: "all fleets get tagged with date" — the date is the lock's own
-  (:func:`mcgyvr.fleet.promote.lock_date`), and the folder's name is the only
-  place it is spelled: inside, the fleet keeps its plain name, and
+  written once by :func:`mcgyvr.fleet.promote.promote` and never in place.
+  Owner, 2026-09-16: "all fleets get tagged with date" — the date is the
+  lock's own (:func:`mcgyvr.fleet.promote.lock_date`), and the folder's name is
+  the only place it is spelled: inside, the fleet keeps its plain name, and
   :func:`layout_of` is how every reader gets from the one to the other. A
   folder promoted before the ruling has no tag, and reads the same way.
 * ``~/.mcgyvr/live.json`` names the fleet live runs (``mcgyvr fleet use``), and
-  so the lock live reads. With no ``live.json`` there is no live lock.
+  so the lock a run is held to (:func:`live_fleet_dir`). With no ``live.json``
+  there is no live lock.
+* A run is held to that lock whenever a fleet is live (:func:`runs_live`),
+  but one made under a setup in the data folder: mcgyvr's own files, where
+  ``mcgyvr setup`` stages a fleet, starts it and samples it before anything
+  of it is locked.
 
-Every reader of a lock asks :func:`lock_root`; none reads the working
+Every reader of the lock asks :func:`live_fleet_dir`; none reads the working
 directory, because a lock found there is a lock nobody promoted.
 
 Two folders on the machine mcgyvr runs on can each be moved by the user: the
@@ -49,7 +54,7 @@ DATA_DIR = f"~/.local/state/{DATA_NAME}"
 #: Where each live fleet folder sits under the config folder.
 FLEETS_DIR = "fleets"
 #: Where a fleet's lock sits in the folder that holds it: a live fleet folder,
-#: a stamp folder, or the dev root.
+#: a stamp folder, or the folder :func:`mcgyvr.fleet.lock.write` is handed.
 LOCK_DIR = Path("lock")
 #: Where ``mcgyvr setup`` stages each run under the data folder.
 SETUPS_DIR = "setup"
@@ -258,22 +263,33 @@ def live_fleet_dir() -> Path | None:
     return None if named is None else fleets_dir() / named
 
 
-def lock_root(profile: str) -> Path | None:
-    """The directory whose lock tree is the lock ``profile`` reads.
+def runs_live(setup: Path | None) -> bool:
+    """Whether a run made under the setup at ``setup`` is held to the live lock.
 
-    ``live`` is the fleet folder the config folder's ``live.json`` names, and
-    ``None`` when no fleet is named — no live lock, so live admits nothing.
-    ``dev`` is the run root — ``$MCGYVR_RUN_ROOT`` when the door names one,
-    else the checkout — which is :func:`mcgyvr.serving.run.run_root`, so the
-    dev lock and the dev evidence are found under one directory.
+    Never when the setup lies in the data folder (:func:`data_home`): mcgyvr's
+    own files, never a setup a person keeps, where ``mcgyvr setup`` stages a
+    fleet (:func:`staging_dir`), starts it and samples it before anything of it
+    is locked; the fleet it locks is promoted out of there. Otherwise, whenever
+    a fleet is live (``live.json`` names one, or cannot be read), whatever
+    setup the run chose: the live fleet's own, or one a person named with
+    ``--config`` or ``$MCGYVR_CONFIG``, which live admission then holds to the
+    live fleet's layout. ``None`` is a setup with no folder, held in memory
+    by a caller of its own, and is held to the lock on the same terms. With no
+    fleet live there is no lock to hold a run to, and only a setup in the
+    config folder (:func:`is_live`) is held to it all the same, which refuses
+    it. A folder this cannot resolve, and a pointer that cannot be read, hold a
+    run to the lock: nobody can say it is not the live one.
     """
-    if profile == "live":
-        return live_fleet_dir()
-    if profile == "dev":
-        from mcgyvr.serving.run import run_root
-
-        return run_root()
-    raise ValueError(f"no fleet lock root for profile {profile!r}: live or dev")
+    try:
+        if setup is not None and _resolved(setup).is_relative_to(
+            _resolved(data_home())
+        ):
+            return False
+        if live_fleet() is not None:
+            return True
+        return setup is not None and is_live(setup)
+    except (FolderError, LiveFleetError, RuntimeError):
+        return True
 
 
 def _resolved(path: Path) -> Path:
