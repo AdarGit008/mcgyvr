@@ -10,7 +10,7 @@ and what to restore. ``wake`` finds the one listed switch that wakes a unit.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -209,12 +209,15 @@ def _pinned_rig_id(root: Path, host: str) -> str | None:
     return rig_id if isinstance(rig_id, str) and rig_id else None
 
 
-def _laid_out_unsampled(root: Path, host: str) -> bool:
-    """Whether a lock under ``root`` approved on no evidence lays out ``host``.
+def _unsampled_slots(root: Path, host: str) -> Iterator[tuple[dict[str, Any], Any]]:
+    """Each ``(fleet.yaml, slots on host)`` a lock under ``root`` approved on no
+    evidence lays out.
 
     Read from the ``fleet.yaml`` beside the lock, and only while that file's
     layout still matches the lock's pin: a rig edited into the layout after the
-    approval is not locked by it.
+    approval is not locked by it. The one rule both :func:`host_is_locked` and
+    the door's gate 1 (:func:`unsampled_containers`) read, so the two cannot
+    drift apart.
     """
     import yaml
 
@@ -223,10 +226,10 @@ def _laid_out_unsampled(root: Path, host: str) -> bool:
     try:
         given = yaml.safe_load((root / "fleet.yaml").read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
-        return False
+        return
     fleets = given.get("fleets") if isinstance(given, dict) else None
     if not isinstance(fleets, dict):
-        return False
+        return
     for name, block in fleets.items():
         layout = block.get("layout") if isinstance(block, dict) else None
         if not isinstance(layout, dict) or host not in layout:
@@ -243,8 +246,37 @@ def _laid_out_unsampled(root: Path, host: str) -> bool:
             and approved_on_no_evidence(lock)
             and lock.get("layout_sha256") == pinned
         ):
-            return True
-    return False
+            yield given, layout[host]
+
+
+def _laid_out_unsampled(root: Path, host: str) -> bool:
+    """Whether a lock under ``root`` approved on no evidence lays out ``host``
+    (:func:`_unsampled_slots`)."""
+    return any(True for _ in _unsampled_slots(root, host))
+
+
+def unsampled_containers(root: Path, host: str) -> set[str]:
+    """The containers a lock under ``root`` approved on no evidence lays out on
+    ``host``: each unit the pinned layout places there, by the ``container``
+    its ``fleet.yaml`` entry names (:func:`_unsampled_slots`).
+
+    Such a lock writes no combination record, so this is what the door's gate 1
+    admits a live ``serve up`` of for it; a lock measured from dev evidence
+    adds nothing here and answers from its records alone.
+    """
+    containers: set[str] = set()
+    for given, slots in _unsampled_slots(root, host):
+        units = given.get("units")
+        if not isinstance(units, dict) or not isinstance(slots, list):
+            continue
+        for slot in slots:
+            if not isinstance(slot, list | tuple) or not slot:
+                continue
+            unit = units.get(slot[0])
+            container = unit.get("container") if isinstance(unit, dict) else None
+            if isinstance(container, str) and container:
+                containers.add(container)
+    return containers
 
 
 def host_is_locked(root: Path, host: str) -> bool:

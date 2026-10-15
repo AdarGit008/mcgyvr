@@ -67,8 +67,15 @@ def _b64(text: str) -> str:
 
 @dataclass
 class FakeRig:
-    """The rig behind the door: containers up, reads filed."""
+    """The rig behind the door: containers up, reads filed.
 
+    With ``gate_1`` a ``serve up`` first passes the door's own gate 1 check
+    (:func:`gate_1`), and a refusal there is the door's exit status: the
+    containers stay down.
+    """
+
+    gate_1: bool = False
+    gate_1_said: list[tuple[str, int]] = field(default_factory=list)
     serve_fails: bool = False
     read_fails: bool = False
     warm: float = WARM
@@ -84,11 +91,11 @@ class FakeRig:
         self.configs.append(env.get("MCGYVR_CONFIG"))
         verb = args[args.index(DOOR_MODULE) + 1 :]
         if verb[0] == "serve":
-            return self._serve(verb[1], verb[2:])
+            return self._serve(verb[1], verb[2:], env)
         assert verb[0] == "read", args
         return self._read(verb[1:], Path(env["MCGYVR_CONFIG"]))
 
-    def _serve(self, direction: str, rest: list[str]) -> int:
+    def _serve(self, direction: str, rest: list[str], env: dict[str, str]) -> int:
         parser = argparse.ArgumentParser()
         for flag in ("--mode", "--host", "--compose", "--suffix"):
             parser.add_argument(flag)
@@ -98,6 +105,11 @@ class FakeRig:
         self.calls.append(("serve", direction, opts.host, compose.name, *opts.unit))
         if self.serve_fails:
             return 1
+        if self.gate_1 and direction == "up":
+            profile, status = gate_1(env, opts.host, compose, opts.unit)
+            self.gate_1_said.append((profile, status))
+            if status:
+                return status
         services = yaml.safe_load(compose.read_text(encoding="utf-8"))["services"]
         named = set(opts.unit) or {s["container_name"] for s in services.values()}
         if direction in ("up", "wake"):
@@ -179,6 +191,49 @@ class FakeRig:
             )
 
         return measure
+
+
+def gate_1(
+    env: dict[str, str], host: str, compose: Path, units: list[str]
+) -> tuple[str, int]:
+    """The door's gate 1 on a ``serve up`` of ``compose`` on ``host``, in this
+    process: the profile it named, and ``0`` admitted or the status it refused
+    with.
+
+    Under the variables the door sets (``src/mcgyvr/serving/run.py``): the
+    containers the launch spec declares, and the ``--unit`` ones alone when
+    named.
+    """
+    import os
+    from unittest import mock
+
+    from tests._helpers import by_path
+    from tests._paths import REPO
+
+    gate = by_path(
+        "gate_01_round",
+        REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "01-round.py",
+    )
+    door = {
+        **os.environ,
+        **env,
+        "RUN_HOST": host,
+        "RUN_SERVE": "up",
+        "RUN_SERVE_EXPECTED": " ".join(
+            service["container_name"]
+            for service in yaml.safe_load(compose.read_text(encoding="utf-8"))[
+                "services"
+            ].values()
+        ),
+        "RUN_SERVE_ONLY": " ".join(sorted(set(units))),
+    }
+    with mock.patch.dict(os.environ, door, clear=True):
+        try:
+            which, _source = gate.profile()
+            gate.refuse_unless_the_fleet_lock_names("up", which)
+        except SystemExit as refused:
+            return "refused", int(refused.code or 1)
+    return which, 0
 
 
 def accepted(argv: list[str], *, outcome: str = "accepted") -> int:

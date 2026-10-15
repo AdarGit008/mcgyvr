@@ -68,6 +68,13 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   a unit that is down is a door `serve up` of that unit's launch spec and the
   request again. Live wakes a rig only when the live fleet's lock names it,
   whether the lock was written from a stamp or on no evidence.
+  - The door's gate 1 now admits that `serve up` for a fleet locked on no
+    evidence too. It admits the containers the lock's layout places on that
+    rig, while the live `fleet.yaml` still matches the lock's pin, and
+    nothing else (`mcgyvr.fleet.admit.unsampled_containers`, the rule
+    `host_is_locked` reads). Before, the waker passed and the door refused.
+    A lock written from a stamp is still read from its combination records
+    alone.
 
 - **A fleet's lock sits in `lock/`.** The lock tree inside a live fleet
   folder, a stamp folder and the dev root is `lock/` (`lock/<fleet>.json`,
