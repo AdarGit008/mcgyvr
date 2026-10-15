@@ -1,15 +1,14 @@
-"""A machine a user owns, behind the door's shims, for the tests of the user mode.
+"""A machine a user owns, behind the door's shims, for the tests of a door run
+from an install.
 
-The door's user mode is the door run from an install: no lab checkout, so no
-round, no lab ``hosts.json`` and no declared docker version. What it holds the rig
-to instead is the user's own rig file, ``<rig-file folder>/<rig>.json``
-(``$MCGYVR_RIGS``, default ``$MCGYVR_HOME/rigs``), the
+The door holds the rig to the user's own rig file, ``<rig-file
+folder>/<rig>.json`` (``$MCGYVR_RIGS``, default ``$MCGYVR_HOME/rigs``), the
 rig's read-only scan saved by ``mcgyvr scan --rig``.
 
 These helpers stand the one-door stubs (:mod:`tests.onedoor`) behind the
 door's shims for one invented machine, and run the door as an installed
-``python -m mcgyvr.serving.run`` whose run root is a folder that is not a lab
-checkout. Every host, card and container named here is invented.
+``python -m mcgyvr.serving.run``. Every host, card and container named here
+is invented.
 """
 
 from __future__ import annotations
@@ -116,13 +115,6 @@ def set_scan(stubs: Path, scan: dict[str, object]) -> None:
     (stubs / "rigscan.json").write_text(json.dumps(scan), encoding="utf-8")
 
 
-def install_root(tmp_path: Path) -> Path:
-    """A run root that is not a checkout: what an install runs from."""
-    root = tmp_path / "install-root"
-    root.mkdir(exist_ok=True)
-    return root
-
-
 def compose_file(where: Path, names: tuple[str, ...] = UNITS) -> Path:
     """A compose file of the invented units, each reserving card 0."""
     services = {
@@ -156,7 +148,6 @@ def door(
     argv: list[str],
     *,
     stubs: Path,
-    run_root: Path,
     cwd: Path,
     env_extra: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
@@ -169,7 +160,6 @@ def door(
     parts = [str(stubs), str(Path(sys.executable).parent)]
     parts += (env.get("PATH") or os.defpath).split(os.pathsep)
     env["PATH"] = os.pathsep.join(parts)
-    env["MCGYVR_RUN_ROOT"] = str(run_root)
     env["STUB_RIG_HOME"] = "/home/user"
     env["STUB_FREE"] = "15884"
     env["STUB_USED"] = "100"

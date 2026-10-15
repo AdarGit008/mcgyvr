@@ -36,7 +36,6 @@ def _up(tmp_path: Path, stubs: Path, **extra: str) -> tuple[int, str]:
     done = usermode.door(
         usermode.serve("up", compose),
         stubs=stubs,
-        run_root=usermode.install_root(tmp_path),
         cwd=tmp_path,
         env_extra={"MCGYVR_CONFIG": str(usermode.dev_setup(tmp_path)), **extra},
     )
@@ -53,9 +52,6 @@ def test_serve_up_from_an_install_runs_against_the_rig_file_and_files_its_log(
 
     assert code == 0, said
     assert any(" up " in f" {line} " for line in onedoor.docker_log(stubs)), said
-    # Nothing of the lab was asked for: no round, no hosts.json, no declared
-    # docker version; the run root holds none of them.
-    assert "hosts.json" not in said
     [run] = usermode.door_logs(usermode.home())
     assert run.parent.name == usermode.RUN_DATE
     header = json.loads((run / f"{run.name}.run.json").read_text(encoding="utf-8"))
@@ -204,7 +200,6 @@ def test_a_live_serve_up_starts_only_units_of_the_stamped_fleet(
     done = usermode.door(
         usermode.serve("up", compose),
         stubs=stubs,
-        run_root=usermode.install_root(tmp_path),
         cwd=tmp_path,
     )
 

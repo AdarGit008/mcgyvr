@@ -52,7 +52,6 @@ def _door(tmp_path: Path, stubs: Path, direction: str, *units: str) -> tuple[int
     done = usermode.door(
         usermode.serve(direction, usermode.compose_file(tmp_path), extra=extra),
         stubs=stubs,
-        run_root=usermode.install_root(tmp_path),
         cwd=tmp_path,
         env_extra={"MCGYVR_CONFIG": str(usermode.dev_setup(tmp_path))},
     )
@@ -161,7 +160,6 @@ def test_a_fetch_takes_no_unit(tmp_path: Path) -> None:
             FAST,
         ],
         stubs=stubs,
-        run_root=usermode.install_root(tmp_path),
         cwd=tmp_path,
     )
 

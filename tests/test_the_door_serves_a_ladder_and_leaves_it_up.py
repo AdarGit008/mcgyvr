@@ -1,15 +1,12 @@
-"""``python -m mcgyvr.serving.run serve up|down``: the door's second fixed
-sequence, for a ladder that is started and left running.
+"""``python -m mcgyvr.serving.run serve up|down``: the door's fixed sequence,
+for a ladder that is started and left running.
 
-The campaign run refuses a rig that is not idle and names any container the
-step left, and a live ladder is exactly a set of containers left up on a busy
-rig. So ``serve`` is a second sequence in the same door — the same gates
-that make a rig the declared rig (1, 2, 3, 5), the step, then 7 and 8 —
-with gate 2 and gate 7 reading the direction: ``up`` opens on an idle rig and
-expects every container the door read from the compose file, ``down`` opens
-on the serving rig and expects an empty daemon. Nothing else is different,
-nothing is skippable, and the operator never spells a container name: the
-door reads them from the file ``mcgyvr emit`` wrote.
+A live ladder is a set of containers left up on a busy rig, so the gates that
+make a rig the declared rig (1, 2, 3, 5), the step, then 7 and 8 read the
+direction: ``up`` opens on an idle rig and expects every container the door
+read from the compose file, ``down`` opens on the serving rig and expects an
+empty daemon. Nothing is skippable, and the operator never spells a container
+name: the door reads them from the file ``mcgyvr emit`` wrote.
 """
 
 from __future__ import annotations
