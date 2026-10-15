@@ -80,6 +80,7 @@ from mcgyvr.initialize import (
     initialize,
     parse_api_unit,
     render_fleet,
+    unit_names,
 )
 from mcgyvr.scan import ModelOnDisk, Scan
 from mcgyvr.serving import (
@@ -788,6 +789,78 @@ def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
     return str(prompt(question)).strip().lower() in {"y", "yes"}
 
 
+def _ask(question: str, prompt: Callable[[str], str] = input) -> str:
+    """One typed answer, stripped; Enter is the empty answer."""
+    return str(prompt(question)).strip()
+
+
+#: How many times a typed setup question is asked before setup stops.
+_SETUP_TRIES = 3
+
+
+def _setup_choose(question: str, choices: Sequence[str], what: str) -> str:
+    """One of ``choices``, asked by ``question``; Enter is the first.
+
+    An answer that is none of them is asked again, :data:`_SETUP_TRIES` times
+    in all, and then setup stops naming them: nothing has been read or
+    written yet, so stopping costs the user only the retype.
+    """
+    said = ""
+    for _ in range(_SETUP_TRIES):
+        said = _ask(question)
+        if not said:
+            return choices[0]
+        if said in choices:
+            return said
+        print(f"{said!r} is not {what}: pick {_spoken_or(choices)}.")
+    raise _SetupInteractiveError(
+        f"{said!r} is not {what}; setup offers {_spoken_or(choices)}"
+    )
+
+
+def _spoken_or(names: Sequence[str]) -> str:
+    """``a, b or c``."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} or {names[-1]}"
+
+
+def _setup_use_cases() -> tuple[str, ...]:
+    """The use cases setup offers, coding (the default) first: the catalog's,
+    as ``--use-case`` offers them."""
+    from mcgyvr.catalog import catalog
+    from mcgyvr.fleet.sample import CODING_USE_CASE
+
+    names = tuple(u.name for u in catalog().use_cases)
+    return (CODING_USE_CASE, *(n for n in names if n != CODING_USE_CASE))
+
+
+def _ask_setup_use_case() -> str:
+    """Which use case the setup serves (``--use-case``); Enter is coding."""
+    names = _setup_use_cases()
+    return _setup_choose(
+        f"What is this setup for: {_spoken_or(names)}? [{names[0]}] ",
+        names,
+        "a use case",
+    )
+
+
+#: The two opt-ins, asked as ``--jev`` and ``--mcorch`` are given.
+JEV_QUESTION = "Dedicate a unit to Jev, which answers typed decisions? [y/N] "
+MCORCH_QUESTION = "Run mcorch, the local orchestrator, on a unit? [y/N] "
+
+
+def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
+    """The unit ``role`` (``Jev`` or ``mcorch``) runs on; one unit is not asked,
+    and Enter is the first of several."""
+    if len(units) == 1:
+        return units[0]
+    verb = "is" if role == "Jev" else "runs"
+    return _setup_choose(
+        f"Which unit {verb} {role}: {', '.join(units)}? [{units[0]}] ",
+        units,
+        "a unit of this setup",
+    )
+
+
 def _setup_scan_rigs(
     rigs: Sequence[str],
 ) -> tuple[dict[str, Scan], dict[str, dict[str, Any]]]:
@@ -1080,17 +1153,36 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
 def _setup_interactive(path: Path, run_id: str = "") -> int:
     """The guided ``mcgyvr setup``: prompt, then perform each step.
 
+    ASK the rigs, the use case (:func:`_ask_setup_use_case`), and the two
+    opt-ins ``--jev`` and ``--mcorch`` give (:data:`JEV_QUESTION`, and for
+    ``coding`` with Jev on :data:`MCORCH_QUESTION`), all before the plan.
     READ each rig once, PLAN, then STAGE at ``path``: the setup written once
     from the plan and its launch specs emitted once, both there. START its
     units through the door on a yes, SAMPLE them (:func:`_setup_sample`), and
-    lock the stamped fleet and name it live on a second yes. Nothing is
-    written anywhere else.
+    lock the stamped fleet and name it live on a second yes. ``media-gen``
+    has no sample yet, so nothing is started and it goes to the
+    acknowledgment (:func:`_setup_unsampled`). Nothing is written anywhere
+    else.
     """
+    from mcgyvr.fleet.sample import CODING_USE_CASE, MEDIA_GEN, MEDIA_NOT_BUILT
+
     run_id = run_id or _setup_run_id()
     try:
         path.mkdir(parents=True, exist_ok=True)
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
+        use_case = _ask_setup_use_case()
+        if use_case == MEDIA_GEN:
+            print(
+                f"{MEDIA_GEN} cannot be sampled yet: {MEDIA_NOT_BUILT}. Setup "
+                "stages it and asks before it locks it on no evidence."
+            )
+        wants_jev = _confirm(JEV_QUESTION)
+        # mcorch asks the Jev unit every bounded question (`--mcorch` needs
+        # `--jev`), so it is offered only with Jev on.
+        wants_mcorch = (
+            use_case == CODING_USE_CASE and wants_jev and _confirm(MCORCH_QUESTION)
+        )
         scans, readings = _setup_scan_rigs(rigs)
         plans = _setup_placements(rigs, scans)
         ctx_per_slot = _setup_context_window(plans)
@@ -1098,11 +1190,19 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         for rig, record in downloads:
             _setup_fetch(rig, record, path)
 
+        detection = _setup_synthetic_detection(plans, window=ctx_per_slot)
+        units = unit_names(detection) if wants_jev else ()
+        jev = _setup_pick_unit("Jev", units) if wants_jev else None
+        mcorch = _setup_pick_unit("mcorch", units) if wants_mcorch else None
         staged = initialize(
             path,
             force=True,
-            detection=_setup_synthetic_detection(plans, window=ctx_per_slot),
-            use_case="coding",
+            detection=detection,
+            use_case=use_case,
+            jev=jev,
+            mcorch=mcorch,
+            # The window each slot is launched at, which the sample reads back.
+            window=ctx_per_slot if mcorch is not None else None,
             # The staged setup's internal marker: the door starts and reads a
             # fleet no lock holds yet. The fleet promoted from it is `live`.
             profile="dev",
@@ -1115,7 +1215,11 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
 
-        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+        if use_case == MEDIA_GEN:
+            approved, unapproved = _setup_unsampled(
+                path, MEDIA_NOT_BUILT, acknowledged=None, readings=readings
+            )
+        elif _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
             _setup_start(rigs, scans, path)
             approved, unapproved = _setup_sample(path, run_id, readings, rooms)
         else:

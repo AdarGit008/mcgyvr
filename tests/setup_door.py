@@ -277,11 +277,17 @@ def _emit(path: Path, ctx: int) -> None:
 
 
 def interactive(
-    monkeypatch: pytest.MonkeyPatch, rig: FakeRig, answers: dict[str, bool]
+    monkeypatch: pytest.MonkeyPatch,
+    rig: FakeRig,
+    answers: dict[str, bool],
+    *,
+    typed: dict[str, str] | None = None,
 ) -> list[str]:
     """Substitute every step of the interactive setup that reads a machine,
     open the door onto ``rig``, and answer each ``[y/N]`` by the first key of
-    ``answers`` its question holds. The questions asked, in order."""
+    ``answers`` its question holds, and each typed question by the first key
+    of ``typed`` it holds (Enter, the empty answer, when none does). The
+    questions asked, in order."""
     from mcgyvr import cli, wake
     from mcgyvr.scan import Scan
     from mcgyvr.serving import rigfile
@@ -296,6 +302,12 @@ def interactive(
     def confirm(question: str, prompt: Any = None) -> bool:
         asked.append(question)
         return next((yes for key, yes in answers.items() if key in question), False)
+
+    def ask(question: str, prompt: Any = None) -> str:
+        asked.append(question)
+        return next(
+            (said for key, said in (typed or {}).items() if key in question), ""
+        )
 
     plan = {
         RIG: {
@@ -325,6 +337,7 @@ def interactive(
     )
     monkeypatch.setattr(cli, "_setup_emit", _emit)
     monkeypatch.setattr(cli, "_confirm", confirm)
+    monkeypatch.setattr(cli, "_ask", ask)
     monkeypatch.setattr(wake, "spawn_door", rig)
     monkeypatch.setattr(cli, "_setup_run_contract", accepted)
     return asked

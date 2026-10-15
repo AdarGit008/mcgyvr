@@ -99,6 +99,7 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
         cli, "_setup_emit", lambda path, ctx: calls.append(("emit", path, ctx))
     )
     monkeypatch.setattr(cli, "_confirm", lambda question, prompt=None: False)
+    monkeypatch.setattr(cli, "_ask", lambda question, prompt=None: "")
 
     assert cli.main(["setup"]) == 0
 

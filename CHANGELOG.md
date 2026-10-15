@@ -56,6 +56,20 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     nothing is locked or made live, and the limits say how to lock it. Setup
     no longer approves its own fleet unasked.
 
+- **The interactive `mcgyvr setup` asks the use case, Jev and mcorch before
+  it plans.** It planned `coding` only.
+  - After the rigs it asks "What is this setup for: coding, chat, agent or
+    media-gen? [coding]", then "Dedicate a unit to Jev, which answers typed
+    decisions? [y/N]", and, for `coding` with Jev on, "Run mcorch, the local
+    orchestrator, on a unit? [y/N]". These are the interactive `--use-case`,
+    `--jev` and `--mcorch`. Enter is coding, no Jev and no mcorch.
+  - With several units it asks which one is Jev and which runs mcorch;
+    Enter is the first. mcorch runs at the window each slot is launched at.
+  - The answer is planned, staged and sampled. Jev's and mcorch's units are
+    laid out awake and probed, and the sample asks the Jev unit its typed
+    choice. `media-gen` has no sample yet: setup says so, starts nothing,
+    and asks before it locks the fleet on no evidence.
+
 - **The working directory is no longer a config.** A command that reads a
   setup reads `$MCGYVR_CONFIG` (or its `--config`), else the live fleet that
   `$MCGYVR_HOME/live.json` names. A `fleet.yaml` where the command runs is not
