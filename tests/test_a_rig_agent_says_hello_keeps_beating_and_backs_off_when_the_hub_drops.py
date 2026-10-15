@@ -39,7 +39,7 @@ def test_hello_is_first_with_the_reading_and_each_heartbeat_reads_again() -> Non
     assert not ended.stopped
     sent = [m for _, m in channels[0].sent]
     assert [m["type"] for m in sent] == ["hello", "heartbeat", "heartbeat", "heartbeat"]
-    assert sent[0]["body"]["machine_id"] == "mch-example"
+    assert sent[0]["body"]["machine_id"] == "rig-example"
     assert sent[0]["body"]["agent_version"] == "0.1.0"
     assert sent[0]["body"]["cards"][0]["vram_free_mb"] == 1
     assert [m["body"]["cards"][0]["vram_free_mb"] for m in sent[1:]] == [2, 3, 4]
@@ -227,7 +227,7 @@ def test_a_machine_that_cannot_be_read_is_not_said_hello_for() -> None:
     def unreadable() -> Any:
         reads.append(1)
         if len(reads) < 3:
-            raise hardware.HardwareError("this machine has no short id: a card")
+            raise hardware.HardwareError("this machine has no rig id: a card")
         return Report()()
 
     said: list[str] = []
@@ -235,7 +235,7 @@ def test_a_machine_that_cannot_be_read_is_not_said_hello_for() -> None:
     agent.run()
     assert len(channels) == 1
     assert len(clock.waits) >= 2
-    assert any("no short id" in line for line in said)
+    assert any("no rig id" in line for line in said)
 
 
 def test_a_heartbeat_whose_reading_fails_still_beats() -> None:

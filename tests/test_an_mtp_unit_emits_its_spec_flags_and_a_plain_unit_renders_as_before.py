@@ -29,7 +29,7 @@ KAT = "KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf"
 
 def card() -> Scan:
     return Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=12288,
         ram_gb=48.0,
         disk_free_gb=120.0,

@@ -561,7 +561,7 @@ class Completion:
     #: how many the target accepted -- llama-server's ``timings.draft_n`` and
     #: ``draft_n_accepted``, which it reports only when it drafted. Their ratio
     #: is the acceptance the MTP lever was measured by (the lab's mtp-ornith
-    #: measurement, ~0.90 on srv2), and it is
+    #: measurement, ~0.90 on box2), and it is
     #: how the lever's effect is seen in production. ``None`` where the server
     #: reported none; a reported zero is a count and is kept.
     draft_n: int | None = None
@@ -1205,7 +1205,7 @@ def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None
 
     The server's own figure first. Otherwise ``output_tokens / latency_s`` —
     the formula the vLLM units' lock was measured with (the lab's fleet
-    measurement on srv2), so a live figure and a locked one are the same
+    measurement on box2), so a live figure and a locked one are the same
     quantity. No count, no rate.
     """
     if parsed.decode_tok_s is not None:

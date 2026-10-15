@@ -57,7 +57,7 @@ def setup_folder(tmp_path: Path, profile: str = "dev") -> tuple[Path, Path]:
     fleet = {**FLEET, "profile": profile}
     (folder / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
     journal = tmp_path / "journal"
-    policy = {"ladder": ["srv2_3b", "srv2_7b"], "journal": {"dir": str(journal)}}
+    policy = {"ladder": ["box2_3b", "box2_7b"], "journal": {"dir": str(journal)}}
     (folder / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
     assert not (Path(os.environ["HOME"]) / ".mcgyvr" / "live.json").exists()
     return folder, journal / "fleet"
@@ -75,11 +75,11 @@ def record(folder: Path, text: str, profile: str, rig: Rig, **more: Any) -> Any:
     from mcgyvr.fleet import read
 
     return read.record(
-        "srv2",
-        text,
+        "box2",
+        *onedoor.split_reading(text),
         run_id=RUN_ID,
         profile=profile,
-        probe=("srv2_3b",),
+        probe=("box2_3b",),
         measure=rig,
         fleet_name=FLEET_NAME,
         setup=folder,
@@ -98,13 +98,13 @@ def test_a_named_fleet_is_read_from_the_setup_with_no_live_pointer(
     folder, _ = setup_folder(tmp_path)
 
     fleet = read.prepare(
-        "srv2", ("srv2_3b",), None, fleet_name=FLEET_NAME, setup=folder
+        "box2", ("box2_3b",), None, fleet_name=FLEET_NAME, setup=folder
     )
 
     assert fleet.name == FLEET_NAME
     assert fleet.folder == folder
     assert fleet.locked is False
-    assert [name for name, _, _ in fleet.slots("srv2")] == ["srv2_3b", "srv2_7b"]
+    assert [name for name, _, _ in fleet.slots("box2")] == ["box2_3b", "box2_7b"]
 
 
 def test_without_a_name_the_live_fleet_is_still_the_one_read(tmp_path: Path) -> None:
@@ -113,15 +113,15 @@ def test_without_a_name_the_live_fleet_is_still_the_one_read(tmp_path: Path) -> 
     setup_folder(tmp_path)
 
     with pytest.raises(read.ReadError, match="live"):
-        read.prepare("srv2", ("srv2_3b",), None)
+        read.prepare("box2", ("box2_3b",), None)
 
 
 @pytest.mark.parametrize(
     ("host", "probe", "fleet_name", "said"),
     [
-        ("srv2", ("srv2_3b",), "no-such-fleet", "no-such-fleet"),
-        ("srv1", (), FLEET_NAME, "srv1"),
-        ("srv2", ("srv1_deepseek",), FLEET_NAME, "srv1_deepseek"),
+        ("box2", ("box2_3b",), "no-such-fleet", "no-such-fleet"),
+        ("box1", (), FLEET_NAME, "box1"),
+        ("box2", ("box1_deepseek",), FLEET_NAME, "box1_deepseek"),
     ],
 )
 def test_a_named_fleet_keeps_the_live_reads_refusals(
@@ -139,7 +139,7 @@ def test_a_named_fleet_needs_a_setup_to_read_it_from() -> None:
     from mcgyvr.fleet import read
 
     with pytest.raises(read.ReadError, match="setup"):
-        read.prepare("srv2", ("srv2_3b",), None, fleet_name=FLEET_NAME, setup=None)
+        read.prepare("box2", ("box2_3b",), None, fleet_name=FLEET_NAME, setup=None)
 
 
 # --- what it files ------------------------------------------------------------------
@@ -150,7 +150,7 @@ def test_every_row_says_it_was_not_a_lock_and_names_its_setup(tmp_path: Path) ->
 
     record(folder, rig_text(), "live", Rig())
 
-    rig_id = declared(folder)["rigs"]["srv2"]["rig_id"]
+    rig_id = declared(folder)["rigs"]["box2"]["rig_id"]
     filed = rows(journal)
     assert filed, "the read filed nothing"
     for row in filed:
@@ -166,7 +166,7 @@ def test_a_probe_with_no_lock_is_filed_unjudged_not_failed(tmp_path: Path) -> No
     done = record(folder, rig_text(), "dev", Rig())
 
     assert done.failed == {}
-    assert done.probed["srv2_3b"]["warm_decode_tok_s"] == 126.7
+    assert done.probed["box2_3b"]["warm_decode_tok_s"] == 126.7
     three = unit_rows(journal, UNIT_3B)
     assert three["warm_decode_tok_s"]["observed"] == 126.7
     assert three["warm_decode_tok_s"]["judged"] is False
@@ -181,7 +181,7 @@ def test_the_card_and_a_loads_peak_are_judged_against_the_declared_room(
 
     done = record(folder, rig_text(card_3b=3400), "live", Rig(), load=LOAD)
 
-    assert done.loads["srv2_3b"]["peak_mib"] == 3500
+    assert done.loads["box2_3b"]["peak_mib"] == 3500
     three = unit_rows(journal, UNIT_3B)
     assert three["card_mib"]["observed"] == 3400 and three["card_mib"]["alert"] is False
     assert three["load_peak_mib"]["observed"] == 3500
@@ -203,7 +203,7 @@ def test_a_loads_peak_over_the_declared_room_alerts(tmp_path: Path) -> None:
 def test_the_door_reads_a_named_fleet_from_the_config_it_ran_under(
     tmp_path: Path,
 ) -> None:
-    root = onedoor.fixture_repo(tmp_path, host="srv2")
+    root = onedoor.fixture_repo(tmp_path, host="box2")
     folder, journal = setup_folder(tmp_path, profile="live")
     reading(root, status=(f"8001,{page(metrics(0))}",))
     measured = {
@@ -216,8 +216,8 @@ def test_the_door_reads_a_named_fleet_from_the_config_it_ran_under(
     env = onedoor.door_env(root)
     env["MCGYVR_CONFIG"] = str(folder)
     argv = [sys.executable, str(root / onedoor.DOOR_REL), "read"]
-    argv += ["--host", "srv2"]
-    argv += ["--run-id", RUN_ID, "--fleet", FLEET_NAME, "--probe", "srv2_3b"]
+    argv += ["--host", "box2"]
+    argv += ["--run-id", RUN_ID, "--fleet", FLEET_NAME, "--probe", "box2_3b"]
 
     result = subprocess.run(
         argv,

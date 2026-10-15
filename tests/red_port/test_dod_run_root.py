@@ -81,7 +81,7 @@ def test_the_serve_run_refuses_a_missing_root_the_same_way(
     missing = tmp_path / "no-such-root"
     monkeypatch.setenv(RUN_ROOT_VAR, str(missing))
     status = run.main(
-        ["serve", "up", "--host", "srv1", "--compose", str(tmp_path / "compose.yaml")]
+        ["serve", "up", "--host", "box1", "--compose", str(tmp_path / "compose.yaml")]
     )
     err = capsys.readouterr().err
     assert status == 2, err
@@ -107,7 +107,7 @@ def test_a_value_the_door_cannot_judge_is_refused_not_traced_back(
     from mcgyvr.serving import run
 
     monkeypatch.setenv(RUN_ROOT_VAR, value)
-    status = run.main(["step", "--host", "srv1", "--campaign", CAMPAIGN, "--step", "x"])
+    status = run.main(["step", "--host", "box1", "--campaign", CAMPAIGN, "--step", "x"])
     err = capsys.readouterr().err
     assert status == 2, err
     assert RUN_ROOT_VAR in err and "absolute" in err, err

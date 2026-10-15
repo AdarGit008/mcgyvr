@@ -48,7 +48,7 @@ GEOMETRY: dict[str, dict[str, Any]] = json.loads(
     (TESTS / "fixtures" / "gguf_geometry.json").read_text(encoding="utf-8")
 )
 
-#: srv1's own rung, and the model both sweeps were run on: a 12.304 GiB blob
+#: box1's own rung, and the model both sweeps were run on: a 12.304 GiB blob
 #: that spills 8.950 GiB of experts at the 29 blocks a 6 GiB card leaves it.
 MOE = ModelSpec(
     name="Qwen3.6-35B-A3B-UD-IQ3_XXS",
@@ -62,9 +62,9 @@ EXPERTS_GB = 8.950
 
 
 def rig(*, ram_gb: float) -> Scan:
-    """srv1's card and cores, varying only in memory — the sweep's own axis."""
+    """box1's card and cores, varying only in memory — the sweep's own axis."""
     return Scan.of(
-        host="srv1",
+        host="box1",
         vram_mib=6144,
         ram_gb=ram_gb,
         disk_free_gb=900.0,
@@ -74,9 +74,9 @@ def rig(*, ram_gb: float) -> Scan:
     )
 
 
-def test_srv1_maps_the_blob_it_is_serving_unmapped_today() -> None:
+def test_box1_maps_the_blob_it_is_serving_unmapped_today() -> None:
     """The live case, and the only one on this fleet where the split changes an
-    answer: 14.19 GiB of ``MemAvailable`` measured idle on srv1 against a
+    answer: 14.19 GiB of ``MemAvailable`` measured idle on box1 against a
     12.304 GiB blob. At 2.0 held back that is 14.30 and the rung goes unmapped;
     at 0.5 it maps, which is what the measurement says it should do: at
     production ``vm.swappiness=60`` the trade is gigabytes of reclaimable

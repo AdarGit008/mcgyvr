@@ -2,9 +2,9 @@
 
 `mcgyvr emit --ctx-per-slot N` takes one number for the whole fleet, and a
 config declares `units.<unit>.window` per source. Where two hosts serve
-different windows — srv1 at 8192 per slot and srv2 at 4096 below — the flag
+different windows — box1 at 8192 per slot and box2 at 4096 below — the flag
 cannot describe both, so **the fleet cannot be checked in one command** under it:
-at 4096 `emit --check` reports srv1 as drifted, at 8192 it reports srv2, and
+at 4096 `emit --check` reports box1 as drifted, at 8192 it reports box2, and
 neither is true.
 
 That is the same defect `--sandbox` and the sleep/wake switch are argued
@@ -48,33 +48,33 @@ def rig(host: str, *, vram_mib: int, ram_gb: float) -> Scan:
 
 
 SCANS = {
-    "srv1": rig("srv1", vram_mib=6144, ram_gb=48.0),
-    "srv2": rig("srv2", vram_mib=12288, ram_gb=45.0),
+    "box1": rig("box1", vram_mib=6144, ram_gb=48.0),
+    "box2": rig("box2", vram_mib=12288, ram_gb=45.0),
 }
 
 
-def config_text(*, srv1_window: str = "", srv2_window: str = "") -> str:
-    """Two hosts: llama.cpp on srv1, one vLLM unit on srv2."""
+def config_text(*, box1_window: str = "", box2_window: str = "") -> str:
+    """Two hosts: llama.cpp on box1, one vLLM unit on box2."""
     return f"""
 units:
   local_big:
-    address: "http://srv1:8080"
+    address: "http://box1:8080"
     model: "{BIG}"
-    rig: srv1_llamacpp
+    rig: box1_llamacpp
     width: 2
-{srv1_window}    launch:
+{box1_window}    launch:
       vram_gb: 3.0
       disk_gb: 12.31
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
   local_7b:
-    address: "http://srv2:8002"
+    address: "http://box2:8002"
     model: "{SEVEN_B}"
     engine: vllm
-    rig: srv2_vllm_7b
+    rig: box2_vllm_7b
     width: 8
     hf_cache: "{HF_CACHE}"
-{srv2_window}    launch:
+{box2_window}    launch:
       vram_gb: 7.12
       disk_gb: 4.93
       kv_cache_dtype_k: auto
@@ -94,20 +94,20 @@ def units(text: str, *, ctx_per_slot: int | None) -> dict[str, Unit]:
 def test_two_hosts_two_declared_windows_and_no_flag_at_all() -> None:
     """A two-host fleet, emitted from its own declarations.
 
-    srv1's `-c` is the window times the slots it was sized for; srv2's vLLM
+    box1's `-c` is the window times the slots it was sized for; box2's vLLM
     unit states the window directly. Neither number came from the command line,
     which is what makes one `emit --check` true of the whole fleet.
     """
     emitted = units(
         config_text(
-            srv1_window="    window: 8192\n",
-            srv2_window="    window: 4096\n",
+            box1_window="    window: 8192\n",
+            box2_window="    window: 4096\n",
         ),
         ctx_per_slot=None,
     )
 
-    assert emitted["srv1"].args["-c"] == str(8192 * 2)
-    assert emitted["srv2"].args["--max-model-len"] == "4096"
+    assert emitted["box1"].args["-c"] == str(8192 * 2)
+    assert emitted["box2"].args["--max-model-len"] == "4096"
 
 
 def test_a_flag_that_contradicts_a_declaration_is_refused_by_name() -> None:
@@ -119,7 +119,7 @@ def test_a_flag_that_contradicts_a_declaration_is_refused_by_name() -> None:
     """
     with pytest.raises(UnitError) as raised:
         units(
-            config_text(srv1_window="    window: 8192\n"),
+            config_text(box1_window="    window: 8192\n"),
             ctx_per_slot=4096,
         )
     why = str(raised.value)
@@ -132,21 +132,21 @@ def test_a_flag_still_sizes_a_source_that_declares_nothing() -> None:
     been told yet, and a fleet that declares nothing behaves exactly as before."""
     emitted = units(config_text(), ctx_per_slot=4096)
 
-    assert emitted["srv1"].args["-c"] == str(4096 * 2)
-    assert emitted["srv2"].args["--max-model-len"] == "4096"
+    assert emitted["box1"].args["-c"] == str(4096 * 2)
+    assert emitted["box2"].args["--max-model-len"] == "4096"
 
 
 def test_a_declared_window_and_a_matching_flag_agree_silently() -> None:
     """Saying the same thing twice is not a disagreement."""
     emitted = units(
         config_text(
-            srv1_window="    window: 4096\n",
-            srv2_window="    window: 4096\n",
+            box1_window="    window: 4096\n",
+            box2_window="    window: 4096\n",
         ),
         ctx_per_slot=4096,
     )
 
-    assert emitted["srv1"].args["-c"] == str(4096 * 2)
+    assert emitted["box1"].args["-c"] == str(4096 * 2)
 
 
 def test_neither_a_declaration_nor_a_flag_is_still_refused() -> None:
@@ -167,9 +167,9 @@ def test_one_unit_behind_two_sources_that_disagree_is_refused() -> None:
     text = f"""\
 units:
   local_a:
-    address: http://srv1:8080
+    address: http://box1:8080
     model: '{BIG}'
-    rig: srv1_a
+    rig: box1_a
     width: 2
     window: 8192
     launch:
@@ -178,9 +178,9 @@ units:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
   local_b:
-    address: http://srv1:8080
+    address: http://box1:8080
     model: '{BIG}'
-    rig: srv1_b
+    rig: box1_b
     width: 2
     window: 4096
     launch:

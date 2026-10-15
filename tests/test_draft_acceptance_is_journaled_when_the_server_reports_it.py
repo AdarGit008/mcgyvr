@@ -117,9 +117,9 @@ def _row(sink: Path, completion: Completion) -> dict[str, Any]:
     observe(
         lambda: completion,
         path=sink,
-        attempt_id="agent-a:doc:srv2_ornith:1",
+        attempt_id="agent-a:doc:box2_ornith:1",
         orchestrator="agent-a",
-        rung="srv2_ornith",
+        rung="box2_ornith",
     )
     (row,) = fold(path=sink)
     return dict(row)

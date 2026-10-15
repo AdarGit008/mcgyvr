@@ -25,12 +25,12 @@ GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
 HARNESS_PY = REPO / "src" / "mcgyvr" / "fleet" / "harness.py"
 
 
-#: srv2 as it is locked, and what its snapshot must print to reproduce it
-#: (``fleet-setup/digests-srv2.json``).
-LOCKED_SRV2 = "rig-cbe770b55841d616363165e38553a1c7c3768250df01ead1a255f0cbdef98455"
+#: box2 as it is locked, and what its snapshot must print to reproduce it
+#: (``fleet-setup/digests-box2.json``).
+LOCKED_BOX2 = "rig-3333333333333333333333333333333333333333333333333333333333333333"
 
 
-SRV2_SYSTEM = {"os_machine_id": "6d5d8f1f2bfa5f96", "kernel": "7.0.0-31-generic"}
+BOX2_SYSTEM = {"os_machine_id": "6d5d8f1f2bfa5f96", "kernel": "7.0.0-31-generic"}
 
 
 UNIT_3B = "unt-" + "5" * 64
@@ -59,9 +59,9 @@ FLEET_NAME = "b-small"
 
 def _vllm(port: int, container: str, room: int, kv: int) -> dict[str, Any]:
     return {
-        "rig": "srv2",
+        "rig": "box2",
         "engine": "vllm",
-        "address": f"http://srv2:{port}",
+        "address": f"http://box2:{port}",
         "model": f"Qwen/unit-{port}",
         "container": container,
         "width": 8,
@@ -77,19 +77,19 @@ def _vllm(port: int, container: str, room: int, kv: int) -> dict[str, Any]:
 FLEET: dict[str, Any] = {
     "profile": "live",
     "units": {
-        "srv2_3b": {
-            **_vllm(8001, "mcgyvr-srv2-3b", 3573, 1207959552),
+        "box2_3b": {
+            **_vllm(8001, "mcgyvr-box2-3b", 3573, 1207959552),
             "unit_id": UNIT_3B,
         },
-        "srv2_7b": {
-            **_vllm(8002, "mcgyvr-srv2-7b", 8099, 1879048192),
+        "box2_7b": {
+            **_vllm(8002, "mcgyvr-box2-7b", 8099, 1879048192),
             "unit_id": UNIT_7B,
         },
     },
-    "rigs": {"srv2": {"rig_id": LOCKED_SRV2}},
+    "rigs": {"box2": {"rig_id": LOCKED_BOX2}},
     "fleets": {
         FLEET_NAME: {
-            "layout": {"srv2": [["srv2_3b", "awake"], ["srv2_7b", "awake"]]},
+            "layout": {"box2": [["box2_3b", "awake"], ["box2_7b", "awake"]]},
             "next": [],
         }
     },
@@ -97,19 +97,19 @@ FLEET: dict[str, Any] = {
 
 
 EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv2": {"card_mib": 12288}},
+    "rigs": {"box2": {"card_mib": 12288}},
     "combinations": [
         {
-            "rig": "srv2",
-            "slots": [["srv2_3b", "awake"], ["srv2_7b", "awake"]],
+            "rig": "box2",
+            "slots": [["box2_3b", "awake"], ["box2_7b", "awake"]],
             "passed": True,
             "overhead_mib": 610.5,
-            "restarts": {"srv2_3b": 0, "srv2_7b": 0},
-            "warm_decode_tok_s": {"srv2_3b": 126.7, "srv2_7b": 68.3},
-            "prefill_tok_s": {"srv2_3b": 11500.0, "srv2_7b": 12059.0},
-            "attention_backend": {"srv2_3b": "FLASH_ATTN", "srv2_7b": "FLASH_ATTN"},
+            "restarts": {"box2_3b": 0, "box2_7b": 0},
+            "warm_decode_tok_s": {"box2_3b": 126.7, "box2_7b": 68.3},
+            "prefill_tok_s": {"box2_3b": 11500.0, "box2_7b": 12059.0},
+            "attention_backend": {"box2_3b": "FLASH_ATTN", "box2_7b": "FLASH_ATTN"},
             "validated_at": "2026-09-13T21:44:00Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/srv2",
+            "envelope": "records/measurements/fleet-setup-2026-09-13/box2",
         }
     ],
     "moves": [],
@@ -130,7 +130,7 @@ def go_live(tmp_path: Path) -> Path:
     folder.mkdir(parents=True)
     (folder / "fleet.yaml").write_text(yaml.safe_dump(FLEET), encoding="utf-8")
     journal = tmp_path / "journal"
-    policy = {"ladder": ["srv2_3b", "srv2_7b"], "journal": {"dir": str(journal)}}
+    policy = {"ladder": ["box2_3b", "box2_7b"], "journal": {"dir": str(journal)}}
     (folder / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
     lock.write(folder, FLEET, EVIDENCE, tolerances=TOLERANCES)
     (home / ".mcgyvr" / "live.json").write_text(
@@ -160,14 +160,14 @@ def reading(
     status: tuple[str, ...] = (),
 ) -> None:
     """What the stub rig answers the reader with: its snapshot and the rest."""
-    lines = onedoor.snapshot_lines("srv2", **(SRV2_SYSTEM | (snapshot or {})))
+    lines = onedoor.snapshot_lines("box2", **(BOX2_SYSTEM | (snapshot or {})))
     for row in (
         containers
         if containers is not None
         else (
-            f"mcgyvr-srv2-3b,{C_3B},mcgyvr,0",
-            f"mcgyvr-srv2-7b,{C_7B},mcgyvr,unread",
-            f"mcgyvr-srv2-stray,{C_STRAY},mcgyvr,0",
+            f"mcgyvr-box2-3b,{C_3B},mcgyvr,0",
+            f"mcgyvr-box2-7b,{C_7B},mcgyvr,unread",
+            f"mcgyvr-box2-stray,{C_STRAY},mcgyvr,0",
             f"someone-elses,{C_OTHER},-,0",
         )
     ):
@@ -191,7 +191,7 @@ def reading(
 
 def read_door(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     argv = [sys.executable, str(root / onedoor.DOOR_REL), "read"]
-    argv += ["--host", "srv2"]
+    argv += ["--host", "box2"]
     argv += ["--run-id", RUN_ID, *args]
     return subprocess.run(
         argv,
@@ -284,10 +284,10 @@ def rig_text(
     status: tuple[str, ...] = (f"8001,{page(metrics(0))}",),
     backend: tuple[str, ...] = ("8001,FLASH_ATTN", "8002,FLASH_ATTN"),
 ) -> str:
-    """One reader's output for srv2 with both units up."""
-    lines = onedoor.snapshot_lines("srv2", **SRV2_SYSTEM)
-    lines += f"container=mcgyvr-srv2-3b,{C_3B},mcgyvr,0\n"
-    lines += f"container=mcgyvr-srv2-7b,{C_7B},mcgyvr,{restarts_7b}\n"
+    """One reader's output for box2 with both units up."""
+    lines = onedoor.snapshot_lines("box2", **BOX2_SYSTEM)
+    lines += f"container=mcgyvr-box2-3b,{C_3B},mcgyvr,0\n"
+    lines += f"container=mcgyvr-box2-7b,{C_7B},mcgyvr,{restarts_7b}\n"
     lines += f"gpu_app=4242,{card_3b},{C_3B},python3\n"
     lines += f"gpu_app=4343,7800,{C_7B},python3\n"
     lines += "sleeping=8001,false\nsleeping=8002,false\n"
@@ -341,11 +341,11 @@ def record(text: str, profile: str, rig: Rig, **more: Any) -> Any:
     from mcgyvr.fleet import read
 
     return read.record(
-        "srv2",
-        text,
+        "box2",
+        *onedoor.split_reading(text),
         run_id=RUN_ID,
         profile=profile,
-        probe=("srv2_3b",),
+        probe=("box2_3b",),
         measure=rig,
         **more,
     )

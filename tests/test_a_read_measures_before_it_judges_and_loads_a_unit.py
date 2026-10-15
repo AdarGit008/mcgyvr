@@ -25,8 +25,8 @@ Owner rulings on ``python -m mcgyvr.serving.run read``:
   log is searched for the token, as the lock's ``measure_vllm.py`` does, and the
   line the reader matched is filed beside it
   (``tests/test_a_vllm_backend_read_searches_the_whole_log_and_records_its_line.py``).
-  The rig row files the parsed snapshot beside ``observed_rig_id``, so the
-  lock's ``evidence.rigs.<rig>.snapshot`` check can be fed from the row.
+  The rig row files the reading's snapshot beside ``observed_rig_id``, the
+  rig id the machine's reading names, which a sample's evidence hands the lock.
 
 No rig is reached: the reading is canned text, the rig's harness a stand-in,
 and the door runs against :mod:`tests.onedoor`'s stubs.
@@ -51,7 +51,7 @@ from tests.reads import (
     GATE_SCRIPTS,
     HARNESS_PY,
     LOAD,
-    LOCKED_SRV2,
+    LOCKED_BOX2,
     RUN_ID,
     UNIT_3B,
     UNIT_7B,
@@ -114,7 +114,7 @@ def test_a_load_files_one_row_with_its_peak_samples_container_times_and_restarts
     record(rig_text(), "live", Rig(), load=LOAD)
 
     (row,) = _load_rows(journal)
-    assert row["unit_id"] == UNIT_3B and row["unit"] == "srv2_3b"
+    assert row["unit_id"] == UNIT_3B and row["unit"] == "box2_3b"
     assert row["spec"] == LOAD
     assert row["peak_mib"] == 3500 and row["observed"] == 3500
     assert row["samples"] == 3
@@ -123,7 +123,7 @@ def test_a_load_files_one_row_with_its_peak_samples_container_times_and_restarts
     assert row["finished_at"] == "2026-09-15T12:00:41"
     assert (row["restarts_before"], row["restarts_after"]) == (0, 0)
     assert row["alert"] is False, "3500 MiB is inside a 3573 MiB room"
-    assert row["run_id"] == RUN_ID and row["rig_id"] == LOCKED_SRV2
+    assert row["run_id"] == RUN_ID and row["rig_id"] == LOCKED_BOX2
 
 
 def test_a_load_peak_over_room_alerts_like_the_card(tmp_path: Path) -> None:
@@ -162,7 +162,7 @@ def test_a_unit_with_work_in_flight_is_neither_probed_nor_loaded(
     )
 
     assert rig.specs == []
-    assert done.busy == {"srv2_3b": 2}
+    assert done.busy == {"box2_3b": 2}
     assert _load_rows(journal) == []
 
 
@@ -185,7 +185,7 @@ def test_a_load_that_did_not_complete_every_request_is_still_judged(
 def test_read_load_is_a_door_flag_that_needs_a_probe_and_a_w_x_n_spec(
     tmp_path: Path,
 ) -> None:
-    root = onedoor.fixture_repo(tmp_path, host="srv2")
+    root = onedoor.fixture_repo(tmp_path, host="box2")
     go_live(tmp_path)
     reading(root)
     shown = subprocess.run(
@@ -201,7 +201,7 @@ def test_read_load_is_a_door_flag_that_needs_a_probe_and_a_w_x_n_spec(
 
     alone = read_door(root, "--load", LOAD)
     assert alone.returncode == 2 and "--load needs --probe" in alone.stderr, alone
-    malformed = read_door(root, "--probe", "srv2_3b", "--load", "8by4096")
+    malformed = read_door(root, "--probe", "box2_3b", "--load", "8by4096")
     assert malformed.returncode == 2 and "WxN" in malformed.stderr, malformed
     assert onedoor.ssh_log(root) == [], "refused before the rig was read"
 
@@ -209,16 +209,16 @@ def test_read_load_is_a_door_flag_that_needs_a_probe_and_a_w_x_n_spec(
 def test_a_door_read_with_a_load_ships_it_to_the_rig_and_files_its_row(
     tmp_path: Path,
 ) -> None:
-    root = onedoor.fixture_repo(tmp_path, host="srv2")
+    root = onedoor.fixture_repo(tmp_path, host="box2")
     journal = go_live(tmp_path)
     reading(root, status=(f"8001,{page(metrics(0))}",))
-    loaded = json.loads(Rig()("srv2_3b", json.dumps({"mode": "load"})))
-    probed = json.loads(Rig()("srv2_3b", json.dumps({})))
+    loaded = json.loads(Rig()("box2_3b", json.dumps({"mode": "load"})))
+    probed = json.loads(Rig()("box2_3b", json.dumps({})))
     (onedoor.stubs_dir(root) / "harness.json").write_text(
         json.dumps(probed | loaded), encoding="utf-8"
     )
 
-    result = read_door(root, "--probe", "srv2_3b", "--load", LOAD)
+    result = read_door(root, "--probe", "box2_3b", "--load", LOAD)
 
     assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
     shipped = [line for line in onedoor.ssh_log(root) if "mcgyvr-harness" in line]
@@ -323,15 +323,16 @@ def test_a_vllm_units_attention_backend_is_filed_and_null_when_its_log_names_non
     assert "alert" not in three and "alert" not in seven
 
 
-def test_the_rig_row_files_the_snapshot_its_rig_id_is_named_by(tmp_path: Path) -> None:
-    from mcgyvr.fleet.ids import rig_id
-
+def test_the_rig_row_files_the_snapshot_beside_the_rig_id_its_reading_names(
+    tmp_path: Path,
+) -> None:
     journal = go_live(tmp_path)
 
     record(rig_text(), "live", Rig())
 
     row = rig_row(journal)
-    assert rig_id(row["snapshot"]) == row["observed_rig_id"]
+    assert row["observed_rig_id"] == onedoor.rig_id_of_text(rig_text())
+    assert row["snapshot"] == onedoor.split_reading(rig_text())[0]["snapshot"]
     assert "container" not in row["snapshot"] and "gpu_app" not in row["snapshot"]
 
 
@@ -341,7 +342,7 @@ def _units_reader(tmp_path: Path, log: str) -> list[str]:
         stubs / "docker",
         "#!/usr/bin/env bash\n"
         'case "$1" in\n'
-        f"  ps) printf '%s|%s|%s\\n' {C_3B} mcgyvr-srv2-3b mcgyvr ;;\n"
+        f"  ps) printf '%s|%s|%s\\n' {C_3B} mcgyvr-box2-3b mcgyvr ;;\n"
         "  inspect) echo 0 ;;\n"
         f"  logs) printf '%s' {json.dumps(log)} ;;\n"
         "esac\n",
@@ -355,7 +356,7 @@ def _units_reader(tmp_path: Path, log: str) -> list[str]:
     )
     env = {**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"}
     done = subprocess.run(
-        ["bash", str(GATE_SCRIPTS / "rig-units.sh"), "vllm:8001:mcgyvr-srv2-3b"],
+        ["bash", str(GATE_SCRIPTS / "rig-units.sh"), "vllm:8001:mcgyvr-box2-3b"],
         env=env,
         capture_output=True,
         text=True,
@@ -387,4 +388,6 @@ def test_a_backend_row_is_decoded_from_a_reader_line() -> None:
 
     parsed = read.parse("backend=8001,FLASH_ATTN\nbackend=8002,none\n")
     assert parsed.backend == {8001: "FLASH_ATTN", 8002: None}
-    assert "backend" not in parsed.snapshot
+    # A row the runtime reader does not print is refused, never filed.
+    with pytest.raises(read.ReadError):
+        read.parse("kernel=7.0.0\n")

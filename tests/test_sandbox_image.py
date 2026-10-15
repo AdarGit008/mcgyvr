@@ -290,12 +290,12 @@ def test_the_runner_refuses_under_a_daemon_override_before_spawning(
     nothing and says why, naming the variable, its value and the door."""
     for other in image_module.DAEMON_OVERRIDES:
         monkeypatch.delenv(other, raising=False)
-    monkeypatch.setenv(name, "ssh://srv1")
+    monkeypatch.setenv(name, "ssh://box1")
     monkeypatch.setattr(subprocess, "run", _never)
     result = image_module.subprocess_runner(["info"])
     assert not result.ok and result.returncode == 2
     assert result.stderr == (
-        f"the sandbox runs on this machine's daemon; {name}=ssh://srv1 is set, "
+        f"the sandbox runs on this machine's daemon; {name}=ssh://box1 is set, "
         "and a container the product starts must never land on a rig — the "
         "door (python -m mcgyvr.serving.run) is the only way there"
     )
@@ -314,9 +314,9 @@ def test_a_refused_runner_surfaces_as_an_image_error(
 ) -> None:
     """Every caller raises a not-ok result as its own error, so the refusal
     reaches the CLI as ``error: ...`` and a non-zero exit."""
-    monkeypatch.setenv("DOCKER_HOST", "tcp://srv2:2375")
+    monkeypatch.setenv("DOCKER_HOST", "tcp://box2:2375")
     monkeypatch.setattr(subprocess, "run", _never)
-    with pytest.raises(ImageError, match="DOCKER_HOST=tcp://srv2:2375 is set"):
+    with pytest.raises(ImageError, match="DOCKER_HOST=tcp://box2:2375 is set"):
         resolve_base_digest("python:3.12-slim", image_module.subprocess_runner)
     with pytest.raises(ImageError, match="must never land on a rig"):
         list_cached()

@@ -1,10 +1,11 @@
 """A red sample stamps nothing, and says why.
 
 Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample green = fleet STAMPED;
-sample red = no stamp, report why. Plan section 8.2: a lock refusal is a red
-sample, reported by its own message. Round 8: until P10 lands, a plan with a
+sample red = no stamp, report why. Round 8: until P10 lands, a plan with a
 llama.cpp sleeper samples red, "the swap isn't built yet (P10)"; media-gen
-waits for P11.
+waits for P11. A stamp locks nothing, so a lock's refusal of a stamp is
+``fleet lock``'s to report
+(``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
 "Stamps nothing" is checked on disk: no promoted folder, no ``live.json``
 written or changed, and no stamp folder left under the data folder. The reason
@@ -58,7 +59,7 @@ def _red(setup: Path, sample_: Any) -> str:
 
     done = stamp.stamp(sample_, run_id="sample-1")
     assert not done.green, "a red sample was stamped"
-    assert done.name is None and done.promoted is None
+    assert done.folder is None
     _nothing_stamped(None)
     said = "\n".join(done.lines())
     assert said.startswith("no stamp"), said
@@ -223,48 +224,6 @@ def test_an_opted_in_jev_that_gives_no_valid_choice_is_red(
     )
     said = _red(setup, _sample(setup, outcomes))
     assert "jev" in said.lower() or "choice" in said, said
-
-
-def test_a_lock_refusal_is_red_by_the_locks_own_message(setup: Path) -> None:
-    """The reads name another rig than the one the staged setup pins."""
-    moved = {**fx.SNAPSHOT, "driver": "501.00"}
-    fx.read(setup, fx.READS[0], text=fx.reader_text(snapshot=moved))
-    fx.read(setup, fx.READS[1], text=fx.reader_text(snapshot=moved), load=None)
-
-    said = _red(setup, _sample(setup))
-
-    assert "lock" in said and fx.rig_id(moved) in said, said
-
-
-def test_a_second_stamp_of_the_same_lock_is_red_and_keeps_the_first(
-    setup: Path,
-) -> None:
-    from mcgyvr.fleet import stamp
-    from mcgyvr.fleet.roots import data_home, fleets_dir, live_file
-
-    _read_twice(setup)
-    first = stamp.stamp(_sample(setup), run_id="sample-1")
-    assert first.green, first.why
-    live = live_file().read_bytes()
-
-    again = stamp.stamp(_sample(setup), run_id="sample-2")
-
-    assert not again.green
-    said = "\n".join(again.lines())
-    assert "already exists" in said, said
-    assert [p.name for p in fleets_dir().iterdir()] == [first.name]
-    assert live_file().read_bytes() == live
-    assert not (data_home() / "stamps" / fx.FLEET / "sample-2").exists()
-
-
-def test_a_run_id_already_stamped_is_red(setup: Path) -> None:
-    from mcgyvr.fleet import stamp
-
-    _read_twice(setup)
-    assert stamp.stamp(_sample(setup), run_id="sample-1").green
-    again = stamp.stamp(_sample(setup), run_id="sample-1")
-    assert not again.green
-    assert "sample-1" in "\n".join(again.lines())
 
 
 def test_a_red_verdict_keeps_its_evidence_unpassed_for_the_report(setup: Path) -> None:

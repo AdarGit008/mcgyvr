@@ -182,20 +182,20 @@ GATE_SCRIPTS = HERE / "gate-scripts"
 #: What `ssh` and `docker` resolve to for everything the door starts.
 BIN = GATE_SCRIPTS / "bin"
 SHIMS = ("docker", "ssh")
-#: The shell files beside the gates that a gate READS rather than spawns.
-#: `rig-snapshot.sh` is the reader gate 2 sends to the rig and gate 7 compares
-#: against. It is not an entry in SEQUENCE, so it was not on the manifest —
-#: and a check that covers only the entries someone remembered is the absence
-#: the manifest exists to turn into a refusal: delete `rig-snapshot.sh` and
-#: gate 2 died on a FileNotFoundError traceback, which is a gate that stopped
-#: running without anyone deciding it should.
-#: `rig-units.sh` is the second half of the one reader the read run ships to a
-#: rig, behind `rig-snapshot.sh` (gate-scripts/read-02-rig.py).
+#: The files beside the gates that a gate READS rather than spawns.
+#: `rigscan.py` is the one reader of a machine: gate 2 ships it to the rig and
+#: gate 7 compares against what it printed. It is not an entry in SEQUENCE, so
+#: it would not be on the manifest — and a check that covers only the entries
+#: someone remembered is the absence the manifest exists to turn into a
+#: refusal: a reader that is gone is a gate 2 that dies on a traceback, which
+#: is a gate that stopped running without anyone deciding it should.
+#: `rig-units.sh` is the runtime reader gates 2 and 7 and the read run ship
+#: beside it: what holds the rig, not what the rig is.
 #: `linktime.py` is the one timer the link run ships to a rig
 #: (gate-scripts/link-01-time.py), and `fetcher.py` the one downloader a
 #: `serve fetch` ships (gate-scripts/serve-fetch.py).
 READERS = (
-    GATE_SCRIPTS / "rig-snapshot.sh",
+    HERE / "rigscan.py",
     GATE_SCRIPTS / "rig-units.sh",
     HERE / "linktime.py",
     HERE / "fetcher.py",

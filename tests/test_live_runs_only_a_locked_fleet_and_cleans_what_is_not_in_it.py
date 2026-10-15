@@ -70,7 +70,7 @@ def test_a_fleet_whose_layout_was_edited_after_locking_is_refused(
     admit = _admit()
     root = locked(tmp_path)
     fleet = copy.deepcopy(FLEET)
-    fleet["fleets"]["flt-05"]["layout"]["srv2"][1] = ["srv2_3b", "awake"]
+    fleet["fleets"]["flt-05"]["layout"]["box2"][1] = ["box2_3b", "awake"]
     with pytest.raises(admit.LiveRefusedError, match="flt-05") as refused:
         admit.admit_live(root, fleet, "flt-05", observed())
     assert "re-lock" in str(refused.value), refused.value
@@ -81,7 +81,7 @@ def test_a_rig_that_is_not_the_rig_it_was_locked_on_is_refused(
 ) -> None:
     admit = _admit()
     root = locked(tmp_path)
-    with pytest.raises(admit.LiveRefusedError, match="srv2") as refused:
+    with pytest.raises(admit.LiveRefusedError, match="box2") as refused:
         admit.admit_live(root, FLEET, "flt-05", observed(rig_id=MOVED))
     said = str(refused.value)
     assert MOVED in said or RIG2 in said, f"the refusal names no rig id: {said}"
@@ -101,7 +101,7 @@ def test_an_empty_rig_is_admitted_and_its_fleet_restored(tmp_path: Path) -> None
     root = locked(tmp_path)
     plan = admit.admit_live(root, FLEET, "flt-05", observed({}))
     assert list(plan.clean) == []
-    assert set(plan.restore) == {("srv2", U7B, "awake"), ("srv2", U3B, "asleep")}
+    assert set(plan.restore) == {("box2", U7B, "awake"), ("box2", U3B, "asleep")}
 
 
 def test_units_of_ours_the_fleet_does_not_name_are_cleaned_and_it_is_restored(
@@ -110,8 +110,8 @@ def test_units_of_ours_the_fleet_does_not_name_are_cleaned_and_it_is_restored(
     admit = _admit()
     root = locked(tmp_path)
     plan = admit.admit_live(root, FLEET, "flt-05", observed({STRAY: "awake"}))
-    assert list(plan.clean) == [("srv2", STRAY)], plan
-    assert set(plan.restore) == {("srv2", U7B, "awake"), ("srv2", U3B, "asleep")}
+    assert list(plan.clean) == [("box2", STRAY)], plan
+    assert set(plan.restore) == {("box2", U7B, "awake"), ("box2", U3B, "asleep")}
 
 
 def test_a_unit_whose_sleep_could_not_be_read_refuses_that_rig_and_names_it(
@@ -126,7 +126,7 @@ def test_a_unit_whose_sleep_could_not_be_read_refuses_that_rig_and_names_it(
     admit = _admit()
     root = locked(tmp_path)
     unread = observed({U7B: "unread", U3B: "asleep"})
-    with pytest.raises(admit.LiveRefusedError, match="srv2") as refused:
+    with pytest.raises(admit.LiveRefusedError, match="box2") as refused:
         admit.admit_live(root, FLEET, "flt-05", unread)
     assert U7B in str(refused.value), refused.value
 
@@ -139,7 +139,7 @@ def test_a_process_that_is_not_ours_refuses_that_rig_and_names_it(
     busy = observed(foreign=["python3 train.py"])
     with pytest.raises(admit.LiveRefusedError, match=r"train\.py") as refused:
         admit.admit_live(root, FLEET, "flt-05", busy)
-    assert "srv2" in str(refused.value), refused.value
+    assert "box2" in str(refused.value), refused.value
 
 
 def test_the_waker_does_not_wake_toward_a_fleet_nobody_locked(
@@ -176,7 +176,7 @@ def test_the_waker_wakes_a_unit_along_a_listed_switch(tmp_path: Path) -> None:
     admit = _admit()
     root = locked(tmp_path)
     spawned: list[Any] = []
-    target = admit.wake(root, FLEET, "flt-05", "srv2_3b", spawn=spawned.append)
+    target = admit.wake(root, FLEET, "flt-05", "box2_3b", spawn=spawned.append)
     assert target == "flt-02"
     assert len(spawned) == 1, spawned
 
@@ -192,7 +192,7 @@ def test_the_waker_does_not_wake_along_a_switch_nobody_listed(tmp_path: Path) ->
     root = locked(tmp_path, fleet, evidence)
     spawned: list[Any] = []
     with pytest.raises(admit.LiveRefusedError) as refused:
-        admit.wake(root, fleet, "flt-05", "srv2_3b", spawn=spawned.append)
+        admit.wake(root, fleet, "flt-05", "box2_3b", spawn=spawned.append)
     said = str(refused.value)
     assert "flt-05" in said and "flt-02" in said, said
     assert spawned == [], spawned

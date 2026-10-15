@@ -2,23 +2,25 @@
 
 The shape is a prefix plus the sha256 of a canonical YAML tree — so key order
 is not identity and list order is.
-``unt-`` a unit, ``rig-`` a rig, ``cmb-`` a combination, ``mch-`` a machine by
-its short reading (:func:`mcgyvr.fleet.machine.short_id`). Every other prefix is
-refused, so a record written under a retired design cannot pass for a current
-one.
+``unt-`` a unit, ``rig-`` a machine (:func:`rig_id`, the one name a machine
+has: the lock pins it, live admission compares it, and a rig's hub hears it),
+``cmb-`` a combination. Every other prefix is refused, so a record written
+under a retired design cannot pass for a current one.
 """
 
 from __future__ import annotations
 
 import hashlib
+import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-IDENTITY_PREFIXES = frozenset({"unt-", "rig-", "cmb-", "mch-"})
-_RETIRED_PREFIXES = frozenset({"msp-", "rsh-", "fsh-", "cfg-", "flt-"})
+IDENTITY_PREFIXES = frozenset({"unt-", "rig-", "cmb-"})
+_RETIRED_PREFIXES = frozenset({"msp-", "rsh-", "fsh-", "cfg-", "flt-", "mch-"})
 
 
 class _CanonicalDumper(yaml.SafeDumper):
@@ -68,49 +70,139 @@ def digest(prefix: str, fields: dict[str, Any]) -> str:
     return prefix + hashlib.sha256(raw).hexdigest()
 
 
-#: A rig's hardware, as ``rig-snapshot.sh`` names each reading.
-RIG_HARDWARE: tuple[str, ...] = (
-    "cpu_model",
-    "cpu_max_mhz",
-    "ram_mt_s",
-    "pl1_uw",
-    "pl2_uw",
-    "gpu_name",
-    "gpu_vram_mib",
-    "gpu_cc",
-    "gpu_slot",
+#: The most of a reading's reason a refusal repeats.
+_WHY_MAX = 300
+_CARD_WHOLE = re.compile(r"card\.[^.]+\.[0-9]+", re.ASCII)
+
+#: What the user can do, for each kind of field that refuses a rig id.
+_REMEDY_MACHINE_ID = (
+    "no machine id was read: the machine needs a machine-id file or a host name "
+    "the reader can read"
 )
-#: The one field naming the rig's cards beyond device 0, hashed only when set.
-RIG_EXTRA_CARDS = "gpu_others"
-#: A rig's system, as ``rig-snapshot.sh`` names each reading.
-RIG_SYSTEM: tuple[str, ...] = ("os_machine_id", "kernel", "driver", "docker")
+_REMEDY_NAME = (
+    "the card's name was not read: see the reason. Once its source prints a "
+    "name that is text, read the machine again"
+)
+_REMEDY_SIZE = (
+    "the card's memory size was not read: see the reason. A source on the "
+    "machine should give it (its vendor's card tool is installed, or sysfs "
+    "publishes a size that was not taken); once it does, read the machine again"
+)
+_REMEDY_SIZE_TYPE = (
+    "the card's memory size is not a whole number of MiB of at most 18 digits"
+)
+_REMEDY_CARDS = (
+    "the list of cards may be short: see the reason. Once the tool answers, "
+    "read the machine again; a tool left over on a machine with no card of its "
+    "vendor can be removed"
+)
+_REMEDY_READING = (
+    "a card of the reading was not taken: see the reason. A reading this "
+    "cannot take whole gets no id"
+)
 
 
-def rig_id(snapshot: Mapping[str, str]) -> str:
-    """``rig-`` = H{ host, hardware, system } over one ``rig-snapshot.sh`` reading.
+def _listed(value: object) -> list[Any]:
+    return list(value) if isinstance(value, list | tuple) else []
 
-    The values are hashed exactly as the snapshot prints them — tokenized
-    strings, ``host`` its ``hostname=`` — and nowhere else is a rig id spelled,
-    so the lock and live admission name a rig the same way. A reading missing a
-    field is refused by name and never hashed. Cards beyond device 0 are named
-    by the ``gpu_others`` reading, hashed as printed and only when non-empty.
+
+def _policy(reading: Mapping[str, Any]) -> tuple[list[tuple[str, str]], list[Any]]:
+    """The rig id's policy, all of it in one place: what refuses the id, each
+    with what the user can do, and the cards the id is hashed over.
+
+    A card the reading names in ``unsized`` whose size is unread (no card tool
+    installed there reads its vendor, and its sysfs entry publishes no size: a
+    management adapter, an integrated one, a virtual display) is left out; a
+    machine whose every card is such is named as a machine with no card. Any
+    other card refuses the id when its name or size was not read, is named
+    unread, or is not a value a reading takes. A machine id that is not 16 hex
+    or is named unread refuses it, and so do a card source that failed or may
+    be short and a card the reader dropped. The reading may come from another
+    machine, so nothing in it is taken on trust: every value is checked here
+    by the reader's own rules (:mod:`mcgyvr.serving.rigscan`).
     """
-    wanted = ("hostname", *RIG_HARDWARE, *RIG_SYSTEM)
-    missing = [key for key in wanted if not str(snapshot.get(key) or "").strip()]
-    if missing:
-        raise ValueError(
-            f"the rig snapshot does not read {', '.join(missing)}, and a rig id "
-            "is never hashed over a field that was not read"
+    from mcgyvr.serving import rigscan
+
+    found: list[tuple[str, str]] = []
+    unread = [u for u in _listed(reading.get("unread")) if isinstance(u, Mapping)]
+    named = {str(u.get("field")) for u in unread}
+    unsized = {str(key) for key in _listed(reading.get("unsized"))}
+    machine = reading.get("machine")
+    machine_id = machine.get("id") if isinstance(machine, Mapping) else None
+    if not rigscan.is_machine_id(machine_id) or "machine_id" in named:
+        found.append(("machine_id", _REMEDY_MACHINE_ID))
+    kept: list[Any] = []
+    for card in _listed(reading.get("cards")):
+        if not isinstance(card, Mapping):
+            found.append(("reading", _REMEDY_READING))
+            continue
+        key = f"card.{card.get('vendor')}.{card.get('index')}"
+        total = card.get("total_mib")
+        if key in unsized and total is None:
+            continue
+        if rigscan.name_problem(card.get("name")) or f"{key}.name" in named:
+            found.append((f"{key}.name", _REMEDY_NAME))
+        if total is None or f"{key}.total" in named:
+            found.append((f"{key}.total", _REMEDY_SIZE))
+        elif not rigscan.is_size(total):
+            found.append((f"{key}.total", _REMEDY_SIZE_TYPE))
+        kept.append(card)
+    for item in unread:
+        field = str(item.get("field"))
+        if field.startswith("cards"):
+            found.append((field, _REMEDY_CARDS))
+        elif field == "reading" or _CARD_WHOLE.fullmatch(field):
+            found.append((field, _REMEDY_READING))
+    return found, kept
+
+
+def rig_id(reading: Mapping[str, Any]) -> str:
+    """``rig-`` = H{ machine id, [(card name, total MiB) for every card] }.
+
+    ``reading`` is :mod:`mcgyvr.serving.rigscan`'s document, of this machine or
+    of another. The cards are sorted by name, then size, so their indexes and
+    their order, which a card tool may change, do not move the id; two equal
+    cards are both in it. A name is taken in Unicode normal form C. A reading
+    the policy (:func:`_policy`) finds anything in is refused by name, with the
+    reason the reading gave and what the user can do: an id is never hashed
+    over a field that was not read, nor over a list of cards that a source it
+    asked names as short.
+
+    Nothing else is in the id. The kernel, the driver, docker, the CPU's clock
+    and power limits stay in the reading and in the rig file, and the door's
+    gates compare them there (:func:`mcgyvr.serving.rigfile.moved`): a driver
+    upgrade is a machine that changed, said by the gate, not a new machine.
+    """
+    refused, cards = _policy(reading)
+    if refused:
+        # A reason may come from another machine: it is made printable and
+        # bounded before it reaches a terminal.
+        why: dict[str, str] = {}
+        for item in _listed(reading.get("unread")):
+            if isinstance(item, Mapping):
+                said = "".join(
+                    c if c.isprintable() else " " for c in str(item.get("why"))
+                )
+                why.setdefault(str(item.get("field")), said.strip()[:_WHY_MAX])
+        said = "; ".join(
+            f"{field} ({why[field]}; {remedy})"
+            if field in why
+            else f"{field} ({remedy})"
+            for field, remedy in dict(refused).items()
         )
-    hardware = {key: str(snapshot[key]) for key in RIG_HARDWARE}
-    extras = str(snapshot.get(RIG_EXTRA_CARDS) or "").strip()
-    if extras:
-        hardware[RIG_EXTRA_CARDS] = extras
+        raise ValueError(
+            f"the reading does not read {said}, and a rig id is never hashed over "
+            "a field that was not read"
+        )
+    pairs = sorted(
+        (unicodedata.normalize("NFC", str(card["name"])), int(card["total_mib"]))
+        for card in cards
+    )
+    machine = reading["machine"]
     return digest(
         "rig-",
         {
-            "host": str(snapshot["hostname"]),
-            "hardware": hardware,
-            "system": {key: str(snapshot[key]) for key in RIG_SYSTEM},
+            "machine_id": str(machine["id"]),
+            "cards": [{"name": name, "total_mib": total} for name, total in pairs],
         },
     )

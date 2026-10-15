@@ -7,6 +7,85 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Changed (breaking)
+
+- **One reader reads a machine, and one id names it.**
+  - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
+    tool. The door ships it to a rig as one read-only line
+    (`echo <base64> | base64 -d | python3 -I -B -`), and the product imports
+    it locally.
+  - Its one JSON document carries the short reading (machine id, host, every
+    card on any vendor, RAM), the capacity scan, and the snapshot the door's
+    gates hold a run to. A field that cannot be read is named in `unread`
+    with the reason. It is never filled in.
+  - The door's own `rig-snapshot.sh` and `machine-read.sh` are gone, and so is
+    the text parser `mcgyvr.fleet.machine`. What holds a rig at run time (its
+    containers and card holders) is still read by `rig-units.sh`.
+  - A machine has one id, `rig-` over its machine id and its cards' names and
+    sizes (`mcgyvr.fleet.ids.rig_id`). The lock pins it, live admission
+    compares it, and a rig's hub hears it as the hello's `machine_id`. The
+    `mch-` prefix is retired.
+  - The kernel, the driver, docker and the CPU's clock are no longer in the
+    id: a driver upgrade no longer mints a new rig. Ids and locks written
+    before this release do not match: read each rig again and lock again.
+  - `ssh_read_only` admits the shipped reader's exact bytes and no snapshot
+    line.
+
+- **One record per machine: its rig file.**
+  - The scans folder (`~/.local/state/mcgyvr/scans`, `$MCGYVR_SCANS`) is gone.
+    `mcgyvr scan` records this machine as its rig file,
+    `$MCGYVR_RIGS/localhost.json`. `emit` and `mcgyvr manage` size from the
+    rig files.
+  - A rig file now holds the one reader's reading whole. Rig files written
+    before this release are not read: run `mcgyvr scan --rig RIG` again.
+  - `mcgyvr scan` says what moved since the last record. A gate says the same
+    thing, and it now also covers the kernel, the driver, the CPU's clock,
+    power limits and the card's slot.
+  - Exit 4 is kept for the hardware changing: a card, RAM, cores or bandwidth.
+  - `mcgyvr scan`, `mcgyvr detect` and the card figures a serve step files
+    are read by the one reader. Nothing else runs `nvidia-smi` or reads
+    `/proc/meminfo`.
+
+### Fixed
+
+- **Interactive `mcgyvr setup` writes every rig's file**, a remote rig's too.
+  Before, `serve up` on a remote rig was refused unless `mcgyvr scan --rig`
+  had run first. Each rig is now read once per setup: the fleet is approved
+  from the same reading.
+
+### Changed
+
+- **A stamp locks nothing; `mcgyvr fleet lock` is the one lock writer**
+  (owner: "one script that locks a fleet, one script that stamps a fleet
+  without locking").
+  - `mcgyvr.fleet.stamp.stamp` writes only the stamp folder,
+    `<data folder>/stamps/<fleet>/<run>/` (`setup/` and `evidence.json`). It
+    no longer locks, promotes or names a fleet live.
+  - New: `mcgyvr fleet lock --stamp DIR` (`mcgyvr.fleet.lock.write_from_stamp`)
+    writes the lock from a stamp folder into it. Promote and use it from there
+    as any other lock. `--stamp` and `--evidence` are mutually exclusive;
+    `--evidence` still needs `--fleet`.
+- **The user's own fleet is locked like any other, then promoted and named
+  live.** `mcgyvr.fleet.lock.write_unsampled` locks a fleet no sample could
+  run on, approved by `mcgyvr setup` on no evidence. It refuses unless the
+  caller says the user acknowledged that (`acknowledged=True`; `mcgyvr setup`
+  passes it for now, and will ask). `mcgyvr setup` then runs
+  `promote.promote` and `promote.use`, as for every live fleet.
+  `promote.approve_own` and `promote.approve_own_rigs` are gone, and
+  `is_own` moved to `mcgyvr.fleet.lock`.
+  - Same guarantees as before: no unit on a rig that was not read, no hosted
+    unit at a machine of yours, an mcorch policy's units awake, a layout that
+    reads back as pinned. New: a setup that names a unit on a rig that was not
+    read is refused even when other rigs were read.
+  - `promote` dates such a lock by its approval and puts a later approval of
+    the same day at `<date>-2`, `-3`. It carries the hosted units with it.
+  - Fixed: a live wake on a rig of your own fleet was refused, as its lock has
+    no combination record. `admit.host_is_locked` now answers for a lock
+    approved on no evidence from its layout, while that layout matches the
+    pin.
+
 ## [0.5.0] - 2026-10-13
 
 Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
@@ -876,7 +955,7 @@ Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
 - A llama.cpp model block may declare `speculative: mtp` and
   `spec_draft_n_max` (default 2): llama.cpp's native multi-token-prediction
   self-speculation (`--spec-type draft-mtp --spec-draft-n-max N`), measured at
-  +26.5% decode at width 1 and +22% at width 2 on srv2's 12 GB card with
+  +26.5% decode at width 1 and +22% at width 2 on box2's 12 GB card with
   acceptance ~0.90 (`records/evidence/2026-08-28-mtp-ornith/`). The grafted
   head's bytes are read off the scan's tensor table (`vramfit.mtp_head_bytes`,
   816 MiB on KAT/Ornith Q2_K-AllGPU) and charged to the card, so the derived
@@ -894,9 +973,9 @@ Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
   draft-mtp` or `--spec-type=draft-mtp` in its argv or flags, or
   `speculative: mtp` in its launch block, with or without experts on the CPU
   beside it. The class is stated in `tools/runs/derived.json`: warm decode 2%
-  and prefill 5%, both measured on `srv2_ornith_mtp` over the mtp-ornith
+  and prefill 5%, both measured on `box2_ornith_mtp` over the mtp-ornith
   window (`records/measurements/lock-fleets/mtp-ornith/`), not `cpu_experts`'
-  48% and 1%, which were measured on srv1 offload (owner, 2026-09-16). The
+  48% and 1%, which were measured on box1 offload (owner, 2026-09-16). The
   window's prefill tolerance is recorded twice with the same figures:
   `prefill-tolerance-cpu_experts.json`, written while the unit was still
   `cpu_experts`, is kept as recorded, beside `prefill-tolerance-mtp.json`,
@@ -2143,12 +2222,12 @@ behind v0.1.0.
   **A source name and a backend kind stopped being the same string.** Two rigs
   both run Ollama on 11434, and `sources` is a mapping, so an unqualified name
   is one rig silently overwriting the other in the config. Names are qualified
-  with the host (`srv1_ollama`) exactly when a sweep covers more than one — and
+  with the host (`box1_ollama`) exactly when a sweep covers more than one — and
   qualification is keyed on hosts *probed* rather than hosts that *answered*, so
   a source does not get renamed when a box is down. `Backend.kind` carries the
   convention (`ollama`) separately, because the capability table's
   `requires_backend` matches on what the server *is*: a model measured on Ollama
-  is measured on Ollama whether the source is called `ollama` or `srv2_ollama`.
+  is measured on Ollama whether the source is called `ollama` or `box2_ollama`.
 
   **Fit evidence is now chosen by where the backend is, not by which claim is
   stronger.** A VRAM test is a statement about this machine's card, so it
@@ -2380,7 +2459,7 @@ behind v0.1.0.
 
 - `records/measurements/mbpp-plus-3b-2026-08-10/` (#225) — MBPP+ measured
   against the floor model through the rig sweeps' own serving path: 70.6%
-  base / 60.6% plus, greedy, EvalPlus 0.3.1 against Ollama on srv1. The
+  base / 60.6% plus, greedy, EvalPlus 0.3.1 against Ollama on box1. The
   issue's "plausibly between d3 and the pool" hypothesis is refuted — MBPP+
   reads above d1, at the easy end the retired sets already covered — and the
   d3→pool collapse is confirmed as a unit-of-work cliff, not
@@ -2695,7 +2774,7 @@ behind v0.1.0.
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
   cell, so the row saying "this draw reached no worker" was indistinguishable
   from one saying what the worker replied — and a resume skipped it forever. A
-  269-problem sweep lost **152 of 807 draws (18.8%)** to a contiguous srv2
+  269-problem sweep lost **152 of 807 draws (18.8%)** to a contiguous box2
   outage that closed on its own; re-running the identical command printed
   `resuming: 807 draws already recorded` and dispatched nothing. The rows file
   is append-only, so refilling means rewriting it: the displaced rows are kept
@@ -2763,7 +2842,7 @@ behind v0.1.0.
   default of 1 is withdrawn. It was taken on the strongest local rung against
   the easiest task set, where 18 of 20 tasks passed on the first draw; the
   collapse-to-mode mechanism it leans on is likewise rung-specific — 5 of 20
-  tasks collapsed there against 0 of 20 on srv1's four models.
+  tasks collapsed there against 0 of 20 on box1's four models.
 - `prompts/javascript.md` states a measured null result instead of an
   `UNMEASURED` marker, and `Bundle` grew `BundleStanding` because a boolean
   could no longer carry the answer. Both shipped bundles are now the artifact a

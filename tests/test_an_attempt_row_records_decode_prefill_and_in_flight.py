@@ -58,13 +58,13 @@ units:
     address: http://localhost:8080
     engine: llama.cpp
     model: deepseek-coder-v2-16b
-    rig: srv1
+    rig: box1
     width: 2
   vllm:
     address: http://localhost:8001
     engine: vllm
     model: Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
-    rig: srv2
+    rig: box2
     width: 8
 ladder:
 - llama
@@ -398,7 +398,7 @@ def _completion(**fields: Any) -> Completion:
         stop_reason=StopReason.COMPLETE,
         raw_stop_reason="stop",
         model="deepseek-coder-v2-16b",
-        source="srv1_deepseek",
+        source="box1_deepseek",
         protocol=Protocol.OPENAI,
         max_output_tokens=2048,
         latency_s=8.0,
@@ -410,9 +410,9 @@ def _row(sink: Path, completion: Completion) -> dict[str, Any]:
     observe(
         lambda: completion,
         path=sink,
-        attempt_id="agent-a:doc:srv1_deepseek:1",
+        attempt_id="agent-a:doc:box1_deepseek:1",
         orchestrator="agent-a",
-        rung="srv1_deepseek",
+        rung="box1_deepseek",
     )
     (row,) = fold(path=sink)
     return row

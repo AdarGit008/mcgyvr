@@ -64,7 +64,7 @@ def test_a_compose_service_without_a_container_name_is_refused_before_any_gate(
     tmp_path: Path,
 ) -> None:
     root = onedoor.fixture_repo(tmp_path)
-    path = root / "compose.srv1.yml"
+    path = root / "compose.box1.yml"
     path.write_text(
         yaml.safe_dump({"services": {"a": {"command": ["--port", "8001"]}}}),
         encoding="utf-8",
@@ -101,10 +101,10 @@ def test_serve_up_brings_the_file_up_asks_each_unit_and_leaves_it_running(
 
     record = json.loads(
         (
-            onedoor.serve_envelope(root, "serve-up", "live-srv1") / "serve-up.json"
+            onedoor.serve_envelope(root, "serve-up", "live-box1") / "serve-up.json"
         ).read_text()
     )
-    assert record["mode"] == "up" and record["host"] == "srv1"
+    assert record["mode"] == "up" and record["host"] == "box1"
     assert [u["container"] for u in record["units"]] == list(UNITS)
     assert all(u["healthy"] for u in record["units"])
     assert record["units"][0]["models"] == ["stub-model"]
@@ -159,7 +159,7 @@ def test_serve_down_opens_on_the_serving_rig_and_requires_nothing_left(
     ), log
     record = json.loads(
         (
-            onedoor.serve_envelope(root, "serve-down", "live-srv1") / "serve-down.json"
+            onedoor.serve_envelope(root, "serve-down", "live-box1") / "serve-down.json"
         ).read_text()
     )
     assert record["mode"] == "down" and record["remaining"] == []
@@ -186,8 +186,8 @@ def test_up_then_down_on_one_day_file_under_one_envelope(tmp_path: Path) -> None
     down = onedoor.serve_door(root, "down", compose, env_extra={CONFIG_VAR: str(dev)})
     assert down.returncode == 0, (down.stdout, down.stderr)
     assert (
-        onedoor.serve_envelope(root, "serve-up", "live-srv1") / "serve-up.json"
+        onedoor.serve_envelope(root, "serve-up", "live-box1") / "serve-up.json"
     ).is_file()
     assert (
-        onedoor.serve_envelope(root, "serve-down", "live-srv1") / "serve-down.json"
+        onedoor.serve_envelope(root, "serve-down", "live-box1") / "serve-down.json"
     ).is_file()

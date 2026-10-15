@@ -123,7 +123,7 @@ def test_the_live_fleet_reads_as_its_layout_from_its_tagged_folder(
 
     live = read.live()
     assert (live.name, live.folder) == (FLEET_NAME, folder)
-    assert live.combination("srv2") and live.slots("srv1")[0][0] == SECOND
+    assert live.combination("box2") and live.slots("box1")[0][0] == SECOND
     assert _live(None)[0] == FLEET_NAME
     assert live_pulled_units() == {}
 
@@ -140,12 +140,12 @@ def test_the_tagged_fleet_is_admitted_against_its_own_lock_and_named_by_its_layo
 
     admission = admit(door.spawn)
     assert admission.fleet == FLEET_NAME and admission.admitted, admission
-    assert sorted(host for host, _ in door.calls) == ["srv1", "srv2"]
+    assert sorted(host for host, _ in door.calls) == ["box1", "box2"]
 
     live = launchable()
-    plan = Plan(clean=[("srv2", "mcgyvr-srv2-stray")], restore=[])
+    plan = Plan(clean=[("box2", "mcgyvr-box2-stray")], restore=[])
     (line,) = door_commands(live, FLEET_NAME, plan)
-    assert spec_name("srv2", FLEET_NAME) in line
+    assert spec_name("box2", FLEET_NAME) in line
     assert TAGGED not in line, "the compose file is named by the layout, not the tag"
 
 
@@ -162,12 +162,12 @@ def test_emit_under_the_tagged_live_fleet_writes_the_layouts_files_and_container
     assert lj.main(["emit", "--out", str(out)]) == 0, capsys.readouterr().err
 
     written = sorted(path.name for path in out.iterdir())
-    assert written == sorted(spec_name(h, FLEET_NAME) for h in ("srv1", "srv2"))
-    srv2 = yaml.safe_load((out / spec_name("srv2", FLEET_NAME)).read_text("utf-8"))
-    assert srv2["services"][FIRST]["container_name"] == "mcgyvr-srv2-3b"
-    srv1 = yaml.safe_load((out / spec_name("srv1", FLEET_NAME)).read_text("utf-8"))
-    assert srv1["services"][SECOND]["container_name"] == "mcgyvr-srv1-deepseek"
-    for document in (srv1, srv2):
+    assert written == sorted(spec_name(h, FLEET_NAME) for h in ("box1", "box2"))
+    box2 = yaml.safe_load((out / spec_name("box2", FLEET_NAME)).read_text("utf-8"))
+    assert box2["services"][FIRST]["container_name"] == "mcgyvr-box2-3b"
+    box1 = yaml.safe_load((out / spec_name("box1", FLEET_NAME)).read_text("utf-8"))
+    assert box1["services"][SECOND]["container_name"] == "mcgyvr-box1-deepseek"
+    for document in (box1, box2):
         assert TAGGED not in yaml.safe_dump(document)
 
 
@@ -184,6 +184,6 @@ def test_a_live_run_under_the_tagged_fleet_is_admitted_then_dispatched(
     code, err = climb(tmp_path, monkeypatch, capsys, events, "tagged")
 
     assert code == 0, err
-    assert sorted(host for host, _ in door.calls) == ["srv1", "srv2"], door.calls
+    assert sorted(host for host, _ in door.calls) == ["box1", "box2"], door.calls
     assert dispatched(events), events
     assert "refused" not in err

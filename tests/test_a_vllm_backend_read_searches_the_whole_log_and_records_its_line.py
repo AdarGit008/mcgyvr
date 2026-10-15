@@ -1,14 +1,14 @@
 """A vLLM unit's attention backend is read from its whole log, and the line is kept.
 
 Owner ruling: "fix the reader and record the line". ``rig-id-relock``'s
-srv2-03 — a ``read`` of the b-small pair on srv2 — stops with ``STOP srv2-03:
-srv2_3b reported no attention_backend`` when both vLLM units file
+box2-03 — a ``read`` of the b-small pair on box2 — stops with ``STOP box2-03:
+box2_3b reported no attention_backend`` when both vLLM units file
 ``attention_backend: null``.
 
 A reader that takes the FIRST line matching ``attention backend`` and looks
 for a token in that line alone reads a log that names the backend elsewhere as
 ``none``. The lock's own method
-(``records/measurements/fleet-setup-2026-09-13/srv2/measure_vllm.py``)
+(``records/measurements/fleet-setup-2026-09-13/box2/measure_vllm.py``)
 searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
 
 * The backend is the token the whole log carries, over the same token list.
@@ -20,7 +20,7 @@ searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
   ``attention_backend`` as data that is never judged.
 * The stop stands: ``assemble_evidence.py`` refuses a missing or
   non-unanimous backend.
-* srv2-03 is logged as failed, so it gets its one retry. A ``read`` has no
+* box2-03 is logged as failed, so it gets its one retry. A ``read`` has no
   wrapper and no artifact of its own — its run id is minted when it runs — so
   the retry is the same door command under a new run id.
 
@@ -52,10 +52,10 @@ from tests.reads import (
 )
 from tests.reads import record as read_record
 
-#: srv2's log shape: the line that says "attention backend" carries no token,
+#: box2's log shape: the line that says "attention backend" carries no token,
 #: and the token is on a later line the ``attention[ _]backend`` match misses.
 SELECTING = "INFO 09-16 11:20:04 selector.py:8] Resolving attention backend"
-SRV2_LOG = (
+BOX2_LOG = (
     "INFO 09-16 11:20:01 loader.py:12] Loading weights\n"
     f"{SELECTING}\n"
     "INFO 09-16 11:20:06 gpu_model_runner.py:3] Using FLASH_ATTN for the decoder\n"
@@ -75,7 +75,7 @@ def _reader(tmp_path: Path, log: str) -> list[str]:
         stubs / "docker",
         "#!/usr/bin/env bash\n"
         'case "$1" in\n'
-        f"  ps) printf '%s|%s|%s\\n' {C_3B} mcgyvr-srv2-3b mcgyvr ;;\n"
+        f"  ps) printf '%s|%s|%s\\n' {C_3B} mcgyvr-box2-3b mcgyvr ;;\n"
         "  inspect) echo 0 ;;\n"
         f'  logs) cat "{printed}" ;;\n'
         "esac\n",
@@ -89,7 +89,7 @@ def _reader(tmp_path: Path, log: str) -> list[str]:
     )
     env = {**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"}
     done = subprocess.run(
-        ["bash", str(GATE_SCRIPTS / "rig-units.sh"), "vllm:8001:mcgyvr-srv2-3b"],
+        ["bash", str(GATE_SCRIPTS / "rig-units.sh"), "vllm:8001:mcgyvr-box2-3b"],
         env=env,
         capture_output=True,
         text=True,
@@ -125,8 +125,8 @@ def _recorded(lines: list[str]) -> str:
 def test_the_backend_is_the_token_the_whole_log_carries_not_the_first_lines(
     tmp_path: Path,
 ) -> None:
-    """The srv2 case: the matched line names no token and the log does."""
-    lines = _reader(tmp_path, SRV2_LOG)
+    """The box2 case: the matched line names no token and the log does."""
+    lines = _reader(tmp_path, BOX2_LOG)
     assert "backend=8001,FLASH_ATTN" in lines, lines
     # And the reader says which line it matched, so the row can be read back.
     assert _recorded(lines) == SELECTING
@@ -192,16 +192,16 @@ def _encoded(text: str) -> str:
     return base64.b64encode(text.encode("utf-8")).decode("ascii")
 
 
-def test_a_backend_line_row_is_decoded_and_never_lands_in_the_snapshot() -> None:
-    """A row the parser does not know becomes a snapshot field, and the rig id
-    is hashed over the snapshot — so this row is parsed, not swept up."""
+def test_a_backend_line_row_is_decoded_as_a_row_of_its_own() -> None:
+    """The runtime reader's rows are parsed by their key; a row it does not
+    print is refused, so this one must be known to be kept."""
     parsed = read.parse(
         f"backend=8001,FLASH_ATTN\nbackend_line=8001,{_encoded(SELECTING)}\n"
         "backend=8002,none\nbackend_line=8002,\n"
     )
     assert parsed.backend_line == {8001: SELECTING, 8002: ""}
     assert parsed.backend == {8001: "FLASH_ATTN", 8002: None}
-    assert "backend_line" not in parsed.snapshot
+    assert parsed.machine == {}
 
 
 @pytest.mark.parametrize(
@@ -229,7 +229,7 @@ def test_the_parser_bounds_the_line_as_the_reader_does() -> None:
 
 
 def _read_with_lines(**line: str) -> str:
-    """One reader's output for srv2, with a recorded line per port."""
+    """One reader's output for box2, with a recorded line per port."""
     text = rig_text(backend=("8001,FLASH_ATTN", "8002,none"))
     return text + "".join(
         f"backend_line={port},{_encoded(said)}\n" for port, said in line.items()
@@ -269,7 +269,7 @@ def test_a_reader_that_printed_no_line_files_an_empty_one(tmp_path: Path) -> Non
 
 
 # --------------------------------------------------------------------------
-# srv2-03 runs again: a read entry's one retry
+# box2-03 runs again: a read entry's one retry
 # --------------------------------------------------------------------------
 
 

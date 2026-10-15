@@ -1,14 +1,16 @@
 """One reading of a rig, taken through the door, filed once and read back.
 
-Owner, 2026-09-15 (D2, F2b): ``python -m mcgyvr.serving.run read`` ships one
-reader to a rig — ``rig-snapshot.sh`` and ``rig-units.sh`` as one text — and
-hands what comes back to :func:`record`. Nothing on the rig is started,
-stopped or leased.
+Owner, 2026-09-15 (D2, F2b): ``python -m mcgyvr.serving.run read`` reads a
+rig through the door — the machine by the one reader
+(:mod:`mcgyvr.serving.rigscan`, shipped as ``python3 -I -B -``) and what holds it by
+the runtime reader (``rig-units.sh``, shipped as ``bash -s``) — and hands both
+to :func:`record`. Nothing on the rig is started, stopped or leased.
 
-* :func:`parse` turns the reader's ``key=value`` lines into a :class:`Reading`.
+* :func:`parse` turns the runtime reader's ``key=value`` lines into a
+  :class:`Reading`, and :func:`reading` puts the machine's reading beside them.
 * :func:`observe` says what the reading means for the live fleet on that rig:
-  the rig id its snapshot names (:func:`mcgyvr.fleet.ids.rig_id`), our units and
-  their state, and every card holder that is in no container of ours. A
+  the rig id the machine's reading names (:func:`mcgyvr.fleet.ids.rig_id`),
+  our units and their state, and every card holder that is in no container of ours. A
   container is ours when it is in the ``mcgyvr`` compose project or is named
   ``mcgyvr-`` (the lab's fleet-identity plan, §2). A unit of the
   fleet is found by the container name the lock records for it.
@@ -109,9 +111,10 @@ class Holder:
 
 @dataclass
 class Reading:
-    """Everything one reader printed."""
+    """Everything one read of a rig took: the machine and what holds it."""
 
-    snapshot: dict[str, str] = field(default_factory=dict)
+    #: The machine's reading (:mod:`mcgyvr.serving.rigscan`'s document).
+    machine: dict[str, Any] = field(default_factory=dict)
     containers: list[Container] = field(default_factory=list)
     holders: list[Holder] = field(default_factory=list)
     #: port -> what ``/is_sleeping`` said, ``None`` for a unit with no sleep
@@ -135,8 +138,20 @@ def _digits(value: str) -> int | None:
     return int(value) if value.isascii() and value.isdigit() else None
 
 
+def reading(machine: Mapping[str, Any], text: str) -> Reading:
+    """The machine's reading and the runtime reader's lines as one
+    :class:`Reading`, or refused."""
+    if not isinstance(machine, Mapping) or not isinstance(
+        machine.get("snapshot"), Mapping
+    ):
+        raise ReadError("the machine's reading is not one the reader prints")
+    found = parse(text)
+    found.machine = dict(machine)
+    return found
+
+
 def parse(text: str) -> Reading:
-    """The reader's ``key=value`` lines as a :class:`Reading`, or refused."""
+    """The runtime reader's ``key=value`` lines as a :class:`Reading`, or refused."""
     reading = Reading()
     for raw in text.splitlines():
         line = raw.strip()
@@ -206,7 +221,7 @@ def parse(text: str) -> Reading:
                 raise ReadError(f"the backend line of :{port} does not decode") from exc
             reading.backend_line[port] = said[:BACKEND_LINE_MAX]
         else:
-            reading.snapshot[key] = value
+            raise ReadError(f"the reader printed {line!r}, not a line it prints")
     return reading
 
 
@@ -364,7 +379,7 @@ def observe(fleet: Live, host: str, reading: Reading) -> Observed:
     from mcgyvr.runner import status_busy
 
     try:
-        rig_id = ids.rig_id(reading.snapshot)
+        rig_id = ids.rig_id(reading.machine)
     except ValueError as exc:
         raise ReadError(f"{host}: {exc}") from exc
     by_name = {container.name: container for container in reading.containers}
@@ -516,6 +531,7 @@ class _Filing:
 
 def record(
     host: str,
+    machine: Mapping[str, Any],
     text: str,
     *,
     run_id: str,
@@ -539,8 +555,8 @@ def record(
     fleet = prepare(host, probe, load, fleet_name=fleet_name, setup=setup)
     width, window = load_spec(load) if load is not None else (0, 0)
     at = _at(run_id)
-    reading = parse(text)
-    observed = observe(fleet, host, reading)
+    taken = reading(machine, text)
+    observed = observe(fleet, host, taken)
     done = Recorded(observed)
     filing = _Filing(
         journal=journal_dir(fleet.folder),
@@ -584,7 +600,7 @@ def record(
         **filing.stamp,
         **filing.stamps,
         "observed_rig_id": observed.rig_id,
-        "snapshot": reading.snapshot,
+        "snapshot": taken.machine.get("snapshot") or {},
         "units": observed.units,
         "foreign": observed.foreign,
         "probed": done.probed,

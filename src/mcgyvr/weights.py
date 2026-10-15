@@ -3,7 +3,7 @@
 **Two vocabularies.** vLLM's served id is the model it was started with — the
 repository id a config names — and those compare as strings. llama.cpp's is
 the **path it was handed**, as ``/models/dense/<name>.gguf`` (the lab's
-serving evidence for lcpp-srv1), against a config that declares ``<name>``.
+serving evidence for lcpp-box1), against a config that declares ``<name>``.
 ``emit`` passes ``--alias <name>`` beside ``--model <path>``, so a unit it
 rendered serves the declared name; a server started
 without one (by hand, or from a file emitted before the alias was written)

@@ -41,7 +41,7 @@ def gpt_oss_measured_rows(n_swa: int = 12) -> list[dict[str, Any]]:
     cohere2moe 36 of 49) and both of those escape it only by declaring a
     pattern -- leaving the assumption exercised on this one file alone.
 
-    The engine names the split. srv2, ``-c 16384 -np 8``::
+    The engine names the split. box2, ``-c 16384 -np 8``::
 
         llama_kv_cache_iswa: creating non-SWA KV cache, size = 2048 cells
         llama_kv_cache: size = 384.00 MiB ( 2048 cells, 12 layers, 8/8 seqs)
@@ -54,7 +54,7 @@ def gpt_oss_measured_rows(n_swa: int = 12) -> list[dict[str, Any]]:
     safe -- if a gpt-oss conversion is not uniform, a count is not enough and
     this helper fails instead of quietly inventing an assignment.
 
-    -> ``records/evidence/2026-09-05-context-decomposition/srv2-gpt-oss-20b-MXFP4/``
+    -> ``records/evidence/2026-09-05-context-decomposition/box2-gpt-oss-20b-MXFP4/``
     """
     rows = [dict(r) for r in g("gpt-oss-20b-MXFP4.gguf")["kv_layers"]]
     widths = {(r["k_elems"], r["v_elems"]) for r in rows}
@@ -207,10 +207,10 @@ def test_nemotron_declares_more_blocks_than_carry_experts() -> None:
 @pytest.mark.parametrize(
     "model,probe_ncmoe,probe_used_mib,idle_mib,free_mib,expect_floor,ran,ran_used_mib,refused",
     [
-        # srv1, L3 image, c=8192 np=8 ub=512. Probe at ncmoe 34 read 4276 MiB.
+        # box1, L3 image, c=8192 np=8 ub=512. Probe at ncmoe 34 read 4276 MiB.
         # The rig then loaded at 29 (4/4, used 5584) and refused at 28 (6/6).
         ("Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf", 34, 4276, 17, 5727, 29, 29, 5584, 28),
-        # srv2, stock. Probe at max offload read 2127 MiB. The rig walked down
+        # box2, stock. Probe at max offload read 2127 MiB. The rig walked down
         # to 5 (used 11857) and refused at 4.
         ("KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf", 41, 2127, 1, 11911, 5, 5, 11857, 4),
     ],
@@ -302,7 +302,7 @@ def test_kv_for_the_layouts_that_broke_a_scalar_summary(
 
 @pytest.mark.parametrize(
     "n_ctx,n_seq_max,engine_n_ctx",
-    # Measured on srv1, 28-layer dense model. `-c` is a request: llama.cpp pads
+    # Measured on box1, 28-layer dense model. `-c` is a request: llama.cpp pads
     # the per-sequence context up to 256 and rewrites the total to match, so a
     # 0.1% change in the request can move the allocation by 25%.
     [
@@ -371,8 +371,8 @@ def test_an_undeclared_sliding_split_is_refused_not_guessed(model: str) -> None:
 
 @pytest.mark.parametrize(
     "n_ctx,total_mib,non_swa_mib,swa_mib",
-    # Measured on srv2, `-np 8 -ub 256`, summing BOTH device caches. Three
-    # loads per context, all byte-identical, and srv1 read the same buffers.
+    # Measured on box2, `-np 8 -ub 256`, summing BOTH device caches. Three
+    # loads per context, all byte-identical, and box1 read the same buffers.
     [
         (2048, 96.00, 48.00, 48.00),
         (4096, 192.00, 96.00, 96.00),

@@ -4,13 +4,17 @@
 WHY start==end IS NOT ENOUGH. A step's own check compares the rig with itself
 before and after, which catches a machine that moves DURING a run and says
 nothing at all about one that moved BEFORE it. The user's rig file is the
-declaration — the rig as `mcgyvr scan --rig` saved it — and the rig is scanned
-again here and held to that file (:mod:`mcgyvr.serving.rigfile`): what moved
-is said, and the run is refused only when the fleet no longer fits.
+declaration — the rig as `mcgyvr scan --rig` saved it — and the rig is read
+again here, once, by the one reader (:mod:`mcgyvr.serving.rigscan`, shipped as
+``python3 -I -B -``) and held to that file (:mod:`mcgyvr.serving.rigfile`): what
+moved — a card, RAM, the kernel, the driver, docker, the CPU's clock — is
+said, and the run is refused only when the fleet no longer fits.
 
-The reading is exported for gate 7, which takes a second one after the step and
-stamps any key that moved into the artifacts, because rows produced under two
-machines have to say so.
+The reading's snapshot is exported for gate 7, which takes a second one after
+the step and stamps any key that moved into the artifacts, because rows
+produced under two machines have to say so. What holds the rig — its
+containers and the processes on its card — is read beside it by the door's
+runtime reader, ``rig-units.sh``.
 
 THE RIG IS LEASED HERE, before it is read. Gate 5's claim on the RUN_ID is per
 envelope, so two steps could still land on one rig together; the contended
@@ -31,10 +35,12 @@ before the run is reported and left as it is, since mcgyvr did not start it.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from mcgyvr.serving import rigfile, servelib
 from mcgyvr.serving.gatelib import (
@@ -47,28 +53,30 @@ from mcgyvr.serving.gatelib import (
     need,
     new_lease,
     refuse,
+    scan_read_command,
     ssh,
     step_name,
 )
+from mcgyvr.serving.rigscan import SNAPSHOT_CARD_KEYS
 
 HERE = Path(__file__).resolve().parent
 
-#: What the reader prints beyond the declared keys that must read `none`: a
-#: card held by a process, or a container up, before the step starts, is a
-#: machine somebody else is using. The door does not repair a machine it
-#: found wrong, so the run names them and leaves them.
+#: The runtime readings that must read `none` for an idle rig: a card held by
+#: a process, or a container up, before the step starts, is a machine somebody
+#: else is using. The door does not repair a machine it found wrong, so the run
+#: names them and leaves them.
 IDLE_KEYS = ("gpu_procs", "containers")
 
 
-def snapshot(host: str) -> dict[str, str]:
-    """Ship the reader to the rig on stdin and parse `key=value` back.
+def reading(host: str) -> dict[str, Any]:
+    """The rig read whole by the one reader, shipped as ``python3 -I -B -``.
 
-    On stdin, never installed: nothing lands on the rig's disk, so gate 7 has
-    nothing extra to look for.
+    Nothing lands on the rig's disk, so gate 7 has nothing extra to look for. A
+    rig that cannot be read, or whose first card the reader cannot read, is
+    not compared: the snapshot's card keys are what gate 7 holds the run to.
     """
-    reader = (HERE / "rig-snapshot.sh").read_text(encoding="utf-8")
     try:
-        done = ssh(host, "bash -s", timeout=180, input=reader)
+        done = ssh(host, scan_read_command(), timeout=180)
     except subprocess.TimeoutExpired:
         refuse(
             f"gate 2: {host} did not answer in 180s. A rig that cannot be read "
@@ -79,19 +87,67 @@ def snapshot(host: str) -> dict[str, str]:
             f"gate 2: the rig could not be read: {done.stderr.strip()[:500]}. "
             "A machine that cannot be read is not compared"
         )
-    reading: dict[str, str] = {}
-    for line in done.stdout.splitlines():
-        if not line.strip():
-            continue
-        if "=" not in line or " " in line:
-            refuse(
-                f"gate 2: the reader printed {line!r}, which is not one "
-                "whitespace-free key=value; a snapshot line must be legal in a "
-                "stamp exactly as printed"
+    try:
+        document = json.loads(done.stdout)
+    except ValueError:
+        document = None
+    if not isinstance(document, dict) or not isinstance(document.get("snapshot"), dict):
+        refuse(
+            f"gate 2: the reader on {host} printed no reading this takes. A machine "
+            "that cannot be read is not compared"
+        )
+    why = {
+        str(item.get("field")): str(item.get("why"))
+        for item in document.get("unread") or ()
+        if isinstance(item, dict)
+    }
+    missing = [key for key in SNAPSHOT_CARD_KEYS if key not in document["snapshot"]]
+    if missing:
+        refuse(
+            f"gate 2: the reader on {host} does not read "
+            + "; ".join(
+                f"{key} ({why.get(f'snapshot.{key}', 'no reason')})" for key in missing
             )
-        key, _, value = line.partition("=")
-        reading[key] = value
-    return reading
+            + ". A rig whose card is unread is not compared, and nothing is "
+            "measured on it"
+        )
+    return document
+
+
+def held(host: str) -> dict[str, str]:
+    """What holds the rig now, by the runtime reader ``rig-units.sh``: the
+    containers up, by short id, and the processes on its card, each ``;``-joined,
+    or ``none``."""
+    from mcgyvr.fleet import read
+
+    units = (HERE / "rig-units.sh").read_text(encoding="utf-8")
+    try:
+        done = ssh(host, "bash -s", timeout=180, input=units)
+    except subprocess.TimeoutExpired:
+        refuse(f"gate 2: {host} did not say what holds it in 180s")
+    if done.returncode != 0:
+        refuse(
+            f"gate 2: what holds {host} could not be read: "
+            f"{done.stderr.strip()[:500]}. A rig whose card holders and "
+            "containers are unread is not compared"
+        )
+    try:
+        found = read.parse(done.stdout)
+    except read.ReadError as exc:
+        refuse(f"gate 2: what holds {host} reads wrong: {exc}")
+    # `docker ps` names a container by the first 12 digits of its id.
+    containers = ";".join(c.id[:12] for c in found.containers)
+    procs = ";".join(
+        f"{h.pid},{h.process},{'unread' if h.mib is None else h.mib}MiB"
+        for h in found.holders
+    )
+    return {"gpu_procs": procs or "none", "containers": containers or "none"}
+
+
+def snapshot(host: str) -> dict[str, str]:
+    """The rig's snapshot and what holds it, as one map of tokens: what gate 7
+    reads again after the step and diffs against gate 2's."""
+    return {**reading(host)["snapshot"], **held(host)}
 
 
 def teardown_displaced(
@@ -227,8 +283,9 @@ def main_user(host: str) -> int:
     """Gate 2: the lease, the reading, and the user's rig file.
 
     The rig file is asked for first, so a run with none reaches no rig. The
-    lease and the reading gate 7 diffs against are taken first; the rig is
-    then scanned again and held to its file (:func:`rigfile.door_check`).
+    lease is taken first; the rig is then read once, and that one reading is
+    both what gate 7 diffs against and what is held to the rig file
+    (:func:`rigfile.door_check`).
     """
     saved = rigfile.required(host, "gate 2")
     mine, displaced = take_lease(host)
@@ -237,13 +294,18 @@ def main_user(host: str) -> int:
     if displaced is not None:
         teardown_displaced(host, displaced, "gate 2")
 
-    live = snapshot(host)
+    document = reading(host)
+    live = {**document["snapshot"], **held(host)}
     compose = os.environ.get("RUN_COMPOSE")
     try:
         used = rigfile.cards_used(Path(compose)) if compose else None
     except servelib.ComposeError as exc:
         refuse(f"gate 2: the compose file cannot be read for its cards: {exc}")
-    rigfile.door_check(host, saved, used, "gate 2")
+    try:
+        now = rigfile.from_reading(host, document)
+    except rigfile.RigFileError as exc:
+        refuse(f"gate 2: {exc}. A machine that cannot be read is not compared")
+    rigfile.door_check(host, saved, now, used, "gate 2")
 
     busy = {key: live.get(key, "(unread)") for key in IDLE_KEYS}
     busy = {key: value for key, value in busy.items() if value != "none"}

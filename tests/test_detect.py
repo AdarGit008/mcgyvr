@@ -4,6 +4,9 @@ The properties that matter are therefore about behaviour under absence and
 under failure, not about what this particular machine reports. Nothing here
 touches the network or a real subprocess: every probe is stubbed, so the
 suite asserts on the code's handling rather than on the runner's hardware.
+The cards and RAM come from the one reader of a machine
+(:mod:`mcgyvr.serving.rigscan`), read here over a file root that holds nothing
+and with its tool seam answered from a table.
 """
 
 from __future__ import annotations
@@ -28,15 +31,36 @@ from mcgyvr.detect import (
     targets_for,
 )
 
-NVIDIA_SMI = "NVIDIA GeForce RTX 3060, 12288\n"
-NVIDIA_SMI_TWO = "NVIDIA GeForce RTX 3060, 12288\nNVIDIA GeForce GTX 1660 SUPER, 6144\n"
+#: What the first vendor's tool prints for the reader's query
+#: (``index,memory.total,memory.used,memory.free,name``).
+NVIDIA_SMI = "0, 12288, 0, 12288, NVIDIA GeForce RTX 3060\n"
+NVIDIA_SMI_TWO = (
+    "0, 12288, 0, 12288, NVIDIA GeForce RTX 3060\n"
+    "1, 6144, 0, 6144, NVIDIA GeForce GTX 1660 SUPER\n"
+)
+#: A file root that holds nothing: no file of the machine the tests run on is
+#: read by the reader.
+EMPTY_ROOT = "/nonexistent-mcgyvr-test-root"
 
 LCP_MODELS = {"data": [{"id": "qwen2.5-coder:7b"}, {"id": "qwen2.5-coder:3b"}]}
 OPENAI_MODELS = {"data": [{"id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"}]}
 
 
 def stub_run(monkeypatch: pytest.MonkeyPatch, table: dict[str, str | None]) -> None:
-    """Replace command execution with a lookup keyed on the binary name."""
+    """Replace command execution with a lookup keyed on the binary name: the
+    one reader's tool seam (cards) and detect's own (the docker probe)."""
+    from mcgyvr.serving import rigscan
+
+    def reader_run(argv: Any, *, bound: float = 0.0) -> tuple[str | None, str | None]:
+        return table.get(argv[0]), None
+
+    monkeypatch.setattr(rigscan, "_run", reader_run, raising=True)
+    monkeypatch.setattr(
+        detect_module,
+        "_reading",
+        lambda: rigscan.read_machine(root=EMPTY_ROOT),
+        raising=True,
+    )
     monkeypatch.setattr(
         detect_module, "_run", lambda cmd: table.get(cmd[0]), raising=True
     )
@@ -73,7 +97,7 @@ def test_absence_is_explained_rather_than_left_silent(
     stub_http(monkeypatch, {})
     notes = " ".join(detect().notes)
     assert "nvidia-smi" in notes, "an undetected GPU must say what was tried"
-    assert "AMD" in notes, "and must name the machines it cannot speak for"
+    assert "other vendors" in notes, "and must name the cards it cannot speak for"
     assert "No local backend answered" in notes
     assert "temp directory" in notes, "a missing Docker must state what it costs"
 
@@ -143,10 +167,44 @@ def test_largest_vram_is_not_a_sum(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_garbage_from_nvidia_smi_does_not_raise(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Lines that are no card are no card list: not determined, and why."""
     stub_run(monkeypatch, {"nvidia-smi": "this is not, csv\nnor, is-this\n"})
     gpus, notes = detect_gpus()
     assert gpus == ()
-    assert notes and "reported no device" in notes[0]
+    assert notes and "not determined" in notes[0]
+    assert "not a card line" in notes[0]
+
+
+def test_a_tool_that_answers_with_no_card_reports_no_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_run(monkeypatch, {"nvidia-smi": ""})
+    gpus, notes = detect_gpus()
+    assert gpus == ()
+    assert notes == ("GPU: nvidia-smi ran but reported no device.",)
+
+
+def test_a_card_of_another_vendor_is_not_proposed_from() -> None:
+    """The reader reads it; detection sizes from the first vendor's cards."""
+    reading = {
+        "cards": [
+            {"vendor": "amd", "index": 0, "name": "Example Card", "total_mib": 8192}
+        ],
+        "unread": [],
+    }
+    gpus, notes = detect_gpus(reading)
+    assert gpus == ()
+    assert notes and "not determined" in notes[0]
+
+
+def test_ram_is_the_readers_memory_total() -> None:
+    from mcgyvr.detect import detect_ram_gb
+
+    assert detect_ram_gb({"memory": {"total_gb": 15.7, "available_gb": 9.0}})[0] == 15.7
+    assert detect_ram_gb({"memory": None}) == (
+        None,
+        "not determined — the reader read no memory total",
+    )
 
 
 # --- backends -------------------------------------------------------------
@@ -307,16 +365,16 @@ def test_the_default_sweep_is_localhost_and_unchanged() -> None:
 
 
 def test_a_named_host_is_swept_on_every_port_convention() -> None:
-    targets = targets_for(["srv1"])
+    targets = targets_for(["box1"])
     assert len(targets) == len(PORT_CONVENTIONS)
-    assert {t.host for t in targets} == {"srv1"}
-    assert "http://srv1:8080" in {t.base_url for t in targets}
-    assert "http://srv1:8000" in {t.base_url for t in targets}
+    assert {t.host for t in targets} == {"box1"}
+    assert "http://box1:8080" in {t.base_url for t in targets}
+    assert "http://box1:8000" in {t.base_url for t in targets}
 
 
 def test_a_single_named_host_still_gets_bare_names() -> None:
     """One machine is unambiguous, whichever machine it is."""
-    assert [t.name for t in targets_for(["srv1"])] == [
+    assert [t.name for t in targets_for(["box1"])] == [
         name for name, *_ in PORT_CONVENTIONS
     ]
 
@@ -327,34 +385,34 @@ def test_two_hosts_qualify_names_so_sources_cannot_collide() -> None:
     The config maps sources by name, so a collision here is not a cosmetic
     problem: it is one rig silently disappearing from the ladder.
     """
-    targets = targets_for(["srv1", "srv2"])
+    targets = targets_for(["box1", "box2"])
     names = [t.name for t in targets]
     assert len(names) == len(set(names)), "every candidate source is distinctly named"
-    assert "srv1_llama-server" in names
-    assert "srv2_llama-server" in names
+    assert "box1_llama-server" in names
+    assert "box2_llama-server" in names
 
 
 def test_qualifying_a_name_never_changes_what_the_backend_is() -> None:
     """`requires_backend` in the table matches the kind, not the config name.
 
     A model measured on vLLM is measured on vLLM whether the source is
-    called `vllm` or `srv2_vllm`. Conflating the two would withhold every
+    called `vllm` or `box2_vllm`. Conflating the two would withhold every
     backend-pinned model the moment a second host was named.
     """
-    for target in targets_for(["srv1", "srv2"]):
+    for target in targets_for(["box1", "box2"]):
         assert target.kind in {name for name, *_ in PORT_CONVENTIONS}
         assert target.name.endswith(target.kind)
 
 
 def test_an_address_survives_becoming_a_config_key() -> None:
     """A tailnet address is a name someone edits by hand in YAML."""
-    names = [t.name for t in targets_for(["100.69.72.51", "srv1"])]
+    names = [t.name for t in targets_for(["100.64.0.1", "box1"])]
     assert all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", n) for n in names), names
 
 
 def test_naming_one_host_twice_probes_it_once() -> None:
-    assert len(targets_for(["srv1", "srv1"])) == len(PORT_CONVENTIONS)
-    assert [t.name for t in targets_for(["srv1", "srv1"])] == [
+    assert len(targets_for(["box1", "box1"])) == len(PORT_CONVENTIONS)
+    assert [t.name for t in targets_for(["box1", "box1"])] == [
         name for name, *_ in PORT_CONVENTIONS
     ], "a duplicate must not be read as two hosts and trigger qualification"
 
@@ -363,11 +421,11 @@ def test_a_remote_backend_is_not_reported_as_local(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_run(monkeypatch, {})
-    stub_http(monkeypatch, {"http://srv2:8080/v1/models": LCP_MODELS})
-    found = detect(targets_for(["srv2"]))
+    stub_http(monkeypatch, {"http://box2:8080/v1/models": LCP_MODELS})
+    found = detect(targets_for(["box2"]))
     assert found.backends
     assert found.has_remote_backend
-    assert found.hosts_answering == ("srv2",)
+    assert found.hosts_answering == ("box2",)
     assert all(not b.is_local for b in found.backends)
 
 
@@ -391,10 +449,10 @@ def test_nothing_answering_anywhere_names_the_flag_that_widens_the_sweep(
 ) -> None:
     stub_run(monkeypatch, {})
     stub_http(monkeypatch, {})
-    found = detect(targets_for(["srv1", "srv2"]))
+    found = detect(targets_for(["box1", "box2"]))
     joined = " ".join(found.notes)
     assert "--host" in joined
-    assert "http://srv1:8080" in joined, "and says exactly what was tried"
+    assert "http://box1:8080" in joined, "and says exactly what was tried"
 
 
 # --- one protocol, asked and dispatched alike ----------------------------

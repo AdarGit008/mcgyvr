@@ -15,7 +15,7 @@ probe asks the lock's own question instead:
   with ``cache_prompt`` off.
 
 Both take the median, as the lock's numbers were taken (the lab's fleet
-reports for srv1 and srv2). Unlike the harnesses, the probe does not run on
+reports for box1 and box2). Unlike the harnesses, the probe does not run on
 the rig: it asks the unit at its address.
 
 **A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM stopwatch

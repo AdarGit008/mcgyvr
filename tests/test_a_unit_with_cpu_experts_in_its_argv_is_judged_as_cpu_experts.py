@@ -28,12 +28,12 @@ import pytest
 
 from tests import liveprobes as probed
 
-#: ``srv1_deepseek`` in b-small's shape — ``--n-cpu-moe 19`` in its argv, no
+#: ``box1_deepseek`` in b-small's shape — ``--n-cpu-moe 19`` in its argv, no
 #: ``n_cpu_moe`` or ``flags`` — with the probe tests' unit id so it fits their
 #: lock.
-SRV1_DEEPSEEK: dict[str, Any] = {
-    "rig": "srv1",
-    "address": "http://srv1:8080",
+BOX1_DEEPSEEK: dict[str, Any] = {
+    "rig": "box1",
+    "address": "http://box1:8080",
     "engine": "llama.cpp",
     "image": "llamacpp:b10644-L3",
     "model": "deepseek-coder-v2-16b",
@@ -42,12 +42,12 @@ SRV1_DEEPSEEK: dict[str, Any] = {
     "output_tokens": 2048,
     "request_timeout_s": 180,
     "room_mib": 5458,
-    "container": "mcgyvr-srv1-deepseek",
+    "container": "mcgyvr-box1-deepseek",
     "unit_id": probed.UNIT_DS,
     "launch": {
         "argv": [
             "--model",
-            "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf",
+            "/home/user/models/moe/deepseek-coder-v2-16b.gguf",
             "--n-cpu-moe",
             "19",
             "--parallel",
@@ -69,8 +69,8 @@ SRV1_DEEPSEEK: dict[str, Any] = {
         ],
         "env": {"LLAMA_ARG_HOST": "0.0.0.0"},
         "volumes": [
-            "/home/adaramir/models:/models:ro",
-            "/home/adaramir/models:/home/adaramir/models:ro",
+            "/home/user/models:/models:ro",
+            "/home/user/models:/home/user/models:ro",
         ],
     },
 }
@@ -83,13 +83,13 @@ def _llamacpp(argv: object) -> dict[str, Any]:
 def _fleet_with(argv: list[str]) -> dict[str, Any]:
     """The probe tests' fleet, with deepseek launched as b-small launches it."""
     fleet: dict[str, Any] = json.loads(json.dumps(probed.FLEET))
-    unit: dict[str, Any] = json.loads(json.dumps(SRV1_DEEPSEEK))
+    unit: dict[str, Any] = json.loads(json.dumps(BOX1_DEEPSEEK))
     unit["launch"]["argv"] = argv
-    fleet["units"]["srv1_deepseek"] = unit
+    fleet["units"]["box1_deepseek"] = unit
     return fleet
 
 
-B_SMALL_ARGV: list[str] = list(SRV1_DEEPSEEK["launch"]["argv"])
+B_SMALL_ARGV: list[str] = list(BOX1_DEEPSEEK["launch"]["argv"])
 #: b-small's argv with ``--n-cpu-moe 0`` in place of ``19``.
 ZERO_ARGV = ["0" if value == "19" else value for value in B_SMALL_ARGV]
 
@@ -97,10 +97,10 @@ ZERO_ARGV = ["0" if value == "19" else value for value in B_SMALL_ARGV]
 # --- the class --------------------------------------------------------------
 
 
-def test_b_smalls_srv1_deepseek_is_cpu_experts() -> None:
+def test_b_smalls_box1_deepseek_is_cpu_experts() -> None:
     from mcgyvr.fleet.tolerance import tolerance_class
 
-    assert tolerance_class(SRV1_DEEPSEEK) == "cpu_experts"
+    assert tolerance_class(BOX1_DEEPSEEK) == "cpu_experts"
 
 
 @pytest.mark.parametrize(
@@ -188,8 +188,8 @@ def test_the_locks_nvme_check_reads_cpu_experts_from_the_argv(tmp_path: Path) ->
     from mcgyvr.fleet import lock
 
     evidence = json.loads(json.dumps(probed.EVIDENCE))
-    evidence["combinations"][1]["warm_decode_tok_s"]["srv1_deepseek"] = 30.0
-    evidence["combinations"][1]["baseline_tok_s"] = {"srv1_deepseek": 33.0}
+    evidence["combinations"][1]["warm_decode_tok_s"]["box1_deepseek"] = 30.0
+    evidence["combinations"][1]["baseline_tok_s"] = {"box1_deepseek": 33.0}
 
     lock.write(
         tmp_path / "experts",

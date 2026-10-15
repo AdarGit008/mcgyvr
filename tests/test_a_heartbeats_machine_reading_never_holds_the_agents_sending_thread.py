@@ -82,7 +82,7 @@ class Machine:
             if n in self.failing:
                 raise hardware.HardwareError("the machine reader exited 1")
             return hardware.Report(
-                machine_id="mch-example",
+                machine_id="rig-example",
                 ram_total_mb=65536,
                 ram_free_mb=1000 + n,
                 cards=(

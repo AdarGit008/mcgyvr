@@ -28,7 +28,7 @@ that nothing in ``mcgyvr.wake`` runs ``docker`` or ``ssh``, so one seam is the
 whole of the rig contact and a machine with no rigs can hold the module to it.
 Substituting it is what lets this suite run on a laptop.
 
-**The card here is srv2's**, two vLLM sources on one RTX 3060 behind ``:8001``
+**The card here is box2's**, two vLLM sources on one RTX 3060 behind ``:8001``
 and ``:8002``, because it is the multi-unit card and therefore the harder case:
 waking it is waking both rungs at once. Sleeping it is
 ``tests/test_sleeping_a_card_takes_every_rung_it_serves.py``.
@@ -62,7 +62,7 @@ from tests.doors import (
 #: back in under a millisecond and carries ``Connection refused``. This is the
 #: string ``runner._post_json`` builds from the ``OSError`` urllib raises.
 REFUSED = (
-    "could not reach http://srv2:8001/v1/chat/completions within 120s: "
+    "could not reach http://box2:8001/v1/chat/completions within 120s: "
     "[Errno 111] Connection refused"
 )
 
@@ -194,7 +194,7 @@ def test_a_refused_vllm_card_this_config_holds_a_spec_for_is_woken_not_written_o
 ) -> None:
     """A refused dispatch wakes the card (§7.7).
 
-    srv2 was slept, the next dispatch at ``http://srv2:8001`` is refused by the
+    box2 was slept, the next dispatch at ``http://box2:8001`` is refused by the
     port, and the card comes back without anyone typing anything. The wake is
     one door run against the *whole* compose file — the card is the file, and
     the file's own ``depends_on`` sequences the two units largest-first, so the

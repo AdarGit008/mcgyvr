@@ -1,20 +1,21 @@
-"""A green sample writes evidence the fleet lock accepts, and the fleet is stamped.
+"""A green sample writes evidence the fleet lock accepts.
 
 Owner, Round 4 (2026-10-07): the owner's confirm is approval to run the
 SAMPLE -- start the servers and run the sample check task. A green sample is
-the fleet STAMPED: approved, locked, reusable through ``fleet use``. Plan
-section 8.2: the sample's results are written as the dev-run evidence JSON
-``fleet lock`` already reads, then the existing chain runs unchanged -- ``fleet
-lock`` -> ``fleet promote`` -> ``fleet use``.
+the fleet STAMPED. Plan section 8.2: the sample's results are written as the
+dev-run evidence JSON ``fleet lock`` already reads; the stamp holds it, and the
+chain every live fleet takes runs from there -- ``fleet lock --stamp`` ->
+``fleet promote`` -> ``fleet use``
+(``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
 * **The evidence is read from the door's own read rows** (P7a, Round 8):
   ``read --fleet F --probe U --load WxN`` of the staged setup files the
   snapshot (the rig id, the card's reserve as the combination's overhead),
   each unit's card and restarts, the probe's warm decode and prefill, and the
   load's card peak. The card's size is the rig file the user's scan saved.
-* **The stamp needs no lab file.** Its dev lock is written under
-  ``<data folder>/stamps/<fleet>/<run_id>/`` (setup, evidence.json and the
-  lock), promote reads from there, and the run root is not touched.
+* **The stamp needs no lab file.** Its lock is written into the stamp folder,
+  ``<data folder>/stamps/<fleet>/<run_id>/``, beside its setup and
+  evidence.json, and the run root is not touched.
 
 No rig is reached: the rig is invented and its reads are canned.
 """
@@ -22,7 +23,6 @@ No rig is reached: the rig is invented and its reads are canned.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -72,9 +72,9 @@ def test_the_evidence_is_the_dev_run_evidence_from_the_reads_and_the_rig_file(
     assert verdict.green, verdict.why
     evidence = verdict.evidence
     assert evidence is not None
-    assert evidence["rigs"] == {fx.RIG: {"card_mib": 12288, "snapshot": fx.SNAPSHOT}}, (
-        "the card is the rig file's, the snapshot the last read's"
-    )
+    assert evidence["rigs"] == {
+        fx.RIG: {"card_mib": 12288, "rig_id": fx.rig_id(), "snapshot": fx.SNAPSHOT}
+    }, "the card is the rig file's, the rig id and the snapshot the last read's"
     assert evidence["moves"] == []
     (comb,) = evidence["combinations"]
     assert comb["rig"] == fx.RIG
@@ -115,43 +115,10 @@ def test_the_fleet_lock_accepts_the_evidence_as_it_is(
     assert (root / LOCK_DIR / f"{fx.FLEET}.json").is_file()
 
 
-def test_a_green_sample_is_locked_promoted_and_named_live(
-    tmp_path: Path, no_lab: Path
-) -> None:
-    from mcgyvr.fleet import stamp
-    from mcgyvr.fleet.roots import data_home, fleets_dir, live_fleet
-
-    setup = fx.staged(tmp_path)
-    fx.rig_file()
-    _read_twice(setup)
-
-    done = stamp.stamp(_sample(setup), run_id="sample-1")
-
-    assert done.green, done.why
-    assert done.name == f"{fx.FLEET}@{fx.SAMPLE_DAY}", "dated by the lock's own day"
-    assert done.promoted == fleets_dir() / done.name
-    assert (done.promoted / "fleet.yaml").is_file()
-    assert live_fleet() == done.name, "the stamped fleet is the live one"
-    folder = data_home() / "stamps" / fx.FLEET / "sample-1"
-    assert done.folder == folder
-    assert (folder / "setup" / "fleet.yaml").is_file()
-    assert (folder / "setup" / "policy.yaml").is_file()
-    assert (
-        json.loads((folder / "evidence.json").read_text(encoding="utf-8"))[
-            "combinations"
-        ][0]["passed"]
-        is True
-    )
-    assert (folder / LOCK_DIR / f"{fx.FLEET}.json").is_file()
-    assert os.listdir(no_lab) == [], "a stamp writes nothing under the run root"
-    said = "\n".join(done.lines())
-    assert f"stamped: {done.name}" in said, said
-
-
 def test_a_rig_of_several_cards_is_held_to_each_card(
     tmp_path: Path, no_lab: Path
 ) -> None:
-    from mcgyvr.fleet import sample, stamp
+    from mcgyvr.fleet import lock, sample, stamp
 
     fleet = fx.fleet_doc()
     fleet["units"][fx.UNIT]["launch"] = {"shards": [{"rig": fx.RIG, "gpu": 1}]}
@@ -165,7 +132,13 @@ def test_a_rig_of_several_cards_is_held_to_each_card(
     assert "card_mib" not in verdict.evidence["rigs"][fx.RIG]
 
     done = stamp.stamp(_sample(setup), run_id="sample-2")
-    assert done.green, done.why
+    assert done.folder is not None, done.why
+    tree = lock.write_from_stamp(done.folder)
+    (record,) = (tree / "rigs").rglob("cmb-*.json")
+    assert json.loads(record.read_text(encoding="utf-8"))["cards"] == {
+        "0": 12288,
+        "1": 8192,
+    }
 
 
 @pytest.mark.parametrize(

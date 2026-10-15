@@ -48,7 +48,7 @@ from tests.reads import (
     FLEET_NAME,
     GATE_SCRIPTS,
     HARNESS_PY,
-    LOCKED_SRV2,
+    LOCKED_BOX2,
     RUN_ID,
     UNIT_3B,
     UNIT_7B,
@@ -65,8 +65,8 @@ from tests.reads import (
 
 
 @pytest.fixture
-def srv2(tmp_path: Path) -> Iterator[tuple[Path, Path]]:
-    root = onedoor.fixture_repo(tmp_path, host="srv2")
+def box2(tmp_path: Path) -> Iterator[tuple[Path, Path]]:
+    root = onedoor.fixture_repo(tmp_path, host="box2")
     journal = go_live(tmp_path)
     reading(root)
     yield root, journal
@@ -109,22 +109,22 @@ def test_read_help_offers_no_way_past_a_gate(tmp_path: Path) -> None:
 
 
 def test_a_read_files_its_rig_id_units_and_what_else_holds_the_card(
-    srv2: tuple[Path, Path],
+    box2: tuple[Path, Path],
 ) -> None:
-    root, journal = srv2
+    root, journal = box2
 
     result = read_door(root)
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     rig = rig_row(journal)
-    assert rig["fleet"] == FLEET_NAME and rig["rig"] == "srv2"
-    assert rig["rig_id"] == LOCKED_SRV2
+    assert rig["fleet"] == FLEET_NAME and rig["rig"] == "box2"
+    assert rig["rig_id"] == LOCKED_BOX2
     assert rig["combination_id"].startswith("cmb-")
     assert rig["run_id"] == RUN_ID
     assert rig["units"] == {
         UNIT_3B: "awake",
         UNIT_7B: "awake",
-        "mcgyvr-srv2-stray": "awake",
+        "mcgyvr-box2-stray": "awake",
     }
     assert len(rig["foreign"]) == 1, rig["foreign"]
     assert "5555" in rig["foreign"][0] and "train" in rig["foreign"][0]
@@ -133,7 +133,7 @@ def test_a_read_files_its_rig_id_units_and_what_else_holds_the_card(
     assert three["card_mib"]["observed"] == 3400 and three["card_mib"]["alert"] is False
     assert three["restarts"]["observed"] == 0 and three["restarts"]["alert"] is False
     for row in three.values():
-        assert row["fleet"] == FLEET_NAME and row["rig_id"] == LOCKED_SRV2
+        assert row["fleet"] == FLEET_NAME and row["rig_id"] == LOCKED_BOX2
         assert row["combination_id"] == rig["combination_id"]
         assert row["run_id"] == RUN_ID
 
@@ -145,21 +145,21 @@ def test_a_read_files_its_rig_id_units_and_what_else_holds_the_card(
 
 
 def test_card_over_room_and_a_restart_alert_on_a_live_read(
-    srv2: tuple[Path, Path],
+    box2: tuple[Path, Path],
 ) -> None:
-    root, journal = srv2
+    root, journal = box2
     reading(
         root,
         containers=(
-            f"mcgyvr-srv2-3b,{C_3B},mcgyvr,1",
-            f"mcgyvr-srv2-7b,{C_7B},mcgyvr,0",
+            f"mcgyvr-box2-3b,{C_3B},mcgyvr,1",
+            f"mcgyvr-box2-7b,{C_7B},mcgyvr,0",
         ),
         gpu=(f"4242,3600,{C_3B},python3", f"4343,7800,{C_7B},python3"),
     )
 
     result = read_door(root)
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     three = unit_rows(journal, UNIT_3B)
     assert three["card_mib"]["alert"] is True, "3600 MiB is over its 3573 MiB room"
     assert three["restarts"]["alert"] is True
@@ -168,8 +168,8 @@ def test_card_over_room_and_a_restart_alert_on_a_live_read(
     assert rig_row(journal)["foreign"] == []
 
 
-def test_a_unit_that_says_it_is_asleep_reads_asleep(srv2: tuple[Path, Path]) -> None:
-    root, journal = srv2
+def test_a_unit_that_says_it_is_asleep_reads_asleep(box2: tuple[Path, Path]) -> None:
+    root, journal = box2
     reading(root, sleeping=("8001,true", "8002,false"))
 
     assert read_door(root).returncode == 0
@@ -177,7 +177,7 @@ def test_a_unit_that_says_it_is_asleep_reads_asleep(srv2: tuple[Path, Path]) -> 
 
 
 def test_a_vllm_unit_whose_sleep_could_not_be_read_is_filed_unread(
-    srv2: tuple[Path, Path],
+    box2: tuple[Path, Path],
 ) -> None:
     """Owner ruling on FLT-02: ``unknown`` is a read that failed, not "awake".
 
@@ -185,24 +185,24 @@ def test_a_vllm_unit_whose_sleep_could_not_be_read_is_filed_unread(
     the reader could not read is filed as ``unread`` and listed as not read, so
     admission has something to refuse instead of a guess.
     """
-    root, journal = srv2
+    root, journal = box2
     reading(root, sleeping=("8001,false", "8002,unknown"))
 
     assert read_door(root).returncode == 0
     rig = rig_row(journal)
     assert rig["units"][UNIT_7B] == "unread"
     assert rig["units"][UNIT_3B] == "awake"
-    assert "sleeping" in rig["not_read"].get("srv2_7b", []), rig["not_read"]
+    assert "sleeping" in rig["not_read"].get("box2_7b", []), rig["not_read"]
 
 
 # --- read --probe -----------------------------------------------------------------
 
 
 def test_read_probe_runs_the_locks_harness_on_the_rig_and_its_figures_are_judged(
-    srv2: tuple[Path, Path],
+    box2: tuple[Path, Path],
 ) -> None:
     """125.0 is 1.3% under 126.7: past vLLM's 1%, timed on the rig."""
-    root, journal = srv2
+    root, journal = box2
     reading(root, status=(f"8001,{page(metrics(0))}",))
     measured = {
         "figures": {"warm_decode_tok_s": 125.0, "prefill_tok_s": 11500.0},
@@ -212,9 +212,9 @@ def test_read_probe_runs_the_locks_harness_on_the_rig_and_its_figures_are_judged
         json.dumps(measured), encoding="utf-8"
     )
 
-    result = read_door(root, "--probe", "srv2_3b")
+    result = read_door(root, "--probe", "box2_3b")
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     assert [line for line in onedoor.ssh_log(root) if "mcgyvr-harness" in line]
     three = unit_rows(journal, UNIT_3B)
     assert three["warm_decode_tok_s"]["observed"] == 125.0
@@ -226,28 +226,28 @@ def test_read_probe_runs_the_locks_harness_on_the_rig_and_its_figures_are_judged
 
 
 def test_read_probe_does_not_probe_a_unit_with_work_in_flight(
-    srv2: tuple[Path, Path],
+    box2: tuple[Path, Path],
 ) -> None:
-    root, journal = srv2
+    root, journal = box2
     reading(root, status=(f"8001,{page(metrics(2))}",))
 
-    result = read_door(root, "--probe", "srv2_3b")
+    result = read_door(root, "--probe", "box2_3b")
 
-    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])  # DBG
     assert not [line for line in onedoor.ssh_log(root) if "mcgyvr-harness" in line]
     assert "warm_decode_tok_s" not in unit_rows(journal, UNIT_3B)
-    assert "busy" in result.stdout and "srv2_3b" in result.stdout
+    assert "busy" in result.stdout and "box2_3b" in result.stdout
 
 
 def test_read_probe_of_a_unit_not_awake_on_this_rig_is_refused_before_the_rig(
-    srv2: tuple[Path, Path],
+    box2: tuple[Path, Path],
 ) -> None:
-    root, journal = srv2
+    root, journal = box2
 
-    result = read_door(root, "--probe", "srv1_deepseek")
+    result = read_door(root, "--probe", "box1_deepseek")
 
     assert result.returncode == 2, (result.stdout, result.stderr[-2000:])
-    assert "srv1_deepseek" in result.stderr
+    assert "box1_deepseek" in result.stderr
     assert onedoor.ssh_log(root) == []
     assert rows(journal) == []
 
@@ -270,7 +270,7 @@ def test_the_units_reader_prints_containers_card_holders_and_sleep(
         stubs,
         "docker",
         'case "$1" in\n'
-        f"  ps) printf '%s|%s|%s\\n' {C_3B} mcgyvr-srv2-3b mcgyvr ;;\n"
+        f"  ps) printf '%s|%s|%s\\n' {C_3B} mcgyvr-box2-3b mcgyvr ;;\n"
         "  inspect) echo 3 ;;\n"
         "esac\n",
     )
@@ -299,7 +299,7 @@ def test_the_units_reader_prints_containers_card_holders_and_sleep(
     )
     assert done.returncode == 0, done.stderr
     lines = done.stdout.splitlines()
-    assert f"container=mcgyvr-srv2-3b,{C_3B},mcgyvr,3" in lines, lines
+    assert f"container=mcgyvr-box2-3b,{C_3B},mcgyvr,3" in lines, lines
     assert f"gpu_app={mine},1024,none,python3" in lines, lines
     assert "sleeping=8001,false" in lines, lines
     status = [line for line in lines if line.startswith("status=8001,")]

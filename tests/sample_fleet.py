@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml
 
+from tests import onedoor
+
 RIG = "rig-a"
 FLEET = "coding-rig-a"
 UNIT = "rig-a-coder-s-8081"
@@ -35,7 +37,7 @@ READS = ("run-20261005T100000-0000000a", "run-20261005T100100-0000000b")
 SAMPLE_DAY = "2026-10-05"
 LOAD = "4x8192"
 
-#: One ``rig-snapshot.sh`` reading of the invented rig.
+#: The one reader's snapshot of the invented rig.
 SNAPSHOT: dict[str, str] = {
     "hostname": RIG,
     "cpu_model": "Example_CPU_8_core",
@@ -47,7 +49,7 @@ SNAPSHOT: dict[str, str] = {
     "gpu_vram_mib": "12288",
     "gpu_cc": "8.6",
     "gpu_slot": "0000:01:00.0",
-    "os_machine_id": "machine-of-rig-a",
+    "os_machine_id": "0a0b0c0d0e0f1a1b",
     "kernel": "6.0.0-example",
     "driver": "500.00",
     "docker": "27.0.0",
@@ -56,9 +58,12 @@ SNAPSHOT: dict[str, str] = {
 
 
 def rig_id(snapshot: dict[str, str] | None = None) -> str:
+    """The rig id a read of the invented rig with this snapshot names."""
     from mcgyvr.fleet import ids
 
-    return ids.rig_id(SNAPSHOT if snapshot is None else snapshot)
+    return ids.rig_id(
+        onedoor.machine_reading(SNAPSHOT if snapshot is None else snapshot)
+    )
 
 
 def unit(
@@ -130,25 +135,25 @@ def staged(
 
 
 def rig_file(cards: tuple[int, ...] = (12288,)) -> Path:
-    """Write the invented rig's file under the config folder, as setup's scan does."""
+    """Write the invented rig's file under the config folder, as setup's read does."""
     from mcgyvr.serving import rigfile
 
-    return rigfile.write(
-        rigfile.Rig(
-            rig=RIG,
-            read_at="2026-10-05T09:59:00Z",
-            hostname=RIG,
-            machine_id=SNAPSHOT["os_machine_id"],
-            cards=tuple(
-                rigfile.Card(index=index, name="Example GPU 12GB", total_mib=mib)
-                for index, mib in enumerate(cards)
-            ),
-            ram_total_gb=64.0,
-            disk_path="/",
-            disk_free_gb=500.0,
-            docker=SNAPSHOT["docker"],
-        )
-    )
+    reading = {
+        "machine": {"id": SNAPSHOT["os_machine_id"], "host": RIG, "kernel": "k"},
+        "gpus": [
+            {
+                "index": index,
+                "name": "Example GPU 12GB",
+                "vram": {"total_mib": mib, "used_mib": 0, "free_mib": mib},
+            }
+            for index, mib in enumerate(cards)
+        ],
+        "memory": {"total_gb": 64.0, "available_gb": 60.0},
+        "disk": {"path": "/", "free_gb": 500.0},
+        "docker": SNAPSHOT["docker"],
+        "snapshot": dict(SNAPSHOT),
+    }
+    return rigfile.write(rigfile.from_reading(RIG, reading, "2026-10-05T09:59:00Z"))
 
 
 def slots_page(busy: bool = False) -> str:
@@ -238,7 +243,7 @@ def read(
 
     return door_read.record(
         RIG,
-        reader_text() if text is None else text,
+        *onedoor.split_reading(reader_text() if text is None else text),
         run_id=run_id,
         profile="live",
         probe=probe,

@@ -1,6 +1,6 @@
 """An MTP head is charged to the card, and the ``--n-cpu-moe`` floor moves.
 
-srv2, RTX 3060 12 GB, ``Ornith-1.0-35B_Q2_K-AllGPU`` single slot: the baseline
+box2, RTX 3060 12 GB, ``Ornith-1.0-35B_Q2_K-AllGPU`` single slot: the baseline
 loads at ``ncmoe=4`` and ``--spec-type draft-mtp`` at ``ncmoe=4`` is refused
 (``cudaMalloc failed``); the MTP floor is 8
 (``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` §1). The
@@ -106,7 +106,7 @@ def test_kats_probe_derives_the_floor_the_rig_measured_with_mtp() -> None:
 
 def card() -> Scan:
     return Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=12288,
         ram_gb=48.0,
         disk_free_gb=120.0,

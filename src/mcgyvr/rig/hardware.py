@@ -1,16 +1,15 @@
 """The hardware a rig reports to its hub: the product's own reading, as it is now.
 
-Nothing here detects anything. The machine reader the door ships
-(``serving/gate-scripts/machine-read.sh``) reads the machine, run here as the
-door runs it on any machine (``bash -s``, the script on stdin);
-:func:`mcgyvr.fleet.machine.parse` reads what it prints; and the machine is
-named on the hub by its short id (:func:`mcgyvr.fleet.machine.short_id`), the
-digest of its machine id and its cards. Memory is :func:`mcgyvr.scan.read_memory`.
+Nothing here detects anything. The one reader (:mod:`mcgyvr.serving.rigscan`)
+reads the machine — its short reading, :func:`~mcgyvr.serving.rigscan.read_machine`,
+which asks for no raised rights and times no copy — and the machine is named on
+the hub by its rig id (:func:`mcgyvr.fleet.ids.rig_id`), the digest of its
+machine id and its cards: the same id the lock pins and live admission reads.
 
 So the hub hears of the machine what the product knows of it, and the same
 rules hold: a machine the product would not name (a card whose name or size
 was not read, a card tool that failed) is not reported under another name —
-the refusal is the short id's own, with what the user can do. The hub binds a
+the refusal is the rig id's own, with what the user can do. The hub binds a
 rig to the first machine id it hears, so a machine whose cards change is a
 different machine to it, as it is to the product.
 
@@ -18,29 +17,19 @@ Of a card, the report carries what the protocol has room for: its name made
 printable and cut to fit, its total and free memory in MiB. A card whose free
 memory was not read is reported with none free, the reading that promises
 nothing; a card the reading names unsized is not a card the hub can use and
-is left out, as the short id leaves it out. Cards are numbered for the hub in
+is left out, as the rig id leaves it out. Cards are numbered for the hub in
 the reading's order (by vendor, then the vendor's index), so a machine of two
 vendors gives each card its own number.
 """
 
 from __future__ import annotations
 
-import os
-import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import Any
 
-from mcgyvr import scan
-from mcgyvr.fleet import machine
+from mcgyvr.fleet import ids
 from mcgyvr.rig import protocol
-from mcgyvr.serving.run import GATE_SCRIPTS
-
-#: The machine reader, as the door ships it.
-READER = GATE_SCRIPTS / "machine-read.sh"
-#: How long the reader may take, in seconds, before the reading is refused.
-READER_TIMEOUT_S = 60.0
-#: The variables the reader takes for the product's tests only.
-_TEST_VARIABLES = "MCGYVR_TEST_"
 
 
 class HardwareError(Exception):
@@ -61,28 +50,11 @@ class Report:
     sources: tuple[tuple[str, int], ...] = ()
 
 
-def run_reader() -> str:
-    """What the machine reader prints for this machine, or :class:`HardwareError`."""
-    env = {k: v for k, v in os.environ.items() if not k.startswith(_TEST_VARIABLES)}
-    try:
-        done = subprocess.run(
-            ["bash", "-s"],
-            input=READER.read_text(encoding="utf-8"),
-            capture_output=True,
-            text=True,
-            timeout=READER_TIMEOUT_S,
-            env=env,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise HardwareError(
-            f"the machine reader did not finish in {READER_TIMEOUT_S:g} s"
-        ) from exc
-    except OSError as exc:
-        raise HardwareError(f"the machine reader could not run: {exc}") from exc
-    if done.returncode != 0:
-        raise HardwareError(f"the machine reader exited {done.returncode}")
-    return done.stdout
+def read_machine() -> Mapping[str, Any]:
+    """This machine's short reading, by the one reader."""
+    from mcgyvr.serving import rigscan
+
+    return rigscan.read_machine()
 
 
 def _printable(name: str | None, vendor: str) -> str:
@@ -96,20 +68,24 @@ def _mib(gb: float) -> int:
     return max(0, min(round(gb * 1024), protocol.MAX_MB))
 
 
-def read(
-    *,
-    reader: Callable[[], str] | None = None,
-    memory: Callable[[], scan.Memory | None] | None = None,
-) -> Report:
-    """This machine as a hello reports it, read now: by :func:`run_reader` and
-    :func:`mcgyvr.scan.read_memory` unless others are named."""
-    reading = machine.parse((reader or run_reader)())
+def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
+    """This machine as a hello reports it, read now: by :func:`read_machine`
+    unless another reader is named."""
     try:
-        machine_id = machine.short_id(reading)
+        reading = (reader or read_machine)()
+    except OSError as exc:
+        raise HardwareError(f"the machine could not be read: {exc}") from exc
+    try:
+        machine_id = ids.rig_id(reading)
     except ValueError as refusal:
-        raise HardwareError(f"this machine has no short id: {refusal}") from refusal
+        raise HardwareError(f"this machine has no rig id: {refusal}") from refusal
     notes: list[str] = []
-    sized = [card for card in reading.cards if card.key not in reading.unsized]
+    unsized = set(reading.get("unsized") or ())
+    sized = [
+        card
+        for card in reading.get("cards") or ()
+        if f"card.{card['vendor']}.{card['index']}" not in unsized
+    ]
     if len(sized) > protocol.MAX_CARDS:
         notes.append(
             f"{len(sized)} cards read; a report carries {protocol.MAX_CARDS}, so "
@@ -119,27 +95,30 @@ def read(
     cards: list[protocol.CardReport] = []
     sources: list[tuple[str, int]] = []
     for number, card in enumerate(sized):
-        total = min(card.total_mib or 0, protocol.MAX_MB)
-        free = card.free_mib
+        key = f"card.{card['vendor']}.{card['index']}"
+        total = min(card.get("total_mib") or 0, protocol.MAX_MB)
+        free = card.get("free_mib")
         if free is None:
-            notes.append(f"{card.key}: free memory not read; reported as none free")
+            notes.append(f"{key}: free memory not read; reported as none free")
             free = 0
         cards.append(
             protocol.CardReport(
                 index=number,
-                name=_printable(card.name, card.vendor),
+                name=_printable(card.get("name"), str(card["vendor"])),
                 vram_total_mb=total,
                 vram_free_mb=max(0, min(free, total)),
             )
         )
-        sources.append((card.vendor, card.index))
-    read_memory = (memory or scan.read_memory)()
-    if read_memory is None:
+        sources.append((str(card["vendor"]), int(card["index"])))
+    memory = reading.get("memory")
+    total_gb = memory.get("total_gb") if isinstance(memory, Mapping) else None
+    if total_gb is None:
         notes.append("memory: not read; reported as 0 MiB total")
         ram_total, ram_free = 0, None
     else:
-        ram_total = _mib(read_memory.total_gb)
-        ram_free = min(_mib(read_memory.available_gb), ram_total)
+        ram_total = _mib(float(total_gb))
+        available = memory.get("available_gb") if isinstance(memory, Mapping) else None
+        ram_free = None if available is None else min(_mib(float(available)), ram_total)
     return Report(
         machine_id=machine_id,
         ram_total_mb=ram_total,

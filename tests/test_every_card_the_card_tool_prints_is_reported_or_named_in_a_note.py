@@ -4,8 +4,10 @@ The promise: no card disappears between the card tool's output and what
 detection reports. A card whose name carries a comma is a card. A card whose
 memory size the tool prints as not available is a card whose size is not
 determined: it is listed, a note says its size is undetermined, and it takes no
-part in sizing. A row that cannot be read at all is quoted in a note, and the
-quote is of bounded length, whatever the row's.
+part in sizing. A card whose name cannot be read is named in a note that
+quotes why, and the quote is of bounded length, whatever the row's. The cards
+are read by the one reader of a machine (:mod:`mcgyvr.serving.rigscan`), with
+its tool seam answered here and over a file root that holds nothing.
 
 What the commands say holds to the same promise. ``mcgyvr detect`` prints every
 card and every note. ``mcgyvr setup`` names every card it found, of known size or
@@ -33,15 +35,37 @@ from mcgyvr.detect import Detection, Gpu
 from mcgyvr.initialize import InitError, initialize
 from tests.machine_shapes import Card, Shape, detection, shape, shapes, with_server
 
-MIB = detect.MIB_PER_GB
+MIB = int(detect.MIB_PER_GB)
 #: The size of a card whose size is not determined. Typed loosely so this file
 #: states the promise before the reader's types can carry it.
 NO_SIZE: Any = None
+#: A file root that holds nothing: no file of the machine the tests run on is
+#: read by the reader.
+EMPTY_ROOT = "/nonexistent-mcgyvr-test-root"
 
 
 def rows(*cards: tuple[str, str]) -> str:
-    """The card tool's ``name,memory.total`` rows, without header or units."""
-    return "".join(f"{name}, {size}\n" for name, size in cards)
+    """The card tool's rows for the reader's query
+    (``index,memory.total,memory.used,memory.free,name``), one per card, its
+    size free and none used; ``[N/A]`` for a size it cannot give."""
+    return "".join(
+        f"{index}, {size}, {'[N/A]' if size == '[N/A]' else 0}, {size}, {name}\n"
+        for index, (name, size) in enumerate(cards)
+    )
+
+
+def feed(monkeypatch: pytest.MonkeyPatch, output: str) -> None:
+    """The first vendor's tool answers ``output``; nothing else is installed,
+    and the reader reads no file of this machine."""
+    from mcgyvr.serving import rigscan
+
+    def run(argv: Any, *, bound: float = 0.0) -> tuple[str | None, str | None]:
+        return (output, None) if argv[0] == "nvidia-smi" else (None, None)
+
+    monkeypatch.setattr(rigscan, "_run", run, raising=True)
+    monkeypatch.setattr(
+        detect, "_reading", lambda: rigscan.read_machine(root=EMPTY_ROOT)
+    )
 
 
 def cards_read(monkeypatch: pytest.MonkeyPatch, output: str) -> tuple[Gpu, ...]:
@@ -52,19 +76,13 @@ def cards_read(monkeypatch: pytest.MonkeyPatch, output: str) -> tuple[Gpu, ...]:
 def read(
     monkeypatch: pytest.MonkeyPatch, output: str
 ) -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
-    monkeypatch.setattr(
-        detect,
-        "_run",
-        lambda command: output if command[0] == "nvidia-smi" else None,
-        raising=True,
-    )
+    feed(monkeypatch, output)
     return detect.detect_gpus()
 
 
-def accounted(gpus: tuple[Gpu, ...], notes: tuple[str, ...], row: str) -> bool:
-    """Whether a printed row is a reported card or quoted in a note."""
-    name = row.rsplit(",", 1)[0].strip()
-    return any(g.name == name for g in gpus) or any(row.strip() in n for n in notes)
+def accounted(gpus: tuple[Gpu, ...], notes: tuple[str, ...], name: str) -> bool:
+    """Whether a printed card is a reported card or named in a note."""
+    return any(g.name == name for g in gpus) or any(name in n for n in notes)
 
 
 # --- a name with a comma is a card -----------------------------------------
@@ -127,31 +145,54 @@ def test_a_machine_whose_only_card_has_no_size_still_has_a_card(
 # --- a row that cannot be read is quoted, never dropped ---------------------
 
 
-def test_a_row_that_cannot_be_read_is_quoted_in_a_note(
+def test_a_card_whose_name_cannot_be_read_is_named_in_a_note(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output = rows(("Plain X8", str(8 * MIB))) + "a row with no size at all\n"
+    output = rows(("Plain X8", str(8 * MIB)), ("[N/A]", str(8 * MIB)))
     gpus, notes = read(monkeypatch, output)
     assert [g.name for g in gpus] == ["Plain X8"]
     unread = [n for n in notes if n.startswith(detect.GPU_ROW_NOT_READ)]
     assert len(unread) == 1
-    assert "a row with no size at all" in unread[0]
+    assert "[N/A]" in unread[0]
+
+
+def test_a_line_that_is_no_card_after_a_card_names_that_card_in_a_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The card before such a line may have a name that ran over a line break,
+    so its name is not trusted: the card is named in a note, never dropped."""
+    output = rows(("Plain X8", str(8 * MIB))) + "a row with no size at all\n"
+    gpus, notes = read(monkeypatch, output)
+    assert gpus == ()
+    unread = [n for n in notes if n.startswith(detect.GPU_ROW_NOT_READ)]
+    assert len(unread) == 1 and "line break" in unread[0], notes
+
+
+def test_a_line_that_is_no_card_before_a_card_is_named_in_a_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A line that is not a card may be a card the tool printed wrong: the list
+    is not the whole answer, and a note says so beside the cards it read."""
+    output = "a row with no size at all\n" + rows(("Plain X8", str(8 * MIB)))
+    gpus, notes = read(monkeypatch, output)
+    assert [g.name for g in gpus] == ["Plain X8"]
+    assert any("not a card line" in n for n in notes), notes
 
 
 def test_a_mix_accounts_for_every_printed_row(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     printed = [
-        f"Plain X8, {8 * MIB}",
-        f"Inventa, Model Q-20, {20 * MIB}",
-        "Inventa Shared V, [N/A]",
-        f"Inventa W-24, {24 * MIB}",
-        "Inventa Broken, not-a-size",
+        ("Plain X8", str(8 * MIB)),
+        ("Inventa, Model Q-20", str(20 * MIB)),
+        ("Inventa Shared V", "[N/A]"),
+        ("Inventa W-24", str(24 * MIB)),
+        ("Inventa Broken", "not-a-size"),
     ]
-    gpus, notes = read(monkeypatch, "\n".join(printed) + "\n")
-    for row in printed:
-        assert accounted(gpus, notes, row), f"{row!r} disappeared"
-    assert len(gpus) == 4
+    gpus, notes = read(monkeypatch, rows(*printed))
+    for name, _ in printed:
+        assert accounted(gpus, notes, name), f"{name!r} disappeared"
+    assert len(gpus) == 5
     assert Detection(gpus=gpus).largest_vram_gb == 24.0
 
 
@@ -171,13 +212,8 @@ def test_rows_that_parse_today_read_as_they_did(
 def test_the_notes_travel_into_the_detection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output = rows(("Inventa Shared V", "[N/A]")) + "garbled\n"
-    monkeypatch.setattr(
-        detect,
-        "_run",
-        lambda command: output if command[0] == "nvidia-smi" else None,
-        raising=True,
-    )
+    output = rows(("Inventa Shared V", "[N/A]"), ("[N/A]", str(8 * MIB)))
+    feed(monkeypatch, output)
     monkeypatch.setattr(detect, "_get_json", lambda url, timeout: None, raising=True)
     found = detect.detect()
     assert [g.name for g in found.gpus] == ["Inventa Shared V"]
@@ -192,9 +228,9 @@ def test_a_note_quotes_a_bounded_part_of_a_huge_row(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bound = detect.ROW_QUOTED_AT_MOST
-    huge = "x" * 100_000
-    _gpus, notes = read(monkeypatch, f"{huge}\n{huge}, [N/A]\n")
-    assert len(notes) == 2
+    long = "x" * 300
+    _gpus, notes = read(monkeypatch, rows((long, str(8 * MIB)), (long, "[N/A]")))
+    assert len(notes) == 3
     for note in notes:
         assert len(note) <= bound * 2 + 300, note[:120]
 
@@ -205,19 +241,13 @@ def test_a_note_quotes_a_bounded_part_of_a_huge_row(
 def test_the_detect_command_prints_every_card_and_every_note(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    output = (
-        rows(("Plain X8", str(8 * MIB)), ("Inventa Shared V", "[N/A]"))
-        + "Inventa Broken, not-a-size\n"
+    output = rows(
+        ("Plain X8", str(8 * MIB)), ("Inventa Shared V", "[N/A]"), ("[N/A]", "8")
     )
-    monkeypatch.setattr(
-        detect,
-        "_run",
-        lambda command: output if command[0] == "nvidia-smi" else None,
-        raising=True,
-    )
+    feed(monkeypatch, output)
     monkeypatch.setattr(detect, "_get_json", lambda url, timeout: None, raising=True)
     monkeypatch.setattr(
-        detect, "detect_ram_gb", lambda: (None, "invented"), raising=True
+        detect, "detect_ram_gb", lambda *_: (None, "invented"), raising=True
     )
     monkeypatch.setattr(
         detect, "detect_docker", lambda: (False, "invented"), raising=True

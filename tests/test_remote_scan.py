@@ -8,12 +8,13 @@ shape, different transport. No access is a smaller answer, never a wrong one.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 
 import pytest
 
 from mcgyvr import scan as scan_module
-from mcgyvr.scan import Reach, Scan, os_machine_id, scan_all, scan_over
+from mcgyvr.scan import Reach, scan_all, scan_over
 
 SCAN_JSON = """
 {"machine": {"id": "%s", "host": "%s", "kernel": "6.8.0"},
@@ -63,8 +64,8 @@ def ssh(monkeypatch: pytest.MonkeyPatch) -> Ssh:
 def local(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         scan_module,
-        "scan",
-        lambda **kwargs: Scan.from_json(SCAN_JSON % ("id-localhost", "localhost")),
+        "reading",
+        lambda *args, **kwargs: json.loads(SCAN_JSON % ("id-localhost", "localhost")),
     )
 
 
@@ -99,7 +100,7 @@ def test_an_unreachable_host_is_reported_not_raised(local: None, ssh: Ssh) -> No
 def test_two_desktops_produce_two_machine_ids(local: None, ssh: Ssh) -> None:
     ssh("desktop-1", "desktop-2")
     result = scan_all(hosts=("desktop-1", "desktop-2"))
-    assert len({os_machine_id(each) for each in result.scans}) == 3
+    assert len({each.machine.id for each in result.scans}) == 3
 
 
 def test_a_reachable_host_survives_an_unreachable_neighbour(

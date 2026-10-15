@@ -63,9 +63,9 @@ ASLEEP = '{"is_sleeping": true}'
 #: The same unit after a wake.
 AWAKE = '{"is_sleeping": false}'
 
-#: srv1's card, the one the ladder actually runs on: one llama.cpp unit.
-UNIT = servelib.Service(name="svc0", container="mcgyvr-srv1-a-8080", port=8080)
-HOST = "srv1"
+#: box1's card, the one the ladder actually runs on: one llama.cpp unit.
+UNIT = servelib.Service(name="svc0", container="mcgyvr-box1-a-8080", port=8080)
+HOST = "box1"
 
 
 def reply(stdout: str = "", *, code: int = 0) -> subprocess.CompletedProcess[str]:
@@ -76,8 +76,8 @@ def reply(stdout: str = "", *, code: int = 0) -> subprocess.CompletedProcess[str
 
 
 #: What ``curl -sf`` — the flags the probe uses — gives for a route the engine
-#: does not serve: exit 22, nothing on stdout. This is srv2's vLLM pair as the
-#: live ladder launches it, and srv1's llama.cpp at every launch there is.
+#: does not serve: exit 22, nothing on stdout. This is box2's vLLM pair as the
+#: live ladder launches it, and box1's llama.cpp at every launch there is.
 NO_ROUTE = reply(code=22)
 #: What the sleep probe — ``curl -s -w '\n%{http_code}'`` — prints for a unit
 #: with no ``/is_sleeping`` route: the engine's 404 body, then the status.
@@ -158,7 +158,7 @@ def test_a_unit_that_lists_its_models_while_asleep_does_not_read_as_serving(
     """The measured trap, in one assertion: 200 on ``/v1/models``, and asleep.
 
     This is the whole failure. The unit is up, its process is alive, its CUDA
-    context is alive (503 MiB of card for srv2's two sleepers), and it will hang
+    context is alive (503 MiB of card for box2's two sleepers), and it will hang
     on the first real request. ``healthy`` is what ``serve-up.py`` turns into
     exit 0 and gate 7 turns into a green run, so ``healthy`` is what must be
     false.
@@ -232,7 +232,7 @@ def test_a_unit_whose_is_sleeping_is_404_reads_as_serving(
 def test_a_llamacpp_unit_that_has_no_such_endpoint_at_all_reads_as_serving(
     monkeypatch: pytest.MonkeyPatch, brief: None
 ) -> None:
-    """srv1, and every llama.cpp unit at every launch there will ever be.
+    """box1, and every llama.cpp unit at every launch there will ever be.
 
     Wire-identical to the flagless vLLM case above and pinned separately anyway,
     because the two are different *reasons*: vLLM's 404 is a variable that

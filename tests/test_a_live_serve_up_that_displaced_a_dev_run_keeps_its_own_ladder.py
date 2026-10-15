@@ -19,7 +19,7 @@ from pathlib import Path
 
 from tests import onedoor
 from tests.doors import DEV_SERVE_LEASE, UNITS, compose_file
-from tests.fleetlocks import SRV1_EVIDENCE, SRV1_FLEET
+from tests.fleetlocks import BOX1_EVIDENCE, BOX1_FLEET
 from tests.red_port.conftest import required
 
 
@@ -34,8 +34,8 @@ def _live_lock() -> None:
     (live / "live.json").write_text('{"fleet": "flt-01"}', encoding="utf-8")
     lock.write(
         live / "fleets" / "flt-01",
-        SRV1_FLEET,
-        SRV1_EVIDENCE,
+        BOX1_FLEET,
+        BOX1_EVIDENCE,
         policy={"ladder": ["a", "b"]},
         tolerances={"warm_decode_class_pct": {"llamacpp": 5.0}},
     )

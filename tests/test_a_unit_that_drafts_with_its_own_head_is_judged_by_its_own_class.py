@@ -1,9 +1,9 @@
 """A unit that drafts with its own head is judged by its own tolerance class.
 
-Owner ruling, 2026-09-16, after the mtp-ornith window: ``srv2_ornith_mtp`` —
+Owner ruling, 2026-09-16, after the mtp-ornith window: ``box2_ornith_mtp`` —
 a llama.cpp unit whose launch argv carries ``--spec-type draft-mtp`` — gets a
 class of its own, ``mtp``, and is not judged by ``cpu_experts``' numbers. Those
-were measured on srv1 offload (48% warm decode, 1% prefill), not this regime:
+were measured on box1 offload (48% warm decode, 1% prefill), not this regime:
 the unit's own three cold starts spread 1.63% in warm decode and 4.29% in
 prefill, so a live probe judged by the class's 1% prefill would have failed a
 sample the lock itself accepted.

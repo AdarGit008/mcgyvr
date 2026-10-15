@@ -7,7 +7,7 @@ never covered: :func:`alerts.pulled` clears a pull against the newest alert's
 ``at``.
 
 * **The warning names the unit, its rig and its short combination id**:
-  ``warning: srv1_coder warm_decode_tok_s pulled b-small (srv1, cmb-…)``.
+  ``warning: box1_coder warm_decode_tok_s pulled b-small (box1, cmb-…)``.
 * **A row's ``at`` is the moment its unit's measurement finished**, read from
   the probe's own ``now`` and ``clock``, in ``%Y-%m-%dT%H:%M:%S``: judged,
   contended and off-the-rig rows alike.
@@ -47,12 +47,12 @@ LLAMA_REQUEST_S = 2.0
 #: A llama.cpp probe is 9 requests: a warm-up, 5 decodes and 3 prefills.
 LLAMA_PROBE_S = 9 * LLAMA_REQUEST_S
 
-#: b-small with a second llama.cpp unit beside srv1_deepseek on srv1.
-TWO_ON_SRV1: dict[str, Any] = copy.deepcopy(FLEET)
-TWO_ON_SRV1["units"]["srv1_coder"] = {
-    "rig": "srv1",
+#: b-small with a second llama.cpp unit beside box1_deepseek on box1.
+TWO_ON_BOX1: dict[str, Any] = copy.deepcopy(FLEET)
+TWO_ON_BOX1["units"]["box1_coder"] = {
+    "rig": "box1",
     "unit_id": UNIT_CODER,
-    "address": "http://srv1:8081",
+    "address": "http://box1:8081",
     "engine": "llama.cpp",
     "model": "qwen2.5-coder-7b",
     "width": 1,
@@ -62,32 +62,32 @@ TWO_ON_SRV1["units"]["srv1_coder"] = {
     "room_mib": 3000,
     "launch": {"flags": ["-c", "4096", "-ngl", "99"]},
 }
-TWO_ON_SRV1["fleets"]["b-small"]["layout"]["srv1"] = [
-    ["srv1_deepseek", "awake"],
-    ["srv1_coder", "awake"],
+TWO_ON_BOX1["fleets"]["b-small"]["layout"]["box1"] = [
+    ["box1_deepseek", "awake"],
+    ["box1_coder", "awake"],
 ]
 TWO_EVIDENCE: dict[str, Any] = copy.deepcopy(EVIDENCE)
-TWO_EVIDENCE["rigs"]["srv1"]["card_mib"] = 12288
-_SRV1 = TWO_EVIDENCE["combinations"][1]
-_SRV1["slots"] = [["srv1_deepseek", "awake"], ["srv1_coder", "awake"]]
-_SRV1["restarts"]["srv1_coder"] = 0
-_SRV1["warm_decode_tok_s"]["srv1_coder"] = 50.0
-_SRV1["prefill_tok_s"]["srv1_coder"] = 900.0
-_SRV1["card_peak_mib"]["srv1_coder"] = 2900
-_SRV1["card_steady_mib"]["srv1_coder"] = 2880
+TWO_EVIDENCE["rigs"]["box1"]["card_mib"] = 12288
+_BOX1 = TWO_EVIDENCE["combinations"][1]
+_BOX1["slots"] = [["box1_deepseek", "awake"], ["box1_coder", "awake"]]
+_BOX1["restarts"]["box1_coder"] = 0
+_BOX1["warm_decode_tok_s"]["box1_coder"] = 50.0
+_BOX1["prefill_tok_s"]["box1_coder"] = 900.0
+_BOX1["card_peak_mib"]["box1_coder"] = 2900
+_BOX1["card_steady_mib"]["box1_coder"] = 2880
 
 
 class TimedUnits(FakeUnits):
     """:class:`FakeUnits` whose llama.cpp requests take time on the clock too,
-    with a second llama.cpp unit answering at srv1:8081."""
+    with a second llama.cpp unit answering at box1:8081."""
 
     def post(self, url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
-        if not url.startswith("http://srv1:"):
+        if not url.startswith("http://box1:"):
             return super().post(url, payload, timeout)
         self.posts.append((url, payload))
         self.now += LLAMA_REQUEST_S
-        unit = "coder" if url == "http://srv1:8081/completion" else "ds"
-        assert url in {"http://srv1:8080/completion", "http://srv1:8081/completion"}
+        unit = "coder" if url == "http://box1:8081/completion" else "ds"
+        assert url in {"http://box1:8080/completion", "http://box1:8081/completion"}
         if payload["n_predict"] == 256:
             return {"timings": {"predicted_per_second": self.rates[f"{unit}_decode"]}}
         if payload["n_predict"] == 16:
@@ -107,7 +107,7 @@ def warnings(err: str) -> list[str]:
     return [line for line in err.splitlines() if line.startswith("warning:")]
 
 
-#: Both srv1 units slower than their class allows on the same field: 16.0 is
+#: Both box1 units slower than their class allows on the same field: 16.0 is
 #: 50.9% under deepseek's 32.56 (48%), and 40.0 is 20% under coder's 50.0 (1%).
 BOTH_SLOW = HOLDING | {"ds_decode": 16.0, "coder_decode": 40.0, "coder_prefill": 900.0}
 
@@ -115,7 +115,7 @@ BOTH_SLOW = HOLDING | {"ds_decode": 16.0, "coder_decode": 40.0, "coder_prefill":
 def test_two_units_alerting_on_one_field_warn_two_lines_naming_unit_rig_and_cmb(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    journal = live_home(tmp_path, monkeypatch, TWO_ON_SRV1, TWO_EVIDENCE)
+    journal = live_home(tmp_path, monkeypatch, TWO_ON_BOX1, TWO_EVIDENCE)
     capsys.readouterr()
     report = probe(TimedUnits(BOTH_SLOW))
 
@@ -123,26 +123,26 @@ def test_two_units_alerting_on_one_field_warn_two_lines_naming_unit_rig_and_cmb(
         [(UNIT_DS, "warm_decode_tok_s"), (UNIT_CODER, "warm_decode_tok_s")]
     )
     combination = {
-        r["combination_id"] for r in rows(journal / "fleet") if r["rig"] == "srv1"
+        r["combination_id"] for r in rows(journal / "fleet") if r["rig"] == "box1"
     }
     assert len(combination) == 1, combination
     short = next(iter(combination))[:12] + "…"
-    where = f"pulled b-small (srv1, {short}) — see `mcgyvr fleet alerts`"
+    where = f"pulled b-small (box1, {short}) — see `mcgyvr fleet alerts`"
     assert warnings(capsys.readouterr().err) == [
-        f"warning: srv1_deepseek warm_decode_tok_s {where}",
-        f"warning: srv1_coder warm_decode_tok_s {where}",
+        f"warning: box1_deepseek warm_decode_tok_s {where}",
+        f"warning: box1_coder warm_decode_tok_s {where}",
     ]
 
 
 def test_each_units_rows_carry_the_moment_its_own_measurement_finished(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The layout probes srv1_deepseek, then srv1_coder, then srv2_3b.
+    """The layout probes box1_deepseek, then box1_coder, then box2_3b.
 
-    deepseek's 9 requests end 18 s in; coder's 18 s after that; srv2_3b's
+    deepseek's 9 requests end 18 s in; coder's 18 s after that; box2_3b's
     vLLM requests, filed off the rig, 11.1 s after that.
     """
-    journal = live_home(tmp_path, monkeypatch, TWO_ON_SRV1, TWO_EVIDENCE)
+    journal = live_home(tmp_path, monkeypatch, TWO_ON_BOX1, TWO_EVIDENCE)
     probe(TimedUnits(BOTH_SLOW))
 
     at: dict[str, set[str]] = {}
@@ -163,10 +163,10 @@ def test_a_contended_units_rows_carry_the_moment_its_measurement_finished(
 
     def later(name: str, unit: Mapping[str, Any]) -> int | None:
         reads[name] = reads.get(name, 0) + 1
-        return 1 if name == "srv1_deepseek" and reads[name] > 1 else 0
+        return 1 if name == "box1_deepseek" and reads[name] > 1 else 0
 
     report = probe(TimedUnits(HOLDING), in_flight=later)
-    assert report.contended == ["srv1_deepseek"]
+    assert report.contended == ["box1_deepseek"]
     deepseek = [r for r in rows(journal / "fleet") if r["unit_id"] == UNIT_DS]
     assert deepseek and all(r.get("contended") is True for r in deepseek)
     assert {r["at"] for r in deepseek} == {"2026-09-15T12:00:18"}
@@ -175,7 +175,7 @@ def test_a_contended_units_rows_carry_the_moment_its_measurement_finished(
 def test_a_validation_between_the_run_start_and_the_units_finish_keeps_the_pull(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The probe starts 12:00:00 and srv1_deepseek's measurement ends 12:00:18.
+    """The probe starts 12:00:00 and box1_deepseek's measurement ends 12:00:18.
 
     A lock validated at 12:00:09 did not see that measurement, so the pull
     stands; one validated at 12:00:19 did, and clears it.
@@ -232,5 +232,5 @@ def test_a_check_given_no_unit_name_or_time_keeps_the_run_time_and_names_what_it
     short_cmb = STAMP["combination_id"][:12] + "…"
     assert warnings(capsys.readouterr().err) == [
         f"warning: {short_unit} warm_decode_tok_s pulled b-small "
-        f"(srv1, {short_cmb}) — see `mcgyvr fleet alerts`"
+        f"(box1, {short_cmb}) — see `mcgyvr fleet alerts`"
     ]

@@ -1,12 +1,12 @@
 """The rig is leased, live outranks dev, and dev yields — enforced by the machine.
 
 R1: a live run preempts a dev run, dev yields, and the machine enforces it rather
-than a convention. R3: dev and prod share one fleet (srv1, srv2) — mutual
+than a convention. R3: dev and prod share one fleet (box1, box2) — mutual
 exclusion, not partitioning.
 
 Gate 5 claims the RUN_ID (``.<RUN_ID>.running`` in the envelope) so two
 invocations of one step cannot run at once. That claim is per-envelope, so it does
-not stop two different steps, or a laptop and srv1, landing on one rig together.
+not stop two different steps, or a laptop and box1, landing on one rig together.
 The contended resource is the rig, so there is a second claim there: a lease at
 ``~/.mcgyvr/lease`` on the rig itself, taken at gate 2 — before any rig time
 is spent and before the envelope exists — and released on every way out.
@@ -376,14 +376,14 @@ def test_the_docker_verbs_that_spend_a_rig_are_the_ones_checked(
 @pytest.mark.parametrize(
     "line, spends",
     [
-        ("srv1 docker run -d img", True),
-        ("srv1 docker container run img", True),
-        ("srv1 nohup docker run img", True),
-        ("srv1 docker ps && docker run img", True),
-        ("srv1 docker compose -p x up -d", True),
-        ("srv1 docker compose -p x down", False),
-        ("srv1 docker logs x-run", False),
-        ("srv1 nvidia-smi --query-gpu=memory.used", False),
+        ("box1 docker run -d img", True),
+        ("box1 docker container run img", True),
+        ("box1 nohup docker run img", True),
+        ("box1 docker ps && docker run img", True),
+        ("box1 docker compose -p x up -d", True),
+        ("box1 docker compose -p x down", False),
+        ("box1 docker logs x-run", False),
+        ("box1 nvidia-smi --query-gpu=memory.used", False),
     ],
 )
 def test_the_ssh_lines_that_spend_a_rig_are_the_ones_checked(

@@ -96,7 +96,7 @@ def test_the_test_process_is_not_under_the_door() -> None:
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [
-        (["python", "-m", "mcgyvr.serving.run", "--host", "srv1"], True),
+        (["python", "-m", "mcgyvr.serving.run", "--host", "box1"], True),
         (["/usr/bin/python3", "/x/src/mcgyvr/serving/run.py"], True),
         (["python", "/tmp/fixture/mcgyvr/serving/run.py"], True),
         (["python", "-m", "mcgyvr.serving.gatelib"], False),
@@ -156,7 +156,7 @@ def test_every_run_variable_typed_in_by_hand_admits_nothing(
     for name, value in (
         ("RUN_ID", "2026-09-05-alpha-probe"),
         ("RUN_EXPORT_FD", "1"),
-        ("RUN_HOST", "srv1"),
+        ("RUN_HOST", "box1"),
         ("RUN_ROOT", str(REPO)),
     ):
         monkeypatch.setenv(name, value)
@@ -209,29 +209,29 @@ def test_ssh_outside_the_door_exits_2_naming_the_door(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as raised:
-        gatelib.ssh("srv1", "true")
+        gatelib.ssh("box1", "true")
     assert raised.value.code == 2
     err = capsys.readouterr().err
-    assert "srv1" in err
+    assert "box1" in err
     assert DOOR in err, err
     assert "not started by the door" in err
 
 
 def test_ssh_to_a_host_the_door_was_not_opened_for_names_both(tmp_path: Path) -> None:
     door = fake_door(tmp_path)
-    code = "from mcgyvr.serving import gatelib; gatelib.ssh('srv1', 'true')"
+    code = "from mcgyvr.serving import gatelib; gatelib.ssh('box1', 'true')"
     env = clean_env(ssh_stub(tmp_path / "stubs").parent)
-    env["RUN_HOST"] = "srv2"
+    env["RUN_HOST"] = "box2"
     result = under(door, [sys.executable, "-c", code], env)
     assert result.returncode == 2, result.stderr
-    assert "srv1" in result.stderr and "srv2" in result.stderr, result.stderr
+    assert "box1" in result.stderr and "box2" in result.stderr, result.stderr
     assert DOOR in result.stderr
     assert not (tmp_path / "stubs" / "ssh.log").exists(), "the stub was reached"
 
 
 def test_ssh_under_the_door_has_no_host_without_run_host(tmp_path: Path) -> None:
     door = fake_door(tmp_path)
-    code = "from mcgyvr.serving import gatelib; gatelib.ssh('srv1', 'true')"
+    code = "from mcgyvr.serving import gatelib; gatelib.ssh('box1', 'true')"
     result = under(door, [sys.executable, "-c", code], clean_env())
     assert result.returncode == 2, result.stderr
     assert "RUN_HOST" in result.stderr
@@ -243,10 +243,10 @@ def test_ssh_under_the_door_pipes_input_with_batchmode_and_a_timeout(
     door = fake_door(tmp_path)
     stub = ssh_stub(tmp_path / "stubs")
     env = clean_env(stub.parent)
-    env["RUN_HOST"] = "srv1"
+    env["RUN_HOST"] = "box1"
     code = (
         "from mcgyvr.serving import gatelib\n"
-        "done = gatelib.ssh('srv1', 'bash -s', input='hello reader')\n"
+        "done = gatelib.ssh('box1', 'bash -s', input='hello reader')\n"
         "print(done.returncode, done.stdout.strip())\n"
     )
     result = under(door, [sys.executable, "-c", code], env)
@@ -254,7 +254,7 @@ def test_ssh_under_the_door_pipes_input_with_batchmode_and_a_timeout(
     assert result.stdout.strip() == "0 answered"
     log = (stub.parent / "ssh.log").read_text(encoding="utf-8").splitlines()
     assert log == [
-        "argv=-o BatchMode=yes -o ConnectTimeout=10 srv1 bash -s",
+        "argv=-o BatchMode=yes -o ConnectTimeout=10 box1 bash -s",
         "stdin=hello reader",
     ]
 
@@ -263,7 +263,7 @@ def test_ssh_or_refuse_keeps_its_shape_and_propagates_the_refusal(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as raised:
-        gatelib.ssh_or_refuse("srv1", "true", "a read")
+        gatelib.ssh_or_refuse("box1", "true", "a read")
     assert raised.value.code == 2
     assert DOOR in capsys.readouterr().err
 
@@ -327,18 +327,18 @@ def test_gatelib_no_longer_names_a_docker_cli() -> None:
 @pytest.mark.parametrize(
     ("argv", "host"),
     [
-        (["-o", "X", "user@srv1", "cmd"], "srv1"),
-        (["-p", "22", "srv1"], "srv1"),
-        (["-p22", "srv1"], "srv1"),
-        (["-oBatchMode=yes", "-l", "me", "srv2", "true"], "srv2"),
-        (["-tt", "-i", "key", "-F", "cfg", "srv2", "cmd"], "srv2"),
-        (["-4", "srv1"], "srv1"),
-        (["-vJ", "srv1", "srv2", "true"], "srv2"),
-        (["-vp", "22", "srv1"], "srv1"),
-        (["-tvl", "me", "srv2"], "srv2"),
-        (["--", "srv1", "docker", "system", "dial-stdio"], "srv1"),
-        (["-o", "X", "--", "user@srv2"], "srv2"),
-        (["srv1"], "srv1"),
+        (["-o", "X", "user@box1", "cmd"], "box1"),
+        (["-p", "22", "box1"], "box1"),
+        (["-p22", "box1"], "box1"),
+        (["-oBatchMode=yes", "-l", "me", "box2", "true"], "box2"),
+        (["-tt", "-i", "key", "-F", "cfg", "box2", "cmd"], "box2"),
+        (["-4", "box1"], "box1"),
+        (["-vJ", "box1", "box2", "true"], "box2"),
+        (["-vp", "22", "box1"], "box1"),
+        (["-tvl", "me", "box2"], "box2"),
+        (["--", "box1", "docker", "system", "dial-stdio"], "box1"),
+        (["-o", "X", "--", "user@box2"], "box2"),
+        (["box1"], "box1"),
         (["-o", "X"], None),
         (["-p", "22"], None),
         (["--"], None),
@@ -410,23 +410,23 @@ def test_the_docker_shim_reads_only_dockers_own_global_options(
 @pytest.mark.parametrize(
     ("argv", "found"),
     [
-        (["-J", "srv2", "srv1", "id"], ["-J"]),
-        (["-W", "srv2:22", "srv1"], ["-W"]),
-        (["-oHostname=srv2", "srv1"], ["-oHostname=srv2"]),
-        (["-o", "ProxyCommand=nc srv2 22", "srv1"], ["-o ProxyCommand=nc srv2 22"]),
-        (["-o", "proxyjump=srv2", "srv1"], ["-o proxyjump=srv2"]),
-        (["-F", "/tmp/cfg", "srv1"], ["-F"]),
-        (["-L", "8080:srv2:8080", "srv1"], ["-L"]),
-        (["-S", "/tmp/sock", "srv1"], ["-S"]),
-        (["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "srv1", "id"], []),
-        (["--", "srv1", "docker", "system", "dial-stdio"], []),
-        (["-p", "22", "-l", "adar", "srv1"], []),
-        (["srv1", "ssh", "-J", "x", "srv2", "id"], []),
-        (["-vJ", "srv1", "srv2", "true"], ["-J"]),
-        (["-vJsrv2", "srv1"], ["-Jsrv2"]),
-        (["-vo", "ProxyJump=srv2", "srv1"], ["-o ProxyJump=srv2"]),
-        (["-tvL", "8080:srv2:8080", "srv1"], ["-L"]),
-        (["-tv", "-p", "22", "srv1"], []),
+        (["-J", "box2", "box1", "id"], ["-J"]),
+        (["-W", "box2:22", "box1"], ["-W"]),
+        (["-oHostname=box2", "box1"], ["-oHostname=box2"]),
+        (["-o", "ProxyCommand=nc box2 22", "box1"], ["-o ProxyCommand=nc box2 22"]),
+        (["-o", "proxyjump=box2", "box1"], ["-o proxyjump=box2"]),
+        (["-F", "/tmp/cfg", "box1"], ["-F"]),
+        (["-L", "8080:box2:8080", "box1"], ["-L"]),
+        (["-S", "/tmp/sock", "box1"], ["-S"]),
+        (["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "box1", "id"], []),
+        (["--", "box1", "docker", "system", "dial-stdio"], []),
+        (["-p", "22", "-l", "ops", "box1"], []),
+        (["box1", "ssh", "-J", "x", "box2", "id"], []),
+        (["-vJ", "box1", "box2", "true"], ["-J"]),
+        (["-vJbox2", "box1"], ["-Jbox2"]),
+        (["-vo", "ProxyJump=box2", "box1"], ["-o ProxyJump=box2"]),
+        (["-tvL", "8080:box2:8080", "box1"], ["-L"]),
+        (["-tv", "-p", "22", "box1"], []),
     ],
 )
 def test_the_ssh_shim_refuses_an_option_that_carries_the_connection_elsewhere(
@@ -441,10 +441,10 @@ def test_the_ssh_shim_refuses_an_option_that_carries_the_connection_elsewhere(
 def test_the_ssh_shim_reads_a_bundled_jump_the_way_ssh_does(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """ssh's getopt reads `-vJ srv1 srv2` as `-v -J srv1` to host srv2: the
+    """ssh's getopt reads `-vJ box1 box2` as `-v -J box1` to host box2: the
     shim refuses it by the jump, not by where it would have admitted it."""
     with pytest.raises(SystemExit):
-        gatelib.shim_ssh(["-vJ", "srv1", "srv2", "true"], own=tmp_path)
+        gatelib.shim_ssh(["-vJ", "box1", "box2", "true"], own=tmp_path)
     assert "-J" in capsys.readouterr().err
 
 
@@ -463,23 +463,12 @@ def _shipped_reader_blob() -> str:
 
 
 def _shipped_scan_blob() -> str:
-    """The base64 payload the scan line ships, from the one scanner."""
+    """The base64 payload the read line ships, from the one reader."""
     import base64
 
     from mcgyvr.serving import rigscan
 
     return base64.b64encode(Path(rigscan.__file__).read_bytes()).decode("ascii")
-
-
-def _shipped_snapshot_blob() -> str:
-    """The base64 payload the snapshot-read line ships, from the one reader."""
-    import base64
-
-    from mcgyvr.serving.run import GATE_SCRIPTS
-
-    return base64.b64encode((GATE_SCRIPTS / "rig-snapshot.sh").read_bytes()).decode(
-        "ascii"
-    )
 
 
 def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
@@ -497,51 +486,38 @@ def test_scan_read_command_is_the_sanctioned_shape() -> None:
     command = gatelib.scan_read_command()
     assert gatelib._read_only_command(command)
     assert "echo " in command
-    assert command.endswith(" | base64 -d | python3 -")
+    assert command.endswith(" | base64 -d | python3 -I -B -")
 
 
-def test_scan_read_command_embeds_only_the_shipped_scanner() -> None:
+def test_scan_read_command_embeds_only_the_shipped_reader() -> None:
     command = gatelib.scan_read_command()
-    expected = f"echo {_shipped_scan_blob()} | base64 -d | python3 -"
+    expected = f"echo {_shipped_scan_blob()} | base64 -d | python3 -I -B -"
     assert command == expected
 
 
 def test_read_only_command_refuses_a_scan_with_another_payload() -> None:
-    assert not gatelib._read_only_command("echo ZXZpbA== | base64 -d | python3 -")
+    assert not gatelib._read_only_command("echo ZXZpbA== | base64 -d | python3 -I -B -")
 
 
-def test_rig_snapshot_read_command_is_the_sanctioned_shape() -> None:
-    command = gatelib.rig_snapshot_read_command()
-    assert gatelib._read_only_command(command)
-    assert "echo " in command
-    assert command.endswith(" | base64 -d | bash -s")
-
-
-def test_rig_snapshot_read_command_embeds_only_the_shipped_reader() -> None:
-    command = gatelib.rig_snapshot_read_command()
-    expected = f"echo {_shipped_snapshot_blob()} | base64 -d | bash -s"
-    assert command == expected
-
-
-def test_read_only_command_refuses_a_tampered_snapshot_blob() -> None:
-    blob = _shipped_snapshot_blob()
+def test_read_only_command_refuses_a_tampered_reader_blob() -> None:
+    blob = _shipped_scan_blob()
     flipped = ("A" if blob[0] != "A" else "B") + blob[1:]
-    bad = f"echo {flipped} | base64 -d | bash -s"
-    assert not gatelib._read_only_command(bad)
+    assert not gatelib._read_only_command(
+        f"echo {flipped} | base64 -d | python3 -I -B -"
+    )
 
 
-def test_read_only_command_refuses_a_snapshot_read_with_a_bash_c() -> None:
-    bad = f"echo {_shipped_snapshot_blob()} | base64 -d | bash -c 'id'"
-    assert not gatelib._read_only_command(bad)
-
-
-def test_read_only_command_refuses_a_snapshot_read_with_an_appended_argument() -> None:
-    bad = f"echo {_shipped_snapshot_blob()} | base64 -d | bash -s extra"
-    assert not gatelib._read_only_command(bad)
-
-
-def test_read_only_command_refuses_a_snapshot_read_with_another_payload() -> None:
-    assert not gatelib._read_only_command("echo ZXZpbA== | base64 -d | bash -s")
+def test_read_only_command_refuses_the_reader_with_an_argument_or_another_shell() -> (
+    None
+):
+    """The door's own ``--cards`` line goes under the door, never outside it."""
+    blob = _shipped_scan_blob()
+    assert not gatelib._read_only_command(gatelib.cards_read_command())
+    assert not gatelib._read_only_command(
+        f"echo {blob} | base64 -d | python3 -I -B - extra"
+    )
+    assert not gatelib._read_only_command(f"echo {blob} | base64 -d | python3 -")
+    assert not gatelib._read_only_command(f"echo {blob} | base64 -d | bash -s")
 
 
 def test_header_read_command_is_the_sanctioned_shape() -> None:

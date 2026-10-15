@@ -62,7 +62,7 @@ def rig(*, ram_gb: float, vram_mib: int = 6144) -> Scan:
     """One rig class — a 6 GiB card and six cores — varying only in RAM, so the
     arm a model takes is the only thing that moves between these tests."""
     return Scan.of(
-        host="srv1",
+        host="box1",
         vram_mib=vram_mib,
         ram_gb=ram_gb,
         disk_free_gb=900.0,
@@ -76,7 +76,7 @@ def rig(*, ram_gb: float, vram_mib: int = 6144) -> Scan:
 MOE = scanned("Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf")
 #: 10.6 GiB on disk, 7.5 GiB of experts spilled on the same card.
 GEMMA = scanned("gemma-4-26B-A4B-it-UD-IQ3_XXS.gguf")
-#: 8.3 GiB on disk, 5.9 GiB spilled — the one model that fits srv1 mapped.
+#: 8.3 GiB on disk, 5.9 GiB spilled — the one model that fits box1 mapped.
 LITE = scanned("deepseek-coder-v2-16b.gguf")
 
 
@@ -85,7 +85,7 @@ def test_a_blob_that_overflows_ram_is_emitted_unmapped() -> None:
     headroom, the 8.9 GiB of experts do, so the model runs — with the mode that
     makes those experts unevictable.
 
-    The rig is not srv1, which maps this blob under the mode gate
+    The rig is not box1, which maps this blob under the mode gate
     (:data:`~mcgyvr.serving.MODE_RAM_HEADROOM_GB`, swept in
     ``records/measurements/ram-headroom-2026-09-09/``) — pinned in
     ``tests/test_the_two_ram_gates_hold_back_different_margins.py``, not undone
@@ -143,7 +143,7 @@ def test_every_model_on_the_tight_rig_is_judged_by_its_own_blob() -> None:
     at 10.6 GiB and maps, which is the point of weighing each blob rather than
     labelling the host.
 
-    The number is not srv1's: under the mode gate srv1 maps every one of these
+    The number is not box1's: under the mode gate box1 maps every one of these
     three. The lesson the test carries does not depend on the number — a host
     is not a mode.
     """
@@ -162,7 +162,7 @@ def test_vllm_is_never_handed_a_llama_cpp_loading_mode() -> None:
     told how to load it."""
     served = replace(
         scanned("deepseek-coder-v2-16b.gguf"),
-        hf_cache="/home/adaramir/.cache/huggingface",
+        hf_cache="/home/user/.cache/huggingface",
     )
     unit = unit_for(
         rig(ram_gb=13.0, vram_mib=12288), served, engine="vllm", ctx_per_slot=WINDOW

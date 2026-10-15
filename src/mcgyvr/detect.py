@@ -19,10 +19,11 @@ Two rules shape everything below:
 a backend ships with; the machine they are asked of is supplied by the caller.
 ``localhost`` is the default, and the deployment this project exists for — an
 agent on a laptop, offloading to rigs elsewhere — is expressible.
-The hardware half of detection stays local by definition: ``nvidia-smi``
-here describes this machine, and a remote rig's card is not something this
-module can see. What it *can* see of a remote rig is the models that rig
-lists, and a listing cannot be wrong about which machine it describes.
+The hardware half of detection stays local by definition: the one reader
+(:mod:`mcgyvr.serving.rigscan`) run here describes this machine, and a remote
+rig's card is not something this module can see. What it *can* see of a
+remote rig is the models that rig lists, and a listing cannot be wrong about
+which machine it describes.
 
 A probed host is identified by name in every backend it yields, because with
 more than one host in play "a backend answered" identifies nothing.
@@ -41,9 +42,7 @@ from __future__ import annotations
 
 import http.client
 import json
-import math
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -170,12 +169,12 @@ DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = targets_for()
 #: How a note begins for a card that is listed but whose memory size the card
 #: tool printed as not available: the card is there, its size is not known.
 GPU_SIZE_UNDETERMINED = "GPU: memory size not determined"
-#: How a note begins for a row the card tool printed that could not be read as
-#: a card at all. The note quotes the row, so the card is named, not dropped.
+#: How a note begins for a card the card tool printed whose name could not be
+#: read. The note quotes why, so the card is named, not dropped.
 GPU_ROW_NOT_READ = "GPU: nvidia-smi printed a row that could not be read as a card"
-#: The most characters of the card tool's own text a note quotes. A row may be
-#: of any length, and a note is printed and written into a setup, so a longer
-#: quote keeps both ends and not the middle.
+#: The most characters of a reason a note quotes. A reason may hold what a tool
+#: printed, of any length, and a note is printed and written into a setup, so
+#: a longer quote keeps both ends and not the middle.
 ROW_QUOTED_AT_MOST = 200
 
 
@@ -456,68 +455,75 @@ def probe_all(
     return tuple(b for b in results if b is not None)
 
 
-def _is_not_available(value: str) -> bool:
-    """Whether the card tool printed a field as a value it could not give.
+def _reading() -> Mapping[str, Any]:
+    """This machine's short reading, by the one reader of a machine."""
+    from mcgyvr.serving import rigscan
 
-    It prints those bracketed — ``[N/A]``, ``[Not Supported]`` — in place of
-    the number, and a bracketed field is never a number.
+    return rigscan.read_machine()
+
+
+def detect_gpus(
+    reading: Mapping[str, Any] | None = None,
+) -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
+    """The first vendor's cards as the one reader read them; anything else is
+    reported as undetermined.
+
+    Nothing here runs a card tool: :mod:`mcgyvr.serving.rigscan` reads every
+    card, on any vendor, and names each field it could not read with why. The
+    cards proposed from are the ones its first vendor's tool read, since the
+    engines a setup launches are that vendor's; another vendor's card is in
+    the reading and not here. A card whose size was not read is a card of
+    undetermined size, with a note; one whose name was not read is named in a
+    note, never dropped in silence.
     """
-    return value.startswith("[") and value.endswith("]")
-
-
-def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
-    """Detect NVIDIA GPUs. Anything else is reported as undetermined.
-
-    Every row the card tool prints becomes a card or a note. A row is anchored
-    at its end, where the size is: the last field is the size and everything
-    before it is the name, commas and all. A size printed as not available
-    makes a card of undetermined size, with a note. A row with no size field,
-    or a size that is neither a number nor not available, is quoted in a note.
-    """
-    how = "nvidia-smi --query-gpu=name,memory.total"
-    output = _run(
-        [
-            "nvidia-smi",
-            "--query-gpu=name,memory.total",
-            "--format=csv,noheader,nounits",
-        ]
-    )
-    if output is None:
-        return (), (
-            "GPU: not determined — nvidia-smi is absent or failed. AMD and "
-            "Apple GPUs are not detected; on those machines bind VRAM by "
-            "hand rather than trusting a zero here.",
-        )
-
+    reading = _reading() if reading is None else reading
+    how = "nvidia-smi, read by mcgyvr.serving.rigscan"
+    unread = {
+        str(u.get("field")): str(u.get("why"))
+        for u in reading.get("unread") or ()
+        if isinstance(u, Mapping)
+    }
     gpus: list[Gpu] = []
     notes: list[str] = []
-    for line in output.strip().splitlines():
-        if not line.strip():
+    for card in reading.get("cards") or ():
+        if card.get("vendor") != "nvidia":
             continue
-        parts = [p.strip() for p in line.split(",")]
-        name, size = ", ".join(parts[:-1]), parts[-1]
-        if len(parts) >= 2 and name and _is_not_available(size):
-            gpus.append(Gpu(name=name, vram_gb=None, how=how))
-            notes.append(
-                f"{GPU_SIZE_UNDETERMINED} for {_quoted(name)}: nvidia-smi "
-                f"printed its memory.total as {_quoted(size)}. The card is "
-                f"listed with no size: bind a unit to it by hand, stating the "
-                f"card room it needs as `room_mib`."
-            )
-            continue
-        try:
-            mib = float(size) if len(parts) >= 2 and name else math.nan
-        except ValueError:
-            mib = math.nan
-        if not math.isfinite(mib) or mib < 0:
+        key = f"card.nvidia.{card.get('index')}"
+        name, total = card.get("name"), card.get("total_mib")
+        if not isinstance(name, str):
             notes.append(
                 f"{GPU_ROW_NOT_READ}, so that card is missing from the list: "
-                f"{_quoted(line.strip())}. Read the card list as incomplete, not short."
+                f"{_quoted(unread.get(f'{key}.name', 'its name was not read'))}. "
+                "Read the card list as incomplete, not short."
             )
             continue
-        gpus.append(Gpu(name=name, vram_gb=round(mib / MIB_PER_GB, 1), how=how))
+        if not isinstance(total, int):
+            gpus.append(Gpu(name=name, vram_gb=None, how=how))
+            notes.append(
+                f"{GPU_SIZE_UNDETERMINED} for {_quoted(name)}: "
+                f"{_quoted(unread.get(f'{key}.total', 'its size was not read'))}. "
+                "The card is listed with no size: bind a unit to it by hand, "
+                "stating the card room it needs as `room_mib`."
+            )
+            continue
+        gpus.append(Gpu(name=name, vram_gb=round(total / MIB_PER_GB, 1), how=how))
+    tool = unread.get("cards.nvidia-smi")
+    if tool is not None and (gpus or notes):
+        # Cards were read, and the tool's list may still be short: a line that
+        # was no card, or more cards in sysfs than it printed.
+        notes.append(
+            f"{GPU_ROW_NOT_READ}: {_quoted(tool)}. Read the card list as "
+            "incomplete, not short."
+        )
     if not gpus and not notes:
-        return (), ("GPU: nvidia-smi ran but reported no device.",)
+        if tool is not None and "printed no card" in tool:
+            return (), ("GPU: nvidia-smi ran but reported no device.",)
+        return (), (
+            "GPU: not determined — nvidia-smi is absent or failed"
+            + (f" ({_quoted(tool)})" if tool else "")
+            + ". Cards of other vendors are not proposed from; on those "
+            "machines bind VRAM by hand rather than trusting a zero here.",
+        )
     if not gpus:
         return (), (
             "GPU: nvidia-smi ran but reported no device this could read.",
@@ -526,23 +532,17 @@ def detect_gpus() -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
     return tuple(gpus), tuple(notes)
 
 
-def detect_ram_gb() -> tuple[float | None, str]:
-    """Total system RAM, as fallback context when there is no GPU."""
-    if platform.system() == "Darwin":
-        output = _run(["sysctl", "-n", "hw.memsize"])
-        if output and output.strip().isdigit():
-            return round(int(output.strip()) / 1024**3, 1), "sysctl -n hw.memsize"
-        return None, "not determined — sysctl hw.memsize unreadable"
-
-    try:
-        with open("/proc/meminfo", encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("MemTotal:"):
-                    kib = float(line.split()[1])
-                    return round(kib / 1024**2, 1), "/proc/meminfo MemTotal"
-    except (OSError, IndexError, ValueError):
-        pass
-    return None, "not determined — /proc/meminfo unreadable"
+def detect_ram_gb(reading: Mapping[str, Any] | None = None) -> tuple[float | None, str]:
+    """Total system RAM, as fallback context when there is no GPU, as the one
+    reader read it."""
+    reading = _reading() if reading is None else reading
+    memory = reading.get("memory")
+    total = memory.get("total_gb") if isinstance(memory, Mapping) else None
+    if not isinstance(total, int | float):
+        return None, "not determined — the reader read no memory total"
+    available = memory.get("available_gb") if isinstance(memory, Mapping) else None
+    source = "the kernel's MemTotal" if available is not None else "sysctl hw.memsize"
+    return float(total), f"{source}, read by mcgyvr.serving.rigscan"
 
 
 def detect_docker() -> tuple[bool, str]:
@@ -569,9 +569,12 @@ def detect(
     targets: Sequence[ProbeTarget] = DEFAULT_PROBE_TARGETS,
     timeout: float = PROBE_TIMEOUT_S,
 ) -> Detection:
-    """Survey the machine. Never raises: a bare machine is a valid answer."""
-    gpus, gpu_notes = detect_gpus()
-    ram_gb, ram_how = detect_ram_gb()
+    """Survey the machine. Never raises: a bare machine is a valid answer.
+
+    The machine is read once, by the one reader, for its cards and its RAM."""
+    reading = _reading()
+    gpus, gpu_notes = detect_gpus(reading)
+    ram_gb, ram_how = detect_ram_gb(reading)
     docker, docker_how = detect_docker()
     backends = probe_all(targets, timeout)
     cpu_count = os.cpu_count()

@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -73,6 +74,7 @@ from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.runner import TransportError
 from mcgyvr.serving import gatelib
 from mcgyvr.serving import ggufscan as ggufscan_module
+from tests import records
 
 # Invented, and shaped so the test can tell a measurement from a stored spec and
 # from an invented number: free VRAM is a distinctive figure the fake ssh scan
@@ -145,7 +147,7 @@ KV_HEAVY_CATALOG: dict[str, Any] = {
 
 
 def scan_json(host: str, free_mib: int) -> str:
-    """An invented rig's scan, as the shipped self-contained scanner prints it.
+    """An invented rig's scan, as the one reader prints it.
 
     The card totals close (``total == reserved + used + free``), so
     ``Scan.from_json`` round-trips it, and every number here is invented.
@@ -511,18 +513,22 @@ def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
     probe: Any,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
 ) -> None:
     """The plan's numbers are the rig's fresh measurements, never a stored spec's.
 
-    A stored scan of the same rig reports a different free-VRAM figure
-    (``STALE_MIB``); the command must re-read the rig over ssh and carry
-    ``FREE_MIB`` into the plan, not ``STALE_MIB``.
+    The rig's file records a different free-VRAM figure (``STALE_MIB``); the
+    command must re-read the rig over ssh and carry ``FREE_MIB`` into the plan,
+    not ``STALE_MIB``.
     """
     recorder = ssh()
     classify()
     probe()
     stale = scan_module.Scan.from_json(scan_json(HOST, STALE_MIB))
-    monkeypatch.setattr(scan_module, "load_prior", lambda *a: stale)
+    rigs = tmp_path / "rigs"
+    rigs.mkdir()
+    (rigs / f"{HOST}.json").write_text(records.rig_file(stale, HOST), encoding="utf-8")
+    monkeypatch.setenv(records.RIGS_ENV, str(rigs))
 
     code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
     assert code == 0

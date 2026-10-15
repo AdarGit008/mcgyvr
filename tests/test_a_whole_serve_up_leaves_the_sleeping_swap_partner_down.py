@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from mcgyvr.scan import Scan
 from mcgyvr.serving import SLEEPER_PROFILE, rigfile, servelib
 from tests import onedoor, usermode
 
@@ -31,11 +30,7 @@ SERVICE = {FAST: "unit0", STRONG: "unit1"}
 
 
 def _rig() -> None:
-    rigfile.write(
-        rigfile.from_scan(
-            usermode.RIG, Scan.from_json(json.dumps(usermode.scan_payload()))
-        )
-    )
+    rigfile.write(rigfile.from_reading(usermode.RIG, usermode.scan_payload()))
 
 
 def _compose_file(tmp_path: Path) -> Path:

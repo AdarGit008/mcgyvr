@@ -6,7 +6,7 @@
 
     "id": "/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf"
 
-recorded on this fleet in ``records/evidence/serving-2026-08-30/lcpp-srv1.json``.
+recorded on this fleet in ``records/evidence/serving-2026-08-30/lcpp-box1.json``.
 An emitted compose file passes ``--model /home/.../<name>.gguf`` with **no
 ``--alias``**, and a config declares ``model: "<name>"``. Those two strings are
 not equal, so ``Availability.not_serving`` compares through
@@ -40,22 +40,22 @@ from mcgyvr.config import parse
 from mcgyvr.local_pool import Endpoint, source_map
 from tests import livejournal as lj
 
-#: The name the live config declares for srv1's ceiling rung.
+#: The name the live config declares for box1's ceiling rung.
 DECLARED = "Qwen3.6-35B-A3B-UD-IQ3_XXS"
 #: What the emitted compose file passes as ``--model``, and therefore what
 #: llama.cpp lists — the recorded shape, from
-#: ``records/evidence/serving-2026-08-30/lcpp-srv1.json``.
-SERVED = f"/home/adaramir/models/{DECLARED}.gguf"
+#: ``records/evidence/serving-2026-08-30/lcpp-box1.json``.
+SERVED = f"/home/user/models/{DECLARED}.gguf"
 #: The other model that rig alternates with, as a path.
-OTHER = "/home/adaramir/models/deepseek-coder-v2-16b.gguf"
+OTHER = "/home/user/models/deepseek-coder-v2-16b.gguf"
 
 LADDER = f"""\
 profile: dev
 units:
   local_big:
-    address: http://srv1:8080
+    address: http://box1:8080
     model: '{DECLARED}'
-    rig: srv1_big
+    rig: box1_big
     window: 32768
 ladder:
 - local_big
@@ -85,7 +85,7 @@ def rungs_of(*models: str) -> tuple[Sequence[str], Mapping[str, str]]:
 
 
 def test_a_served_path_whose_stem_is_the_declared_model_is_resident() -> None:
-    """srv1's ceiling rung, against srv1 serving it. It must not be skipped.
+    """box1's ceiling rung, against box1 serving it. It must not be skipped.
 
     A healthy rig, the right weights loaded: the rung is not taken out of
     service because the server spells the model as the file it was handed.
@@ -113,7 +113,7 @@ def test_a_sharded_gguf_is_the_model_it_names() -> None:
     lists the first shard's path. Reading that as "some other model" would take
     the rung out of service for a naming convention.
     """
-    kept, _ = rungs_of(f"/home/adaramir/models/{DECLARED}-00001-of-00002.gguf")
+    kept, _ = rungs_of(f"/home/user/models/{DECLARED}-00001-of-00002.gguf")
 
     assert kept == ["local_big"]
 
@@ -147,7 +147,7 @@ def test_a_listing_that_says_nothing_or_names_it_among_others_keeps_the_rung() -
 # --- the run path -------------------------------------------------------------
 #
 # `cli._climb` builds its pool with no probe. A probe there would open a socket
-# before dispatch: specs that name a rig by hostname (`http://srv2:8001`) would
+# before dispatch: specs that name a rig by hostname (`http://box2:8001`) would
 # reach the actual rig from a developer's machine. `mcgyvr.wake`'s doctrine says
 # the same thing from the design side — "fail-first, never probe-first", a card
 # that is up must cost nothing extra.
@@ -200,7 +200,7 @@ def test_a_run_resolves_its_ladder_without_reaching_a_single_endpoint(
 def test_the_recorded_llama_cpp_body_is_read_as_the_model_it_holds() -> None:
     """The evidence, end to end: a real body through the real parser.
 
-    ``records/evidence/serving-2026-08-30/lcpp-srv1.json`` holds what this
+    ``records/evidence/serving-2026-08-30/lcpp-box1.json`` holds what this
     fleet's llama.cpp actually answered ``/v1/models`` with. Reading the shape
     off a recorded body rather than a hand-written one is what keeps this honest
     about the vocabulary the server uses rather than the one we remember.

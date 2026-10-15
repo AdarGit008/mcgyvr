@@ -41,15 +41,19 @@ def test_scan_rig_writes_the_rig_file_under_the_config_folder(
     path = tmp_path / "settings" / "rigs" / f"{usermode.RIG}.json"
     assert str(path) in capsys.readouterr().out
     saved = json.loads(path.read_text(encoding="utf-8"))
+    # The file is the reading, kept whole, and every fact is read off it.
+    assert sorted(saved) == ["read_at", "reading", "rig"]
     assert saved["rig"] == usermode.RIG
-    assert saved["hostname"] == usermode.HOSTNAME
-    assert saved["cards"] == [
-        {"index": 0, "name": "Invented Card 16G", "total_mib": 16384}
-    ]
-    assert saved["ram_total_gb"] == 62.7
-    assert saved["disk"]["free_gb"] == 400.0
-    assert saved["docker"] == usermode.DOCKER
-    assert rigfile.read(usermode.RIG) == rigfile.from_json(path.read_text("utf-8"))
+    assert saved["reading"]["machine"]["host"] == usermode.HOSTNAME
+    rig = rigfile.from_json(path.read_text("utf-8"))
+    assert rig.hostname == usermode.HOSTNAME
+    assert rig.cards == (
+        rigfile.Card(index=0, name="Invented Card 16G", total_mib=16384),
+    )
+    assert rig.ram_total_gb == 62.7
+    assert rig.disk_free_gb == 400.0
+    assert rig.docker == usermode.DOCKER
+    assert rigfile.read(usermode.RIG) == rig
 
 
 def test_scan_rig_writes_to_the_named_rigs_folder(
@@ -121,10 +125,12 @@ def test_a_rig_name_that_is_not_a_plain_file_name_is_refused(name: str) -> None:
 def test_the_rig_scanner_reads_the_docker_version_on_the_rig(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def answered(binary: str, *args: str, timeout: float = 30.0) -> str | None:
-        if binary == "docker" and args[:1] == ("version",):
-            return f"{usermode.DOCKER}\n"
-        return None
+    def answered(
+        argv: tuple[str, ...], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
+        if tuple(argv[:2]) == ("docker", "version"):
+            return f"{usermode.DOCKER}\n", None
+        return None, None
 
     monkeypatch.setattr(rigscan, "_run", answered)
     payload = rigscan.scan()
@@ -134,6 +140,6 @@ def test_the_rig_scanner_reads_the_docker_version_on_the_rig(
 
 
 def test_a_rig_with_no_docker_reads_as_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(rigscan, "_run", lambda *a, **k: None)
+    monkeypatch.setattr(rigscan, "_run", lambda *a, **k: (None, None))
 
     assert rigscan.scan()["docker"] is None

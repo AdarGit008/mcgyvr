@@ -38,7 +38,7 @@ def _live() -> Any:
 def _three_fleets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """flt-05 (next: flt-02), flt-02 (next: flt-05) and flt-07 (next: []), promoted."""
     fleet = copy.deepcopy(MODELLED)
-    fleet["fleets"]["flt-07"] = {"layout": {"srv2": copy.deepcopy(FLT02)}, "next": []}
+    fleet["fleets"]["flt-07"] = {"layout": {"box2": copy.deepcopy(FLT02)}, "next": []}
     _dev, setup = dev_setup(tmp_path, monkeypatch, locked_fleet=fleet)
     for name in ("flt-05", "flt-02", "flt-07"):
         assert cli("fleet", "promote", name, "--setup", str(setup)) == 0
@@ -67,9 +67,9 @@ def test_use_switches_to_any_verified_fleet_whether_or_not_the_lock_lists_the_mo
     assert _live()["fleet"] == FLT02_TAGGED
     said = capsys.readouterr().out
     assert "locked" in said and f"{FLT05} -> {FLT02_TAGGED}" in said, said
-    # The fixture lock measured flt-05 -> flt-02 on srv2: downtime 0.3 s, and
-    # srv2_3b woken in 0.25 s.
-    assert "srv2" in said and "0.3" in said and "srv2_3b" in said and "0.25" in said
+    # The fixture lock measured flt-05 -> flt-02 on box2: downtime 0.3 s, and
+    # box2_3b woken in 0.25 s.
+    assert "box2" in said and "0.3" in said and "box2_3b" in said and "0.25" in said
 
 
 def test_use_of_the_live_fleet_again_is_no_move(
@@ -95,8 +95,8 @@ def test_use_still_refuses_no_folder_and_a_layout_that_no_longer_matches_its_loc
 
     fleet_file = fleets() / FLT07 / "fleet.yaml"
     edited = yaml.safe_load(fleet_file.read_text(encoding="utf-8"))
-    slots = edited["fleets"]["flt-07"]["layout"]["srv2"]
-    edited["fleets"]["flt-07"]["layout"]["srv2"] = list(reversed(slots))
+    slots = edited["fleets"]["flt-07"]["layout"]["box2"]
+    edited["fleets"]["flt-07"]["layout"]["box2"] = list(reversed(slots))
     fleet_file.write_text(yaml.safe_dump(edited, sort_keys=False), encoding="utf-8")
     assert cli("fleet", "use", FLT07) != 0
     assert not live_json().exists()

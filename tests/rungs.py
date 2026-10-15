@@ -201,7 +201,7 @@ def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int | None]]:
             stop_reason=StopReason.COMPLETE,
             raw_stop_reason="stop",
             model="qwen2.5-coder:3b",
-            source="srv1",
+            source="box1",
             protocol=Protocol.OPENAI,
             max_output_tokens=request.max_output_tokens,
             latency_s=0.0,

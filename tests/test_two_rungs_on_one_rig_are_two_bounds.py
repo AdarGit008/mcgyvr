@@ -1,7 +1,7 @@
 """Rung != rig: two rungs co-resident on one machine are two server processes
 with two bounds, and the ladder counts them as two.
 
-The live ladder puts two vLLM servers on srv2 — the 3B on :8001 and the 7B
+The live ladder puts two vLLM servers on box2 — the 3B on :8001 and the 7B
 on :8002 — behind two sources. Capacity keys its slots by the source URL and
 the rung, never by the host, so a slot held on one does not count against the
 other; ``units_for`` sees two processes; ``pool`` lists two rungs. This file
@@ -27,15 +27,15 @@ WINDOW = 4096
 CO_RESIDENT = """\
 units:
   local_3b:
-    address: http://srv2:8001
+    address: http://box2:8001
     model: Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
-    rig: srv2_vllm_3b
+    rig: box2_vllm_3b
     width: 8
     engine: vllm
   local_7b:
-    address: http://srv2:8002
+    address: http://box2:8002
     model: Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
-    rig: srv2_vllm_7b
+    rig: box2_vllm_7b
     width: 8
     engine: vllm
 ladder:
@@ -46,8 +46,8 @@ HF = "/home/someone/.cache/huggingface"
 
 
 def test_two_sources_on_one_host_are_two_slot_files() -> None:
-    assert _slot_stem("http://srv2:8001", "local_3b") != _slot_stem(
-        "http://srv2:8002", "local_7b"
+    assert _slot_stem("http://box2:8001", "local_3b") != _slot_stem(
+        "http://box2:8002", "local_7b"
     )
 
 
@@ -67,7 +67,7 @@ def test_the_pool_lists_both_rungs_of_one_host() -> None:
 
 def test_the_ladder_implies_two_processes_on_the_one_host() -> None:
     scan = Scan.of(
-        host="srv2",
+        host="box2",
         vram_mib=12288,
         ram_gb=45.0,
         disk_free_gb=80.0,
@@ -94,6 +94,6 @@ def test_the_ladder_implies_two_processes_on_the_one_host() -> None:
         ),
     )
     units = units_for(
-        parse(CO_RESIDENT), {"srv2": scan}, specs=specs, ctx_per_slot=WINDOW
+        parse(CO_RESIDENT), {"box2": scan}, specs=specs, ctx_per_slot=WINDOW
     )
-    assert sorted((u.host, u.port) for u in units) == [("srv2", 8001), ("srv2", 8002)]
+    assert sorted((u.host, u.port) for u in units) == [("box2", 8001), ("box2", 8002)]

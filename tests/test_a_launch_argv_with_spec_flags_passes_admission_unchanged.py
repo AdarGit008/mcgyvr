@@ -48,12 +48,12 @@ BASE = [
 
 def locked(argv: list[str]) -> dict[str, Any]:
     return {
-        "rig": "srv2",
-        "address": "http://srv2:8080",
+        "rig": "box2",
+        "address": "http://box2:8080",
         "engine": "llama.cpp",
         "image": "ghcr.io/ggml-org/llama.cpp:server-cuda-b10644",
         "model": "Ornith-1.0-35B_Q2_K-AllGPU",
-        "container": "mcgyvr-srv2-ornith",
+        "container": "mcgyvr-box2-ornith",
         "unit_id": "unt-" + "0" * 64,
         "launch": {
             "argv": argv,
@@ -87,5 +87,5 @@ def test_the_draft_width_is_never_read_as_an_expert_count() -> None:
 
 def test_the_locked_renderer_copies_the_argv_verbatim() -> None:
     argv = [*BASE[:2], "--n-cpu-moe", "8", *SPEC, *BASE[2:]]
-    service = emit._locked_service("srv2_ornith", locked(argv))
+    service = emit._locked_service("box2_ornith", locked(argv))
     assert service["command"] == argv

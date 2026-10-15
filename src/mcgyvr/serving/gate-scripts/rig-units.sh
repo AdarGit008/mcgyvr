@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # What holds a rig right now, as whitespace-free `key=value` lines.
 #
-# SHIPPED TO THE RIG ON STDIN behind rig-snapshot.sh, as one reading, by the
-# door's `read` (gate-scripts/read-02-rig.py). Nothing lands on the rig's disk,
-# nothing is started, stopped or leased. Its arguments are the units the fleet
-# places on this rig, `ENGINE:PORT:CONTAINER` each (`ENGINE:PORT` for a unit
-# the lock names no container for).
+# The door's runtime reader, not a hardware reader: the machine itself is read
+# by src/mcgyvr/serving/rigscan.py, the one reader of a machine. This says
+# which containers are up, which processes hold the card, and what each unit
+# answers. SHIPPED TO THE RIG ON STDIN by gate 2 and gate 7 (no arguments: is
+# the rig idle?) and by the door's `read` (gate-scripts/read-02-rig.py).
+# Nothing lands on the rig's disk, nothing is started, stopped or leased. Its
+# arguments are the units the fleet places on this rig, `ENGINE:PORT:CONTAINER`
+# each (`ENGINE:PORT` for a unit the lock names no container for).
 #
 #   container=NAME,ID,PROJECT,RESTARTS   every running container. PROJECT is its
 #                                         compose project or `-`; RESTARTS is

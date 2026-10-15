@@ -26,9 +26,9 @@ from tests.red_port.conftest import required
 
 FLEET = """\
 units:
-  srv2_7b:
-    rig: srv2
-    address: http://srv2:8002
+  box2_7b:
+    rig: box2
+    address: http://box2:8002
     engine: vllm
     model: Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
     width: 8
@@ -37,13 +37,13 @@ units:
     request_timeout_s: 180
 fleets:
   flt-05:
-    layout: {srv2: [[srv2_7b, awake]]}
+    layout: {box2: [[box2_7b, awake]]}
     next: []
 """
 POLICY = """\
-ladder: [srv2_7b]
+ladder: [box2_7b]
 fanout: idle
-attempts: {srv2_7b: 1}
+attempts: {box2_7b: 1}
 max_escalations: 2
 """
 
@@ -57,7 +57,7 @@ def _files() -> Any:
 
 def test_a_unit_carries_its_model_width_window_reply_size_and_timeout() -> None:
     files = _files()
-    unit = files.load_fleet(FLEET)["units"]["srv2_7b"]
+    unit = files.load_fleet(FLEET)["units"]["box2_7b"]
     assert unit["model"] == "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
     assert (unit["width"], unit["window"]) == (8, 4096)
     assert (unit["output_tokens"], unit["request_timeout_s"]) == (1024, 180)
@@ -65,7 +65,7 @@ def test_a_unit_carries_its_model_width_window_reply_size_and_timeout() -> None:
 
 def test_the_policy_ladder_is_an_ordered_list_of_unit_names() -> None:
     files = _files()
-    assert list(files.load_policy(POLICY)["ladder"]) == ["srv2_7b"]
+    assert list(files.load_policy(POLICY)["ladder"]) == ["box2_7b"]
 
 
 def test_a_unit_fact_in_the_policy_file_is_refused_naming_it() -> None:
@@ -84,7 +84,7 @@ def test_a_policy_setting_in_the_fleet_file_is_refused_naming_policy_yaml() -> N
 def test_the_retired_words_are_refused_naming_what_replaced_them() -> None:
     files = _files()
     with pytest.raises(files.FleetFileError, match="units"):
-        files.load_fleet("sources:\n  s: {base_url: 'http://srv2:8001'}\n")
+        files.load_fleet("sources:\n  s: {base_url: 'http://box2:8001'}\n")
     with pytest.raises(files.FleetFileError, match="unit names"):
         files.load_policy("ladder:\n  tiers:\n    - {name: r, source: s, model: m}\n")
 

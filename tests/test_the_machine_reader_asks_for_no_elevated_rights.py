@@ -1,28 +1,23 @@
-"""The machine reader asks for no elevated rights.
+"""The machine reader's short reading asks for no elevated rights.
 
-The reader names no command that raises rights or reads what only raised rights
-may, and over every invented machine it calls none of them and asks no card
-tool anything but the questions it is known to ask. It reads no file but under
-its root: every path it names is under that root, except ``/dev/null``.
+The short reading (``--cards``), which a rig's hub agent takes on every
+heartbeat, calls no command that raises rights or reads what only raised
+rights may, over every invented machine, and asks no card tool anything but
+the questions it is known to ask. The whole reading asks for raised rights
+once, for the snapshot's DDR speed: ``dmidecode`` plainly, then through
+``sudo -n``, which never prompts. No other command of the whole reading
+raises rights.
 """
 
 from __future__ import annotations
 
-import re
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
 from tests.machine_shapes import Shape, shapes
-from tests.machinereader import ELEVATION, READER, run, stage
-
-
-def test_the_reader_names_no_command_that_raises_rights() -> None:
-    text = READER.read_text(encoding="utf-8")
-    named = sorted(
-        {word for word in ELEVATION if re.search(rf"(?<![\w.-]){word}(?![\w-])", text)}
-    )
-    assert not named, f"machine-read.sh names {named}"
+from tests.machinereader import ELEVATION, run, stage
 
 
 @pytest.mark.parametrize("machine", shapes(), ids=lambda m: m.label)
@@ -35,23 +30,43 @@ def test_reading_a_machine_calls_no_command_that_raises_rights(
     assert ran.unexpected == ()
 
 
-def _code_lines(text: str) -> list[str]:
-    """The script's lines that are not comments."""
-    return [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+def test_the_whole_reading_raises_rights_only_without_a_prompt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from mcgyvr.serving import rigscan
+
+    asked: list[tuple[str, ...]] = []
+
+    def run_tool(
+        argv: Sequence[str], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
+        asked.append(tuple(argv))
+        return None, "refused by the test"
+
+    monkeypatch.setattr(rigscan, "_run", run_tool)
+    monkeypatch.setattr(rigscan, "measure_bandwidth", lambda root="": None)
+    rigscan.scan(weights_dir=str(tmp_path / "weights"), root=str(tmp_path / "root"))
+    raising = [argv for argv in asked if set(argv) & set(ELEVATION)]
+    assert raising == [
+        ("dmidecode", "-t", "memory"),
+        ("sudo", "-n", "dmidecode", "-t", "memory"),
+    ]
 
 
-#: A path from the file system's top, not written under the reader's root.
-_ABSOLUTE = re.compile(r"(?<![\w$}*/\]])/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+")
+def test_the_short_reading_asks_no_command_that_raises_rights(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from mcgyvr.serving import rigscan
 
+    asked: list[tuple[str, ...]] = []
 
-def test_the_reader_names_no_file_outside_its_root() -> None:
-    text = READER.read_text(encoding="utf-8")
-    found = []
-    for line in _code_lines(text):
-        for match in _ABSOLUTE.finditer(line):
-            path = match.group(0)
-            before = line[: match.start()]
-            if path == "/dev/null" or before.endswith(("$ROOT", '"$ROOT')):
-                continue
-            found.append(path)
-    assert not found, f"machine-read.sh names files outside its root: {found}"
+    def run_tool(
+        argv: Sequence[str], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
+        asked.append(tuple(argv))
+        return None, None
+
+    monkeypatch.setattr(rigscan, "_run", run_tool)
+    rigscan.read_machine(root=str(tmp_path / "root"))
+    assert asked
+    assert not [argv for argv in asked if set(argv) & set(ELEVATION)]

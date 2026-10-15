@@ -27,11 +27,12 @@ from typing import Any
 import pytest
 import yaml
 
+from tests import onedoor
 from tests.reads import FLEET, FLEET_NAME, RUN_ID, UNIT_3B, rig_text, unit_rows
 
-#: An invented rig id, the one both setups declare for srv2.
+#: An invented rig id, the one both setups declare for box2.
 RIG_ID = "rig-" + "a1" * 32
-#: The room the live lock proved for srv2_3b and the tighter one the setup
+#: The room the live lock proved for box2_3b and the tighter one the setup
 #: declares.
 LIVE_ROOM, SETUP_ROOM = 5000, 3000
 #: The live lock's validation, older than the read.
@@ -39,17 +40,17 @@ VALIDATED_AT = "2026-09-01T00:00:00Z"
 
 
 def fleet(room: int) -> dict[str, Any]:
-    """The fleet both setups declare, with srv2_3b's room at ``room``."""
+    """The fleet both setups declare, with box2_3b's room at ``room``."""
     shape = copy.deepcopy(FLEET)
-    shape["rigs"] = {"srv2": {"rig_id": RIG_ID}}
-    shape["units"]["srv2_3b"]["room_mib"] = room
+    shape["rigs"] = {"box2": {"rig_id": RIG_ID}}
+    shape["units"]["box2_3b"]["room_mib"] = room
     return shape
 
 
 def write_setup(folder: Path, shape: dict[str, Any], journal: Path) -> None:
     folder.mkdir(parents=True)
     (folder / "fleet.yaml").write_text(yaml.safe_dump(shape), encoding="utf-8")
-    policy = {"ladder": ["srv2_3b", "srv2_7b"], "journal": {"dir": str(journal)}}
+    policy = {"ladder": ["box2_3b", "box2_7b"], "journal": {"dir": str(journal)}}
     (folder / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
 
 
@@ -77,7 +78,13 @@ def go_live(tmp_path: Path) -> tuple[Path, Path]:
 def read(card: int, profile: str, **more: Any) -> None:
     from mcgyvr.fleet import read
 
-    read.record("srv2", rig_text(card_3b=card), run_id=RUN_ID, profile=profile, **more)
+    read.record(
+        "box2",
+        *onedoor.split_reading(rig_text(card_3b=card)),
+        run_id=RUN_ID,
+        profile=profile,
+        **more,
+    )
 
 
 def test_a_named_setup_read_over_its_own_room_pulls_no_live_unit(
@@ -111,7 +118,7 @@ def test_a_read_with_the_lock_still_pulls_its_live_unit(tmp_path: Path) -> None:
     card = unit_rows(journal, UNIT_3B)["card_mib"]
     assert card["alert"] is True and "locked" not in card
     pulls = live_pulled_units()
-    assert set(pulls) == {"srv2_3b", "srv2_7b"}
-    assert {(p["unit"], p["field"]) for p in pulls["srv2_3b"]} == {
-        ("srv2_3b", "card_mib")
+    assert set(pulls) == {"box2_3b", "box2_7b"}
+    assert {(p["unit"], p["field"]) for p in pulls["box2_3b"]} == {
+        ("box2_3b", "card_mib")
     }

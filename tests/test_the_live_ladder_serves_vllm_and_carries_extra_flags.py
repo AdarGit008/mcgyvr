@@ -1,8 +1,8 @@
-"""The live ladder: vLLM on srv2, llama.cpp on srv1, and the flags a model
+"""The live ladder: vLLM on box2, llama.cpp on box1, and the flags a model
 needs that no scan can derive.
 
-Two vLLM servers sit on srv2's 12 GB card together — the 7B AWQ and the 3B AWQ
-beside it — and srv1's Qwen3.6-35B answers nothing but reasoning unless
+Two vLLM servers sit on box2's 12 GB card together — the 7B AWQ and the 3B AWQ
+beside it — and box1's Qwen3.6-35B answers nothing but reasoning unless
 ``--chat-template-kwargs`` turns thinking off. Four things follow, each a check
 here:
 
@@ -13,7 +13,7 @@ here:
   number is measured and never inherited;
 * a model may carry ``serve_args``, appended verbatim to the argv, and both
   renderings carry them the same way;
-* a source may pin its ``image``, because srv1's rows are only valid against a
+* a source may pin its ``image``, because box1's rows are only valid against a
   stated build and the engine's default
   tag floats;
 * the units on one host are summed against its free VRAM, because each unit
@@ -71,7 +71,7 @@ THREE_B_SPEC = ModelSpec(
 
 def test_a_vllm_unit_states_the_model_first_and_the_engines_own_flags() -> None:
     unit = unit_for(
-        rig("srv2"),
+        rig("box2"),
         SEVEN_B_SPEC,
         engine="vllm",
         width=8,
@@ -90,7 +90,7 @@ def test_a_vllm_unit_states_the_model_first_and_the_engines_own_flags() -> None:
 
 def test_a_vllm_unit_renders_a_bare_vllm_serve_command() -> None:
     unit = unit_for(
-        rig("srv2"),
+        rig("box2"),
         SEVEN_B_SPEC,
         engine="vllm",
         width=8,
@@ -112,13 +112,13 @@ def test_a_vllm_unit_without_an_hf_cache_is_refused_by_name() -> None:
     )
     with pytest.raises(UnitError, match="hf_cache"):
         unit_for(
-            rig("srv2"), spec, engine="vllm", width=8, port=8002, ctx_per_slot=WINDOW
+            rig("box2"), spec, engine="vllm", width=8, port=8002, ctx_per_slot=WINDOW
         )
 
 
 def test_a_vllm_service_mounts_the_hf_cache_offline_with_host_ipc() -> None:
     unit = unit_for(
-        rig("srv2"),
+        rig("box2"),
         SEVEN_B_SPEC,
         engine="vllm",
         width=8,
@@ -138,7 +138,7 @@ def test_a_vllm_service_mounts_the_hf_cache_offline_with_host_ipc() -> None:
 
 def test_serve_args_reach_both_renderings_verbatim() -> None:
     unit = unit_for(
-        rig("srv1", vram_mib=6144, free_mib=5727), DENSE, width=8, ctx_per_slot=WINDOW
+        rig("box1", vram_mib=6144, free_mib=5727), DENSE, width=8, ctx_per_slot=WINDOW
     )
     parts = argv(unit)
     assert parts[-2:] == THINKING_OFF
@@ -157,7 +157,7 @@ def test_a_serve_arg_with_whitespace_is_refused() -> None:
         kv_cache_dtype_v="f16",
     )
     unit = unit_for(
-        rig("srv1", vram_mib=6144, free_mib=5727), spec, width=8, ctx_per_slot=WINDOW
+        rig("box1", vram_mib=6144, free_mib=5727), spec, width=8, ctx_per_slot=WINDOW
     )
     with pytest.raises(EmitError, match="whitespace"):
         argv(unit)
@@ -168,11 +168,11 @@ def test_a_serve_arg_with_whitespace_is_refused() -> None:
 LIVE = f"""
 units:
   local_qwen2.5-coder-3b:
-    address: "http://srv2:8001"
+    address: "http://box2:8001"
     model: "{THREE_B}"
     engine: vllm
     image: "{VLLM_IMAGE}"
-    rig: srv2_vllm_3b
+    rig: box2_vllm_3b
     width: 8
     hf_cache: "{HF_CACHE}"
     launch:
@@ -181,11 +181,11 @@ units:
       serve_args: ["--gpu-memory-utilization", "0.33"]
       kv_cache_dtype_k: auto
   local_qwen2.5-coder-7b:
-    address: "http://srv2:8002"
+    address: "http://box2:8002"
     model: "{SEVEN_B}"
     engine: vllm
     image: "{VLLM_IMAGE}"
-    rig: srv2_vllm_7b
+    rig: box2_vllm_7b
     width: 8
     hf_cache: "{HF_CACHE}"
     launch:
@@ -208,7 +208,7 @@ def test_declared_models_carry_serve_args_and_hf_cache() -> None:
 
 def test_a_source_image_is_the_service_image() -> None:
     config = parse(LIVE)
-    units = units_for(config, {"srv2": rig("srv2")}, specs=(), ctx_per_slot=WINDOW)
+    units = units_for(config, {"box2": rig("box2")}, specs=(), ctx_per_slot=WINDOW)
     for unit in units:
         assert unit.image == config.units[unit.rungs[0]].image
         assert unit.image is not None and "@sha256:" in unit.image
@@ -216,7 +216,7 @@ def test_a_source_image_is_the_service_image() -> None:
 
 
 def test_two_units_on_one_host_fit_it_together_at_the_spikes_numbers() -> None:
-    scans = {"srv2": rig("srv2")}
+    scans = {"box2": rig("box2")}
     units = units_for(parse(LIVE), scans, specs=(), ctx_per_slot=WINDOW)
     assert sorted(unit.port for unit in units) == [8001, 8002]
     hold_together(units, scans)
@@ -226,15 +226,15 @@ def test_units_on_one_host_that_will_not_sum_are_cut_into_alternatives() -> None
     """Each alone fits an 11.9 GB card with room; together they do not — and
     that cuts the host into launch specs rather than refusing it: the card is
     the discriminator. The 3B and the fattened 7B get a file each, and the
-    sentence `cli._emit` prints names both of them and the `compose.srv2.yml` a
+    sentence `cli._emit` prints names both of them and the `compose.box2.yml` a
     one-file emit would have left behind."""
     tight = LIVE.replace("vram_gb: 7.12", "vram_gb: 9.0")
-    scans = {"srv2": rig("srv2")}
+    scans = {"box2": rig("box2")}
     units = units_for(parse(tight), scans, specs=(), ctx_per_slot=WINDOW)
 
     (said,) = hold_together(units, scans)
 
     assert "do not sum onto the card and were emitted as 2 alternatives" in said
-    assert "compose.srv2.Qwen-Qwen2.5-Coder-3B-Instruct-AWQ.yml" in said
-    assert "compose.srv2.Qwen-Qwen2.5-Coder-7B-Instruct-AWQ.yml" in said
-    assert "delete the compose.srv2.yml" in said
+    assert "compose.box2.Qwen-Qwen2.5-Coder-3B-Instruct-AWQ.yml" in said
+    assert "compose.box2.Qwen-Qwen2.5-Coder-7B-Instruct-AWQ.yml" in said
+    assert "delete the compose.box2.yml" in said

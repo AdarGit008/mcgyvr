@@ -431,19 +431,29 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
 
 
 def card(host: str) -> dict[str, object]:
-    """The card's used and free MiB as the rig reads them now, or why not."""
+    """The first card's used and free MiB as the rig reads them now, or why not.
+
+    Read by the one reader's short reading (``--cards``), shipped under the
+    door: nothing here runs a card tool, and the figures are the ones the
+    door's gates and the hub read of the same card.
+    """
+    from mcgyvr.serving.gatelib import cards_read_command
+
     try:
-        query = "--query-gpu=memory.used,memory.free --format=csv,noheader,nounits"
-        done = ssh(host, f"nvidia-smi {query}", timeout=60)
+        done = ssh(host, cards_read_command(), timeout=60)
     except subprocess.TimeoutExpired:
-        return {"error": "nvidia-smi did not answer in 60s"}
+        return {"error": "the reader did not answer in 60s"}
     if done.returncode != 0:
         return {"error": done.stderr.strip()[:200]}
-    parts = (
-        [p.strip() for p in done.stdout.strip().splitlines()[0].split(",")]
-        if done.stdout.strip()
-        else []
-    )
-    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+    try:
+        reading = json.loads(done.stdout)
+        cards = [c for c in reading["cards"] if c.get("vendor") == "nvidia"]
+    except (ValueError, KeyError, TypeError, AttributeError):
         return {"error": f"unreadable: {done.stdout.strip()[:100]!r}"}
-    return {"used_mib": int(parts[0]), "free_mib": int(parts[1])}
+    if not cards:
+        return {"error": "the reader read no card"}
+    first = min(cards, key=lambda c: c.get("index", 0))
+    used, free = first.get("used_mib"), first.get("free_mib")
+    if type(used) is not int or type(free) is not int:
+        return {"error": f"card {first.get('index')}: used or free memory unread"}
+    return {"used_mib": used, "free_mib": free}

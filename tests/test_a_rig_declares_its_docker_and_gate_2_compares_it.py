@@ -33,10 +33,10 @@ def root(tmp_path: Path) -> Path:
 def test_a_daemon_that_is_not_the_machine_gate_2_read_is_refused_at_gate_3(
     root: Path, tmp_path: Path
 ) -> None:
-    (onedoor.stubs_dir(root) / "docker-name").write_text("srv2", encoding="utf-8")
+    (onedoor.stubs_dir(root) / "docker-name").write_text("box2", encoding="utf-8")
     result = onedoor.door(root, Scenario("alpha", "1-probe.sh"))
     assert result.returncode == 2, (result.stdout, result.stderr)
     assert "the daemon `docker` reaches calls itself" in result.stderr, result.stderr
-    assert "srv2" in result.stderr and "srv1" in result.stderr, result.stderr
+    assert "box2" in result.stderr and "box1" in result.stderr, result.stderr
     assert onedoor.written_under_records(root) == []
     assert not (tmp_path / "e").exists()

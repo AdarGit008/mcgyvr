@@ -23,21 +23,21 @@ U3B = "unt-" + "3" * 64
 U7B = "unt-" + "7" * 64
 
 
-#: srv2's room slots, in order: slot 0 the 7B, slot 1 the 3B.
-FLT05: list[Any] = [["srv2_7b", "awake"], ["srv2_3b", "asleep"]]
+#: box2's room slots, in order: slot 0 the 7B, slot 1 the 3B.
+FLT05: list[Any] = [["box2_7b", "awake"], ["box2_3b", "asleep"]]
 
 
-FLT02: list[Any] = [["srv2_7b", "awake"], ["srv2_3b", "awake"]]
+FLT02: list[Any] = [["box2_7b", "awake"], ["box2_3b", "awake"]]
 
 
 FLEET: dict[str, Any] = {
-    "rigs": {"srv2": {"rig_id": RIG2}},
+    "rigs": {"box2": {"rig_id": RIG2}},
     "units": {
-        "srv2_7b": {
-            "rig": "srv2",
+        "box2_7b": {
+            "rig": "box2",
             "unit_id": U7B,
             "engine": "vllm",
-            "address": "http://srv2:8002",
+            "address": "http://box2:8002",
             "room_mib": 6800,
             "kv_cache_memory_bytes": 2_147_483_648,
             "attention_backend": "FLASH_ATTN",
@@ -46,11 +46,11 @@ FLEET: dict[str, Any] = {
             "output_tokens": 1024,
             "request_timeout_s": 180.0,
         },
-        "srv2_3b": {
-            "rig": "srv2",
+        "box2_3b": {
+            "rig": "box2",
             "unit_id": U3B,
             "engine": "vllm",
-            "address": "http://srv2:8001",
+            "address": "http://box2:8001",
             "room_mib": 2800,
             "kv_cache_memory_bytes": 452_984_832,
             "attention_backend": "FLASH_ATTN",
@@ -62,53 +62,53 @@ FLEET: dict[str, Any] = {
         "cloud": {"address": "https://api.example.invalid/v1"},
     },
     "fleets": {
-        "flt-05": {"layout": {"srv2": FLT05}, "next": ["flt-02"]},
-        "flt-02": {"layout": {"srv2": FLT02}, "next": ["flt-05"]},
+        "flt-05": {"layout": {"box2": FLT05}, "next": ["flt-02"]},
+        "flt-02": {"layout": {"box2": FLT02}, "next": ["flt-05"]},
     },
 }
 
 
 EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv2": {"card_mib": 12000}},
+    "rigs": {"box2": {"card_mib": 12000}},
     "combinations": [
         {
-            "rig": "srv2",
+            "rig": "box2",
             "slots": FLT05,
             "passed": True,
             "overhead_mib": 600,
-            "restarts": {"srv2_7b": 0, "srv2_3b": 0},
-            "warm_decode_tok_s": {"srv2_7b": 58.0},
-            "baseline_tok_s": {"srv2_7b": 58.4},
-            "prefill_tok_s": {"srv2_7b": 1450.0},
-            "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
+            "restarts": {"box2_7b": 0, "box2_3b": 0},
+            "warm_decode_tok_s": {"box2_7b": 58.0},
+            "baseline_tok_s": {"box2_7b": 58.4},
+            "prefill_tok_s": {"box2_7b": 1450.0},
+            "attention_backend": {"box2_7b": "FLASH_ATTN", "box2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:00:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-srv2/flt-05",
+            "envelope": "records/evidence/2026-09-11-fleet-box2/flt-05",
         },
         {
-            "rig": "srv2",
+            "rig": "box2",
             "slots": FLT02,
             "passed": True,
             "overhead_mib": 600,
-            "restarts": {"srv2_7b": 0, "srv2_3b": 0},
-            "warm_decode_tok_s": {"srv2_7b": 57.0, "srv2_3b": 105.0},
-            "baseline_tok_s": {"srv2_7b": 57.4, "srv2_3b": 106.0},
-            "prefill_tok_s": {"srv2_7b": 1420.0, "srv2_3b": 3100.0},
-            "attention_backend": {"srv2_7b": "FLASH_ATTN", "srv2_3b": "FLASH_ATTN"},
+            "restarts": {"box2_7b": 0, "box2_3b": 0},
+            "warm_decode_tok_s": {"box2_7b": 57.0, "box2_3b": 105.0},
+            "baseline_tok_s": {"box2_7b": 57.4, "box2_3b": 106.0},
+            "prefill_tok_s": {"box2_7b": 1420.0, "box2_3b": 3100.0},
+            "attention_backend": {"box2_7b": "FLASH_ATTN", "box2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:30:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-srv2/flt-02",
+            "envelope": "records/evidence/2026-09-11-fleet-box2/flt-02",
         },
     ],
     "moves": [
         {
-            "rig": "srv2",
+            "rig": "box2",
             "from": FLT05,
             "to": FLT02,
             "passed": True,
             "downtime_s": 0.3,
-            "wake_s": {"srv2_3b": 0.25},
+            "wake_s": {"box2_3b": 0.25},
         },
         {
-            "rig": "srv2",
+            "rig": "box2",
             "from": FLT02,
             "to": FLT05,
             "passed": True,
@@ -119,7 +119,7 @@ EVIDENCE: dict[str, Any] = {
 }
 
 
-POLICY: dict[str, Any] = {"ladder": ["srv2_3b", "srv2_7b", "cloud"]}
+POLICY: dict[str, Any] = {"ladder": ["box2_3b", "box2_7b", "cloud"]}
 
 
 #: Placeholder tolerances: the rule is pinned here, the values are measured.
@@ -159,18 +159,18 @@ def combination_files(root: Path) -> list[Path]:
     return sorted((root / "records" / "fleet" / "rigs" / RIG2).glob("cmb-*.json"))
 
 
-#: The fixture's two llama.cpp units on srv1, as the lock names them.
+#: The fixture's two llama.cpp units on box1, as the lock names them.
 SLOTS: list[Any] = [["a", "awake"], ["b", "awake"]]
 
 
-SRV1_FLEET: dict[str, Any] = {
-    "rigs": {"srv1": {"rig_id": "rig-" + "1" * 64}},
+BOX1_FLEET: dict[str, Any] = {
+    "rigs": {"box1": {"rig_id": "rig-" + "1" * 64}},
     "units": {
         name: {
-            "rig": "srv1",
+            "rig": "box1",
             "unit_id": "unt-" + digit * 64,
             "engine": "llama.cpp",
-            "address": f"http://srv1:{8001 + index}",
+            "address": f"http://box1:{8001 + index}",
             "container": container,
             "image": "llamacpp:b10644-L3",
             "command": ["--model", "/models/x.gguf", "--port", str(8001 + index)],
@@ -184,15 +184,15 @@ SRV1_FLEET: dict[str, Any] = {
             (("a", "a", UNITS[0]), ("b", "b", UNITS[1]))
         )
     },
-    "fleets": {"flt-01": {"layout": {"srv1": SLOTS}, "next": []}},
+    "fleets": {"flt-01": {"layout": {"box1": SLOTS}, "next": []}},
 }
 
 
-SRV1_EVIDENCE: dict[str, Any] = {
-    "rigs": {"srv1": {"card_mib": 6144, "overhead_mib": 400}},
+BOX1_EVIDENCE: dict[str, Any] = {
+    "rigs": {"box1": {"card_mib": 6144, "overhead_mib": 400}},
     "combinations": [
         {
-            "rig": "srv1",
+            "rig": "box1",
             "slots": SLOTS,
             "passed": True,
             "overhead_mib": 400,
@@ -202,7 +202,7 @@ SRV1_EVIDENCE: dict[str, Any] = {
             "card_peak_mib": {"a": 2000, "b": 2000},
             "prefill_tok_s": {"a": 1450.0, "b": 1450.0},
             "validated_at": "2026-09-11T10:00:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-srv1/flt-01",
+            "envelope": "records/evidence/2026-09-11-fleet-box1/flt-01",
         }
     ],
     "moves": [],
@@ -332,7 +332,7 @@ def observed(
     foreign: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
-        "srv2": {
+        "box2": {
             "rig_id": rig_id,
             "units": {U7B: "awake", U3B: "asleep"} if units is None else units,
             "foreign": foreign or [],
@@ -342,11 +342,11 @@ def observed(
 
 FLEET_YAML = """\
 units:
-  srv2_7b:
-    rig: srv2
+  box2_7b:
+    rig: box2
     unit_id: unt-7777777777777777777777777777777777777777777777777777777777777777
     engine: vllm
-    address: http://srv2:8002
+    address: http://box2:8002
     model: Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
     room_mib: 6800
     kv_cache_memory_bytes: 2147483648
@@ -356,28 +356,28 @@ units:
     output_tokens: 1024
     request_timeout_s: 180
 rigs:
-  srv2:
+  box2:
     rig_id: rig-2222222222222222222222222222222222222222222222222222222222222222
 fleets:
   flt-05:
-    layout: {srv2: [[srv2_7b, awake]]}
+    layout: {box2: [[box2_7b, awake]]}
     next: []
 """
 
 
 YAML_EVIDENCE = {
-    "rigs": {"srv2": {"card_mib": 12000}},
+    "rigs": {"box2": {"card_mib": 12000}},
     "combinations": [
         {
-            "rig": "srv2",
-            "slots": [["srv2_7b", "awake"]],
+            "rig": "box2",
+            "slots": [["box2_7b", "awake"]],
             "passed": True,
             "overhead_mib": 600,
-            "restarts": {"srv2_7b": 0},
-            "warm_decode_tok_s": {"srv2_7b": 58.0},
-            "baseline_tok_s": {"srv2_7b": 58.4},
-            "prefill_tok_s": {"srv2_7b": 1450.0},
-            "attention_backend": {"srv2_7b": "FLASH_ATTN"},
+            "restarts": {"box2_7b": 0},
+            "warm_decode_tok_s": {"box2_7b": 58.0},
+            "baseline_tok_s": {"box2_7b": 58.4},
+            "prefill_tok_s": {"box2_7b": 1450.0},
+            "attention_backend": {"box2_7b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:00:00Z",
         }
     ],

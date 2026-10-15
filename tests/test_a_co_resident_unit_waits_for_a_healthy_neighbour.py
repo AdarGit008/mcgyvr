@@ -46,16 +46,16 @@ def rig(host: str, *, vram_mib: int, ram_gb: float) -> Scan:
 
 
 SCANS = {
-    "srv1": rig("srv1", vram_mib=6144, ram_gb=48.0),
-    "srv2": rig("srv2", vram_mib=12288, ram_gb=45.0),
+    "box1": rig("box1", vram_mib=6144, ram_gb=48.0),
+    "box2": rig("box2", vram_mib=12288, ram_gb=45.0),
 }
 
 FLEET = f"""\
 units:
   local_big:
-    address: http://srv1:8080
+    address: http://box1:8080
     model: '{BIG}'
-    rig: srv1_llamacpp
+    rig: box1_llamacpp
     width: 2
     window: 8192
     launch:
@@ -64,9 +64,9 @@ units:
       kv_cache_dtype_k: f16
       kv_cache_dtype_v: f16
   local_3b:
-    address: http://srv2:8001
+    address: http://box2:8001
     model: '{THREE_B}'
-    rig: srv2_vllm_3b
+    rig: box2_vllm_3b
     width: 8
     window: 4096
     engine: vllm
@@ -76,9 +76,9 @@ units:
       disk_gb: 2.15
       kv_cache_dtype_k: auto
   local_7b:
-    address: http://srv2:8002
+    address: http://box2:8002
     model: '{SEVEN_B}'
-    rig: srv2_vllm_7b
+    rig: box2_vllm_7b
     width: 8
     window: 4096
     engine: vllm
@@ -110,11 +110,11 @@ def test_the_waiter_waits_for_a_healthy_neighbour_and_not_a_started_one() -> Non
     The daemon releases the waiter the moment the process ahead exists, which
     on this fleet is roughly a second and always long before that process has
     sized its cache off what is free."""
-    srv2 = composed()["srv2"]["services"]
+    box2 = composed()["box2"]["services"]
     waiting = {
-        name: body["depends_on"] for name, body in srv2.items() if "depends_on" in body
+        name: body["depends_on"] for name, body in box2.items() if "depends_on" in body
     }
-    assert waiting, "two units share srv2's card and one of them must wait"
+    assert waiting, "two units share box2's card and one of them must wait"
     for name, on in waiting.items():
         for ahead, how in on.items():
             assert how == {"condition": "service_healthy"}, (
@@ -126,11 +126,11 @@ def test_the_unit_that_is_waited_on_declares_a_healthcheck() -> None:
     """`service_healthy` against a service with no healthcheck never releases —
     compose treats it as an error, and the door would report NOT ANSWERING for
     a pair that was never allowed to start. The two are one change."""
-    srv2 = composed()["srv2"]["services"]
-    awaited = {ahead for body in srv2.values() for ahead in body.get("depends_on", {})}
+    box2 = composed()["box2"]["services"]
+    awaited = {ahead for body in box2.values() for ahead in body.get("depends_on", {})}
     assert awaited, "something is waited on"
     for name in awaited:
-        check = srv2[name].get("healthcheck")
+        check = box2[name].get("healthcheck")
         assert check is not None, f"{name} is waited on and declares no healthcheck"
         assert "test" in check, check
         # It must ask this unit's own port, not a default: two units on one host
@@ -139,11 +139,11 @@ def test_the_unit_that_is_waited_on_declares_a_healthcheck() -> None:
 
 
 def test_a_host_serving_one_unit_gets_neither() -> None:
-    """srv1 has one unit, contends with nothing, and its compose file must not
+    """box1 has one unit, contends with nothing, and its compose file must not
     move. A healthcheck there would be drift with no failure behind it — and
     `emit --check` would report every single-unit rig on the fleet."""
-    srv1 = composed()["srv1"]["services"]
-    assert len(srv1) == 1
-    only = next(iter(srv1.values()))
+    box1 = composed()["box1"]["services"]
+    assert len(box1) == 1
+    only = next(iter(box1.values()))
     assert "depends_on" not in only
     assert "healthcheck" not in only

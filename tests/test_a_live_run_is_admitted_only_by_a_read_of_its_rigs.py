@@ -38,6 +38,7 @@ import pytest
 import yaml
 
 from mcgyvr.exits import Exit
+from tests import onedoor
 from tests.liveruns import (
     FIRST,
     SECOND,
@@ -93,9 +94,9 @@ def test_a_live_run_on_rigs_that_read_as_locked_is_admitted_then_dispatched(
     code, err = climb(tmp_path, monkeypatch, capsys, events, "admitted")
 
     assert code == 0, err
-    assert sorted(host for host, _ in door.calls) == ["srv1", "srv2"], door.calls
+    assert sorted(host for host, _ in door.calls) == ["box1", "box2"], door.calls
     first_dispatch = events.index(("dispatch", FIRST))
-    assert all(events.index(("read", h)) < first_dispatch for h in ("srv1", "srv2"))
+    assert all(events.index(("read", h)) < first_dispatch for h in ("box1", "box2"))
     assert "refused" not in err
 
 
@@ -123,17 +124,16 @@ def test_a_rig_that_is_not_the_rig_it_was_locked_on_is_refused_naming_it(
     door: FakeDoor,
     events: list[tuple[str, str]],
 ) -> None:
-    from mcgyvr.fleet.ids import rig_id
-
     go_live(tmp_path)
-    moved = snapshot_text("srv1", kernel="7.0.0-32-generic")
-    door.readings["srv1"] = moved + matching("srv1")[len(snapshot_text("srv1")) :]
-    read_as = rig_id(dict(line.split("=", 1) for line in moved.splitlines() if line))
+    # Another card at box1's address: another machine, by its rig id.
+    moved = snapshot_text("box1", gpu_vram_mib="16384")
+    door.readings["box1"] = moved + matching("box1")[len(snapshot_text("box1")) :]
+    read_as = onedoor.rig_id_of_text(moved)
 
     code, err = climb(tmp_path, monkeypatch, capsys, events, "moved")
 
     assert code == Exit.REFUSED, err
-    assert "srv1" in err and read_as in err, err
+    assert "box1" in err and read_as in err, err
     assert dispatched(events) == []
 
 
@@ -145,12 +145,12 @@ def test_a_process_that_is_not_ours_refuses_the_run_naming_it(
     events: list[tuple[str, str]],
 ) -> None:
     go_live(tmp_path)
-    door.readings["srv2"] += "gpu_app=5555,1024,none,python3_train.py\n"
+    door.readings["box2"] += "gpu_app=5555,1024,none,python3_train.py\n"
 
     code, err = climb(tmp_path, monkeypatch, capsys, events, "foreign")
 
     assert code == Exit.REFUSED, err
-    assert "srv2" in err and "python3_train.py" in err and "5555" in err, err
+    assert "box2" in err and "python3_train.py" in err and "5555" in err, err
     assert dispatched(events) == []
 
 
@@ -163,7 +163,7 @@ def test_a_layout_edited_after_locking_is_refused_and_told_to_relock(
 ) -> None:
     folder = go_live(tmp_path)
     edited = fleet()
-    edited["fleets"][FLEET_NAME]["layout"]["srv2"] = [[FIRST, "asleep"]]
+    edited["fleets"][FLEET_NAME]["layout"]["box2"] = [[FIRST, "asleep"]]
     (folder / "fleet.yaml").write_text(yaml.safe_dump(edited), encoding="utf-8")
 
     code, err = climb(tmp_path, monkeypatch, capsys, events, "edited")
@@ -181,16 +181,16 @@ def test_a_plan_to_clean_or_restore_refuses_and_names_the_door_commands_it_does_
     events: list[tuple[str, str]],
 ) -> None:
     go_live(tmp_path)
-    door.readings["srv1"] = snapshot_text("srv1")
-    door.readings["srv2"] += f"container=mcgyvr-srv2-stray,{C_STRAY},mcgyvr,0\n"
+    door.readings["box1"] = snapshot_text("box1")
+    door.readings["box2"] += f"container=mcgyvr-box2-stray,{C_STRAY},mcgyvr,0\n"
 
     code, err = climb(tmp_path, monkeypatch, capsys, events, "plan")
 
     assert code == Exit.REFUSED, err
     assert "restore" in err and UNIT_SECOND in err, err
-    assert "clean" in err and "mcgyvr-srv2-stray" in err, err
-    assert "python -m mcgyvr.serving.run serve up --host srv1" in err
-    assert "python -m mcgyvr.serving.run serve down --host srv2" in err
+    assert "clean" in err and "mcgyvr-box2-stray" in err, err
+    assert "python -m mcgyvr.serving.run serve up --host box1" in err
+    assert "python -m mcgyvr.serving.run serve down --host box2" in err
     assert dispatched(events) == []
 
 
@@ -218,8 +218,8 @@ def _made(direction: str) -> Any:
     from mcgyvr.wake import Wake
 
     return Wake(
-        host="srv2",
-        compose_file=Path("compose.srv2.b-small.yml"),
+        host="box2",
+        compose_file=Path("compose.box2.b-small.yml"),
         direction=direction,
         seconds=0.1,
         predicted_s=None,
@@ -248,14 +248,14 @@ def _serve(monkeypatch: pytest.MonkeyPatch, direction: str) -> tuple[int, list[s
     monkeypatch.setattr(wake, "card_named", card_named)
     monkeypatch.setattr(wake, "wake", carried("wake"))
     monkeypatch.setattr(wake, "sleep", carried("sleep"))
-    return main(["serve", direction, "--host", "srv2"]), done
+    return main(["serve", direction, "--host", "box2"]), done
 
 
 def test_a_live_serve_sleep_is_admitted_and_reads_no_rig(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, door: FakeDoor
 ) -> None:
     go_live(tmp_path)
-    door.readings["srv2"] = snapshot_text("srv2")
+    door.readings["box2"] = snapshot_text("box2")
 
     code, done = _serve(monkeypatch, "sleep")
 
@@ -270,7 +270,7 @@ def test_a_live_serve_wake_is_admitted_only_by_a_read_of_its_rigs(
     door: FakeDoor,
 ) -> None:
     go_live(tmp_path)
-    door.readings["srv2"] = snapshot_text("srv2")
+    door.readings["box2"] = snapshot_text("box2")
 
     code, done = _serve(monkeypatch, "wake")
     err = capsys.readouterr().err
@@ -279,7 +279,7 @@ def test_a_live_serve_wake_is_admitted_only_by_a_read_of_its_rigs(
     assert done == [], "a wake the plan does not admit is not carried out"
     assert "restore" in err and UNIT_FIRST in err, err
 
-    door.readings["srv2"] = matching("srv2")
+    door.readings["box2"] = matching("box2")
     code, done = _serve(monkeypatch, "wake")
     assert (code, done) == (0, ["wake"]), capsys.readouterr().err
 
@@ -288,7 +288,7 @@ def test_a_live_serve_wake_is_admitted_only_by_a_read_of_its_rigs(
 
 
 class LlamaUnit:
-    """srv1_deepseek's HTTP face, answering the lock's llama.cpp harness."""
+    """box1_deepseek's HTTP face, answering the lock's llama.cpp harness."""
 
     def __init__(self) -> None:
         self.urls: list[str] = []
@@ -352,7 +352,7 @@ def test_fleet_probe_takes_card_and_restarts_from_the_read_and_times_vllm_on_the
     code, out, unit = _probe(monkeypatch, capsys)
 
     assert code == 0, out
-    assert sorted(door.calls) == [("srv1", ()), ("srv2", (FIRST,))], door.calls
+    assert sorted(door.calls) == [("box1", ()), ("box2", (FIRST,))], door.calls
     assert "not read" not in out, out
     assert f"not judged {FIRST}" not in out, out
     assert not [u for u in unit.urls if ":18001" in u], "vLLM timed off the rig"
@@ -375,7 +375,7 @@ def test_a_rig_the_door_cannot_read_leaves_its_vllm_unit_timed_off_the_rig_unjud
     from mcgyvr.fleet import probe
 
     go_live(tmp_path)
-    door.down = {"srv2"}
+    door.down = {"box2"}
 
     class Both(LlamaUnit):
         def get(self, url: str, timeout: float) -> Any:

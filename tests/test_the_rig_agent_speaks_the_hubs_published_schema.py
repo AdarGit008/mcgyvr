@@ -235,7 +235,7 @@ def _hellos() -> list[str]:
     return [
         p.hello(
             "h1",
-            machine_id="mch-example-machine",
+            machine_id="rig-example-machine",
             agent_version="0.1.1.dev3+g0123abc",
             ram_total_mb=0,
             ram_free_mb=None,
@@ -251,7 +251,7 @@ def _hellos() -> list[str]:
         ),
         p.hello(
             p.new_id(),
-            machine_id="mch-1",
+            machine_id="rig-1",
             agent_version="2.0",
             ram_total_mb=1,
             ram_free_mb=1,

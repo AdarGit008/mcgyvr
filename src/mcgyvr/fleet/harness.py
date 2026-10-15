@@ -1,7 +1,7 @@
 """The lock's own measurement of a unit, in one module the rig can run as it is.
 
-The lab's 2026-09-13 fleet measurement harnesses (``measure_vllm.py`` on srv2
-and ``harness_llama.py`` on srv1) measured the numbers the fleet lock holds.
+The lab's 2026-09-13 fleet measurement harnesses (``measure_vllm.py`` on box2
+and ``harness_llama.py`` on box1) measured the numbers the fleet lock holds.
 This is their method, once:
 
 * vLLM: one 64-token warm-up, five 256-token decodes with ``ignore_eos``

@@ -1,6 +1,6 @@
 """A probe keeps every sample it took beside the median it is judged by.
 
-Owner ruling N7: keep the raw samples. The srv1 CPU-experts prefill
+Owner ruling N7: keep the raw samples. The box1 CPU-experts prefill
 tolerance is re-derived by the M1 rule, which needs every single sample, not
 only the median.
 
@@ -35,6 +35,7 @@ from typing import Any
 
 import pytest
 
+from tests import onedoor
 from tests.reads import (
     HARNESS_PY,
     RUN_ID,
@@ -183,11 +184,11 @@ def test_a_read_files_every_sample_on_the_units_rows_unjudged(tmp_path: Path) ->
         return json.dumps({"figures": figures, "after_page": metrics(0)})
 
     done = read.record(
-        "srv2",
-        rig_text(),
+        "box2",
+        *onedoor.split_reading(rig_text()),
         run_id=RUN_ID,
         profile="live",
-        probe=("srv2_3b",),
+        probe=("box2_3b",),
         measure=measure,
     )
 
@@ -200,7 +201,7 @@ def test_a_read_files_every_sample_on_the_units_rows_unjudged(tmp_path: Path) ->
     assert rows["warm_decode_tok_s"]["alert"] is False
     assert rows["prefill_tok_s"]["alert"] is False
     medians = {"warm_decode_tok_s": 126.7, "prefill_tok_s": 11500.0}
-    assert done.probed["srv2_3b"] == medians
-    assert rig_row(journal)["probed"]["srv2_3b"] == medians, (
+    assert done.probed["box2_3b"] == medians
+    assert rig_row(journal)["probed"]["box2_3b"] == medians, (
         "mcgyvr fleet probe reads the rig row's probed figures as floats"
     )

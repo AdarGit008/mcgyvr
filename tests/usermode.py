@@ -55,7 +55,7 @@ def scan_payload(
     docker: str | None = DOCKER,
     machine_id: str = "0a1b2c3d4e5f6a7b",
 ) -> dict[str, object]:
-    """What the shipped rig scanner prints for the invented rig."""
+    """What the one reader prints for the invented rig."""
     return {
         "machine": {"id": machine_id, "host": hostname, "kernel": "6.8.0-invented"},
         "gpus": [
@@ -91,7 +91,7 @@ def machine(
 ) -> Path:
     """The stub machine: the folder to put first on PATH.
 
-    ``scan`` is what the rig scanner answers, ``containers`` and ``gpu_procs``
+    ``scan`` is what the one reader answers, ``containers`` and ``gpu_procs``
     what the rig reader prints before the run, and ``pending`` the containers
     a ``docker compose up`` brings up.
     """
@@ -113,7 +113,7 @@ def machine(
 
 
 def set_scan(stubs: Path, scan: dict[str, object]) -> None:
-    """What the rig scanner answers from now on."""
+    """What the one reader answers from now on."""
     (stubs / "rigscan.json").write_text(json.dumps(scan), encoding="utf-8")
 
 
@@ -218,11 +218,9 @@ CAMPAIGN = "my-check"
 
 def save_rig(scan: dict[str, object] | None = None) -> Path:
     """The rig file as `mcgyvr scan --rig` writes it, from ``scan``."""
-    from mcgyvr.scan import Scan
     from mcgyvr.serving import rigfile
 
-    payload = scan or scan_payload()
-    return rigfile.write(rigfile.from_scan(RIG, Scan.from_json(json.dumps(payload))))
+    return rigfile.write(rigfile.from_reading(RIG, scan or scan_payload()))
 
 
 def step_script(where: Path, record: Path, *, then: str = "") -> Path:

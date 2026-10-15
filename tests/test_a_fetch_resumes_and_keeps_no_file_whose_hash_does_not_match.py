@@ -31,7 +31,6 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.knowledge.record import ModelRecord, Number, Weights
-from mcgyvr.scan import Scan
 from mcgyvr.serving import fetchlist, rigfile, rigscan
 from tests import onedoor, usermode
 
@@ -137,11 +136,7 @@ def hub() -> Iterator[Hub]:
 
 
 def _rig() -> None:
-    rigfile.write(
-        rigfile.from_scan(
-            usermode.RIG, Scan.from_json(json.dumps(usermode.scan_payload()))
-        )
-    )
+    rigfile.write(rigfile.from_reading(usermode.RIG, usermode.scan_payload()))
 
 
 def _wanted(tmp_path: Path, files: dict[str, bytes] = FILES) -> Path:
@@ -475,9 +470,9 @@ def test_the_fetcher_and_the_rig_scan_name_the_same_weights_folder(
     from mcgyvr.serving import fetcher
 
     monkeypatch.delenv("MCGYVR_WEIGHTS", raising=False)
-    assert fetcher.weights_dir() == rigscan._default_weights_dir()
+    assert fetcher.weights_dir() == rigscan.default_weights_dir()
     monkeypatch.setenv("MCGYVR_WEIGHTS", str(tmp_path / "w"))
-    assert fetcher.weights_dir() == rigscan._default_weights_dir()
+    assert fetcher.weights_dir() == rigscan.default_weights_dir()
     assert os.fspath(tmp_path / "w") == fetcher.weights_dir()
 
 

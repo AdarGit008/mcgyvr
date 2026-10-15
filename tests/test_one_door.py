@@ -62,7 +62,7 @@ NOT_SCANNED = {".git", ".venv", "node_modules", "__pycache__"}
 #: looks like: the shell pattern alone cannot see one, so without it a Python
 #: file could open an ssh to a rig and never appear here.
 SSH_SPAWN = re.compile(
-    r"(?<![\w./-])(?:/usr/bin/)?ssh\s+(?:-[A-Za-z]|[\"']?\$|\{|[\w.-]+@|srv\d\b)"
+    r"(?<![\w./-])(?:/usr/bin/)?ssh\s+(?:-[A-Za-z]|[\"']?\$|\{|[\w.-]+@|box\d\b)"
     r"|(?<![\w./-])(?:scp|rsync|sftp)\s+(?=[\w$\"'{@./-])"
     r"|(?<![\w./-])/usr/bin/ssh\b"
     r"|(?<![\w./-])command\s+-p\s+ssh\b"
@@ -142,7 +142,7 @@ ALLOWED: dict[str, str] = {
         "read and the serving harness (contract.ssh) all go through it — the "
         "shims' own lease check, which admits the same way, and "
         "gatelib.ssh_read_only, the sanctioned read-only detection path "
-        "(the shipped rig scan, the `*.gguf` discovery, and the "
+        "(the shipped one reader, the `*.gguf` discovery, and the "
         "shipped-reader header read `mcgyvr recommend` runs) that admits "
         "nothing else"
     ),
@@ -154,10 +154,6 @@ ALLOWED: dict[str, str] = {
     "src/mcgyvr/serving/gate-scripts/bin/docker": (
         "the `docker` on the PATH the door exports: admits the door through "
         "gatelib, then execs the next docker on PATH at -H ssh://RUN_HOST"
-    ),
-    "src/mcgyvr/serving/gate-scripts/rig-snapshot.sh": (
-        "the reader itself: it RUNS ON the rig, piped in on stdin by gate 2, "
-        "and opens nothing of its own"
     ),
     "tests/red_port/test_dod_rig_lease.py": (
         "`docker run` and `ssh` LINES inside steps a test runs under the door: "
@@ -309,7 +305,7 @@ STILL_A_SPAWN = (
     # No ``returncode=`` and no constructor: a spawn by keyword is not a record.
     'subprocess.run(args=["ssh", host])',
     'subprocess.run(args=["ssh", host], check=True, capture_output=True)',
-    'run(f"ssh srv1 nvidia-smi")',
+    'run(f"ssh box1 nvidia-smi")',
 )
 
 
@@ -458,13 +454,13 @@ def _hand_set(stubs: Path, tmp_path: Path, **only: str) -> dict[str, str]:
         RUN_ROOT=str(REPO),
         RUN_BIN=str(REPO / "src" / "mcgyvr" / "serving" / "gate-scripts" / "bin"),
         RUN_REPO=str(REPO),
-        RUN_HOST="srv1",
-        RUN_ID="2026-09-05-srv1-kernel-arms-kernel-arms",
+        RUN_HOST="box1",
+        RUN_ID="2026-09-05-box1-kernel-arms-kernel-arms",
         RUN_OUT_DIR=str(out_dir),
         RUN_ROUND="r3-05-09-2026",
         RUN_PRODUCT_SHA256="0" * 64,
         RUN_STEP="kernel-arms",
-        RUN_CAMPAIGN="srv1-kernel-arms",
+        RUN_CAMPAIGN="box1-kernel-arms",
         RUN_MODEL="/models/x.gguf",
         RUN_STEP_FILE=str(GATE_SCRIPTS / "06-step.py"),
         RUN_PARALLEL="1",

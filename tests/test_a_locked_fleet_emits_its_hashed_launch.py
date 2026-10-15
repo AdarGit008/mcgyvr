@@ -27,18 +27,18 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr import scan as scan_module
 from mcgyvr.cli import main
 from mcgyvr.exits import Exit
+from tests import records
 
-HF_CACHE = "/home/adaramir/.cache/huggingface"
+HF_CACHE = "/home/user/.cache/huggingface"
 MODELS_VOLUMES = [
-    "/home/adaramir/models:/models:ro",
-    "/home/adaramir/models:/home/adaramir/models:ro",
+    "/home/user/models:/models:ro",
+    "/home/user/models:/home/user/models:ro",
 ]
 
 DEEPSEEK_ARGV = [
-    "--model", "/home/adaramir/models/moe/deepseek-coder-v2-16b.gguf",
+    "--model", "/home/user/models/moe/deepseek-coder-v2-16b.gguf",
     "--n-cpu-moe", "19", "--parallel", "2", "--port", "8080",
     "-b", "512", "-ub", "512", "-c", "8192", "-fa", "on", "-ngl", "99", "-t", "6",
 ]  # fmt: skip
@@ -61,22 +61,22 @@ VLLM_IMAGE = (
 
 
 def fleet() -> dict[str, Any]:
-    """b-small as stamped: deepseek on srv1, the vLLM pair on srv2."""
+    """b-small as stamped: deepseek on box1, the vLLM pair on box2."""
     common = {"output_tokens": 2048, "request_timeout_s": 180}
     return {
         "profile": "live",
         "units": {
-            "srv1_deepseek": {
+            "box1_deepseek": {
                 **common,
-                "rig": "srv1",
-                "address": "http://srv1:8080",
+                "rig": "box1",
+                "address": "http://box1:8080",
                 "engine": "llama.cpp",
                 "image": "llamacpp:b10644-L3",
                 "model": "deepseek-coder-v2-16b",
                 "width": 2,
                 "window": 8192,
                 "room_mib": 5458,
-                "container": "mcgyvr-srv1-deepseek",
+                "container": "mcgyvr-box1-deepseek",
                 "unit_id": "unt-" + "e" * 64,
                 "launch": {
                     "argv": DEEPSEEK_ARGV,
@@ -84,10 +84,10 @@ def fleet() -> dict[str, Any]:
                     "volumes": MODELS_VOLUMES,
                 },
             },
-            "srv2_3b": {
+            "box2_3b": {
                 **common,
-                "rig": "srv2",
-                "address": "http://srv2:8001",
+                "rig": "box2",
+                "address": "http://box2:8001",
                 "engine": "vllm",
                 "image": VLLM_IMAGE,
                 "model": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ",
@@ -96,15 +96,15 @@ def fleet() -> dict[str, Any]:
                 "room_mib": 3573,
                 "kv_cache_memory_bytes": 1207959552,
                 "attention_backend": "FLASH_ATTN",
-                "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
+                "container": "mcgyvr-box2-Qwen-Qwen2.5-Coder-3B-Instruct-AWQ-8001",
                 "hf_cache": HF_CACHE,
                 "unit_id": "unt-" + "3" * 64,
                 "launch": {"argv": THREE_B_ARGV, "env": VLLM_ENV},
             },
-            "srv2_7b": {
+            "box2_7b": {
                 **common,
-                "rig": "srv2",
-                "address": "http://srv2:8002",
+                "rig": "box2",
+                "address": "http://box2:8002",
                 "engine": "vllm",
                 "image": VLLM_IMAGE,
                 "model": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
@@ -113,21 +113,21 @@ def fleet() -> dict[str, Any]:
                 "room_mib": 8099,
                 "kv_cache_memory_bytes": 1879048192,
                 "attention_backend": "FLASH_ATTN",
-                "container": "mcgyvr-srv2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
+                "container": "mcgyvr-box2-Qwen-Qwen2.5-Coder-7B-Instruct-AWQ-8002",
                 "hf_cache": HF_CACHE,
                 "unit_id": "unt-" + "7" * 64,
                 "launch": {"argv": SEVEN_B_ARGV, "env": VLLM_ENV},
             },
         },
         "rigs": {
-            "srv1": {"rig_id": "rig-" + "1" * 64},
-            "srv2": {"rig_id": "rig-" + "2" * 64},
+            "box1": {"rig_id": "rig-" + "1" * 64},
+            "box2": {"rig_id": "rig-" + "2" * 64},
         },
         "fleets": {
             "b-small": {
                 "layout": {
-                    "srv2": [["srv2_3b", "awake"], ["srv2_7b", "awake"]],
-                    "srv1": [["srv1_deepseek", "awake"]],
+                    "box2": [["box2_3b", "awake"], ["box2_7b", "awake"]],
+                    "box1": [["box1_deepseek", "awake"]],
                 },
                 "next": [],
             }
@@ -151,7 +151,7 @@ def no_scans(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """No rig has been scanned: a locked launch needs no scan to be rendered."""
     empty = tmp_path / "scans"
     empty.mkdir()
-    monkeypatch.setenv(scan_module.SCAN_ROOT_ENV, str(empty))
+    monkeypatch.setenv(records.RIGS_ENV, str(empty))
 
 
 def emit(config: Path, out: Path, *extra: str) -> int:
@@ -173,8 +173,8 @@ def test_a_locked_fleet_is_emitted_without_a_scan_or_a_kv_dtype(
     out = tmp_path / "compose"
     assert emit(install(tmp_path, fleet()), out) == Exit.OK, capsys.readouterr().err
     assert sorted(path.name for path in out.iterdir()) == [
-        "compose.srv1.b-small.yml",
-        "compose.srv2.b-small.yml",
+        "compose.box1.b-small.yml",
+        "compose.box2.b-small.yml",
     ]
 
 
@@ -184,8 +184,8 @@ def test_each_service_runs_the_launch_its_unit_id_was_hashed_over(
     document = fleet()
     out = tmp_path / "compose"
     assert emit(install(tmp_path, document), out) == Exit.OK, capsys.readouterr().err
-    emitted = by_container(out / "compose.srv1.b-small.yml") | by_container(
-        out / "compose.srv2.b-small.yml"
+    emitted = by_container(out / "compose.box1.b-small.yml") | by_container(
+        out / "compose.box2.b-small.yml"
     )
     for name, unit in document["units"].items():
         service = emitted.get(unit["container"])
@@ -200,9 +200,9 @@ def test_a_llama_cpp_unit_mounts_what_it_states_and_vllm_mounts_its_cache(
 ) -> None:
     out = tmp_path / "compose"
     assert emit(install(tmp_path, fleet()), out) == Exit.OK
-    deepseek = by_container(out / "compose.srv1.b-small.yml")["mcgyvr-srv1-deepseek"]
+    deepseek = by_container(out / "compose.box1.b-small.yml")["mcgyvr-box1-deepseek"]
     assert deepseek["volumes"] == MODELS_VOLUMES
-    for service in services(out / "compose.srv2.b-small.yml").values():
+    for service in services(out / "compose.box2.b-small.yml").values():
         assert service["volumes"] == [f"{HF_CACHE}:/root/.cache/huggingface:ro"]
         assert service["ipc"] == "host"
 
@@ -210,14 +210,14 @@ def test_a_llama_cpp_unit_mounts_what_it_states_and_vllm_mounts_its_cache(
 def test_the_layout_is_the_start_order(tmp_path: Path) -> None:
     out = tmp_path / "compose"
     assert emit(install(tmp_path, fleet()), out) == Exit.OK
-    pair = services(out / "compose.srv2.b-small.yml")
-    assert pair["srv2_7b"]["depends_on"] == {
-        "srv2_3b": {"condition": "service_healthy"}
+    pair = services(out / "compose.box2.b-small.yml")
+    assert pair["box2_7b"]["depends_on"] == {
+        "box2_3b": {"condition": "service_healthy"}
     }
-    assert "depends_on" not in pair["srv2_3b"]
-    assert "localhost:8001" in " ".join(pair["srv2_3b"]["healthcheck"]["test"])
+    assert "depends_on" not in pair["box2_3b"]
+    assert "localhost:8001" in " ".join(pair["box2_3b"]["healthcheck"]["test"])
     assert (
-        "depends_on" not in services(out / "compose.srv1.b-small.yml")["srv1_deepseek"]
+        "depends_on" not in services(out / "compose.box1.b-small.yml")["box1_deepseek"]
     )
 
 
@@ -225,11 +225,11 @@ def test_a_locked_unit_that_names_no_container_is_refused(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     document = fleet()
-    del document["units"]["srv1_deepseek"]["container"]
+    del document["units"]["box1_deepseek"]["container"]
     out = tmp_path / "compose"
     assert emit(install(tmp_path, document), out) == Exit.REFUSED
     said = capsys.readouterr().err
-    assert "srv1_deepseek" in said and "container" in said
+    assert "box1_deepseek" in said and "container" in said
     assert not out.exists() or not any(out.iterdir())
 
 
@@ -237,11 +237,11 @@ def test_a_locked_llama_cpp_unit_that_states_no_volumes_is_refused(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     document = fleet()
-    del document["units"]["srv1_deepseek"]["launch"]["volumes"]
+    del document["units"]["box1_deepseek"]["launch"]["volumes"]
     out = tmp_path / "compose"
     assert emit(install(tmp_path, document), out) == Exit.REFUSED
     said = capsys.readouterr().err
-    assert "srv1_deepseek" in said and "volumes" in said
+    assert "box1_deepseek" in said and "volumes" in said
 
 
 def test_check_agrees_with_the_files_it_wrote(

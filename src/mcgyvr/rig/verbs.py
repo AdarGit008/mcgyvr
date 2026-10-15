@@ -447,7 +447,13 @@ def _status(args: argparse.Namespace) -> int:
         print("agent:   no word from an agent yet")
     else:
         running = "running" if session._alive(last.pid) else "not running"
-        rig = agent.shown(last.rig_id) if last.rig_id else "no rig id yet"
+        # The hub's row id for this rig, which its ack gave; the machine's own
+        # rig- id is the `machine:` line below.
+        rig = (
+            f"the hub's rig {agent.shown(last.rig_id)}"
+            if last.rig_id
+            else "no hub rig id yet"
+        )
         heard = f"; last ack {_ago(last.last_ack_at)}" if last.last_ack_at else ""
         link = "online" if last.connected else "offline"
         print(f"agent:   {running} (pid {last.pid}), {link} as {rig}{heard}")

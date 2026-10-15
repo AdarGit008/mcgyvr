@@ -3,7 +3,7 @@
 The owner's ruling (the lab's fleet-identity plan, §12): "Prefill tolerance —
 ruled 8%". A probe's prefill is judged by the prefill class percent, never the
 warm decode class percent (``engine.warm_decode_class_pct``): an on-rig ``read
---probe srv2_3b`` prefill a few percent under its lock is inside vLLM's prefill
+--probe box2_3b`` prefill a few percent under its lock is inside vLLM's prefill
 class and outside vLLM decode's 1%.
 
 The prefill classes are the lab's fleet-identity-prefill measurement, stated as
@@ -103,8 +103,8 @@ def _judged(
 def test_a_vllm_prefill_2_98_pct_under_its_lock_does_not_alert(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The on-rig srv2_3b reading of 2026-09-15: 11157.62 against 11500."""
-    raised, filed = _judged(tmp_path, monkeypatch, "srv2_3b", "prefill_tok_s", 11157.62)
+    """The on-rig box2_3b reading of 2026-09-15: 11157.62 against 11500."""
+    raised, filed = _judged(tmp_path, monkeypatch, "box2_3b", "prefill_tok_s", 11157.62)
     assert raised == []
     assert [(r["field"], r["alert"]) for r in filed] == [("prefill_tok_s", False)]
 
@@ -113,7 +113,7 @@ def test_a_vllm_prefill_9_pct_under_its_lock_alerts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """10465 is 9% under 11500: past vLLM prefill's 8%."""
-    raised, _ = _judged(tmp_path, monkeypatch, "srv2_3b", "prefill_tok_s", 10465.0)
+    raised, _ = _judged(tmp_path, monkeypatch, "box2_3b", "prefill_tok_s", 10465.0)
     assert [a["field"] for a in raised] == ["prefill_tok_s"]
 
 
@@ -121,7 +121,7 @@ def test_a_vllm_decode_2_pct_under_its_lock_still_alerts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """124.1 is 2.05% under 126.7: past vLLM decode's 1%."""
-    raised, _ = _judged(tmp_path, monkeypatch, "srv2_3b", "warm_decode_tok_s", 124.1)
+    raised, _ = _judged(tmp_path, monkeypatch, "box2_3b", "warm_decode_tok_s", 124.1)
     assert [a["field"] for a in raised] == ["warm_decode_tok_s"]
 
 
@@ -129,7 +129,7 @@ def test_a_cpu_experts_prefill_5_pct_under_its_lock_alerts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """291.55 is 5.07% under 307.11: past CPU-experts prefill's 1%."""
-    raised, _ = _judged(tmp_path, monkeypatch, "srv1_deepseek", "prefill_tok_s", 291.55)
+    raised, _ = _judged(tmp_path, monkeypatch, "box1_deepseek", "prefill_tok_s", 291.55)
     assert [a["field"] for a in raised] == ["prefill_tok_s"]
 
 
@@ -138,7 +138,7 @@ def test_a_cpu_experts_decode_5_pct_under_its_lock_does_not_alert(
 ) -> None:
     """30.93 is 5.0% under 32.56: inside CPU-experts decode's 48%."""
     raised, _ = _judged(
-        tmp_path, monkeypatch, "srv1_deepseek", "warm_decode_tok_s", 30.93
+        tmp_path, monkeypatch, "box1_deepseek", "warm_decode_tok_s", 30.93
     )
     assert raised == []
 
@@ -146,10 +146,10 @@ def test_a_cpu_experts_decode_5_pct_under_its_lock_does_not_alert(
 @pytest.mark.parametrize(
     ("unit", "field", "value", "pct"),
     [
-        ("srv2_3b", "prefill_tok_s", 11157.62, 8.0),
-        ("srv2_3b", "warm_decode_tok_s", 124.1, 1.0),
-        ("srv1_deepseek", "prefill_tok_s", 291.55, 1.0),
-        ("srv1_deepseek", "warm_decode_tok_s", 30.93, 48.0),
+        ("box2_3b", "prefill_tok_s", 11157.62, 8.0),
+        ("box2_3b", "warm_decode_tok_s", 124.1, 1.0),
+        ("box1_deepseek", "prefill_tok_s", 291.55, 1.0),
+        ("box1_deepseek", "warm_decode_tok_s", 30.93, 48.0),
     ],
 )
 def test_a_judged_row_carries_the_percent_its_field_was_judged_at(
@@ -201,11 +201,11 @@ def test_the_live_probe_judges_a_cpu_experts_unit_by_each_fields_percent(
 def test_rejudge_applies_each_fields_own_percent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A journal holding srv2_3b's prefill 2.98% under and decode 2.05% under:
+    """A journal holding box2_3b's prefill 2.98% under and decode 2.05% under:
     rejudged against the probe's view, only the decode is found."""
     from mcgyvr.fleet import alerts
 
-    approved, stamp = _approved(tmp_path, monkeypatch, "srv2_3b")
+    approved, stamp = _approved(tmp_path, monkeypatch, "box2_3b")
     journal = tmp_path / "rejudged"
     for field, value in (("prefill_tok_s", 11157.62), ("warm_decode_tok_s", 124.1)):
         alerts.record(

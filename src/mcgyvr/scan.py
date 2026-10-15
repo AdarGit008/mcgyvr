@@ -10,7 +10,15 @@ as well as total, and bandwidth timed rather than looked up, since a
 DDR5-5600 figure describes the modules a machine was sold with and not the
 machine they ended up in.
 
-Three rules follow from that, and they shape everything here.
+Nothing here measures anything. The one reader of a machine is
+:mod:`mcgyvr.serving.rigscan`: :func:`scan` runs it here, and :func:`scan_over`
+ships it to a rig as ``python3 -I -B -`` and reads its answer back, so a
+laptop never infers a rig's hardware from the models a backend says it is
+holding. Local and SSH differ in access only; the answer has one shape,
+:class:`Scan`, parsed by :meth:`Scan.from_json`, and no access yields a
+smaller answer rather than a wrong one.
+
+Three rules shape what a scan says.
 
 1. **Absence is an outcome, not an error** — the same rule :mod:`mcgyvr.detect`
    runs on. A missing ``nvidia-smi``, an unreadable ``/proc/meminfo`` or an
@@ -19,91 +27,34 @@ Three rules follow from that, and they shape everything here.
    silent gap reads as "no GPU" when it may mean "not determined".
 2. **Volatile and stable numbers are different kinds of fact.** Used VRAM,
    available RAM and free disk are expected to move between two scans of one
-   machine; total VRAM, GPU names, total RAM and core counts are not.
-   :func:`compare` flags only the second kind, because an alarm that fires
-   every time someone opens a browser is an alarm nobody reads.
+   machine; total VRAM, GPU names, total RAM and core counts are not. The one
+   record of a machine is its rig file (:mod:`mcgyvr.serving.rigfile`), and
+   :func:`mcgyvr.serving.rigfile.moved` flags only the second kind, because an
+   alarm that fires every time someone opens a browser is an alarm nobody
+   reads.
 3. **A scan runs where it describes.** A laptop cannot see a rig's free VRAM,
-   so the remote transport ships a self-contained copy of this scan to the far
-   end as ``python3 -`` (:mod:`mcgyvr.serving.rigscan`) and parses what comes
-   back, instead of inferring hardware from the models a backend says it is
-   holding. Local and SSH differ in access only; the answer has one shape, and
-   no access yields a smaller answer rather than a wrong one.
+   so the remote transport reads the rig on the rig.
 
-The seams onto the outside world — :func:`_run`, :func:`_read_meminfo`,
-:func:`_free_bytes`, :func:`measure_bandwidth`, :func:`_ssh` — are module-level
-functions rather than calls inlined where they are needed, so a suite can state
-what the hardware answered and assert on how this code treats it without owning
-the hardware.
+The seam onto a remote rig — :func:`_ssh` — is a module-level function rather
+than a call inlined where it is needed, so a suite can state what a rig
+answered and assert on how this code treats it without owning the rig.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 import platform
-import re
-import shutil
 import subprocess
-import time
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.detect import COMMAND_TIMEOUT_S, MIB_PER_GB
-
 # A remote scan measures bandwidth on the far end, so it is not instant; the
 # budget is for a rig that is up and working, not for one that is gone.
 SSH_TIMEOUT_S = 60.0
 
-# What a remote host is asked to run is the shipped self-contained scanner
-# (:func:`_remote_scan_command`), not ``mcgyvr scan --json``: the far end may
-# have python3 and nothing else, and it still measures itself.
-
-NVIDIA_SMI_QUERY = "index,name,memory.total,memory.used,memory.free"
-KB_PER_GB = 1024.0 * 1024.0
 BYTES_PER_GB = 1024.0**3
-
-# Bandwidth is a measurement, so two scans of one machine never agree exactly:
-# a copy loop lands within a few percent of itself run to run. Flag a change
-# only when it is bigger than that band — a card moved to a slower slot, a DIMM
-# dropping to single channel — and stay quiet about the noise.
-# Set from the measurement's own noise, not from taste. At COPY_MIB the copy
-# repeats to within 9% of itself across runs on a shared VPS, so a band a
-# little wider than that is the tightest one that does not cry wolf. It still
-# catches what this is for: memory that lost a channel roughly halves.
-BANDWIDTH_TOLERANCE = 0.15
-
-# Big enough to miss in any cache a desktop has AND to swamp the scheduler
-# noise on a busy machine. Measured: at 64 MiB the same box reported 11.8 to
-# 17.0 GB/s run to run (44% spread, which no tolerance can use); at 256 MiB
-# the spread falls to 9%. The buffer is the instrument, so it is sized by what
-# it takes to make the reading repeat, not by what looks modest.
-COPY_MIB = 256
-COPY_PASSES = 5
-
-# Two buffers at COPY_MIB is half a gigabyte. A rig serving an MoE model with
-# a few gigabytes to spare should not be pushed into swap to answer a question
-# about its memory, so a tight machine is measured with the smaller buffer and
-# the reading says so rather than pretending to the same precision.
-COPY_MIB_TIGHT = 64
-TIGHT_RAM_GB = 2.0
-
-SCAN_ROOT_ENV = "MCGYVR_SCANS"
-WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
-
-#: A GGUF quantisation as file names spell it, at the end of the name.
-_GGUF_QUANT = re.compile(
-    r"[-_.]((?:I?Q\d+(?:_[A-Z0-9]+)*)|BF16|FP16|F16|F32|MXFP4(?:_MOE)?)\.gguf$",
-    re.IGNORECASE,
-)
-
-
-# systemd's own advice is not to hand /etc/machine-id out as-is; hashing keeps
-# the property this needs (same machine, same answer) without publishing an id
-# other software treats as a secret.
-MACHINE_ID_FILES = (Path("/etc/machine-id"), Path("/var/lib/dbus/machine-id"))
 
 _Facts = tuple["Fact", ...]
 _Notes = tuple[str, ...]
@@ -128,8 +79,9 @@ class ScannerMissing(Exception):  # noqa: N818
     for another reason), so no measurement came back.
     """
 
-    def __init__(self, host: str) -> None:
-        super().__init__(f"{host}: no scanner over ssh")
+    def __init__(self, host: str, said: str = "") -> None:
+        shown = f" ({said.strip()[:300]})" if said.strip() else ""
+        super().__init__(f"{host}: no scanner over ssh{shown}")
         self.host = host
 
 
@@ -282,13 +234,6 @@ class Machine:
     kernel: str
 
 
-#: How a scan's notes begin when its card list is not the whole answer:
-#: nvidia-smi gave none, or printed a row this could not read. Such a list is
-#: "not determined", never "fewer cards" (rule 1).
-GPU_NOT_DETERMINED = "GPU: not determined"
-GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
-
-
 @dataclass(frozen=True)
 class Scan:
     """What one machine measured of itself, with provenance and gaps."""
@@ -302,19 +247,21 @@ class Scan:
     models_on_disk: tuple[ModelOnDisk, ...] = ()
     notes: _Notes = ()
     facts: _Facts = ()
-    #: The version the machine's own docker daemon reports, read by the
-    #: shipped rig scanner (:mod:`mcgyvr.serving.rigscan`) on the far end of
-    #: a remote scan. ``None`` when it was not read: a scan of this machine
-    #: does not ask docker, and a rig's daemon may not answer its user.
+    #: The version the machine's own docker daemon reports, read by the one
+    #: reader (:mod:`mcgyvr.serving.rigscan`) as the user it runs as. ``None``
+    #: when it was not read: a daemon may not answer its user.
     docker: str | None = None
-    #: How the machine says it is reached, read by the shipped rig scanner on
-    #: the far end of a remote scan. ``None`` for a scan of this machine.
+    #: How the machine says it is reached, read by the one reader where the
+    #: machine is. ``None`` when a reading carried none.
     network: Network | None = None
 
     @property
     def gpus_determined(self) -> bool:
         """Whether :attr:`gpus` is every card the machine has, as far as
-        nvidia-smi can say — read off the notes, which travel with the scan."""
+        nvidia-smi can say — read off the notes, which travel with the scan:
+        the reader's own words for a card list that is not the whole answer."""
+        from mcgyvr.serving.rigscan import GPU_NOT_DETERMINED, GPU_ROW_UNREAD
+
         return not any(
             note.startswith((GPU_NOT_DETERMINED, GPU_ROW_UNREAD)) for note in self.notes
         )
@@ -504,9 +451,11 @@ class Scan:
                 )
                 for gpu in raw.get("gpus") or ()
             ),
+            # A total with no available figure (sysctl's, on a Mac) is no
+            # memory a fit can be sized against.
             memory=(
                 None
-                if memory is None
+                if memory is None or memory.get("available_gb") is None
                 else Memory(
                     total_gb=float(memory["total_gb"]),
                     available_gb=float(memory["available_gb"]),
@@ -609,166 +558,11 @@ class Sweep:
     unreachable: tuple[str, ...] = ()
 
 
-def _run(binary: str, *args: str, timeout: float = COMMAND_TIMEOUT_S) -> str | None:
-    """Run a tool, returning its stdout or None if it cannot be run.
-
-    Missing, failed and unusable collapse into one answer on purpose: the
-    caller's next move is the same for all three, and it is never to raise.
-    """
-    if shutil.which(binary) is None:
-        return None
-    try:
-        done = subprocess.run(
-            [binary, *args],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return done.stdout if done.returncode == 0 else None
-
-
-def _read_meminfo() -> str | None:
-    """The kernel's memory report, or None where there is no /proc."""
-    try:
-        return Path("/proc/meminfo").read_text(encoding="utf-8")
-    except OSError:
-        return None
-
-
-def _free_bytes(path: Path) -> int:
-    """Free bytes on the filesystem holding ``path``.
-
-    Walks up to the nearest existing ancestor, because a weights directory is
-    routinely named before it is created and the answer for the parent is the
-    answer for the child once it exists.
-    """
-    probe = path
-    while True:
-        try:
-            return shutil.disk_usage(probe).free
-        except OSError:
-            parent = probe.parent
-            if parent == probe:
-                return 0
-            probe = parent
-
-
-def _total_bytes(path: Path) -> int:
-    """Total bytes on the filesystem holding ``path``, by the same ancestor
-    walk as :func:`_free_bytes`."""
-    probe = path
-    while True:
-        try:
-            return shutil.disk_usage(probe).total
-        except OSError:
-            parent = probe.parent
-            if parent == probe:
-                return 0
-            probe = parent
-
-
-def _disk_usage(path: Path) -> tuple[int, int]:
-    """Free and total bytes on the filesystem holding ``path``."""
-    return _free_bytes(path), _total_bytes(path)
-
-
-def _disk_device(path: Path) -> str | None:
-    """The device/type of the filesystem holding ``path``, when /proc mounts
-    name one; None elsewhere (macOS, a namespace without /proc)."""
-    try:
-        mounts = Path("/proc/self/mounts").read_text(encoding="utf-8")
-    except OSError:
-        return None
-    resolved = str(path.resolve(strict=False))
-    best: str | None = None
-    best_len = -1
-    for line in mounts.splitlines():
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        source, mount = parts[0], parts[1]
-        mount = mount.replace("\\040", " ")
-        if (resolved == mount or resolved.startswith(mount.rstrip("/") + "/")) and len(
-            mount
-        ) > best_len:
-            best, best_len = source, len(mount)
-    return best
-
-
-def _spare_gb() -> float:
-    """Available RAM in GB, or 0.0 when it cannot be read.
-
-    Only ``measure_bandwidth`` asks, and only to decide how large a buffer it
-    may take. Unreadable answers 0.0 so the smaller buffer is chosen: a scan
-    that cannot tell how much room it has should not help itself to half a
-    gigabyte of it.
-    """
-    text = _read_meminfo()
-    if text is None:
-        return 0.0
-    available = _kb_field(text, "MemAvailable")
-    if available is None:
-        available = _kb_field(text, "MemFree")
-    return 0.0 if available is None else available / KB_PER_GB
-
-
-def measure_bandwidth(
-    mib: int = COPY_MIB, passes: int = COPY_PASSES
-) -> Bandwidth | None:
-    """Time a large memory copy and report GB/s.
-
-    Deliberately *not* dmidecode: a nameplate DDR5-5600 figure is what the
-    modules are rated at and says nothing about how many channels they end up
-    populating, so it describes the parts and not this machine.
-
-    Both buffers are allocated and touched before the clock starts. Copying
-    into a freshly allocated object instead would time the allocator and the
-    kernel's page faults — measured here at 1.5 GB/s against 17 GB/s for the
-    same bytes into a warm buffer — which is a real cost but not the one the
-    word "bandwidth" means. The best pass is taken rather than the mean,
-    because everything that perturbs a copy loop (a scheduler switch, another
-    process) can only make it slower: the fastest pass is the one least
-    contaminated by something that is not memory.
-
-    The buffer is sized to make the reading repeat. See ``COPY_MIB``: a 64 MiB
-    copy on a shared machine varies by 44% run to run, which is not a number a
-    comparison can be built on; 256 MiB brings that to 9%. On a machine with
-    little free RAM the smaller buffer is used anyway and ``how`` records it,
-    because taking half a gigabyte to measure memory is a poor trade on the
-    rig that has least of it.
-    """
-    if mib == COPY_MIB and _spare_gb() < TIGHT_RAM_GB + 2 * mib / MIB_PER_GB:
-        mib = COPY_MIB_TIGHT
-    try:
-        source = bytearray(mib * 1024 * 1024)
-        target = bytearray(mib * 1024 * 1024)
-    except (MemoryError, ValueError):
-        return None
-    target[:] = source  # fault both mappings in, off the clock
-    moved = float(len(source))
-    fastest = 0.0
-    for _ in range(passes):
-        start = time.perf_counter()
-        target[:] = source
-        elapsed = time.perf_counter() - start
-        if elapsed > 0.0:
-            fastest = max(fastest, moved / elapsed)
-    if fastest <= 0.0:
-        return None
-    return Bandwidth(
-        measured_gbps=round(fastest / 1e9, 1),
-        how=f"in-process copy of {mib} MiB x{passes}, best pass, bytes copied/s",
-    )
-
-
 def _ssh(host: str, command: str) -> str:
     """Run one read-only detection command on another machine, or say it is not there.
 
     Through :func:`mcgyvr.serving.gatelib.ssh_read_only`, the sanctioned
-    read-only ssh path: it admits only the shipped-scan line, the ``*.gguf``
+    read-only ssh path: it admits only the shipped-reader line, the ``*.gguf``
     discovery line and the shipped-reader header-read line, and refuses (exit
     2) anything else. A remote scan is a rig read, and only the door's
     read-only detection commands are admitted here; launch, sleep and wake
@@ -786,549 +580,93 @@ def _ssh(host: str, command: str) -> str:
     except (OSError, subprocess.SubprocessError):
         raise Unreachable(host) from None
     if done.returncode != 0:
-        raise ScannerMissing(host)
+        raise ScannerMissing(host, done.stderr)
     return done.stdout
 
 
-def default_root() -> Path:
-    """Where scans are kept. State, not config — these are measurements."""
-    override = os.environ.get(SCAN_ROOT_ENV)
-    if override:
-        return Path(override).expanduser()
-    xdg = os.environ.get("XDG_STATE_HOME")
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".local" / "state"
-    return base / "mcgyvr" / "scans"
-
-
 def default_weights_dir() -> Path:
-    """The path whose free space a scan reports when the caller names none."""
-    override = os.environ.get(WEIGHTS_DIR_ENV)
-    if override:
-        return Path(override).expanduser()
-    return Path.home() / ".cache" / "mcgyvr" / "weights"
+    """The path whose free space a scan reports when the caller names none, as
+    the one reader names it (:func:`mcgyvr.serving.rigscan.default_weights_dir`)."""
+    from mcgyvr.serving import rigscan
 
-
-def _field(text: str, key: str) -> str | None:
-    """The value of a ``key: value`` line, from meminfo or lscpu alike.
-
-    Matched on the whole key, so lscpu's ``NUMA node0 CPU(s)`` cannot be
-    mistaken for its ``CPU(s)`` — which would make a NUMA machine's thread
-    count whatever the last node reported.
-    """
-    for line in text.splitlines():
-        name, sep, rest = line.partition(":")
-        if sep and name.strip() == key:
-            return rest.strip()
-    return None
-
-
-def _int_field(text: str, key: str) -> int | None:
-    value = _field(text, key)
-    if value is None:
-        return None
-    head = value.split()[0] if value.split() else ""
-    try:
-        return int(head)
-    except ValueError:
-        return None
-
-
-def _kb_field(text: str, key: str) -> float | None:
-    value = _int_field(text, key)
-    return None if value is None else float(value)
-
-
-def _fingerprint(seed: str) -> str:
-    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
-
-
-def _scan_machine() -> tuple[Machine, _Facts, _Notes]:
-    """Identify the machine by something durable.
-
-    Never by what was measured: a machine that gains a card is the same
-    machine, and an id derived from its VRAM would file the next scan under a
-    new name and silently lose the comparison that would have flagged it.
-    """
-    host = platform.node() or "localhost"
-    kernel = platform.release()
-    for path in MACHINE_ID_FILES:
-        try:
-            seed = path.read_text(encoding="utf-8").strip()
-        except OSError:
-            continue
-        if seed:
-            machine = Machine(id=_fingerprint(seed), host=host, kernel=kernel)
-            return machine, (Fact(field="machine.id", how=f"sha256 of {path}"),), ()
-    # A hostname is weaker — it can be changed, and two machines can share one
-    # — but it is durable enough to file scans under, and saying so is better
-    # than refusing to scan a machine without systemd.
-    machine = Machine(id=_fingerprint(f"host:{host}"), host=host, kernel=kernel)
-    return (
-        machine,
-        (Fact(field="machine.id", how="sha256 of hostname"),),
-        (
-            "Machine id: derived from the hostname — no /etc/machine-id. It is "
-            "stable until the host is renamed, and a rename will read as a new "
-            "machine rather than as a changed one.",
-        ),
-    )
-
-
-def _parse_gpu_row(line: str) -> Gpu | None:
-    """One ``index, name, total, used, free`` row, read from its ends inward.
-
-    The query is this module's own and is five fields wide, but exactly one of
-    those fields is free text a vendor writes, and vendors put commas in it —
-    ``1, Tesla T4, Custom, 15360, 400, 14960`` is a real card printed as six
-    fields. The row is therefore anchored at its ends, where the
-    machine-generated values are: the index leads, the three memory numbers
-    trail, and whatever lies between them is the name, comma and all.
-    Splitting on commas and demanding exactly five fields instead would throw
-    away a card that is present and shift every index after it.
-
-    ``None`` means the row could not be read at all — a MIG or vGPU parent
-    printing ``[N/A]`` for memory, or a future column order. The caller turns
-    that into a note; it must never turn it into silence.
-    """
-    parts = [part.strip() for part in line.split(",")]
-    if len(parts) < 5:
-        return None
-    try:
-        index = int(parts[0])
-        total, used, free = int(parts[-3]), int(parts[-2]), int(parts[-1])
-    except ValueError:
-        return None
-    return Gpu(
-        index=index,
-        name=", ".join(parts[1:-3]),
-        # Free is the card's own answer, not ``total - used``. The two differ
-        # by the driver's reserve, which is memory no process is ever given:
-        # deriving free would over-state it by that much, and a placement
-        # sized against the over-statement clears the fit and then fails to
-        # allocate.
-        #
-        # The remainder is derived rather than read from nvidia-smi's own
-        # ``memory.reserved``, because a derived remainder makes the numbers
-        # sum exactly and a queried one would not.
-        vram=Vram(
-            total_mib=total,
-            used_mib=used,
-            free_mib=free,
-            reserved_mib=max(total - used - free, 0),
-        ),
-    )
-
-
-def _scan_gpus() -> tuple[tuple[Gpu, ...], _Facts, _Notes]:
-    """The cards nvidia-smi reports, and a note for every row it printed that
-    this could not read.
-
-    Rule 1 of this module in the hardest place to honour it: a row dropped in
-    silence reads downstream as a machine with fewer cards, which is a
-    different machine. It places a unit on the wrong card (a unit is bound by
-    the index this list carries) and it makes the next :func:`compare` announce
-    ``gpus: was 2, now 1`` — a pulled card that was never pulled. So an
-    unreadable row costs a note, and the note names the row.
-    """
-    how = f"nvidia-smi --query-gpu={NVIDIA_SMI_QUERY}"
-    output = _run(
-        "nvidia-smi",
-        f"--query-gpu={NVIDIA_SMI_QUERY}",
-        "--format=csv,noheader,nounits",
-    )
-    if output is None:
-        return (
-            (),
-            (),
-            (
-                f"{GPU_NOT_DETERMINED} — nvidia-smi is absent or failed. This is "
-                "a machine without an NVIDIA card as far as anything here can "
-                "tell; AMD and Apple GPUs are invisible to it, so bind VRAM by "
-                "hand on those rather than reading this as zero.",
-            ),
-        )
-    gpus: list[Gpu] = []
-    facts: list[Fact] = []
-    notes: list[str] = []
-    for line in output.strip().splitlines():
-        if not line.strip():
-            continue
-        gpu = _parse_gpu_row(line)
-        if gpu is None:
-            notes.append(
-                f"{GPU_ROW_UNREAD}, so that "
-                f"card is missing from the scan: {line.strip()!r}. MIG and "
-                f"vGPU rows report memory as [N/A] and land here. Read the "
-                f"card list as incomplete rather than short: the indexes below "
-                f"place a unit, and a change in their number reads as hardware "
-                f"that was pulled."
-            )
-            continue
-        gpus.append(gpu)
-        facts.append(Fact(field=f"gpu[{gpu.index}].vram.total_mib", how=how))
-        facts.append(Fact(field=f"gpu[{gpu.index}].vram.free_mib", how=how))
-        facts.append(
-            Fact(
-                field=f"gpu[{gpu.index}].vram.reserved_mib",
-                how=f"{how} (total-used-free)",
-            )
-        )
-    if not gpus and not notes:
-        return (), (), ("GPU: nvidia-smi answered but reported no device.",)
-    return tuple(gpus), tuple(facts), tuple(notes)
-
-
-def _scan_memory() -> tuple[Memory | None, _Facts, _Notes]:
-    text = _read_meminfo()
-    if text is None:
-        return None, (), ("Memory: not determined — /proc/meminfo is unreadable.",)
-    total = _kb_field(text, "MemTotal")
-    available = _kb_field(text, "MemAvailable")
-    if total is None:
-        return None, (), ("Memory: /proc/meminfo carried no MemTotal.",)
-    if available is None:
-        # MemFree is the older kernels' answer and a worse one — it excludes
-        # reclaimable cache — so it is used only as a fallback, and said so.
-        available = _kb_field(text, "MemFree")
-        how_available = "/proc/meminfo MemFree (no MemAvailable)"
-    else:
-        how_available = "/proc/meminfo MemAvailable"
-    if available is None:
-        return (
-            None,
-            (),
-            ("Memory: MemTotal was readable but nothing reported free memory.",),
-        )
-    memory = Memory(
-        total_gb=round(total / KB_PER_GB, 1),
-        available_gb=round(available / KB_PER_GB, 1),
-    )
-    facts = (
-        Fact(field="memory.total_gb", how="/proc/meminfo MemTotal"),
-        Fact(field="memory.available_gb", how=how_available),
-    )
-    return memory, facts, ()
-
-
-def read_memory() -> Memory | None:
-    """This machine's memory as :func:`scan` reads it, without the rest of a
-    scan; ``None`` where it cannot be read."""
-    memory, _, _ = _scan_memory()
-    return memory
-
-
-def _scan_cpu() -> tuple[Cpu | None, _Facts, _Notes]:
-    output = _run("lscpu")
-    if output is None:
-        return None, (), ("CPU: not determined — lscpu is absent or failed.",)
-    threads = _int_field(output, "CPU(s)")
-    per_socket = _int_field(output, "Core(s) per socket")
-    sockets = _int_field(output, "Socket(s)") or 1
-    if threads is None or per_socket is None:
-        return (
-            None,
-            (),
-            ("CPU: lscpu ran but did not report both CPU(s) and cores per socket.",),
-        )
-    cpu = Cpu(cores=per_socket * sockets, threads=threads)
-    facts = (
-        Fact(field="cpu.threads", how="lscpu CPU(s)"),
-        Fact(field="cpu.cores", how="lscpu Core(s) per socket x Socket(s)"),
-    )
-    return cpu, facts, ()
-
-
-def _scan_bandwidth() -> tuple[Bandwidth | None, _Facts, _Notes]:
-    measured = measure_bandwidth()
-    if measured is None:
-        return (
-            None,
-            (),
-            (
-                "Memory bandwidth: not measured — the copy loop produced no "
-                "usable timing. Left absent rather than filled in from a "
-                "module nameplate, which describes the parts and not this "
-                "machine.",
-            ),
-        )
-    return measured, (Fact(field="bandwidth.measured_gbps", how=measured.how),), ()
-
-
-def _scan_disk(weights_dir: Path | None) -> tuple[Disk, _Facts]:
-    path = weights_dir if weights_dir is not None else default_weights_dir()
-    free, total = _disk_usage(path)
-    device = _disk_device(path)
-    disk = Disk(
-        path=path,
-        free_gb=round(free / BYTES_PER_GB, 1),
-        total_gb=round(total / BYTES_PER_GB, 1) if total else None,
-        device=device,
-    )
-    facts: tuple[Fact, ...] = (Fact(field="disk.free_gb", how=f"free space on {path}"),)
-    if disk.total_gb is not None:
-        facts += (Fact(field="disk.total_gb", how=f"total space on {path}"),)
-    if device is not None:
-        facts += (
-            Fact(field="disk.device", how=f"/proc/self/mounts source for {path}"),
-        )
-    return disk, facts
-
-
-def _scan_models_on_disk(
-    roots: Sequence[Path],
-) -> tuple[tuple[ModelOnDisk, ...], _Facts]:
-    """Inventory ``*.gguf`` and ``*.safetensors`` under ``roots``.
-
-    A missing root is absence, not a failure, and a file that cannot be
-    stat'ed is skipped rather than guessed at. For a GGUF the name is the stem
-    before its quant tag; for a safetensors shard the name is the directory
-    that holds it (the model's own name in a Hugging Face layout).
-    """
-    found: list[ModelOnDisk] = []
-    facts: list[Fact] = []
-    seen: set[Path] = set()
-    for root in dict.fromkeys(roots):
-        root = Path(root).expanduser()
-        if not root.is_dir():
-            continue
-        for path in root.rglob("*"):
-            if not path.is_file() or path in seen:
-                continue
-            lower = path.name.lower()
-            if lower.endswith(".gguf"):
-                name, quant = _model_name_and_quant(path)
-            elif lower.endswith(".safetensors"):
-                name, quant = path.stem, None
-            else:
-                continue
-            try:
-                size = path.stat().st_size
-            except OSError:
-                continue
-            seen.add(path)
-            found.append(
-                ModelOnDisk(
-                    name=name,
-                    quant=quant,
-                    size_bytes=size,
-                    path=path,
-                )
-            )
-            facts.append(Fact(field=f"models_on_disk[{path}]", how="filesystem"))
-    return tuple(found), tuple(facts)
-
-
-def _model_name_and_quant(path: Path) -> tuple[str, str | None]:
-    """A GGUF's model name and quant, read off its file name."""
-    match = _GGUF_QUANT.search(path.name)
-    if match is None:
-        return path.name[: -len(".gguf")], None
-    return path.name[: match.start()], match.group(1).upper()
+    return Path(rigscan.default_weights_dir())
 
 
 def scan(weights_dir: Path | None = None, model_stores: Sequence[Path] = ()) -> Scan:
-    """Measure this machine. Never raises: a bare machine is a valid answer."""
-    machine, machine_facts, machine_notes = _scan_machine()
-    gpus, gpu_facts, gpu_notes = _scan_gpus()
-    memory, memory_facts, memory_notes = _scan_memory()
-    cpu, cpu_facts, cpu_notes = _scan_cpu()
-    bandwidth, bandwidth_facts, bandwidth_notes = _scan_bandwidth()
-    disk, disk_facts = _scan_disk(weights_dir)
-    models, model_facts = _scan_models_on_disk(
-        (
-            *(model_stores or ()),
-            weights_dir if weights_dir is not None else default_weights_dir(),
-        )
-    )
-    return Scan(
-        machine=machine,
-        gpus=gpus,
-        memory=memory,
-        cpu=cpu,
-        bandwidth=bandwidth,
-        disk=disk,
-        models_on_disk=models,
-        notes=(
-            *machine_notes,
-            *gpu_notes,
-            *memory_notes,
-            *cpu_notes,
-            *bandwidth_notes,
-        ),
-        facts=(
-            *machine_facts,
-            *gpu_facts,
-            *memory_facts,
-            *cpu_facts,
-            *bandwidth_facts,
-            *disk_facts,
-            *model_facts,
-        ),
-    )
+    """Read this machine with the one reader. Never raises: a bare machine is a
+    valid answer."""
+    return Scan.from_json(json.dumps(reading(weights_dir, model_stores)))
 
 
-def os_machine_id(scan: Scan) -> str:
-    """The key a machine's scans are filed under, here and on every other host."""
-    return scan.machine.id
+def reading(
+    weights_dir: Path | None = None, model_stores: Sequence[Path] = ()
+) -> dict[str, Any]:
+    """This machine's whole reading (:func:`mcgyvr.serving.rigscan.scan`): what
+    :func:`scan` parses, and what a rig file keeps."""
+    from mcgyvr.serving import rigscan
+
+    return rigscan.scan(
+        weights_dir=None if weights_dir is None else str(weights_dir),
+        model_stores=tuple(str(store) for store in model_stores),
+    )
 
 
 def local_machine_id() -> str:
-    """The key *this* machine's scans are filed under, without measuring anything.
+    """The id of *this* machine, without measuring anything.
 
-    :func:`scan` answers the same question, but it also times a memory copy and
-    shells out twice to do it. A caller that only needs to know which record on
-    disk describes the machine it is running on — resolving a source that says
-    ``localhost`` to the scan filed under whatever this host calls itself — is
-    asking about identity, not about hardware, and should not pay for a
-    measurement to find out.
-
-    Identity, not the name: :func:`_scan_machine` derives the id from
-    ``/etc/machine-id`` where there is one, so this stays right across a
+    A caller that only needs to know which record describes the machine it is
+    running on — resolving a source that says ``localhost`` to the record of
+    whatever this host calls itself — is asking about identity, not about
+    hardware, and pays for no measurement to find out. Identity, not the name:
+    the one reader derives the id from ``/etc/machine-id`` where there is one
+    (:func:`mcgyvr.serving.rigscan.machine_id`), so this stays right across a
     rename, and two machines that happen to share a hostname stay apart.
     """
-    machine, _, _ = _scan_machine()
-    return machine.id
+    from mcgyvr.serving import rigscan
 
-
-def write_scan(scan: Scan, root: Path | None = None) -> Path:
-    """Record a scan under its machine's id, replacing that machine's last one.
-
-    Unless the last one knew its cards and this one does not: a card list
-    nvidia-smi could not give is no measurement of the cards, and replacing a
-    record that had one would make the next healthy scan read every card as new.
-    """
-    base = root if root is not None else default_root()
-    base.mkdir(parents=True, exist_ok=True)
-    path = base / f"{os_machine_id(scan)}.json"
-    if not scan.gpus_determined:
-        prior = load_prior(os_machine_id(scan), base)
-        if prior is not None and prior.gpus_determined:
-            return path
-    path.write_text(scan.to_json(), encoding="utf-8")
-    return path
-
-
-def load_prior(os_machine_id: str, root: Path | None = None) -> Scan | None:
-    """The last scan of a machine, or None if there has never been one.
-
-    A record this cannot read is treated as absent too: the caller's answer to
-    "no prior" is to record one, which repairs it.
-    """
-    base = root if root is not None else default_root()
-    try:
-        text = (base / f"{os_machine_id}.json").read_text(encoding="utf-8")
-    except OSError:
-        return None
-    try:
-        return Scan.from_json(text)
-    except (ValueError, KeyError, TypeError):
-        return None
-
-
-def compare(scan: Scan, prior: Scan | None) -> tuple[Mismatch, ...]:
-    """Stable fields that disagree with the last scan of the same machine.
-
-    Only the fields that should not have moved. Used VRAM, available RAM and
-    free disk are excluded by construction rather than by threshold: they are
-    *supposed* to differ between two scans, so a difference in them is not
-    evidence about the machine, and reporting it would bury the differences
-    that are. What is left is the hardware changing under us — a card pulled, a
-    DIMM failed back to single channel — which is worth interrupting someone
-    for.
-    """
-    if prior is None:
-        return ()
-    found: list[Mismatch] = []
-
-    # Like memory and CPU below, cards that were not determined on either side
-    # are not compared: an unanswered nvidia-smi is not a pulled card.
-    cards = scan.gpus_determined and prior.gpus_determined
-    if cards and len(scan.gpus) != len(prior.gpus):
-        found.append(
-            Mismatch(field="gpus", prior=len(prior.gpus), measured=len(scan.gpus))
-        )
-    for now, was in zip(scan.gpus if cards else (), prior.gpus, strict=False):
-        if now.name != was.name:
-            found.append(
-                Mismatch(
-                    field=f"gpu[{now.index}].name", prior=was.name, measured=now.name
-                )
-            )
-        if now.vram.total_mib != was.vram.total_mib:
-            found.append(
-                Mismatch(
-                    field=f"gpu[{now.index}].vram.total_mib",
-                    prior=was.vram.total_mib,
-                    measured=now.vram.total_mib,
-                )
-            )
-
-    if scan.memory and prior.memory and scan.memory.total_gb != prior.memory.total_gb:
-        found.append(
-            Mismatch(
-                field="memory.total_gb",
-                prior=prior.memory.total_gb,
-                measured=scan.memory.total_gb,
-            )
-        )
-
-    if scan.cpu and prior.cpu:
-        if scan.cpu.cores != prior.cpu.cores:
-            found.append(
-                Mismatch(
-                    field="cpu.cores", prior=prior.cpu.cores, measured=scan.cpu.cores
-                )
-            )
-        if scan.cpu.threads != prior.cpu.threads:
-            found.append(
-                Mismatch(
-                    field="cpu.threads",
-                    prior=prior.cpu.threads,
-                    measured=scan.cpu.threads,
-                )
-            )
-
-    if scan.bandwidth and prior.bandwidth:
-        was_gbps = prior.bandwidth.measured_gbps
-        now_gbps = scan.bandwidth.measured_gbps
-        drift = abs(now_gbps - was_gbps)
-        if was_gbps > 0 and drift > BANDWIDTH_TOLERANCE * was_gbps:
-            found.append(
-                Mismatch(
-                    field="bandwidth.measured_gbps",
-                    prior=was_gbps,
-                    measured=now_gbps,
-                )
-            )
-
-    return tuple(found)
+    return rigscan.machine_id()
 
 
 def _remote_scan_command() -> str:
-    """The read-only line that ships the self-contained scanner to the rig."""
+    """The read-only line that ships the one reader to the rig."""
     # Imported here and not at the top: `mcgyvr.serving` imports this module.
     from mcgyvr.serving import gatelib
 
     return gatelib.scan_read_command()
 
 
+def read_over(reach: Reach) -> dict[str, Any]:
+    """The one reader's whole document of the machine ``reach`` reaches.
+
+    The remote branch ships the one reader to the far end as
+    ``python3 -I -B -`` and reads its answer back, which is the only way the
+    numbers can be measured rather than inferred. A rig that answers ssh but
+    cannot run the reader raises :class:`ScannerMissing`; one that runs it but
+    prints no document raises :class:`ScanFailed`.
+    """
+    if reach.host is None:
+        return reading()
+    text = _ssh(reach.host, _remote_scan_command())
+    try:
+        document = json.loads(text)
+    except ValueError:
+        raise ScanFailed(reach.host) from None
+    if not isinstance(document, dict):
+        raise ScanFailed(reach.host)
+    return document
+
+
 def scan_over(reach: Reach) -> Scan:
     """Scan the machine ``reach`` reaches, whichever side of the wire it is on.
 
-    The remote branch ships the self-contained scanner to the far end as
-    ``python3 -`` and reads its answer back, which is the only way the numbers
-    can be measured rather than inferred — and the reason the two branches
-    return one type. A rig that answers ssh but cannot run the scanner raises
-    :class:`ScannerMissing`; one that runs it but prints no parseable scan
-    raises :class:`ScanFailed`.
+    One reading (:func:`read_over`), parsed: the reason the two branches
+    return one type.
     """
-    if reach.host is None:
-        return scan()
-    text = _ssh(reach.host, _remote_scan_command())
+    document = read_over(reach)
     try:
-        return Scan.from_json(text)
-    except (ValueError, KeyError, TypeError):
-        raise ScanFailed(reach.host) from None
+        return Scan.from_json(json.dumps(document))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        raise ScanFailed(reach.host or "localhost") from None
 
 
 def scan_all(hosts: Sequence[str] = ()) -> Sweep:
