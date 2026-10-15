@@ -106,4 +106,6 @@ def test_a_container_the_rigs_reader_lists_is_named_by_id(tmp_path: Path) -> Non
     assert result.returncode == 1, (result.stdout, result.stderr)
     assert "deadbeef0042" in result.stderr, result.stderr
     assert "the rig's reader lists containers up after the step" in result.stderr
-    assert "RIGMOVED" not in result.stderr, "containers= is not a rig key that moves"
+    assert "rig changed during the run" not in result.stderr, (
+        "containers= is not a rig key that moves"
+    )
