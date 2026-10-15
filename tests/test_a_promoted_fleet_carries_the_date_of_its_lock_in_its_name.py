@@ -9,7 +9,7 @@ runtime".
   date is the lock's own: the latest ``validated_at`` among the combination
   records the lock wrote for that fleet's layout. Never today's date.
 * Inside the folder nothing is renamed: ``fleet.yaml`` keys the fleet by its
-  plain name and the lock sits at ``records/fleet/<fleet>.json``, so a tagged
+  plain name and the lock sits at ``lock/<fleet>.json``, so a tagged
   folder and a folder promoted before the ruling have one shape, and tagging
   one is a rename.
 * A re-lock on a new date gets a new folder beside the old one, which stays as
@@ -80,7 +80,7 @@ def test_promote_writes_the_folder_under_the_fleet_name_and_its_lock_date(
     written = tree(folder)
     assert set(written) == {"fleet.yaml", "policy.yaml", lock, record}, (
         "inside the folder the fleet keeps its plain name: the lock is "
-        "records/fleet/flt-05.json, not flt-05@date.json"
+        "lock/flt-05.json, not flt-05@date.json"
     )
     assert written[lock] == before[lock] and written[record] == before[record]
     fleet_text = written["fleet.yaml"].decode("utf-8")

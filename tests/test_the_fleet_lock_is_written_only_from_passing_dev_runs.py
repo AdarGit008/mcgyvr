@@ -1,9 +1,9 @@
 """The fleet lock is written only from passing dev runs, and checks what it pins.
 
 ``mcgyvr fleet lock`` writes two kinds of file:
-- ``records/fleet/<fleet>.json``: the layout's sha256, the fleet's ``next``
+- ``lock/<fleet>.json``: the layout's sha256, the fleet's ``next``
   list, and each switch's dev evidence;
-- ``records/fleet/rigs/<rig->/<combination>.json``: a combination's
+- ``lock/rigs/<rig->/<combination>.json``: a combination's
   validation, shared by every fleet that uses it.
 
 Committing them is the approval; live reads them and never writes them. What
@@ -59,7 +59,7 @@ def test_the_lock_files_each_fleet_and_each_rig_combination_once(
 ) -> None:
     lock = _lock()
     write(lock, tmp_path)
-    where = tmp_path / "records" / "fleet"
+    where = tmp_path / "lock"
     for name in ("flt-05", "flt-02"):
         text = (where / f"{name}.json").read_text(encoding="utf-8")
         record = json.loads(text)
@@ -281,7 +281,7 @@ def test_a_fleet_switch_is_locked_on_a_rig_move_another_switch_ran(
     fleet["fleets"]["flt-06"] = {"layout": {"box2": FLT05}, "next": ["flt-02"]}
     fleet["fleets"]["flt-02"]["next"] = ["flt-05", "flt-06"]
     write(lock, tmp_path, fleet=fleet)
-    assert (tmp_path / "records" / "fleet" / "flt-06.json").is_file()
+    assert (tmp_path / "lock" / "flt-06.json").is_file()
 
 
 def test_mcgyvr_fleet_lock_is_a_command() -> None:

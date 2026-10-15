@@ -232,7 +232,7 @@ def test_the_lock_refuses_a_rig_id_its_dev_runs_read_does_not_name(
         policy=POLICY,
         tolerances=TOLERANCES,
     )
-    assert (tmp_path / "named" / "records" / "fleet" / "rigs" / named).is_dir()
+    assert (tmp_path / "named" / "lock" / "rigs" / named).is_dir()
 
 
 def test_no_other_code_hashes_a_rig_id() -> None:

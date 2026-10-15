@@ -248,23 +248,31 @@ def test_a_setup_that_cannot_be_read_is_refused(tmp_path: Path) -> None:
         )
 
 
-def test_is_own_recognises_the_pre_rename_approver_and_nothing_else() -> None:
-    """A fleet ``mcgyvr init`` approved before the rename is still the user's
-    own; a lab fleet named ``own`` is not."""
+def test_is_own_recognises_a_lock_of_the_own_fleet_and_nothing_else() -> None:
+    """A folder of the fleet ``own`` holding its lock is the user's own: one
+    ``mcgyvr init`` approved before the rename, or one setup locked from its
+    sample's stamp. A folder whose lock is no lock, or that has none, is not."""
     from mcgyvr.fleet.lock import is_own
     from mcgyvr.fleet.roots import fleets_dir
 
-    for name, approver in (("own@2026-01-02", "mcgyvr init"), ("own@2026-01-03", None)):
+    records: dict[str, dict[str, str]] = {
+        "own@2026-01-02": {"approved_by": "mcgyvr init"},
+        "own@2026-01-03": {},
+        "own@2026-01-05": {"layout_sha256": "0" * 64},
+        "lab@2026-01-05": {"layout_sha256": "0" * 64},
+    }
+    for name, record in records.items():
         folder = fleets_dir() / name
         (folder / LOCK_DIR).mkdir(parents=True)
-        record = {} if approver is None else {"approved_by": approver}
-        (folder / LOCK_DIR / "own.json").write_text(
+        (folder / LOCK_DIR / f"{name.split('@')[0]}.json").write_text(
             json.dumps(record), encoding="utf-8"
         )
 
     assert is_own("own@2026-01-02") is True
     assert is_own("own@2026-01-03") is False
     assert is_own("own@2026-01-04") is False
+    assert is_own("own@2026-01-05") is True
+    assert is_own("lab@2026-01-05") is False
 
 
 def test_a_read_rig_of_the_own_fleet_is_a_locked_host(tmp_path: Path) -> None:

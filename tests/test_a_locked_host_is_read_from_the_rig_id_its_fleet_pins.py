@@ -31,7 +31,7 @@ from tests.fleetlocks import BOX1_EVIDENCE, BOX1_FLEET, TOLERANCES
 PINNED = BOX1_FLEET["rigs"]["box1"]["rig_id"]
 STALE = "rig-" + "9" * 64
 
-RIGS = ("records", "fleet", "rigs")
+RIGS = ("lock", "rigs")
 
 
 def _lock_root(tmp_path: Path) -> Path:

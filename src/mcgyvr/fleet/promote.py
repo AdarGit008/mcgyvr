@@ -28,7 +28,9 @@ Every live fleet comes this one way, whichever writer in
 (:func:`mcgyvr.fleet.lock.write_unsampled`: the user's own fleet, which no
 sample ran on) pins no combination record, so it is dated by the day of its
 approval, and a later approval of that day is ``<date>-2``, then ``-3``; it
-carries its hosted units with it, as no layout holds a unit on no rig.
+carries its hosted units with it, as no layout holds a unit on no rig. The
+user's own fleet (:data:`mcgyvr.fleet.lock.OWN_FLEET`) takes the next folder of
+the day too when ``mcgyvr setup`` locks it again from a new sample.
 """
 
 from __future__ import annotations
@@ -59,7 +61,7 @@ from mcgyvr.fleet.layout import FleetError, layout_sha256, mcorch_units
 # LOCK_DIR is re-exported: a promoted folder holds its lock where the dev
 # root does.
 from mcgyvr.fleet.lock import LOCK_DIR as LOCK_DIR
-from mcgyvr.fleet.lock import approved_on_no_evidence
+from mcgyvr.fleet.lock import OWN_FLEET, approved_on_no_evidence
 from mcgyvr.fleet.roots import (
     TAG,
     LiveFleetError,
@@ -257,13 +259,14 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     folder = fleets_dir() / tagged(name, day)
     later = 2
     while folder.exists() or folder.is_symlink():
-        if not unsampled:
+        if not unsampled and name != OWN_FLEET:
             raise PromoteRefusedError(
                 f"{folder} already exists: a promoted fleet is a new folder, never "
                 "written over or in place of another; a re-lock on a new date is "
                 "a new folder"
             )
-        # Each approval on no evidence is a lock of its own, so a later one of
+        # Each approval on no evidence is a lock of its own, and so is each
+        # lock `mcgyvr setup` writes of the user's own fleet, so a later one of
         # the same day is the next folder of that day.
         folder = fleets_dir() / tagged(name, f"{day}-{later}")
         later += 1

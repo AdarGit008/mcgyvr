@@ -1061,6 +1061,7 @@ def initialize(
     mcorch: str | None = None,
     window: int | None = None,
     session_sandbox: str | None = None,
+    compose_dir: Path | None = None,
 ) -> InitResult:
     """Write a config for this install, or report what a rewrite would change.
 
@@ -1093,8 +1094,9 @@ def initialize(
 
     ``profile`` is the run profile init writes into ``fleet.yaml`` (``live`` or
     ``dev``). It defaults to ``live``, so a fresh setup runs under live
-    admission rules; the setup wizard passes ``dev`` for its bootstrap phase
-    and the final lock is what promotes it to ``live``.
+    admission rules; the setup wizard passes ``dev`` for the setup it stages
+    in the data folder -- the door starts and reads a staged fleet that no
+    lock holds yet -- and the fleet it promotes from there is ``live``.
 
     ``use_case`` is which of the four use cases the install serves, and
     ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
@@ -1105,6 +1107,12 @@ def initialize(
     ``agent`` run that runs no command gets a container (``docker``, an
     opt-in) or is staged on this host (``tempdir``). ``None`` writes the
     schema's default.
+
+    ``compose_dir`` turns auto-wake on: ``serving.enable_sleep_wake: true``
+    and ``serving.compose_dir`` naming it, the folder the setup's launch specs
+    are emitted to and kept in, so a request to a unit that is down wakes it
+    through the door (:func:`mcgyvr.wake.for_config`). ``None`` writes
+    neither.
     """
     found = (
         detection
@@ -1176,6 +1184,12 @@ def initialize(
     data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
     if session_sandbox is not None:
         data["sandbox"] = {**dict(data["sandbox"]), "sessions": session_sandbox}
+    if compose_dir is not None:
+        data["serving"] = {
+            **dict(data.get("serving") or {}),
+            "enable_sleep_wake": True,
+            "compose_dir": str(compose_dir),
+        }
     # The requested profile wins in every path: a composed candidate is built
     # from the schema's default, and the deterministic ladder carries it from
     # `build`, but both are the caller's parameter to name.

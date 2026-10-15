@@ -53,7 +53,8 @@ def unapproved(
     """The units of ``units`` at a machine live fleet ``name`` does not approve.
 
     ``units`` are the config a live command loaded, which need not be the live
-    folder's: the working directory's comes first. A unit on a rig is approved
+    folder's: ``$MCGYVR_CONFIG`` or a command's ``--config`` may name another
+    setup. A unit on a rig is approved
     only where the live fleet's layout places a unit of that name, on that rig
     and at that address, so a rig the layout does not name is never dispatched
     to unread. A unit on no rig is hosted, and admission reads no rig for it;

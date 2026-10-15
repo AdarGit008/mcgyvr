@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet.admit import layout_ids
+from mcgyvr.fleet.roots import LOCK_DIR
 
 
 class AlertError(Exception):
@@ -322,7 +323,7 @@ def _validated_at(
 ) -> str | None:
     if lock_root is None:
         return None
-    path = lock_root / "records" / "fleet" / "rigs" / rig_id / f"{combination_id}.json"
+    path = lock_root / LOCK_DIR / "rigs" / rig_id / f"{combination_id}.json"
     if not path.is_file():
         return None
     try:

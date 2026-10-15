@@ -7,7 +7,7 @@ live read of ``b-small@2026-09-13``:
 
 * resolves to the layout ``b-small`` — ``read.live()``, ``probe._live`` and
   ``admission.admit`` all name that layout, and the lock they hold it to is
-  ``records/fleet/b-small.json`` in the tagged folder;
+  ``lock/b-small.json`` in the tagged folder;
 * is the config ``mcgyvr`` finds with nothing else named (``config_path``);
 * emits ``compose.<rig>.b-small.yml``, the same file names a plain ``b-small``
   emits, with each container named as the unit states — the door's

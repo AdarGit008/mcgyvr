@@ -23,7 +23,7 @@ import json
 import os
 
 from mcgyvr import config as configlib
-from mcgyvr.fleet.roots import LiveFleetError, live_file, lock_root
+from mcgyvr.fleet.roots import LOCK_DIR, LiveFleetError, live_file, lock_root
 from mcgyvr.serving.gatelib import (
     DEV,
     door_required,
@@ -96,7 +96,7 @@ def units_the_fleet_lock_names(rig: str, which: str) -> set[str]:
         refuse(f"gate 1: {exc}. A live run cannot say which fleet it serves")
     if where is None:
         return set()
-    rigs = where / "records" / "fleet" / "rigs"
+    rigs = where / LOCK_DIR / "rigs"
     if not rigs.is_dir():
         return set()
     locked: set[str] = set()

@@ -11,6 +11,69 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Changed (breaking)
 
+- **`mcgyvr setup` stages in the data folder and writes nothing where it
+  runs.**
+  - Each run stages its `fleet.yaml` and `policy.yaml` in a folder of its own,
+    `$MCGYVR_DATA/setup/<run>/` (default `~/.local/state/mcgyvr/setup/<run>/`),
+    and emits, starts and samples from there. The folder is kept as the record
+    of that run, as a stamp is. A `PATH` argument (or `--config PATH`) or
+    `$MCGYVR_CONFIG` stages there instead; the working directory is never
+    written.
+  - The interactive setup writes the staged setup once, from the plan, and
+    emits its launch specs once. The second write over the running servers and
+    the re-emit are gone.
+
+- **`mcgyvr setup` samples the fleet it started, stamps it, and locks it on a
+  yes.**
+  - Once the containers are up, the staged setup is laid out as the user's own
+    fleet `own`: each rig pinned to the rig id its read named, each unit given
+    the id the lock pins, the card room it was sized at, its request timeout,
+    and the longest reply its measured warm decode finishes in that time.
+  - It is sampled through the door (`read --fleet own` of every rig,
+    `read --fleet own --probe U --load WxN` of every awake unit, and a last
+    read), with the use case's sample task between them
+    (`mcgyvr.fleet.sampler`): `coding` runs a bundled one-function bug fix
+    through `mcgyvr run` and passes when the deterministic gate does on any
+    rung; `agent` runs a bundled grounded contract, its reply checked grounded
+    and by the safety check; `chat` asks one completion of each unit and reads
+    back the window and slots it serves; an opted-in Jev unit gives one typed
+    choice.
+  - A green sample is stamped under the setup run's name, and behind "Lock the
+    fleet and name it live? [y/N]" it is locked from the stamp, promoted and
+    named live. A red sample is never locked: the stamp's reasons are printed.
+  - A live `own` folder locked from a stamp is the user's own, which a later
+    setup may name live in its place; a second setup of the same day is
+    promoted to the next folder of that day (`own@<date>-2`).
+
+- **A fleet setup could not sample is locked on no evidence only once you
+  say so.**
+  - A fleet with every unit hosted, one whose containers were not started, or
+    one whose use case has no sample (`media-gen`), is not sampled. Setup says
+    why, says what a lock on no evidence means, and asks "Lock it approved on
+    no evidence? [y/N]".
+  - `mcgyvr setup` with flags starts no container, so nothing it binds is
+    sampled: the new `--accept-unsampled` is the acknowledgment. Without it
+    nothing is locked or made live, and the limits say how to lock it. Setup
+    no longer approves its own fleet unasked.
+
+- **The working directory is no longer a config.** A command that reads a
+  setup reads `$MCGYVR_CONFIG` (or its `--config`), else the live fleet that
+  `$MCGYVR_HOME/live.json` names. A `fleet.yaml` where the command runs is not
+  read, and with nothing named and no fleet live there is no config: the
+  refusal says to run `mcgyvr setup` or set `$MCGYVR_CONFIG`.
+
+- **Auto-wake is on for the fleet setup makes live.** Setup writes
+  `serving.enable_sleep_wake: true` and `serving.compose_dir` naming the staged
+  folder, where its launch specs are emitted and kept, so a request refused by
+  a unit that is down is a door `serve up` of that unit's launch spec and the
+  request again. Live wakes a rig only when the live fleet's lock names it,
+  whether the lock was written from a stamp or on no evidence.
+
+- **A fleet's lock sits in `lock/`.** The lock tree inside a live fleet
+  folder, a stamp folder and the dev root is `lock/` (`lock/<fleet>.json`,
+  `lock/rigs/<rig->/<combination>.json`), no longer `records/fleet/`. A
+  folder locked before this release is not read: lock and promote it again.
+
 - **One reader reads a machine, and one id names it.**
   - `src/mcgyvr/serving/rigscan.py` is the only code that runs a hardware
     tool. The door ships it to a rig as one read-only line

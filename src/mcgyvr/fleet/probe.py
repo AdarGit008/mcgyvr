@@ -93,6 +93,7 @@ from mcgyvr.fleet.harness import measure_llamacpp as measure_llamacpp
 from mcgyvr.fleet.harness import measure_vllm as measure_vllm
 from mcgyvr.fleet.linkread import LinkEnds, worker_address
 from mcgyvr.fleet.roots import (
+    LOCK_DIR,
     LiveFleetError,
     layout_of,
     live_file,
@@ -217,7 +218,7 @@ def _approved(
     field's own percent, carried as ``tolerance_pct`` keyed by field: prefill is
     judged at prefill's class percent and warm decode at decode's.
     """
-    path = folder / "records" / "fleet" / "rigs" / rig_id / f"{combination}.json"
+    path = folder / LOCK_DIR / "rigs" / rig_id / f"{combination}.json"
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
         entry = record["approved"][unit_name]

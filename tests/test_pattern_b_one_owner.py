@@ -209,6 +209,10 @@ MAY_COMMIT = {
     # Commits only into a workspace it has just `git init`-ed, to give the
     # sandbox a base to diff against. Nothing it commits is anybody's tree.
     "src/mcgyvr/sandbox/base.py": "the sandbox's own base commit",
+    # Commits only into the throwaway repository it has just `git init`-ed
+    # under a staged setup, the one the sample task runs against. Nothing it
+    # commits is anybody's tree.
+    "src/mcgyvr/fleet/sampler.py": "the sample task's own repository",
 }
 
 #: Directories whose ``.py`` files are corpus rather than product — benchmark

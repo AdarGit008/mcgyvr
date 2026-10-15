@@ -159,6 +159,7 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
         "mcorch": None,
         "window": None,
         "session_sandbox": None,
+        "accept_unsampled": False,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -184,7 +185,7 @@ def test_setup_routes_to_interactive_only_on_a_tty_without_flags(
     monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
     interactive: list[Path] = []
 
-    def fake_interactive(path: Path) -> int:
+    def fake_interactive(path: Path, run_id: str = "") -> int:
         interactive.append(path)
         return 0
 
@@ -200,7 +201,7 @@ def test_setup_with_a_flag_keeps_the_flag_driven_path(
     monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
     interactive: list[Path] = []
 
-    def fake_interactive(path: Path) -> int:
+    def fake_interactive(path: Path, run_id: str = "") -> int:
         interactive.append(path)
         return 0
 
@@ -638,80 +639,4 @@ def test_deepseek_flash_is_below_deepseek_v4_pro(tmp_path: Path) -> None:
     assert api_rungs == [
         "api_deepseek-flash",
         "api_deepseek-v4-pro",
-    ]
-
-
-# --- Fix 16: the wizard re-emits after the final init so the lock sees the
-# --- resolved launch -------------------------------------------------------
-
-
-def test_setup_interactive_re_emits_after_the_final_init_and_before_the_lock(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The final fleet.yaml carries the launch before ``_own_fleet_live`` locks it.
-
-    The bootstrap emit stamps the launch, but the final ``initialize`` rewrites
-    ``fleet.yaml`` and drops it. The wizard must run the emit step once more in
-    between, which is what this seam pins: the order of the steps, not the
-    stamp itself (that is held in ``test_emit_stamps_the_resolved_launch``).
-    """
-    calls: list[tuple[object, ...]] = []
-
-    def fake_ask_rigs(prompt: object = None) -> tuple[str, ...]:
-        return ("box1",)
-
-    def fake_scan_rigs(rigs: object) -> tuple[dict[str, object], dict[str, object]]:
-        return {}, {"box1": {"read": "once"}}
-
-    def fake_placements(rigs: object, scans: object) -> dict[str, object]:
-        return {"box1": {"placement": {"context_length": 4096}}}
-
-    def fake_downloads(
-        plans: object, scans: object, prompt: object = None
-    ) -> tuple[()]:
-        return ()
-
-    def fake_synthetic(plans: object) -> None:
-        return None
-
-    def fake_initialize(path: Path, **_: object) -> InitResult:
-        calls.append(("initialize", path))
-        return InitResult(path=path, created=False, written=True)
-
-    def fake_setup_emit(path: Path, ctx_per_slot: int) -> None:
-        calls.append(("setup_emit", path, ctx_per_slot))
-
-    def fake_confirm(question: str, prompt: object = None) -> bool:
-        return True
-
-    def fake_start(rigs: object, scans: object, path: Path) -> None:
-        calls.append(("start",))
-
-    def fake_own(
-        path: Path, readings: object = None
-    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        calls.append(("own_fleet_live", path, readings))
-        return ((), ())
-
-    monkeypatch.setattr(cli, "_ask_setup_rigs", fake_ask_rigs)
-    monkeypatch.setattr(cli, "_setup_scan_rigs", fake_scan_rigs)
-    monkeypatch.setattr(cli, "_setup_placements", fake_placements)
-    monkeypatch.setattr(cli, "_setup_downloads", fake_downloads)
-    monkeypatch.setattr(cli, "_setup_synthetic_detection", fake_synthetic)
-    monkeypatch.setattr(cli, "initialize", fake_initialize)
-    monkeypatch.setattr(cli, "_setup_emit", fake_setup_emit)
-    monkeypatch.setattr(cli, "_confirm", fake_confirm)
-    monkeypatch.setattr(cli, "_setup_start", fake_start)
-    monkeypatch.setattr(cli, "_own_fleet_live", fake_own)
-
-    assert cli._setup_interactive(tmp_path) == 0
-
-    assert calls == [
-        ("initialize", tmp_path),
-        ("setup_emit", tmp_path, 4096),
-        ("start",),
-        ("initialize", tmp_path),
-        ("setup_emit", tmp_path, 4096),
-        # The fleet is named from the reading step 2 took: no rig is read twice.
-        ("own_fleet_live", tmp_path, {"box1": {"read": "once"}}),
     ]

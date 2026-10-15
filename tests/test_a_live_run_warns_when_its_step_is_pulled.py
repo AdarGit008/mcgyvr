@@ -123,7 +123,7 @@ def write_setup(
     policy = {"ladder": [FIRST, SECOND], "journal": {"dir": str(journal)}}
     (where / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
     for rig_id, at in validated.items():
-        record = where / "records" / "fleet" / "rigs" / rig_id
+        record = where / "lock" / "rigs" / rig_id
         record.mkdir(parents=True, exist_ok=True)
         (record / f"{combination(rig_id)}.json").write_text(
             json.dumps({"validated_at": at}), encoding="utf-8"

@@ -64,7 +64,7 @@ def go_live(tmp_path: Path) -> tuple[Path, Path]:
     shape = fleet(LIVE_ROOM)
     write_setup(folder, shape, journal)
     combination = layout_ids(shape, shape["fleets"][FLEET_NAME]["layout"])[RIG_ID]
-    record = folder / "records" / "fleet" / "rigs" / RIG_ID
+    record = folder / "lock" / "rigs" / RIG_ID
     record.mkdir(parents=True)
     (record / f"{combination}.json").write_text(
         json.dumps({"validated_at": VALIDATED_AT}), encoding="utf-8"

@@ -68,7 +68,9 @@ from mcgyvr.fleet.roots import (
     HOME_DIR,
     HOME_ENV,
     LIVE_FILE_SHOWN,
+    LOCK_DIR,
     RIGS_SHOWN,
+    STAGING_SHOWN,
     FolderError,
 )
 from mcgyvr.initialize import (
@@ -93,15 +95,15 @@ from mcgyvr.serving import (
 #: The three places a config is looked for, in order, as every `--config`
 #: help line states them: one sentence, so no command names a fourth.
 CONFIG_DEFAULT_HELP = (
-    f"${CONFIG_PATH_ENV}, then the working directory when it holds fleet.yaml, "
-    f"then the live fleet folder under {FLEETS_SHOWN} that {LIVE_FILE_SHOWN} "
-    f"names — a directory holding fleet.yaml and policy.yaml"
+    f"${CONFIG_PATH_ENV}, else the live fleet folder under {FLEETS_SHOWN} that "
+    f"{LIVE_FILE_SHOWN} names — a directory holding fleet.yaml and policy.yaml"
 )
 #: Where `mcgyvr setup` writes when no path is given. Never a live fleet folder:
 #: those are written only by `mcgyvr fleet promote`, and never in place.
 INIT_DEFAULT_HELP = (
-    f"${CONFIG_PATH_ENV}, else the working directory — never a live fleet "
-    f"folder, which only `mcgyvr fleet promote` writes"
+    f"${CONFIG_PATH_ENV}, else a folder of the run's own, {STAGING_SHOWN} — "
+    f"never the working directory, and never a live fleet folder, which only "
+    f"`mcgyvr fleet promote` writes"
 )
 
 #: Where a machine's owner reads how to stand the ladder up; `run` prints it
@@ -749,6 +751,7 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.mcorch is not None
         or args.window is not None
         or args.session_sandbox is not None
+        or args.accept_unsampled
     )
 
 
@@ -940,14 +943,14 @@ def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
 
 
 def _setup_synthetic_detection(
-    plans: Mapping[str, Mapping[str, Any]],
+    plans: Mapping[str, Mapping[str, Any]], window: int | None = None
 ) -> Detection:
-    """The recommended servers as if they were already answering.
+    """The planned servers as if they were already answering.
 
-    ``initialize`` binds only models a running server lists, so the wizard
-    writes a bootstrap config from this synthetic detection, emits the launch
-    specs for it, starts the containers, and then re-runs ``initialize`` over
-    the real servers.
+    ``initialize`` binds only models a server lists, so the wizard writes the
+    staged setup once from this detection of the plan: each planned server at
+    the address its launch spec will answer on, serving ``window`` tokens per
+    slot (the window ``emit`` sizes it at, which the sample reads back).
     """
     from mcgyvr.detect import Backend, Detection
     from mcgyvr.serving import DEFAULT_PORT
@@ -974,6 +977,7 @@ def _setup_synthetic_detection(
                 how="interactive setup",
                 host=rig,
                 kind=kind,
+                window=window,
             )
         )
     return Detection(
@@ -1066,9 +1070,18 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
             raise _SetupInteractiveError(f"{rig}: serve up exited {code}")
 
 
-def _setup_interactive(path: Path) -> int:
-    """The guided ``mcgyvr setup``: prompt, then perform each step."""
+def _setup_interactive(path: Path, run_id: str = "") -> int:
+    """The guided ``mcgyvr setup``: prompt, then perform each step.
+
+    READ each rig once, PLAN, then STAGE at ``path``: the setup written once
+    from the plan and its launch specs emitted once, both there. START its
+    units through the door on a yes, SAMPLE them (:func:`_setup_sample`), and
+    lock the stamped fleet and name it live on a second yes. Nothing is
+    written anywhere else.
+    """
+    run_id = run_id or _setup_run_id()
     try:
+        path.mkdir(parents=True, exist_ok=True)
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
         scans, readings = _setup_scan_rigs(rigs)
@@ -1078,49 +1091,41 @@ def _setup_interactive(path: Path) -> int:
         for rig, record in downloads:
             _setup_fetch(rig, record, path)
 
-        synthetic = _setup_synthetic_detection(plans)
-        bootstrap = initialize(
-            path, force=True, detection=synthetic, use_case="coding", profile="dev"
+        staged = initialize(
+            path,
+            force=True,
+            detection=_setup_synthetic_detection(plans, window=ctx_per_slot),
+            use_case="coding",
+            # The staged setup's internal marker: the door starts and reads a
+            # fleet no lock holds yet. The fleet promoted from it is `live`.
+            profile="dev",
+            # Auto-wake on: the launch specs are emitted here and kept.
+            compose_dir=path,
         )
-        if not bootstrap.written:
-            raise _SetupInteractiveError("the bootstrap setup was not written")
-        print(f"Wrote bootstrap setup at {bootstrap.path}\n")
-
+        if not staged.written:
+            raise _SetupInteractiveError("the staged setup was not written")
+        print(f"Staged the setup at {staged.path}\n")
+        rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
+
         if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
             _setup_start(rigs, scans, path)
+            approved, unapproved = _setup_sample(path, run_id, readings, rooms)
         else:
             print(
-                "Containers were not started. The bootstrap setup and launch "
-                "specs are written; start the containers, then re-run "
-                "`mcgyvr setup --force` to bind and lock them."
+                "Containers were not started. The staged setup and its launch "
+                f"specs are at {path}.\n"
             )
-            return 0
-
-        final = initialize(
-            path, force=True, hosts=tuple(rigs), use_case="coding", profile="dev"
-        )
-        if not final.written:
-            raise _SetupInteractiveError("the running setup was not written")
-        print(f"Wrote {final.path} bound to the running servers\n")
-
-        # The final init rewrote fleet.yaml from the running servers and so
-        # dropped the launch the bootstrap emit stamped. Re-emit here so the
-        # fleet that is about to be locked carries the resolved launch; the
-        # compose rewrite is idempotent and the stamp is what matters.
-        _setup_emit(path, ctx_per_slot)
-
-        if _confirm("Lock the fleet and name it live? [y/N] "):
-            approved, unapproved = _own_fleet_live(path, readings)
-        else:
-            approved, unapproved = (), ("The fleet was not locked or made live.",)
-        decisions = final.decisions + approved
+            approved, unapproved = _setup_unsampled(
+                path, NOT_STARTED, acknowledged=None, readings=readings
+            )
+        decisions = staged.decisions + approved
         if decisions:
             print("What was decided, and why:")
             for decision in decisions:
                 print(f"  - {decision}")
             print()
-        limits = final.limits + unapproved
+        limits = staged.limits + unapproved
         if limits:
             print("What is NOT configured, and what that costs:")
             for limit in limits:
@@ -1137,12 +1142,175 @@ def _setup_interactive(path: Path) -> int:
         return 1
 
 
+#: Why a setup could not be sampled, each as the sentence setup prints.
+NOT_STARTED = "its containers were not started, so nothing of it runs to sample"
+ALL_HOSTED = "every unit in it is hosted, so there is no machine of yours to sample"
+FLAGS_START_NOTHING = (
+    "`mcgyvr setup` with flags binds the servers already answering and starts "
+    "none, so nothing mcgyvr launched runs to sample (the interactive `mcgyvr "
+    "setup` starts and samples them)"
+)
+#: What a lock on no evidence means, said before the user is asked for one.
+NO_EVIDENCE_MEANS = (
+    "A lock on no evidence approves the fleet as it is written: no reading of "
+    "its units' speed, card use or restarts stands behind it, so live admission "
+    "holds a run only to its layout and to the rigs it was read on, and nothing "
+    "alerts when a unit is slower or larger than it should be."
+)
+#: The question that acknowledges it.
+ACCEPT_UNSAMPLED = "Lock it approved on no evidence? [y/N] "
+
+
+def _setup_unsampled(
+    path: Path,
+    why: str,
+    *,
+    acknowledged: bool | None,
+    readings: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Lock the staged setup at ``path``, which could not be sampled for
+    ``why``, on no evidence -- only once the user acknowledges it.
+
+    Says why it could not be sampled and what a lock on no evidence means.
+    ``acknowledged`` is the flag path's ``--accept-unsampled``; ``None`` asks
+    (:data:`ACCEPT_UNSAMPLED`). Unacknowledged, nothing is locked and the
+    limit says how to lock it.
+    """
+    print(f"The fleet could not be sampled: {why}.")
+    print(NO_EVIDENCE_MEANS)
+    print()
+    if acknowledged is None:
+        acknowledged = _confirm(ACCEPT_UNSAMPLED)
+    if not acknowledged:
+        return (), (
+            "The fleet was not locked or made live: it could not be sampled "
+            f"({why}), and a fleet no sample ran on is locked on no evidence "
+            "only once you acknowledge that. Re-run `mcgyvr setup` with "
+            "`--accept-unsampled` to lock it.",
+        )
+    return _own_fleet_live(path, readings)
+
+
+def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
+    """The card room, MiB, each unit of the staged setup at ``path`` is sized at.
+
+    Sized as ``emit`` sizes it, from the same rig files and table: the card
+    figure its fit was judged on, and the headroom held back beside it. The
+    lock holds each unit's card peak in the sample to this room.
+    """
+    import math
+
+    try:
+        config = load_config(path)
+        scans = _resolve_hosts(_scans(), _hosts_wanted(config).values())
+        units = units_for(
+            config, scans, specs=_model_specs(), ctx_per_slot=ctx_per_slot
+        )
+    except (ConfigError, UnitError, CapabilityTableError) as exc:
+        raise _SetupInteractiveError(
+            f"the staged setup cannot be sized: {exc}"
+        ) from exc
+    rooms: dict[str, int] = {}
+    for unit in units:
+        mib = math.ceil((unit.fit.vram_gb + unit.fit.headroom_gb) * 1024)
+        for rung in unit.rungs:
+            rooms[rung] = mib
+    return rooms
+
+
+def _setup_run_contract(argv: list[str]) -> int:
+    """``mcgyvr run`` with ``argv``, in this process: the sample task's run."""
+    return main(argv)
+
+
+def _setup_sample(
+    path: Path,
+    run_id: str,
+    readings: Mapping[str, Mapping[str, Any]],
+    rooms: Mapping[str, int],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """SAMPLE the started staged setup at ``path``, STAMP it, and LOCK it live
+    on the user's yes; ``(decisions, limits)`` saying what was done, or why not.
+
+    The setup is laid out as the user's own fleet, each rig pinned to the id
+    the read step named (:func:`mcgyvr.fleet.sampler.lay_out`), sampled through
+    the door (:func:`mcgyvr.fleet.sampler.run`) and judged and stamped
+    (:func:`mcgyvr.fleet.stamp.stamp`, under ``run_id``). A red sample is never
+    locked: its reasons are printed. A green one is locked from its stamp
+    (:func:`mcgyvr.fleet.lock.write_from_stamp`), promoted and named live
+    (:func:`_own_fleet_switch`).
+    """
+    from mcgyvr.fleet import sampler
+    from mcgyvr.fleet.lock import OWN_FLEET, write_from_stamp
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote
+    from mcgyvr.fleet.stamp import SETUP_DIR, stamp
+
+    try:
+        rig_ids = {
+            rig: _rig_id(rig, readings[rig] if rig in readings else _read_rig(rig))
+            for rig in _rigs(path)
+        }
+        sampler.lay_out(path, rig_ids, rooms)
+        ran = sampler.run(path, run_contract=_setup_run_contract)
+    except (sampler.SamplerError, PromoteRefusedError) as exc:
+        return (), (f"The fleet was not sampled, so nothing was locked: {exc}.",)
+    for failed in ran.failed:
+        print(f"warning: the door's {failed}", file=sys.stderr)
+    stamped = stamp(ran.sample, run_id=run_id)
+    for line in stamped.lines():
+        print(line)
+    print()
+    if stamped.folder is None:
+        return (), (
+            "The sample was red, so the fleet was not locked or made live: "
+            + "; ".join(stamped.why),
+        )
+    folder = stamped.folder
+    if not _confirm("Lock the fleet and name it live? [y/N] "):
+        return (), (
+            f"The fleet was stamped and not locked: `mcgyvr fleet lock --stamp "
+            f"{folder}` locks it.",
+        )
+
+    def lock_and_promote() -> Path:
+        write_from_stamp(folder)
+        return promote(folder, folder / SETUP_DIR, OWN_FLEET)
+
+    return _own_fleet_switch(lock_and_promote, tuple(rig_ids), sampled=True)
+
+
+def _setup_run_id() -> str:
+    """A name for one setup run: when it started, and 8 hex digits of its own."""
+    import secrets
+    from datetime import UTC, datetime
+
+    return f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-{secrets.token_hex(4)}"
+
+
+def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
+    """Where this setup run stages: ``PATH`` (or ``--config``) when named, else
+    ``$MCGYVR_CONFIG`` when set, else ``<data folder>/setup/<run_id>/``.
+
+    Never the working directory, and never a live fleet folder: those are
+    written only by ``mcgyvr fleet promote``.
+    """
+    from mcgyvr.fleet.roots import staging_dir
+
+    named = Path(args.path) if args.path else named_config_path()
+    # Absolute: the staged folder is written into the setup as the folder its
+    # launch specs are kept in (`serving.compose_dir`), read from anywhere.
+    return named.absolute() if named is not None else staging_dir(run_id)
+
+
 def _setup(args: argparse.Namespace) -> int:
-    # Not the config resolution order: with a fleet named live, that ends in a
-    # promoted folder, and a promoted folder is never written in place.
-    path = Path(args.path) if args.path else (named_config_path() or Path.cwd())
+    run_id = _setup_run_id()
+    try:
+        path = _setup_path(args, run_id)
+    except FolderError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if _setup_is_interactive(args):
-        return _setup_interactive(path)
+        return _setup_interactive(path, run_id)
     # Parsed before anything is detected: a mistyped `--api` is the operator's
     # to fix, and making them wait out a network sweep to hear about it is
     # spending their time to tell them something already known.
@@ -1165,6 +1333,7 @@ def _setup(args: argparse.Namespace) -> int:
             mcorch=args.mcorch,
             window=args.window,
             session_sandbox=args.session_sandbox,
+            compose_dir=path,
         )
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
@@ -1175,16 +1344,25 @@ def _setup(args: argparse.Namespace) -> int:
         return 1
 
     if result.created:
-        print(f"Wrote {result.path}\n")
+        print(f"Staged the setup at {result.path}\n")
     elif result.written:
         print(f"Overwrote {result.path} (--force)\n")
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    # What setup wrote is the user's own fleet; approving it is what lets a
-    # fresh `profile: live` setup run. A setup run that did not write is not one
-    # it bound, so it approves nothing.
-    approved, unapproved = _own_fleet_live(result.path) if result.written else ((), ())
+    # What setup wrote is the user's own fleet. The flags start nothing, so
+    # nothing of it is sampled: it is locked on no evidence, and only with
+    # `--accept-unsampled`. A setup run that did not write is not one it
+    # bound, so it locks nothing.
+    approved, unapproved = (
+        _setup_unsampled(
+            result.path,
+            _why_unsampled(result.path, args.use_case or "coding"),
+            acknowledged=args.accept_unsampled,
+        )
+        if result.written
+        else ((), ())
+    )
     decisions = result.decisions + approved
     if decisions:
         print("What was decided, and why:")
@@ -1213,38 +1391,70 @@ def _setup(args: argparse.Namespace) -> int:
     return 0
 
 
+def _why_unsampled(setup: Path, use_case: str) -> str:
+    """Why the flag path's staged setup at ``setup`` is not sampled."""
+    from mcgyvr.fleet.sample import MEDIA_GEN, MEDIA_NOT_BUILT
+
+    if use_case == MEDIA_GEN:
+        return MEDIA_NOT_BUILT
+    return FLAGS_START_NOTHING if _rigs(setup) else ALL_HOSTED
+
+
 def _own_fleet_live(
     setup: Path, readings: Mapping[str, Mapping[str, Any]] | None = None
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Approve the setup ``setup`` wrote at ``setup`` as the user's own fleet and
+    """Lock the setup at ``setup`` as the user's own fleet on no evidence and
     name it live; ``(decisions, limits)`` saying what was done, or why not.
 
-    Through the path every live fleet takes: locked, on no evidence
-    (:func:`mcgyvr.fleet.lock.write_unsampled`), promoted to a folder under
-    the config folder (:func:`mcgyvr.fleet.promote.promote`), named by
-    ``live.json`` (:func:`mcgyvr.fleet.promote.use`), and admitted as any live
-    fleet is. The lock is written into a dev root of its own that is removed
-    once the folder is promoted: the folder holds all of it. With
-    init's own fleet already live, a new folder is approved and named in its
-    place, and the old one is kept. Any other live fleet is never replaced
-    (``mcgyvr fleet use`` switches), and a machine of the user's is not
-    approved: it is approved only by a read of it. Every rig the setup lays a
-    unit on is read first — the local machine without ssh, a remote one over
-    ssh, or by the reading ``readings`` already holds for it when the setup read
-    it a step before — and only then is the fleet approved with each of them
-    laid out, named by the rig id its reading names.
+    For a fleet no sample ran on, once the user has acknowledged that: locked
+    on no evidence (:func:`mcgyvr.fleet.lock.write_unsampled`), promoted and
+    named live (:func:`_own_fleet_switch`). Every rig the setup lays a unit on
+    is read first -- the local machine without ssh, a remote one over ssh, or
+    by the reading ``readings`` already holds for it -- and the fleet is laid
+    out with each of them, named by the rig id its reading names. The lock is
+    written into a dev root of its own that is removed once the folder is
+    promoted: the folder holds all of it.
     """
     import tempfile
 
-    from mcgyvr.fleet.lock import OWN_FLEET, LockRefusedError, is_own, write_unsampled
-    from mcgyvr.fleet.promote import PromoteRefusedError, promote, use
-    from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+    from mcgyvr.fleet.lock import OWN_FLEET, LockRefusedError, write_unsampled
+    from mcgyvr.fleet.promote import PromoteRefusedError, promote
     from mcgyvr.fleet.stamp import SETUP_DIR
 
-    refused = (
-        "A live run is refused until a fleet is live (`mcgyvr fleet use`); "
-        "`profile: dev` runs without live admission."
-    )
+    rigs = _rigs(setup)
+    try:
+        held = readings or {}
+        rig_ids = {
+            rig: _rig_id(rig, held[rig] if rig in held else _read_rig(rig))
+            for rig in rigs
+        }
+    except (LockRefusedError, PromoteRefusedError) as exc:
+        return (), (f"No fleet was made live: {exc}.",)
+
+    def lock_and_promote() -> Path:
+        with tempfile.TemporaryDirectory(prefix="mcgyvr-own-") as scratch:
+            dev = Path(scratch)
+            write_unsampled(dev, setup, rigs=rig_ids, acknowledged=True)
+            return promote(dev, dev / SETUP_DIR, OWN_FLEET)
+
+    return _own_fleet_switch(lock_and_promote, rigs, sampled=False)
+
+
+def _own_fleet_switch(
+    lock_and_promote: Callable[[], Path], rigs: Sequence[str], *, sampled: bool
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Lock and promote the user's own fleet with ``lock_and_promote``, and name
+    the folder it promoted live; ``(decisions, limits)``.
+
+    With the user's own fleet already live, the new folder is named in its
+    place, and the old one is kept. Any other live fleet is never replaced
+    (``mcgyvr fleet use`` switches), and then nothing is locked.
+    """
+    from mcgyvr.fleet.lock import LockRefusedError, is_own
+    from mcgyvr.fleet.promote import PromoteRefusedError, use
+    from mcgyvr.fleet.roots import LiveFleetError, live_fleet
+
+    refused = "A live run is refused until a fleet is live (`mcgyvr fleet use`)."
     try:
         current = live_fleet()
     except LiveFleetError as exc:
@@ -1254,18 +1464,8 @@ def _own_fleet_live(
             f"{current} is live, and stays so: your own fleet was not approved "
             "over it (`mcgyvr fleet use` switches).",
         ), ()
-    rigs = _rigs(setup)
     try:
-        held = readings or {}
-        rig_ids = {
-            rig: _rig_id(rig, held[rig] if rig in held else _read_rig(rig))
-            for rig in rigs
-        }
-        with tempfile.TemporaryDirectory(prefix="mcgyvr-own-") as scratch:
-            dev = Path(scratch)
-            # TODO(setup): ask
-            write_unsampled(dev, setup, rigs=rig_ids, acknowledged=True)
-            folder = promote(dev, dev / SETUP_DIR, OWN_FLEET)
+        folder = lock_and_promote()
         switch = use(folder.name)
     except (LockRefusedError, PromoteRefusedError) as exc:
         if current is None:
@@ -1275,6 +1475,7 @@ def _own_fleet_live(
             "before, stays live, and a run that dispatches to an unapproved "
             "machine is refused.",
         )
+    how = "on its sample's evidence" if sampled else "on no evidence"
     if rigs:
         where = (
             ". Its rig units sit on "
@@ -1287,7 +1488,7 @@ def _own_fleet_live(
             "admission reads none."
         )
     return (
-        f"Approved your own fleet for live runs: {folder}, named in "
+        f"Approved your own fleet for live runs {how}: {folder}, named in "
         f"{switch.pointer}"
         + (f" in place of {current}" if current is not None else "")
         + where,
@@ -1962,7 +2163,10 @@ def _run(args: argparse.Namespace) -> int:
     # the supported bare install, and a path someone typed is not.
     chosen = Path(args.config) if args.config else None
     named = chosen if chosen is not None else named_config_path()
-    path = named if named is not None else resolve_config_path()
+    try:
+        path: Path | None = named if named is not None else resolve_config_path()
+    except ConfigError:
+        path = None
     try:
         config = load_config(chosen)
     except ConfigError as exc:
@@ -2049,7 +2253,8 @@ def _run(args: argparse.Namespace) -> int:
         # place and states the fact it actually has.
         reason = " ".join(str(config_error).split())
         print(
-            f"note: {path} is not usable ({reason}); this run goes on without "
+            f"note: {path or 'the config'} is not usable ({reason}); this run "
+            "goes on without "
             f"a config and sends its result to {where}"
         )
 
@@ -2601,8 +2806,8 @@ def _climb(
     to tell which one ran.
 
     Hence ``--config`` and no rung flag. It resolves the same way every other
-    command's does — ``$MCGYVR_CONFIG``, then the working directory, then
-    the live fleet folder the config folder's ``live.json`` names — because a
+    command's does — ``$MCGYVR_CONFIG``, else the live fleet folder the
+    config folder's ``live.json`` names — because a
     second resolution order for the same file is a
     second file as far as an operator debugging one is concerned. The config is
     loaded once, in :func:`_run`, because the journal dir is read off it before
@@ -4768,9 +4973,9 @@ def add_config(
     ``fleet alerts`` and the ``rig`` agent had no way to name it, so the flag a
     user learned on ``run`` was refused elsewhere (e2e run 2, R9). Every verb
     that reads the setup now takes it, with ``run``'s meaning and precedence:
-    the directory (or one merged file) it names wins over ``$MCGYVR_CONFIG``,
-    the working directory and the live fleet, and leaving it off takes that
-    chain. ``tests/test_every_command_that_reads_a_config_takes_dash_dash_config.py``
+    the directory (or one merged file) it names wins over ``$MCGYVR_CONFIG``
+    and the live fleet, and leaving it off takes that chain.
+    ``tests/test_every_command_that_reads_a_config_takes_dash_dash_config.py``
     walks the parser so a new verb cannot miss it.
 
     ``dest`` is for a verb whose older spelling is kept beside the flag (a
@@ -5002,7 +5207,7 @@ def _fleet_lock(args: argparse.Namespace) -> int:
     except LockRefusedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    print(f"locked: {root / 'records' / 'fleet'}")
+    print(f"locked: {root / LOCK_DIR}")
     return 0
 
 
@@ -5515,7 +5720,8 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     setup = sub.add_parser(
         "setup",
         help=(
-            "scan, plan, download, emit and write a config bound to what is reachable"
+            "read each rig, plan, stage, start and sample a fleet, and lock it "
+            "live on your yes"
         ),
     )
     setup.add_argument(
@@ -5649,6 +5855,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
             "written as `sandbox.sessions`: tempdir (the default: no container "
             "is built or started, and Docker is not needed) or docker (opt in "
             "to a task container, as code and media get)"
+        ),
+    )
+    setup.add_argument(
+        "--accept-unsampled",
+        action="store_true",
+        help=(
+            "lock the fleet setup binds approved on no evidence, and name it "
+            "live: setup with flags starts no container, so no sample runs on "
+            "what it binds. Without it nothing is locked, and the limits say "
+            "why. Nothing measured stands behind such a lock"
         ),
     )
     setup.set_defaults(func=_setup)
@@ -6203,8 +6419,8 @@ class _Version(argparse.Action):
 
     Two lines and not one, because they are two identities: the wheel is the
     code, and the config is the setup. The config is the one `load()` locates —
-    `$MCGYVR_CONFIG`, then a working directory holding `fleet.yaml`, then the
-    fleet the config folder's `live.json` names — so the path printed is the
+    `$MCGYVR_CONFIG`, else the fleet the config folder's `live.json` names —
+    so the path printed is the
     config a run typed at this prompt would load. No config prints
     `none`; one that is there and cannot be read prints why, because a
     version line that swallowed that would be the one lie an operator

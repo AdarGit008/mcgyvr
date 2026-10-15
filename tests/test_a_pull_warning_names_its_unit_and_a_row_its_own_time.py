@@ -187,9 +187,7 @@ def test_a_validation_between_the_run_start_and_the_units_finish_keeps_the_pull(
     assert [(a["unit_id"], a["field"]) for a in report.alerts] == [
         (UNIT_DS, "warm_decode_tok_s")
     ]
-    (record,) = (lock_root(tmp_path) / "records" / "fleet" / "rigs" / RIG1).glob(
-        "cmb-*.json"
-    )
+    (record,) = (lock_root(tmp_path) / "lock" / "rigs" / RIG1).glob("cmb-*.json")
     lock = json.loads(record.read_text(encoding="utf-8"))
 
     lock["validated_at"] = "2026-09-15T12:00:09Z"
