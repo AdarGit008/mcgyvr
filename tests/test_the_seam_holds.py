@@ -583,6 +583,70 @@ def test_the_exemption_covers_the_entrypoint_and_the_two_docker_edges() -> None:
     ) == ["mcgyvr.detect imports mcgyvr.sandbox.docker"]
 
 
+def test_the_drive_seam_is_read_only_inside_function_bodies() -> None:
+    """``_drive.<name>`` is dereferenced at call time, never at import time.
+
+    The late-bound seam resolves each monkeypatched name through the package
+    (``mcgyvr.drive``) at the moment it is called, so the package is fully
+    built by then. A read that ran at import time — a module-level statement,
+    a class body, a decorator, or a default argument — would dereference a
+    half-built package and raise a confusing ``AttributeError``; this test
+    pins that no such read exists.
+    """
+    import ast
+
+    def import_time_reads(tree: ast.Module) -> list[int]:
+        found: list[int] = []
+
+        def scan(node: ast.AST, in_body: bool) -> None:
+            if isinstance(node, ast.Name) and node.id == "_drive" and not in_body:
+                found.append(node.lineno)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                # Decorators and default values run at definition time; the
+                # body runs at call time.
+                for decorator in getattr(node, "decorator_list", []):
+                    scan(decorator, in_body)
+                for default in (*node.args.defaults, *node.args.kw_defaults):
+                    if default is not None:
+                        scan(default, in_body)
+                if isinstance(node, ast.Lambda):
+                    scan(node.body, True)
+                else:
+                    for statement in node.body:
+                        scan(statement, True)
+                return
+            if isinstance(node, ast.ClassDef):
+                # A class body runs at import time; methods are FunctionDefs
+                # and flip to call time in the branch above.
+                for decorator in node.decorator_list:
+                    scan(decorator, in_body)
+                for base in node.bases:
+                    scan(base, in_body)
+                for keyword in node.keywords:
+                    scan(keyword, in_body)
+                for statement in node.body:
+                    scan(statement, in_body)
+                return
+            for child in ast.iter_child_nodes(node):
+                scan(child, in_body)
+
+        scan(tree, False)
+        return found
+
+    offenders: list[str] = []
+    for path in sorted((SRC / "drive").glob("*.py")):
+        if path.name == "__init__.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for line in import_time_reads(tree):
+            offenders.append(f"{path.relative_to(SRC)}:{line}")
+    assert not offenders, (
+        "a drive submodule reads the package seam (`_drive`) at import time; "
+        "read it inside a function body so the package is fully built: "
+        + ", ".join(offenders)
+    )
+
+
 # --- the orphaned context-budget helpers ---------------------------------
 #
 # budget_for_model and explore_for had no caller under src/, so they are not

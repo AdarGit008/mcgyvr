@@ -41,7 +41,16 @@ from __future__ import annotations
 from mcgyvr.capacity import run_batch
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import best_of
-from mcgyvr.drive.attempt import SESSION_REPLY, _in_order, worker_attempt
+from mcgyvr.escalate import judge
+from mcgyvr.runner import dispatch
+from mcgyvr.wake import for_config as wake_for_config
+from mcgyvr.worker.prompt import build_prompt
+
+# Leaf-first on purpose: attempt depends on gate/prompt/record/errors, so the
+# leaves are imported before their dependents. Nothing dereferences `_drive`
+# at import time (the seam is read inside function bodies), so no submodule
+# ever sees a half-built package.
+# isort: off
 from mcgyvr.drive.errors import (
     ContractTooLargeForRungError,
     DriveError,
@@ -51,7 +60,15 @@ from mcgyvr.drive.errors import (
     UnitCeilingUnknownError,
     UnrunnableStepError,
 )
+from mcgyvr.drive.record import Recording
 from mcgyvr.drive.exec import ToolOutcome, run_tool_step
+from mcgyvr.drive.prompt import (
+    _as_sent,
+    _base_content,
+    dispatch_prompt,
+    refuse_unsendable,
+    refuse_unsendable_climb,
+)
 from mcgyvr.drive.gate import (
     _through,
     acceptance_for,
@@ -62,18 +79,8 @@ from mcgyvr.drive.gate import (
     output_checks_for,
     task_ceiling,
 )
-from mcgyvr.drive.prompt import (
-    _as_sent,
-    _base_content,
-    dispatch_prompt,
-    refuse_unsendable,
-    refuse_unsendable_climb,
-)
-from mcgyvr.drive.record import Recording
-from mcgyvr.escalate import judge
-from mcgyvr.runner import dispatch
-from mcgyvr.wake import for_config as wake_for_config
-from mcgyvr.worker.prompt import build_prompt
+from mcgyvr.drive.attempt import SESSION_REPLY, _in_order, worker_attempt
+# isort: on
 
 __all__ = [
     "SESSION_REPLY",
