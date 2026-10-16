@@ -479,11 +479,11 @@ def serve_prologue(mode: str, *, verify_refusal: str = "") -> ServeContext | Non
 
     ``door_required``, the run's host/compose/out, the services read, the
     expected-units verification, and the ``--unit`` set. Returns ``None`` after
-    printing a REFUSED for the two refusals that are a result to the caller — a
+    printing a REFUSED for the two refusals the caller turns into exit 2 — a
     compose file that cannot be read as services, and one whose services no
-    longer match the door's reading — and the caller returns 2. The refusals
-    that stop the process themselves (``door_required`` and ``need``) still
-    raise ``SystemExit(2)`` and are not caught here.
+    longer match the door's reading. The refusals that stop the process
+    themselves (``door_required`` and ``need``) still raise ``SystemExit(2)``
+    and are not caught here.
     """
     door_required(f"serve-{mode}")
     host = need("RUN_HOST")
