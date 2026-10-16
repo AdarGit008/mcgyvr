@@ -1846,10 +1846,10 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
     that function answers "which processes does this ladder imply" and two
     units that will not share a card are still two processes; whether the
     machine can hold them both is the question asked just before a file is
-    written, and :func:`mcgyvr.cli._emit` asks it there.
+    written, and :func:`mcgyvr.cli.commands.ladder._emit` asks it there.
 
     Returns one warning per host that was cut into alternatives, which
-    :func:`mcgyvr.cli._emit` prints: only one of those files is ever up,
+    :func:`mcgyvr.cli.commands.ladder._emit` prints: only one of those files is ever up,
     ``serve up`` takes one file, and a wake declines to guess which
     (:func:`mcgyvr.wake.compose_for`). A host that comes up as one spec warns
     about nothing.

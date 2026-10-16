@@ -862,7 +862,7 @@ def sleep(config: Config, host: str) -> Wake:
     a :class:`~mcgyvr.capacity.Capacity`, which is built from a config by the
     caller and is not this module's to construct. So the drain is spelled where
     the capacity is, as ``capacity.drain(card.sources)`` around this call, and
-    :func:`mcgyvr.cli._serve` is the worked example. Calling this without one is
+    :func:`mcgyvr.cli.commands.ladder._serve` is the worked example. Calling this without one is
     correct only where there is no capacity at all; with one and unused, it is
     putting a card down under requests that were already admitted.
     """
