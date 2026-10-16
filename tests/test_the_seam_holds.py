@@ -50,16 +50,16 @@ is the opposite of what the list is for. What is sanctioned is
 ``detect`` → ``sandbox.image`` and ``sandbox.base`` → ``detect``, and nothing
 else either module does.
 
-``mcgyvr.cli`` is the one exemption that is still whole-module, and for the
-opposite reason. It is not read from both halves; it *reaches into* both, and
-that is not a crossing to be removed. ``cli.py``'s module docstring says what it
-is in one line — "Command-line entrypoint" — and one ``argparse`` parser that
-dispatches ``mcgyvr detect``, ``mcgyvr local_pool``, ``mcgyvr scan`` and ``mcgyvr
-emit`` below the seam and ``mcgyvr run`` and ``mcgyvr contract`` above it is
-doing the only job an entrypoint has. :data:`THE_COMMAND_LINE_ENTRYPOINT` names
-it once, in the same written-down way, so the rules below can be exact about
-what they exempt instead of quietly passing because nothing happened to be
-caught.
+``mcgyvr.cli`` is the one exemption that names the whole entrypoint rather than
+a single edge, and for the opposite reason. It is not read from both halves; it
+*reaches into* both, and that is not a crossing to be removed. The ``mcgyvr.cli``
+package re-exports ``main`` — its one-line job as the command-line entrypoint —
+and one ``argparse`` parser dispatches ``mcgyvr detect``, ``mcgyvr local_pool``,
+``mcgyvr scan`` and ``mcgyvr emit`` below the seam and ``mcgyvr run`` and
+``mcgyvr contract`` above it, which is the only job an entrypoint has.
+:data:`THE_COMMAND_LINE_ENTRYPOINT` names it once, in the same written-down way,
+so the rules below can be exact about what they exempt instead of quietly
+passing because nothing happened to be caught.
 
 Which is the other thing this file has to do. A rule that passes on a tree that
 respects the boundary is worth nothing unless it can be shown to catch a
