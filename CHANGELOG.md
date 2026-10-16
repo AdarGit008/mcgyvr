@@ -7,9 +7,37 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
-## [Unreleased]
+## [0.5.0] - 2026-10-16
 
 ### Changed (breaking)
+
+- **There are exactly four task types: `code`, `chat`, `agent` and `media`**
+  (#686, #690).
+  - The former coding types (`function_implementation`, `bug_fix`,
+    `docstring`, `type_annotation`, `test_scaffold`) are now `code`. Its
+    evidence is derived from the contract's own fields (`demonstration`,
+    `acceptance`, `no_semantic_change`, `type_check`).
+  - The deterministic operations are now
+    `task_type: code` + `operation: format|import_sort|lint_fix|rename_symbol`.
+    They run with no model.
+  - A former name is refused with a pointer to its new spelling.
+  - The `excluded` block and `mcgyvr catalog --excluded` are gone.
+- **Every verb names the repository with `--repo PATH` only** (#694, F14):
+  `sandbox`, `index`, `resolve`, `read`, `delegate`, `attach` and `run`. A
+  repository given by position is refused with a message that says to use
+  `--repo`.
+- **`chat` and `agent` runs are sessions** (#693, F7).
+  - They need no `target` or `scope`, and their reply defaults to `prose`.
+  - Each run is recorded under `<journal.dir>/sessions/`: question, answer,
+    unit, timings and outcome.
+  - The result file gains `session_record`.
+  - New verb: `mcgyvr sessions [ID]` lists sessions, or shows one.
+- **`acceptance` and `demonstration` commands run without a shell, and
+  `mcgyvr contract` now enforces it** (#692, F12).
+  - A `VAR=x` prefix, `&&`, `||`, pipes, redirects, `;`, `&` and unclosed
+    quotes are refused when the contract is loaded. The message suggests
+    `env VAR=x cmd` or a committed script.
+  - The documentation says "no shell".
 
 - **No run takes a rig another live run holds.** Owner's ruling, 2026-10-15:
   "no one can take from no one".
@@ -19,8 +47,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
     anything else reaches the rig: nothing is read, listed, stopped or
     written. The refusal is one line naming the holder's run, its
     `user@host`, pid and start, and says to wait for that run or end it.
-  - A live run no longer displaces another (the 0.5.0 rule that a live run
-    took a rig from a dev one): no run tears down another run's containers,
+  - A live run no longer displaces another: no run tears down another run's containers,
     `RUN_DISPLACED` is no longer exported, and the shims no longer re-read
     the lease before a `docker run` or an ssh that launches one.
   - A stale lease is still reclaimed, named on stderr, with nothing of its
@@ -224,98 +251,6 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ### Fixed
 
-- **Interactive `mcgyvr setup` writes every rig's file**, a remote rig's too.
-  Before, `serve up` on a remote rig was refused unless `mcgyvr scan --rig`
-  had run first. Each rig is now read once per setup: the fleet is approved
-  from the same reading.
-
-### Changed
-
-- **The door's gate 1 is `01-config.py`** (was `01-round.py`), named for
-  what it does: it names the config the run is under and admits a live
-  `serve up` only for units the lock names. A refusal there now reads
-  `run.py: REFUSED at 01-config.py — ...`; the gate itself is unchanged.
-- **A stamp locks nothing; `mcgyvr fleet lock` is the one lock writer**
-  (owner: "one script that locks a fleet, one script that stamps a fleet
-  without locking").
-  - `mcgyvr.fleet.stamp.stamp` writes only the stamp folder,
-    `<data folder>/stamps/<fleet>/<run>/` (`setup/` and `evidence.json`). It
-    no longer locks, promotes or names a fleet live.
-  - New: `mcgyvr fleet lock --stamp DIR` (`mcgyvr.fleet.lock.write_from_stamp`)
-    writes the lock from a stamp folder into it. Promote and use it from there
-    as any other lock. `--stamp` and `--evidence` are mutually exclusive;
-    `--evidence` still needs `--fleet`.
-- **The user's own fleet is locked like any other, then promoted and named
-  live.** `mcgyvr.fleet.lock.write_unsampled` locks a fleet no sample could
-  run on, approved by `mcgyvr setup` on no evidence. It refuses unless the
-  caller says the user acknowledged that (`acknowledged=True`; `mcgyvr setup`
-  passes it for now, and will ask). `mcgyvr setup` then runs
-  `promote.promote` and `promote.use`, as for every live fleet.
-  `promote.approve_own` and `promote.approve_own_rigs` are gone, and
-  `is_own` moved to `mcgyvr.fleet.lock`.
-  - Same guarantees as before: no unit on a rig that was not read, no hosted
-    unit at a machine of yours, an mcorch policy's units awake, a layout that
-    reads back as pinned. New: a setup that names a unit on a rig that was not
-    read is refused even when other rigs were read.
-  - `promote` dates such a lock by its approval and puts a later approval of
-    the same day at `<date>-2`, `-3`. It carries the hosted units with it.
-  - Fixed: a live wake on a rig of your own fleet was refused, as its lock has
-    no combination record. `admit.host_is_locked` now answers for a lock
-    approved on no evidence from its layout, while that layout matches the
-    pin.
-
-### Removed
-
-- **The capability table carries a model's facts and no measurement**
-  (schema version 4). Its card classes, speed readings (`throughput_tok_s`,
-  `seconds_per_image`, `seconds_per_clip`), harness caveats and concurrency
-  findings are gone, and a table that carries one is refused by its name.
-  `mcgyvr capabilities` lists each model's memory figure, without the card
-  classes and caveats it printed before. A version 3 table is refused.
-- **The `measure` dependency group.** Only the lab's token-estimator
-  measurement used it, and the lab carries the group itself.
-- **The model knowledge's online half**, `mcgyvr.knowledge.online` and
-  `mcgyvr.knowledge.boards`: no command ran it. The cache, the shipped catalog
-  and the geometry rows are read as before. The Hub's address `serve fetch`
-  downloads from is `mcgyvr.serving.fetchlist.HUB`.
-
-## [0.5.0] - 2026-10-13
-
-Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
-`records/evidence/2026-10-12-e2e-run1/`.
-
-### Changed (breaking)
-
-- **There are exactly four task types: `code`, `chat`, `agent` and `media`**
-  (#686, #690).
-  - The former coding types (`function_implementation`, `bug_fix`,
-    `docstring`, `type_annotation`, `test_scaffold`) are now `code`. Its
-    evidence is derived from the contract's own fields (`demonstration`,
-    `acceptance`, `no_semantic_change`, `type_check`).
-  - The deterministic operations are now
-    `task_type: code` + `operation: format|import_sort|lint_fix|rename_symbol`.
-    They run with no model.
-  - A former name is refused with a pointer to its new spelling.
-  - The `excluded` block and `mcgyvr catalog --excluded` are gone.
-- **Every verb names the repository with `--repo PATH` only** (#694, F14):
-  `sandbox`, `index`, `resolve`, `read`, `delegate`, `attach` and `run`. A
-  repository given by position is refused with a message that says to use
-  `--repo`.
-- **`chat` and `agent` runs are sessions** (#693, F7).
-  - They need no `target` or `scope`, and their reply defaults to `prose`.
-  - Each run is recorded under `<journal.dir>/sessions/`: question, answer,
-    unit, timings and outcome.
-  - The result file gains `session_record`.
-  - New verb: `mcgyvr sessions [ID]` lists sessions, or shows one.
-- **`acceptance` and `demonstration` commands run without a shell, and
-  `mcgyvr contract` now enforces it** (#692, F12).
-  - A `VAR=x` prefix, `&&`, `||`, pipes, redirects, `;`, `&` and unclosed
-    quotes are refused when the contract is loaded. The message suggests
-    `env VAR=x cmd` or a committed script.
-  - The documentation says "no shell".
-
-### Fixed
-
 - The shipped `code` example passes preflight against the stub it describes:
   its fail-first test is a `demonstration`. A command refused as
   `acceptance-baseline-failing` is now told it belongs in `demonstration`
@@ -350,6 +285,51 @@ Found by the e2e run of 0.4.16 on 2026-10-12. The evidence is in mcgyvr-lab
 - The README clones the skill at the tag of the installed CLI.
   `skills/mcgyvr/install.sh` passes the skill's example contracts to the CLI
   on `PATH` and warns when it refuses them. `MIN_VERSION` is 0.5.0 (#691, F1).
+
+- **Interactive `mcgyvr setup` writes every rig's file**, a remote rig's too.
+  Before, `serve up` on a remote rig was refused unless `mcgyvr scan --rig`
+  had run first. Each rig is now read once per setup: the fleet is approved
+  from the same reading.
+
+### Changed
+
+- **The door's gate 1 is `01-config.py`** (was `01-round.py`), named for
+  what it does: it names the config the run is under and admits a live
+  `serve up` only for units the lock names. A refusal there now reads
+  `run.py: REFUSED at 01-config.py — ...`; the gate itself is unchanged.
+- **The user's own fleet is locked like any other, then promoted and named
+  live.** `mcgyvr.fleet.lock.write_unsampled` locks a fleet no sample could
+  run on, approved by `mcgyvr setup` on no evidence. It refuses unless the
+  caller says the user acknowledged that (`acknowledged=True`; `mcgyvr setup`
+  passes it for now, and will ask). `mcgyvr setup` then runs
+  `promote.promote` and `promote.use`, as for every live fleet.
+  `promote.approve_own` and `promote.approve_own_rigs` are gone, and
+  `is_own` moved to `mcgyvr.fleet.lock`.
+  - Same guarantees as before: no unit on a rig that was not read, no hosted
+    unit at a machine of yours, an mcorch policy's units awake, a layout that
+    reads back as pinned. New: a setup that names a unit on a rig that was not
+    read is refused even when other rigs were read.
+  - `promote` dates such a lock by its approval and puts a later approval of
+    the same day at `<date>-2`, `-3`. It carries the hosted units with it.
+  - Fixed: a live wake on a rig of your own fleet was refused, as its lock has
+    no combination record. `admit.host_is_locked` now answers for a lock
+    approved on no evidence from its layout, while that layout matches the
+    pin.
+
+### Removed
+
+- **The capability table carries a model's facts and no measurement**
+  (schema version 4). Its card classes, speed readings (`throughput_tok_s`,
+  `seconds_per_image`, `seconds_per_clip`), harness caveats and concurrency
+  findings are gone, and a table that carries one is refused by its name.
+  `mcgyvr capabilities` lists each model's memory figure, without the card
+  classes and caveats it printed before. A version 3 table is refused.
+- **The `measure` dependency group.** Only the lab's token-estimator
+  measurement used it, and the lab carries the group itself.
+- **The model knowledge's online half**, `mcgyvr.knowledge.online` and
+  `mcgyvr.knowledge.boards`: no command ran it. The cache, the shipped catalog
+  and the geometry rows are read as before. The Hub's address `serve fetch`
+  downloads from is `mcgyvr.serving.fetchlist.HUB`.
 
 ### Added
 
