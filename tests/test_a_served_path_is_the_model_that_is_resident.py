@@ -16,7 +16,7 @@ that names some other model is not. vLLM's served id is the ``--model``
 argument, which is the repository id the config names.
 
 **2. ``mcgyvr run`` never asks.**
-``cli._climb`` builds its pool with no probe ("Structural resolution, no
+``mcgyvr.cli.commands.run._climb`` builds its pool with no probe ("Structural resolution, no
 probe"), and only ``mcgyvr local_pool --probe`` passes one. The run-path section
 below pins that property — a run resolves its ladder without touching the
 network.
@@ -145,7 +145,7 @@ def test_a_listing_that_says_nothing_or_names_it_among_others_keeps_the_rung() -
 
 # --- the run path -------------------------------------------------------------
 #
-# `cli._climb` builds its pool with no probe. A probe there would open a socket
+# `mcgyvr.cli.commands.run._climb` builds its pool with no probe. A probe there would open a socket
 # before dispatch: specs that name a rig by hostname (`http://box2:8001`) would
 # reach the actual rig from a developer's machine. `mcgyvr.wake`'s doctrine says
 # the same thing from the design side — "fail-first, never probe-first", a card

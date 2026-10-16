@@ -269,7 +269,7 @@ def test_a_pair_that_will_not_sum_is_cut_into_alternatives_and_said_out_loud() -
     rather than a reason to say no, so a pair that will not fit it together is
     emitted as two launch specs — which leaves the operator holding two files,
     only one of which is ever up, decided by arithmetic they never saw.
-    `hold_together` returns that sentence and `cli._emit` prints it.
+    `hold_together` returns that sentence and `mcgyvr.cli.commands.ladder._emit` prints it.
     """
     tight = _with_free_vram(box2(), 10000)
     units = units_for(parse(CO_RESIDENT), {"box2": tight}, specs=(), ctx_per_slot=None)

@@ -1,7 +1,7 @@
 """A deterministic run is a run, and the corpus holds it.
 
 ``_run`` built a :class:`~mcgyvr.drive.Recording` only for a contract that was
-not deterministic, and :func:`~mcgyvr.cli._floor` journalled nothing, so every
+not deterministic, and :func:`~mcgyvr.cli.commands.run._floor` journalled nothing, so every
 ``format``, ``import_sort`` and ``lint_fix`` run left the corpus a loose
 ``results/*.json`` that ``tools/live/index.py`` does not read. The cheap tier
 is the tier most work goes through, and it was the one tier no question could
