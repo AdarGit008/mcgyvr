@@ -23,7 +23,6 @@ import json
 import os
 from pathlib import Path
 
-from mcgyvr import config as configlib
 from mcgyvr.fleet.admit import unsampled_containers
 from mcgyvr.fleet.roots import (
     LOCK_DIR,
@@ -37,8 +36,6 @@ from mcgyvr.serving.gatelib import (
     export,
     refuse,
 )
-
-
 from mcgyvr.serving.rigread import config
 
 

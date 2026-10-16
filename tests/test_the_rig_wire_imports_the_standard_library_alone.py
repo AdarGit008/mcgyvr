@@ -39,6 +39,6 @@ def _imported_roots(path: Path) -> set[str]:
 def test_the_wire_modules_import_the_standard_library_alone() -> None:
     for path in WIRE:
         assert path.is_file(), path
-        assert _imported_roots(path) <= set(sys.stdlib_module_names) | {
-            "__future__"
-        }, f"{path.name} imports beyond the standard library"
+        assert _imported_roots(path) <= set(sys.stdlib_module_names) | {"__future__"}, (
+            f"{path.name} imports beyond the standard library"
+        )

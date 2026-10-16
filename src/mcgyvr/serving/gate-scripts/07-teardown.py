@@ -62,9 +62,7 @@ from mcgyvr.serving.gatelib import (
     envelope_escape,
     need,
 )
-
 from mcgyvr.serving.rigread import snapshot
-
 
 #: The snapshot keys (:data:`mcgyvr.serving.rigscan.SNAPSHOT_KEYS`) a run is held
 #: to from start to end. `uptime_since` is among them because a reboot is the

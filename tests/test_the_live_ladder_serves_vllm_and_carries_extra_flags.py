@@ -226,7 +226,8 @@ def test_units_on_one_host_that_will_not_sum_are_cut_into_alternatives() -> None
     """Each alone fits an 11.9 GB card with room; together they do not — and
     that cuts the host into launch specs rather than refusing it: the card is
     the discriminator. The 3B and the fattened 7B get a file each, and the
-    sentence `mcgyvr.cli.commands.ladder._emit` prints names both of them and the `compose.box2.yml` a
+    sentence `mcgyvr.cli.commands.ladder._emit` prints names both of them and the
+    `compose.box2.yml` a
     one-file emit would have left behind."""
     tight = LIVE.replace("vram_gb: 7.12", "vram_gb: 9.0")
     scans = {"box2": rig("box2")}

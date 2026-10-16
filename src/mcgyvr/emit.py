@@ -379,7 +379,8 @@ def unplanned(
     :func:`~mcgyvr.serving.spec_files` finds it, so a wake declines to guess
     rather than starting it, and this is what tells the operator it is there.
 
-    Reported at drift severity by :func:`mcgyvr.cli.commands.ladder._report_drift` rather than as
+    Reported at drift severity by :func:`mcgyvr.cli.commands.ladder._report_drift`
+    rather than as
     a warning, for the reason drift is: the consequence is a rig serving argv
     nobody is reading. The repair is different and the sentence says so — a
     drifted file is re-emitted, this one is deleted.

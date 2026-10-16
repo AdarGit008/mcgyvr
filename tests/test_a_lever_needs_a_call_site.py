@@ -389,7 +389,7 @@ def _breadth_seen(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     # imported into `drive`, which mypy will not call an export, and the whole
     # point of reading it here is that the driver's own namespace is where the
     # call site lives.
-    real = drive.best_of  # type: ignore[attr-defined]
+    real = drive.best_of
     seen: list[int] = []
 
     def spy(**kwargs):  # type: ignore[no-untyped-def]
@@ -560,7 +560,7 @@ def _tidies_seen(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """
     import mcgyvr.drive as drive
 
-    real = drive.tidy  # type: ignore[attr-defined]
+    real = drive.tidy
     seen: list[str] = []
 
     def spy(**kwargs):  # type: ignore[no-untyped-def]

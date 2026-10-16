@@ -2,169 +2,34 @@
 
 from __future__ import annotations
 
-
-import argparse
-
-
-import contextlib
-
-
 import ipaddress
-
-
 import json
-
-
-import os
-
-
-import signal
-
-
-import sys
-
-
-import textwrap
-
-
-import threading
-
-
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-
-
-from dataclasses import dataclass
-
-
-from pathlib import Path
-
-
-from typing import TYPE_CHECKING, Any, TextIO
-
-
-import yaml
-
-
-from mcgyvr import __version__, atomic
-
-
-from mcgyvr import recommend as recommend_module
-
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from mcgyvr import scan as scan_module
-
-
-from mcgyvr.availability import PROBE_TIMEOUT_S
-
-
 from mcgyvr.capability import (
-    ESTIMATES_NOTICE,
     GB_PER_GIB,
     CapabilityTableError,
     Model,
     load,
     table_path,
 )
-
-
 from mcgyvr.config import (
-    API_OUTPUT_TOKENS,
-    CONFIG_PATH_ENV,
-    FLEET_FILENAME,
     Config,
-    ConfigError,
-    ConfigMissingError,
-    named_config_path,
 )
-
-
-from mcgyvr.config import config_path as resolve_config_path
-
-
-from mcgyvr.config import load as load_config
-
-
-from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-
-
-from mcgyvr.emit import (
-    Drift,
-    EmitError,
-    LockedLaunchError,
-    check_all,
-    check_locked,
-    emit_all,
-    emit_locked,
-    is_locked,
-    planned_locked_paths,
-    planned_paths,
-    resolved_launch,
-    unplanned,
-    unplanned_locked,
-)
-
-
-from mcgyvr.emit import sleep_mode as emit_sleep_mode
-
-
-from mcgyvr.exits import Exit
-
-
-from mcgyvr.fleet.files import FleetFileError, load_fleet
-
-
 from mcgyvr.fleet.roots import (
-    FLEETS_SHOWN,
-    LIVE_FILE_SHOWN,
-    RIGS_SHOWN,
-    STAGING_SHOWN,
     FolderError,
 )
-
-
-from mcgyvr.initialize import (
-    PRIORITIES,
-    ApiSpecError,
-    InitError,
-    initialize,
-    parse_api_unit,
-    render_fleet,
-    unit_names,
-)
-
-
-from mcgyvr.scan import ModelOnDisk, Scan
-
-
+from mcgyvr.scan import Scan
 from mcgyvr.serving import (
     ModelSpec,
-    Unit,
     UnitError,
-    declared_models,
-    hold_together,
     host_of,
-    units_for,
 )
 
-
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.contract import Contract
-    from mcgyvr.deliver import Accepted
-    from mcgyvr.detect import Detection
-    from mcgyvr.deterministic import ToolStep
-    from mcgyvr.drive import Recording
-    from mcgyvr.escalate import Delivered, Halted, Judgement
-    from mcgyvr.gate import GateResult
-    from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.knowledge.record import ModelRecord
-    from mcgyvr.local_pool import SourceMap
-    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
-    from mcgyvr.result import RunResult
-    from mcgyvr.route import Attempted, Try
-    from mcgyvr.sandbox.base import Sandbox
-    from mcgyvr.session import Session
-
-
+    pass
 
 
 def _scans() -> dict[str, Scan]:
@@ -183,7 +48,7 @@ def _scans() -> dict[str, Scan]:
     to read the machine again, and that is what ``_emit``'s never-scanned
     refusal asks for anyway.
     """
-    from mcgyvr.fleet.roots import FolderError, rigs_dir
+    from mcgyvr.fleet.roots import rigs_dir
     from mcgyvr.serving import rigfile
 
     try:
@@ -202,7 +67,6 @@ def _scans() -> dict[str, Scan]:
     return found
 
 
-
 def _hosts_wanted(config: Config) -> dict[str, str]:
     """Which machine each rung would run on — rung name to host."""
     wanted: dict[str, str] = {}
@@ -214,9 +78,7 @@ def _hosts_wanted(config: Config) -> dict[str, str]:
     return wanted
 
 
-
 _LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
-
 
 
 def _names_this_machine(name: str) -> bool:
@@ -237,7 +99,6 @@ def _names_this_machine(name: str) -> bool:
     return address.is_loopback or address.is_unspecified
 
 
-
 def _same_host(recorded: str, wanted: str) -> bool:
     """Whether two hostnames are one machine written long and short.
 
@@ -253,7 +114,6 @@ def _same_host(recorded: str, wanted: str) -> bool:
     if not left or not right:
         return False
     return left == right or left.startswith(f"{right}.") or right.startswith(f"{left}.")
-
 
 
 def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, Scan]:
@@ -294,14 +154,12 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
     return resolved
 
 
-
 def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
     """The recorded scan of this very machine, or None if it has never run one."""
     for recorded in scans.values():
         if recorded.machine.id == os_machine_id:
             return recorded
     return None
-
 
 
 def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
@@ -315,7 +173,6 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
     if len({recorded.machine.id for recorded in matched}) != 1:
         return None
     return matched[0]
-
 
 
 def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
@@ -338,7 +195,6 @@ def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
         kv_cache_dtype_k="f16",
         kv_cache_dtype_v="f16",
     )
-
 
 
 def _model_specs() -> tuple[ModelSpec, ...]:
@@ -387,7 +243,6 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     return tuple(specs)
 
 
-
 def _catalog_specs() -> tuple[ModelSpec, ...]:
     """Serving specs derived from the shipped model catalog's own facts.
 
@@ -425,7 +280,6 @@ def _catalog_specs() -> tuple[ModelSpec, ...]:
             )
         )
     return tuple(specs)
-
 
 
 def _architectures() -> dict[str, str]:

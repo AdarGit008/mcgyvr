@@ -165,7 +165,8 @@ def test_mcgyvr_run_with_no_config_names_the_setup_document(
     `_run` refuses a model-executed contract when
     `config is None and not contract.is_deterministic`, and names
     `skills/mcgyvr/SETUP.md` beside the loader's own message
-    (`mcgyvr.cli.common.SETUP_DOC`). `SKILL.md` carries no setup step, so this is the error
+    (`mcgyvr.cli.common.SETUP_DOC`). `SKILL.md` carries no setup step, so this is
+    the error
     an agent following Step 3 is left with.
     """
     repo = lj.make_repo(tmp_path / "repo")

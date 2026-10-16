@@ -34,29 +34,17 @@ before the run is reported and left as it is, since mcgyvr did not start it.
 
 from __future__ import annotations
 
-import json
 import os
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any
 
 from mcgyvr.serving import rigfile, servelib
 from mcgyvr.serving.gatelib import (
-    Lease,
     door_required,
     export,
-    held_by,
-    lease_read,
-    lease_take,
     need,
-    new_lease,
     refuse,
-    scan_read_command,
-    ssh,
-    step_name,
 )
-from mcgyvr.serving.rigscan import SNAPSHOT_CARD_KEYS
+from mcgyvr.serving.rigread import held, reading, take_lease
 
 HERE = Path(__file__).resolve().parent
 
@@ -65,9 +53,6 @@ HERE = Path(__file__).resolve().parent
 #: else is using. The door does not repair a machine it found wrong, so the run
 #: names them and leaves them.
 IDLE_KEYS = ("gpu_procs", "containers")
-
-
-from mcgyvr.serving.rigread import held, reading, take_lease
 
 
 def main() -> int:

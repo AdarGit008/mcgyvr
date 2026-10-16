@@ -5,169 +5,50 @@ Only what is built is exposed.
 
 from __future__ import annotations
 
-
 import argparse
-
-
-import contextlib
-
-
-import ipaddress
-
-
 import json
-
-
 import os
-
-
-import signal
-
-
 import sys
-
-
-import textwrap
-
-
-import threading
-
-
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-
-
-from dataclasses import dataclass
-
-
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-
-
-from typing import TYPE_CHECKING, Any, TextIO
-
-
-import yaml
-
-
-from mcgyvr import __version__, atomic
-
+from typing import TYPE_CHECKING, Any
 
 from mcgyvr import recommend as recommend_module
-
-
 from mcgyvr import scan as scan_module
-
-
-from mcgyvr.availability import PROBE_TIMEOUT_S
-
-
 from mcgyvr.capability import (
-    ESTIMATES_NOTICE,
-    GB_PER_GIB,
     CapabilityTableError,
-    Model,
-    load,
-    table_path,
 )
-
-
 from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
-    Config,
     ConfigError,
-    ConfigMissingError,
     named_config_path,
 )
-
-
-from mcgyvr.config import config_path as resolve_config_path
-
-
 from mcgyvr.config import load as load_config
-
-
-from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-
-
-from mcgyvr.emit import (
-    Drift,
-    EmitError,
-    LockedLaunchError,
-    check_all,
-    check_locked,
-    emit_all,
-    emit_locked,
-    is_locked,
-    planned_locked_paths,
-    planned_paths,
-    resolved_launch,
-    unplanned,
-    unplanned_locked,
-)
-
-
-from mcgyvr.emit import sleep_mode as emit_sleep_mode
-
-
-from mcgyvr.exits import Exit
-
-
 from mcgyvr.fleet.files import FleetFileError, load_fleet
-
-
 from mcgyvr.fleet.roots import (
-    FLEETS_SHOWN,
-    LIVE_FILE_SHOWN,
-    RIGS_SHOWN,
-    STAGING_SHOWN,
     FolderError,
 )
-
-
 from mcgyvr.initialize import (
     PRIORITIES,
     ApiSpecError,
     InitError,
     initialize,
     parse_api_unit,
-    render_fleet,
     unit_names,
 )
-
-
 from mcgyvr.scan import ModelOnDisk, Scan
-
-
 from mcgyvr.serving import (
-    ModelSpec,
-    Unit,
     UnitError,
-    declared_models,
-    hold_together,
-    host_of,
     units_for,
 )
 
-
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.contract import Contract
-    from mcgyvr.deliver import Accepted
     from mcgyvr.detect import Detection
-    from mcgyvr.deterministic import ToolStep
-    from mcgyvr.drive import Recording
-    from mcgyvr.escalate import Delivered, Halted, Judgement
-    from mcgyvr.gate import GateResult
-    from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.knowledge.record import ModelRecord
-    from mcgyvr.local_pool import SourceMap
-    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
-    from mcgyvr.result import RunResult
-    from mcgyvr.route import Attempted, Try
-    from mcgyvr.sandbox.base import Sandbox
-    from mcgyvr.session import Session
 
-from mcgyvr.cli.common import INIT_DEFAULT_HELP, _OneSetup, _named_path
+from mcgyvr.cli.common import INIT_DEFAULT_HELP, _named_path, _OneSetup
 from mcgyvr.cli.sizing import _hosts_wanted, _model_specs, _resolve_hosts, _scans
 
 
@@ -208,16 +89,13 @@ def _setup_priority(args: argparse.Namespace) -> str | None:
     return None
 
 
-
 class _SetupInteractiveError(Exception):
     """The interactive wizard stopped; the message says why."""
-
 
 
 def _stdin_isatty() -> bool:
     """Whether setup's stdin is a terminal, as a seam a test can state."""
     return sys.stdin.isatty()
-
 
 
 def _setup_is_interactive(args: argparse.Namespace) -> bool:
@@ -245,7 +123,6 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
     )
 
 
-
 def _parse_setup_rigs(answer: str) -> tuple[str, ...]:
     """Rigs from one prompt answer: comma/space list, with ``--host`` stripped."""
     rigs: list[str] = []
@@ -261,12 +138,10 @@ def _parse_setup_rigs(answer: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(rigs))
 
 
-
 def _ask_setup_rigs(prompt: Callable[[str], str] = input) -> tuple[str, ...]:
     """Step 1: which rigs serve this setup, defaulting to this machine."""
     answer = prompt("Which rig(s) should serve this setup? [this machine only] ")
     return _parse_setup_rigs(answer) or ("localhost",)
-
 
 
 def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
@@ -274,15 +149,12 @@ def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
     return str(prompt(question)).strip().lower() in {"y", "yes"}
 
 
-
 def _ask(question: str, prompt: Callable[[str], str] = input) -> str:
     """One typed answer, stripped; Enter is the empty answer."""
     return str(prompt(question)).strip()
 
 
-
 _SETUP_TRIES = 3
-
 
 
 def _setup_choose(question: str, choices: Sequence[str], what: str) -> str:
@@ -305,11 +177,9 @@ def _setup_choose(question: str, choices: Sequence[str], what: str) -> str:
     )
 
 
-
 def _spoken_or(names: Sequence[str]) -> str:
     """``a, b or c``."""
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} or {names[-1]}"
-
 
 
 def _setup_use_cases() -> tuple[str, ...]:
@@ -322,7 +192,6 @@ def _setup_use_cases() -> tuple[str, ...]:
     return (CODING_USE_CASE, *(n for n in names if n != CODING_USE_CASE))
 
 
-
 def _ask_setup_use_case() -> str:
     """Which use case the setup serves (``--use-case``); Enter is coding."""
     names = _setup_use_cases()
@@ -333,13 +202,10 @@ def _ask_setup_use_case() -> str:
     )
 
 
-
 JEV_QUESTION = "Dedicate a unit to Jev, which answers typed decisions? [y/N] "
 
 
-
 MCORCH_QUESTION = "Run mcorch, the local orchestrator, on a unit? [y/N] "
-
 
 
 def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
@@ -353,7 +219,6 @@ def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
         units,
         "a unit of this setup",
     )
-
 
 
 def _setup_scan_rigs(
@@ -380,7 +245,6 @@ def _setup_scan_rigs(
     return scans, readings
 
 
-
 def _setup_placements(
     rigs: Sequence[str], scans: Mapping[str, Scan]
 ) -> dict[str, Mapping[str, Any]]:
@@ -403,7 +267,6 @@ def _setup_placements(
             )
         plans[rig] = plan
     return plans
-
 
 
 def _setup_on_disk_match(
@@ -434,7 +297,6 @@ def _setup_on_disk_match(
             continue
         return model
     return None
-
 
 
 def _setup_downloads(
@@ -482,14 +344,12 @@ def _setup_downloads(
     return tuple(downloads)
 
 
-
 def _setup_suffix() -> str:
     """A RUN_ID suffix unique to this setup step (gate 5 claims the id)."""
     import os
     import time
 
     return f"setup-{os.getpid()}-{int(time.monotonic() * 1000) % 1_000_000}"
-
 
 
 def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
@@ -520,7 +380,6 @@ def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
     if code != 0:
         raise _SetupInteractiveError(f"{rig}: serve fetch exited {code}")
     print(f"{rig}: fetched {record.model_id} {record.quant}")
-
 
 
 def _setup_synthetic_detection(
@@ -566,7 +425,6 @@ def _setup_synthetic_detection(
     )
 
 
-
 def _setup_context_window(plans: Mapping[str, Mapping[str, Any]]) -> int:
     """The window ``emit`` sizes the bootstrap config at, across the rigs.
 
@@ -586,7 +444,6 @@ def _setup_context_window(plans: Mapping[str, Mapping[str, Any]]) -> int:
     return min(windows)
 
 
-
 def _setup_emit(path: Path, ctx_per_slot: int) -> None:
     """Step 6a: ``mcgyvr emit`` the launch specs for the bootstrap config."""
     from mcgyvr.cli.dispatcher import main
@@ -604,7 +461,6 @@ def _setup_emit(path: Path, ctx_per_slot: int) -> None:
     )
     if code != 0:
         raise _SetupInteractiveError(f"mcgyvr emit exited {code}")
-
 
 
 def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> None:
@@ -654,7 +510,6 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
         )
         if code != 0:
             raise _SetupInteractiveError(f"{rig}: serve up exited {code}")
-
 
 
 def _setup_interactive(path: Path, run_id: str = "") -> int:
@@ -757,13 +612,10 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         return 1
 
 
-
 NOT_STARTED = "its containers were not started, so nothing of it runs to sample"
 
 
-
 ALL_HOSTED = "every unit in it is hosted, so there is no machine of yours to sample"
-
 
 
 FLAGS_START_NOTHING = (
@@ -771,7 +623,6 @@ FLAGS_START_NOTHING = (
     "none, so nothing mcgyvr launched runs to sample (the interactive `mcgyvr "
     "setup` starts and samples them)"
 )
-
 
 
 NO_EVIDENCE_MEANS = (
@@ -782,9 +633,7 @@ NO_EVIDENCE_MEANS = (
 )
 
 
-
 ACCEPT_UNSAMPLED = "Lock it approved on no evidence? [y/N] "
-
 
 
 def _setup_unsampled(
@@ -817,7 +666,6 @@ def _setup_unsampled(
     return _own_fleet_live(path, readings)
 
 
-
 def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
     """The card room, MiB, each unit of the staged setup at ``path`` is sized at.
 
@@ -845,13 +693,11 @@ def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
     return rooms
 
 
-
 def _setup_run_contract(argv: list[str]) -> int:
     """``mcgyvr run`` with ``argv``, in this process: the sample task's run."""
     from mcgyvr.cli.dispatcher import main
 
     return main(argv)
-
 
 
 def _setup_sample(
@@ -910,14 +756,12 @@ def _setup_sample(
     return _own_fleet_switch(lock_and_promote, tuple(rig_ids), sampled=True)
 
 
-
 def _setup_run_id() -> str:
     """A name for one setup run: when it started, and 8 hex digits of its own."""
     import secrets
     from datetime import UTC, datetime
 
     return f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-{secrets.token_hex(4)}"
-
 
 
 def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
@@ -934,7 +778,6 @@ def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
     # Absolute: the staged folder is written into the setup as the folder its
     # launch specs are kept in (`serving.compose_dir`), read from anywhere.
     return named.absolute() if named is not None else staging_dir(run_id)
-
 
 
 def _setup(args: argparse.Namespace) -> int:
@@ -1026,7 +869,6 @@ def _setup(args: argparse.Namespace) -> int:
     return 0
 
 
-
 def _why_unsampled(setup: Path, use_case: str) -> str:
     """Why the flag path's staged setup at ``setup`` is not sampled."""
     from mcgyvr.fleet.sample import MEDIA_GEN, MEDIA_NOT_BUILT
@@ -1034,7 +876,6 @@ def _why_unsampled(setup: Path, use_case: str) -> str:
     if use_case == MEDIA_GEN:
         return MEDIA_NOT_BUILT
     return FLAGS_START_NOTHING if _rigs(setup) else ALL_HOSTED
-
 
 
 def _own_fleet_live(
@@ -1075,7 +916,6 @@ def _own_fleet_live(
             return promote(dev, dev / SETUP_DIR, OWN_FLEET)
 
     return _own_fleet_switch(lock_and_promote, rigs, sampled=False)
-
 
 
 def _own_fleet_switch(
@@ -1133,7 +973,6 @@ def _own_fleet_switch(
     ), ()
 
 
-
 def _rigs(setup: Path) -> tuple[str, ...]:
     """The rigs the setup init wrote lays units on, in sorted order.
 
@@ -1141,8 +980,6 @@ def _rigs(setup: Path) -> tuple[str, ...]:
     the local machine without ssh, a remote one over ssh. A hosted unit lays
     out no rig, so it names none.
     """
-    from mcgyvr.config import FLEET_FILENAME
-    from mcgyvr.fleet.files import FleetFileError, load_fleet
 
     try:
         fleet = load_fleet((setup / FLEET_FILENAME).read_text(encoding="utf-8"))
@@ -1154,7 +991,6 @@ def _rigs(setup: Path) -> tuple[str, ...]:
         if "rig" in body
     }
     return tuple(sorted(rigs))
-
 
 
 def _read_rig(rig: str) -> dict[str, Any]:
@@ -1195,7 +1031,6 @@ def _read_rig(rig: str) -> dict[str, Any]:
     return reading
 
 
-
 def _rig_id(rig: str, reading: Mapping[str, Any]) -> str:
     """The rig id ``rig``'s reading names (:func:`mcgyvr.fleet.ids.rig_id`), the
     one the lock pins, or a refusal naming what was not read."""
@@ -1208,7 +1043,7 @@ def _rig_id(rig: str, reading: Mapping[str, Any]) -> str:
         raise PromoteRefusedError(f"{rig}: {exc}") from exc
 
 
-def add_parser(sub: argparse.ArgumentParser) -> None:
+def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the `setup` command."""
     use_case_names = _setup_use_cases()
 
@@ -1362,4 +1197,3 @@ def add_parser(sub: argparse.ArgumentParser) -> None:
         ),
     )
     setup.set_defaults(func=_setup)
-

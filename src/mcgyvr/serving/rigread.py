@@ -34,6 +34,7 @@ from mcgyvr.serving.rigscan import SNAPSHOT_CARD_KEYS
 #: Where the door's runtime reader lives; ``held`` stages it over ssh.
 _GATE_SCRIPTS = Path(__file__).resolve().parent / "gate-scripts"
 
+
 def config() -> str:
     """Where the run's config was read from: ``none`` when there is no config.
 

@@ -506,9 +506,7 @@ def serve_prologue(mode: str, *, verify_refusal: str = "") -> ServeContext | Non
     return ServeContext(host, compose_file, out, units, expected, only)
 
 
-def write_serve_record(
-    ctx: ServeContext, mode: str, body: dict[str, object]
-) -> None:
+def write_serve_record(ctx: ServeContext, mode: str, body: dict[str, object]) -> None:
     """File a compose serve step's record: the common prefix, the per-mode
     ``body``, and the card reading taken after the body ran."""
     record: dict[str, object] = {
@@ -521,4 +519,3 @@ def write_serve_record(
         "card_after": card(ctx.host),
     }
     ctx.out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-

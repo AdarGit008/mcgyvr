@@ -122,7 +122,9 @@ def test_a_red_sample_is_never_locked_and_says_why(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     asked = sd.interactive(monkeypatch, sd.FakeRig(), {START: True, LOCK: True})
-    monkeypatch.setattr(cli.commands.setup, "_setup_run_contract",
+    monkeypatch.setattr(
+        cli.commands.setup,
+        "_setup_run_contract",
         lambda argv: sd.accepted(argv, outcome="ladder_spent"),
     )
 

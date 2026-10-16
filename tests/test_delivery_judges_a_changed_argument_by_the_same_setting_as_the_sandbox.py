@@ -7,7 +7,8 @@ again over the bytes they are about to write. A setup that asked the gate to
 second gate too, or every change the sandbox accepted under it is refused where
 it lands.
 
-These drive the climb's own report step, :func:`mcgyvr.cli.commands.run._report_climb`, with
+These drive the climb's own report step, :func:`mcgyvr.cli.commands.run._report_climb`,
+with
 an outcome bound in a real sandbox under the setup's setting, and the adapters
 the run settled from the same setup (``args.gate_adapters``, settled once by
 ``_run`` for both paths). The floor's path is held end to end by

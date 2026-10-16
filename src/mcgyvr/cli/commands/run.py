@@ -5,163 +5,34 @@ Only what is built is exposed.
 
 from __future__ import annotations
 
-
 import argparse
-
-
-import contextlib
-
-
-import ipaddress
-
-
 import json
-
-
-import os
-
-
-import signal
-
-
 import sys
-
-
 import textwrap
-
-
-import threading
-
-
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-
-
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-
-
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-
-from typing import TYPE_CHECKING, Any, TextIO
-
-
-import yaml
-
-
-from mcgyvr import __version__, atomic
-
-
-from mcgyvr import recommend as recommend_module
-
-
-from mcgyvr import scan as scan_module
-
-
-from mcgyvr.availability import PROBE_TIMEOUT_S
-
-
-from mcgyvr.capability import (
-    ESTIMATES_NOTICE,
-    GB_PER_GIB,
-    CapabilityTableError,
-    Model,
-    load,
-    table_path,
-)
-
-
+from mcgyvr import atomic
 from mcgyvr.config import (
-    API_OUTPUT_TOKENS,
-    CONFIG_PATH_ENV,
-    FLEET_FILENAME,
     Config,
     ConfigError,
     ConfigMissingError,
     named_config_path,
 )
-
-
 from mcgyvr.config import config_path as resolve_config_path
-
-
 from mcgyvr.config import load as load_config
-
-
-from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-
-
-from mcgyvr.emit import (
-    Drift,
-    EmitError,
-    LockedLaunchError,
-    check_all,
-    check_locked,
-    emit_all,
-    emit_locked,
-    is_locked,
-    planned_locked_paths,
-    planned_paths,
-    resolved_launch,
-    unplanned,
-    unplanned_locked,
-)
-
-
-from mcgyvr.emit import sleep_mode as emit_sleep_mode
-
-
 from mcgyvr.exits import Exit
-
-
-from mcgyvr.fleet.files import FleetFileError, load_fleet
-
-
-from mcgyvr.fleet.roots import (
-    FLEETS_SHOWN,
-    LIVE_FILE_SHOWN,
-    RIGS_SHOWN,
-    STAGING_SHOWN,
-    FolderError,
-)
-
-
-from mcgyvr.initialize import (
-    PRIORITIES,
-    ApiSpecError,
-    InitError,
-    initialize,
-    parse_api_unit,
-    render_fleet,
-    unit_names,
-)
-
-
-from mcgyvr.scan import ModelOnDisk, Scan
-
-
-from mcgyvr.serving import (
-    ModelSpec,
-    Unit,
-    UnitError,
-    declared_models,
-    hold_together,
-    host_of,
-    units_for,
-)
-
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
-    from mcgyvr.detect import Detection
     from mcgyvr.deterministic import ToolStep
     from mcgyvr.drive import Recording
     from mcgyvr.escalate import Delivered, Halted, Judgement
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.knowledge.record import ModelRecord
-    from mcgyvr.local_pool import SourceMap
-    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
     from mcgyvr.result import RunResult
     from mcgyvr.route import Attempted, Try
     from mcgyvr.sandbox.base import Sandbox
@@ -169,7 +40,11 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, SETUP_DOC, _add_repo, _named_path
 from mcgyvr.cli.fleet_live import _admitted_live, _live
-from mcgyvr.cli.sandbox import _reads_the_tree, _sandbox_policy, _say_what_the_sandbox_leaves_out
+from mcgyvr.cli.sandbox import (
+    _reads_the_tree,
+    _sandbox_policy,
+    _say_what_the_sandbox_leaves_out,
+)
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -535,7 +410,6 @@ def _run(args: argparse.Namespace) -> int:
     return code
 
 
-
 def _copy(source: Path, target: Path) -> None:
     """The same bytes at a second path, whole or not at all.
 
@@ -546,7 +420,6 @@ def _copy(source: Path, target: Path) -> None:
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     atomic.write(target, source.read_bytes())
-
 
 
 def _sessions(args: argparse.Namespace) -> int:
@@ -617,10 +490,8 @@ def _sessions(args: argparse.Namespace) -> int:
     return 0
 
 
-
 def _clip(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 1] + "…"
-
 
 
 class FloorStoppedError(Exception):
@@ -634,7 +505,6 @@ class FloorStoppedError(Exception):
     a run that returned quietly was indistinguishable from one that never
     happened.
     """
-
 
 
 def _floor(
@@ -817,7 +687,6 @@ def _floor(
         return _error(report, str(exc))
 
 
-
 def _runs_no_command(contract: Contract) -> bool:
     """Whether ``contract`` is a session that declares no command to run.
 
@@ -828,7 +697,6 @@ def _runs_no_command(contract: Contract) -> bool:
     return contract.is_session and not (
         contract.acceptance_commands or contract.demonstration_commands
     )
-
 
 
 def _sandbox_mode(typed: str | None, contract: Contract, config: Config | None) -> str:
@@ -849,13 +717,11 @@ def _sandbox_mode(typed: str | None, contract: Contract, config: Config | None) 
     return str((config.get(key) if config is not None else None) or unset)
 
 
-
 SESSION_SANDBOX_NOTE = (
     "This session runs no command, so its reply is staged in a throwaway "
     "checkout on this host and no container is built or started "
     "(`sandbox.sessions: tempdir`; `docker` gives sessions a container)."
 )
-
 
 
 def _ran(step: ToolStep) -> str:
@@ -875,7 +741,6 @@ def _ran(step: ToolStep) -> str:
     return said
 
 
-
 def _error(report: RunResult, detail: str, *, outcome: str = "error") -> int:
     """Print an error the way every branch here does, and keep it for the result.
 
@@ -887,7 +752,6 @@ def _error(report: RunResult, detail: str, *, outcome: str = "error") -> int:
     report.outcome = outcome
     report.detail = detail
     return 1
-
 
 
 def _climb(
@@ -1133,7 +997,6 @@ def _climb(
         return _error(report, str(exc))
 
 
-
 def _warning_pulled_steps(
     attempt: Callable[[Try], Judgement],
 ) -> Callable[[Try], Judgement]:
@@ -1180,7 +1043,6 @@ def _warning_pulled_steps(
         return attempt(this)
 
     return warning
-
 
 
 def _report_climb(
@@ -1373,7 +1235,6 @@ def _report_climb(
     )
 
 
-
 def _correction_detail(step: Attempted, each: int, subject: int | None) -> str:
     """What the correction on one draw's row says, in this caller's vocabulary.
 
@@ -1408,7 +1269,6 @@ def _correction_detail(step: Attempted, each: int, subject: int | None) -> str:
     if each == subject:
         return "\n".join(step.findings) or step.detail
     return f"a losing draw; the attempt's verdict is on draw {subject}"
-
 
 
 def _report_run(
@@ -1539,7 +1399,6 @@ def _report_run(
     )
 
 
-
 def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
     """Settle ``args.commit`` to a bool and ``args.branch`` to a name or ``""``.
 
@@ -1560,7 +1419,6 @@ def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
     commit = getattr(args, "commit", None)
     args.commit = True if typed else (policy_commit if commit is None else commit)
     args.branch = typed or policy_branch
-
 
 
 def _one_delivery_answer(
@@ -1588,29 +1446,22 @@ def _one_delivery_answer(
         )
 
 
-
 COMMITTED = "committed"
-
 
 
 NOT_COMMITTED = "not_committed"
 
 
-
 DELIVERY_REFUSED = "delivery_refused"
-
 
 
 NOTHING_TO_CHANGE = "nothing_to_change"
 
 
-
 RAISED = "error"
 
 
-
 DETERMINISTIC = "deterministic"
-
 
 
 @dataclass(frozen=True)
@@ -1640,7 +1491,6 @@ class _Headline:
         print(f"\n{line}")
         for each in self.below:
             print(each)
-
 
 
 def _commit(
@@ -1785,7 +1635,6 @@ def _commit(
     return 0
 
 
-
 def _say_not_rerun(adapters: Sequence[LanguageAdapter], path: str) -> None:
     """Print which checker delivery left out because it loads ``path`` as code."""
     from mcgyvr.deliver import not_rerun_here
@@ -1793,7 +1642,6 @@ def _say_not_rerun(adapters: Sequence[LanguageAdapter], path: str) -> None:
     note = not_rerun_here(adapters, path)
     if note:
         print(f"  {note}")
-
 
 
 def _say_reported(bound: Accepted) -> None:
@@ -1819,7 +1667,6 @@ def _say_reported(bound: Accepted) -> None:
             f"  reported: {where} [{finding.code}] {finding.message} "
             f"(not refused: gate.param_mutation is {ParamMutation.REPORT.value})"
         )
-
 
 
 def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
@@ -1864,7 +1711,9 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
         run.error(str(exc))
 
 
-def add_parser(sub: argparse.ArgumentParser) -> argparse.ArgumentParser:
+def add_parser(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
     """Register `run` and `sessions`; returns the `run` subparser."""
 
     run = sub.add_parser(
@@ -2000,4 +1849,3 @@ def add_parser(sub: argparse.ArgumentParser) -> argparse.ArgumentParser:
     ses.set_defaults(func=_sessions)
 
     return run
-

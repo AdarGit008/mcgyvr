@@ -5,169 +5,23 @@ Only what is built is exposed.
 
 from __future__ import annotations
 
-
 import argparse
-
-
-import contextlib
-
-
-import ipaddress
-
-
 import json
-
-
-import os
-
-
-import signal
-
-
 import sys
-
-
-import textwrap
-
-
-import threading
-
-
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-
-
-from dataclasses import dataclass
-
-
+from collections.abc import Sequence
 from pathlib import Path
-
-
 from typing import TYPE_CHECKING, Any, TextIO
 
-
-import yaml
-
-
-from mcgyvr import __version__, atomic
-
-
 from mcgyvr import recommend as recommend_module
-
-
 from mcgyvr import scan as scan_module
-
-
-from mcgyvr.availability import PROBE_TIMEOUT_S
-
-
-from mcgyvr.capability import (
-    ESTIMATES_NOTICE,
-    GB_PER_GIB,
-    CapabilityTableError,
-    Model,
-    load,
-    table_path,
-)
-
-
-from mcgyvr.config import (
-    API_OUTPUT_TOKENS,
-    CONFIG_PATH_ENV,
-    FLEET_FILENAME,
-    Config,
-    ConfigError,
-    ConfigMissingError,
-    named_config_path,
-)
-
-
-from mcgyvr.config import config_path as resolve_config_path
-
-
-from mcgyvr.config import load as load_config
-
-
 from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-
-
-from mcgyvr.emit import (
-    Drift,
-    EmitError,
-    LockedLaunchError,
-    check_all,
-    check_locked,
-    emit_all,
-    emit_locked,
-    is_locked,
-    planned_locked_paths,
-    planned_paths,
-    resolved_launch,
-    unplanned,
-    unplanned_locked,
-)
-
-
-from mcgyvr.emit import sleep_mode as emit_sleep_mode
-
-
 from mcgyvr.exits import Exit
-
-
-from mcgyvr.fleet.files import FleetFileError, load_fleet
-
-
 from mcgyvr.fleet.roots import (
-    FLEETS_SHOWN,
-    LIVE_FILE_SHOWN,
     RIGS_SHOWN,
-    STAGING_SHOWN,
-    FolderError,
 )
-
-
-from mcgyvr.initialize import (
-    PRIORITIES,
-    ApiSpecError,
-    InitError,
-    initialize,
-    parse_api_unit,
-    render_fleet,
-    unit_names,
-)
-
-
-from mcgyvr.scan import ModelOnDisk, Scan
-
-
-from mcgyvr.serving import (
-    ModelSpec,
-    Unit,
-    UnitError,
-    declared_models,
-    hold_together,
-    host_of,
-    units_for,
-)
-
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.contract import Contract
-    from mcgyvr.deliver import Accepted
-    from mcgyvr.detect import Detection
-    from mcgyvr.deterministic import ToolStep
-    from mcgyvr.drive import Recording
-    from mcgyvr.escalate import Delivered, Halted, Judgement
-    from mcgyvr.gate import GateResult
-    from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.knowledge.record import ModelRecord
-    from mcgyvr.local_pool import SourceMap
-    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
-    from mcgyvr.result import RunResult
-    from mcgyvr.route import Attempted, Try
-    from mcgyvr.sandbox.base import Sandbox
-    from mcgyvr.session import Session
-
-
+    pass
 
 
 def _detect(args: argparse.Namespace) -> int:
@@ -216,7 +70,6 @@ def _detect(args: argparse.Namespace) -> int:
         for note in found.notes:
             print(f"  - {note}")
     return 0
-
 
 
 def _scan(args: argparse.Namespace) -> int:
@@ -320,7 +173,6 @@ def _scan(args: argparse.Namespace) -> int:
     return Exit.MISMATCH if drift else Exit.OK
 
 
-
 def _scan_rig(rig: str, *, as_json: bool) -> int:
     """Scan ``rig`` over ssh and save it as the door's rig file; say what moved.
 
@@ -417,7 +269,6 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
     return Exit.OK
 
 
-
 def _users_count(value: str) -> int:
     """``single`` or a positive count — the two spellings ``recommend`` takes."""
     if value == "single":
@@ -431,7 +282,6 @@ def _users_count(value: str) -> int:
     if count < 1:
         raise argparse.ArgumentTypeError(f"users must be at least 1, not {count}")
     return count
-
 
 
 def _recommend(args: argparse.Namespace) -> int:
@@ -454,7 +304,6 @@ def _recommend(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
-
 def _report_moved(before: Any, changes: Sequence[Any], stream: TextIO) -> None:
     """What moved since this machine's last record, one line each."""
     if before is None or not changes:
@@ -464,7 +313,7 @@ def _report_moved(before: Any, changes: Sequence[Any], stream: TextIO) -> None:
         print(f"  {change.said()}", file=stream)
 
 
-def add_parser(sub: argparse.ArgumentParser) -> None:
+def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register `detect`, `scan`, `recommend`."""
 
     det = sub.add_parser(
@@ -554,4 +403,3 @@ def add_parser(sub: argparse.ArgumentParser) -> None:
         ),
     )
     rec.set_defaults(func=_recommend)
-

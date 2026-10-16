@@ -75,14 +75,26 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
     calls: list[tuple[Any, ...]] = []
 
     monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
-    monkeypatch.setattr(cli.commands.setup, "_ask_setup_rigs", lambda prompt=None: ("box1",))
-    monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", lambda rigs: ({}, {"box1": {"read": "once"}})
+    monkeypatch.setattr(
+        cli.commands.setup, "_ask_setup_rigs", lambda prompt=None: ("box1",)
     )
-    monkeypatch.setattr(cli.commands.setup, "_setup_placements",
+    monkeypatch.setattr(
+        cli.commands.setup,
+        "_setup_scan_rigs",
+        lambda rigs: ({}, {"box1": {"read": "once"}}),
+    )
+    monkeypatch.setattr(
+        cli.commands.setup,
+        "_setup_placements",
         lambda rigs, scans: {"box1": {"placement": {"context_length": 4096}}},
     )
-    monkeypatch.setattr(cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ())
-    monkeypatch.setattr(cli.commands.setup, "_setup_synthetic_detection", lambda plans, window=None: None
+    monkeypatch.setattr(
+        cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ()
+    )
+    monkeypatch.setattr(
+        cli.commands.setup,
+        "_setup_synthetic_detection",
+        lambda plans, window=None: None,
     )
 
     def fake_initialize(path: Path, **kwargs: Any) -> InitResult:
@@ -91,9 +103,14 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
 
     monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
     monkeypatch.setattr(cli.commands.setup, "_setup_rooms", lambda path, ctx: {})
-    monkeypatch.setattr(cli.commands.setup, "_setup_emit", lambda path, ctx: calls.append(("emit", path, ctx))
+    monkeypatch.setattr(
+        cli.commands.setup,
+        "_setup_emit",
+        lambda path, ctx: calls.append(("emit", path, ctx)),
     )
-    monkeypatch.setattr(cli.commands.setup, "_confirm", lambda question, prompt=None: False)
+    monkeypatch.setattr(
+        cli.commands.setup, "_confirm", lambda question, prompt=None: False
+    )
     monkeypatch.setattr(cli.commands.setup, "_ask", lambda question, prompt=None: "")
 
     assert cli.main(["setup"]) == 0

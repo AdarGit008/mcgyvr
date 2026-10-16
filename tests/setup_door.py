@@ -319,11 +319,19 @@ def interactive(
         }
     }
     monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
-    monkeypatch.setattr(cli.commands.setup, "_ask_setup_rigs", lambda prompt=None: (RIG,))
+    monkeypatch.setattr(
+        cli.commands.setup, "_ask_setup_rigs", lambda prompt=None: (RIG,)
+    )
     monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", scan_rigs)
-    monkeypatch.setattr(cli.commands.setup, "_setup_placements", lambda rigs, scans: plan)
-    monkeypatch.setattr(cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ())
-    monkeypatch.setattr(cli.commands.setup, "_setup_rooms",
+    monkeypatch.setattr(
+        cli.commands.setup, "_setup_placements", lambda rigs, scans: plan
+    )
+    monkeypatch.setattr(
+        cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ()
+    )
+    monkeypatch.setattr(
+        cli.commands.setup,
+        "_setup_rooms",
         lambda path, ctx: {
             name: ROOM_MIB
             for name, unit in yaml.safe_load(

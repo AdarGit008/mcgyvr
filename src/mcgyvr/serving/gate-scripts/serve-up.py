@@ -44,8 +44,7 @@ from mcgyvr.serving import servelib
 def main() -> int:
     ctx = servelib.serve_prologue(
         "up",
-        verify_refusal="; nothing is started from a file that changed "
-        "under the run",
+        verify_refusal="; nothing is started from a file that changed under the run",
     )
     if ctx is None:
         return 2

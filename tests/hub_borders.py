@@ -21,7 +21,7 @@ HUB_CLIENT = "mcgyvr.rig"
 
 #: What is not the offline core, relative to ``src/mcgyvr/``: the command line
 #: (a ``cli/`` package after the cli.py split) and the hub client.
-NOT_CORE_FILES = frozenset()
+NOT_CORE_FILES: frozenset[str] = frozenset()
 NOT_CORE_DIRS = frozenset({"rig", "cli"})
 
 #: The imports into the hub client, or into the command line, from the offline

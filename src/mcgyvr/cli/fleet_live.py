@@ -2,169 +2,15 @@
 
 from __future__ import annotations
 
-
-import argparse
-
-
-import contextlib
-
-
-import ipaddress
-
-
-import json
-
-
-import os
-
-
-import signal
-
-
 import sys
-
-
-import textwrap
-
-
-import threading
-
-
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-
-
-from dataclasses import dataclass
-
-
-from pathlib import Path
-
-
-from typing import TYPE_CHECKING, Any, TextIO
-
-
-import yaml
-
-
-from mcgyvr import __version__, atomic
-
-
-from mcgyvr import recommend as recommend_module
-
-
-from mcgyvr import scan as scan_module
-
-
-from mcgyvr.availability import PROBE_TIMEOUT_S
-
-
-from mcgyvr.capability import (
-    ESTIMATES_NOTICE,
-    GB_PER_GIB,
-    CapabilityTableError,
-    Model,
-    load,
-    table_path,
-)
-
+from typing import TYPE_CHECKING
 
 from mcgyvr.config import (
-    API_OUTPUT_TOKENS,
-    CONFIG_PATH_ENV,
-    FLEET_FILENAME,
     Config,
-    ConfigError,
-    ConfigMissingError,
-    named_config_path,
 )
-
-
-from mcgyvr.config import config_path as resolve_config_path
-
-
-from mcgyvr.config import load as load_config
-
-
-from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-
-
-from mcgyvr.emit import (
-    Drift,
-    EmitError,
-    LockedLaunchError,
-    check_all,
-    check_locked,
-    emit_all,
-    emit_locked,
-    is_locked,
-    planned_locked_paths,
-    planned_paths,
-    resolved_launch,
-    unplanned,
-    unplanned_locked,
-)
-
-
-from mcgyvr.emit import sleep_mode as emit_sleep_mode
-
-
-from mcgyvr.exits import Exit
-
-
-from mcgyvr.fleet.files import FleetFileError, load_fleet
-
-
-from mcgyvr.fleet.roots import (
-    FLEETS_SHOWN,
-    LIVE_FILE_SHOWN,
-    RIGS_SHOWN,
-    STAGING_SHOWN,
-    FolderError,
-)
-
-
-from mcgyvr.initialize import (
-    PRIORITIES,
-    ApiSpecError,
-    InitError,
-    initialize,
-    parse_api_unit,
-    render_fleet,
-    unit_names,
-)
-
-
-from mcgyvr.scan import ModelOnDisk, Scan
-
-
-from mcgyvr.serving import (
-    ModelSpec,
-    Unit,
-    UnitError,
-    declared_models,
-    hold_together,
-    host_of,
-    units_for,
-)
-
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.contract import Contract
-    from mcgyvr.deliver import Accepted
-    from mcgyvr.detect import Detection
-    from mcgyvr.deterministic import ToolStep
-    from mcgyvr.drive import Recording
-    from mcgyvr.escalate import Delivered, Halted, Judgement
-    from mcgyvr.gate import GateResult
-    from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.knowledge.record import ModelRecord
-    from mcgyvr.local_pool import SourceMap
-    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
-    from mcgyvr.result import RunResult
-    from mcgyvr.route import Attempted, Try
-    from mcgyvr.sandbox.base import Sandbox
-    from mcgyvr.session import Session
-
-
+    pass
 
 
 def _live(config: Config) -> bool:
@@ -178,7 +24,6 @@ def _live(config: Config) -> bool:
     from mcgyvr.fleet.roots import runs_live
 
     return runs_live(config.path)
-
 
 
 def _admitted_live(config: Config) -> str | None:

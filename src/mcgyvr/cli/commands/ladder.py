@@ -5,91 +5,24 @@ Only what is built is exposed.
 
 from __future__ import annotations
 
-
 import argparse
-
-
-import contextlib
-
-
-import ipaddress
-
-
-import json
-
-
-import os
-
-
-import signal
-
-
 import sys
-
-
-import textwrap
-
-
-import threading
-
-
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-
-
-from dataclasses import dataclass
-
-
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-
-
-from typing import TYPE_CHECKING, Any, TextIO
-
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
-
-from mcgyvr import __version__, atomic
-
-
-from mcgyvr import recommend as recommend_module
-
-
-from mcgyvr import scan as scan_module
-
-
-from mcgyvr.availability import PROBE_TIMEOUT_S
-
-
+from mcgyvr import atomic
 from mcgyvr.capability import (
-    ESTIMATES_NOTICE,
-    GB_PER_GIB,
     CapabilityTableError,
-    Model,
-    load,
-    table_path,
 )
-
-
 from mcgyvr.config import (
-    API_OUTPUT_TOKENS,
-    CONFIG_PATH_ENV,
     FLEET_FILENAME,
     Config,
     ConfigError,
-    ConfigMissingError,
-    named_config_path,
 )
-
-
-from mcgyvr.config import config_path as resolve_config_path
-
-
 from mcgyvr.config import load as load_config
-
-
-from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
-
-
 from mcgyvr.emit import (
     Drift,
     EmitError,
@@ -105,67 +38,23 @@ from mcgyvr.emit import (
     unplanned,
     unplanned_locked,
 )
-
-
 from mcgyvr.emit import sleep_mode as emit_sleep_mode
-
-
 from mcgyvr.exits import Exit
-
-
 from mcgyvr.fleet.files import FleetFileError, load_fleet
-
-
-from mcgyvr.fleet.roots import (
-    FLEETS_SHOWN,
-    LIVE_FILE_SHOWN,
-    RIGS_SHOWN,
-    STAGING_SHOWN,
-    FolderError,
-)
-
-
 from mcgyvr.initialize import (
-    PRIORITIES,
-    ApiSpecError,
-    InitError,
-    initialize,
-    parse_api_unit,
     render_fleet,
-    unit_names,
 )
-
-
-from mcgyvr.scan import ModelOnDisk, Scan
-
-
 from mcgyvr.serving import (
     ModelSpec,
     Unit,
     UnitError,
     declared_models,
     hold_together,
-    host_of,
     units_for,
 )
 
-
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.contract import Contract
-    from mcgyvr.deliver import Accepted
-    from mcgyvr.detect import Detection
-    from mcgyvr.deterministic import ToolStep
-    from mcgyvr.drive import Recording
-    from mcgyvr.escalate import Delivered, Halted, Judgement
-    from mcgyvr.gate import GateResult
-    from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.knowledge.record import ModelRecord
-    from mcgyvr.local_pool import SourceMap
-    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
-    from mcgyvr.result import RunResult
-    from mcgyvr.route import Attempted, Try
-    from mcgyvr.sandbox.base import Sandbox
-    from mcgyvr.session import Session
+    pass
 
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _named_path
 from mcgyvr.cli.fleet_live import _admitted_live, _live
@@ -248,7 +137,6 @@ def _serve(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
-
 def _manage(args: argparse.Namespace) -> int:
     """Run the ladder manager: Jev sleeps and wakes the ladder's units by its queue.
 
@@ -297,7 +185,6 @@ def _manage(args: argparse.Namespace) -> int:
         return _manage_held(args, config)
 
 
-
 def _card_mib(config: Config) -> dict[str, dict[int, int]]:
     """Each card's memory in MiB from the rig files, by host and card index.
 
@@ -315,7 +202,6 @@ def _card_mib(config: Config) -> dict[str, dict[int, int]]:
     except OSError:
         return {}
     return wakelib.card_rooms({host: scans[host] for host in hosts if host in scans})
-
 
 
 def _manage_held(args: argparse.Namespace, config: Config) -> int:
@@ -381,7 +267,6 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     return Exit.OK
 
 
-
 def _merge_resolved(
     block: Mapping[str, Any], resolved: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -407,7 +292,6 @@ def _merge_resolved(
     return merged
 
 
-
 def _block_declares(block: Mapping[str, Any]) -> bool:
     """Whether ``block`` already declares a model spec rather than the table's.
 
@@ -422,7 +306,6 @@ def _block_declares(block: Mapping[str, Any]) -> bool:
         or block.get("room_mib") is not None
         or block.get("kv_cache_memory_bytes") is not None
     )
-
 
 
 def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
@@ -444,7 +327,6 @@ def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
     return keys
 
 
-
 def _render_launch_block(launch: Mapping[str, Any]) -> str:
     """The ``launch:`` block of one unit, indented to sit at four spaces."""
     dumped = yaml.safe_dump(dict(launch), sort_keys=True, width=200)
@@ -453,7 +335,6 @@ def _render_launch_block(launch: Mapping[str, Any]) -> str:
         f"      {line}" if line else "" for line in dumped.rstrip("\n").splitlines()
     )
     return "\n".join(lines)
-
 
 
 def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
@@ -487,11 +368,9 @@ def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
     return "\n".join(out) + "\n"
 
 
-
 def _atomic_write(path: Path, text: str) -> None:
     """Write ``text`` beside ``path`` and move it over atomically."""
     atomic.write(path, text)
-
 
 
 def _stamp_launch(
@@ -556,7 +435,6 @@ def _stamp_launch(
     except OSError as exc:
         raise EmitError(f"{fleet_path}: cannot be written — {exc}") from exc
     return fleet_path
-
 
 
 def _emit(args: argparse.Namespace) -> int:
@@ -704,7 +582,6 @@ def _emit(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
-
 def _locked_fleet(config: Config) -> dict[str, Any] | None:
     """The config's ``fleet.yaml`` when it is a locked setup, else ``None``.
 
@@ -719,7 +596,6 @@ def _locked_fleet(config: Config) -> dict[str, Any] | None:
         return None
     fleet = load_fleet(where.read_text(encoding="utf-8"))
     return fleet if is_locked(fleet) else None
-
 
 
 def _emit_locked(
@@ -757,7 +633,6 @@ def _emit_locked(
         print(f"wrote {compose}")
     print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")
     return Exit.OK
-
 
 
 def _report_drift(
@@ -824,7 +699,6 @@ def _report_drift(
     return Exit.MISMATCH
 
 
-
 def _mcorch_serve(args: argparse.Namespace) -> int:
     """Serve the orchestrator rung as the agent, at an Anthropic Messages address.
 
@@ -879,7 +753,7 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
-def add_parser(sub: argparse.ArgumentParser) -> None:
+def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the `serve`, `manage` and `emit` commands."""
 
     srv = sub.add_parser(
@@ -979,8 +853,7 @@ def add_parser(sub: argparse.ArgumentParser) -> None:
     emi.set_defaults(func=_emit)
 
 
-
-def add_mcorch_parser(sub: argparse.ArgumentParser) -> None:
+def add_mcorch_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register `mcorch serve` (called between fleet and run)."""
 
     mcorch = sub.add_parser(
@@ -1016,4 +889,3 @@ def add_mcorch_parser(sub: argparse.ArgumentParser) -> None:
         help="the port to listen on (default: the facade's own)",
     )
     mserve.set_defaults(func=_mcorch_serve)
-
