@@ -49,7 +49,7 @@ Install = tuple[Path, Path, Callable[[int], None]]
 
 #: The host a source's URL routes to and the name the machine calls itself.
 #: They are the same string here on purpose: reconciling the two is
-#: ``cli._resolve_hosts``'s job and not this file's subject.
+#: ``mcgyvr.cli.sizing._resolve_hosts``'s job and not this file's subject.
 HOST = "rig"
 
 

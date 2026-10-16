@@ -23,8 +23,8 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import cli
 from mcgyvr.capability import GB_PER_GIB, CapabilityTableError, load
+from mcgyvr.cli.sizing import _model_spec
 from tests.table_fixture import table_document, write_table
 
 
@@ -64,7 +64,7 @@ def test_model_spec_converts_the_decimal_vae_spike_to_gib(tmp_path: Path) -> Non
     table = load(write_table(tmp_path, table_document(rows=[_image_row()])))
 
     model = table.models[0]
-    assert cli._model_spec(model, moe=False).vae_decode_gb == pytest.approx(
+    assert _model_spec(model, moe=False).vae_decode_gb == pytest.approx(
         1.2 / GB_PER_GIB
     )
 
@@ -83,7 +83,7 @@ def test_model_spec_carries_the_cpu_only_marker(tmp_path: Path) -> None:
     }
     table = load(write_table(tmp_path, table_document(rows=[model])))
 
-    assert cli._model_spec(table.models[0], moe=False).cpu_only is True
+    assert _model_spec(table.models[0], moe=False).cpu_only is True
 
 
 def test_a_video_row_loads_with_its_media_fields(tmp_path: Path) -> None:

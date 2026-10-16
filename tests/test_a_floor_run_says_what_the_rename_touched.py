@@ -55,7 +55,7 @@ def test_the_run_names_the_operation_and_reports_every_renamed_file(
 
 
 def test_a_program_step_is_still_echoed_as_its_command_line() -> None:
-    from mcgyvr.cli import _ran
+    from mcgyvr.cli.commands.run import _ran
     from mcgyvr.contract import loads
     from mcgyvr.deterministic import tool_steps
 

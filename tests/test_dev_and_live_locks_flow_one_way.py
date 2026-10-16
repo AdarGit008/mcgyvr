@@ -374,7 +374,7 @@ def test_setup_with_no_path_stages_in_the_override_or_the_data_folder(
         seen.append(path)
         return InitResult(path=path, created=True, written=True)
 
-    monkeypatch.setattr(climod, "initialize", fake_initialize)
+    monkeypatch.setattr(climod.commands.setup, "initialize", fake_initialize)
     monkeypatch.delenv("MCGYVR_CONFIG", raising=False)
     work = tmp_path / "work"
     work.mkdir()

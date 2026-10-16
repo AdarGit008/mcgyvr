@@ -21,6 +21,7 @@ import threading
 import pytest
 
 from mcgyvr import cli, runner
+from mcgyvr.cli.dispatcher import hanging_up_on_interrupt
 
 
 @pytest.fixture
@@ -34,7 +35,7 @@ def test_an_interrupt_hangs_up_on_every_dispatch_then_is_the_interrupt_it_was(
     hung_up: list[str],
 ) -> None:
     before = signal.getsignal(signal.SIGINT)
-    with cli.hanging_up_on_interrupt():
+    with hanging_up_on_interrupt():
         assert signal.getsignal(signal.SIGINT) is not before
         with pytest.raises(KeyboardInterrupt):
             signal.raise_signal(signal.SIGINT)
@@ -49,7 +50,7 @@ def test_a_handler_someone_else_installed_is_left_alone(
     heard: list[int] = []
     theirs = signal.signal(signal.SIGINT, lambda signum, frame: heard.append(signum))
     try:
-        with cli.hanging_up_on_interrupt():
+        with hanging_up_on_interrupt():
             signal.raise_signal(signal.SIGINT)
     finally:
         signal.signal(signal.SIGINT, theirs)
@@ -62,7 +63,7 @@ def test_off_the_main_thread_nothing_is_installed(hung_up: list[str]) -> None:
     seen: list[object] = []
 
     def run() -> None:
-        with cli.hanging_up_on_interrupt():
+        with hanging_up_on_interrupt():
             seen.append(signal.getsignal(signal.SIGINT))
 
     thread = threading.Thread(target=run)
@@ -89,7 +90,7 @@ def test_every_command_runs_under_it(
         hang.set_defaults(func=command)
         return parser, hang
 
-    monkeypatch.setattr(cli, "_build", build)
+    monkeypatch.setattr(cli.dispatcher, "_build", build)
     with pytest.raises(KeyboardInterrupt):
         cli.main(["hang"])
     assert hung_up == ["hang_up_all"]

@@ -104,7 +104,8 @@ def test_the_command_reads_the_field_from_the_config(monkeypatch: Any) -> None:
     """The wiring: `_delegate` passes the config's `orchestrator.authoring`."""
     import pytest
 
-    from mcgyvr import cli, delegate
+    from mcgyvr import delegate
+    from mcgyvr.cli.commands.delegate import _proposer_for_delegate
 
     assert isinstance(monkeypatch, pytest.MonkeyPatch)
     seen: list[str | None] = []
@@ -116,5 +117,5 @@ def test_the_command_reads_the_field_from_the_config(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(delegate, "proposer_by_authoring", spy)
     config = parse(SETUP + "  authoring: classifier\n")
-    cli._proposer_for_delegate(config, source_map(config))
+    _proposer_for_delegate(config, source_map(config))
     assert seen == ["classifier"]

@@ -7,7 +7,8 @@ again over the bytes they are about to write. A setup that asked the gate to
 second gate too, or every change the sandbox accepted under it is refused where
 it lands.
 
-These drive the climb's own report step, :func:`mcgyvr.cli._report_climb`, with
+These drive the climb's own report step, :func:`mcgyvr.cli.commands.run._report_climb`,
+with
 an outcome bound in a real sandbox under the setup's setting, and the adapters
 the run settled from the same setup (``args.gate_adapters``, settled once by
 ``_run`` for both paths). The floor's path is held end to end by
@@ -102,8 +103,8 @@ def _climb_and_report(
 ) -> tuple[int, RunResult]:
     """Gate the change in a sandbox under ``mode``, then hand the accepted
     climb to the report step, as the run command does."""
-    from mcgyvr import cli
     from mcgyvr.catalog import catalog
+    from mcgyvr.cli.commands.run import _report_climb
     from mcgyvr.deliver import Accepted
     from mcgyvr.drive import gate_in_sandbox
     from mcgyvr.escalate import Assurance, Delivered, Judgement
@@ -125,7 +126,7 @@ def _climb_and_report(
             attempts_spent=1,
             escalations=0,
         )
-        code = cli._report_climb(args, contract, sandbox, repo, outcome, None, report)
+        code = _report_climb(args, contract, sandbox, repo, outcome, None, report)
     return code, report
 
 

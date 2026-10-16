@@ -51,6 +51,7 @@ import pytest
 import yaml
 
 from mcgyvr import cli
+from mcgyvr.cli.commands.setup import _read_rig, _rig_id
 from mcgyvr.detect import Backend, Detection
 from mcgyvr.exits import Exit
 from mcgyvr.fleet import admission
@@ -361,8 +362,12 @@ def test_a_hosted_unit_at_a_user_machine_is_not_approved_beside_a_local_rig(
 def _reads(monkeypatch: pytest.MonkeyPatch, named: Callable[[str], str]) -> None:
     """Every rig init reads answers with a reading ``named`` names the rig id
     of (or refuses, as ``named`` raises): the read stands in for the machine."""
-    monkeypatch.setattr("mcgyvr.cli._read_rig", lambda rig: {"named": named(rig)})
-    monkeypatch.setattr("mcgyvr.cli._rig_id", lambda rig, reading: reading["named"])
+    monkeypatch.setattr(
+        "mcgyvr.cli.commands.setup._read_rig", lambda rig: {"named": named(rig)}
+    )
+    monkeypatch.setattr(
+        "mcgyvr.cli.commands.setup._rig_id", lambda rig, reading: reading["named"]
+    )
 
 
 def test_read_rig_runs_the_one_reader_locally(
@@ -378,9 +383,9 @@ def test_read_rig_runs_the_one_reader_locally(
     rigs = tmp_path / "rigs"
     monkeypatch.setattr("mcgyvr.serving.rigfile.rigs_dir", lambda: rigs)
 
-    reading = cli._read_rig("localhost")
+    reading = _read_rig("localhost")
 
-    assert cli._rig_id("localhost", reading) == ids.rig_id(LOCAL_SCAN)
+    assert _rig_id("localhost", reading) == ids.rig_id(LOCAL_SCAN)
     saved = rigfile.read("localhost")
     assert saved is not None and saved.rig == "localhost"
 
@@ -414,9 +419,9 @@ def test_read_rig_reads_a_remote_one_over_the_read_only_ssh_line_and_records_it(
     rigs = tmp_path / "rigs"
     monkeypatch.setattr("mcgyvr.serving.rigfile.rigs_dir", lambda: rigs)
 
-    reading = cli._read_rig("box.invalid")
+    reading = _read_rig("box.invalid")
 
-    assert cli._rig_id("box.invalid", reading) == ids.rig_id(LOCAL_SCAN)
+    assert _rig_id("box.invalid", reading) == ids.rig_id(LOCAL_SCAN)
     assert seen["host"] == "box.invalid"
     assert seen["command"] == gatelib.scan_read_command()
     assert rigfile.read("box.invalid") is not None
@@ -435,7 +440,7 @@ def test_read_rig_refuses_on_a_nonzero_ssh_exit(
     monkeypatch.setattr("mcgyvr.serving.gatelib.ssh_read_only", ssh_read_only)
 
     with pytest.raises(PromoteRefusedError) as excinfo:
-        cli._read_rig("box.invalid")
+        _read_rig("box.invalid")
     assert "box.invalid" in str(excinfo.value)
     assert "no route to host" in str(excinfo.value)
 
@@ -459,7 +464,7 @@ def test_a_rig_whose_reading_names_no_rig_id_is_refused(
 
     monkeypatch.setenv("MCGYVR_RIGS", str(tmp_path / "rigs"))
     with pytest.raises(PromoteRefusedError) as excinfo:
-        cli._rig_id("box.invalid", cli._read_rig("box.invalid"))
+        _rig_id("box.invalid", _read_rig("box.invalid"))
     assert "box.invalid" in str(excinfo.value)
     assert "does not read" in str(excinfo.value)
 

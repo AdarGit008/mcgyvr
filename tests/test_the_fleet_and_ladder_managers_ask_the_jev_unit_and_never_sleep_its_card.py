@@ -18,7 +18,8 @@ from typing import Any
 import pytest
 
 import mcgyvr.decision as decision
-from mcgyvr import cli, fleet_manager, ladder_manager
+from mcgyvr import fleet_manager, ladder_manager
+from mcgyvr.cli.commands.ladder import _manage_held
 from mcgyvr.config import Config, parse
 from mcgyvr.local_pool import source_map
 
@@ -105,5 +106,5 @@ def test_manage_never_sleeps_the_card_its_decisions_run_on(
     monkeypatch.setattr(ladder_manager.View, "of", view_of)
     config = parse(UNITS + jev)
     with pytest.raises(_StopError):
-        cli._manage_held(argparse.Namespace(once=True), config)
+        _manage_held(argparse.Namespace(once=True), config)
     assert seen == [spared]

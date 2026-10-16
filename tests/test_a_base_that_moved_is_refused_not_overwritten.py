@@ -91,7 +91,7 @@ def test_a_run_whose_base_moved_is_delivery_refused_and_leaves_the_users_commit(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
     contract = lj.make_contract(tmp_path / "impl.yaml")
     scripted = lj.scripted(monkeypatch, lj.GOOD_REPLY)
-    real_dispatch: Any = drive.dispatch  # type: ignore[attr-defined]  # scripted above
+    real_dispatch: Any = drive.dispatch  # scripted above
     moved: list[str] = []
 
     def dispatch_while_the_user_commits(*args: Any, **kwargs: Any) -> Any:

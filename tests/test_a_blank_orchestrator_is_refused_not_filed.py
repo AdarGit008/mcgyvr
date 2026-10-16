@@ -15,7 +15,7 @@ no session to file itself under.
 
 Both are the same defect: an id that names nobody is a *usage* error, and it is
 one before a file is opened. So it is refused where the missing session already
-is — in :func:`~mcgyvr.cli._name_the_writer`, through the subparser's own
+is — in :func:`~mcgyvr.cli.commands.run._name_the_writer`, through the subparser's own
 ``error``, exit 2 — on both paths, and the environment's session does not stand
 in for it. A caller who typed the flag asked to name the writer; a blank value
 is that caller getting the id wrong, not that caller declining to pass one.

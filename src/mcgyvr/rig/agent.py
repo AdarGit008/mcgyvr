@@ -124,7 +124,16 @@ _REFUSALS = {
 
 
 class Channel(Protocol):
-    """What a session needs of a channel: :class:`mcgyvr.rig.websocket.WebSocket`."""
+    """What a session needs of a channel: :class:`mcgyvr.rig.websocket.WebSocket`.
+
+    A caller holding only this protocol still meets the concrete websocket
+    client's own errors, and must catch them: :class:`~mcgyvr.rig.websocket.
+    HandshakeError` (the hub answered but refused the handshake),
+    :class:`~mcgyvr.rig.websocket.ClosedError` (the channel closed with a
+    code), and :class:`~mcgyvr.rig.websocket.WebSocketError` or ``OSError`` (a
+    write or read failed). :func:`_judge` and :class:`Agent` map those onto the
+    agent's own ``_RefusedError`` / ``_LostError`` / ``_StoppedError``.
+    """
 
     def send_text(self, text: str) -> None: ...
 

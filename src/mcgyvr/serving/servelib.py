@@ -17,7 +17,9 @@ question, and :func:`sleeping` is careful about what an answer to it is.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,7 +30,7 @@ import yaml
 # a wake budget against the door reads them off the door.
 from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
 from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
-from mcgyvr.serving.gatelib import ssh
+from mcgyvr.serving.gatelib import door_required, need, ssh
 
 #: The compose project every live unit is filed under on a rig. One name, so
 #: ``down`` finds exactly what ``up`` started and nothing another run left.
@@ -457,3 +459,63 @@ def card(host: str) -> dict[str, object]:
     if type(used) is not int or type(free) is not int:
         return {"error": f"card {first.get('index')}: used or free memory unread"}
     return {"used_mib": used, "free_mib": free}
+
+
+@dataclass(frozen=True)
+class ServeContext:
+    """What the shared serve prologue read: everything a compose serve step
+    needs before its own body, minus the per-mode filtering."""
+
+    host: str
+    compose_file: Path
+    out: Path
+    units: tuple[Service, ...]
+    expected: list[str]
+    only: set[str]
+
+
+def serve_prologue(mode: str, *, verify_refusal: str = "") -> ServeContext | None:
+    """The four compose serve steps' shared opening.
+
+    ``door_required``, the run's host/compose/out, the services read, the
+    expected-units verification, and the ``--unit`` set. Returns ``None`` after
+    printing a REFUSED for the two refusals the caller turns into exit 2 — a
+    compose file that cannot be read as services, and one whose services no
+    longer match the door's reading. The refusals that stop the process
+    themselves (``door_required`` and ``need``) still raise ``SystemExit(2)``
+    and are not caught here.
+    """
+    door_required(f"serve-{mode}")
+    host = need("RUN_HOST")
+    compose_file = Path(need("RUN_COMPOSE"))
+    out = Path(need("RUN_OUT_DIR")) / f"serve-{mode}.json"
+    try:
+        units = services(compose_file)
+    except ComposeError as exc:
+        print(f"serve-{mode}: REFUSED — {exc}", file=sys.stderr)
+        return None
+    expected = need("RUN_SERVE_EXPECTED").split()
+    if sorted(expected) != sorted(service.container for service in units):
+        print(
+            f"serve-{mode}: REFUSED — the compose file no longer names the "
+            f"containers the door read from it{verify_refusal}",
+            file=sys.stderr,
+        )
+        return None
+    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
+    return ServeContext(host, compose_file, out, units, expected, only)
+
+
+def write_serve_record(ctx: ServeContext, mode: str, body: dict[str, object]) -> None:
+    """File a compose serve step's record: the common prefix, the per-mode
+    ``body``, and the card reading taken after the body ran."""
+    record: dict[str, object] = {
+        "run_id": need("RUN_ID"),
+        "host": ctx.host,
+        "mode": mode,
+        "compose_file": str(ctx.compose_file),
+        "only": sorted(ctx.only),
+        **body,
+        "card_after": card(ctx.host),
+    }
+    ctx.out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")

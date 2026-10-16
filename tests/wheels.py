@@ -88,16 +88,16 @@ def _product_alone(tmp_path: Path) -> Path:
 
 
 #: The one module that is allowed to reach into both halves, because reaching
-#: into both halves is what it is for. ``cli.py``'s module docstring:
-#: "Command-line entrypoint." A single ``argparse`` parser dispatches
-#: ``detect``, ``pool``, ``scan`` and ``emit`` below the seam and ``run`` and
-#: ``contract`` above it; it imports ``mcgyvr.serving`` at module level for
-#: ``emit`` and defers ``mcgyvr.contract``/``mcgyvr.orchestrator`` for ``run``
-#: and ``contract``. Neither import is a half of mcgyvr forgetting where the
-#: seam is. Written down here rather than left to a rule's silence, so that what
-#: is exempt is a name a reader can find. This is the only whole-module
-#: exemption in the file, and it is whole-module because an entrypoint reaches
-#: into both halves by definition.
+#: into both halves is what it is for. The ``mcgyvr.cli`` package re-exports
+#: ``main`` as its command-line entrypoint. A single ``argparse`` parser
+#: dispatches ``detect``, ``pool``, ``scan`` and ``emit`` below the seam and
+#: ``run`` and ``contract`` above it; it imports ``mcgyvr.serving`` at module
+#: level for ``emit`` and defers ``mcgyvr.contract``/``mcgyvr.orchestrator``
+#: for ``run`` and ``contract``. Neither import is a half of mcgyvr forgetting
+#: where the seam is. Written down here rather than left to a rule's silence,
+#: so that what is exempt is a name a reader can find. This is the only
+#: exemption in the file that names a whole module, and it names a whole
+#: module because an entrypoint reaches into both halves by definition.
 THE_COMMAND_LINE_ENTRYPOINT: str = "mcgyvr.cli"
 
 

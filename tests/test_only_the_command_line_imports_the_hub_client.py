@@ -129,8 +129,9 @@ def test_the_core_read_holds_the_scripts_no_import_reaches() -> None:
 
 
 def test_the_command_line_does_import_the_hub_client() -> None:
-    """The one sanctioned importer is real: ``mcgyvr rig`` is wired in."""
-    imported = _mcgyvr_imports(THE_COMMAND_LINE_ENTRYPOINT)
+    """The one sanctioned importer is real: `mcgyvr rig` is wired into the
+    dispatcher that builds the parser."""
+    imported = _mcgyvr_imports("mcgyvr.cli.dispatcher")
     assert any(
         name == HUB_CLIENT or name.startswith(f"{HUB_CLIENT}.") for name in imported
     )

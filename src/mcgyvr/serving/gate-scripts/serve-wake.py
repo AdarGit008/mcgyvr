@@ -16,62 +16,36 @@ containers; a neighbour put to sleep to make room for this one stays asleep.
 
 from __future__ import annotations
 
-import json
-import os
-import sys
-from pathlib import Path
-
 from mcgyvr.serving import servelib
-from mcgyvr.serving.gatelib import door_required, need
 
 
 def main() -> int:
-    door_required("serve-wake")
-    host = need("RUN_HOST")
-    compose_file = Path(need("RUN_COMPOSE"))
-    out = Path(need("RUN_OUT_DIR")) / "serve-wake.json"
-    try:
-        units = servelib.services(compose_file)
-    except servelib.ComposeError as exc:
-        print(f"serve-wake: REFUSED — {exc}", file=sys.stderr)
-        return 2
-    expected = need("RUN_SERVE_EXPECTED").split()
-    if sorted(expected) != sorted(s.container for s in units):
-        print(
-            "serve-wake: REFUSED — the compose file no longer names the "
-            "containers the door read from it",
-            file=sys.stderr,
-        )
+    ctx = servelib.serve_prologue("wake")
+    if ctx is None:
         return 2
 
     # `--unit`: the units to wake, the rest of the card left as it is.
-    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
-    units = tuple(s for s in units if not only or s.container in only)
+    only = ctx.only
+    units = tuple(s for s in ctx.units if not only or s.container in only)
     woken: dict[str, bool | None] = {}
     for service in units:
-        if servelib.sleeping(host, service.port) is True:
+        if servelib.sleeping(ctx.host, service.port) is True:
             print(f"serve-wake: waking {service.container} :{service.port}")
-            woken[service.container] = servelib.wake(host, service.port)
+            woken[service.container] = servelib.wake(ctx.host, service.port)
         else:
             woken[service.container] = None
-    rows = [servelib.wait_for(host, service) for service in units]
+    rows = [servelib.wait_for(ctx.host, service) for service in units]
     for row in rows:
         state = "up" if row["healthy"] else "NOT SERVING"
         print(
             f"serve-wake: {row['container']} :{row['port']} {state} after "
             f"{row['seconds']}s"
         )
-    record = {
-        "run_id": need("RUN_ID"),
-        "host": host,
-        "mode": "wake",
-        "compose_file": str(compose_file),
-        "only": sorted(only),
-        "woken": woken,
-        "units": rows,
-        "card_after": servelib.card(host),
-    }
-    out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    servelib.write_serve_record(
+        ctx,
+        "wake",
+        {"woken": woken, "units": rows},
+    )
     if any(ok is False for ok in woken.values()):
         return 1
     if not all(row["healthy"] for row in rows):

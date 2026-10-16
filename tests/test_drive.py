@@ -773,8 +773,8 @@ def test_a_prose_delivery_reports_the_answer_and_touches_no_file(
     result and never reaches delivery — no file is placed or committed."""
     import argparse
 
-    from mcgyvr import cli
     from mcgyvr.catalog import catalog
+    from mcgyvr.cli.commands.run import _report_climb
     from mcgyvr.deliver import Accepted
     from mcgyvr.drive import gate_prose_workspace
     from mcgyvr.escalate import Assurance, Delivered, Judgement
@@ -809,7 +809,7 @@ def test_a_prose_delivery_reports_the_answer_and_touches_no_file(
             attempts_spent=1,
             escalations=0,
         )
-        code = cli._report_climb(
+        code = _report_climb(
             argparse.Namespace(commit=False),
             contract,
             sandbox,

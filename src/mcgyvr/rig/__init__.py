@@ -38,3 +38,20 @@ A rig here is a machine on a hub. It is not the ``rigs`` of a ``fleet.yaml``,
 which name machines a fleet's units are served on; the two meet only when the
 same machine is both.
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mcgyvr.rig.agent import Channel
+
+__all__ = ["Channel"]
+
+
+def __getattr__(name: str) -> type[Channel]:
+    if name == "Channel":
+        from mcgyvr.rig.agent import Channel
+
+        return Channel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

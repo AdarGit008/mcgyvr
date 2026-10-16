@@ -22,9 +22,9 @@ from __future__ import annotations
 
 import pytest
 
-from mcgyvr import cli
 from mcgyvr.capability import GB_PER_GIB
 from mcgyvr.capability import load as load_capability
+from mcgyvr.cli.sizing import _model_specs
 from mcgyvr.config import Config, Ladder, Unit
 from mcgyvr.knowledge import store as ks
 from mcgyvr.scan import Scan
@@ -65,7 +65,7 @@ def test_the_two_qwen_rows_carry_their_catalog_model_id() -> None:
 
 
 def test_a_catalog_pick_emits_via_the_mapped_measured_row() -> None:
-    specs = {s.name: s for s in cli._model_specs()}
+    specs = {s.name: s for s in _model_specs()}
 
     assert REPO in specs
     row = {m.id: m for m in load_capability().models}["qwen2.5-coder:7b"]
@@ -75,7 +75,7 @@ def test_a_catalog_pick_emits_via_the_mapped_measured_row() -> None:
     units = units_for(
         _config(REPO),
         {"rig.example": _scan()},
-        specs=cli._model_specs(),
+        specs=_model_specs(),
         ctx_per_slot=4096,
     )
     assert len(units) == 1
@@ -84,7 +84,7 @@ def test_a_catalog_pick_emits_via_the_mapped_measured_row() -> None:
 
 
 def test_a_catalog_model_the_table_does_not_name_is_servable() -> None:
-    specs = {s.name: s for s in cli._model_specs()}
+    specs = {s.name: s for s in _model_specs()}
 
     record = next(r for r in ks.shipped() if r.model_id == DEEPSEEK)
     spec = specs[record.model_id]
@@ -121,7 +121,7 @@ def test_a_declared_launch_still_wins_over_the_catalog_and_the_table() -> None:
     units = units_for(
         config,
         {"rig.example": _scan()},
-        specs=cli._model_specs(),
+        specs=_model_specs(),
         ctx_per_slot=4096,
     )
     assert len(units) == 1

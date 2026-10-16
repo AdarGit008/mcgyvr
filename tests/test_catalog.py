@@ -344,7 +344,11 @@ def test_no_consumer_of_the_vocabulary_names_a_task_type(shipped: Catalog) -> No
     of spelling rather than a property of the design.
     """
     names = set(shipped.names)
-    consumers = ("catalog.py", "contract.py", "cli.py")
+    cli_files = tuple(
+        str(p.relative_to(SOURCE_ROOT))
+        for p in sorted((SOURCE_ROOT / "cli").rglob("*.py"))
+    )
+    consumers = ("catalog.py", "contract.py", *cli_files)
     offenders = [
         f"{module}:{node.lineno} {node.value!r}"
         for module in consumers

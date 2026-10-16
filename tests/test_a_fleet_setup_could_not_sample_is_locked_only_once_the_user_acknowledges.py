@@ -17,6 +17,7 @@ import json
 import pytest
 
 from mcgyvr import cli
+from mcgyvr.cli.commands.setup import _setup_is_interactive
 from mcgyvr.detect import Detection
 from mcgyvr.fleet.roots import live_file
 from tests import setup_door as sd
@@ -64,10 +65,10 @@ def test_accept_unsampled_is_a_decision_so_setup_does_not_prompt(
 ) -> None:
     import argparse
 
-    monkeypatch.setattr(cli, "_stdin_isatty", lambda: True)
+    monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
     args = cli.build_parser().parse_args(["setup", "--accept-unsampled"])
     assert isinstance(args, argparse.Namespace)
-    assert not cli._setup_is_interactive(args)
+    assert not _setup_is_interactive(args)
 
 
 @pytest.mark.parametrize("yes", [True, False])

@@ -50,16 +50,16 @@ is the opposite of what the list is for. What is sanctioned is
 ``detect`` → ``sandbox.image`` and ``sandbox.base`` → ``detect``, and nothing
 else either module does.
 
-``mcgyvr.cli`` is the one exemption that is still whole-module, and for the
-opposite reason. It is not read from both halves; it *reaches into* both, and
-that is not a crossing to be removed. ``cli.py``'s module docstring says what it
-is in one line — "Command-line entrypoint" — and one ``argparse`` parser that
-dispatches ``mcgyvr detect``, ``mcgyvr local_pool``, ``mcgyvr scan`` and ``mcgyvr
-emit`` below the seam and ``mcgyvr run`` and ``mcgyvr contract`` above it is
-doing the only job an entrypoint has. :data:`THE_COMMAND_LINE_ENTRYPOINT` names
-it once, in the same written-down way, so the rules below can be exact about
-what they exempt instead of quietly passing because nothing happened to be
-caught.
+``mcgyvr.cli`` is the one exemption that names the whole entrypoint rather than
+a single edge, and for the opposite reason. It is not read from both halves; it
+*reaches into* both, and that is not a crossing to be removed. The ``mcgyvr.cli``
+package re-exports ``main`` — its one-line job as the command-line entrypoint —
+and one ``argparse`` parser dispatches ``mcgyvr detect``, ``mcgyvr local_pool``,
+``mcgyvr scan`` and ``mcgyvr emit`` below the seam and ``mcgyvr run`` and
+``mcgyvr contract`` above it, which is the only job an entrypoint has.
+:data:`THE_COMMAND_LINE_ENTRYPOINT` names it once, in the same written-down way,
+so the rules below can be exact about what they exempt instead of quietly
+passing because nothing happened to be caught.
 
 Which is the other thing this file has to do. A rule that passes on a tree that
 respects the boundary is worth nothing unless it can be shown to catch a
@@ -180,6 +180,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.interconnect",
     "mcgyvr.serving.linktime",
     "mcgyvr.serving.rigfile",
+    "mcgyvr.serving.rigread",
     "mcgyvr.serving.rigscan",
     "mcgyvr.serving.run",
     "mcgyvr.serving.safetensorscan",
@@ -211,6 +212,12 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.deterministic",
     "mcgyvr.docgen",
     "mcgyvr.drive",
+    "mcgyvr.drive.attempt",
+    "mcgyvr.drive.errors",
+    "mcgyvr.drive.exec",
+    "mcgyvr.drive.gate",
+    "mcgyvr.drive.prompt",
+    "mcgyvr.drive.record",
     "mcgyvr.escalate",
     "mcgyvr.fleet_manager",
     "mcgyvr.gate",
@@ -336,7 +343,9 @@ def _crossings(
     """
     offenders: list[str] = []
     for module in modules:
-        if module == THE_COMMAND_LINE_ENTRYPOINT:
+        if module == THE_COMMAND_LINE_ENTRYPOINT or module.startswith(
+            f"{THE_COMMAND_LINE_ENTRYPOINT}."
+        ):
             continue
         for imported in sorted(imports(module)):
             if (module, imported) in THE_DOCKER_DETECTION_CROSSINGS:
@@ -404,13 +413,16 @@ def test_every_module_is_on_one_side_of_the_seam() -> None:
     ``src/mcgyvr/`` that is a legal module name is here, in exactly one place,
     and a new one fails this until somebody says which half it is in.
     """
+    tree = _the_tree()
+    entrypoint = {THE_COMMAND_LINE_ENTRYPOINT} | {
+        m for m in tree if m.startswith(f"{THE_COMMAND_LINE_ENTRYPOINT}.")
+    }
     classified = (
         set(BELOW_THE_SEAM)
         | set(ABOVE_THE_SEAM)
         | set(SHARED_ACROSS_THE_SEAM)
-        | {THE_COMMAND_LINE_ENTRYPOINT}
+        | entrypoint
     )
-    tree = _the_tree()
 
     assert tree - classified == set(), (
         "modules under src/mcgyvr/ are in neither half and are not written "
@@ -436,7 +448,7 @@ def test_every_module_is_on_one_side_of_the_seam() -> None:
         list(BELOW_THE_SEAM)
         + list(ABOVE_THE_SEAM)
         + list(SHARED_ACROSS_THE_SEAM)
-        + [THE_COMMAND_LINE_ENTRYPOINT]
+        + sorted(entrypoint)
     )
     assert len(listed) == len(set(listed)), (
         "a module is written down twice; each is on one side of the seam, "
@@ -569,6 +581,70 @@ def test_the_exemption_covers_the_entrypoint_and_the_two_docker_edges() -> None:
         ("mcgyvr.sandbox",),
         imports=_synthetic("from mcgyvr.sandbox.docker import DockerSandbox"),
     ) == ["mcgyvr.detect imports mcgyvr.sandbox.docker"]
+
+
+def test_the_drive_seam_is_read_only_inside_function_bodies() -> None:
+    """``_drive.<name>`` is dereferenced at call time, never at import time.
+
+    The late-bound seam resolves each monkeypatched name through the package
+    (``mcgyvr.drive``) at the moment it is called, so the package is fully
+    built by then. A read that ran at import time — a module-level statement,
+    a class body, a decorator, or a default argument — would dereference a
+    half-built package and raise a confusing ``AttributeError``; this test
+    pins that no such read exists.
+    """
+    import ast
+
+    def import_time_reads(tree: ast.Module) -> list[int]:
+        found: list[int] = []
+
+        def scan(node: ast.AST, in_body: bool) -> None:
+            if isinstance(node, ast.Name) and node.id == "_drive" and not in_body:
+                found.append(node.lineno)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                # Decorators and default values run at definition time; the
+                # body runs at call time.
+                for decorator in getattr(node, "decorator_list", []):
+                    scan(decorator, in_body)
+                for default in (*node.args.defaults, *node.args.kw_defaults):
+                    if default is not None:
+                        scan(default, in_body)
+                if isinstance(node, ast.Lambda):
+                    scan(node.body, True)
+                else:
+                    for statement in node.body:
+                        scan(statement, True)
+                return
+            if isinstance(node, ast.ClassDef):
+                # A class body runs at import time; methods are FunctionDefs
+                # and flip to call time in the branch above.
+                for decorator in node.decorator_list:
+                    scan(decorator, in_body)
+                for base in node.bases:
+                    scan(base, in_body)
+                for keyword in node.keywords:
+                    scan(keyword, in_body)
+                for statement in node.body:
+                    scan(statement, in_body)
+                return
+            for child in ast.iter_child_nodes(node):
+                scan(child, in_body)
+
+        scan(tree, False)
+        return found
+
+    offenders: list[str] = []
+    for path in sorted((SRC / "drive").glob("*.py")):
+        if path.name == "__init__.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for line in import_time_reads(tree):
+            offenders.append(f"{path.relative_to(SRC)}:{line}")
+    assert not offenders, (
+        "a drive submodule reads the package seam (`_drive`) at import time; "
+        "read it inside a function body so the package is fully built: "
+        + ", ".join(offenders)
+    )
 
 
 # --- the orphaned context-budget helpers ---------------------------------

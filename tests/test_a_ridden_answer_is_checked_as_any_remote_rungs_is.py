@@ -70,7 +70,7 @@ def test_with_no_verifier_named_neither_a_ride_nor_an_api_rung_is_reviewed() -> 
 
 @pytest.mark.parametrize(
     "module",
-    ["drive.py", "verify.py", "deliver.py", "consensus.py", "gate"],
+    ["drive", "verify.py", "deliver.py", "consensus.py", "gate"],
 )
 def test_the_driver_gate_and_review_read_no_relief_flag(module: str) -> None:
     where = SRC / module

@@ -25,6 +25,11 @@ import pytest
 import yaml
 
 from mcgyvr import cli
+from mcgyvr.cli.commands.setup import (
+    _setup_pick_unit,
+    _setup_placements,
+    _SetupInteractiveError,
+)
 from mcgyvr.fleet import sampler
 from mcgyvr.fleet.roots import data_home, fleets_dir, live_file
 from tests import setup_door as sd
@@ -57,13 +62,13 @@ def _live() -> Path:
 def _planned_after(monkeypatch: pytest.MonkeyPatch, asked: list[str]) -> list[int]:
     """How many questions had been asked when the plan was made."""
     at: list[int] = []
-    planned = cli._setup_placements
+    planned = _setup_placements
 
     def placements(rigs: Any, scans: Any) -> Any:
         at.append(len(asked))
         return planned(rigs, scans)
 
-    monkeypatch.setattr(cli, "_setup_placements", placements)
+    monkeypatch.setattr(cli.commands.setup, "_setup_placements", placements)
     return at
 
 
@@ -123,7 +128,7 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
         ran.append(yaml.safe_load(contract.read_text(encoding="utf-8"))["id"])
         return sd.accepted(argv)
 
-    monkeypatch.setattr(cli, "_setup_run_contract", run_contract)
+    monkeypatch.setattr(cli.commands.setup, "_setup_run_contract", run_contract)
 
     assert cli.main(["setup"]) == 0
 
@@ -223,15 +228,15 @@ def test_with_several_units_setup_asks_which_one_and_enter_is_the_first(
         asked.append(question)
         return next(answers)
 
-    monkeypatch.setattr(cli, "_ask", ask)
+    monkeypatch.setattr(cli.commands.setup, "_ask", ask)
 
-    assert cli._setup_pick_unit("Jev", ("a", "b")) == "a"
-    assert cli._setup_pick_unit("mcorch", ("a", "b")) == "b"
+    assert _setup_pick_unit("Jev", ("a", "b")) == "a"
+    assert _setup_pick_unit("mcorch", ("a", "b")) == "b"
     assert asked == [
         "Which unit is Jev: a, b? [a] ",
         "Which unit runs mcorch: a, b? [a] ",
     ]
-    assert cli._setup_pick_unit("Jev", ("only",)) == "only", "one unit is not asked"
+    assert _setup_pick_unit("Jev", ("only",)) == "only", "one unit is not asked"
     assert len(asked) == 2
-    with pytest.raises(cli._SetupInteractiveError):
-        cli._setup_pick_unit("Jev", ("a", "b"))
+    with pytest.raises(_SetupInteractiveError):
+        _setup_pick_unit("Jev", ("a", "b"))

@@ -36,52 +36,36 @@ for, and only naming it starts it.
 
 from __future__ import annotations
 
-import json
-import os
 import sys
-from pathlib import Path
 
 from mcgyvr.serving import servelib
-from mcgyvr.serving.gatelib import door_required, need
 
 
 def main() -> int:
-    door_required("serve-up")
-    host = need("RUN_HOST")
-    compose_file = Path(need("RUN_COMPOSE"))
-    out = Path(need("RUN_OUT_DIR")) / "serve-up.json"
-    try:
-        units = servelib.services(compose_file)
-    except servelib.ComposeError as exc:
-        print(f"serve-up: REFUSED — {exc}", file=sys.stderr)
-        return 2
-    expected = need("RUN_SERVE_EXPECTED").split()
-    if sorted(expected) != sorted(s.container for s in units):
-        print(
-            "serve-up: REFUSED — the compose file no longer names the containers "
-            "the door read from it; nothing is started from a file that changed "
-            "under the run",
-            file=sys.stderr,
-        )
+    ctx = servelib.serve_prologue(
+        "up",
+        verify_refusal="; nothing is started from a file that changed under the run",
+    )
+    if ctx is None:
         return 2
 
-    only = set(os.environ.get("RUN_SERVE_ONLY", "").split())
+    only = ctx.only
     # Named units alone; else the file's awake set, which is what a whole
     # `compose up` starts.
     if only:
-        units = tuple(s for s in units if s.container in only)
+        units = tuple(s for s in ctx.units if s.container in only)
     else:
-        units = tuple(s for s in units if not s.asleep)
+        units = tuple(s for s in ctx.units if not s.asleep)
     names = [s.container for s in units]
-    print(f"serve-up: docker compose up on {host}: {', '.join(names)}")
-    started = servelib.up(compose_file, units if only else ())
+    print(f"serve-up: docker compose up on {ctx.host}: {', '.join(names)}")
+    started = servelib.up(ctx.compose_file, units if only else ())
     if started.returncode != 0:
         print(
-            f"serve-up: docker compose up failed on {host}: "
+            f"serve-up: docker compose up failed on {ctx.host}: "
             f"{started.stderr.strip()[:800]}",
             file=sys.stderr,
         )
-    rows = [servelib.wait_for(host, service) for service in units]
+    rows = [servelib.wait_for(ctx.host, service) for service in units]
     for row in rows:
         # ASLEEP and NOT ANSWERING are the same exit and different repairs. A
         # unit that never came up wants its container log read; one that is
@@ -103,18 +87,15 @@ def main() -> int:
             f"serve-up: {row['container']} :{row['port']} {state} after "
             f"{row['seconds']}s, models={row['models']}"
         )
-    record = {
-        "run_id": need("RUN_ID"),
-        "host": host,
-        "mode": "up",
-        "compose_file": str(compose_file),
-        "compose": compose_file.read_text(encoding="utf-8"),
-        "only": sorted(only),
-        "compose_up_exit": started.returncode,
-        "units": rows,
-        "card_after": servelib.card(host),
-    }
-    out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    servelib.write_serve_record(
+        ctx,
+        "up",
+        {
+            "compose": ctx.compose_file.read_text(encoding="utf-8"),
+            "compose_up_exit": started.returncode,
+            "units": rows,
+        },
+    )
     if started.returncode != 0 or not all(row["healthy"] for row in rows):
         return 1
     return 0

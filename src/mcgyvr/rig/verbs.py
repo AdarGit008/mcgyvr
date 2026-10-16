@@ -661,7 +661,7 @@ def add_parser(
 ) -> None:
     """Add the ``rig`` group to ``mcgyvr``'s subcommands.
 
-    ``add_config`` is :func:`mcgyvr.cli.add_config`, handed in rather than
+    ``add_config`` is :func:`mcgyvr.cli.common.add_config`, handed in rather than
     imported so this module never imports the CLI: the verbs that read the
     setup (``join``, ``run``, ``rungs sync``) take ``--config`` as every
     other verb does.
