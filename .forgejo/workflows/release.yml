@@ -5,6 +5,10 @@
 # Untested until runners exist. Requires DEFAULT_ACTIONS_URL=github.com on the
 # instance so the pinned `actions/*`, `astral-sh/*` and `pypa/*` actions resolve.
 #
+# Artifacts are pinned to v3, not v4+: Forgejo's runner is detected as GHES and
+# `@actions/artifact` v2 (upload-artifact@v4+/download-artifact@v4+) is refused
+# there. v3 uses the artifact v1 protocol the runner supports.
+#
 # The product is built here, once, from a `v*` tag, and nowhere else.
 #
 # Four buckets: source (this repository), product (a
@@ -113,7 +117,7 @@ jobs:
       # reach the publish job as "nothing to upload" and succeed at publishing
       # nothing.
       - name: keep the distribution for the publish job
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
         with:
           name: dist
           path: dist/
@@ -125,7 +129,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@a9bc5e6ef2cb54c177f32aa5726adaa15e7e2d59 # v3.1.0
         with:
           name: dist
           path: dist/
