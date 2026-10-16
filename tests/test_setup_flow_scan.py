@@ -15,6 +15,16 @@ import pytest
 
 from mcgyvr import cli, weights
 from mcgyvr import scan as scan_module
+from mcgyvr.cli.commands.setup import (
+    _setup_context_window,
+    _setup_downloads,
+    _setup_emit,
+    _setup_fetch,
+    _setup_is_interactive,
+    _setup_on_disk_match,
+    _setup_start,
+    _SetupInteractiveError,
+)
 from mcgyvr.initialize import InitResult, initialize, parse_api_unit
 from mcgyvr.serving import rigfile
 from tests.inits import KEYLESS_RIG
@@ -169,14 +179,14 @@ def test_setup_is_interactive_only_on_a_tty_without_flags(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: True)
-    assert cli._setup_is_interactive(_setup_namespace())
-    assert not cli._setup_is_interactive(_setup_namespace(api=["model=m"]))
-    assert not cli._setup_is_interactive(_setup_namespace(force=True))
-    assert not cli._setup_is_interactive(_setup_namespace(use_case="chat"))
-    assert not cli._setup_is_interactive(_setup_namespace(session_sandbox="docker"))
+    assert _setup_is_interactive(_setup_namespace())
+    assert not _setup_is_interactive(_setup_namespace(api=["model=m"]))
+    assert not _setup_is_interactive(_setup_namespace(force=True))
+    assert not _setup_is_interactive(_setup_namespace(use_case="chat"))
+    assert not _setup_is_interactive(_setup_namespace(session_sandbox="docker"))
 
     monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: False)
-    assert not cli._setup_is_interactive(_setup_namespace())
+    assert not _setup_is_interactive(_setup_namespace())
 
 
 def test_setup_routes_to_interactive_only_on_a_tty_without_flags(
@@ -269,11 +279,11 @@ def test_interactive_download_is_gated_on_an_explicit_yes(
         asked.append(question)
         return ""
 
-    assert cli._setup_downloads(plans, {}, prompt=ask_no) == ()
+    assert _setup_downloads(plans, {}, prompt=ask_no) == ()
     assert asked, "a download with no disk match is a question, not a default"
 
     asked.clear()
-    got = cli._setup_downloads(plans, {}, prompt=lambda question: "y")
+    got = _setup_downloads(plans, {}, prompt=lambda question: "y")
     assert len(got) == 1
     assert got[0][0] == "rig"
     assert got[0][1].model_id == "m"
@@ -341,11 +351,11 @@ def test_interactive_reuse_is_found_on_the_rigs_inventory(
         return ""
 
     # The default (an empty answer) reuses the on-disk model.
-    assert cli._setup_downloads(plans, {"rig": scan}, prompt=ask_default) == ()
+    assert _setup_downloads(plans, {"rig": scan}, prompt=ask_default) == ()
     assert asked, "a reuse match is a question, not a silent reuse"
 
     # A "no" downloads it instead.
-    got = cli._setup_downloads(plans, {"rig": scan}, prompt=lambda question: "n")
+    got = _setup_downloads(plans, {"rig": scan}, prompt=lambda question: "n")
     assert len(got) == 1
     assert got[0][1].model_id == "org/coder-7b"
 
@@ -364,7 +374,7 @@ def test_on_disk_match_finds_the_canonical_name() -> None:
         ),
     )
 
-    hit = cli._setup_on_disk_match(scan, "Qwen/Qwen2.5-Coder-7B-Instruct", "", 1024)
+    hit = _setup_on_disk_match(scan, "Qwen/Qwen2.5-Coder-7B-Instruct", "", 1024)
 
     assert hit is not None
     assert hit.name == "Qwen_Qwen2.5-Coder-7B-Instruct"
@@ -389,14 +399,14 @@ def test_on_disk_match_reuses_an_untagged_file_when_the_catalog_names_a_quant() 
         )
 
     # The real rig: a canonical name with no quant tag, a catalog quant Q4_K_M.
-    hit = cli._setup_on_disk_match(
+    hit = _setup_on_disk_match(
         _scan(None), "Qwen/Qwen2.5-Coder-7B-Instruct", "Q4_K_M", 4683073536
     )
     assert hit is not None
 
     # A file that tags a different quant still refuses.
     assert (
-        cli._setup_on_disk_match(
+        _setup_on_disk_match(
             _scan("Q8_0"), "Qwen/Qwen2.5-Coder-7B-Instruct", "Q4_K_M", 4683073536
         )
         is None
@@ -442,7 +452,7 @@ def test_setup_fetch_and_start_go_through_the_door(
         scores=(),
     )
 
-    cli._setup_fetch("box1", record, tmp_path)
+    _setup_fetch("box1", record, tmp_path)
     argv = calls[-1]
     assert argv[:5] == (sys.executable, "-m", "mcgyvr.serving.run", "serve", "fetch")
     assert argv[argv.index("--host") + 1] == "box1"
@@ -452,7 +462,7 @@ def test_setup_fetch_and_start_go_through_the_door(
         machine=scan_module.Machine(id="x", host="localhost", kernel="k")
     )
     (tmp_path / spec_name("localhost")).write_text("services: {}", encoding="utf-8")
-    cli._setup_start(["box1"], {"box1": scan}, tmp_path)
+    _setup_start(["box1"], {"box1": scan}, tmp_path)
     argv = calls[-1]
     assert argv[:5] == (sys.executable, "-m", "mcgyvr.serving.run", "serve", "up")
     assert argv[argv.index("--host") + 1] == "box1"
@@ -480,7 +490,7 @@ def test_setup_start_runs_the_door_against_the_bootstrap_config(
     )
     (tmp_path / spec_name("localhost")).write_text("services: {}", encoding="utf-8")
 
-    cli._setup_start(["box1"], {"box1": scan}, tmp_path)
+    _setup_start(["box1"], {"box1": scan}, tmp_path)
 
     assert spawns and spawns[-1]["env"] is not None
     env = spawns[-1]["env"]
@@ -517,7 +527,7 @@ def test_setup_start_skips_a_rig_that_emit_wrote_no_compose_for(
     )
     (tmp_path / spec_name("rig.example")).write_text("services: {}", encoding="utf-8")
 
-    cli._setup_start(["box1", "box2"], {"box1": scan1, "box2": scan2}, tmp_path)
+    _setup_start(["box1", "box2"], {"box1": scan1, "box2": scan2}, tmp_path)
 
     assert len(spawns) == 1
     assert spawns[0][spawns[0].index("--host") + 1] == "box1"
@@ -534,7 +544,7 @@ def test_setup_emit_declares_the_priced_context_window(
         return 0
 
     monkeypatch.setattr(cli.dispatcher, "main", fake_main)
-    cli._setup_emit(tmp_path / "setup", 32768)
+    _setup_emit(tmp_path / "setup", 32768)
     assert seen == [
         [
             "emit",
@@ -555,14 +565,14 @@ def test_setup_context_window_collapses_differing_placements_to_the_smallest() -
         "box2": {"placement": {"context_length": 4096}},
         "box3": {"placement": {"context_length": 65536}},
     }
-    assert cli._setup_context_window(plans) == 4096
+    assert _setup_context_window(plans) == 4096
 
 
 def test_setup_context_window_refuses_a_placement_without_a_window() -> None:
     """A placement with no declared window is refused, not guessed."""
     plans = {"box1": {"placement": {"context_length": None}}}
-    with pytest.raises(cli._SetupInteractiveError):
-        cli._setup_context_window(plans)
+    with pytest.raises(_SetupInteractiveError):
+        _setup_context_window(plans)
 
 
 def test_the_serve_step_runs_on_the_doors_interpreter(

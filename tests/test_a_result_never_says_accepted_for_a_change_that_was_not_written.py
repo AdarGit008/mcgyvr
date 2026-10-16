@@ -39,7 +39,7 @@ def _report(contract: Any) -> RunResult:
 def test_a_gate_that_accepted_but_could_not_bind_is_an_error_not_accepted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from mcgyvr import cli
+    from mcgyvr.cli.commands.run import _report_run
 
     repo = lj.make_repo(tmp_path / "repo")
     contract = load(lj.make_contract(tmp_path / "impl.yaml"))
@@ -54,7 +54,7 @@ def test_a_gate_that_accepted_but_could_not_bind_is_an_error_not_accepted(
     )
     args = argparse.Namespace(commit=False)
 
-    code = cli._report_run(args, contract, sandbox, repo, GateResult(), report)
+    code = _report_run(args, contract, sandbox, repo, GateResult(), report)
 
     assert code == 1
     assert report.outcome == "error", report
@@ -66,8 +66,8 @@ def test_a_gate_that_accepted_but_could_not_bind_is_an_error_not_accepted(
 def test_a_climb_accepted_without_bound_content_is_an_error_not_accepted(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from mcgyvr import cli
     from mcgyvr.catalog import catalog
+    from mcgyvr.cli.commands.run import _report_climb
     from mcgyvr.escalate import Assurance, Delivered, Judgement
     from mcgyvr.route import Attempted, Verdict
 
@@ -88,7 +88,7 @@ def test_a_climb_accepted_without_bound_content_is_an_error_not_accepted(
         Sandbox, SimpleNamespace(workspace=repo, source_base_commit=lambda: "HEAD")
     )
 
-    code = cli._report_climb(
+    code = _report_climb(
         argparse.Namespace(commit=False), contract, sandbox, repo, outcome, None, report
     )
 
@@ -99,10 +99,10 @@ def test_a_climb_accepted_without_bound_content_is_an_error_not_accepted(
 
 
 def test_error_keeps_a_refusal_word_the_caller_chose() -> None:
-    from mcgyvr import cli
+    from mcgyvr.cli.commands.run import DELIVERY_REFUSED, _error
 
     report = RunResult(contract="c", task_type="code", target="t", orchestrator="o")
-    assert cli._error(report, "no", outcome=cli.DELIVERY_REFUSED) == 1
-    assert report.outcome == cli.DELIVERY_REFUSED
-    assert cli._error(report, "no") == 1
+    assert _error(report, "no", outcome=DELIVERY_REFUSED) == 1
+    assert report.outcome == DELIVERY_REFUSED
+    assert _error(report, "no") == 1
     assert report.outcome == "error"

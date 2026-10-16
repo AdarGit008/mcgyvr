@@ -174,7 +174,7 @@ def test_scan_records_this_machine_once_as_its_rig_file_and_says_what_moved(
 def test_setup_reads_a_remote_rig_once_and_writes_its_rig_file(
     rigs: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from mcgyvr import cli
+    from mcgyvr.cli.commands.setup import _rig_id, _setup_scan_rigs
     from mcgyvr.fleet import ids
     from mcgyvr.serving import gatelib, rigfile
 
@@ -185,19 +185,19 @@ def test_setup_reads_a_remote_rig_once_and_writes_its_rig_file(
         return subprocess.CompletedProcess([], 0, json.dumps(READING), "")
 
     monkeypatch.setattr(gatelib, "ssh_read_only", ssh_read_only)
-    scans, readings = cli._setup_scan_rigs(("box.invalid",))
+    scans, readings = _setup_scan_rigs(("box.invalid",))
     assert sent == [gatelib.scan_read_command()]
     saved = rigfile.read("box.invalid")
     assert saved is not None and saved.hostname == "box-1"
     assert scans["box.invalid"].gpus[0].vram.total_mib == 12288
-    assert cli._rig_id("box.invalid", readings["box.invalid"]) == ids.rig_id(READING)
+    assert _rig_id("box.invalid", readings["box.invalid"]) == ids.rig_id(READING)
     assert len(sent) == 1
 
 
 def test_setup_reads_this_machine_once(
     rigs: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from mcgyvr import cli
+    from mcgyvr.cli.commands.setup import _rig_id, _setup_scan_rigs
     from mcgyvr.serving import rigfile, rigscan
 
     asked: list[int] = []
@@ -207,7 +207,7 @@ def test_setup_reads_this_machine_once(
         return copy.deepcopy(READING)
 
     monkeypatch.setattr(rigscan, "scan", read)
-    _, readings = cli._setup_scan_rigs(("localhost",))
-    cli._rig_id("localhost", readings["localhost"])
+    _, readings = _setup_scan_rigs(("localhost",))
+    _rig_id("localhost", readings["localhost"])
     assert asked == [1]
     assert rigfile.read("localhost") is not None

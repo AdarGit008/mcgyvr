@@ -16,6 +16,7 @@ import pytest
 import yaml
 
 from mcgyvr import cli
+from mcgyvr.cli.common import CONFIG_DEFAULT_HELP
 from mcgyvr.config import ConfigMissingError, config_path, load
 from mcgyvr.fleet.roots import fleets_dir, live_file
 
@@ -80,5 +81,5 @@ def test_a_command_run_beside_a_setup_finds_no_config(
 
 
 def test_no_help_line_names_the_working_directory_as_a_config() -> None:
-    assert "working directory" not in cli.CONFIG_DEFAULT_HELP
-    assert "live.json" in cli.CONFIG_DEFAULT_HELP
+    assert "working directory" not in CONFIG_DEFAULT_HELP
+    assert "live.json" in CONFIG_DEFAULT_HELP

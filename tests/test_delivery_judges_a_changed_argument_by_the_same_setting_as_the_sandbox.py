@@ -102,8 +102,8 @@ def _climb_and_report(
 ) -> tuple[int, RunResult]:
     """Gate the change in a sandbox under ``mode``, then hand the accepted
     climb to the report step, as the run command does."""
-    from mcgyvr import cli
     from mcgyvr.catalog import catalog
+    from mcgyvr.cli.commands.run import _report_climb
     from mcgyvr.deliver import Accepted
     from mcgyvr.drive import gate_in_sandbox
     from mcgyvr.escalate import Assurance, Delivered, Judgement
@@ -125,7 +125,7 @@ def _climb_and_report(
             attempts_spent=1,
             escalations=0,
         )
-        code = cli._report_climb(args, contract, sandbox, repo, outcome, None, report)
+        code = _report_climb(args, contract, sandbox, repo, outcome, None, report)
     return code, report
 
 

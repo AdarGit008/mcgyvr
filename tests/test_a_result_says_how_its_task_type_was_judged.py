@@ -211,7 +211,7 @@ def test_a_chat_reply_with_a_reviewer_configured_is_not_told_there_is_none(
 def test_the_result_file_carries_the_label_and_the_sentence(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from mcgyvr import cli
+    from mcgyvr.cli.commands.run import _report_climb
     from mcgyvr.deliver import Accepted
     from mcgyvr.drive import gate_prose_workspace
     from mcgyvr.escalate import Delivered
@@ -256,7 +256,7 @@ def test_the_result_file_carries_the_label_and_the_sentence(
             attempts_spent=1,
             escalations=0,
         )
-        code = cli._report_climb(
+        code = _report_climb(
             argparse.Namespace(commit=False),
             contract,
             sandbox,

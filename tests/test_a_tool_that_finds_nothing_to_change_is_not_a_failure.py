@@ -70,7 +70,7 @@ def test_a_floor_run_on_a_clean_target_is_nothing_to_change(
     capsys: pytest.CaptureFixture[str],
     commit: bool,
 ) -> None:
-    from mcgyvr import cli
+    from mcgyvr.cli.commands.run import NOTHING_TO_CHANGE
 
     lj.scripted(monkeypatch)  # nothing scripted: the floor dispatches nothing
     repo = lj.make_repo(tmp_path / "repo")  # `x = 0` is already formatted
@@ -85,11 +85,11 @@ def test_a_floor_run_on_a_clean_target_is_nothing_to_change(
     result = _result(capsys)
     assert result["outcome"] == "nothing_to_change", result
     assert code == 0
-    assert cli.NOTHING_TO_CHANGE == "nothing_to_change"
+    assert NOTHING_TO_CHANGE == "nothing_to_change"
     assert result["exit_code"] == 0
     assert result["committed"] is False
     (row,) = lj.rows(journal)
-    assert row["outcome"] == cli.NOTHING_TO_CHANGE
+    assert row["outcome"] == NOTHING_TO_CHANGE
     assert row["tier"] == "deterministic"
     _untouched(repo, head)
 
