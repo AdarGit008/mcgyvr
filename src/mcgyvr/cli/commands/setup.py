@@ -1210,9 +1210,7 @@ def _rig_id(rig: str, reading: Mapping[str, Any]) -> str:
 
 def add_parser(sub: argparse.ArgumentParser) -> None:
     """Register the `setup` command."""
-    from mcgyvr.catalog import catalog
-
-    use_case_names = tuple(u.name for u in catalog().use_cases)
+    use_case_names = _setup_use_cases()
 
     setup = sub.add_parser(
         "setup",
