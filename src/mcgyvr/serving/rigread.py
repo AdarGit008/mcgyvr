@@ -1,11 +1,4 @@
-"""The one reader of a rig's config, snapshot, holders and lease.
-
-The gate scripts (``serving/gate-scripts/``) each ran this logic inline, or
-loaded a sibling script through ``SourceFileLoader``; the door's checks and its
-read helpers now import it as a module, so the reading is defined once and the
-scripts are thin callers. Every function here runs below the seam: it reads a
-config, a rig, or a lease, and starts nothing.
-"""
+""
 
 from __future__ import annotations
 
@@ -31,19 +24,12 @@ from mcgyvr.serving.gatelib import (
 )
 from mcgyvr.serving.rigscan import SNAPSHOT_CARD_KEYS
 
-#: Where the door's runtime reader lives; ``held`` stages it over ssh.
+#
 _GATE_SCRIPTS = Path(__file__).resolve().parent / "gate-scripts"
 
 
 def config() -> str:
-    """Where the run's config was read from: ``none`` when there is no config.
-
-    Refuses on a config that is there and cannot be read, and on a named
-    (``$MCGYVR_CONFIG``) config that is not there: both are files somebody
-    chose, and a run that went on under some other config would be the
-    silent landing gate 1 exists to prevent. The absent *default* is the one
-    silence: nobody chose it, and it is the live fleet's.
-    """
+    ""
     try:
         loaded = configlib.load()
     except configlib.ConfigMissingError as absent:
@@ -62,9 +48,9 @@ def config() -> str:
             "is measured under an unknown one"
         )
     except (OSError, RuntimeError) as error:
-        # A `~nobody` in the variable, a working directory that went away:
-        # a config the gate cannot even locate is refused with the reason,
-        # not left as a traceback.
+        #
+        #
+        #
         refuse(
             f"gate 1: the config cannot be located: {error!r}. Nothing is "
             "measured under a config nobody can name"
@@ -73,12 +59,7 @@ def config() -> str:
 
 
 def reading(host: str) -> dict[str, Any]:
-    """The rig read whole by the one reader, shipped as ``python3 -I -B -``.
-
-    Nothing lands on the rig's disk, so gate 7 has nothing extra to look for. A
-    rig that cannot be read, or whose first card the reader cannot read, is
-    not compared: the snapshot's card keys are what gate 7 holds the run to.
-    """
+    ""
     try:
         done = ssh(host, scan_read_command(), timeout=180)
     except subprocess.TimeoutExpired:
@@ -119,9 +100,7 @@ def reading(host: str) -> dict[str, Any]:
 
 
 def held(host: str) -> dict[str, str]:
-    """What holds the rig now, by the runtime reader ``rig-units.sh``: the
-    containers up, by short id, and the processes on its card, each ``;``-joined,
-    or ``none``."""
+    ""
     from mcgyvr.fleet import read
 
     units = (_GATE_SCRIPTS / "rig-units.sh").read_text(encoding="utf-8")
@@ -139,7 +118,7 @@ def held(host: str) -> dict[str, str]:
         found = read.parse(done.stdout)
     except read.ReadError as exc:
         refuse(f"gate 2: what holds {host} reads wrong: {exc}")
-    # `docker ps` names a container by the first 12 digits of its id.
+    #
     containers = ";".join(c.id[:12] for c in found.containers)
     procs = ";".join(
         f"{h.pid},{h.process},{'unread' if h.mib is None else h.mib}MiB"
@@ -149,22 +128,14 @@ def held(host: str) -> dict[str, str]:
 
 
 def snapshot(host: str) -> dict[str, str]:
-    """The rig's snapshot and what holds it, as one map of tokens: what gate 7
-    reads again after the step and diffs against gate 2's."""
+    ""
     return {**reading(host)["snapshot"], **held(host)}
 
 
 def take_lease(host: str) -> Lease:
-    """This run's lease on ``host``, or refused (exit 2) if a live run holds it.
-
-    Judged and written in a loop, because the rig is shared: what was read
-    can change before it is written, and a write that finds a different
-    holder comes back to be judged again rather than overwriting a run that
-    was never named. Three changes of hands and the run gives up naming the
-    last one.
-    """
+    ""
     step = step_name(Path(need("RUN_STEP_FILE")))
-    # The door's pid, not this gate's: the gate exits, the door holds the run.
+    #
     mine = new_lease(step, os.getppid())
     held = lease_read(host)
     for _ in range(3):

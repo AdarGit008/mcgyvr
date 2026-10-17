@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-"""gate 1 — name the config this run is under.
-
-Runs first and reaches no rig, so the config is settled before any rig time
-is spent. The config is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`,
-else the live fleet folder the config folder's `live.json` names — and where
-it was read from is exported as RUN_CONFIG. No config at all is the live
-fleet's (owner's ruling R4: the default is prod, and forgetting the variable
-lands there); a config that is there and cannot be read, or a
-`$MCGYVR_CONFIG` naming a file that is not there, is a refusal, because a run
-whose config cannot be read cannot say which fleet it ran under. A run held
-to the live lock (:func:`mcgyvr.fleet.roots.runs_live`: whenever a fleet is
-live, but under a setup in the data folder) has a `serve up` admitted only for
-units the fleet lock names for this rig, and a `serve down` always; any other
-— the staging folder `mcgyvr setup` starts and samples, which nothing has
-locked yet — runs everything, `serve up` and `down` included (the owner ruled
-N11 on 2026-09-10).
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -40,31 +24,16 @@ from mcgyvr.serving.rigread import config
 
 
 def units_the_fleet_lock_names(rig: str) -> set[str]:
-    """The containers the live fleet lock names for ``rig``.
-
-    The lock's combination records under its rigs tree name each locked unit
-    by its container, under the live fleet's folder
-    (:func:`mcgyvr.fleet.roots.live_fleet_dir`: the fleet folder the config
-    folder's ``live.json`` names, and no lock at all without one) and never
-    under the run root. Gate 1 reaches no rig, so this is a read of local
-    files only: a live serve up is matched against the lock offline, before
-    any rig time is spent.
-
-    A lock approved on no evidence (``mcgyvr setup``'s own, written by
-    :func:`mcgyvr.fleet.lock.write_unsampled`) has no combination record; its
-    containers are the ones its layout places on ``rig``, and only while the
-    ``fleet.yaml`` beside it still hashes to its pin
-    (:func:`mcgyvr.fleet.admit.unsampled_containers`).
-    """
+    ""
     try:
         where = live_fleet_dir()
     except LiveFleetError as exc:
         refuse(f"gate 1: {exc}. A live run cannot say which fleet it serves")
     if where is None:
         return set()
-    # A lock approved on no evidence writes no record, as nothing was
-    # validated; for it the pinned layout answers, by the rule the waker reads
-    # (`mcgyvr.fleet.admit.host_is_locked`).
+    #
+    #
+    #
     locked = unsampled_containers(where, rig)
     rigs = where / LOCK_DIR / "rigs"
     if not rigs.is_dir():
@@ -89,21 +58,9 @@ def units_the_fleet_lock_names(rig: str) -> set[str]:
 
 
 def refuse_unless_the_fleet_lock_names(serve: str, source: str) -> None:
-    """A live ``serve up`` admits only units the fleet lock names for this rig.
-
-    A run that is not held to the live lock (``source``, the config's folder,
-    and :func:`mcgyvr.fleet.roots.runs_live`) runs everything,
-    ``serve up`` and ``down`` included (the owner ruled N11 on 2026-09-10),
-    and a live ``serve down`` is always admitted: stopping
-    starts nothing unapproved, and it is the way out of a rig left in a state
-    nobody locked. A live ``serve up`` is the one direction that starts
-    processes, so it is matched against the fleet lock here
-    (:func:`units_the_fleet_lock_names`) — offline, before any rig is read.
-    A ``serve up --unit`` starts only the units it names, so only those are
-    matched; a ``serve fetch`` starts nothing.
-    """
-    # No config at all is the live fleet's (owner's ruling R4): held to the
-    # lock, live or not, which refuses every unit of a fleet nobody named live.
+    ""
+    #
+    #
     if serve != "up" or (source != "none" and not runs_live(Path(source))):
         return
     host = os.environ.get("RUN_HOST", "")

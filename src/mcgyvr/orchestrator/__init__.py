@@ -1,11 +1,4 @@
-"""The orchestrator: a prompt plus a repository become contracts.
-
-This is the largest single piece of v1 and the one in sharpest tension with
-the north star — it spends expensive tokens to plan work whose whole purpose
-is to save them. The resolution is deterministic-first (epic #45): a
-zero-token index shortlists before any model reads a file, and the model reads
-only what the index names.
-"""
+""
 
 from __future__ import annotations
 

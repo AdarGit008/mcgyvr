@@ -1,14 +1,4 @@
-"""Bind mcorch's two seams from a loaded config: the rung and Jev.
-
-The server holds no address. The rung is the ``orchestrator`` role reached
-through :func:`mcgyvr.runner.dispatch_role`, the harness's turns and tools on
-the wire; Jev is the ``jev`` role reached through
-:func:`mcgyvr.decision.classify_role`. Both cross the pool seam inside those
-two functions, so this module — like the loop above it — names roles and never
-an endpoint, and re-pointing either is a line in ``policy.yaml``. Capacity
-holds the unit's slot for the length of each call, as a dispatch does: the
-agent shares its card with the ladder it drives.
-"""
+""
 
 from __future__ import annotations
 
@@ -38,7 +28,7 @@ from mcgyvr.runner import Request, dispatch_role
 
 @dataclass(frozen=True)
 class Bound:
-    """Everything a server needs, built once from the config."""
+    ""
 
     rung: Rung
     jev: Jev
@@ -51,19 +41,13 @@ class Bound:
 
 
 def journal_dir(config: Config) -> Path:
-    """The journal directory the config names, or the schema's default."""
+    ""
     configured = config.get("journal.dir")
     return Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
 
 
 def bind(config: Config, *, journal_dir: Path, pool: SourceMap | None = None) -> Bound:
-    """The rung, Jev, prompt and transcript for one server, from ``config``.
-
-    Raises :class:`~mcgyvr.decision.UnboundRoleError` when a role the loader
-    let through has no unit that can serve it now (a credential unset, say),
-    and :class:`~mcgyvr.mcorch.authoring.AuthoringUnavailableError` for a
-    strategy this server cannot run.
-    """
+    ""
     resolved = pool if pool is not None else source_map(config)
     capacity = Capacity.of(config)
     for role in (ORCHESTRATOR_ROLE, JEV_ROLE):
@@ -73,8 +57,8 @@ def bind(config: Config, *, journal_dir: Path, pool: SourceMap | None = None) ->
                 "serve, and none is."
             )
     unit = config.units[str(config.get("orchestrator.unit"))]
-    # `None` leaves the bound to the unit: none on a hosted one that states
-    # none (`mcgyvr.runner.request_timeout`).
+    #
+    #
     timeout_s = unit.request_timeout_s
 
     def rung(call: RungCall) -> RungReply:
@@ -91,7 +75,7 @@ def bind(config: Config, *, journal_dir: Path, pool: SourceMap | None = None) ->
             ),
             capacity=capacity,
         )
-        if completion is None:  # the role was bound a moment ago
+        if completion is None:  #
             raise UnboundRoleError(
                 f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
             )
@@ -110,7 +94,7 @@ def bind(config: Config, *, journal_dir: Path, pool: SourceMap | None = None) ->
         decision = classify_role(
             resolved, JEV_ROLE, state, questions, capacity=capacity
         )
-        if decision is None:  # the role was bound a moment ago
+        if decision is None:  #
             raise UnboundRoleError(f"the {JEV_ROLE!r} role has no unit to answer")
         return decision
 
@@ -131,7 +115,7 @@ def bind(config: Config, *, journal_dir: Path, pool: SourceMap | None = None) ->
 
 
 def facade(bound: Bound) -> serve.Facade:
-    """The server's facade over ``bound``: the loop, and the transcript observing it."""
+    ""
 
     def respond(request: MessagesRequest) -> loop.Turn:
         return loop.respond(

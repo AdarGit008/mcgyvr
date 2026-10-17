@@ -1,23 +1,4 @@
-"""The frames the agent's sessions and relays send on their own, waiting their turn.
-
-A command's answer is sent when its handler returns; everything else a
-session or a relay says (a session became ready, a relayed answer's chunks,
-its end) is said later, from a thread of its own, and goes here. The agent
-takes frames out between reads of its channel, at no more than its frame
-rate (:mod:`mcgyvr.rig.agent`); a put wakes the agent from a read that waits
-(the ``wake`` the box is opened with), so a frame goes out at once rather than
-when the read's timeout ends.
-
-The box is bounded, and a put waits while it is full: a relay that streams
-faster than the channel carries stops reading its upstream, which is the
-backpressure. While the channel is down the box is closed: a put is refused
-at once and what was waiting is dropped, since it was said to a hub that is
-no longer listening (the hub asks again after a reconnect).
-
-A frame is its text, or what makes its text when the agent takes it to send
-(:data:`Frame`): a relay's frame of an answer is filled then, with all its
-head wrote while the frame waited (:mod:`mcgyvr.rig.relay`).
-"""
+""
 
 from __future__ import annotations
 
@@ -26,15 +7,15 @@ import time
 from collections import deque
 from collections.abc import Callable
 
-#: How many frames wait at most before a put waits too.
+#
 CAPACITY = 256
 
-#: A frame that waits: its text, or what makes it once, when it is sent.
+#
 type Frame = str | Callable[[], str]
 
 
 class Outbox:
-    """A bounded, closable queue of frames to send."""
+    ""
 
     def __init__(self, capacity: int = CAPACITY) -> None:
         self._frames: deque[Frame] = deque()
@@ -44,15 +25,14 @@ class Outbox:
         self._wake: Callable[[], None] | None = None
 
     def open(self, wake: Callable[[], None] | None = None) -> None:
-        """Take frames: the channel is up. ``wake`` is called after each put,
-        outside the box's lock, to have the sender send at once."""
+        ""
         with self._changed:
             self._open = True
             self._wake = wake
             self._changed.notify_all()
 
     def close(self) -> None:
-        """Refuse frames and drop those waiting: the channel is down."""
+        ""
         with self._changed:
             self._open = False
             self._wake = None
@@ -60,8 +40,7 @@ class Outbox:
             self._changed.notify_all()
 
     def put(self, frame: Frame, timeout: float | None = None) -> bool:
-        """Queue ``frame``; ``False`` when the box is closed, or stayed full
-        for ``timeout`` seconds."""
+        ""
         deadline = None if timeout is None else time.monotonic() + timeout
         with self._changed:
             while self._open and len(self._frames) >= self._capacity:
@@ -79,7 +58,7 @@ class Outbox:
         return True
 
     def take(self) -> Frame | None:
-        """The next frame to send, or ``None``."""
+        ""
         with self._changed:
             if not self._frames:
                 return None
@@ -88,6 +67,6 @@ class Outbox:
             return frame
 
     def pending(self) -> bool:
-        """Whether a frame waits."""
+        ""
         with self._changed:
             return bool(self._frames)

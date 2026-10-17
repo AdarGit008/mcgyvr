@@ -1,40 +1,4 @@
-"""A serving unit is one process: a host, a model, an engine and its arguments.
-
-The ladder is a routing structure and the unit is a running process, and this
-module exists because the two were being conflated. Several rungs may name one
-model on one host — a cheap rung and its retry, a fast lane and a careful one —
-and treating each as something to start loads one set of weights twice onto one
-card. That is how a 6 GB rig runs out of memory while the config looks correct.
-So a unit is keyed by what actually determines a process (host, model, engine
-and the port it answers on) and the rungs that resolve to it are carried *on*
-it, as names. Two rungs reaching one URL are one process; two rungs reaching
-two ports on one host are two, whatever else they have in common.
-
-What a unit deliberately does not carry is policy. There is no queue here and
-no schedule: how many requests are in flight against a source is
-:mod:`mcgyvr.capacity`'s, dispatch order is :mod:`mcgyvr.route`'s, and starting
-anything at all is the operator's — :mod:`mcgyvr.emit` writes a file and stops.
-A unit is a *launch spec*, which is why it can be built on a laptop for a rig
-it has never touched.
-
-The host memory a llama.cpp server holds beyond the experts it keeps on the
-host is read off neither a :class:`~mcgyvr.scan.Scan` nor the model's GGUF
-header: it is an estimate shipped with mcgyvr that the user can set
-(:mod:`mcgyvr.derived`). Free VRAM decides a fit; total VRAM decides nothing.
-And a model too big for the card is not automatically a model the machine
-cannot serve: an MoE spills its experts to RAM, so fit is a question about a
-*machine* — card, memory and disk together — not about a GPU.
-
-The card arithmetic is :mod:`mcgyvr.serving.vramfit`'s, applied here and not
-restated. What a placement costs is the non-expert weights, the cache and the
-recurrent state the header implies for this many slots, one scratch allowance,
-and the expert blocks left on the card — summed block by block from the
-tensor table, never averaged. The geometry that feeds it is one ``ggufscan``
-row (:attr:`ModelSpec.geometry`), and a model nobody has scanned is not sized
-from anything else: an MoE without its geometry is refused and told where to
-get one, and a dense model without it is served on the scalar figures its
-spec states, one slot wide.
-"""
+""
 
 from __future__ import annotations
 
@@ -53,256 +17,178 @@ from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
 
-# The engine a unit gets when nothing says otherwise. A source's ``api`` is a
-# wire protocol (:class:`mcgyvr.local_pool.Protocol`) and cannot answer this: vLLM
-# and llama-server both speak ``openai`` and take entirely different argv.
+#
+#
+#
 DEFAULT_ENGINE = "llama.cpp"
 
-#: The engines this build has a sizing law and a launch spec for. ``fit`` and
-#: ``unit_for`` refuse any engine outside it by name rather than apply a text
-#: engine's law or invent a number nobody measured.
+#
+#
+#
 KNOWN_ENGINES = ("llama.cpp", "vllm", "diffusers", "tts", "comfyui")
 
-#: The media engines this build sizes and renders. Each is served by the
-#: operator's container image — mcgyvr ships no media server image or shell
-#: binary — sized from stated numbers with no text-engine law, and mounted at
-#: its own weights directory.
+#
+#ll
+#at
+#
 MEDIA_ENGINES = ("diffusers", "tts", "comfyui")
 
-#: Media engines this build names at the serving seam but does not yet size or
-#: render. A unit declaring one is refused by name rather than sized with a
-#: text engine's law or rendered into another engine's launch spec. All the
-#: media engines are wired now; an unwired one slots in here.
+#
+#
+#
+#
 MEDIA_ENGINES_NOT_WIRED: tuple[str, ...] = ()
 
-# There is no module-level context number. ``ctx_per_slot`` is threaded from
-# the run's own declaration through every reader that prices a cache against
-# it -- :func:`units_for`, :func:`unit_for`, :func:`fit`, :func:`_placement` --
-# and a unit with no window from the config or the run is refused
-# (:func:`_window_for`).
 #
-# llama-server's ``-c`` is the total across slots, so the argv states the
-# declaration times the slot count and the cache law is fed the same product.
+#
+#
+#
+#
+#
+#
+#
 
-# The micro-batch the cache law is sized at, and what the argv states as
-# ``-ub`` and ``-b``. A sliding-window cache grows with it, so it has to be the
-# number :func:`vramfit.kv_bytes` saw: stated rather than left to the engine,
-# whose default the law would otherwise be guessing at.
+#
+#
+#
+#
 DEFAULT_UBATCH = 512
 
-# llama.cpp's own default port — what the engine would bind if nothing said
-# otherwise. It is the fallback and never a preference: a unit built from a
-# ladder takes its port from the source URL, and this number only stands in
-# where nobody wrote one down, so stating it costs nothing and changes nothing.
+#id
+#
+#
+#
 DEFAULT_PORT = 8080
 
-# What a launch spec's file is called. Spelled here rather than in
-# :mod:`mcgyvr.emit`, which imports this module and cannot be imported back:
-# :func:`cards` has to name the file a host's spec is kept in and is
-# deliberately reachable without a scan, so the convention has to live on this
-# side of that import. :mod:`mcgyvr.emit` re-exports both names.
+#
+#
+#
+#
+#
 COMPOSE_PREFIX = "compose."
 COMPOSE_SUFFIX = ".yml"
-#: The compose profile a unit that starts asleep is written under
-#: (``units.<u>.role: sleeps-until-needed``). A whole ``docker compose up``
-#: starts no service that names a profile; naming the service starts it
-#: (``serve up --unit``), which is how the ladder manager wakes it.
+#
+#
+#
+#
 SLEEPER_PROFILE = "asleep"
 
-# What a host or a model may be spelled as inside a file name. The one regex,
-# used by :func:`spec_name` for the file and by :mod:`mcgyvr.emit` for the
-# compose service and container names, so that a host cannot be one string in
-# the name of the file and another in the name of the container inside it.
+#
+#
+#
+#
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
-# What system memory holds beyond the offloaded experts themselves — context,
-# compute buffers, and the copy paths that do not live on the card — is a
-# figure of the unit's own engine, charged by :func:`_host_gb` only where
-# experts actually spill: a model held entirely on the card is not paying it,
-# and a dense model has no spill to pay it for. It is not a literal here. For
-# llama.cpp it is an estimate shipped with mcgyvr and settable by the user,
-# looked up by :func:`mcgyvr.derived.runtime_resident_gb`, and where no layer
-# states it the sizing is refused: this number has no default in code. An
-# engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its figure to be
-# read on the user's machine and none shipped: until it is read no layer is
-# asked for it, none is charged, and every fit of its units says so
-# (:data:`HOST_FIGURE_NOT_READ`).
-
-# Held back from host RAM, on top of whatever the model needs, for the same
-# reason :data:`vramfit.SCRATCH_AND_CONTEXT_MIB` is held back from the card:
-# the page cache needs room to work and the host has its own processes.
+#t,
+# a
 #
-# There are two of these, because :func:`fit` asks host RAM two questions in a
-# row: they compare different figures and they fail differently (the lab's
-# ram-headroom measurement).
-
-# The **mode** gate, weighed against the *blob*: what has to be clear before
-# llama.cpp is left to map the weights rather than told ``--load-mode none``.
-# Mapping with less than this clear costs wake time; decode did not move (the
-# lab's ram-headroom measurement). Not zero: the process
-# holds host RAM beyond the blob, the runtime :func:`_host_gb` charges.
 #
-# The unmapped arm costs the card more than the mapped one and :func:`fit`
-# does not charge it (the lab's fleet-gaps measurement, M1).
+#
+#
+#
+#
+#
+#
+#
+#
+
+#
+#
+#
+#
+#
+#
+#
+
+#
+#
+#
+#
+#
+#
+#
+#
 MODE_RAM_HEADROOM_GB = 0.5
 
-# The **refusal** gate, weighed against the *spilled experts*: what has to be
-# clear before this module will admit the model to the host at all. The experts
-# stay resident while the server serves, and a host short of them serves every
-# request off swap with nothing reporting an error -- under ``--load-mode
-# none`` too, because the experts are shared anonymous memory, which the
-# kernel can swap out. 2.0 and not smaller: against the experts, decode holds
-# at the smallest positive clearance the sweep sampled and collapses at the
-# first negative one, and nothing between the two was sampled (the lab's
-# ram-headroom measurement).
+#
+#
+#
+#
+#
+#
+#
+#
+#
 REFUSAL_RAM_HEADROOM_GB = 2.0
 
-# The widest slot count :func:`_placement` derives when nobody wrote a width.
-MAX_WIDTH = 32
-# vLLM sizes its own cache from ``--gpu-memory-utilization`` and prices a
-# request against ``--max-model-len``, so that ceiling is what a vLLM unit
-# states and the cache law is not consulted. It is the run's ``ctx_per_slot``
-# and not a second opinion about window size. The utilisation itself is the
-# operator's, in ``serve_args``.
 #
-# The sequence cap a vLLM unit gets when no rung wrote a width. A scheduler
-# cap, not an allocation — the engine's cache decides how many actually run
-# — so unlike a llama.cpp slot it costs nothing to state, and 8 is what every
-# driver on these rigs has started vLLM with.
+MAX_WIDTH = 32
+#
+#
+#
+#
+#
+#
+#
+#un
+#ry
+#
 VLLM_DEFAULT_SEQS = 8
-# Where the rig's HuggingFace cache appears inside a vLLM container: the
-# image's own default, so the model id resolves there with no further flag.
+#
+#
 HF_CACHE_MOUNT = "/root/.cache/huggingface"
 
-# How far a stated ``disk_gb`` may sit from the scanned ``size_bytes`` and
-# still be the same figure written to two decimals. Past it they are two
-# claims about one file, and the rule is that each deviation from a scan
-# requires a new scan — not a tie-break in favour of whichever was typed last.
+#
+#
+#
+#t.
 SIZE_TOLERANCE_GB = 0.005
 
-#: What ``units.<unit>.launch.speculative`` may say. ``mtp`` is llama.cpp's
-#: ``--spec-type draft-mtp``: the GGUF's own grafted multi-token-prediction
-#: head run as the draft, with no second model to load. Measured on a
-#: 12 GB RTX 3060 at +26.5% decode at width 1 and +22.0% at width 2
-#: with acceptance ~0.90, and on an offload-bound 6 GB card at +20.5% at
-#: width 1 and -10.0% at width 2 -- the win is a fact about a card with room
-#: for the head, not about the model (the lab's mtp-ornith measurement,
-#: section 2).
+#
+#
+#
+#
+#
+#
+#
+#
 SPECULATIVE_NONE = "none"
 SPECULATIVE_MTP = "mtp"
 SPECULATIVE_CHOICES = (SPECULATIVE_NONE, SPECULATIVE_MTP)
-#: The draft width the evidence ran, ``--spec-draft-n-max 2``. Every measured
-#: MTP row in the record is at 2; a wider draft is a number nobody measured.
+#
+#
 DEFAULT_SPEC_DRAFT_N_MAX = 2
 
 _BYTES_PER_GIB = 1024**3
 
-#: What a process is to the model it serves (:attr:`Unit.role`). A model split
-#: across machines is several processes: the one that answers requests, and on
-#: every other machine one that lends its cards to it.
+#
+#
+#
 ROLE_SERVE = "serve"
 ROLE_RPC = "rpc"
 ROLE_HEADLESS = "headless"
 ROLES = (ROLE_SERVE, ROLE_RPC, ROLE_HEADLESS)
 
-#: The ``launch`` key that splits a unit across cards: the cards it spans, the
-#: first on the machine its address points at (:func:`_sharded_units`).
+#
+#
 SHARDS_KEY = "shards"
-#: The port llama.cpp's ``rpc-server`` listens on when nothing tells it
-#: otherwise: the first worker port a split uses unless ``launch.rpc_port``
-#: says another.
+#
+#
+#
 RPC_DEFAULT_PORT = 50052
-#: The rendezvous port vLLM's multi-node launch uses when nothing tells it
-#: otherwise, stated so every node is told the same one; ``launch.master_port``
-#: says another.
+#
+#
+#
 VLLM_MASTER_PORT = 29501
 
 
 class UnitError(Exception):
-    """A serving unit could not be built for a host, a model or a rung."""
+    ""
 
 
 @dataclass(frozen=True)
 class ModelSpec:
-    """What a model costs, in the three places a machine can run out.
-
-    ``geometry`` is the model's own account of itself: one row of
-    ``python -m mcgyvr.serving.ggufscan <gguf>`` (or the ``geometry.json`` a
-    serving-door run leaves in its envelope), carrying the tensor table summed
-    per block, the cache geometry per layer and the recurrent-state
-    parameters. When it is present it is the source of truth for the model's
-    bytes. ``disk_gb`` is read from its ``size_bytes``, ``moe`` from whether it
-    has placeable expert blocks, and the card figure from the law in
-    :mod:`mcgyvr.serving.vramfit`. A spec that states a ``disk_gb`` the
-    geometry disagrees with is refused at construction rather than reconciled,
-    and so is a geometry scanned from a file this spec does not name: each
-    deviation from a scan requires a new scan, because the alternative is a
-    number measured once on some other file that looks measured here.
-
-    Without it the spec is scalar. ``vram_gb`` is then the working set on the
-    card — what it holds with nothing offloaded, which is not the same as the
-    weights on disk, because a working set carries buffers — and ``disk_gb``
-    is those weights. That is enough to place a dense model on one slot and
-    nothing more: an MoE has a knob for *where* its weights sit, the knob is
-    priced per block from the tensor table, and no scalar stands in for a
-    tensor table. :func:`fit` refuses an MoE without its geometry and says
-    where to get one. ``vram_gb`` is not read when a geometry is present.
-
-    ``ram_gb`` is a floor on what system memory may be asked to hold: zero for
-    a dense model, which has nowhere to spill to, and for an MoE whatever an
-    operator knows that this module cannot see. How much actually spills is
-    derived per machine by :func:`fit`.
-
-    ``vae_decode_gb`` is the one-shot VAE decode spike a diffusers image unit
-    adds to its card peak (c-01). It is stated, and its default of 0.0 means
-    none was stated, so none is charged: a spike nobody measured or stated is
-    never invented.
-
-    ``cpu_only`` is the marker a TTS row carries for a Piper-class rung that
-    needs no card (d-01): the unit claims no GPU, its fit charges no card, and
-    the compose service carries no device reservation. Stated, default False.
-
-    ``moe`` is not cosmetic and not inferable from the scalar numbers: it says
-    the model has a knob for *where* its weights sit, which is the difference
-    between "does not fit" and "fits differently on this machine". Every unit
-    in this module is in GiB, which is the convention
-    :data:`mcgyvr.detect.MIB_PER_GB` sets; a caller holding decimal GB converts
-    before it builds a spec.
-
-    ``geometry`` takes no part in equality or hashing. Two specs naming one
-    file at one size are one spec; the geometry is a reading of that file, not
-    a further fact about it.
-
-    ``hf_cache`` is where a vLLM or diffusers model's weights are on the rig
-    — the HuggingFace cache a repository id resolves in — and ``serve_args`` is
-    what the server needs said that no scan can derive: the utilisation vLLM
-    sizes its cache from, or the template argument that turns a thinking
-    model's reasoning off. Both are the operator's, read off the unit
-    (``units.<unit>.hf_cache``, ``units.<unit>.launch.serve_args``), and both
-    ride on the spec because they are facts about serving this model and not
-    about any machine.
-
-    ``kv_cache_dtype_k`` and ``kv_cache_dtype_v`` are the KV cache dtypes the
-    model launches with, read off the unit's ``launch`` block. vLLM takes one
-    value for K and V (``--kv-cache-dtype``), so only the K field is read
-    there; llama.cpp takes the two independently (``-ctk``/``-ctv``). A unit
-    served by either engine that omits the declaration is refused at
-    :func:`unit_for` rather than defaulted: a dtype nobody wrote is a number
-    nobody chose.
-
-    ``speculative`` and ``spec_draft_n_max`` are the ``launch`` block's
-    ``speculative`` (:data:`SPECULATIVE_CHOICES`) and ``spec_draft_n_max``:
-    whether llama.cpp runs the GGUF's grafted MTP head as its draft
-    (``--spec-type draft-mtp``) and how many tokens it drafts per step
-    (``--spec-draft-n-max``). Meaningful to llama.cpp alone; a vLLM unit that
-    declares ``mtp`` is refused by name at :func:`unit_for`. The head is a
-    fact of the tensor table, so a unit declaring it is sized with the head on
-    the card (:func:`vramfit.mtp_head_bytes`) and a scan with no nextn block is
-    refused: a name says nothing about whether a GGUF carries one, and every
-    hardware-fitting stock GGUF scans zero MTP tensors. A value outside the two
-    the build knows, or a draft width below one, is refused here rather than
-    passed to an engine that would refuse it later and less clearly.
-    """
+    ""
 
     name: str
     vram_gb: float
@@ -368,115 +254,85 @@ class ModelSpec:
 
 @dataclass(frozen=True)
 class Width:
-    """A slot count, and whether anyone actually said it.
-
-    A width mcgyvr derived from a card and a width an operator wrote in the
-    config are different facts, and a unit that lost the difference could not
-    explain itself. ``how`` is ``"written"`` only when the caller stated the
-    number; ``"derived"`` when the cache law sized it against the card; and
-    ``"default"`` for a spec with no geometry to price a second slot from —
-    one slot, because the per-slot cost is the law's and the law needs the
-    header. Write ``width`` on the unit, or supply the geometry, to be wider
-    than that.
-    """
+    ""
 
     value: int
     how: str
 
 
-#: What every fit of a unit whose engine's host memory figure is to be read on
-#: the machine (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`) says while no
-#: reading exists, whether the unit fits or is refused: that the host memory
-#: its server holds beyond the weights has not been read and none is charged
-#: for it. It names vLLM, the one engine of that tuple.
+#
+#
+#
+#
+#
 HOST_FIGURE_NOT_READ = (
     "vLLM host memory beyond the weights: not read on this machine; "
     "none is charged for it"
 )
 
-#: What that line adds when the user's own numbers file sets the figure all
-#: the same: the setting is not charged either. ``where`` is the file.
+#
+#
 HOST_FIGURE_SETTING_NOT_USED = "your setting in {where} is not used by the sizing"
 
-#: What that line adds instead when the user's own numbers file cannot be read:
-#: ``why`` is its refusal, which names the file.
+#
+#
 HOST_FIGURE_SETTING_UNKNOWN = "whether your own numbers set it is not known: {why}"
 
 
 @dataclass(frozen=True)
 class Fit:
-    """Whether this machine can hold this model right now, and why.
-
-    ``headroom_gb`` is what was held back on the card rather than what was
-    left over: the reserve is the claim being made. For a spec with a
-    geometry it is :data:`vramfit.SCRATCH_AND_CONTEXT_MIB`, the one allowance
-    inside the card figure — compute scratch and the allocation the engine
-    never names, everything else in that figure being read from the header.
-    For a scalar spec it is :data:`mcgyvr.propose.DEFAULT_HEADROOM_GB`, held
-    back on top of the stated working set.
-    """
+    ""
 
     fits: bool
     headroom_gb: float
     why: str
-    #: The card figure this fit was judged on, in GiB — the predicted figure
-    #: for a scanned model, the stated working set for a scalar one, zero for
-    #: a refusal. Carried so that the units on one host can be summed: each
-    #: fitting alone is how a 12 GB card ends up asked for 13.
+    #re
+    #
+    #
+    #
     vram_gb: float = 0.0
-    #: What this fit commits *host* memory to, in GiB, on the arm it took: the
-    #: blob a mapped unit wants in page cache, the experts an unmapped one
-    #: allocates outright, and zero for a unit with nothing to spill, whose
-    #: pages are clean the moment they are uploaded to the card. Which of the
-    #: three it is depends on ``load_mode``, which is why the figure is settled
-    #: here and not recomputed: a sum taken before the modes are picked would
-    #: be summing the wrong numbers (F2.1, the lab's fleet-shape formulas).
-    #: Carried for the same
-    #: reason ``vram_gb`` is — every unit on a host clearing the same
-    #: ``MemAvailable`` alone is how a 15 GB host is asked for 26.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #me
+    #
     ram_gb: float = 0.0
-    #: How llama.cpp must read the weights for this fit to hold, or ``None``
-    #: where the engine's own default (mmap) is what was approved. A fit that
-    #: admitted a model on the unmapped arm approved a different launch from
-    #: the one that fits mapped, so the mode is part of what was approved and
-    #: :func:`unit_for` writes it into the argv rather than deriving it again.
+    #
+    #
+    #
+    #
+    #
     load_mode: str | None = None
-    #: Free VRAM on the card this fit was judged against, in GiB, as the scan
-    #: read it. Carried because :func:`launch_specs` has to decide which units
-    #: can be on that card *at the same time* and is handed units and nothing
-    #: else — ``emit_all(units, root)`` is a function of its units, and a cut
-    #: that needed a second scan would make every caller carry one, the wake
-    #: path included, which is the thing D1 exists to avoid (the lab's
-    #: sleep-wake plan, §3).
-    #:
-    #: Zero means nobody measured it, which claims nothing: a unit built by
-    #: hand is not evidence that two units contend, and inventing a contention
-    #: there would move files for every fleet that was never sized. That is the
-    #: same rule :func:`hold_together` takes for a host with no memory reading
-    #: and :mod:`mcgyvr.scan` takes throughout.
+    #
+    #
+    #
+    #ut
+    #
+    #
+    #.
+    #
+    #
+    #
+    #
+    #
+    #
     card_free_gb: float = 0.0
-    #: What this fit says beside its answer, one line each, also at the end of
-    #: ``why``: :data:`HOST_FIGURE_NOT_READ` on every fit of a unit whose
-    #: engine's host memory figure is to be read on the machine, and nothing
-    #: otherwise. ``mcgyvr emit`` prints each before it writes or checks
-    #: anything, because ``why`` reaches a user only in a refusal.
+    #
+    #
+    #
+    #
+    #
     notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class UnitKey:
-    """What makes two units the same process rather than two.
-
-    The engine is part of it because the same weights under llama.cpp and
-    under vLLM are two servers, two ports and two copies of the weights in
-    memory. The port is part of it for the same reason read the other way: a
-    fast lane and a careful lane can name one model on one host and still be
-    two ``llama-server`` processes, because their two source URLs promise two
-    ports and a process listens on one. Merged into a single unit, the second
-    port has nothing behind it — one container is emitted, the rung pointing at
-    the other gets connection refused, and the config that says so reads as
-    correct. The rung is not part of it, which is the whole point.
-    """
+    ""
 
     host: str
     model: str
@@ -490,16 +346,7 @@ class UnitKey:
 
 @dataclass(frozen=True)
 class Unit:
-    """One process to start: where, what, how, and which rungs it serves.
-
-    Everything the emit layer needs is here and nothing it would have to
-    invent — the card index came from the scan, the weights path from the disk
-    the scan measured, ``port`` from the URL the ladder reaches this process
-    at, and ``args`` is the argv as flag → value, already sized for this
-    machine.
-
-    There is no queue and no schedule on purpose. See the module docstring.
-    """
+    ""
 
     key: UnitKey
     host: str
@@ -512,48 +359,48 @@ class Unit:
     fit: Fit
     port: int = DEFAULT_PORT
     rungs: tuple[str, ...] = ()
-    #: The container image the source pinned, or ``None`` for the engine's
-    #: default. A vLLM or diffusers unit's ``weights`` is the HuggingFace
-    #: cache directory itself, and ``extra`` is the spec's ``serve_args``,
-    #: appended verbatim.
+    #
+    #
+    #
+    #
     image: str | None = None
     extra: tuple[str, ...] = ()
-    #: Whether this unit runs on the CPU alone and claims no card — a
-    #: Piper-class TTS rung. Its fit charges no VRAM, its compose service
-    #: carries no device reservation, and it never contends for a card.
+    # a
+    #
+    #
     cpu_only: bool = False
-    #: The VRAM this unit reserves as a resident, in GiB. Set only on the
-    #: local orchestrator unit: its card figure is claimed before the ladder
-    #: is sized, so co-residency sums against the full card, not the reduced
-    #: figure the ladder recorded (:func:`_card_free_gb`).
+    #
+    #
+    #
+    #
     resident_claim_gb: float = 0.0
-    #: Every card this process holds, in the order its engine numbers them,
-    #: when it holds more than :attr:`gpu` alone -- a model split across the
-    #: cards of one machine (:mod:`mcgyvr.serving.sharding`). Empty means
-    #: ``(gpu,)``; :attr:`cards` reads it either way.
+    #
+    #
+    #
+    #
     gpus: tuple[int, ...] = ()
-    #: What this process is to the model it serves: :data:`ROLE_SERVE` answers
-    #: requests; :data:`ROLE_RPC` is a llama.cpp ``rpc-server`` lending one
-    #: card to a server on another machine; :data:`ROLE_HEADLESS` is a vLLM
-    #: node that runs its ranks and answers nothing.
+    #
+    #
+    #
+    #
     role: str = ROLE_SERVE
-    #: Environment the engine reads beside its argv, for what it takes no
-    #: flag for: the order it numbers cards in, a pipeline's layer split.
+    #
+    #
     env: Mapping[str, str] = field(default_factory=dict)
-    #: Whether this process starts asleep: a swap partner
-    #: (``units.<u>.role: sleeps-until-needed``) that shares its card's launch
-    #: spec with the always-on units and is left down by a whole ``serve up``
-    #: (:data:`SLEEPER_PROFILE`).
+    #
+    #
+    #
+    #
     asleep: bool = False
 
     @property
     def cards(self) -> tuple[int, ...]:
-        """Every card this process holds."""
+        ""
         return self.gpus or (self.gpu,)
 
     @property
     def weights_dir(self) -> Path:
-        """The directory to mount; the container sees the file inside it."""
+        ""
         if self.engine == "vllm" or self.engine in MEDIA_ENGINES:
             return self.weights
         return self.weights.parent
@@ -567,49 +414,7 @@ def fit(
     width: int | None = None,
     ctx_per_slot: int,
 ) -> Fit:
-    """Whether ``scan``'s machine can hold ``spec``, measured not declared.
-
-    Four refusals, checked in the order that makes the message useful. A spec
-    this module cannot size comes first, because it is a fact about the
-    catalogue rather than about the machine and no amount of hardware answers
-    it. Disk is next because weights that are not on the machine cannot be
-    loaded however much memory there is, and a report that says "needs more
-    VRAM" about a model that was never downloaded sends someone to the wrong
-    shop. The card and memory are then one question asked of one
-    :func:`_placement`: the lowest offload the card admits decides what
-    memory is asked to hold, so a card that admits none is refused as a card
-    and a spill the host cannot hold is refused as memory.
-
-    A name outside :data:`KNOWN_ENGINES` is refused before any of that, by
-    name; a unit of an engine in :data:`MEDIA_ENGINES` takes the media sizing
-    path, which prices no window, cache or offload.
-
-    ``width`` is the slot count the unit will be emitted at, when someone
-    wrote one. The cache and the recurrent state are priced per slot, so the
-    floor the argv carries depends on it, and a fit checked at another width
-    is a fit for another process. That is the point of this function: checking
-    a number here that the emitted argv does not honour is how a fit says yes
-    to an offload the machine cannot hold, which is a compose file that passes
-    review and swaps the host.
-
-    ``ctx_per_slot`` is the window the run declared, and it has no default
-    here for the reason stated at the top of this module: the cache is priced
-    against it, so a fit checked at one window and an argv emitted at another
-    is a fit for another process — the same defect ``width`` is required to
-    avoid, one field over.
-
-    ``engine`` is the engine the unit is served by, and it has no default
-    either: the host memory a spill carries beyond the experts is a figure of
-    the unit's own engine (:func:`_host_gb`), and a default would size every
-    other engine's unit with llama.cpp's. Every fit of a unit whose engine's
-    figure is to be read on the machine
-    (:data:`mcgyvr.derived.RUNTIME_RESIDENT_READ`)
-    carries :data:`HOST_FIGURE_NOT_READ` in :attr:`Fit.notes` and at the end of
-    ``why``, whether it fits or is refused.
-
-    Never raises. An unmeasurable machine is a machine nothing is claimed
-    about — the same rule :mod:`mcgyvr.scan` runs on.
-    """
+    ""
     if engine not in KNOWN_ENGINES:
         return Fit(
             fits=False,
@@ -627,15 +432,7 @@ def fit(
 
 
 def _host_figure_notes(engine: str) -> tuple[str, ...]:
-    """What a fit of a unit of ``engine`` says of its host memory figure.
-
-    Nothing for an engine whose figure is shipped. For one whose figure is read
-    on the machine, :data:`HOST_FIGURE_NOT_READ`, and, where the user's own
-    numbers file sets that figure, :data:`HOST_FIGURE_SETTING_NOT_USED` after
-    it. A numbers file that cannot be read is named in the line with its
-    refusal (:data:`HOST_FIGURE_SETTING_UNKNOWN`): nothing in it is used for
-    this engine, so the unit is not refused.
-    """
+    ""
     if engine not in derived.RUNTIME_RESIDENT_READ:
         return ()
     try:
@@ -657,7 +454,7 @@ def _sized(
     width: int | None,
     ctx_per_slot: int,
 ) -> Fit:
-    """:func:`fit`'s answer, before it says anything of the host memory figure."""
+    ""
     free_bytes = _free_vram_bytes(scan)
     free_vram = free_bytes / _BYTES_PER_GIB
     available_ram = scan.memory.available_gb if scan.memory else 0.0
@@ -689,25 +486,25 @@ def _sized(
         )
     except UnitError as exc:
         return Fit(fits=False, headroom_gb=_allowance_gb(spec), why=str(exc))
-    # Host RAM has two arms, because how much of the model has to be resident
-    # depends on how llama.cpp is told to read it. Under mmap — the engine's
-    # default — every page is file-backed, the CPU-side experts included, so
-    # the kernel may evict them and re-read them per token: the blob is the
-    # figure that has to fit. Under `--load-mode none` only the spilled experts
-    # are resident, as anonymous memory nothing can take back. Neither mode is
-    # the better one in general — measured +63% on a rig too tight for its blob
-    # and -12% on one with room to map it (the lab's moe-expert-offload
-    # measurement) — which is why the rig decides it and not a default.
     #
-    # A model with nothing to spill has no arm to take: its weights are the
-    # card's, the pages it reads are clean the moment they are uploaded, and
-    # host RAM is not a constraint on it at all.
+    #'s
+    #so
     #
-    # The two margins are two constants and not one, because the two arms fail
-    # differently: mapping short of the blob costs a bounded, one-off wake, and
-    # spilling short of the experts costs two thirds of decode with nothing
-    # anywhere reporting an error. See :data:`MODE_RAM_HEADROOM_GB` and
-    # :data:`REFUSAL_RAM_HEADROOM_GB`.
+    #
+    #
+    #ob
+    #
+    #t.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     load_mode: str | None = None
     if placed.ram_gb and spec.disk_gb + MODE_RAM_HEADROOM_GB > available_ram:
         if placed.ram_gb + REFUSAL_RAM_HEADROOM_GB > available_ram:
@@ -759,10 +556,10 @@ def _sized(
         if load_mode
         else ""
     )
-    # What the host is now committed to, on the arm just chosen: the experts
-    # where they are allocated, the blob where the kernel is being asked to
-    # cache it, nothing where nothing spills. One unit's figure, so that
-    # :func:`hold_together` can add up a host's without deciding a mode twice.
+    #
+    #
+    #
+    #
     if not placed.ram_gb:
         wants_ram = 0.0
     elif load_mode == "none":
@@ -784,16 +581,7 @@ def _sized(
 
 
 def _sized_media(scan: Scan, spec: ModelSpec, *, engine: str) -> Fit:
-    """Whether ``scan``'s machine can hold a media unit.
-
-    A media unit prices no context window, no KV cache, no offload knob and no
-    load mode. Its card peak is the stated working set — for a diffusers image
-    unit, plus the one-shot VAE decode spike; a ``cpu_only`` unit (a
-    Piper-class TTS rung) claims no card at all. Its host claim is the stated
-    ``ram_gb`` (the once-per-run components offloaded to RAM, c-03), charged
-    directly against ``MemAvailable`` with no text-engine margin. All stated,
-    so a figure nobody stated is never invented.
-    """
+    ""
     free_vram = _free_vram_bytes(scan) / _BYTES_PER_GIB
     available_ram = scan.memory.available_gb if scan.memory else 0.0
     if scan.disk is not None and spec.disk_gb > scan.disk.free_gb:
@@ -842,14 +630,7 @@ def _sized_media(scan: Scan, spec: ModelSpec, *, engine: str) -> Fit:
 
 
 def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
-    """The KV cache dtypes a unit must state, refused by name when absent.
-
-    vLLM takes one value for K and V (``--kv-cache-dtype``), so only the K
-    field is required there and the V field is not read. llama.cpp takes the
-    two independently (``-ctk``/``-ctv``). Every missing knob is named in the
-    one message, so a fix that binds one does not land on the next refusal for
-    the other.
-    """
+    ""
     kv_k = spec.kv_cache_dtype_k
     kv_v = spec.kv_cache_dtype_v
     if engine == "vllm":
@@ -878,12 +659,7 @@ def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
 
 
 def _engine_not_wired(name: str, engine: str) -> str:
-    """Why an engine this build has no sizing law or launch spec for is refused.
-
-    mcgyvr will not size or render a unit for an engine it has no law or launch
-    spec for rather than apply a text engine's law or invent a number nobody
-    measured.
-    """
+    ""
     return (
         f"{name}: engine {engine!r} is not wired in this build; mcgyvr will not "
         "size or render a unit for an engine it has no law or launch spec for "
@@ -900,22 +676,7 @@ def unit_for(
     port: int = DEFAULT_PORT,
     ctx_per_slot: int,
 ) -> Unit:
-    """The one process that would serve ``spec`` on the machine ``scan`` measured.
-
-    A unit that cannot load is not a unit, so a spec this machine does not fit
-    is refused here with the fit's own reason rather than emitted and found out
-    by the loader.
-
-    ``port`` is where this process is expected to answer. A scan and a spec do
-    not know that — only a ladder does — so a unit built from those two alone
-    takes :data:`DEFAULT_PORT`, which is the number the engine would have
-    chosen anyway. :func:`units_for` is where the config's answer arrives.
-
-    ``ctx_per_slot`` is the window the run declared. It reaches the rig from
-    here two ways and only two — ``-c`` times the slot count on llama.cpp,
-    ``--max-model-len`` on vLLM — and the same number priced the cache the fit
-    approved, which is what makes the launch and the law one number.
-    """
+    ""
     if engine not in KNOWN_ENGINES:
         raise UnitError(_engine_not_wired(spec.name, engine))
     if engine in MEDIA_ENGINES:
@@ -970,9 +731,9 @@ def unit_for(
 
     gpu = _roomiest_gpu(scan)
     if engine == "vllm":
-        # vLLM has no offload knob this module prices and sizes its own cache
-        # from the utilisation the operator states, so the argv is the engine's
-        # two ceilings and nothing the cache law computed.
+        #
+        #
+        #
         if width is not None:
             seqs = Width(value=width, how="written")
         else:
@@ -996,9 +757,9 @@ def unit_for(
             rungs=(),
             extra=spec.serve_args,
         )
-    # The same derivation :func:`fit` just approved, not a second one that
-    # agrees today: an argv whose offload differs from the one the fit checked
-    # is a unit that was never sized for this machine.
+    #
+    #
+    #
     placed = _placement(
         spec,
         gpu.vram.free_mib << 20,
@@ -1015,12 +776,12 @@ def unit_for(
         chosen = Width(value=placed.width, how="default")
     weights = _weights_path(scan, spec)
 
-    # Flag → value throughout, which is the shape both renderings of a launch
-    # spec need; a valueless switch would have to be a special case in each of
-    # them, so anything that is one is not expressed here. ``-c`` is the total
-    # across slots and ``-ub``/``-b`` the micro-batch, stated because they are
-    # exactly the numbers the cache law was fed: an argv that left either to
-    # the engine would be sized for one cache and allocate another.
+    #ch
+    #
+    #
+    #
+    #
+    #
     args: dict[str, str] = {
         "--model": str(weights),
         "-ngl": "99",
@@ -1033,24 +794,24 @@ def unit_for(
         "-ctk": cache_type_k,
         "-ctv": cache_type_v,
     }
-    # A card roomy enough for every expert derives zero blocks, and
-    # ``--n-cpu-moe 0`` is a no-op printed into a file a person reads: it says
-    # this rig offloads experts when it does not, and invites tuning a number
-    # that was never in play.
+    #
+    #
+    #
+    #
     if placed.n_cpu_moe > 0:
         args["--n-cpu-moe"] = str(placed.n_cpu_moe)
-    # The head the fit charged, as the flags that load it: derived flags on
-    # the same mapping as the offload, so both renderings sort them with the
-    # rest. Absent under `none`, so a unit that declares nothing renders to
-    # the bytes it rendered before the key existed.
+    #
+    #
+    #
+    #
     if spec.speculative == SPECULATIVE_MTP:
         args["--spec-type"] = "draft-mtp"
         args["--spec-draft-n-max"] = str(spec.spec_draft_n_max)
-    # The mode the fit approved, never a second derivation: a unit read one
-    # way and sized another is exactly the drift `argv` exists to prevent, one
-    # flag over. Absent where the default (mmap) is what fits, because
-    # `--load-mode auto` printed into a file a person reads says a choice was
-    # made where none was.
+    #
+    #
+    #
+    #
+    #
     if sized.load_mode is not None:
         args["--load-mode"] = sized.load_mode
 
@@ -1077,83 +838,44 @@ def units_for(
     specs: Iterable[ModelSpec],
     ctx_per_slot: int | None,
 ) -> tuple[Unit, ...]:
-    """The processes a ladder implies, plus the local role units beside it.
-
-    Tiers are grouped, not iterated: every rung that resolves to the same
-    process is collected onto the one :class:`Unit` that serves it, and the
-    rung names ride along so a report can say what a process is for.
-
-    A rung whose host was never scanned raises rather than being skipped. This
-    module cannot size a unit for a machine nobody measured, and quietly
-    dropping the rung would emit a ladder that is missing a step someone wrote
-    down — a scan is the fix, and the error says so.
-
-    Each unit's port comes from the URL its source names, because that URL is a
-    promise about where the rung answers and a server that does not listen
-    there makes the config a lie. Left to the engine's default, a host carrying
-    two models is two processes both taking 8080 — one of which loses, silently
-    and after the file was written.
-
-    The port is therefore part of the key and not a property collected onto
-    one: two sources on one host serving one model — a fast lane on 8080 and a
-    careful one on 8081 — are two processes, and grouping them into a single
-    unit keeps the first port and drops the second. Nothing then listens where
-    the second rung is told to knock, and because the two URLs differ the
-    caller's port-contention check has nothing to complain about either. That
-    rung is dead in a ladder that reads as fine.
-
-    ``ctx_per_slot`` is the window this run is bringing the ladder up with, and
-    it is the *fallback*: a unit that declares ``window`` is emitted at the
-    window it declares. The declaration is a fact about the process —
-    read back off the running unit and written down — while the flag is what a
-    run says when nobody has written the fact down yet, and a number that
-    reaches a rig only from a flag is a number the recorded setup cannot see.
-    One flag also cannot describe a fleet whose units serve different windows.
-
-    Where both speak and disagree, neither wins: :func:`_window_for` refuses and
-    names the source and both numbers, which is the shape ``Capacity.of`` uses
-    for a width disagreement. A window that nobody states at all is still
-    refused, because the cache, the ``-c`` on the argv and the ``--n-cpu-moe``
-    floor are all priced against it and a window this module chose would be a
-    number nobody measured.
-    """
+    ""
     if ctx_per_slot is not None and ctx_per_slot < 1:
         raise UnitError(
             f"the declared context window is {ctx_per_slot}, which is not a "
             f"window: a slot serves at least one token"
         )
-    # The config wins over the table, and the precedence lives here rather than
-    # in the caller so that every caller gets it: measured where mcgyvr can
-    # measure, stated where it cannot, refused only when neither has an answer.
+    #
+    #
+    #
     catalogue = {spec.name: spec for spec in specs} | declared_models(config)
     grouped: dict[UnitKey, list[str]] = {}
     hosts: dict[UnitKey, Scan] = {}
     models: dict[UnitKey, ModelSpec] = {}
     widths: dict[UnitKey, int] = {}
     images: dict[UnitKey, str | None] = {}
-    #: Declared window -> the sources that declared it, per unit. A mapping and
-    #: not a scalar because two sources can name one URL, and two windows on
-    #: one process is a disagreement to report rather than one to resolve.
+    #
+    #
+    #
     windows: dict[UnitKey, dict[int, list[str]]] = {}
-    #: The launch of every process split across cards, which it is sized from.
+    #
     splits: dict[UnitKey, dict[str, Any]] = {}
-    #: The role each unit naming a process states; one process has one.
+    #
     roles: dict[UnitKey, dict[str, list[str]]] = {}
 
     users = config.get("users", 1)
-    # The ruling's one home, read here and in capacity: chat and hybrid
-    # provision nothing locally, so a bound local orchestrator unit is only
-    # served for a local-only non-chat use case.
+    #
+    #
+    #
     provision = config.provisions_local_orchestrator
 
     def _local(name: str | None) -> bool:
         unit = config.units.get(name) if name else None
         return unit is not None and not unit.requires_credential
 
-    # The role units enter the serving plan when they are local. The
-    # orchestrator joins the ladder as its dearest rung; the verifier and the
-    # Jev unit are served beside the ladder, never on it, and once each where
-    # one unit is both.
+    #
+    #
+    #
+    #
     served = list(config.ladder.names)
     orchestrator_name = config.get("orchestrator.unit")
     if (
@@ -1203,8 +925,8 @@ def units_for(
         key = UnitKey(
             host=host,
             model=spec.name,
-            # The unit's, because a URL points at one process and one process
-            # runs one engine. Absent it is llama.cpp.
+            #
+            #
             engine=unit.engine or DEFAULT_ENGINE,
             port=port_of(unit.address),
         )
@@ -1218,16 +940,16 @@ def units_for(
         models.setdefault(key, spec)
         images.setdefault(key, unit.image)
         if unit.width is not None:
-            # One process, one slot count. Two units asking for different
-            # widths get the larger.
+            #
+            #
             widths[key] = max(widths.get(key, 0), unit.width)
         elif provision and name == orchestrator_name and _local(orchestrator_name):
-            # The local orchestrator's slot count is the user count when
-            # nobody wrote a width on the unit: one session per user.
+            #
+            #
             widths[key] = max(widths.get(key, 0), users)
         if SHARDS_KEY in unit.launch:
-            # A split across cards is a fact about the process, so every unit
-            # naming its URL must state the same one.
+            #
+            #
             stated = dict(unit.launch)
             first = splits.setdefault(key, stated)
             if first != stated:
@@ -1243,7 +965,7 @@ def units_for(
         scan: Scan,
         reduced: Mapping[str, Scan],
     ) -> list[Unit]:
-        """The units for one process: a split's head and workers, or one fit."""
+        ""
         window = _window_for(key, windows.get(key, {}), ctx_per_slot)
         if key in splits:
             head, *workers = _sharded_units(
@@ -1280,9 +1002,9 @@ def units_for(
         key: _starts_asleep(key, stated, key in splits) for key, stated in roles.items()
     }
 
-    # Resident first: the orchestrator's process claims the card before the
-    # ladder and the verifier are sized against what is left. The claim is the
-    # card figure the fit just produced, so the same law sized both.
+    #
+    #
+    #
     ordered = list(grouped.items())
     ordered.sort(key=lambda pair: pair[0] != orchestrator_key)
     built: list[Unit] = []
@@ -1304,14 +1026,7 @@ def units_for(
 
 
 def _starts_asleep(key: UnitKey, stated: Mapping[str, list[str]], split: bool) -> bool:
-    """Whether the process ``key`` starts asleep, from its units' ``role``.
-
-    A process has one role: units naming it with two are refused. A sleeper is
-    a llama.cpp process on one card, because its sleep is a stop of its one
-    container and its wake a start: a vLLM unit swaps at level 2 with its
-    process kept, and a split unit is several processes a door run on one
-    machine cannot start whole.
-    """
+    ""
     if len(stated) > 1:
         said = "; ".join(
             f"{role} ({', '.join(names)})" for role, names in sorted(stated.items())
@@ -1346,21 +1061,7 @@ def _sharded_units(
     width: int | None,
     ctx_per_slot: int,
 ) -> tuple[Unit, ...]:
-    """The processes of one model split across the cards its unit names.
-
-    The cards come from ``launch.shards`` and their free memory from each
-    machine's scan, so a card nobody scanned is refused as an unscanned host
-    is. What each card holds is :func:`mcgyvr.serving.sharding.choose`'s,
-    from the tensor table -- the GGUF scan for llama.cpp, the safetensors scan
-    named by ``launch.tensor_table_json`` for vLLM -- and the argv of every
-    process is :func:`mcgyvr.serving.shardlaunch.processes`', from that same
-    plan, so the split that was sized is the split that is launched.
-
-    The serving process comes first and answers at the unit's address; every
-    other machine's process lends its cards to it. Each carries a fit of its
-    own: its fullest card's figure against that card's free memory, and the
-    whole plan, crossing estimate and its sources included, as ``why``.
-    """
+    ""
     from mcgyvr.serving import sharding, shardlaunch
 
     engine = key.engine
@@ -1477,7 +1178,7 @@ def _how(width: int | None) -> str:
 
 
 def _shard_targets(name: str, declared: object, scans: Mapping[str, Scan]) -> list[Any]:
-    """The cards ``launch.shards`` names, each with the free memory its scan read."""
+    ""
     from mcgyvr.fleet.spans import SpanError, parse_shard
     from mcgyvr.serving.sharding import Target
 
@@ -1514,7 +1215,7 @@ def _shard_targets(name: str, declared: object, scans: Mapping[str, Scan]) -> li
 
 
 def _stated_count(name: str, launch: Mapping[str, Any], field_name: str) -> int | None:
-    """A whole number ``launch`` states for ``field_name``, or ``None``."""
+    ""
     stated = launch.get(field_name)
     if stated is None:
         return None
@@ -1531,7 +1232,7 @@ def _stated_text(name: str, launch: Mapping[str, Any], field_name: str) -> str |
 
 
 def _tensor_table(config: Config, name: str, stated: object) -> Mapping[str, Any]:
-    """The safetensors scan a vLLM unit split across cards is sized from."""
+    ""
     if not isinstance(stated, str) or not stated:
         raise UnitError(
             f"{name}: a vLLM unit split across cards is sized from its tensor "
@@ -1562,41 +1263,21 @@ def _tensor_table(config: Config, name: str, stated: object) -> Mapping[str, Any
 
 
 def alternate(one: Unit, other: Unit) -> bool:
-    """Whether these two units can never be up at the same time.
-
-    Two facts.
-
-    **The port.** A port is a thing exactly one process holds, so two units that
-    name one port are two models for one server: the second cannot bind until
-    the first is gone.
-
-    **The card.** Two units on one card contend for it when their card figures
-    will not sum onto the free VRAM the scan read, whatever ports they answer
-    on.
-
-    A card figure of zero means nobody measured the card — a unit built by hand
-    rather than sized against a scan — and an unmeasured card claims nothing:
-    the pair reads as co-resident. See :attr:`Fit.card_free_gb`.
-
-    **A process that holds several cards shares none of them.** It is split
-    across them because one was not enough, its figure is per card and not
-    summable onto one, so any other unit on any of its cards is its
-    alternative.
-    """
+    ""
     if one.host != other.host:
         return False
     if one.port == other.port:
         return True
     if one.cpu_only or other.cpu_only:
-        # A CPU-only unit takes no card, so it never contends for one.
+        #
         return False
     shared = set(one.cards) & set(other.cards)
     if shared and (len(one.cards) > 1 or len(other.cards) > 1):
         return True
     if not shared:
-        # Two cards on one host do not contend for VRAM. They still contend for
-        # host RAM, and that sum is :func:`hold_together`'s — taken over what a
-        # launch spec brings up together, which is what this function decides.
+        #
+        # a
+        #
         return False
     free = _card_free_gb((one, other))
     if free <= 0:
@@ -1605,18 +1286,7 @@ def alternate(one: Unit, other: Unit) -> bool:
 
 
 def _card_free_gb(units: Iterable[Unit]) -> float:
-    """The free VRAM these units were sized against, or zero if nobody measured.
-
-    The minimum of what each unit recorded rather than the first, so that two
-    units sized against two readings of one card are held to the tighter of
-    them. That happens when a scan is retaken between two ``emit`` runs, and
-    the tighter figure is the one that will still be true when both are up.
-
-    One exception: a resident orchestrator's claim is already *inside* the
-    reduced figure every ladder unit on its card recorded, so a set that
-    includes it is summed against the full card — the largest figure — rather
-    than the reduced remainder.
-    """
+    ""
     figures = [unit.fit.card_free_gb for unit in units if unit.fit.card_free_gb > 0]
     if not figures:
         return 0.0
@@ -1626,13 +1296,7 @@ def _card_free_gb(units: Iterable[Unit]) -> float:
 
 
 def _co_resident(chosen: tuple[Unit, ...], candidate: Unit) -> bool:
-    """Whether ``candidate`` can be up beside everything already in ``chosen``.
-
-    Pairwise against the port, summed against the card: three units of 5 GiB
-    each pass every pair on a 12 GiB card and fail as a set, which is exactly
-    the failure :func:`hold_together` was written for and the reason a
-    feasibility question cannot be answered one edge at a time.
-    """
+    ""
     if any(alternate(unit, candidate) for unit in chosen):
         return False
     sharing = tuple(unit for unit in chosen if unit.gpu == candidate.gpu)
@@ -1645,14 +1309,7 @@ def _co_resident(chosen: tuple[Unit, ...], candidate: Unit) -> bool:
 
 @dataclass(frozen=True)
 class LaunchSpec:
-    """One thing an operator can bring up: units that come up *together*.
-
-    Usually a host, and not always one. ``model`` is what distinguishes this
-    spec from the other specs on the same host, or ``None`` where the spec is
-    the whole host. :mod:`mcgyvr.emit` spells the two into file names; what
-    they *are* is decided here, because it is a fact about units and not about
-    YAML.
-    """
+    ""
 
     host: str
     units: tuple[Unit, ...]
@@ -1660,51 +1317,7 @@ class LaunchSpec:
 
 
 def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
-    """The ladder's units cut into the things a door can be pointed at.
-
-    The answer is not a partition, because card contention is not an
-    equivalence: three units may pass every pair and fail as a set, two of them
-    may fit together while the third fits alone, and there is no single "the"
-    grouping. It is a **covering by feasible combinations**: every set here is
-    one an operator can actually bring up, and every unit is in at least one of
-    them, because a unit no file holds is a rung mcgyvr can never start.
-
-    **One spec per unit, grown maximal, then de-duplicated.** For each unit in
-    turn, that unit plus every other unit that can be up beside it, taken
-    largest-first; identical sets collapse. Three properties follow, and each
-    of them is why this and not one of the two obvious alternatives:
-
-    * **It is bounded by the number of units.** Enumerating *every* maximal
-      feasible subset is exponential — N/2 conflicting pairs give 2^(N/2) of
-      them — and an ``emit`` that wrote a compose file per subset would answer a
-      four-unit host with sixteen files. What is given up is that some maximal
-      set may have no spec: A, B and C at 5 GiB each on a 12 GiB card yield
-      ``{A,B}`` and ``{A,C}`` and not ``{B,C}``. Every unit is still reachable,
-      which is the property that matters, and choosing *which* feasible set to
-      run is the fleet-shape controller's question and not this one's (the
-      lab's fleet-shape plan).
-    * **A host whose units all co-reside is still one spec holding all of
-      them**, which falls out rather than being special-cased: every anchor
-      grows to the same set and the de-duplication leaves one.
-    * **It is deterministic.** The anchors are walked in a fixed order, each
-      set is grown in a fixed order and stored sorted, and the de-duplication
-      keeps first-seen. ``emit --check`` compares bytes, so a cut that iterated
-      a set would report drift against a config nobody had touched.
-
-    One spec per unit, never grown, would throw away the ``depends_on`` that
-    sequences two units onto one card (``emit._sequence_on_one_card``).
-
-    A host mixing alternatives and co-residents is not refused: it is a
-    conflict graph, and its specs are the sets that fit.
-
-    **Swap partners are one spec.** A unit that starts asleep
-    (:attr:`Unit.asleep`) is not up when the spec comes up, so it is not cut
-    against the units that are: where a host's always-on units come up as one
-    spec, its sleepers join that spec, and the ladder manager stops the units
-    whose room a sleeper needs before it starts it
-    (:meth:`mcgyvr.wake.CardSwitches.room_for`). One file per card is what
-    lets a wake find it (:func:`mcgyvr.wake.compose_for`).
-    """
+    ""
     on_host: dict[str, list[Unit]] = {}
     for unit in units:
         on_host.setdefault(unit.host, []).append(unit)
@@ -1716,10 +1329,10 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
         )
         awake = tuple(unit for unit in here if not unit.asleep)
         if awake and len(awake) < len(here):
-            # Swap partners: the units that start asleep join the one spec the
-            # always-on units come up as, and a whole `up` leaves them down.
-            # Where the always-on units are themselves alternatives, there is
-            # no one spec to join, and the host is cut as any other.
+            #
+            #
+            #
+            #
             awake_sets = _feasible(awake)
             if len(awake_sets) == 1 and len(awake_sets[0]) == len(awake):
                 specs.append(
@@ -1729,8 +1342,8 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
                     )
                 )
                 continue
-            # No one spec to join: every unit is an alternative like any other,
-            # and one that started asleep in its own file would never start.
+            #
+            #
             here = tuple(replace(unit, asleep=False) for unit in here)
         sets = _feasible(here)
         if len(sets) == 1 and len(sets[0]) == len(here):
@@ -1742,10 +1355,7 @@ def launch_specs(units: Iterable[Unit]) -> tuple[LaunchSpec, ...]:
 
 
 def _feasible(here: tuple[Unit, ...]) -> tuple[tuple[Unit, ...], ...]:
-    """One host's units as the feasible sets :func:`launch_specs` cuts them into.
-
-    One set per anchor, grown maximal largest-first, de-duplicated first-seen.
-    """
+    ""
     found: dict[tuple[str, ...], tuple[Unit, ...]] = {}
     for anchor in here:
         chosen: tuple[Unit, ...] = (anchor,)
@@ -1760,25 +1370,7 @@ def _feasible(here: tuple[Unit, ...]) -> tuple[tuple[Unit, ...], ...]:
 
 
 def _named(sets: tuple[tuple[Unit, ...], ...]) -> tuple[str, ...]:
-    """A distinguishing name for each of one host's launch specs.
-
-    Three spellings, tried in order, and the first that tells every spec on the
-    host apart is the one used for all of them — uniformly, because a host whose
-    files were named by two different rules is a directory an operator cannot
-    read.
-
-    1. **The model of the largest unit.** What the card is doing is what its
-       biggest resident is, and for a spec holding one unit this is the model
-       name and nothing else.
-    2. **Every model in the spec.** For two specs that share a defining unit.
-    3. **Every model, then every port.** For two specs holding the same models
-       on different ports — a fast lane and a careful one, which
-       :class:`UnitKey` keeps apart and a model name cannot.
-
-    A name is never chosen per spec, and it is never a hash: a file name is the
-    thing an operator types after ``serve up --compose``, and one that changed
-    when a neighbouring spec appeared would be a file they could not find twice.
-    """
+    ""
 
     def defining(chosen: tuple[Unit, ...]) -> str:
         return max(chosen, key=lambda unit: (unit.fit.vram_gb, unit.key.slug)).model
@@ -1794,10 +1386,10 @@ def _named(sets: tuple[tuple[Unit, ...], ...]) -> tuple[str, ...]:
         names = tuple(spell(chosen) for chosen in sets)
         if len(set(names)) == len(names):
             return names
-    # Two specs that agree on host, models and ports are the same spec, and
-    # :func:`launch_specs` de-duplicated those before this was called. Reaching
-    # here means that invariant broke, and a file quietly overwriting another
-    # is exactly what :func:`mcgyvr.emit._planned`'s claim check exists to stop.
+    #
+    #
+    #
+    #
     raise UnitError(
         f"{sets[0][0].host}: two launch specs cannot be told apart by the "
         f"models and ports they hold, so they would be written to one file"
@@ -1805,55 +1397,7 @@ def _named(sets: tuple[tuple[Unit, ...], ...]) -> tuple[str, ...]:
 
 
 def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str, ...]:
-    """One launch spec's units, summed against the card and the memory they share.
-
-    Two sums and not one, because a host has two things to run out of and they
-    are counted differently: **VRAM per card, host RAM per host**. Both are
-    taken against the recorded scan and never a live read — a fit that agreed
-    with whatever the rig happened to be doing when someone ran ``emit`` is a
-    fit nobody can reproduce.
-
-    :func:`fit` judges one unit against a free card, and every unit on a host
-    passes that test on its own. So the figures are added up and held to what
-    the scan read, with no headroom on the card: the headroom is inside each
-    figure already, and the sum is what the card will actually be asked to hold.
-
-    The sums are taken over what a **launch spec** brings up together. Two
-    units whose card figures do not sum are *alternatives* —
-    :func:`launch_specs` writes each of them a file — so the card sum fires
-    only when a ladder sized against one reading of a rig is checked against
-    another: a unit carries the card figure it was measured against
-    (:attr:`Fit.card_free_gb`) and this function is handed the scans separately.
-
-    Each unit contributes to the memory sum what its fit committed the host to
-    (:attr:`Fit.ram_gb`) — the blob a mapped unit wants cached, the experts an
-    unmapped one allocates, nothing where nothing spills — and the sum runs
-    *after* the loading modes are picked, because the mode is what decides which
-    figure a unit brings. One host headroom is applied once to the total,
-    :data:`REFUSAL_RAM_HEADROOM_GB`, and not once per unit. RAM is not what
-    :func:`alternate` cuts on, so two units that share a card and cannot share
-    the host's memory are a refusal.
-
-    A spec holding one unit is skipped on both axes: :func:`fit` already judged
-    it against the whole card and the whole of ``MemAvailable`` on its own.
-
-    The memory sum is not symmetric in how it fails — an unmapped unit's
-    experts are allocated and short of them the host swaps silently, while
-    mapped units short of their blobs pay a bounded wake and nothing else. The
-    sum treats both as a refusal.
-
-    A check of its own rather than a rule inside :func:`units_for`, because
-    that function answers "which processes does this ladder imply" and two
-    units that will not share a card are still two processes; whether the
-    machine can hold them both is the question asked just before a file is
-    written, and :func:`mcgyvr.cli.commands.ladder._emit` asks it there.
-
-    Returns one warning per host that was cut into alternatives, which
-    :func:`mcgyvr.cli.commands.ladder._emit` prints: only one of those files is ever up,
-    ``serve up`` takes one file, and a wake declines to guess which
-    (:func:`mcgyvr.wake.compose_for`). A host that comes up as one spec warns
-    about nothing.
-    """
+    ""
     warnings: list[str] = []
     for host, cut in _cut_into_alternatives(units).items():
         listed = ", ".join(
@@ -1872,8 +1416,8 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
         scan = scans[spec.host]
         free = _free_vram_bytes(scan) / _BYTES_PER_GIB
         on_card: dict[int, list[Unit]] = {}
-        # A unit that starts asleep holds nothing while the spec is up; it is
-        # started only once the units whose room it needs are stopped.
+        #
+        #
         up = tuple(unit for unit in spec.units if not unit.asleep)
         for unit in up:
             on_card.setdefault(unit.gpu, []).append(unit)
@@ -1894,17 +1438,17 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
                 )
         memory = scan.memory
         if memory is None:
-            # A host nobody measured the memory of is a host nothing is claimed
-            # about, which is the rule :mod:`mcgyvr.scan` runs on and the one
-            # :func:`fit` took when it read ``available_ram`` as zero.
+            #
+            #
+            #
             continue
         hungriest = sorted(up, key=lambda unit: unit.key.slug)
         wanted = sum(unit.fit.ram_gb for unit in hungriest)
-        # The refusal margin is a *text-engine* figure — room held clear past
-        # spilled experts for decode. A media engine's host memory is its
-        # stated ``ram_gb``, charged directly against ``MemAvailable`` with no
-        # mcgyvr-invented margin (:func:`_sized_media`), so a media-only spec
-        # is summed with no margin rather than carrying a text engine's law.
+        #st
+        #
+        #
+        #
+        #
         margin = (
             REFUSAL_RAM_HEADROOM_GB
             if any(unit.engine not in MEDIA_ENGINES for unit in hungriest)
@@ -1928,12 +1472,7 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
 
 
 def _cut_into_alternatives(units: Iterable[Unit]) -> dict[str, dict[str, None]]:
-    """Each host emitted as more than one launch spec, and the names of them.
-
-    A dict of dicts rather than a set of names, because the order has to be the
-    one the file names sort in — a warning that reordered itself between two
-    runs over one config is a warning an operator cannot diff.
-    """
+    ""
     specs = launch_specs(units)
     named: dict[str, dict[str, None]] = {}
     for spec in specs:
@@ -1944,26 +1483,7 @@ def _cut_into_alternatives(units: Iterable[Unit]) -> dict[str, dict[str, None]]:
 
 
 def safe_host(host: str) -> str:
-    """The host as a file name component, refusing whatever it would have to tidy.
-
-    A host is the key scans, units and files are all filed under, so a name that
-    merely needs sanitising is refused rather than sanitised: rewriting it here
-    would file this file under a name nothing else in the tool uses.
-
-    An IPv6 literal is the one exception, because refusing it is refusing the
-    rig. ``host_of("http://[fd00::1]:8080")`` is ``fd00::1`` — a real address of
-    a real machine that a ladder can already reach — and a colon is not a
-    compose name anywhere, nor a path component on every system a compose file
-    gets copied to. So it is spelled out instead, and normalised first, so that
-    the two ways of writing one address (``fd00::1`` and
-    ``fd00:0:0:0:0:0:0:1``) cannot become two files for one rig. What comes back
-    is a name, not an address; :func:`mcgyvr.emit._planned` is where two hosts
-    are stopped from claiming one.
-
-    It lives here and not in :mod:`mcgyvr.emit` because :func:`cards` has to
-    name the file a host's launch spec is kept in and cannot import ``emit``
-    back.
-    """
+    ""
     address = _ipv6(host)
     if address is not None:
         return _UNSAFE.sub("-", address)
@@ -1973,20 +1493,7 @@ def safe_host(host: str) -> str:
 
 
 def safe_model(model: str) -> str:
-    """The model as a file name component, sanitised rather than refused.
-
-    The opposite call from :func:`safe_host`, and for the opposite reason. A
-    host is the key scans, units and files are filed under, so rewriting one
-    would file a file under a name nothing else uses — but a model name is not a
-    file-system key anywhere, and the names this fleet actually serves are
-    ``Qwen/Qwen2.5-Coder-7B-Instruct-AWQ`` and ``qwen2.5-coder:3b``. Refusing a
-    slash or a colon would refuse every HuggingFace id and every tagged name,
-    which is refusing the ladder rather than protecting it.
-
-    Sanitising is many-to-one, so it is :func:`mcgyvr.emit._planned` that stops
-    two models from claiming one file — the same guard, and for the same reason,
-    as two hosts spelling one name.
-    """
+    ""
     name = _UNSAFE.sub("-", model)
     if not name or name in {".", ".."} or set(name) <= {"-"}:
         raise UnitError(f"{model!r} is not a model name a file can be named after")
@@ -1994,7 +1501,7 @@ def safe_model(model: str) -> str:
 
 
 def _ipv6(host: str) -> str | None:
-    """``host`` as one normalised IPv6 literal, or ``None`` if it is not one."""
+    ""
     try:
         return ipaddress.IPv6Address(host).compressed
     except ValueError:
@@ -2002,17 +1509,7 @@ def _ipv6(host: str) -> str | None:
 
 
 def spec_name(host: str, model: str | None = None) -> str:
-    """The file name one launch spec is written to.
-
-    ``compose.<host>.yml`` for a host that comes up as one, and
-    ``compose.<host>.<model>.yml`` for each of a host's alternatives, where
-    ``model`` is whatever :func:`launch_specs` chose to tell them apart.
-
-    One function and not a format string in three modules. It is what
-    :mod:`mcgyvr.emit` writes, what :func:`spec_files` recognises on disk and
-    what an operator types after ``serve up --compose``, and a convention spelled
-    once cannot be spelled two ways.
-    """
+    ""
     stem = (
         safe_host(host) if model is None else f"{safe_host(host)}.{safe_model(model)}"
     )
@@ -2020,42 +1517,12 @@ def spec_name(host: str, model: str | None = None) -> str:
 
 
 def spec_files(root: Path, host: str) -> tuple[Path, ...]:
-    """Every file in ``root`` that mcgyvr's own naming convention gives ``host``.
-
-    **A directory listing and not a planner call, and the difference is the
-    point.** Asking the planner what a config emits needs units, units need a
-    :class:`~mcgyvr.scan.Scan`, and needing a scan is exactly what :func:`cards`
-    and the wake path exist to not need (D1, the lab's sleep-wake plan, §3).
-    What is asked here is the other question, and it is the one a wake
-    actually has: *which files are on this disk for this rig* — answerable from
-    the config, the convention and the filesystem, on a laptop that never
-    scanned the rig.
-
-    It matters because the two answers can differ, and when they differ the gap
-    is a **stale launch spec**. ``emit`` writes what a config plans and deletes
-    nothing, so a host re-emitted as alternatives keeps the
-    ``compose.<host>.yml`` an earlier emit wrote — a file holding both units on
-    one card, sitting where a wake would pick it up. The planner cannot see it
-    (``emit.check_all`` reads only planned paths). A listing sees both, which
-    is what lets a wake decline to guess (:func:`mcgyvr.wake.compose_for`) and
-    lets ``emit --check`` name it (:func:`mcgyvr.emit.unplanned`).
-
-    A missing or unreadable directory is no files, not an error: this is asked
-    on the dispatch path, where "mcgyvr holds no launch spec for that card" is
-    an honest answer and a raise is not.
-
-    The convention is ambiguous where one host's name is a prefix of another's —
-    ``compose.rig.big.yml`` is ``rig``'s alternative and could be ``rig.big``'s
-    whole-host file — and this resolves it by claiming both, deliberately. Every
-    caller of this uses extra candidates the same way: to decline to guess. Over-
-    claiming costs a wake that says "name the file"; under-claiming costs a wake
-    that starts a file this config did not write.
-    """
+    ""
     try:
         whole = spec_name(host)
     except UnitError:
-        # A host that cannot be spelled into a file name has no file, which is
-        # what an emit for it would have refused to write in the first place.
+        #
+        #
         return ()
     prefix = f"{whole[: -len(COMPOSE_SUFFIX)]}."
     try:
@@ -2073,82 +1540,34 @@ def spec_files(root: Path, host: str) -> tuple[Path, ...]:
 
 @dataclass(frozen=True)
 class Card:
-    """The hardware a rung's work lands on, derived and never declared.
-
-    **A card is already modelled in this repository. It is modelled here, below
-    the execution seam, and it is called a host with a GPU index.** Nothing
-    above the seam learns about it: there is no ``devices:`` block, no
-    ``device:`` key on a unit, and no card on a :class:`~mcgyvr.config.Unit`.
-    A card named up there would be a fact about a *machine* on an object whose
-    whole purpose is to name no machine, and it would go stale the first time a
-    unit was re-pointed — which is the argument ``Unit.window``'s
-    own schema doc makes the other way round, and the same defect
-    ``Capacity.of`` refuses by name when a config and a rig give two answers to
-    one question.
-
-    ``specs`` is what makes the difference a caller actually cares about
-    answerable: *can mcgyvr bring this back?* is *does mcgyvr hold the launch
-    spec?*, and that is answerable without touching the network. It is empty for
-    a config that states no ``serving.compose_dir``, which therefore has no
-    sleeping cards at all — only down ones.
-
-    Two cards are equal when they are the same machine holding the same files,
-    so the rungs on one rig compare equal through them. That is the property
-    whole-card eviction is stated in: sleeping ``local_qwen2.5-coder-3b`` and
-    sleeping ``local_qwen2.5-coder-7b`` are one act because they are one card.
-    """
+    ""
 
     host: str
-    #: The name a host that comes up as one file is written to — ``emit``'s
-    #: ``compose.<host>.yml`` under ``serving.compose_dir``, and ``None`` where
-    #: the config states no such directory.
-    #:
-    #: **A name, and never a promise that the file is current.** It is not what
-    #: a wake starts: :func:`mcgyvr.wake.compose_for` chooses out of
-    #: :attr:`specs`, because a host cut into alternatives may still have this
-    #: exact path on disk holding both units on one card. Kept because it is
-    #: what an operator types for the ordinary host.
+    #'s
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     compose_file: Path | None
-    #: Every launch spec on disk for this card, sorted — :func:`spec_files`.
-    #: More than one means mcgyvr holds several and no way to tell which is
-    #: current; that is D2's gap, and a wake declines rather than guessing.
+    #`.
+    #
+    #
     specs: tuple[Path, ...] = ()
-    #: Every rung this card serves, sorted. Whole-card eviction takes all of
-    #: them, so a caller that knew only the rung it was asked about would sleep
-    #: a card another rung was serving from.
+    #
+    #
+    #
     rungs: tuple[str, ...] = ()
-    #: The sources those rungs reach it through, sorted. A card is one machine
-    #: and a source is one process, so this is many-to-one on purpose.
+    #
+    #
     sources: tuple[str, ...] = ()
 
 
 def cards(config: Config) -> dict[str, Card]:
-    """The card each rung's work lands on, keyed by rung name.
-
-    **From the config alone, and from no scan.** :func:`units_for` needs a
-    :class:`~mcgyvr.scan.Scan` per host because it has to decide a fit, and a
-    card's identity needs no fit: it is the host the source's URL names and the
-    file :mod:`mcgyvr.emit` wrote for it. That is what keeps the wake path
-    usable on a machine that never scanned the rig — a laptop dispatching at a
-    ladder it did not size can still tell a card it holds a spec for from one it
-    does not.
-
-    **The launch specs are the ones on disk, not the ones a name predicts.**
-    ``emit`` may write more than one file for a host, and the planner that
-    knows which needs units, units need a scan, and needing a scan is exactly
-    what this function is for not needing. So :func:`spec_files` lists every
-    file mcgyvr's own convention gives this host and hands back all of them.
-
-    Which of several specs is the current one is not a question the config
-    answers (D2 of the lab's sleep-wake plan): the files'
-    existence answers "can mcgyvr bring this back?" and does not answer "bring
-    back *which*".
-
-    **A source that needs a credential has no card.** It is somebody else's
-    machine reached over the internet, mcgyvr holds no launch spec for it, and
-    it is never asleep — only up or down. That is the honest degradation D2
-    asks for, and it falls out of the one fact the config already states.
-    """
+    ""
     stated = config.get("serving.compose_dir")
     where = Path(str(stated)).expanduser() if stated else None
 
@@ -2178,26 +1597,7 @@ def cards(config: Config) -> dict[str, Card]:
 
 
 def declared_models(config: Config) -> dict[str, ModelSpec]:
-    """Serving specs an operator wrote down, which override the shipped table.
-
-    mcgyvr sizes from what it can measure, and this is the seam where somebody
-    states what it cannot — or points at a measurement of their own:
-    ``geometry_json`` names a ``ggufscan`` row, and from there the model's
-    bytes are the scan's and not the block's. A block that states a
-    ``disk_gb`` beside a geometry it disagrees with is refused
-    (:class:`ModelSpec`), because two numbers for one file is the situation a
-    scan exists to end. Everything else an operator writes is honoured: a
-    ``ram_gb`` floor this module cannot see, a ``vram_gb`` for a dense model
-    nobody has scanned.
-
-    A relative ``geometry_json`` is read against the config file's own
-    directory, so a config and the scan it cites travel together.
-
-    It lives here rather than in :mod:`mcgyvr.config` because a
-    :class:`ModelSpec` is a serving type and config cannot import serving
-    without a cycle. Already in GiB: the schema says so on every size field,
-    because a unit is the one thing a reader cannot check by eye.
-    """
+    ""
     specs: dict[str, ModelSpec] = {}
     for unit in config.units.values():
         name = unit.model
@@ -2209,7 +1609,7 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             and unit.room_mib is None
             and unit.kv_cache_memory_bytes is None
         ):
-            # Nothing declared: this unit takes the shipped table's row.
+            #
             continue
         block: dict[str, Any] = dict(unit.launch)
         if unit.hf_cache is not None:
@@ -2243,11 +1643,7 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
 
 
 def _declared_draft_width(name: str, stated: object) -> int:
-    """``spec_draft_n_max`` as the block wrote it, or the measured default.
-
-    Refused here when it is not a whole number, and by :class:`ModelSpec` when
-    it is one below 1: two messages for two mistakes, each naming the key.
-    """
+    ""
     if stated is None:
         return DEFAULT_SPEC_DRAFT_N_MAX
     if isinstance(stated, bool) or not isinstance(stated, int):
@@ -2258,8 +1654,8 @@ def _declared_draft_width(name: str, stated: object) -> int:
     return stated
 
 
-#: What a ``ggufscan`` row carries that this module reads. A file missing one
-#: of these is not a scan, whatever else it says, and is refused by name.
+#
+#
 _GEOMETRY_KEYS = (
     "file",
     "size_bytes",
@@ -2273,20 +1669,7 @@ _GEOMETRY_KEYS = (
 
 
 def load_geometry(path: Path | str, *, name: str | None = None) -> dict[str, Any]:
-    """One ``ggufscan`` row from ``path``, refused rather than repaired.
-
-    Two shapes are read. A serving-door envelope's ``geometry.json`` is one
-    row; ``python -m mcgyvr.serving.ggufscan <gguf>`` prints a list of them,
-    one per file it was pointed at. A list of one is that one; a list of more
-    needs ``name`` to choose by, and the row chosen is the one whose ``file``
-    is the weights file that model serves — never the first, because the
-    first row of a directory scan is whichever file sorts first.
-
-    A row ``ggufscan`` could not read is written as ``{"file": …, "error":
-    …}`` rather than dropped, so that a directory scan says which file it
-    failed on. It is refused here for the same reason: a placement derived
-    from an error row would be derived from nothing.
-    """
+    ""
     where = Path(path)
     try:
         raw = json.loads(where.read_text(encoding="utf-8"))
@@ -2345,7 +1728,7 @@ def load_geometry(path: Path | str, *, name: str | None = None) -> dict[str, Any
 
 
 def host_of(base_url: str) -> str:
-    """The machine a source's URL names, which is what a scan is keyed by."""
+    ""
     host = urlparse(base_url).hostname
     if not host:
         raise UnitError(f"no host in `units.<unit>.address` {base_url!r}")
@@ -2353,14 +1736,7 @@ def host_of(base_url: str) -> str:
 
 
 def port_of(base_url: str) -> int:
-    """The port a source's URL reaches, or the one the engine would have picked.
-
-    A URL that states no port is not an omission to be refused: ``http://host``
-    is the ordinary way of writing "wherever llama-server lands", and the
-    answer is :data:`DEFAULT_PORT`. A URL that states a *malformed* port is a
-    different thing — someone wrote a number down and it is not one — and it
-    surfaces here, where it is still a fixable line of config.
-    """
+    ""
     try:
         port = urlparse(base_url).port
     except ValueError as exc:
@@ -2371,12 +1747,12 @@ def port_of(base_url: str) -> int:
 
 
 def _with_rungs(unit: Unit, rungs: tuple[str, ...]) -> Unit:
-    """The same process, told which rungs point at it."""
+    ""
     return replace(unit, rungs=rungs)
 
 
 def _roomiest_gpu(scan: Scan) -> Gpu:
-    """The card with the most free memory. A scan with none cannot host a unit."""
+    ""
     if not scan.gpus:
         raise UnitError(
             f"{scan.machine.host}: the scan found no GPU, so there is no card "
@@ -2386,25 +1762,14 @@ def _roomiest_gpu(scan: Scan) -> Gpu:
 
 
 def _free_vram_bytes(scan: Scan) -> int:
-    """Free VRAM on the roomiest card — free, because used memory is someone's.
-
-    Read off the scan every time and cached nowhere: the number is a fact
-    about the card at the moment it was scanned, and a unit is sized against
-    that moment.
-    """
+    ""
     if not scan.gpus:
         return 0
     return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
 
 
 def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
-    """``scan`` with the roomiest card's free VRAM reduced by ``claim_gb``.
-
-    The orchestrator's process claims the card first (resident), so the ladder
-    and the verifier on its host are sized against what is left: the free VRAM
-    minus the orchestrator's card figure. ``claim_gb`` is that figure,
-    :attr:`Fit.vram_gb` in GiB as the same law produced it.
-    """
+    ""
     if claim_gb <= 0 or not scan.gpus:
         return scan
     claim_mib = int(claim_gb * 1024)
@@ -2412,8 +1777,8 @@ def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
     index = max(range(len(gpus)), key=lambda i: gpus[i].vram.free_mib)
     gpu = gpus[index]
     taken = min(claim_mib, gpu.vram.free_mib)
-    # The four numbers close on every scan (`total == used + free + reserved`),
-    # so the claim moves from ``free`` to ``used`` rather than vanishing.
+    #
+    #
     gpus[index] = replace(
         gpu,
         vram=replace(
@@ -2426,7 +1791,7 @@ def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
 
 
 def _allowance_gb(spec: ModelSpec) -> float:
-    """What a fit for ``spec`` holds back on the card, in GiB."""
+    ""
     if spec.geometry is None:
         return DEFAULT_HEADROOM_GB
     return vramfit.SCRATCH_AND_CONTEXT_MIB / 1024
@@ -2444,14 +1809,14 @@ def _needs_geometry(spec: ModelSpec) -> str:
 
 
 def _mtp_head_blocks(spec: ModelSpec) -> tuple[int, ...]:
-    """The nextn blocks the scan reports, empty for an unscanned or stock model."""
+    ""
     if spec.geometry is None:
         return ()
     return tuple(int(b) for b in spec.geometry.get("nextn_blocks") or ())
 
 
 def _no_mtp_head(spec: ModelSpec) -> str:
-    """Why a unit declaring ``mtp`` on a GGUF with no nextn block is refused."""
+    ""
     if spec.geometry is None:
         seen = f"{_weights_file_name(spec.name)!r} has not been scanned, so"
     else:
@@ -2472,26 +1837,14 @@ def _no_mtp_head(spec: ModelSpec) -> str:
 
 @dataclass(frozen=True)
 class _Placement:
-    """Where one model's weights end up on one machine, and the flags that say so.
-
-    Private because it is an intermediate answer and not a fact about a unit:
-    what survives into a :class:`Unit` is the argv and the :class:`Fit`. It
-    exists so that the card figure, the memory figure, the slot count and
-    ``--n-cpu-moe`` are one derivation read four times rather than four
-    derivations that have to be kept in step by hand.
-
-    ``n_cpu_moe`` is a block INDEX, as the flag reads it: blocks below it go
-    to the CPU whether or not they carry experts. ``vram_gb`` is the predicted
-    card figure with the scratch allowance inside it (or the stated working
-    set, on the scalar path), and ``headroom_gb`` is that allowance.
-    """
+    ""
 
     n_cpu_moe: int
     width: int
     vram_gb: float
     ram_gb: float
     headroom_gb: float
-    #: The MTP head's bytes inside ``vram_gb``, zero where none is declared.
+    #
     head_bytes: int = 0
 
 
@@ -2505,46 +1858,7 @@ def _placement(
     ctx_per_slot: int,
     n_ubatch: int = DEFAULT_UBATCH,
 ) -> _Placement:
-    """How this card splits this model, and how wide it can be served.
-
-    Derived here and nowhere else, because the offload is four answers at once
-    — what the card holds, what memory holds, how many slots, and the number
-    written into ``--n-cpu-moe`` — and separate derivations of it are chances
-    to disagree. The disagreement is not academic: a fit that checks one width
-    while the argv emits another approves a placement nobody sized.
-
-    With a geometry the card figure is :mod:`vramfit`'s law and nothing here
-    is a constant of this module's: ``C(w)`` is the non-expert weights plus
-    the cache and recurrent state the header implies for ``w`` slots at
-    ``ctx_per_slot`` each (``-c`` being the total, ``-ub`` the micro-batch the
-    cache is padded against), plus the one scratch allowance; the floor is the
-    lowest ``--n-cpu-moe`` whose remaining expert blocks fit beside ``C`` on
-    this card, walked block by block off the tensor table. ``None`` from that
-    walk means the card cannot hold ``C`` alone — a statement about the card,
-    refused as one. A dense geometry has no placeable blocks and the same walk
-    stops at zero, so a dense model with its header is sized by the same law.
-
-    The width, when nobody wrote one, is as wide as the card allows without
-    moving one more expert block off it: the largest ``w`` up to
-    :data:`MAX_WIDTH` whose floor is still the floor at one slot. A slot is
-    cache and state on the card; the moment a further slot costs a block of
-    experts it is paid for in tokens per second on every request, and that is
-    a trade for an operator to write down (``width`` on the unit), not
-    one to make silently. A written width is honoured and the floor recomputed
-    at it, so the argv's ``--parallel`` and its ``--n-cpu-moe`` were sized
-    together.
-
-    The RAM figure is what this card actually spills, plus the runtime that
-    spilling carries with it for the unit's own ``engine`` (:func:`_host_gb`:
-    none for an engine whose figure is to be read on the machine, until it is)
-    — not the whole model weight. The declaration is still honoured as a
-    floor, so an operator who states a memory demand this module cannot see is
-    not overruled by it.
-
-    Without a geometry there is only the scalar path: the stated working set,
-    the stated memory floor, no offload, and one slot unless one was written.
-    An MoE has no scalar path; it is refused here and by :func:`fit`.
-    """
+    ""
     if spec.geometry is None:
         if spec.moe:
             raise UnitError(_needs_geometry(spec))
@@ -2557,11 +1871,11 @@ def _placement(
         )
 
     geometry = dict(spec.geometry)
-    # The head the unit will load as its draft, charged beside the non-expert
-    # weights because it sits where they sit: on the card at every offload,
-    # never moved by --n-cpu-moe. Read off the tensor table by vramfit, zero
-    # under `none`; :func:`fit` has already refused `mtp` on a scan with no
-    # nextn block, so a non-zero here is a head the file really carries.
+    #
+    #
+    #
+    #
+    #
     head_bytes = (
         vramfit.mtp_head_bytes(geometry) if spec.speculative == SPECULATIVE_MTP else 0
     )
@@ -2578,9 +1892,9 @@ def _placement(
             )
             rs = vramfit.rs_bytes(geometry, n_seq_max=slots)
         except ValueError as exc:
-            # Never caught into a default: an undeclared sliding-window split
-            # or a recurrent model with no state size is a request for a
-            # measurement, and the message says which one.
+            #
+            #
+            #
             raise UnitError(
                 f"{spec.name}: the cache cannot be sized, so nothing is placed "
                 f"from an invented split: {exc}"
@@ -2630,19 +1944,7 @@ def _placement(
 def _host_gb(
     geometry: dict[str, Any], n_cpu_moe: int, *, engine: str, host: str
 ) -> float:
-    """What system memory holds at this offload: the spilled experts, plus the
-    runtime that spilling carries for the unit's own ``engine`` — and nothing
-    when nothing spills.
-
-    An engine of :data:`mcgyvr.derived.RUNTIME_RESIDENT_READ` has its runtime
-    figure to be read on the user's machine and none shipped: until it is
-    read, no layer is asked for it and only the spilled experts are charged
-    (:func:`fit` says so). Every other engine is charged
-    :func:`mcgyvr.derived.runtime_resident_gb`, llama.cpp's estimate, which the
-    user can set. ``host`` is never its key: it only names the machine being
-    sized in a refusal. Where no layer states it, the sizing is refused by
-    name, never defaulted.
-    """
+    ""
     offloaded = int(geometry["bytes_experts"]) - vramfit.experts_on_card(
         geometry, n_cpu_moe
     )
@@ -2660,17 +1962,7 @@ def _host_gb(
 def _window_for(
     key: UnitKey, declared: Mapping[int, list[str]], ctx_per_slot: int | None
 ) -> int:
-    """The window this unit is sized and launched at, from the config or the run.
-
-    Three ways to have one and two ways to have none. A single declared window
-    is the answer, and it is the answer even when the run also stated one and
-    stated the same thing — saying a number twice is not a disagreement. A run
-    window is the answer where nothing was declared, which is what a fleet
-    nobody has read back looks like.
-
-    Both of the refusals name what is missing or what disagrees, because both
-    are one edit away from being right and neither is this module's to guess.
-    """
+    ""
     if len(declared) > 1:
         pairs = ", ".join(
             f"{window} ({', '.join(sorted(names))})"
@@ -2708,7 +2000,7 @@ def _window_for(
 
 
 def _offload_note(spec: ModelSpec, placed: _Placement) -> str:
-    """The offload a refusal is about, so the reader can check the arithmetic."""
+    ""
     if spec.geometry is None or not spec.moe:
         return ""
     placeable = list(spec.geometry["placeable_blocks"])
@@ -2720,41 +2012,19 @@ def _offload_note(spec: ModelSpec, placed: _Placement) -> str:
 
 
 def _threads(scan: Scan) -> int:
-    """Physical cores, never above the thread count: decode is bound by memory
-    bandwidth, and a core's second hardware thread adds no memory ports.
-    """
+    ""
     if scan.cpu is None:
         return 1
     return max(1, min(scan.cpu.cores or scan.cpu.threads, scan.cpu.threads))
 
 
 def _weights_file_name(name: str) -> str:
-    """The file a model id is served from, and the name a geometry must carry.
-
-    The separator is flattened rather than followed (see :func:`_weights_path`)
-    and the extension is this module's, so a geometry scanned from
-    ``Qwen_Qwen2.5-Coder-7B-Instruct-AWQ.gguf`` belongs to the id
-    ``Qwen/Qwen2.5-Coder-7B-Instruct-AWQ`` and to nothing spelled differently.
-    """
+    ""
     return f"{name.replace('/', '_')}.gguf"
 
 
 def _weights_path(scan: Scan, spec: ModelSpec) -> Path:
-    """Where the weights sit, *directly* under the directory the scan measured.
-
-    A model id can be a repository path — ``Qwen/Qwen2.5-Coder-7B-Instruct-AWQ``
-    is one the shipped table carries — and spelling that into the file name
-    puts the file one directory down. The unit's ``weights_dir`` is then
-    ``/srv/weights/Qwen`` while the disk check was about ``/srv/weights``, so
-    what gets bind-mounted is not the directory anything was measured about;
-    and if it does not exist, Docker creates it, empty and root-owned, and the
-    server fails at load against a mount the operator then has to go and delete
-    by hand.
-
-    So the separator is flattened rather than followed. A model id is a name
-    here, not a path: the id keeps its shape in the file name, and the file
-    stays in the directory the scan is a statement about.
-    """
+    ""
     root = scan.disk.path if scan.disk is not None else default_weights_dir()
     return root / _weights_file_name(spec.name)
 
@@ -2768,32 +2038,7 @@ def kv_bytes_for_run(
     cache_type_k: str = "f16",
     cache_type_v: str = "f16",
 ) -> int:
-    """The cache a run's own declaration asks for, derived in one place.
-
-    A floor is only correct for the cache the unit will actually allocate;
-    :func:`_placement` sizes that cache here, from the same
-    ``ctx_per_slot * slots`` that :func:`unit_for` writes as ``-c``.
-
-    Two answers, and which one comes back depends on what the caller can price
-    it against:
-
-    * **With a ``geometry``** — a ``ggufscan`` header — the answer is device
-      bytes, summed per layer by :func:`vramfit.kv_bytes`. That is the figure a
-      placement is judged with, and it is not linear in the window: a
-      sliding-window checkpoint caps its sliding half at
-      ``PAD256(n_swa x seqs + n_ubatch)``, so doubling the declared window does
-      not double the cache and must not be assumed to.
-
-    * **Without one** the answer is the extent in tokens, which is exactly what
-      ``-c`` states and exactly what :func:`vramfit.kv_bytes` is handed as its
-      ``n_ctx``. Nothing here invents a bytes-per-token rate to convert it: a
-      cache cannot be priced in bytes without a header, and a plausible
-      unfalsifiable number is the failure :mod:`mcgyvr.serving.vramfit` exists
-      to end.
-
-    Both are the size of one thing asked in the two units it can be asked in,
-    and the caller says which by handing over a header or not.
-    """
+    ""
     if ctx_per_slot < 1 or slots < 1:
         raise UnitError(
             f"a cache cannot be sized at {ctx_per_slot} context across "
@@ -2815,19 +2060,7 @@ def kv_bytes_for_run(
 
 
 def served_window(reported: Mapping[str, Any]) -> int | None:
-    """The window a *running* unit says it serves, read from what it published.
-
-    Declared going in and measured coming back are two different questions, and
-    only this one is a fact about a process. Two shapes are read: a ``data``
-    list whose entries carry ``max_model_len`` (vLLM), and a top-level
-    ``n_ctx`` (llama.cpp).
-
-    ``None`` is a unit that published nothing, and it is deliberately not the
-    same answer as a number: "this unit serves 4096" and "nobody can say what
-    this unit serves" lead to different moves, and collapsing them into a
-    window somebody assumed is how a ladder ends up priced against a rig it
-    never asked.
-    """
+    ""
     models = reported.get("data")
     if isinstance(models, list):
         for entry in models:

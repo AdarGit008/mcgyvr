@@ -1,123 +1,4 @@
-"""Dispatch — one wire protocol behind one runner interface.
-
-This is the first code *below* the seam :mod:`mcgyvr.local_pool` draws. A caller above
-it holds a :class:`~mcgyvr.local_pool.Rung` — a name and a model — and cannot say
-where work runs. Here a rung has already been resolved to an
-:class:`~mcgyvr.local_pool.Endpoint`, and the only remaining question is which shape
-to ask in. The invariants:
-
-* **The same contract executes identically wherever it runs.** The runner
-  produces the same :class:`Completion`, assembled in one place from a small
-  :class:`_Parsed`. The protocol supplies a URL path, a request body and how to
-  read an answer; it does not get to decide what a completion *is*.
-  The fields that differ between two runs of the same request are the ones that
-  name where it ran — ``source``, ``protocol`` — and the measurements.
-* **The cap is sent and checked afterwards.** ``max_output_tokens`` is
-  optional on every :class:`Request`: ``None`` is the uncapped dispatch for a
-  raw-text reply, and only a set cap is translated into the protocol's own
-  parameter (``max_tokens``) — the key is omitted when uncapped. A caller
-  cannot cut a response off at a length of its choosing; what it can do is
-  refuse to issue an uncapped whole-file request and then compare the
-  backend's own reported token count against the ceiling it was given. A
-  backend that overran says so through :attr:`Completion.overran_cap` rather
-  than passing for a short answer; an uncapped reply has no ceiling to check,
-  so ``overran_cap`` is ``None``.
-* **Every unit is asked for a stream, and the whole is assembled here.** A
-  unit notices that whoever asked has gone only when it writes to them, and
-  an answer not streamed is written once, at its end: a dispatch left
-  mid-answer had the slot decode the rest for nobody. So the body asks for a
-  stream and its counts (:func:`mcgyvr.whole.asking`), the transport reads it
-  as it comes and assembles the answer the unit would have written a request
-  not streamed (:class:`mcgyvr.whole.Whole`), and a caller sees one
-  :class:`Completion`, as before. ``timeout_s`` bounds the whole dispatch,
-  not each token, and a hosted unit that states none is given none
-  (:func:`request_timeout`). Whoever asked and has gone hangs up: a timeout, a
-  :class:`Hangup` held by the caller (the facade's client closed its
-  connection) or :func:`hang_up_all` (the process is ending) shuts the
-  unit's connection down under the read, and the unit's next write fails.
-  A dispatch hung up on is :class:`HungUpError`, a transport failure. A unit
-  that answers anything but a 200 stream is read as it answers: an error
-  status with its body, a whole JSON answer as it comes.
-* **No stop sequences are sent, by decision.** A reply is bounded by the cap
-  and a named truncation and nothing else: a stop sequence is consumed by the
-  server and stripped from the answer, so it turns a reply that ran long into a
-  *shorter valid-looking file* rather than into an error. So there is no
-  ``stop`` parameter on :class:`Request` to fill in; the absence is the
-  decision, and a test holds it.
-* **A response schema is asked for where it can be honoured, never assumed.**
-  ``response_schema`` on a :class:`Request` is a JSON Schema the answer should
-  conform to. The OpenAI-compatible path sends it as ``response_format``, and a
-  server that implements it answers with the object instead of prose — a whole
-  class of parse failure that then never happens (the lab's port-from-local-ai
-  note, D13). A path that cannot carry one
-  still runs a pinned request and still answers; it answers in prose, and the
-  completion says so in a note rather than leaving a caller to infer it from
-  the shape of the text.
-* **Truncation is read, never inferred.** The backend's own
-  ``finish_reason`` is the only evidence used. Output that
-  merely *looks* cut off is not truncation, and a response whose stop reason is
-  absent or unrecognised becomes :attr:`StopReason.UNKNOWN` — which is not read
-  as a complete answer. Guessing from output shape is how a truncated patch
-  gets applied as a whole one.
-* **Every dispatch is measured.** Latency is wall-clock and host-side, so it is
-  the same quantity whatever the backend; token counts are the backend's own, and
-  are ``None`` when it did not report them. An absent count never becomes zero —
-  a zero would average into telemetry as a real measurement of nothing.
-
-**A path that cannot measure says so.** A runner may declare
-``quality_safe=False``: every completion from it then carries that field and a
-note, and a :class:`Request` declaring itself ``quality_sensitive`` is refused
-outright with :class:`QualityCaveatError`. A caveated dependency is allowed,
-the *silence* is not. No path in this build is caveated.
-
-**On credentials.** The key is resolved from the environment at the moment of
-dispatch through :meth:`~mcgyvr.local_pool.Endpoint.credential` and lives only in the
-``Authorization`` header of one request. A keyless endpoint — the ordinary case
-for a local backend — gets no header at all rather than an empty one, so a
-local OpenAI-compatible server needs no API key and is never sent an
-unauthenticated-looking credential. No error message here interpolates a key.
-
-**A relief rung that cannot take the request now is full.** A relief rung's
-endpoint is a hub relaying to another person's unit, and some of its answers
-say only that it cannot take the request now. Which ones is the rung's to say:
-its endpoint carries them (``busy_answers``, each an HTTP status and an error
-code, written by ``mcgyvr rig rungs sync``). None is a verdict on anything: no
-model was asked. So on a relief endpoint, and only there, those answers are
-:class:`ReliefUnavailableError`, a
-:class:`~mcgyvr.capacity.SlotUnavailableError` — the one error a climb routes
-around as a full rung. The rung is asked once and never again for the same
-request: a host that left is not waited for, whatever the answer says of
-retrying. From a ladder rung they are read by the rules below, or are that
-rung's error.
-A hub that cannot place a pooled model answers ``503`` ``model_unplaced``,
-on any rung: the same kind of answer, :class:`ModelUnplacedError`, and the
-climb tries the next rung at once, another model's included.
-A ladder rung that answers ``404`` ``model_not_found`` was asked for a model
-its address does not know — a hub that dropped it from its pool, a provider
-that never had it, a name typed wrong. The same kind of answer again,
-:class:`UnknownModelError`, on every rung of the ladder, with a key or
-without. A rung skipped so is skipped every time, so each such dispatch
-writes one line on stderr naming the rung and the model.
-A ridden answer is held to the host's model, not to the ``hitchhike@<id>`` it
-was asked for (the hub's name for the rung): the hub passes the host's real
-model name through, and an answer naming any other — or none — is the rung
-refusing the request, the same error, with one line on stderr saying which
-models and nothing of the prompt.
-
-**What is deliberately not here.** Whether an endpoint is answering at all is
-:mod:`mcgyvr.availability`'s question and needs probing; this module reports a
-failure to reach one and does not cache that judgement. How many dispatches a
-source may run at once is :mod:`mcgyvr.capacity`'s — it acquires at this same
-seam, through the optional ``capacity`` argument below, and is held for the
-length of one request so that escalating across sources cannot leak a slot.
-Choosing *which* rung to send a contract to, and escalating when it fails, are
-:mod:`mcgyvr.route`'s and :mod:`mcgyvr.escalate`'s. Assembling the prompt and
-parsing a worker's file-shaped answer are :mod:`mcgyvr.worker`'s — a
-:class:`Request` here carries text. A multi-turn conversation is the caller's
-too: a request may carry the turns before it and the function tools on offer,
-both sent verbatim, and a reply that calls a tool comes back as
-:class:`ToolCall` entries the caller runs and answers in its next request.
-"""
+""
 
 from __future__ import annotations
 
@@ -150,37 +31,37 @@ from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
 
-# Local models on modest hardware are slow rather than broken: a 7B answering a
-# capped generation on a 6 GB card can take minutes. This is the ceiling on one
-# dispatch, not a health check — :mod:`mcgyvr.availability` owns "is anything
-# there", with its own, much shorter `PROBE_TIMEOUT_S`.
 #
-# What a request to a local unit gets when the unit declares no
-# `request_timeout_s`: `config.DEFAULT_REQUEST_TIMEOUT_S`, imported rather than
-# restated. A hosted unit that declares none gets no bound (`request_timeout`).
+#
+#ng
+#
+#
+#
+#
+#
 GENERATE_TIMEOUT_S = DEFAULT_REQUEST_TIMEOUT_S
 
-#: How long reaching a server may take — the TCP connect and, for https, the
-#: TLS handshake — when the dispatch has no bound of its own. It bounds the
-#: connect only: once the request is sent, the reply is waited for however
-#: long it takes. An address nothing answers at still fails in seconds.
+#he
+#he
+#
+#
 HOSTED_CONNECT_TIMEOUT_S = 30.0
 
-# How much of a failed response body an error message quotes. Enough to carry a
-# backend's own explanation, short enough not to paste a model's whole answer
-# into a traceback.
+#
+#
+#
 _ERROR_BODY_CHARS = 400
 
-# Every OpenAI-compatible server that implements `response_format` requires the
-# schema to carry a name, and none of them route on it. One constant rather than
-# a caller-supplied label, so that two requests pinning the same schema are the
-# same request on the wire.
+#
+#
+#
+#
 _RESPONSE_SCHEMA_NAME = "reply"
 
-#: What a caveated path puts on every completion it returns. No path in this
-#: build is caveated. The mechanism is kept because it is general and because
-#: ``quality_safe`` is a field telemetry writes into a write-once journal — a
-#: path that cannot measure must still be able to say so.
+#
+#
+# a
+#
 CAVEAT_NOTE = (
     "Served by a path this build marks as unable to carry a quality "
     "measurement. Usable for work, not for measuring a model."
@@ -188,44 +69,23 @@ CAVEAT_NOTE = (
 
 
 class RunnerError(Exception):
-    """A dispatch did not produce a completion."""
+    ""
 
 
 class TransportError(RunnerError):
-    """The endpoint could not be reached, or did not answer in time."""
+    ""
 
 
 class RefusedConnectionError(TransportError):
-    """The endpoint's port refused the connection: nothing is listening there.
-
-    Split from a timeout because the two mean opposite things about a card. A
-    refusal is what a card with nothing started gives, and is the wake signal
-    :mod:`mcgyvr.wake` acts on; a timeout is a card that is up and busy.
-    """
+    ""
 
 
 class HungUpError(TransportError):
-    """The dispatch was hung up on: whoever asked for it had gone.
-
-    A :class:`Hangup` the dispatch ran under was hung up, or the process is
-    ending (:func:`hang_up_all`). The unit was told by its connection closing,
-    not by this; nothing usable came back, which is what a transport failure
-    is, and no retry is owed to a caller who is no longer there.
-    """
+    ""
 
 
 class Hangup:
-    """What whoever asks holds to hang up on the dispatches made for them.
-
-    The thread that dispatches enters it (``with hangup:``), and every
-    dispatch made on that thread meanwhile runs under it; any thread calls
-    :meth:`hang_up` once the asker has gone. The connections of the dispatches
-    in flight under it are shut down at once, so each unit's next write fails
-    and its slot is free, and each dispatch ends as :class:`HungUpError`; a
-    dispatch asked under it afterwards reaches no unit. The shutdown is of
-    the socket alone, from whichever thread hangs up; the dispatching thread,
-    woken by it, is the one that closes the connection.
-    """
+    ""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -240,7 +100,7 @@ class Hangup:
         _under().remove(self)
 
     def hang_up(self) -> None:
-        """End the dispatches in flight under this, and refuse any after."""
+        ""
         with self._lock:
             self.hung_up = True
             open_now = list(self._open)
@@ -249,7 +109,7 @@ class Hangup:
                 sock.shutdown(socket.SHUT_RDWR)
 
     def _hold(self, sock: socket.socket) -> bool:
-        """Register a dispatch's socket; ``False`` once hung up."""
+        ""
         with self._lock:
             if self.hung_up:
                 return False
@@ -261,11 +121,11 @@ class Hangup:
             self._open.discard(sock)
 
 
-#: The hangups the current thread dispatches under, innermost last.
+#
 _dispatching = threading.local()
 
-#: Every dispatch of this process runs under this one too, so the process
-#: can hang up on all of them at once when it is ending (Ctrl-C).
+#
+#
 _every = Hangup()
 
 
@@ -277,18 +137,12 @@ def _under() -> list[Hangup]:
 
 
 def hang_up_all() -> None:
-    """Hang up on every dispatch of this process, and refuse any after: for
-    a process that is ending, so no unit goes on decoding for it."""
+    ""
     _every.hang_up()
 
 
 class BackendError(RunnerError):
-    """The endpoint answered with an HTTP error status.
-
-    ``status`` is that status, and ``code`` the OpenAI-shaped body's
-    ``error.code`` where it carried one as text; both ``None`` where the error
-    was not read that far.
-    """
+    ""
 
     def __init__(
         self, message: str, *, status: int | None = None, code: str | None = None
@@ -299,90 +153,60 @@ class BackendError(RunnerError):
 
 
 class ReliefUnavailableError(SlotUnavailableError):
-    """A relief rung's hub said it cannot take the request now.
-
-    A full rung, not a failure: no model was asked, so the climb steps aside
-    at no cost (see the module docstring).
-    """
+    ""
 
 
 class ModelUnplacedError(SlotUnavailableError):
-    """A hub said nothing can serve the rung's model now.
-
-    A full rung, not a failure, on any rung: no model was asked, and the
-    request is not pinned to this one, so the climb goes on to the next rung
-    at once (see the module docstring).
-    """
+    ""
 
 
-#: A hub's answer for a pooled model it held the request for and cannot
-#: place: the rig that held it is gone, and the answer carries no
-#: ``Retry-After``.
+#
+#
+#
 MODEL_UNPLACED: tuple[int, str] = (503, "model_unplaced")
 
 
 class UnknownModelError(SlotUnavailableError):
-    """A ladder rung's address said it does not know the rung's model.
-
-    A full rung, not a failure: no model was asked, so the climb goes on to
-    the next rung at once, and one line on stderr says which rung and which
-    model (see the module docstring).
-    """
+    ""
 
 
-#: The answer of an address asked for a model it does not know. On a relief
-#: rung that names it among its busy answers (a stale rung; a sync names it),
-#: it is read as busy there.
+#
+#
+#
 UNKNOWN_MODEL: tuple[int, str] = (404, "model_not_found")
 
 
 class ProtocolError(RunnerError):
-    """The endpoint answered, but not in a shape this protocol can read."""
+    ""
 
 
 class QualityCaveatError(RunnerError):
-    """A quality-sensitive request was routed at a path a caveat invalidates."""
+    ""
 
 
 class WrongWeightsError(RunnerError):
-    """The endpoint answered, but from weights other than the ones asked for.
-
-    A rung names a model; a rig serves whichever one is resident. Where those
-    two disagree the answer is not a worse answer, it is an answer to a
-    different question, and recording it would put a number against a model
-    that never ran. It is a :class:`RunnerError` because that is exactly what
-    it is — a dispatch that did not produce a completion — and because every
-    caller already treats that as an attempt to be retried elsewhere.
-    """
+    ""
 
 
 class StopReason(StrEnum):
-    """Why generation stopped, as reported by the backend.
-
-    ``UNKNOWN`` is a real answer and the reason this is not a boolean: a backend
-    that reported nothing, or reported a word this module does not recognise,
-    has not said the answer is complete. Treating that as completion is the
-    failure mode to design out, so the mapping is deliberately unoptimistic
-    and the backend's own word is kept alongside in
-    :attr:`Completion.raw_stop_reason`.
-    """
+    ""
 
     COMPLETE = "complete"
     TRUNCATED = "truncated"
     FILTERED = "filtered"
-    #: The model stopped to ask for tools. Not complete: the answer is still
-    #: owed, after the caller runs the calls and sends their results back.
+    #
+    #
     TOOL_CALLS = "tool_calls"
     UNKNOWN = "unknown"
 
 
-# The words the protocol and the servers that speak it actually use.
-# Anything absent from this table becomes UNKNOWN rather than being guessed at:
-# a new backend inventing a word should surface as "it did not say", not as a
-# clean finish. `eos_token` is TGI's; `max_tokens` appears on some
-# OpenAI-compatible servers where the reference implementation says `length`.
-#: The ``units.<unit>.sampling`` value under which no sampling parameter is
-#: sent: the unit's model fixes its own and refuses the field.
+#
+#
+#
+#
+#
+#
+#
 SERVER_SAMPLED = "server"
 
 _STOP_REASONS: dict[str, StopReason] = {
@@ -397,77 +221,22 @@ _STOP_REASONS: dict[str, StopReason] = {
 
 @dataclass(frozen=True)
 class ToolCall:
-    """One function call the model asked for: the server's id, the tool's name and its
-    arguments as the JSON text the model wrote (parsed by the caller, never here).
-
-    The arguments stay text because JSON the model wrote badly is a fact about
-    the model, which the caller answers in the conversation; reading it here
-    would turn it into a protocol fault and end the conversation instead.
-    """
+    ""
 
     id: str
     name: str
     arguments: str
 
 
-# The roles a turn of :attr:`Request.turns` may carry. ``system`` is a role the
-# protocol knows and is refused by name, not as unknown: its home is
-# :attr:`Request.system`.
+#
+#
+#
 _TURN_ROLES = frozenset({"user", "assistant", "tool"})
 
 
 @dataclass(frozen=True)
 class Request:
-    """One generation, described without reference to who will serve it.
-
-    No model and no endpoint: the model comes from the rung being dispatched to
-    and the endpoint from the seam, so the same ``Request`` can be sent at any
-    step of the ladder. That is what makes "the same contract executes
-    identically wherever it runs" checkable rather than a claim.
-
-    ``max_output_tokens`` has no default on purpose — a caller that wants a
-    capped reply must think about the ceiling, and ``None``, the explicit
-    uncapped dispatch for a raw-text reply, must be written rather than
-    inherited. ``temperature`` defaults to 0.0 because a
-    worker's output is judged by a deterministic gate; sampling is a decision to
-    be made explicitly, not inherited from a backend's default.
-
-    There is no ``stop`` field. A reply is bounded by the cap and a named
-    truncation, because a stop sequence makes a bad reply shorter where the cap
-    makes it *named* — and a shorter whole-file reply can still be valid Python
-    that the gate accepts. The absence is a decision, not an omission.
-
-    ``quality_sensitive`` marks benchmarking and any other path whose output is
-    read as a measurement of the model rather than as work. It does not change
-    what is sent; it decides whether a caveated path is allowed to serve it at
-    all.
-
-    ``response_schema`` is a plain JSON Schema — the shape itself, not any
-    protocol's envelope around it, because the envelope differs per protocol and
-    is the runner's business. It is a *request*, never a guarantee: a server
-    that ignores it answers in prose, and every rung of a local ladder is
-    allowed to. So it changes what is asked for and nothing about what may be
-    believed, which is why :func:`~mcgyvr.worker.reply.parse_pinned` reads both
-    shapes and no caller has to know which arrived.
-
-    ``turns`` is the conversation so far, each turn an OpenAI chat message kept
-    verbatim — a user's, the assistant's own (with any ``tool_calls`` it made),
-    or a tool's answer — placed after the system prompt and before ``prompt``,
-    which becomes the last user message. A request that only continues after a
-    tool answered leaves ``prompt`` empty and gets no user message appended.
-    There is no system turn: the system prompt has one home, ``system``.
-    ``tools`` are the OpenAI function tools on offer, sent with
-    ``tool_choice: "auto"``; empty sends neither key. Both default empty, so a
-    single-turn request is unchanged.
-
-    ``timeout_s`` bounds the dispatch in seconds; ``None`` leaves the bound to
-    the unit it is sent to (:func:`request_timeout`).
-
-    ``cap_basis`` says how ``max_output_tokens`` was reached
-    (:func:`mcgyvr.gate.preflight.sized_reply_cap`). It is never sent; it
-    rides to the completion and the journal row, so a reply cut at its cap
-    names the term that sized it.
-    """
+    ""
 
     prompt: str
     max_output_tokens: int | None
@@ -507,36 +276,7 @@ class Request:
 
 @dataclass(frozen=True)
 class Completion:
-    """What came back, how it ended, and what it cost — the same whatever the backend.
-
-    Carries the cap it was issued under so that :attr:`overran_cap` is
-    answerable from the record alone, without the request that produced it: a
-    telemetry row that cannot say what ceiling it was measured against cannot be
-    compared with another one.
-
-    ``input_tokens`` and ``output_tokens`` are the backend's own counts and are
-    ``None`` when it reported none. ``latency_s`` is measured host-side around
-    the request, which is the only quantity every backend expresses the same way
-    — a server-reported duration excludes queueing and is not comparable across
-    backends.
-
-    ``decode_tok_s`` and ``prefill_tok_s`` are what the dispatch measured about
-    the unit, each with the source it was read from, so a live observation can
-    be judged against a locked unit's ``warm_decode_tok_s`` and
-    ``prefill_tok_s``. ``"timings"`` is llama-server's own per-request
-    ``timings``; ``"usage_latency"`` is ``output_tokens / latency_s``, the
-    formula the vLLM units' lock was measured with; ``"metrics_ttft"`` is
-    ``input_tokens`` over the ``/metrics`` time-to-first-token delta of a
-    request the unit ran alone. ``in_flight`` is how many requests the *unit*
-    had in flight around this one, itself included: the larger of two readings
-    taken immediately before and after it, from ``/slots`` on a llama.cpp unit
-    (``in_flight_source`` ``"slots"``) or ``num_requests_running +
-    num_requests_waiting`` on a vLLM unit's ``/metrics`` (``"vllm_metrics"``).
-    The unit's count and not this process's, because separate ``mcgyvr run``
-    processes share a unit and a tolerance check judges only a dispatch the unit
-    ran alone. Each is ``None`` when it was not read: no figure here is ever
-    estimated, and no process-local count stands in for the unit's.
-    """
+    ""
 
     text: str
     stop_reason: StopReason
@@ -557,51 +297,43 @@ class Completion:
     prefill_source: str | None = None
     in_flight: int | None = None
     in_flight_source: str | None = None
-    #: How many tokens the unit's speculative draft proposed for this reply and
-    #: how many the target accepted -- llama-server's ``timings.draft_n`` and
-    #: ``draft_n_accepted``, which it reports only when it drafted. Their ratio
-    #: is the acceptance the MTP lever was measured by (the lab's mtp-ornith
-    #: measurement, ~0.90 on box2), and it is
-    #: how the lever's effect is seen in production. ``None`` where the server
-    #: reported none; a reported zero is a count and is kept.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     draft_n: int | None = None
     draft_n_accepted: int | None = None
-    #: The function calls the reply asked for, in the order the server listed
-    #: them; empty for a reply in text alone.
+    #
+    #
     tool_calls: tuple[ToolCall, ...] = ()
-    #: How many of ``output_tokens`` the backend reports as hidden reasoning
-    #: (``usage.completion_tokens_details.reasoning_tokens``), or ``None``
-    #: where it reported none. A reasoning model bills them against the cap.
+    #
+    #
+    #
     reasoning_tokens: int | None = None
-    #: How ``max_output_tokens`` was reached, copied from the request.
+    #
     cap_basis: str = ""
 
     @property
     def complete(self) -> bool:
-        """Whether the backend said it finished. ``UNKNOWN`` is not this."""
+        ""
         return self.stop_reason is StopReason.COMPLETE
 
     @property
     def wants_tools(self) -> bool:
-        """Whether the reply asked for tools, by its stop reason or by its calls.
-
-        Either is evidence: some servers report ``stop`` beside the calls.
-        """
+        ""
         return self.stop_reason is StopReason.TOOL_CALLS or bool(self.tool_calls)
 
     @property
     def truncated(self) -> bool:
-        """Whether the backend said it hit the ceiling. Never inferred."""
+        ""
         return self.stop_reason is StopReason.TRUNCATED
 
     @property
     def overran_cap(self) -> bool | None:
-        """Whether more tokens came back than were allowed, or ``None``.
-
-        ``None`` means the backend reported no count, or the request was
-        uncapped — so there was no ceiling to check — distinct from a checked
-        cap that held.
-        """
+        ""
         if self.output_tokens is None or self.max_output_tokens is None:
             return None
         return self.output_tokens > self.max_output_tokens
@@ -609,82 +341,50 @@ class Completion:
 
 @dataclass(frozen=True)
 class _Parsed:
-    """The per-protocol part of an answer, before it becomes a completion.
-
-    Everything a protocol is allowed to decide, and nothing more. The
-    completion itself is assembled once, in :meth:`Runner.generate`, which is
-    what keeps the one path from drifting into a different meaning of
-    "truncated".
-    """
+    ""
 
     text: str
     raw_stop_reason: str
     input_tokens: int | None
     output_tokens: int | None
-    #: The model the backend says it answered with, or ``None`` where it named
-    #: none. Not the model that was asked for — comparing the two is the whole
-    #: point, so a protocol that silently substituted one for the other would
-    #: erase the check.
+    #
+    #le
+    #
+    #
     served_model: str | None
-    #: The server's own decode and prefill rates for this one request, where it
-    #: reports them (llama-server's ``timings``), or ``None`` where it does not.
+    #
+    #
     decode_tok_s: float | None = None
     prefill_tok_s: float | None = None
-    #: The draft counts of the same ``timings``, present only when it drafted.
+    #
     draft_n: int | None = None
     draft_n_accepted: int | None = None
-    #: The function calls the answer asked for; empty when it asked for none.
+    #
     tool_calls: tuple[ToolCall, ...] = ()
-    #: The reasoning share of ``output_tokens``, where the backend reports it.
+    #
     reasoning_tokens: int | None = None
 
 
 class Runner(ABC):
-    """Dispatch against one endpoint in one wire protocol.
-
-    Construct through :func:`runner_for`, which picks the implementation from
-    the endpoint's protocol; nothing here should be selected by name at a call
-    site, because that is the dependency on a backend the seam exists to
-    prevent.
-
-    A subclass supplies three things — the path it posts to, the body it sends,
-    and how to read an answer — and declares whether its path is safe to measure
-    a model through. Timing, credentials, transport, the stop-reason mapping and
-    the cap check are shared, so no protocol can quietly mean something
-    different by them.
-    """
+    ""
 
     protocol: ClassVar[Protocol]
     path: ClassVar[str]
-    # False marks a path that is not safe to measure a model through. It
-    # decides both the flag on every completion and whether a
-    # quality-sensitive request is refused.
+    #
+    #
+    #
     quality_safe: ClassVar[bool] = True
-    # Whether this protocol has a parameter for `Request.response_schema`. False
-    # is not a refusal — the request is sent without it and comes back as prose,
-    # with a note saying so — because a schema is an optimisation and refusing
-    # would make it a requirement.
+    #
+    #e,
+    #ng
+    #
     honours_response_schema: ClassVar[bool] = False
 
     def __init__(self, endpoint: Endpoint) -> None:
         self.endpoint = endpoint
 
     def generate(self, model: str, request: Request) -> Completion:
-        """Run one request against this endpoint and return what came back.
-
-        A keyless endpoint's status page is read immediately before and after
-        the request — ``/slots`` for a llama.cpp unit, ``/metrics`` for a vLLM
-        one, chosen by the unit's declared engine — to record how many requests
-        the unit had in flight and, on vLLM, the prefill of a request it ran
-        alone. A page that cannot be read costs the dispatch only those
-        figures. A keyed endpoint is a hosted provider's, and nothing is read.
-
-        Raises :class:`QualityCaveatError` before sending anything when the
-        request is quality-sensitive and this path is caveated,
-        :class:`TransportError` when the endpoint cannot be reached,
-        :class:`BackendError` on an HTTP error status, and
-        :class:`ProtocolError` when the answer cannot be read.
-        """
+        ""
         if request.quality_sensitive and not self.quality_safe:
             raise QualityCaveatError(
                 f"refusing a quality-sensitive request on the "
@@ -768,17 +468,7 @@ class Runner(ABC):
         )
 
     def _refuse_other_weights(self, asked: str, served: str | None) -> None:
-        """Raise unless the answer came from the weights that were asked for.
-
-        A dispatch aimed at a rung whose model is not resident reaches the
-        server anyway and is answered from whatever *is* loaded. Nothing here
-        probes — the answer already carries the name, this only stops throwing
-        it away — so a card that is up costs nothing extra.
-
-        Silence is not a mismatch. A backend that names no model cannot be
-        checked and is not refused: an optional key is not made a requirement,
-        and the completion records ``None`` rather than claiming agreement.
-        """
+        ""
         if served is None or is_model(served, asked):
             return
         raise WrongWeightsError(
@@ -789,19 +479,7 @@ class Runner(ABC):
         )
 
     def _refuse_another_host_model(self, served: str | None) -> None:
-        """Raise unless a ridden answer names the model the rung was matched on.
-
-        The relief rung's ``served_model`` is what the hub said the host runs,
-        and the hub passes the host's answer through, which names the model as
-        the host's server does: the name itself, or the weights file it was
-        handed. So it is read by the rule a rung of the rider's own is read by
-        (:func:`mcgyvr.weights.is_model`), not by equality. An answer naming
-        another, or none, did not come from the unit the rider was matched to:
-        the rung refused the request, which is a full rung
-        (:class:`ReliefUnavailableError`) and not a verdict on the work.
-        Silence is refused here, unlike on a rung of one's own: a ride is paid
-        for, and an answer nothing ties to the matched unit is not kept.
-        """
+        ""
         expected = self.endpoint.served_model
         if expected is not None and served is not None and is_model(served, expected):
             return
@@ -816,7 +494,7 @@ class Runner(ABC):
     def _notes(
         self, parsed: _Parsed, stop_reason: StopReason, request: Request
     ) -> tuple[str, ...]:
-        """Anything about this dispatch that a caller should not have to infer."""
+        ""
         notes: list[str] = []
         if not self.quality_safe:
             notes.append(CAVEAT_NOTE)
@@ -865,11 +543,7 @@ class Runner(ABC):
         return tuple(notes)
 
     def _headers(self) -> dict[str, str]:
-        """Request headers, with the key read at this moment and not before.
-
-        A keyless endpoint gets no ``Authorization`` header at all — an empty
-        one is a different request, and some servers reject it.
-        """
+        ""
         headers = {"Content-Type": "application/json"}
         key = self.endpoint.credential()
         if key:
@@ -878,21 +552,15 @@ class Runner(ABC):
 
     @abstractmethod
     def _payload(self, model: str, request: Request) -> dict[str, Any]:
-        """The request body in this protocol's shape, cap included."""
+        ""
 
     @abstractmethod
     def _parse(self, document: dict[str, Any]) -> _Parsed:
-        """Read an answer, raising :class:`ProtocolError` if it cannot be."""
+        ""
 
 
 class OpenAIRunner(Runner):
-    """The OpenAI-compatible chat-completions shape — vLLM, llama-server, TGI,
-    LM Studio and the hosted providers.
-
-    One protocol rather than one integration per vendor, which is what makes
-    adding a backend a config entry. It is also the path a measurement must run
-    on, so this is the quality-safe path.
-    """
+    ""
 
     protocol: ClassVar[Protocol] = Protocol.OPENAI
     path: ClassVar[str] = "/v1/chat/completions"
@@ -907,37 +575,37 @@ class OpenAIRunner(Runner):
             messages.append({"role": "user", "content": request.prompt})
         payload: dict[str, Any] = {"model": model, "messages": messages}
         if self.endpoint.sampling != SERVER_SAMPLED:
-            # A unit whose server fixes its own sampling refuses the parameter
-            # (`units.<unit>.sampling: server`); every other unit is sent the
-            # draw's temperature, 0.0 for the greedy first draw.
+            #
+            #
+            #
             payload["temperature"] = request.temperature
         if request.max_output_tokens is not None:
-            # `max_tokens`, not `max_completion_tokens`, and never both. The
-            # key is absent when the request is uncapped, never present and
-            # null.
+            #
+            #
+            #
             payload["max_tokens"] = request.max_output_tokens
         if request.response_schema is not None:
-            # The key is absent unless a schema was pinned, never present and
-            # null.
+            #
+            #
             payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
                     "name": _RESPONSE_SCHEMA_NAME,
-                    # Constrained decoding where the server offers it. A server
-                    # that only advertises the field applies it as a hint, which
-                    # is why the reply is parsed and never trusted.
+                    #
+                    #
+                    #
                     "strict": True,
                     "schema": request.response_schema,
                 },
             }
         if request.tools:
-            # Both keys absent unless tools are on offer, so a single-turn
-            # request is the body it always was.
+            #
+            #
             payload["tools"] = list(request.tools)
             payload["tool_choice"] = "auto"
-        # The stream and its counts, so a hang-up stops the unit within a
-        # token; the transport assembles the whole answer (the module's
-        # docstring says why).
+        #
+        #
+        #
         return whole.asking(payload)
 
     def _parse(self, document: dict[str, Any]) -> _Parsed:
@@ -954,8 +622,8 @@ class OpenAIRunner(Runner):
         tool_calls = self._tool_calls(
             message.get("tool_calls") if isinstance(message, dict) else None
         )
-        # A reply that calls tools may carry no text; one that calls none and
-        # has no string content is what an empty file would be made from.
+        #
+        #
         if content is None and tool_calls:
             content = ""
         if not isinstance(content, str):
@@ -968,8 +636,8 @@ class OpenAIRunner(Runner):
             usage = {}
         raw_stop = first.get("finish_reason") if isinstance(first, dict) else None
         served = document.get("model")
-        # llama-server adds its own per-request `timings`; vLLM and the hosted
-        # providers do not, and a reply without them measured nothing here.
+        #
+        #
         timings = document.get("timings")
         if not isinstance(timings, dict):
             timings = {}
@@ -981,8 +649,8 @@ class OpenAIRunner(Runner):
             served_model=served if isinstance(served, str) and served else None,
             decode_tok_s=_as_rate(timings.get("predicted_per_second")),
             prefill_tok_s=_as_rate(timings.get("prompt_per_second")),
-            # Counts, not rates: a draft that had every token rejected reports
-            # zero accepted, and that zero is the measurement.
+            #
+            #
             draft_n=_as_int(timings.get("draft_n")),
             draft_n_accepted=_as_int(timings.get("draft_n_accepted")),
             tool_calls=tool_calls,
@@ -990,13 +658,7 @@ class OpenAIRunner(Runner):
         )
 
     def _tool_calls(self, entries: object) -> tuple[ToolCall, ...]:
-        """Read ``choices[0].message.tool_calls``, raising on a malformed entry.
-
-        Absent or ``null`` is no calls. An entry without the id or the name is
-        refused rather than skipped, because a call the caller cannot run and
-        answer by id would leave the conversation owing a reply it cannot send.
-        Absent arguments are ``""``, which is what a tool taking none is sent.
-        """
+        ""
         if entries is None:
             return ()
         where = f"{self.endpoint.source!r} answered chat completions with"
@@ -1034,27 +696,12 @@ _RUNNERS: dict[Protocol, type[Runner]] = {
 
 
 def runner_for(endpoint: Endpoint) -> Runner:
-    """The runner that speaks this endpoint's protocol.
-
-    The only place a protocol selects an implementation. :class:`Protocol` has
-    one member and this table has one entry; a second would be a new wire
-    shape, which is the one thing that is genuinely not a config entry.
-    """
+    ""
     return _RUNNERS[endpoint.protocol](endpoint)
 
 
 def request_timeout(endpoint: Endpoint, stated: float | None) -> float | None:
-    """The bound a dispatch to ``endpoint`` is sent with; ``None`` for none.
-
-    A bound the request states wins. Without one, a hosted unit (one that
-    needs a key) gets its own ``request_timeout_s``, and none when it states
-    none: how long a hosted reply takes is the provider's, and a reasoning
-    model asked for a large cap took 229 s in e2e run 2 and was cut off at a
-    120 s bound nobody had chosen for it. A local unit keeps
-    :data:`GENERATE_TIMEOUT_S`, which its own ``request_timeout_s`` reaches
-    through the caller that holds the config, as it always did. The connect
-    is bounded either way (:data:`HOSTED_CONNECT_TIMEOUT_S`).
-    """
+    ""
     if stated is not None:
         return stated
     if endpoint.requires_credential:
@@ -1069,42 +716,17 @@ def dispatch(
     *,
     capacity: Capacity | None = None,
 ) -> Completion:
-    """Send a request to a rung of the ladder, whatever is serving it.
-
-    The intended way in, and the reason nothing above the seam needs to touch
-    :meth:`~mcgyvr.local_pool.SourceMap.bind`: the model comes from the rung and the
-    protocol from its endpoint, so a caller names a step of the ladder and
-    nothing about a machine. Propagates
-    :class:`~mcgyvr.local_pool.UnknownRungError` and
-    :class:`~mcgyvr.local_pool.SourceUnavailableError` from the binding unchanged —
-    asking for a rung that does not exist and asking for one whose source
-    cannot serve it stay different mistakes.
-
-    ``capacity`` bounds how many dispatches this source may have in flight,
-    and is held for exactly the length of the request. Holding it here
-    rather than around a whole task is what makes escalation account correctly:
-    a task moving from a local rung to an API one occupies each source only
-    while it is talking to it. ``None`` — the default — dispatches unbounded,
-    which is right for a single request and wrong for a batch; that is what
-    :func:`~mcgyvr.capacity.run_batch` exists to prevent by handing every job
-    the capacity it must dispatch under.
-
-    The rung is named to the capacity as well as to the pool, because a rung may
-    declare a width of its own and this is the only place that knows which rung
-    is dispatching. A rung that declares nothing is held against its source's
-    slots — :meth:`~mcgyvr.capacity.Capacity.hold` decides that fallback, not
-    this.
-    """
+    ""
     endpoint = source_map.bind(rung)
     step = source_map.get(rung)
-    if step is None:  # unreachable: bind() raises first for both causes
+    if step is None:  #
         raise UnknownRungError(f"no rung named {rung!r}")
     if capacity is None:
         return runner_for(endpoint).generate(step.model, request)
-    # How long this may wait for a slot is the capacity's own, set from
-    # ``task_timeout_s`` when it was built from a config: a bound on
-    # the wait belongs to the thing that owns the bound, not to every call
-    # site that has to remember to pass it.
+    #
+    #
+    #
+    #
     with capacity.hold(endpoint, rung=rung):
         return runner_for(endpoint).generate(step.model, request)
 
@@ -1116,22 +738,7 @@ def dispatch_role(
     *,
     capacity: Capacity | None = None,
 ) -> Completion | None:
-    """Send a request to a non-ladder role, or ``None`` when it has none.
-
-    ``None`` mirrors :meth:`~mcgyvr.local_pool.SourceMap.role`: an install that binds
-    no verifier runs with none, and that is an ordinary state rather than a
-    failure. A role whose source is declared but unusable still raises.
-
-    A role is bounded by the same per-source capacity as a rung, because it is
-    the same machine: a verifier sharing a card with the ladder competes with
-    it for slots, and a bound that only counted ladder traffic would be
-    describing a different machine than the one under load.
-
-    No rung is named, and none can be: a role is a binding to a source and a
-    model with no step of the ladder behind it, so the source's own width is
-    the only width there is to hold it to. Passing a rung here would have to
-    invent one.
-    """
+    ""
     binding = source_map.role(role)
     if binding is None:
         return None
@@ -1141,11 +748,11 @@ def dispatch_role(
         return runner_for(binding.endpoint).generate(binding.model, request)
 
 
-# --- what a dispatch measured -----------------------------------------------
+#
 
-#: Where each recorded rate was read. A rate is only ever written beside its
-#: source: a server's own timings and tokens over host-side latency are two
-#: different quantities, and a tolerance check compares like with like.
+#
+#
+#
 DECODE_FROM_TIMINGS = "timings"
 DECODE_FROM_USAGE_LATENCY = "usage_latency"
 PREFILL_FROM_TIMINGS = "timings"
@@ -1153,11 +760,11 @@ PREFILL_FROM_METRICS_TTFT = "metrics_ttft"
 IN_FLIGHT_FROM_SLOTS = "slots"
 IN_FLIGHT_FROM_VLLM_METRICS = "vllm_metrics"
 
-#: The status pages each engine publishes, and how long a read of one may
-#: take. A failure is silence: a count that could not be read is not a dispatch
-#: that failed. The ceiling is a ceiling, not a measured bound — a page slower
-#: than it is still dropped. The reads sit outside the request's
-#: ``latency_s``, so a slow page never slows the decode figure.
+#
+#
+#er
+#
+#
 SLOTS_PATH = "/slots"
 METRICS_PATH = "/metrics"
 STATUS_TIMEOUT_S = 10.0
@@ -1169,29 +776,16 @@ _WAITING = VLLM_WAITING
 
 @dataclass(frozen=True)
 class _Status:
-    """One reading of a unit's status page, taken beside a dispatch.
-
-    ``busy`` counts the requests the unit reported other than the one being
-    dispatched: before it is sent that request is not yet on the unit, and
-    after its answer has come back it no longer is. A slot still marked busy at
-    the second reading is counted as another request — the cautious direction,
-    since it can only make a dispatch look less alone than it was.
-    """
+    ""
 
     busy: int
     source: str
-    #: vLLM's time-to-first-token totals ``(sum_s, count)``, or ``None``.
+    #
     ttft: tuple[float, int] | None = None
 
 
 def _reasoning_tokens(usage: Mapping[str, Any]) -> int | None:
-    """The reasoning share of a reply's output tokens, where the usage reports it.
-
-    ``usage.completion_tokens_details.reasoning_tokens`` is where OpenAI and
-    the OpenAI-compatible reasoning providers put it; a bare
-    ``usage.reasoning_tokens`` is read where that is absent. ``None`` where
-    neither is a count, never an estimate from the reasoning text.
-    """
+    ""
     details = usage.get("completion_tokens_details")
     if isinstance(details, Mapping):
         nested = _as_int(details.get("reasoning_tokens"))
@@ -1201,13 +795,7 @@ def _reasoning_tokens(usage: Mapping[str, Any]) -> int | None:
 
 
 def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None]:
-    """The reply's decode rate and where it was read, or ``(None, None)``.
-
-    The server's own figure first. Otherwise ``output_tokens / latency_s`` —
-    the formula the vLLM units' lock was measured with (the lab's fleet
-    measurement on box2), so a live figure and a locked one are the same
-    quantity. No count, no rate.
-    """
+    ""
     if parsed.decode_tok_s is not None:
         return parsed.decode_tok_s, DECODE_FROM_TIMINGS
     if parsed.output_tokens and latency_s > 0:
@@ -1218,13 +806,7 @@ def _decode(parsed: _Parsed, latency_s: float) -> tuple[float | None, str | None
 def _in_flight(
     before: _Status | None, after: _Status | None
 ) -> tuple[int | None, str | None]:
-    """The unit's in-flight count around a dispatch, this one included.
-
-    The larger of the two readings, because a request that arrived or left
-    between them was in flight beside this one either way. Both readings are
-    required: one missing is a count nobody read, and it is left out rather
-    than half-known.
-    """
+    ""
     if before is None or after is None or before.source != after.source:
         return None, None
     return max(before.busy, after.busy) + 1, before.source
@@ -1233,14 +815,7 @@ def _in_flight(
 def _prefill(
     parsed: _Parsed, before: _Status | None, after: _Status | None
 ) -> tuple[float | None, str | None]:
-    """The reply's prefill rate and where it was read, or ``(None, None)``.
-
-    The server's own figure first. Otherwise ``input_tokens`` over the
-    time-to-first-token the vLLM histogram added across this dispatch — only
-    when the unit had nothing else in flight at either reading and the
-    histogram added exactly one observation, which is the only delta that is
-    this request's and no other's.
-    """
+    ""
     if parsed.prefill_tok_s is not None:
         return parsed.prefill_tok_s, PREFILL_FROM_TIMINGS
     if before is None or after is None or not parsed.input_tokens:
@@ -1254,13 +829,7 @@ def _prefill(
 
 
 def _status(endpoint: Endpoint) -> _Status | None:
-    """Read the unit's status page by its engine, or ``None``.
-
-    ``vllm`` reads ``/metrics``; anything else reads ``/slots``, because a unit
-    that declares no engine is llama.cpp (``units.engine`` in
-    :mod:`mcgyvr.config`). A keyed endpoint is a hosted provider's, which
-    publishes neither, so nothing is asked of it.
-    """
+    ""
     if endpoint.credential_env is not None:
         return None
     if endpoint.engine == "vllm":
@@ -1273,14 +842,7 @@ def _status(endpoint: Endpoint) -> _Status | None:
 def unit_in_flight(
     source: str, base_url: str, engine: str | None, max_parallel: int = 1
 ) -> int | None:
-    """How many requests the unit itself reports in flight, or ``None`` unread.
-
-    The same reading a dispatch takes beside itself (:func:`_status`), for a
-    caller that wants the count without dispatching: a live probe
-    (:mod:`mcgyvr.fleet.probe`) measures a unit only when this is 0. Taken by
-    address and engine rather than as an :class:`~mcgyvr.local_pool.Endpoint`, so
-    the caller needs nothing from below the seam but this function.
-    """
+    ""
     endpoint = Endpoint(
         source=source,
         base_url=base_url,
@@ -1294,33 +856,18 @@ def unit_in_flight(
 
 
 def status_busy(engine: str | None, page: str | None) -> int | None:
-    """What a unit's own status page says it has in flight, or ``None`` unread.
-
-    The page :func:`unit_in_flight` reads at the unit's address, handed in
-    already fetched — the door's ``read`` fetches it on the rig
-    (:mod:`mcgyvr.fleet.read`) — and judged by the same two readers, which live in
-    :mod:`mcgyvr.fleet.harness` so the rig reads a page the same way.
-    """
+    ""
     return in_flight(engine, page)
 
 
 def _slots_status(page: str | None) -> _Status | None:
-    """llama-server's ``/slots``: how many slots are ``is_processing``.
-
-    ``None`` for anything that is not a non-empty list of slots each saying
-    ``is_processing`` as a boolean — a disabled endpoint answers an error
-    object, and a half-read list is not a count.
-    """
+    ""
     busy = slots_in_flight(page)
     return None if busy is None else _Status(busy=busy, source=IN_FLIGHT_FROM_SLOTS)
 
 
 def _vllm_status(page: str | None) -> _Status | None:
-    """vLLM's ``/metrics``: requests running plus waiting, and the TTFT totals.
-
-    ``None`` unless both request gauges are on the page. The TTFT histogram is
-    optional: without it the count still stands and only the prefill is lost.
-    """
+    ""
     totals = prometheus_totals(
         page, (_RUNNING, _WAITING, f"{_TTFT}_sum", f"{_TTFT}_count")
     )
@@ -1339,13 +886,7 @@ def _vllm_status(page: str | None) -> _Status | None:
 
 
 def _get_text(url: str, timeout: float) -> str | None:
-    """GET a text page, or ``None`` when anything about the read fails.
-
-    Never raises: this reads a measurement beside a dispatch, and a page that
-    is not there must cost the dispatch nothing but the figure. A reply HTTP
-    itself cannot read — a garbled status line, a body cut short — is an
-    ``http.client.HTTPException``, which is neither of the other two.
-    """
+    ""
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             raw: bytes = response.read(_STATUS_BYTES)
@@ -1354,12 +895,12 @@ def _get_text(url: str, timeout: float) -> str | None:
     return raw.decode("utf-8", "replace")
 
 
-# --- transport --------------------------------------------------------------
+#
 
 
-#: How much of an answer is read at a time, in bytes: a read returns what has
-#: come, up to this, so a stream is read a token's event at a time as it is
-#: written and the deadline is checked between reads.
+#
+#
+#
 _READ_BYTES = 64 * 1024
 
 
@@ -1369,22 +910,7 @@ def _post_json(
     headers: dict[str, str],
     timeout: float | None,
 ) -> dict[str, Any]:
-    """POST a JSON document and return the JSON answer.
-
-    A payload asking for a stream (``stream: true``, as every payload of the
-    runner's and of a typed decision's does) is read as it comes and assembled
-    into the whole answer (:class:`mcgyvr.whole.Whole`), so a hang-up reaches
-    the unit at its next write; one that asks for none is read whole.
-    ``timeout`` bounds the dispatch end to end, connect included; the
-    :class:`Hangup` of the thread and the process's hang up on it meanwhile.
-    ``None`` bounds only the connect, by :data:`HOSTED_CONNECT_TIMEOUT_S`: once the
-    request is sent, the reply is waited for however long it takes.
-
-    Every failure is named rather than folded into one: unreachable is not the
-    same as a 401, and neither is the same as an answer this runner cannot
-    read. No message interpolates a credential — the key is in ``headers``,
-    which is never quoted, and the URL is quoted with its userinfo redacted.
-    """
+    ""
     body = json.dumps(payload).encode("utf-8")
     streamed = payload.get("stream") is True
     sent = {
@@ -1403,8 +929,8 @@ def _post_json(
     connection, path = _open(url, connect_s)
     sock: socket.socket | None = None
     response: http.client.HTTPResponse | None = None
-    # Whether the server took the request: a failure after this is one of a
-    # server that was reached, never of one that could not be.
+    #
+    #
     reached = False
     try:
         connection.request("POST", path, body=body, headers=sent)
@@ -1413,7 +939,7 @@ def _post_json(
         if sock is None or not all(hangup._hold(sock) for hangup in under):
             raise HungUpError(f"{safe_url(url)} was hung up on: the asker has gone")
         if timeout is None:
-            # The connect bound ends with the connect: the reply has none.
+            #
             sock.settimeout(None)
         response = connection.getresponse()
         status = response.status
@@ -1439,14 +965,14 @@ def _post_json(
                 )
             raw = raw_bytes.decode("utf-8", "replace")
         elif status >= 300:
-            # An error status, or a redirect, which is not followed: the
-            # address of a unit is where it answers.
-            # The body is read inside this branch, so a failure of that read is
-            # not caught by the handlers below it: it is caught here, and the
-            # dispatch still ends as the error status the server sent. A
-            # failed read says nothing about how much arrived: what was framed
-            # is kept (a chunk cut off partway is dropped), and a stall or a
-            # reset keeps nothing. So no failed read is called empty.
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            #
             answered_with = f"{safe_url(url)} answered HTTP {status}"
             try:
                 raw_detail = _body(response, sock, deadline, timeout)
@@ -1478,9 +1004,9 @@ def _post_json(
                 f"{safe_url(url)} was hung up on: the asker has gone"
             ) from exc
         if reached and timeout is not None and isinstance(exc, TimeoutError):
-            # The server took the request and was still answering when the
-            # bound ran out: a slow reply, not an address nothing answers at,
-            # and the fix is the bound or the cap, not the address.
+            #
+            #
+            #
             raise TransportError(
                 f"{safe_url(url)} was reached but did not reply within "
                 f"{timeout:g}s ({exc}); the bound is the unit's "
@@ -1492,9 +1018,9 @@ def _post_json(
                 f"{safe_url(url)} was reached, and the connection failed before "
                 f"its reply was whole: {exc}"
             ) from exc
-        # A refusal and a timeout are both OSError; to a caller they mean the
-        # same thing — nothing usable answered within the timeout — except to
-        # a waker, which wakes a card on a refusal and never on a timeout.
+        #
+        #t to
+        #
         reason = getattr(exc, "reason", exc)
         kind = (
             RefusedConnectionError
@@ -1509,15 +1035,15 @@ def _post_json(
             raise HungUpError(
                 f"{safe_url(url)} was hung up on: the asker has gone"
             ) from exc
-        # Not an OSError: a server that died mid-body (IncompleteRead) or
-        # answered with a status line nobody can read. Nothing usable came
-        # back, which is what a transport failure is.
+        #
+        #
+        #
         raise TransportError(
             f"{safe_url(url)} sent a reply that could not be read: "
             f"{type(exc).__name__}: {exc}"
         ) from exc
     except ValueError as exc:
-        # The stream's one event longer than any of a chat completion's.
+        #
         raise ProtocolError(
             f"{safe_url(url)} answered with something that is not a chat "
             f"completion's stream: {exc}"
@@ -1545,8 +1071,7 @@ def _post_json(
 
 
 def _open(url: str, timeout: float) -> tuple[http.client.HTTPConnection, str]:
-    """A connection to ``url``'s host, not yet connected, and the path to
-    post to; :class:`TransportError` for anything but an http(s) URL."""
+    ""
     parts = urllib.parse.urlsplit(url)
     scheme = parts.scheme.lower()
     if scheme not in ("http", "https") or not parts.hostname:
@@ -1567,10 +1092,7 @@ def _reads(
     deadline: float | None,
     timeout: float | None,
 ) -> Iterator[bytes]:
-    """The answer's bytes as they come, each read bounded by what is left of
-    the deadline: a timeout is one on the dispatch, not on a token. With no
-    deadline each read waits as long as the unit takes. A body read to its
-    announced end closes the response, and the socket with it."""
+    ""
     while not response.isclosed():
         if deadline is not None:
             left = deadline - time.monotonic()
@@ -1589,15 +1111,14 @@ def _body(
     deadline: float | None,
     timeout: float | None,
 ) -> bytes:
-    """The whole body, or :class:`http.client.IncompleteRead` with what came
-    when it ended before its announced length or mid-chunk."""
+    ""
     kept = bytearray()
     try:
         for chunk in _reads(response, sock, deadline, timeout):
             kept += chunk
     except http.client.IncompleteRead as short:
         raise http.client.IncompleteRead(bytes(kept) + short.partial) from short
-    if response.length:  # announced, and not all of it came
+    if response.length:  #
         raise http.client.IncompleteRead(bytes(kept), response.length)
     return bytes(kept)
 
@@ -1608,10 +1129,7 @@ def _assembled(
     deadline: float | None,
     timeout: float | None,
 ) -> tuple[int, str, bytes] | None:
-    """The unit's stream read to its end and assembled as the answer a
-    request not streamed gets: its status, type and body; ``None`` when the
-    stream ended with neither (the unit failed mid-answer, or was hung up
-    on): a stream cut mid-chunk is such an end, not a reply unreadable."""
+    ""
     assembled = whole.Whole()
     with contextlib.suppress(http.client.IncompleteRead):
         for chunk in _reads(response, sock, deadline, timeout):
@@ -1619,15 +1137,11 @@ def _assembled(
     return assembled.answer()
 
 
-# --- small deterministic helpers -------------------------------------------
+#
 
 
 def _error_code(body: str) -> str | None:
-    """The ``error.code`` of an OpenAI-shaped error body, or ``None``.
-
-    Read from what the server sent, which is untrusted: anything that is not a
-    JSON object holding an ``error`` object whose ``code`` is text is no code.
-    """
+    ""
     try:
         document = json.loads(body)
     except (ValueError, RecursionError):
@@ -1638,14 +1152,7 @@ def _error_code(body: str) -> str | None:
 
 
 def _url_for(base_url: str, path: str) -> str:
-    """Join a source's base URL to a protocol path, tolerating a doubled ``/v1``.
-
-    A unit's ``address`` may be a root, ``http://localhost:8080``, or end in
-    ``/v1``; without this the second spelling is sent to
-    ``/v1/v1/chat/completions``. Both spellings are accepted here rather than
-    in the loader, because appending the path is this module's business and
-    :class:`~mcgyvr.local_pool.Endpoint` is shared with callers that append nothing.
-    """
+    ""
     base = base_url.rstrip("/")
     if path.startswith("/v1/") and base.endswith("/v1"):
         base = base[: -len("/v1")]
@@ -1653,28 +1160,19 @@ def _url_for(base_url: str, path: str) -> str:
 
 
 def _as_str(value: object) -> str:
-    """A reported word as a string, with anything else read as unreported."""
+    ""
     return value if isinstance(value, str) else ""
 
 
 def _as_rate(value: object) -> float | None:
-    """A reported rate, or ``None`` when it was not reported or is not positive.
-
-    ``bool`` is excluded for the reason :func:`_as_int` gives, and a zero or
-    negative rate is a server that measured nothing, not a unit that is stalled.
-    """
+    ""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     return float(value) if value > 0 else None
 
 
 def _as_int(value: object) -> int | None:
-    """A reported count, or ``None`` when it was not reported.
-
-    ``None`` rather than ``0``: a backend that said nothing about tokens has
-    not said zero, and a zero would average into telemetry as a measurement.
-    ``bool`` is excluded because it is an ``int`` and never a count.
-    """
+    ""
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return value

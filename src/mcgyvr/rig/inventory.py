@@ -1,22 +1,4 @@
-"""The models a rig can serve, named for the hub and never addressed by path.
-
-The hub names a model; the agent finds it in its own inventory. So a hello
-says of each model file under the owner's models folder its *name* (the
-file's own name, which carries no folder), its size, and what planning reads
-from its header — the architecture, layer count, trained context, embedding
-width, KV heads, and the KV cache's bytes per token of context at the KV type
-the head runs with, and the sizes of its token embedding and output tensors
-— read by the product's own GGUF reader
-(:func:`mcgyvr.serving.ggufscan.scan`), never guessed from the size.
-
-A head is started only on a model this inventory holds (:func:`resolve`): the
-name is looked up, never joined to a path, so no name the hub sends can
-reach a file outside the folder. A file is held only when it lies under the
-folder once its links are resolved, is a regular file, and its name is one
-the protocol carries; of a split model only its first part is named. Two
-files of one name keep the first (by path) and say so. A header that does not
-read leaves its counts unsaid, not guessed.
-"""
+""
 
 from __future__ import annotations
 
@@ -30,12 +12,12 @@ from typing import Any
 from mcgyvr.rig import pooled, protocol
 from mcgyvr.serving import ggufscan
 
-#: How deep under the models folder files are looked for.
+#
 MAX_DEPTH = 4
-#: A split model's later parts: ``-00002-of-00003.gguf`` and on.
+#
 _SPLIT_FIRST = "-00001-of-"
 
-#: The GGML type number of each KV cache type the head may run with.
+#
 _KV_TYPES = {"f16": 1, "q8_0": 8}
 
 Scan = Callable[[str], Mapping[str, Any]]
@@ -43,8 +25,7 @@ Scan = Callable[[str], Mapping[str, Any]]
 
 @dataclass(frozen=True, kw_only=True)
 class Inventory:
-    """The models found, their files relative to the folder (its links
-    resolved), and notes."""
+    ""
 
     folder: Path | None
     models: tuple[protocol.ModelInfo, ...] = ()
@@ -53,9 +34,7 @@ class Inventory:
 
 
 def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
-    """The KV cache's bytes per token of context of the model ``row`` reads
-    (one :func:`~mcgyvr.serving.ggufscan.scan` row), at ``kv_type``; ``None``
-    when the row names no caching layer."""
+    ""
     layers = row.get("kv_layers")
     if not isinstance(layers, list) or not layers:
         return None
@@ -73,9 +52,7 @@ def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
 
 
 def tensor_bytes(row: Mapping[str, Any]) -> tuple[int | None, int | None]:
-    """The token embedding's and the output tensor's bytes in ``row``: the
-    output is 0 when the file has none (it reuses the embedding), and both
-    are ``None`` when the file has no token embedding."""
+    ""
     embd, output = row.get("token_embd_bytes"), row.get("output_bytes")
     if type(embd) is not int or not 1 <= embd <= protocol.MAX_MODEL_BYTES:
         return None, None
@@ -92,7 +69,7 @@ def _count(row: Mapping[str, Any], key: str, high: int) -> int | None:
 
 
 def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo:
-    """Model ``name`` of ``size`` bytes as a hello carries it, from its row."""
+    ""
     if "error" in row:
         return protocol.ModelInfo(name=name, size_bytes=size)
     arch = row.get("arch")
@@ -138,13 +115,13 @@ def _scan_cached(path: Path, size: int, mtime_ns: int, scan: Scan) -> Mapping[st
     if key not in _SCANNED:
         try:
             _SCANNED[key] = scan(str(path))
-        except Exception as exc:  # a header that does not read says nothing
+        except Exception as exc:  #
             _SCANNED[key] = {"error": exc.__class__.__name__}
     return _SCANNED[key]
 
 
 def read(folder: str | None, *, scan: Scan = ggufscan.scan) -> Inventory:
-    """The models under ``folder``; an empty inventory when there is none."""
+    ""
     if folder is None:
         return Inventory(folder=None)
     root = Path(folder)
@@ -188,5 +165,5 @@ def read(folder: str | None, *, scan: Scan = ggufscan.scan) -> Inventory:
 
 
 def resolve(inventory: Inventory, name: str) -> str | None:
-    """Model ``name``'s file, relative to the models folder, or ``None``."""
+    ""
     return inventory.files.get(name)

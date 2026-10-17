@@ -1,22 +1,4 @@
-"""Jev-composed setup recommendation.
-
-``mcgyvr setup`` writes a deterministic ladder: the models a running server
-lists, in the order they were found, with hosted ``--api`` units after them.
-This module adds the Jev-composed path: the same facts — a measured
-:class:`~mcgyvr.detect.Detection`, a :class:`~mcgyvr.propose.Proposal` and the
-hosted units asked for — are assembled into a small, deterministic family of
-candidate configs, and :func:`~mcgyvr.decision.classify` picks one by a
-priority: ``throughput``, ``quality`` or ``cost``.
-
-The one property this module exists to hold: **a model's answer can never
-invent a number.** Every candidate is produced by
-:func:`mcgyvr.initialize.build` — the same composer init already uses, whose
-numbers come from the measured machine and the declared schema — and the model
-is asked only to name one candidate. A :class:`~mcgyvr.decision.ChoiceAnswer`
-carries a candidate name and probabilities, nothing else, so nothing a model
-returns can reach the emitted config except a choice among what was already
-assembled.
-"""
+""
 
 from __future__ import annotations
 
@@ -32,9 +14,9 @@ from mcgyvr.propose import Proposal
 if TYPE_CHECKING:
     from mcgyvr.initialize import ApiUnit
 
-#: The three candidate compositions differ only in which units the ladder
-#: holds — a hosted unit costs money and needs a key, a listed rung is a
-#: machine the operator already has — never in a number.
+#
+# a
+#r.
 OWN_DESCRIPTION = (
     "run only on the machine(s) already listed, with no hosted unit: no API "
     "spend and no key to export"
@@ -51,7 +33,7 @@ HOSTED_DESCRIPTION = (
 
 @dataclass(frozen=True)
 class SetupCandidate:
-    """One candidate config, assembled before any model is consulted."""
+    ""
 
     name: str
     description: str
@@ -60,11 +42,7 @@ class SetupCandidate:
 
 @dataclass(frozen=True)
 class Recommendation:
-    """The chosen candidate and the decision that chose it.
-
-    ``decision`` is ``None`` when a single candidate needed no judgment, so no
-    model was consulted and no request was made.
-    """
+    ""
 
     selected: SetupCandidate
     candidates: tuple[SetupCandidate, ...]
@@ -73,11 +51,7 @@ class Recommendation:
 
 
 def endpoint_for_backend(backend: Backend) -> Endpoint:
-    """The keyless decision endpoint a detected backend provides.
-
-    The same wire path a dispatch uses: a decision asked of a detected backend
-    reaches the unit identically to a dispatch to it.
-    """
+    ""
     return Endpoint(
         source=backend.name,
         base_url=backend.base_url,
@@ -95,25 +69,9 @@ def candidate_setups(
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> tuple[SetupCandidate, ...]:
-    """The candidate configs, assembled deterministically from the same facts
-    :func:`mcgyvr.initialize.build` uses.
-
-    Three compositions, each a full loadable config whose numbers are build's
-    and whose only difference is which units the ladder holds:
-
-    * ``own`` — the listed rungs only, no hosted unit;
-    * ``escalate`` — listed rungs then hosted units (init's default ladder);
-    * ``hosted`` — hosted units only.
-
-    A composition whose ladder would be empty is dropped rather than emitted:
-    an empty ladder is the one config init refuses to write.
-
-    ``use_case`` and ``deployment`` are passed to every build, so whichever
-    candidate is selected states the use case and deployment init was asked
-    for, as the deterministic ladder does.
-    """
-    # Deferred: initialize imports this module, so importing it here keeps the
-    # two from forming a cycle at import time.
+    ""
+    #
+    #
     from mcgyvr.initialize import build
 
     asked: dict[str, Any] = {"use_case": use_case, "deployment": deployment}
@@ -152,12 +110,7 @@ def decision_state(
     *,
     api_units: Sequence[ApiUnit] = (),
 ) -> dict[str, Any]:
-    """The state a decision is asked about: measured facts and the priority.
-
-    Every number here is a measurement the machine made, or absent. The model
-    is shown this state and the candidate names; it is never shown a number it
-    could copy into a config, because the answer it may return is a name.
-    """
+    ""
     return {
         "priority": priority,
         "measured": {
@@ -188,16 +141,7 @@ def recommend(
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> Recommendation:
-    """Compose a setup for ``priority`` by ranking the candidate configs.
-
-    ``classify`` is called once, with a single :class:`Choice` whose options
-    are the candidate names. The answer names one candidate; the returned
-    config is that candidate's, assembled before the model was consulted, so no
-    token a model returns can become a number in the config.
-
-    With a single candidate no model is consulted: there is nothing to rank,
-    and asking would be spending a request to be told the only option.
-    """
+    ""
     candidates = candidate_setups(
         detection,
         proposal,

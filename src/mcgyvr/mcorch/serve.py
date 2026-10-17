@@ -1,29 +1,4 @@
-"""The Anthropic Messages API facade: the address a harness points at.
-
-``ANTHROPIC_BASE_URL=http://127.0.0.1:PORT claude``, or pi's
-``anthropic-messages`` provider with the same base URL, sends the harness's
-conversation here as ``POST /v1/messages``. The facade reads the request
-(:func:`mcgyvr.mcorch.anthropic.parse_request`), hands it to the loop
-(:func:`mcgyvr.mcorch.loop.respond`), and writes the reply back in the API's
-own shapes — a ``message`` object, or the SSE event sequence with ``ping``
-keep-alives while the loop works (the harness streams; a stream that is silent
-for a minute is a stream the harness gives up on). A client that goes away
-mid-turn (its connection closed, found at the next ping interval) is hung up
-on: the rung's dispatch is ended (:class:`mcgyvr.runner.Hangup`), so the unit
-stops decoding an answer nobody will read, and nothing is written for it. The
-two side doors the API documents and a harness may knock on are answered too:
-``GET /v1/models`` lists the one model this server is, and ``POST
-/v1/messages/count_tokens`` answers with the product's own token estimate —
-Claude Code's documentation does not state whether it calls either, so both
-are served rather than guessed at. Every other path is ``not_found_error``.
-
-Security baseline: binds ``127.0.0.1`` unless ``--bind`` says otherwise (the
-rigs are on a tailnet), reads at most :data:`MAX_BODY_BYTES` of a body, and
-never checks or logs the credential header a harness sends — there is no
-secret here to check it against, and a request from the loopback is the
-user's own. The stdlib server is enough: one harness, a handful of requests
-a minute, no dependency added.
-"""
+""
 
 from __future__ import annotations
 
@@ -45,31 +20,31 @@ from mcgyvr.mcorch.anthropic import ApiError, MessagesRequest
 from mcgyvr.mcorch.loop import Turn
 from mcgyvr.orchestrator.read import estimate_tokens
 
-#: The address a server binds when nobody says otherwise: the loopback. A LAN
-#: address is `--bind`'s to give.
+#
+#
 DEFAULT_BIND = "127.0.0.1"
 
-#: The port a server listens on when `--port` names none.
+#
 FACADE_PORT = 8787
 
-#: The most a request body may hold, in bytes: the Messages API's own request
-#: limit, so a harness built against the API never meets a smaller one here.
+#
+#
 MAX_BODY_BYTES = 32 * 1024 * 1024
 
-#: How often, in seconds, a streaming reply sends `ping` while the loop works;
-#: also how often, on either path, the client's leave is looked for.
+#
+#
 PING_INTERVAL_S = 5.0
 
-#: The one model this server is, as `GET /v1/models` lists it. The `model` a
-#: harness names in a request is echoed back in the reply, whatever it is: the
-#: harness picked a name it knows, and the reply is for the harness.
+#
+#
+#
 MODEL_ID = "mcorch"
 
-#: The loop as the facade sees it: one request in, one turn out.
+#
 type Responder = Callable[[MessagesRequest], Turn]
 
-#: An observer of finished turns: the request, the turn, its stop reason and
-#: the seconds it took. The transcript is one.
+#
+#
 type Observer = Callable[[MessagesRequest, Turn, str, float], None]
 
 _MESSAGES = "/v1/messages"
@@ -79,7 +54,7 @@ _MODELS = "/v1/models"
 
 @dataclass(frozen=True)
 class Facade:
-    """What a server serves: the loop, and the bounds it serves it under."""
+    ""
 
     respond: Responder
     model: str = MODEL_ID
@@ -89,7 +64,7 @@ class Facade:
 
 
 def make_server(facade: Facade, *, bind: str, port: int) -> ThreadingHTTPServer:
-    """A bound, not yet serving, HTTP server; the caller runs ``serve_forever``."""
+    ""
 
     class Handler(_Handler):
         pass
@@ -109,11 +84,11 @@ class _Handler(BaseHTTPRequestHandler):
     sys_version = ""
 
     def log_message(self, format: str, *args: Any) -> None:
-        # Quiet by design: the transcript is the record, and the access log of
-        # a loopback server tells an operator nothing it does not already know.
+        #
+        #
         return
 
-    # --- routing ---------------------------------------------------------------
+    #
 
     def do_GET(self) -> None:
         path = urlsplit(self.path).path.rstrip("/")
@@ -151,7 +126,7 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             self._message(request)
 
-    # --- bodies ----------------------------------------------------------------
+    #
 
     def _body(self) -> bytes | None:
         length = self.headers.get("Content-Length")
@@ -188,7 +163,7 @@ class _Handler(BaseHTTPRequestHandler):
         )
         self._json(HTTPStatus.OK, {"input_tokens": counted})
 
-    # --- the turn --------------------------------------------------------------
+    #
 
     def _turn(self, request: MessagesRequest) -> tuple[Turn, dict[str, Any], float]:
         started = time.monotonic()
@@ -256,20 +231,12 @@ class _Handler(BaseHTTPRequestHandler):
         except OSError:
             self.close_connection = True
 
-    # --- the client's leave ----------------------------------------------------
+    #
 
     def _watched(
         self, request: MessagesRequest, still_there: Callable[[], bool]
     ) -> dict[str, Any] | None:
-        """Run the turn on a worker under a hangup, and look for the client's
-        leave every ping interval while it runs.
-
-        ``still_there`` is the path's own look, after the connection's: the
-        stream writes its ``ping`` and fails when the client is gone. A client
-        that has gone is hung up on and waited out: ``None``, and nothing is
-        to be written. Otherwise the turn's outcome, its ``message`` or its
-        ``error``.
-        """
+        ""
         hangup = runner.Hangup()
         outcome: dict[str, Any] = {}
 
@@ -293,11 +260,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return None
 
     def _client_gone(self) -> bool:
-        """Whether the client has closed its connection: it reads as ended.
-
-        A connection with bytes waiting is a client that sent its next request
-        early, not one that left; the bytes are peeked at, never consumed.
-        """
+        ""
         try:
             readable, _, _ = select.select([self.connection], [], [], 0)
             if not readable:
@@ -307,7 +270,7 @@ class _Handler(BaseHTTPRequestHandler):
             return True
 
     def _ping(self) -> bool:
-        """Send a stream's keep-alive; ``False`` when the client is not there."""
+        ""
         try:
             self.wfile.write(anthropic.PING)
             self.wfile.flush()
@@ -315,7 +278,7 @@ class _Handler(BaseHTTPRequestHandler):
             return False
         return True
 
-    # --- writing ---------------------------------------------------------------
+    #
 
     def _listing(self) -> dict[str, Any]:
         model = self._model()

@@ -1,11 +1,4 @@
-"""A strict YAML loader shared by the config and contract schemas.
-
-PyYAML's ``SafeLoader`` silently keeps the last of a repeated key, and lets a
-list or dict sit as a key until something hashes it. Both are defects a config
-or a contract must fail loudly on, so this loader refuses both. ``config.py``
-and ``contract.py`` share it, with the schema's own error type injected so
-every failure reads as the file that produced it.
-"""
+""
 
 from __future__ import annotations
 
@@ -17,8 +10,8 @@ import yaml
 
 ErrorFactory = Callable[[str], Exception]
 
-#: How a refusal spells a key: a real key in full, but only the start of a
-#: value that aliases build far larger than the text of the file.
+#
+#
 _KEY = reprlib.Repr(
     maxlevel=2, maxdict=4, maxlist=4, maxset=4, maxstring=200, maxlong=200, maxother=200
 )
@@ -33,9 +26,9 @@ def _no_duplicate_keys(
         try:
             hash(key)
         except TypeError:
-            # `[dev]: x` — a list as a key. YAML allows it; a config or
-            # contract does not, and `key in mapping` would have raised a
-            # TypeError past every caller expecting the schema's own error.
+            #or
+            #
+            #
             mark = key_node.start_mark
             raise error(
                 f"key {_KEY.repr(key)} at line {mark.line + 1} is not a plain name; a "
@@ -53,12 +46,7 @@ def _no_duplicate_keys(
 
 
 def strict_loader(error: ErrorFactory) -> type[yaml.SafeLoader]:
-    """A ``SafeLoader`` subclass that refuses duplicate and unhashable keys.
-
-    ``error`` is the schema's own error class, so a duplicate key in a config
-    raises ``ConfigSchemaError`` and one in a contract raises
-    ``ContractSchemaError``.
-    """
+    ""
 
     def _constructor(
         loader: yaml.SafeLoader, node: yaml.nodes.MappingNode
@@ -66,7 +54,7 @@ def strict_loader(error: ErrorFactory) -> type[yaml.SafeLoader]:
         return _no_duplicate_keys(loader, node, error)
 
     class _StrictLoader(yaml.SafeLoader):
-        """SafeLoader that refuses duplicate keys instead of taking the last."""
+        ""
 
     _StrictLoader.add_constructor(
         yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _constructor

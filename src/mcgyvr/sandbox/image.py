@@ -1,34 +1,4 @@
-"""Build the task image once per repository, and cache it.
-
-Installing a project's dependencies for every task is unusable; installing
-them once per repository is not (#29). So the sandbox image carries the
-repository's dependencies, and the expensive build happens the first time a
-repository is seen and is reused across every task and session after.
-
-Three properties make that safe:
-
-1. **The cache key is exactly the dependency set.** It is a hash of the base
-   image reference, the *contents* of the manifests and lockfiles the stack
-   detector named, and the build-time setup commands — and nothing else. A
-   lockfile change produces a new key and rebuilds; an unrelated source
-   change produces the same key and reuses. This is the whole of "invalidate
-   on a dependency change and on nothing else".
-2. **The base image is pinned by digest.** The tag (``python:3.12-slim``) is
-   resolved to an immutable ``sha256`` digest at build time and the Dockerfile
-   is written ``FROM ref@sha256:…``, so a task built today and a task built
-   after the tag floats to new content get the same base. The resolved digest
-   is recorded on the image as a label.
-3. **The cache is bounded and inspectable.** Every image carries mcgyvr
-   labels; :func:`list_cached` reads them back with sizes, :func:`prune`
-   evicts the oldest beyond a bound, and :func:`clear` removes them outright.
-   The eviction rule is deliberately dull — oldest-created first — so it is
-   predictable rather than clever.
-
-Nothing here runs Docker directly: every call goes through a
-:data:`DockerRunner`, so the argv and the generated Dockerfile are what a
-test asserts on, and a machine without a daemon is never required to check
-the logic (the pattern :mod:`mcgyvr.detect` established).
-"""
+""
 
 from __future__ import annotations
 
@@ -43,38 +13,38 @@ from pathlib import Path
 
 from mcgyvr.sandbox.stack import NODE_MODULES, TOOL_PATH, VENV, WORKSPACE, Stack
 
-# Labels stamped on every image mcgyvr builds, so the cache is discoverable
-# and prunable without guessing at names.
+#
+#
 LABEL_REPO = "mcgyvr.repo"
 LABEL_KEY = "mcgyvr.cache-key"
 LABEL_BASE_DIGEST = "mcgyvr.base-digest"
 
-#: The shape of the image this module writes, beyond its inputs. Part of the
-#: cache key, so an image built to an older shape is rebuilt rather than
-#: reused: 2 put the environments' tool folders on the PATH and the declared
-#: checkers in the image.
+#
+#
+#
+#
 IMAGE_LAYOUT = 2
 
-#: The dependency folders a task keeps visible over its workspace mount, by
-#: their names in the workspace, each one only when the image populated it
-#: (:func:`seeded_folders`).
+#
+#
+#
 SEEDABLE = tuple(path.removeprefix(f"{WORKSPACE}/") for path in (VENV, NODE_MODULES))
 
-# Bound on how many task images the cache keeps. Oldest beyond this are
-# evicted. A default, not a law: a real ceiling belongs in config, and this
-# is only what an unconfigured install falls back to.
+#
+#
+#
 DEFAULT_MAX_CACHED_IMAGES = 8
 
-# The variables that point `docker` at another daemon. The sandbox runs on
-# this machine's daemon and nowhere else: a container the product starts must
-# never land on a rig, and the door (python -m mcgyvr.serving.run) is the only
-# way there. So every place the sandbox spawns docker refuses under either —
-# it does not honour the variable, and it does not strip it and carry on.
+#
+#
+#
+#��
+#
 DAEMON_OVERRIDES = ("DOCKER_HOST", "DOCKER_CONTEXT")
 
 
 def foreign_daemon() -> str | None:
-    """Why docker must not be spawned now, or None: a daemon override is set."""
+    ""
     for name in DAEMON_OVERRIDES:
         if name in os.environ:
             return (
@@ -87,12 +57,12 @@ def foreign_daemon() -> str | None:
 
 
 class ImageError(Exception):
-    """A task image could not be resolved, built, or inspected."""
+    ""
 
 
 @dataclass(frozen=True)
 class DockerResult:
-    """The outcome of one ``docker`` invocation."""
+    ""
 
     returncode: int
     stdout: str
@@ -103,37 +73,31 @@ class DockerResult:
         return self.returncode == 0
 
 
-# The wall clock on each docker call, so a hung daemon or a stalled pull fails
-# the call instead of wedging the task (or interpreter exit, where the reaper
-# removes containers). The two bounds every docker call the product makes is
-# held to, and the only place either is written: pulling and building fetch and
-# install a stack's dependencies and get the long one; every other call is
-# bookkeeping and gets the short one.
 #
-# Both are defaults, not measurements. Nothing here timed a build or a pull;
-# they are bounds chosen to be far above a working call and far below forever,
-# and a real ceiling for an install that needs one belongs in config. The
-# ceiling on the command *inside* the container is
-# :data:`~mcgyvr.sandbox.base.DEFAULT_COMMAND_TIMEOUT_S`.
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
 DOCKER_CALL_TIMEOUT_S = 120.0
 DOCKER_BUILD_TIMEOUT_S = 3600.0
 _LONG_VERBS = frozenset({"build", "pull"})
 
 
-# The seam. A runner takes docker's argv (without the leading "docker") and
-# optional stdin, and returns the result. Production uses the subprocess
-# runner below; tests pass a stub that records argv and returns canned output.
+#
+#
+#
 DockerRunner = Callable[[Sequence[str], "bytes | None"], DockerResult]
 
 
 def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> DockerResult:
-    """Run a real ``docker`` command. The default :data:`DockerRunner`.
-
-    One of the places the sandbox spawns docker, each of which applies
-    :func:`foreign_daemon`: with ``DOCKER_HOST`` or ``DOCKER_CONTEXT`` set
-    nothing is spawned, and the result carries the refusal as its stderr, which
-    every caller raises as its own error.
-    """
+    ""
     refusal = foreign_daemon()
     if refusal is not None:
         return DockerResult(2, "", refusal)
@@ -163,17 +127,17 @@ def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> Docker
 
 @dataclass(frozen=True)
 class TaskImage:
-    """A resolved task image: its tag, its pinned base, and whether it was built."""
+    ""
 
     tag: str
     base_digest: str
     cache_key: str
-    built: bool  # False means it was already cached — the point of the cache
+    built: bool  #he
 
 
 @dataclass(frozen=True)
 class CachedImage:
-    """One image in the cache, as read back from Docker's own metadata."""
+    ""
 
     tag: str
     repo: str
@@ -183,15 +147,7 @@ class CachedImage:
 
 
 def cache_key(stack: Stack, repo: Path, setup: Sequence[str]) -> str:
-    """The content hash that decides when the image rebuilds.
-
-    Built from the base reference, each manifest's path and bytes, the install
-    commands and the setup commands — the complete and only inputs to the
-    dependency set. Manifests are read in sorted order so the key is
-    independent of detection order, and their *content* is hashed so an edit
-    to a lockfile changes the key while a rename of an unrelated source file
-    does not.
-    """
+    ""
     hasher = hashlib.sha256()
     hasher.update(f"layout:{IMAGE_LAYOUT}\n".encode())
     hasher.update(f"base:{stack.base_image}\n".encode())
@@ -213,34 +169,24 @@ def cache_key(stack: Stack, repo: Path, setup: Sequence[str]) -> str:
 
 
 def image_tag(repo: Path, key: str) -> str:
-    """The tag a repository's task image is stored under.
-
-    ``mcgyvr/<repo-slug>:<cache-key>`` — the slug keeps images legible in
-    ``docker images`` and the key in the tag means a dependency change lands
-    as a distinct image rather than overwriting the last one.
-    """
+    ""
     return f"mcgyvr/{_slug(repo.resolve().name)}:{key}"
 
 
 def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) -> str:
-    """Generate the Dockerfile that installs the repository's dependencies.
-
-    Only the manifests are copied into the build — never the whole repository
-    — so the image is the dependency layer and nothing else, and the source
-    the worker changes is mounted at task time rather than baked in.
-    """
+    ""
     lines = [
         f"FROM {base_digest_ref}",
         "WORKDIR /workspace",
-        # The environments the install makes lead the PATH, so a checker or a
-        # project script installed there is what a command finds — at build
-        # time for the checker installs below, and in every task after.
+        #
+        #ld
+        #
         f"ENV PATH={TOOL_PATH}:$PATH",
     ]
     manifests = stack.manifest_paths()
     if manifests:
-        # Copy each manifest to its own path so a nested one keeps its
-        # location; the install commands assume the repository layout.
+        #
+        #
         for name in manifests:
             lines.append(f"COPY {name} {name}")
     for command in stack.install_commands():
@@ -253,14 +199,7 @@ def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) 
 
 
 def seeded_folders(tag: str, runner: DockerRunner) -> tuple[str, ...]:
-    """Which of :data:`SEEDABLE` the image ``tag`` holds, populated, in its workspace.
-
-    Asked of the image itself, in a throwaway container with no network and no
-    workspace, because only the build knows: ``uv sync`` always makes a
-    ``.venv``, yarn's plug'n'play makes no ``node_modules``, and a pipenv or
-    pip install leaves neither. An image that cannot answer holds nothing to
-    keep visible, and the task runs as it did.
-    """
+    ""
     script = f"cd {WORKSPACE} || exit 0; " + "; ".join(
         f'[ -d "{folder}" ] && [ -n "$(ls -A "{folder}")" ] && echo "{folder}"'
         for folder in SEEDABLE
@@ -286,13 +225,7 @@ def seeded_folders(tag: str, runner: DockerRunner) -> tuple[str, ...]:
 
 
 def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
-    """Pull ``base_ref`` and return its immutable ``ref@sha256:…``.
-
-    The tag is pulled so the digest reflects what would actually run, then
-    read from the local image's repo-digests. A base that cannot be resolved
-    to a digest is an error, not a silent fall back to the floating tag —
-    reproducibility is the whole point.
-    """
+    ""
     pull = runner(["pull", base_ref], None)
     if not pull.ok:
         raise ImageError(f"could not pull base image {base_ref}: {pull.stderr.strip()}")
@@ -310,7 +243,7 @@ def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
 
 
 def image_present(tag: str, runner: DockerRunner) -> bool:
-    """Whether an image with ``tag`` already exists locally."""
+    ""
     return runner(["image", "inspect", tag], None).ok
 
 
@@ -321,13 +254,7 @@ def ensure_image(
     *,
     runner: DockerRunner = subprocess_runner,
 ) -> TaskImage:
-    """Return the repository's task image, building it once if it is absent.
-
-    The first task for a repository pays the build; every task after finds the
-    tag present and returns immediately (``built=False``). A change to a
-    manifest changes the cache key, hence the tag, hence triggers exactly one
-    rebuild.
-    """
+    ""
     if not stack.detected:
         raise ImageError(
             "stack was not detected, so no task image can be built. Set "
@@ -341,7 +268,7 @@ def ensure_image(
         base_digest = _read_label(tag, LABEL_BASE_DIGEST, runner)
         return TaskImage(tag=tag, base_digest=base_digest, cache_key=key, built=False)
 
-    if stack.base_image is None:  # pragma: no cover — detected implies a base
+    if stack.base_image is None:  #se
         raise ImageError("detected stack has no base image to build from")
     base_digest = resolve_base_digest(stack.base_image, runner)
     dockerfile = render_dockerfile(stack, base_digest, setup)
@@ -359,7 +286,7 @@ def _build(
     setup: Sequence[str],
     runner: DockerRunner,
 ) -> None:
-    """Build ``tag`` from a context holding only the manifests and Dockerfile."""
+    ""
     with tempfile.TemporaryDirectory(prefix="mcgyvr-build-") as context:
         context_dir = Path(context)
         (context_dir / "Dockerfile").write_text(dockerfile, encoding="utf-8")
@@ -389,11 +316,7 @@ def _build(
 
 
 def list_cached(runner: DockerRunner = subprocess_runner) -> tuple[CachedImage, ...]:
-    """Every image mcgyvr has cached, newest first, with its size.
-
-    Reads Docker's own metadata filtered to the mcgyvr repo label, so the
-    cache is inspectable without a side ledger that could drift from reality.
-    """
+    ""
     fmt = (
         "{{.ID}}\t{{index .RepoTags 0}}\t{{.Size}}\t{{.Created}}"
         f'\t{{{{index .Config.Labels "{LABEL_REPO}"}}}}'
@@ -432,8 +355,8 @@ def list_cached(runner: DockerRunner = subprocess_runner) -> tuple[CachedImage, 
                 created=created,
             )
         )
-    # Newest first: Docker returns creation order-ish, but sort explicitly so
-    # the eviction rule does not depend on listing order.
+    #
+    #
     images.sort(key=lambda c: c.created, reverse=True)
     return tuple(images)
 
@@ -443,13 +366,7 @@ def prune(
     *,
     runner: DockerRunner = subprocess_runner,
 ) -> tuple[str, ...]:
-    """Evict the oldest images beyond ``max_images``. Returns what was removed.
-
-    The rule is oldest-created-first, which is predictable and needs no access
-    tracking. Removing an image only costs the next task for that repository a
-    rebuild, so an over-eager bound is a performance choice, never a
-    correctness one.
-    """
+    ""
     if max_images < 0:
         raise ImageError("max_images cannot be negative")
     cached = list_cached(runner)
@@ -466,11 +383,7 @@ def clear(
     *,
     runner: DockerRunner = subprocess_runner,
 ) -> tuple[str, ...]:
-    """Remove cached images — all of them, or one repository's. Returns removed.
-
-    The documented way to reset the cache (#29). Scoped to mcgyvr's own label
-    so it never touches an image the user built themselves.
-    """
+    ""
     removed: list[str] = []
     for image in list_cached(runner):
         if repo_slug is not None and image.repo != repo_slug:
@@ -487,7 +400,7 @@ def _read_label(tag: str, label: str, runner: DockerRunner) -> str:
 
 
 def _slug(name: str) -> str:
-    """A docker-safe repository slug: lowercase, ``[a-z0-9._-]`` only."""
+    ""
     safe = "".join(c if c.isalnum() or c in "._-" else "-" for c in name.lower())
     return safe.strip("-._") or "repo"
 

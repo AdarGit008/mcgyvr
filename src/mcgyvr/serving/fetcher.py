@@ -1,34 +1,5 @@
-#!/usr/bin/env python3
-"""The weights fetcher, shipped to a rig over ssh as ``python3 -`` by ``serve fetch``.
-
-Stdlib only, like the rig scan (:mod:`mcgyvr.serving.rigscan`): the rig has
-no venv and no mcgyvr. The door's fetch step sends this file on stdin with
-the job appended (:func:`mcgyvr.serving.fetchlist.payload`), so the job, and
-a Hugging Face token in it, travel inside the ssh connection and never on a
-command line or in a file.
-
-For each file of the job, into the weights folder (``$MCGYVR_WEIGHTS``, else
-``~/.cache/mcgyvr/weights``, the folder the rig scan measures):
-
-* a file of that name already there whose sha256 is the job's is
-  ``present`` and not fetched again; one whose sha256 is another is
-  ``refused`` and left as it is, since mcgyvr did not put it there;
-* otherwise the bytes go to ``<name>.part``, resumed with ``Range`` from
-  whatever a ``.part`` already holds, and hashed as they land; at the
-  stated size, a sha256 that matches is renamed into place (``fetched``, or
-  ``resumed`` when a ``.part`` was carried on) and one that does not is
-  deleted (``mismatch``): no file whose hash does not match is kept;
-* a download that ends short keeps its ``.part`` for the next fetch
-  (``incomplete``), and one the disk has no room for is ``refused`` before
-  a byte is asked for.
-
-The token goes only to the URL the job names, as an unredirected header:
-the Hub redirects a download to a signed address elsewhere, and the token is
-not sent there.
-
-It prints one JSON document on stdout, ``{"weights_dir", "files": [row]}``,
-and exits 0 when every file is present, fetched or resumed, 1 otherwise.
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -42,17 +13,17 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-#: The variable that moves the weights folder, as the rig scan reads it.
+#
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
-#: What a file is called while it is being fetched.
+#
 PART = ".part"
-#: How much of a download is read, written and hashed at a time.
+#
 CHUNK_BYTES = 8 << 20
-#: How long one read of a download waits for bytes before the download is cut
-#: and kept as a ``.part``.
+#
+#
 TIMEOUT_S = 60.0
 
-#: A row's ``state``: what became of the file.
+#
 PRESENT = "present"
 FETCHED = "fetched"
 RESUMED = "resumed"
@@ -63,7 +34,7 @@ GOOD = frozenset({PRESENT, FETCHED, RESUMED})
 
 
 def weights_dir() -> str:
-    """The rig's weights folder, as :mod:`mcgyvr.serving.rigscan` names it."""
+    ""
     override = os.environ.get(WEIGHTS_DIR_ENV)
     if override:
         return os.path.expanduser(override)
@@ -71,7 +42,7 @@ def weights_dir() -> str:
 
 
 def _hash_into(path: str, hasher: Any) -> int:
-    """Feed ``path`` to ``hasher``; return how many bytes it held."""
+    ""
     held = 0
     with open(path, "rb") as handle:
         while True:
@@ -87,8 +58,8 @@ def _ask(url: str, start: int, token: str | None) -> Any:
     if start:
         request.add_header("Range", f"bytes={start}-")
     if token:
-        # Unredirected: urllib carries a request's ordinary headers to the
-        # address it is redirected to, and these it does not.
+        #
+        #
         request.add_unredirected_header("Authorization", f"Bearer {token}")
     return urllib.request.urlopen(request, timeout=TIMEOUT_S)
 
@@ -96,7 +67,7 @@ def _ask(url: str, start: int, token: str | None) -> Any:
 def fetch_one(
     want: dict[str, Any], root: str, token_env: str, token: str | None
 ) -> dict[str, Any]:
-    """Fetch one file of the job into ``root``; the row that says what happened."""
+    ""
     name = str(want["name"])
     size = int(want["bytes"])
     sha256 = str(want["sha256"])
@@ -107,8 +78,8 @@ def fetch_one(
     if os.path.lexists(dest):
         hasher = hashlib.sha256()
         try:
-            # Hashed only at the size it should have: a file of another size
-            # is not this one, however long it would take to read.
+            #
+            #
             held = os.path.getsize(dest) if os.path.isfile(dest) else -1
             held = _hash_into(dest, hasher) if held == size else held
         except OSError as exc:
@@ -161,7 +132,7 @@ def fetch_one(
         with response:
             status = response.getcode()
             if have and status == 200:
-                # The server ignored the range and sent the whole file.
+                #
                 hasher = hashlib.sha256()
                 have = 0
                 row["resumed_from"] = 0
@@ -205,7 +176,7 @@ def fetch_one(
 
 
 def main(job_text: str) -> int:
-    """Run the job; print the rows as one JSON document; 0 when all are good."""
+    ""
     job = json.loads(job_text)
     root = weights_dir()
     os.makedirs(root, exist_ok=True)

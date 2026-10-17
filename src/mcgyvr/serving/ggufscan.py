@@ -1,31 +1,10 @@
-#!/usr/bin/env python3
-"""Read a GGUF's tensor table and report what is expert weight and what is not.
-
-**Vendored from the lab's bandwidth/ncmoe-floor evidence parser, which stays
-where it is.** That copy is the evidence a dated record was computed from and
-must not move; this one is a live dependency of the door
-(``gate-scripts/data-20-geometry.py``) and of the bench's llamacpp backend
-(``_geometry``), both of which ship it to the serving host and run it there
-as ``python3 -``. Operators run it as ``python -m mcgyvr.serving.ggufscan
-<gguf>``. Two copies of one parser is a cost paid deliberately: importing a
-module out of the evidence record would let an edit made for a gate silently
-rewrite what a published measurement claims to have been computed with.
-
-**The point of reading the header rather than the file size is that the two
-answer different questions.** ``stat -c %s`` says what the blob weighs on
-disk; only the tensor table says how much of that weight is ``ffn_*_exps`` --
-the only part ``--n-cpu-moe`` can move to host RAM. A gate built on the
-former refuses a model whose experts would have fitted.
-
-Sums the table. Never guesses bits-per-weight from size over parameters.
-``MXFP4`` is ggml type 39
-and a reader missing it falls back to f32 and calls an 11.28 GiB file 71 GiB.
-"""
+#
+""
 
 import struct, sys, os, json, glob
 
 
-# (block_elems, bytes_per_block)
+#
 T = {0:(1,4),1:(1,2),2:(32,18),3:(32,20),6:(32,22),7:(32,24),8:(32,34),9:(32,36),
      10:(256,84),11:(256,110),12:(256,144),13:(256,176),14:(256,210),15:(256,292),
      16:(256,66),17:(256,74),18:(256,98),19:(256,50),20:(32,18),21:(256,110),
@@ -82,20 +61,20 @@ def scan(path):
             be,bb=T[tt]
             tensors.append((name,n,tt,n//be*bb,nd))
     tot=sum(t[3] for t in tensors)
-    # expert tensors: ffn_*_exps  |  shared/dense ffn and attention = the rest
+    #
     exp=[t for t in tensors if "_exps" in t[0]]
     expb=sum(t[3] for t in exp)
 
-    # PER-BLOCK expert bytes, keyed by block index.
     #
-    # `bytes_experts / n_layer` is the WRONG number to place a block with, and
-    # it is wrong for 9 of the 10 checkpoints in this store. The distribution is
-    # bimodal wherever a quant is non-uniform: Qwen3.6 IQ3_XXS is 262.0 MiB on
-    # 37 blocks and 300.0 on 3 (the UD mix lifts ffn_down_exps to IQ4_XS), so
-    # the mean of 264.85 matches NO block in the file. `--n-cpu-moe` moves whole
-    # blocks, so what a placement decision needs is the MARGINAL block, never
-    # the average. Worst case measured: nemotron_h_moe declares block_count 52
-    # while only 23 blocks carry experts, making the mean wrong by 2.26x.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     per_block={}
     for t in exp:
         parts=t[0].split(".")
@@ -104,55 +83,55 @@ def scan(path):
         elif parts[0]=="blk": idx=parts[1]
         if idx is not None: per_block[int(idx)]=per_block.get(int(idx),0)+t[3]
 
-    # The blocks `--n-cpu-moe` can actually move, in the order it moves them.
-    # It keeps blocks 0..N-1 on the CPU (verified 24/23/22/1/0, no off-by-one),
-    # so the marginal block for a floor of N is block N-1. A grafted MTP head
-    # (KAT/Ornith blk 40, 816 MiB) carries expert tensors but is NEVER placed by
-    # this knob: counting it put a predicted floor 3 steps above the true one.
+    #
+    #
+    #
+    #
+    #
     blocks=sorted(per_block)
     layers=len(blocks)
 
-    # Blocks that carry experts but that `--n-cpu-moe` NEVER places.
     #
-    # A grafted multi-token-prediction head is a block by tensor naming and not
-    # a block by placement: KAT/Ornith `blk.40` carries the full expert set plus
-    # `nextn.{eh_proj,enorm,hnorm,shared_head_norm}` and weighs 816 MiB.
-    # Counting it as placeable puts a predicted floor above the true one.
-    # Proof it is excluded: at ncmoe 8 the card held
-    # 9976.83 - 1080.83 = 8896.00 MiB = 32 x 278.0 exactly, i.e. blocks 8..39
-    # with block 40 absent.
     #
-    # Detected by tensor name, which is self-evidencing and needs no per-arch
-    # key; `<arch>.nextn_predict_layers` is read too and disagreement is
-    # reported rather than resolved silently.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     nextn=sorted({int(x.split(".")[1]) for x in
                   (t[0] for t in tensors)
                   if x.startswith("blk.") and ".nextn." in x})
     placeable=[b for b in blocks if b not in set(nextn)]
 
-    # Blocks carrying recurrent (SSM) tensors -- counted, not inferred from
-    # `n_layer - caching_layers`. That subtraction assumes every non-attention
-    # layer is recurrent, which holds on qwen35moe and fails on
-    # nemotron_h_moe: 52 blocks = 6 attention + 23 mamba + 23 MLP-only, so the
-    # subtraction says 46 and doubles the state buffer.
+    #
+    #
+    #
+    #
+    #
     recurrent=sorted({int(x.split(".")[1]) for x in (t[0] for t in tensors)
                       if x.startswith("blk.") and ".ssm_" in x})
 
-    # Bytes by BLOCK -- every tensor of the block, not only its experts -- for
-    # placing whole blocks on cards. A split across cards moves blocks, never
-    # an average of them: llama.cpp's layer split hands each card a run of
-    # blocks, and a pipeline stage holds its run of blocks entire. Of each
-    # block the two-dimensional tensors are counted again apart, because they
-    # are what a tensor split divides between cards; a one-dimensional norm or
-    # bias is held whole by every card running it, and so is a 3D expert
-    # tensor (llama.cpp's old row split never divided a 3D or 4D matrix).
     #
-    # The tensors outside every block are kept apart by what holds them.
-    # `token_embd` is the input: llama.cpp's load_tensors keeps the input
-    # layer on the CPU on every split, and a pipeline gives it to its first
-    # stage. Everything else outside a block -- the output head, the final
-    # norm -- goes with the output layer. The three parts sum to
-    # bytes_total_tensors exactly.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     by_block={}; matrix_by_block={}
     b_input=0; b_output=0; b_output_matrix=0
     for t in tensors:
@@ -167,16 +146,16 @@ def scan(path):
             b_output+=t[3]
             if t[4]==2: b_output_matrix+=t[3]
 
-    # What llama.cpp's `--split-mode tensor` divides between cards, by name, as
-    # llama-model.cpp's llama_meta_device_get_split_state names it: the
-    # attention projections and their biases, the attention output, the FFN
-    # up/gate/down weights and their experts (3D included), and output.weight.
-    # Everything else is MIRRORED -- a whole copy on every card -- and so is
-    # every tensor a pattern here misses (a recurrent block's ssm_* tensors
-    # included), which over-states a card and never under-states it.
-    # A tensor on the PARTIAL axis (ffn_down_exps.bias) must be F32
-    # (ggml-backend-meta.cpp asserts it), so any other type is named in
-    # `tensor_split_refused` and the split is refused before a launch.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     tp={f"{w}.{k}" for w in ("attn_q","attn_k","attn_v","attn_qkv") for k in ("weight","bias")}
     tp|={"attn_output.weight","attn_gate.weight","ffn_down.weight","ffn_down_exps.weight",
          "ffn_down_exps.bias","ffn_gate_up.weight","ffn_gate_up_exps.weight"}
@@ -197,18 +176,18 @@ def scan(path):
     g=lambda *ks: next((kv[k] for k in ks if k in kv), None)
     arch=kv.get("general.architecture")
     pre=f"{arch}." if arch else ""
-    # A PER-LAYER cache descriptor, because no single pair of numbers describes
-    # these files. Three checkpoints in this store defeat any scalar summary:
     #
-    #  * gemma4 caches 5 layers at head_count_kv 2 x key_length 512 and slides
-    #    25 at head_count_kv 8 x key_length_SWA 256 -- two widths and two head
-    #    counts in one file. Taking max(head_count_kv) and one key_length is
-    #    4x wrong on the full layers and 2x wrong on the sliding ones.
-    #  * cohere2moe slides 36 of 49 and caches 13, on a 1-in-4 pattern.
-    #  * bailingmoe3 absorbs V into the compressed KV and allocates NO V cache
-    #    at all -- the engine prints `V (f16): 0.00 MiB`.
     #
-    # So each caching layer states its own width here, and the callers sum.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     hkv=g(pre+"attention.head_count_kv")
     n_layer_kv=g(pre+"block_count") or 0
     n_head=g(pre+"attention.head_count")
@@ -217,54 +196,54 @@ def scan(path):
     nemb=g(pre+"embedding_length")
     if kl is None and nemb and n_head: kl=vl=nemb//n_head
 
-    # `sliding_window_pattern` is DECLARED by both checkpoints whose split is
-    # not 1:1, and it is the engine's own per-layer is_swa assignment. Reading
-    # it removes the last fitted constant here: an assumed alternating split,
-    # which is right for gpt-oss and wrong for cohere2moe (13/36) and gemma4
-    # (5/25). True in the pattern means the layer SLIDES.
+    #
+    #
+    #
+    #
+    #
     pattern=g(pre+"attention.sliding_window_pattern")
     swa_window=g(pre+"attention.sliding_window")
 
-    # MLA that absorbs V: `key_length == kv_lora_rank + rope_dim` is the
-    # signature of a checkpoint caching one compressed vector per token instead
-    # of a K and a V. bailingmoe3 matches (576 = 512 + 64) and allocates no V;
-    # deepseek2 declares kv_lora_rank too but caches K and V separately
-    # (key_length 192, not 576), so the test must be this equality and not the
-    # mere presence of the key.
-    # PRIMARY signal is the header's own `key_length_mla`, which is the key
-    # llama.cpp itself reads and what a current converter writes for an MLA
-    # checkpoint. The arithmetic identity `key_length == kv_lora_rank +
-    # rope_dim` is a DERIVATION of the absorbed width, not a test for
-    # absorption: it separates the two checkpoints here only because
-    # deepseek2's is an older conversion that caches K and V outright, and it
-    # would go false on any converter writing rope.dimension_count as the full
-    # head dim (gemma4 already does). Disagreement between the two is reported
-    # rather than resolved silently.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     lora=g(pre+"attention.kv_lora_rank"); rope=g(pre+"rope.dimension_count")
     kl_mla=g(pre+"attention.key_length_mla")
     mla_absorbed=kl_mla is not None
     mla_by_identity=bool(lora and rope and kl == lora + rope)
 
-    # UNKNOWN, not a guess, when a sliding window is declared WITHOUT the
-    # per-layer pattern saying which layers use it. `l % 2 == 0` stood here and
-    # was measured on gpt-oss alone -- the one checkpoint where it cannot be
-    # caught, because its sliding and full layers are the same width, so only
-    # the 12/12 COUNT matters and any half-split reproduces the bytes exactly.
     #
-    # It is wrong as a rule. gemma4 slides 25 of 30 and cohere2moe 36 of 49 on
-    # a 1-in-4 pattern, and gemma4's sliding layers are TWICE the width of its
-    # full ones -- so there the ASSIGNMENT, not just the count, sets the total.
-    # Both declare their pattern and never reach this branch, which is the only
-    # reason the assumption has never been caught being wrong. A checkpoint
-    # that is undeclared, not 1:1 and not uniform in width would be sized wrong
-    # with nothing in the output saying anything had been assumed.
     #
-    # `None` propagates to `is_swa` and `vramfit.kv_bytes` refuses on it, the
-    # way `rs_bytes` refuses a recurrent model that states no state size. The
-    # split is OBSERVABLE where it matters: llama.cpp prints
-    # `llama_kv_cache_iswa: creating non-SWA KV cache` and `... SWA KV cache`
-    # with a layer count on each, so a caller who has measured it hands the
-    # rows to `kv_bytes(layers=...)` instead of having them invented here.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     def _is_swa(l):
         if isinstance(pattern,list) and l < len(pattern): return bool(pattern[l])
         if swa_window: return None
@@ -290,16 +269,16 @@ def scan(path):
         kv_layers.append({"layer":l,"is_swa":swa,
                           "k_elems":int(h)*int(k),
                           "v_elems":0 if mla_absorbed else int(h)*int(v),
-                          # The heads behind the widths: a tensor split
-                          # divides a layer's cache by head, never by byte.
+                          #
+                          #
                           "heads":int(h)})
     caching=len(kv_layers)
 
-    # Recurrent state parameters. bailingmoe3 states none of the `ssm.*` size
-    # keys and describes the same state under `kda.*`; a reader that requires
-    # `ssm.inner_size` silently reports 0 for a model whose engine allocates
-    # 154.12 MiB, and a missing key becomes indistinguishable from a model with
-    # no state at all.
+    #
+    #
+    #
+    #
+    #
     ssm_inner=g(pre+"ssm.inner_size"); ssm_state=g(pre+"ssm.state_size")
     ssm_groups=g(pre+"ssm.group_count"); ssm_conv=g(pre+"ssm.conv_kernel")
     kda=g(pre+"kda.head_dim")
@@ -325,15 +304,15 @@ def scan(path):
       "full_attn_interval": g(pre+"full_attention_interval"),
       "sliding_window": g(pre+"attention.sliding_window"),
       "bytes_total_tensors": tot,
-      # the token embedding (the runtime keeps it in host RAM) and the output
-      # tensor (on the last device); None when the file has no such tensor
+      #
+      #
       "token_embd_bytes": next((t[3] for t in tensors if t[0]=="token_embd.weight"), None),
       "output_bytes": next((t[3] for t in tensors if t[0]=="output.weight"), None),
       "bytes_experts": expb,
       "expert_layers": layers,
       "bytes_nonexpert": tot-expb,
       "type_bytes": types,
-      # --- added for placement arithmetic; see the comments above each ---
+      #
       "expert_blocks": blocks,
       "nextn_blocks": nextn,
       "nextn_predict_layers": g(pre+"nextn_predict_layers"),
@@ -347,8 +326,8 @@ def scan(path):
       "bytes_input": b_input,
       "bytes_output": b_output,
       "bytes_output_matrix": b_output_matrix,
-      # No output head of its own: llama.cpp then creates `output` from
-      # `token_embd` as a duplicate on the output layer's device.
+      #
+      #
       "tied_embeddings": not any(t[0]=="output.weight" for t in tensors),
       "bytes_tensor_split_by_block": {str(b): tp_by_block.get(b,0) for b in sorted(by_block)},
       "bytes_output_tensor_split": tp_output,
@@ -375,10 +354,10 @@ def scan(path):
       "ssm_params_from": ssm_from,
     }
 
-# Guarded, unlike the evidence copy: its consumers ship this file to the serving
-# host and run it as `python3 -`, where __name__ IS "__main__", but the test
-# suite imports it in-process to check the parser against a known blob. An
-# unguarded loop would print "[]" on every such import.
+#
+#
+#
+#
 if __name__ == "__main__":
     out = []
     for pat in sys.argv[1:]:

@@ -1,33 +1,4 @@
-"""The output checks — the evidence kinds a structural check makes itself.
-
-Three evidence kinds are declared structural in the catalog
-(``needs_commands: false``): ``media_valid``, ``safety_pass`` and
-``asr_wer``. A structural check is one the gate produces itself, so no
-contract command is emitted for it; this module is where those checks are
-produced. It is the seam the media-gen vertical hangs its validators on (gate
-seam 3, P1 generalize-the-core). The agent vertical has none: agent, like
-chat, is ungated (owner, e2e run 2 R11), and the ``grounded`` check it once
-declared is retired with it.
-
-``media_valid`` reads the output file's own header and answers whether the
-bytes are a file of the declared media kind. Images are checked past the
-header — their dimensions must be present and positive, and the file must be
-structurally complete — and audio is checked past the header too — duration
-must be determinable and positive for WAV, FLAC and MP3 (for MP3, a valid
-frame header whose first frame body fits), and page structure only for OGG,
-whose duration is deferred — and video is checked past the header too —
-duration must be determinable and positive for MP4, WEBM and AVI, and the
-file must be structurally complete. A worker cannot fake a header, and a
-wrong-kind or empty output is refused by name.
-
-``safety_pass`` runs an external safety classifier, and ``asr_wer`` runs an
-external transcriber and measures the word error rate against the contract's
-``transcript``. A check whose external tool is absent
-(:class:`~mcgyvr.gate.adapter.ToolUnavailableError`) or ran but produced an
-answer that cannot be trusted
-(:class:`~mcgyvr.gate.adapter.ToolFailedError`) is recorded as *inconclusive* —
-a rejection — never a clean pass over a bar that never ran.
-"""
+""
 
 from __future__ import annotations
 
@@ -46,32 +17,32 @@ from mcgyvr.gate.findings import Finding
 if TYPE_CHECKING:
     from mcgyvr.gate.runner import InconclusiveRung
 
-#: The media kinds a contract may declare, and ``media_valid`` judges.
+#
 MEDIA_IMAGE = "image"
 MEDIA_AUDIO = "audio"
 MEDIA_VIDEO = "video"
 MEDIA_KINDS = (MEDIA_IMAGE, MEDIA_AUDIO, MEDIA_VIDEO)
 
-#: The check name ``media_valid`` findings carry, so a caller groups by it.
+#
 MEDIA_VALID = "media_valid"
 
-#: The check names of the P2 validators, pinned now so their evidence kinds
-#: have a check type to map to. Their validators raise
-#: :class:`~mcgyvr.gate.adapter.ToolUnavailableError` in this build.
+#
+#
+#
 SAFETY_PASS = "safety_pass"
 ASR_WER = "asr_wer"
 
-#: Container formats whose signature is not a plain prefix: a RIFF envelope
-#: whose four form-type bytes (offset 8) name the format. Keyed by those bytes
-#: to the kind they belong to, so a PNG-declared-as-audio is still refused.
+#
+#
+#
 _RIFF_FORMS = {b"WEBP": MEDIA_IMAGE, b"WAVE": MEDIA_AUDIO, b"AVI ": MEDIA_VIDEO}
 
-#: Plain-prefix signatures per kind. The first bytes that say "this is one of
-#: us". For images and audio the check then goes past the signature
-#: (dimensions and decode completeness for images; duration and structural
-#: completeness for audio, with OGG page structure only); video now goes past
-#: the signature too — duration must be determinable and positive for MP4,
-#: WEBM and AVI, and the file must be structurally complete.
+#
+#
+#
+#
+#4,
+#
 _PREFIXES: dict[str, tuple[bytes, ...]] = {
     MEDIA_IMAGE: (
         b"\x89PNG\r\n\x1a\n",
@@ -92,20 +63,13 @@ _PREFIXES: dict[str, tuple[bytes, ...]] = {
     MEDIA_VIDEO: (b"\x1a\x45\xdf\xa3",),
 }
 
-#: MP4's signature sits four bytes in (the box size occupies the head), not at
-#: offset zero like the prefixes above.
+#
+#
 _MP4_FTYP = b"ftyp"
 
 
 def media_valid(path: Path, kind: str, label: str = "") -> list[Finding]:
-    """One finding unless ``path`` holds a valid file of the declared ``kind``.
-
-    ``kind`` is one of :data:`MEDIA_KINDS`, validated by the contract schema
-    before it reaches here; an unknown kind is still refused rather than
-    guessed at, because a check that judges a kind it does not know is one that
-    reports clean over no bar. ``label`` is the repo-relative name the finding
-    quotes — never the sandbox path the bytes were read from.
-    """
+    ""
     if kind not in MEDIA_KINDS:
         raise ValueError(f"media_valid: unknown media kind {kind!r}")
     name = label or str(path)
@@ -154,12 +118,12 @@ def media_valid(path: Path, kind: str, label: str = "") -> list[Finding]:
 
 
 def _is_kind(data: bytes, kind: str) -> bool:
-    """Whether ``data`` opens like a file of ``kind``, header only."""
+    ""
     if kind == MEDIA_VIDEO and len(data) >= 8 and data[4:8] == _MP4_FTYP:
         box_size = int.from_bytes(data[:4], "big")
-        # ``ftyp`` four bytes in is only a video when the box size in front of
-        # it is a real size: 0 (to EOF) or 1 (the 64-bit extension), or one
-        # that fits the file. Arbitrary bytes before ``ftyp`` are refused.
+        #
+        #
+        #
         return box_size in (0, 1) or 8 <= box_size <= len(data)
     if data[:4] == b"RIFF" and len(data) >= 12 and _RIFF_FORMS.get(data[8:12]) == kind:
         return True
@@ -167,18 +131,12 @@ def _is_kind(data: bytes, kind: str) -> bool:
 
 
 def _finding(name: str, code: str, message: str) -> Finding:
-    """One ``media_valid`` finding, quoted against the repo-relative ``name``."""
+    ""
     return Finding(check=MEDIA_VALID, path=name, code=code, message=message)
 
 
 def _image_findings(name: str, data: bytes) -> list[Finding]:
-    """Deeper-than-header checks for an image whose signature already matched.
-
-    Only dimensions and decode completeness: a file whose header claims an
-    image but whose dimensions are absent or whose payload is cut short is
-    refused by name. Every offset and mask lives inside the per-format checker
-    bodies.
-    """
+    ""
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return _png_findings(name, data)
     if data.startswith(b"\xff\xd8"):
@@ -193,15 +151,7 @@ def _image_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _audio_findings(name: str, data: bytes) -> list[Finding]:
-    """Deeper-than-header checks for an audio whose signature already matched.
-
-    Duration for WAV, FLAC and MP3 (for MP3, a valid frame header whose first
-    frame body fits) and page structure for OGG, whose duration is deferred: a
-    file whose header claims audio but whose duration cannot be determined for
-    the formats that state one, or whose page structure is cut short, is
-    refused by name. Every offset and mask lives inside the per-format checker
-    bodies.
-    """
+    ""
     if data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WAVE":
         return _wav_findings(name, data)
     if data.startswith(b"fLaC"):
@@ -216,14 +166,7 @@ def _audio_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _video_findings(name: str, data: bytes) -> list[Finding]:
-    """Deeper-than-header checks for a video whose signature already matched.
-
-    Duration must be determinable and positive for MP4, WEBM and AVI, and the
-    file must be structurally complete: a file whose header claims video but
-    whose duration is absent or zero, or whose boxes/elements/chunks overrun
-    the end of the file, is refused by name. Every offset and mask lives
-    inside the per-format checker bodies.
-    """
+    ""
     if len(data) >= 8 and data[4:8] == b"ftyp":
         return _mp4_findings(name, data)
     if data.startswith(b"\x1a\x45\xdf\xa3"):
@@ -234,8 +177,7 @@ def _video_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _mp4_findings(name: str, data: bytes) -> list[Finding]:
-    """MP4: a whole moov/mdat pair and an mvhd whose timescale and duration
-    are positive."""
+    ""
 
     def boxes(start: int, end: int) -> tuple[list[tuple[bytes, int, int]], bool]:
         found: list[tuple[bytes, int, int]] = []
@@ -330,8 +272,7 @@ def _mp4_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _webm_findings(name: str, data: bytes) -> list[Finding]:
-    """WEBM: an EBML header, a Segment, and a positive Duration element inside
-    it."""
+    ""
 
     def vint_len(first: int) -> int:
         length = 1
@@ -456,8 +397,7 @@ def _webm_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _avi_findings(name: str, data: bytes) -> list[Finding]:
-    """AVI: a RIFF size that fits, and an avih chunk stating a positive
-    duration."""
+    ""
 
     def chunks(start: int, end: int) -> tuple[list[tuple[bytes, int, int]], bool]:
         found: list[tuple[bytes, int, int]] = []
@@ -538,7 +478,7 @@ def _avi_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _png_findings(name: str, data: bytes) -> list[Finding]:
-    """PNG: IHDR first, positive dimensions, and an IDAT stream that decompresses."""
+    ""
     if (
         len(data) < 24
         or int.from_bytes(data[8:12], "big") != 13
@@ -605,7 +545,7 @@ def _png_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _jpeg_findings(name: str, data: bytes) -> list[Finding]:
-    """JPEG: SOI…EOI, a SOF marker with positive dimensions, and an SOS marker."""
+    ""
     if not data.endswith(b"\xff\xd9"):
         return [
             _finding(
@@ -700,7 +640,7 @@ def _jpeg_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _gif_findings(name: str, data: bytes) -> list[Finding]:
-    """GIF: positive dimensions and the 0x3B trailer byte."""
+    ""
     if len(data) < 10:
         return [
             _finding(
@@ -728,7 +668,7 @@ def _gif_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _bmp_findings(name: str, data: bytes) -> list[Finding]:
-    """BMP: a known DIB header size, positive dimensions, and a whole header."""
+    ""
     if len(data) < 18:
         return [
             _finding(
@@ -784,7 +724,7 @@ def _bmp_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _webp_findings(name: str, data: bytes) -> list[Finding]:
-    """WEBP: a RIFF size that fits the file and a VP8 / VP8L / VP8X chunk."""
+    ""
     riff_size = int.from_bytes(data[4:8], "little")
     if riff_size + 8 != len(data):
         return [
@@ -868,7 +808,7 @@ def _webp_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _wav_findings(name: str, data: bytes) -> list[Finding]:
-    """WAV: a RIFF size that fits the file, fmt/data chunks, a positive duration."""
+    ""
     riff_size = int.from_bytes(data[4:8], "little")
     if riff_size + 8 != len(data):
         return [
@@ -921,7 +861,7 @@ def _wav_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _flac_findings(name: str, data: bytes) -> list[Finding]:
-    """FLAC: STREAMINFO first and complete, and a positive duration."""
+    ""
     if len(data) < 8:
         return [
             _finding(
@@ -976,15 +916,7 @@ def _flac_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _mp3_findings(name: str, data: bytes) -> list[Finding]:
-    """MP3: a valid MPEG audio frame header whose first frame body fits.
-
-    The ID3v2 tag is skipped when present, then the audio region is scanned
-    for the first MPEG frame sync. A valid header (non-reserved version and
-    layer, a real bitrate index, a real sample-rate index) whose computed
-    frame length fits the file is enough for a duration to be determinable;
-    the numeric duration is never computed, but a frame whose body overruns
-    the end of the file is truncated.
-    """
+    ""
     audio_start = 0
     if data.startswith(b"ID3"):
         if len(data) < 10:
@@ -995,8 +927,8 @@ def _mp3_findings(name: str, data: bytes) -> list[Finding]:
                     "the MP3 declares no duration: its ID3v2 header is cut short",
                 )
             ]
-        # ID3v2.2 stores the tag size as three plain big-endian bytes; v2.3
-        # and v2.4 store it as four syncsafe bytes.
+        #
+        #
         if data[3] == 2:
             tag_size = int.from_bytes(data[6:9], "big")
         else:
@@ -1158,10 +1090,7 @@ def _mp3_findings(name: str, data: bytes) -> list[Finding]:
 
 
 def _ogg_findings(name: str, data: bytes) -> list[Finding]:
-    """OGG: a first page complete enough to hold its header and segment table.
-
-    Duration is deferred to a later pass; only the page structure is checked.
-    """
+    ""
     if len(data) < 27:
         return [
             _finding(
@@ -1191,20 +1120,11 @@ def _ogg_findings(name: str, data: bytes) -> list[Finding]:
     return []
 
 
-# --- the P2 validators -------------------------------------------------------
+#
 
 
 def _word_error_rate(hypothesis: str, reference: str) -> float:
-    """Word-level Levenshtein distance over the reference's word count.
-
-    The two strings are split on whitespace and compared as word sequences, so
-    a transcription that misses one word of a long reference costs less than
-    one that mangles a short reference. The denominator is floored at one word
-    so an empty reference is a defined comparison rather than a division by
-    zero. The edit distance is a plain dynamic-programming table over the two
-    word counts — no third-party tokenizer or distance library, so the number
-    the gate judges by is reproducible from the same two strings anywhere.
-    """
+    ""
     hyp_words = hypothesis.split()
     ref_words = reference.split()
     previous = list(range(len(hyp_words) + 1))
@@ -1221,7 +1141,7 @@ def _word_error_rate(hypothesis: str, reference: str) -> float:
 
 
 def _first_line(stderr: str | bytes) -> str:
-    """The first non-empty line of a tool's stderr, clipped; ``""`` if none."""
+    ""
     text = stderr.decode("utf-8", "replace") if isinstance(stderr, bytes) else stderr
     for line in text.splitlines():
         stripped = line.strip()
@@ -1231,16 +1151,7 @@ def _first_line(stderr: str | bytes) -> str:
 
 
 def safety_pass(path: Path, label: str = "") -> list[Finding]:
-    """One finding unless the safety classifier clears ``path`` as safe.
-
-    The classifier is an external tool on PATH, run exactly the way the
-    language adapters run their tools: absent means the rung cannot say what
-    bar it applied (``ToolUnavailableError``); present and dying with an
-    unexpected status means its answer cannot be trusted
-    (``ToolFailedError``). Exit 0 is safe, exit 1 is unsafe, and any other
-    status is a tool failure — a check that reported clean over a classifier
-    that could not judge would be the one failure a gate must not have.
-    """
+    ""
     if shutil.which("safety-classifier") is None:
         raise ToolUnavailableError("safety-classifier")
     proc = subprocess.run(["safety-classifier", str(path)], capture_output=True)
@@ -1266,15 +1177,7 @@ def asr_wer(
     wer_threshold: float,
     label: str = "",
 ) -> list[Finding]:
-    """One finding unless whisper's transcription stays within ``wer_threshold``.
-
-    Whisper is an external tool on PATH, run the same way the language
-    adapters run theirs: absent is ``ToolUnavailableError``, and a non-zero
-    exit is ``ToolFailedError`` because a WER the gate never computed must not
-    read as "the transcript matched". The word error rate is the plain
-    word-level edit distance over the reference's word count
-    (:func:`_word_error_rate`); a rate above the threshold rejects the output.
-    """
+    ""
     if shutil.which("whisper") is None:
         raise ToolUnavailableError("whisper")
     proc = subprocess.run(["whisper", str(path)], capture_output=True, text=True)
@@ -1299,20 +1202,12 @@ def asr_wer(
     return []
 
 
-# --- the rung the gate runs -------------------------------------------------
+#
 
 
 @dataclass(frozen=True)
 class OutputReport:
-    """The output-checks rung's verdict, in the gate's own currency.
-
-    ``findings`` reject the change; ``inconclusive`` also rejects it, and is
-    the stronger case: a check whose validator is missing could not say what
-    bar it applied, so it must not read as clean. ``environment_issues`` is
-    the rendered sentence of each such rung, kept so a reader that only knows
-    that field still sees the rejection. Mirrors
-    :class:`~mcgyvr.gate.acceptance.AcceptanceReport`.
-    """
+    ""
 
     findings: tuple[Finding, ...] = ()
     environment_issues: tuple[str, ...] = ()
@@ -1320,15 +1215,7 @@ class OutputReport:
 
 
 class OutputChecks:
-    """The gate's output-checks rung, built from a contract's declared evidence.
-
-    Holds which structural evidence kinds a contract declared and the
-    parameters each needs, and runs them over the artifact in ``workspace``.
-    Built in :func:`mcgyvr.drive.gate_workspace` and passed into
-    :meth:`~mcgyvr.gate.runner.Gate.run` — the same injected-rung shape as
-    :class:`~mcgyvr.gate.acceptance.Acceptance` and
-    :class:`~mcgyvr.gate.semantic.SemanticCheck`.
-    """
+    ""
 
     def __init__(
         self,
@@ -1348,7 +1235,7 @@ class OutputChecks:
         self.wer_threshold = wer_threshold
 
     def run(self) -> OutputReport:
-        """Run every declared check; one failing check never hides another's."""
+        ""
         findings: list[Finding] = []
         issues: list[str] = []
         inconclusive: list[InconclusiveRung] = []
@@ -1357,8 +1244,8 @@ class OutputChecks:
             try:
                 findings.extend(_run_one(name, self, path))
             except (ToolUnavailableError, ToolFailedError) as exc:
-                # runner.py imports OutputChecks at module top, so importing
-                # InconclusiveRung here avoids the circular import.
+                #
+                #
                 from mcgyvr.gate.runner import InconclusiveRung
 
                 if isinstance(exc, ToolUnavailableError):
@@ -1381,7 +1268,7 @@ class OutputChecks:
 
 
 def _run_one(name: str, checks: OutputChecks, path: Path) -> list[Finding]:
-    """Dispatch one declared evidence kind to its check function over ``path``."""
+    ""
     if name == MEDIA_VALID:
         return media_valid(path, checks.media_kind, checks.target)
     if name == SAFETY_PASS:

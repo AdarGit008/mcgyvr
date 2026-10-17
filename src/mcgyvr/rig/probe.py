@@ -1,39 +1,4 @@
-"""The latency probe: this rig's UDP path to each peer rig, measured before any session.
-
-Before it plans a session the hub asks rigs how well they reach each other
-(the hub's ``probe`` feature). ``probe_open`` has the rig open one UDP
-socket — on the tunnel's own listen port when no session holds it, so the
-probe crosses the same NAT mapping a tunnel would, else on any port — send
-the hub's responder a binding request from it (the hub learns the socket's
-public address first hand), and answer ``probe_opened`` with the socket's
-LAN endpoints and its round trip to the responder. ``probe_run`` names the
-peers and a secret per pair: the rig pings every candidate of every peer
-``count`` times (which also opens its own NAT to the peers' pings), answers
-the peers' pings, sends a train of bulk packets to each peer's first
-answering candidate, and within the deadline answers ``probe_result``: per
-peer whether it was reached, at which candidate, the median and least round
-trip, the loss, and the rate the peer's train arrived at.
-
-What this socket says and answers is bounded so that it reveals nothing but
-reachability and timing, and serves nobody else:
-
-* it sends only to addresses the hub named for a peer of this probe, and
-  only to addresses a rig may be at (:func:`reachable`: never loopback,
-  link-local, multicast, reserved — the limited broadcast among them — or
-  unspecified, never this machine's own), so it is no scanner of arbitrary
-  hosts;
-* it answers only a ping that carries the secret of a peer of the running
-  probe and comes from an address the hub named for that peer, with the
-  same bytes (a pong is no larger than its ping), and at most
-  :data:`MAX_PONGS_PER_PEER` per peer and :data:`MAX_PONGS_PER_S` in all, so
-  it is no reflector and no amplifier;
-* a pong is taken only for a ping this probe sent, once, from the address it
-  was sent to and with the stamp it carried, so a replayed or forged pong
-  measures nothing; a bulk train is counted only up to its own length;
-* the socket closes when the hub's ``ttl_s`` is up, when a session's tunnel
-  is about to take its port (:meth:`Probes.release`), and every probe ends
-  with the agent.
-"""
+""
 
 from __future__ import annotations
 
@@ -52,29 +17,29 @@ from dataclasses import dataclass, field
 from mcgyvr.rig import commands, protocol, sessionwire, udpwire
 from mcgyvr.rig.sessionwire import SessionCode
 
-#: The most probes open at once on this rig.
+#
 MAX_OPEN = 4
-#: How long each round of binding requests waits for its answers.
+#
 STUN_WAIT_S = 0.5
-#: The size of a bulk packet (the format's largest).
+#
 BULK_BYTES = udpwire.PROBE_PACKET_MAX_BYTES
-#: The most pongs sent to one peer in one run: every ping it may send to
-#: every candidate of this rig.
+#
+#
 MAX_PONGS_PER_PEER = sessionwire.MAX_PROBE_COUNT * sessionwire.MAX_ENDPOINTS
-#: The most pongs sent in any second, over every peer and probe.
+#
 MAX_PONGS_PER_S = 500
-#: The longest bulk train counted, in packets: the hub's largest train of the
-#: smallest packets.
+#
+#
 MAX_TRAIN = -(-sessionwire.MAX_PROBE_BULK_BYTES // udpwire.PROBE_PACKET_MIN_BYTES)
-#: The longest single wait of a probe's thread, in seconds, so a close is heard.
+#
 SLICE_S = 0.05
-#: The longest a session waits for a probe to let the tunnel's port go, in
-#: seconds: many of the probe thread's slices.
+#
+#
 RELEASE_WAIT_S = 2.0
 
 
 def reachable(address: ipaddress.IPv4Address) -> bool:
-    """Whether ``address`` is one a peer rig, or the hub's responder, may be at."""
+    ""
     return not (
         address.is_loopback
         or address.is_link_local
@@ -99,7 +64,7 @@ class _Peer:
     sent: dict[int, tuple[float, int, int]] = field(default_factory=dict)
     samples: dict[int, list[float]] = field(default_factory=dict)
     pinged: dict[int, int] = field(default_factory=dict)
-    first: int | None = None  # the candidate that answered first
+    first: int | None = None  #
     pongs: int = 0
     bulk_sent: bool = False
     train: set[int] = field(default_factory=set)
@@ -130,7 +95,7 @@ class _Probe:
 
 
 class Probes:
-    """This rig's probes: the handlers and one thread per open probe."""
+    ""
 
     def __init__(
         self,
@@ -156,17 +121,16 @@ class Probes:
         self._probes: dict[str, _Probe] = {}
         self._pong_times: list[float] = []
 
-    # -- what the agent asks -------------------------------------------------
+    #
 
     def close(self) -> None:
-        """End every probe now; their sockets close."""
+        ""
         with self._lock:
             for probe in self._probes.values():
                 probe.closed.set()
 
     def release(self, port: int) -> None:
-        """End every probe whose socket is bound to ``port``, and return once
-        its socket is closed: a session's tunnel is about to take the port."""
+        ""
         with self._lock:
             holding = []
             for probe in self._probes.values():
@@ -179,14 +143,14 @@ class Probes:
             probe.finished.wait(RELEASE_WAIT_S)
 
     def open_count(self) -> int:
-        """How many probes hold a socket now."""
+        ""
         with self._lock:
             return sum(1 for p in self._probes.values() if not p.closed.is_set())
 
-    # -- the handlers --------------------------------------------------------
+    #
 
     def open(self, envelope: protocol.Envelope) -> str | None:
-        """``probe_open``: answered ``probe_opened`` once the responder was asked."""
+        ""
         asked = sessionwire.read_probe_open(envelope)
         if not self._lending():
             return sessionwire.refusal(
@@ -228,7 +192,7 @@ class Probes:
         return None
 
     def run(self, envelope: protocol.Envelope) -> str | None:
-        """``probe_run``: answered ``probe_result`` by its deadline."""
+        ""
         asked = sessionwire.read_probe_run(envelope)
         with self._lock:
             probe = self._probes.get(asked.probe_id)
@@ -258,7 +222,7 @@ class Probes:
             probe.run_at = self._clock()
         return None
 
-    # -- the probe's thread --------------------------------------------------
+    #
 
     def _opened(self, probe: _Probe, re: str) -> str:
         return sessionwire.probe_opened(
@@ -479,6 +443,6 @@ def _us(seconds: float) -> int:
 
 
 def register(dispatcher: commands.Dispatcher, probes: Probes) -> None:
-    """Handle the hub's probe commands with ``probes``."""
+    ""
     dispatcher.register("probe_open", lambda envelope, _: probes.open(envelope))
     dispatcher.register("probe_run", lambda envelope, _: probes.run(envelope))

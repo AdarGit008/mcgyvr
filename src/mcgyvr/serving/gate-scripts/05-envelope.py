@@ -1,54 +1,5 @@
-#!/usr/bin/env python3
-"""gate 5 — the envelope, and RUN_ID.
-
-A serve step declares what it writes on one comment line, which the door
-READS and never executes:
-
-    # RUN_REWRITES: serve-up.json [...]   created here, and this step may run
-                                          again over it; the existing file is
-                                          admitted only if its `run_id` field
-                                          carries a run_id THIS step minted on
-                                          this host, and is moved to
-                                          <name>.superseded-<run_id>.<ext> first
-
-Nothing recorded is overwritten and nothing is deleted: the superseded file
-stays on disk beside its replacement.
-
-WHY THE RUN_ID MAY NOT BE REUSED. It names the containers gate 7 looks for,
-the artifact of exactly one run, and the run's end record. Two invocations
-sharing one id make all three ambiguous, so a same-day re-run takes --suffix.
-And two invocations at the same moment mint the same id and would both pass
-write-once, so the id is CLAIMED here — `.<RUN_ID>.running` in the envelope,
-created O_EXCL — and the door releases the claim on every exit path. A claim
-that is still there is a run in progress, or one that died without the door;
-the refusal names the file and leaves the call to the operator.
-
-WHAT A DECLARED ARTIFACT IS. One regular file, one name, inside the envelope
-after every link is followed (gatelib.artifact_escape). A file already there
-under a declared name that is a symlink, a hard link or a path that resolves
-elsewhere is refused before the step, because the step would write through
-it into evidence the door never guarded; and the envelope itself is a
-directory the door made, never a link.
-
-THE ENVELOPE HEADER. Once the RUN_ID is claimed, the run's identity is filed
-beside the artifacts the step will write, as ``<RUN_ID>.run.json``: the run,
-the step, the host, and the path of the config it was read under (``none``
-when there is none).
-Written once, before the step, so a step that dies before it writes anything
-still left a record of what was about to run; a header already there under this
-RUN_ID is refused, because two door invocations never share a run id.
-
-The envelope is the run's own folder in the door's log under the data folder,
-``<data folder>/door/<date>/<RUN_ID>/`` (``~/.local/state/mcgyvr`` unless
-``$MCGYVR_DATA`` or ``$XDG_STATE_HOME`` moves it), and the header also files
-the run's mode, the command it was opened with, the rig as gate 2 read it
-before the step, and the compose file's text. Gate 7 adds the rest at the end
-(``<RUN_ID>.end.json``). The RUN_ID is ``<date>-<host>-<step>[-<suffix>]``
-(:func:`mcgyvr.serving.gatelib.run_id_of`).
-
-Every check happens before anything is written; then the lease on the rig is
-stamped, and the envelope, the claim, the header and the moves aside are made.
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -86,7 +37,7 @@ RUN_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def declarations(step_file: Path) -> dict[str, list[str]]:
-    """The directive, read as text. The step is never executed to learn it."""
+    ""
     text = step_file.read_text(encoding="utf-8", errors="replace")
     out: dict[str, list[str]] = {}
     for directive in DIRECTIVES:
@@ -103,11 +54,7 @@ def declarations(step_file: Path) -> dict[str, list[str]]:
 
 
 def artifact_run_id(path: Path) -> str | None:
-    """The run_id a JSON artifact carries as its ``run_id`` field.
-
-    Written by the step the door admits; it must say which run produced the
-    file before a rewrite may supersede it.
-    """
+    ""
     try:
         doc = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except ValueError:
@@ -117,28 +64,18 @@ def artifact_run_id(path: Path) -> str | None:
 
 
 def minted_by(run_id: str, host: str, step: str) -> bool:
-    """Whether ``run_id`` is one this ``step`` minted on ``host``.
-
-    ``<date>-<host>-<step>[-<suffix>]``: the id gate 5 mints
-    (:func:`mcgyvr.serving.gatelib.run_id_of`), with any suffix.
-    """
+    ""
     named = f"{re.escape(host)}-{re.escape(step)}"
     return re.fullmatch(rf"\d{{4}}-\d{{2}}-\d{{2}}-{named}(?:-.+)?", run_id) is not None
 
 
 def header_path(out_dir: Path, run_id: str) -> Path:
-    """Where a run's header sits in its envelope: ``<RUN_ID>.run.json``."""
+    ""
     return out_dir / f"{run_id}.run.json"
 
 
 def header_record(run_id: str, step_name: str, run_date: str) -> dict[str, str]:
-    """The run's identity, from what gates 1-5 established.
-
-    Every value is one the door exported or minted — nothing here is read
-    from the rig or guessed. Assembled
-    before the claim is taken, so a missing export refuses with nothing to
-    release.
-    """
+    ""
     return {
         "run_id": run_id,
         "step": step_name,
@@ -151,11 +88,7 @@ def header_record(run_id: str, step_name: str, run_date: str) -> dict[str, str]:
 
 
 def user_header(record: dict[str, str]) -> dict[str, object]:
-    """A user-mode run's header: ``record``, and what its log files beside it.
-
-    The command the door was opened with, the rig as gate 2 read it before
-    the step, and the compose file's text when the run serves one.
-    """
+    ""
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
     compose = os.environ.get("RUN_COMPOSE")
     text = Path(compose).read_text(encoding="utf-8") if compose else None
@@ -170,8 +103,7 @@ def user_header(record: dict[str, str]) -> dict[str, object]:
 
 
 def envelope(run_date: str, run_id: str) -> Path:
-    """Where this run is filed: its own folder of the door's log
-    (:func:`gatelib.envelope_of`)."""
+    ""
     try:
         return envelope_of(run_date, run_id)
     except (FolderError, RuntimeError) as exc:
@@ -215,7 +147,7 @@ def main() -> int:
     if not RUN_DATE_RE.match(run_date):
         refuse(f"gate 5: RUN_DATE={run_date!r} is not YYYY-MM-DD")
 
-    # `<n>-<name>.py` -> `<name>`, matching how a run id is parsed back.
+    #
     step = step_name(step_file)
     run_id = run_id_of(run_date, host, step_file, suffix)
     if not PLAIN_NAME.match(run_id):
@@ -228,9 +160,9 @@ def main() -> int:
     if escape is not None:
         refuse(f"gate 5: {escape}. Nothing is minted into a directory that is a link")
 
-    # The claim is judged before anything else about the envelope, so a run
-    # that collides with one in progress is told THAT and not that a file
-    # the other run is writing "already exists".
+    #
+    #
+    #
     if claim_path(out_dir, run_id).exists():
         refuse(
             f"gate 5: a run with this RUN_ID ({run_id}) is in progress or died "
@@ -240,8 +172,7 @@ def main() -> int:
         )
 
     def linked(name: str) -> None:
-        """Refuse a declared name that is already something other than one
-        regular file of this envelope: the step would write through it."""
+        ""
         escape = artifact_escape(out_dir / name, out_dir)
         if escape is not None:
             refuse(
@@ -251,8 +182,8 @@ def main() -> int:
                 "never guarded"
             )
 
-    # Every rewrite is JUDGED before any is MOVED, so a refusal on the second
-    # leaves the first where it was.
+    #
+    #
     aside_of: dict[str, str] = {}
     for name in declared["RUN_REWRITES"]:
         path = out_dir / name
@@ -288,10 +219,10 @@ def main() -> int:
             )
         aside_of[name] = aside
 
-    # Judged after the artifacts, so a re-run is told about its file first —
-    # `serve-up.json carries run_id=...` says more than `a header exists` — and
-    # before anything is made, so a header that is already there costs
-    # nothing: a run made before under this id is a run id reused.
+    #��
+    #nd
+    #
+    #
     header = header_path(out_dir, run_id)
     if header.exists():
         refuse(
@@ -302,9 +233,9 @@ def main() -> int:
     record = header_record(run_id, step, run_date)
     header_doc: Mapping[str, object] = user_header(record)
 
-    # The rig's lease learns the RUN_ID, so a run refused this rig can name
-    # the run that holds it; and if the lease is no longer this run's by now,
-    # this run is refused here, before anything is minted.
+    #
+    #
+    #
     lease = lease_of_run()
     if lease is not None:
         lease_stamp(need("RUN_HOST"), lease, run_id)
@@ -321,8 +252,8 @@ def main() -> int:
                 file=sys.stderr,
             )
     except OSError:
-        # The door releases a claim only for a run it was handed; this one
-        # never reaches it, so it is released here before the refusal.
+        #
+        #
         release(out_dir, run_id)
         raise
 
@@ -332,9 +263,9 @@ def main() -> int:
     export("RUN_STEP", step)
     export("RUN_HOST", need("RUN_HOST"))
     export("RUN_DECLARED", json.dumps(declared, separators=(",", ":")))
-    # What was moved aside, so gate 8 can put it back if this run never
-    # writes the successor: a rewrite pass that filed nothing must not leave
-    # the earlier pass vacated under its own name.
+    #
+    #
+    #
     export("RUN_SUPERSEDED", json.dumps(aside_of, separators=(",", ":")))
     print(f"gate 5: RUN_ID={run_id} -> {out_dir}")
     return 0

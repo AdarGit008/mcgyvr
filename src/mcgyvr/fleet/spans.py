@@ -1,25 +1,4 @@
-"""A unit may span several cards or several rigs, and its fleet must hold it whole.
-
-A unit says which cards it occupies inside its free-form ``launch`` block, so
-``fleet.yaml`` needs no schema of its own for it::
-
-    launch:
-      shards:                  # the first shard is the head's
-        - {rig: box-a.example, gpu: 0, room_mib: 9000}
-        - {rig: box-b.example, gpu: 0, room_mib: 7000, bind: 192.0.2.20}
-
-A unit with no ``shards`` is exactly what it always was. A unit with them is a
-:class:`Span`: its head (the unit's own ``rig``, where its address answers), the
-rigs it spans in order, and its cards.
-
-A spanning unit lives on several rigs at once, and a rig's identity is not
-touched by that: a combination is still one rig's room slots and its id is
-still hashed from that rig's slots alone. What changes is what a fleet's layout
-must hold. A unit whose workers sleep while its head serves, or whose head sits
-on a rig whose workers have no room for it, is not a unit that can answer, so
-:func:`check_spans` refuses the layout, by unit, fleet and rig, before a lock is
-written or a fleet is promoted. Nothing here reads a rig.
-"""
+""
 
 from __future__ import annotations
 
@@ -31,13 +10,13 @@ from typing import Any
 
 from mcgyvr.fleet.layout import FleetError
 
-#: The keys a shard names. Any other is refused: an ignored key is a unit that
-#: does not do what it says.
+#
+#
 _SHARD_KEYS = frozenset({"rig", "gpu", "room_mib", "bind"})
 
 
 class SpanError(FleetError):
-    """A unit's span is declared wrongly, or a layout does not hold it whole."""
+    ""
 
 
 def _is_number(value: Any) -> bool:
@@ -46,29 +25,28 @@ def _is_number(value: Any) -> bool:
 
 @dataclass(frozen=True)
 class Shard:
-    """One card a unit occupies: its rig, its index there, the room it needs."""
+    ""
 
     rig: str
     gpu: int
-    #: The card room this shard needs, in MiB; ``None`` when the shard states none.
+    #
     room_mib: int | None
-    #: The IPv4 literal a worker's listener binds to; ``None`` when not stated.
+    #
     bind: str | None
 
 
 @dataclass(frozen=True)
 class Span:
-    """The cards one unit occupies, head first."""
+    ""
 
     unit: str
-    #: The unit's own rig: where its address answers and where it is measured.
+    #
     head: str
     shards: tuple[Shard, ...]
 
     @property
     def rigs(self) -> tuple[str, ...]:
-        """Every rig spanned: the head first, then the others in declaration
-        order, each once."""
+        ""
         seen: dict[str, None] = {}
         for shard in self.shards:
             seen.setdefault(shard.rig, None)
@@ -76,12 +54,12 @@ class Span:
 
     @property
     def workers(self) -> tuple[str, ...]:
-        """The rigs spanned other than the head."""
+        ""
         return tuple(rig for rig in self.rigs if rig != self.head)
 
     @property
     def cards(self) -> dict[str, tuple[int, ...]]:
-        """``rig -> (gpu, ...)`` in declaration order."""
+        ""
         out: dict[str, list[int]] = {}
         for shard in self.shards:
             out.setdefault(shard.rig, []).append(shard.gpu)
@@ -89,20 +67,16 @@ class Span:
 
     @property
     def room(self) -> dict[tuple[str, int], int | None]:
-        """``(rig, gpu) -> room_mib`` as each shard states it."""
+        ""
         return {(shard.rig, shard.gpu): shard.room_mib for shard in self.shards}
 
     def shards_on(self, rig: str) -> tuple[Shard, ...]:
-        """This unit's shards on ``rig``, in declaration order."""
+        ""
         return tuple(shard for shard in self.shards if shard.rig == rig)
 
 
 def parse_shard(unit: str, index: int, raw: Any) -> Shard:
-    """One entry of ``units.<unit>.launch.shards``, checked; the one reader of it.
-
-    The fleet's lock and the serving sizing both read a shard through here, so
-    the two cannot disagree about what a declaration says.
-    """
+    ""
     where = f"units.{unit}.launch.shards[{index}]"
     if not isinstance(raw, Mapping):
         raise SpanError(
@@ -147,15 +121,7 @@ def parse_shard(unit: str, index: int, raw: Any) -> Shard:
 
 
 def spans(fleet: Mapping[str, Any]) -> dict[str, Span]:
-    """Every unit of ``fleet`` that declares ``launch.shards``, by unit name.
-
-    A unit that does not declare them is not in the result and is what it was
-    before spans existed. Refused, by unit and shard: ``shards`` that is not a
-    non-empty list of mappings; a shard with no rig or no card index; a first
-    shard that is not on the unit's own rig (the head is the unit's, so the
-    address a unit answers at is where its first shard sits); a card named
-    twice; a shard on a rig ``fleet.yaml`` does not list under ``rigs``.
-    """
+    ""
     rigs = fleet.get("rigs") or {}
     found: dict[str, Span] = {}
     for name, unit in (fleet.get("units") or {}).items():
@@ -202,14 +168,7 @@ def spans(fleet: Mapping[str, Any]) -> dict[str, Span]:
 def shard_rooms(
     unit_name: str, unit: Mapping[str, Any], span: Span, rig: str
 ) -> dict[int, int]:
-    """``gpu -> room_mib`` of ``unit_name``'s shards on ``rig``.
-
-    Each shard states its own room, and a spanning unit that left one out is
-    refused by name: its room is a sum and a sum with a missing term is a
-    guess. A unit that only pins itself to one card (a single shard) may state
-    its room once, as ``room_mib``, as every unit does; stating it twice, with
-    two different figures, is refused.
-    """
+    ""
     shards = span.shards_on(rig)
     if not shards:
         raise SpanError(f"{unit_name}: spans no card on {rig}")
@@ -243,22 +202,14 @@ def shard_rooms(
 
 
 def room_on(unit_name: str, unit: Mapping[str, Any], span: Span, rig: str) -> int:
-    """A spanning unit's room on ``rig``: the sum of its shards' there."""
+    ""
     return sum(shard_rooms(unit_name, unit, span, rig).values())
 
 
 def check_spans(
     fleet: Mapping[str, Any], layout: Mapping[str, Any], *, name: str = ""
 ) -> None:
-    """``None`` when ``layout`` holds every spanning unit it places whole.
-
-    A unit that spans must hold a room slot on every rig it spans, in the same
-    state (awake or asleep) on all of them, and on no rig it does not span: its
-    head answers only while its workers are listening, so a layout that wakes
-    one and not the other, or leaves a worker no room, describes a unit that
-    cannot serve. A unit the layout does not place is not judged. Refused by
-    unit, fleet (``name``) and rig.
-    """
+    ""
     prefix = f"{name}: " if name else ""
     for unit, span in spans(fleet).items():
         held: dict[str, set[str]] = {}

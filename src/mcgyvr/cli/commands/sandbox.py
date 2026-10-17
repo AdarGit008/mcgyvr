@@ -1,7 +1,4 @@
-"""The `mcgyvr sandbox` command.
-
-Only what is built is exposed.
-"""
+""
 
 from __future__ import annotations
 
@@ -17,7 +14,7 @@ from mcgyvr.config import (
 )
 from mcgyvr.config import load as load_config
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  #
     pass
 
 from mcgyvr.cli.common import _add_repo, _mib, add_config
@@ -66,17 +63,17 @@ def _sandbox(args: argparse.Namespace) -> int:
         return 1
     _say_what_the_sandbox_leaves_out(repo)
 
-    # Show what a run here would resolve to: the setup's `sandbox.mode` and
-    # `sandbox.allow_fallback`, read as a run reads them. No setup at all is
-    # the schema's defaults (`docker`, no fallback); a setup that cannot be
-    # read has no resolved mode to show.
+    #
+    #
+    #
+    #
     chosen = Path(args.config) if getattr(args, "config", None) else None
     try:
         config: Config | None = load_config(chosen)
     except ConfigMissingError as exc:
         if chosen is not None:
-            # Named with --config and not there: an error, as on `run`, not
-            # the defaults a bare install reads.
+            #
+            #
             print(f"error: {exc}", file=sys.stderr)
             return 1
         config = None
@@ -122,7 +119,7 @@ def _sandbox(args: argparse.Namespace) -> int:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `sandbox` command."""
+    ""
 
     sbx = sub.add_parser(
         "sandbox",

@@ -1,54 +1,5 @@
-#!/usr/bin/env python3
-"""Read a safetensors checkpoint's tensor table and its ``config.json``.
-
-This is the vLLM counterpart of :mod:`mcgyvr.serving.ggufscan`, and it keeps
-that module's one rule: **bits-per-weight is a guess; the tensor table is
-not**. A checkpoint directory is read
-header by header -- the first eight bytes of a ``.safetensors`` file say how
-long its JSON header is, and the header says every tensor's dtype, shape and
-byte range -- and never a weight. What the sharding sizer reads from the one
-row it returns is therefore a sum of tensor bytes by where they sit (a decoder
-block, the input embedding, the rest), not a file size divided by a guess, and
-not a parameter count times a bit width somebody assumed for a quantised
-checkpoint (a packed AWQ/GPTQ ``qweight`` is an integer tensor whose element
-count says nothing about parameters).
-
-**It is stdlib-only and self-contained, for the same reason ggufscan is.**
-Operators run ``python -m mcgyvr.serving.safetensorscan <model dir>`` on the
-machine that holds the weights, and a gate may ship the file to that machine
-as bytes and run it as ``python3 -``, where there is no venv, no ``mcgyvr`` and
-no ``PYTHONPATH``. An import added here fails on that machine and nowhere
-else.
-
-**A dtype it does not know is refused by name, never sized as the widest one.**
-Every tensor's ``data_offsets`` span is also compared with the bytes its dtype
-and shape imply, so a wrong entry in the dtype table cannot pass quietly: it
-disagrees with the file's own bookkeeping and the row is refused. A shard whose
-header promises more bytes than the file holds (a truncated download) is
-refused the same way.
-
-How the row is read from ``config.json``. Multimodal checkpoints nest the
-language model's fields under ``text_config``; when the top level has one,
-every geometry field, the architecture (``model_type``) and the sliding-window
-fields are read from it, because the decoder blocks counted here are that
-model's. ``quantization_config`` and ``dtype`` are taken from the top level
-first and from ``text_config`` only when the top level states none. A missing
-``num_key_value_heads`` means ``num_attention_heads`` -- that default is the
-Hugging Face config's own convention (multi-head attention), stated here and
-not invented. A refusal of a row is ``{"file": ..., "error": ...}``, as
-ggufscan's is.
-
-A multimodal checkpoint's towers -- a vision or audio encoder, its projector --
-are not the language model's: an encoder's ``layers.5`` is not decoder block 5.
-A tensor whose name has a part naming a tower (:func:`_in_tower`) is summed
-into ``bytes_tower`` and nowhere else, and vLLM builds a tower on every rank,
-which is where the sizer charges it.
-
-Whether the output head is the input embedding is ``tied_embeddings``: the
-config says so (``tie_word_embeddings``, from ``text_config`` first), or the
-checkpoint has no ``lm_head`` tensor at all. vLLM then builds the embedding on
-the last pipeline stage too and loads no head, which the sizer charges.
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -58,8 +9,8 @@ import struct
 import sys
 from typing import Any
 
-#: Bytes per element of every dtype a safetensors header may name. A name not
-#: here (and not an ``F8_*`` variant, see :func:`dtype_size`) is refused.
+#
+#
 _DTYPE_BYTES: dict[str, int] = {
     "F64": 8,
     "F32": 4,
@@ -78,26 +29,20 @@ _DTYPE_BYTES: dict[str, int] = {
     "F8_E5M2": 1,
 }
 
-#: The two per-layer attention kinds a ``layer_types`` list may state.
+#
 _FULL = "full_attention"
 _SLIDING = "sliding_attention"
 
-#: The length of the little-endian u64 that opens a safetensors file.
+#
 _LENGTH_FIELD = struct.calcsize("<Q")
 
 
-class Refused(ValueError):  # noqa: N818 - a refusal, named as one
-    """The checkpoint cannot be read honestly; the message says why and what to do."""
+class Refused(ValueError):  #
+    ""
 
 
 def dtype_size(dtype: str) -> int:
-    """Bytes per element of ``dtype``, or a refusal naming it.
-
-    Any ``F8_*`` variant is one byte: the family is defined by its width, and a
-    new member of it (a scale-only ``F8_E8M0``) does not change that. Every
-    other dtype is looked up and never assumed, because a guessed width turns a
-    quantised checkpoint into several times its size or a fraction of it.
-    """
+    ""
     if dtype in _DTYPE_BYTES:
         return _DTYPE_BYTES[dtype]
     if dtype.startswith("F8_"):
@@ -111,12 +56,7 @@ def dtype_size(dtype: str) -> int:
 
 
 def _read_header(path: str) -> tuple[dict[str, Any], int]:
-    """One shard's tensor table, and the size of its data region.
-
-    Reads the eight length bytes and the JSON header, never past them. The
-    data region size is returned so a tensor claiming bytes the file does not
-    hold is caught by the caller.
-    """
+    ""
     size = os.path.getsize(path)
     with open(path, "rb") as f:
         head = f.read(_LENGTH_FIELD)
@@ -140,13 +80,7 @@ def _read_header(path: str) -> tuple[dict[str, Any], int]:
 
 
 def _tensors(path: str) -> list[tuple[str, str, list[int], int]]:
-    """Every tensor of one shard as (name, dtype, shape, bytes), cross-checked.
-
-    The bytes are ``prod(shape) * dtype size``, and must equal the span the
-    header itself gives (``end - begin``) and fit in the file. A mismatch is
-    refused rather than resolved: it means the dtype table is wrong for this
-    file, and any sum built on it would be wrong with nothing saying so.
-    """
+    ""
     table, data_size = _read_header(path)
     out: list[tuple[str, str, list[int], int]] = []
     for name, entry in table.items():
@@ -189,12 +123,7 @@ def _tensors(path: str) -> list[tuple[str, str, list[int], int]]:
 
 
 def _block_of(name: str) -> int | None:
-    """The decoder block a tensor sits in: the integer after a ``layers`` part.
-
-    ``model.layers.12.self_attn.q_proj.qweight`` and
-    ``model.language_model.layers.12.mlp.gate_proj.weight`` are both block 12.
-    The first ``layers.<integer>`` pair in the name is the block.
-    """
+    ""
     parts = name.split(".")
     for i in range(len(parts) - 1):
         if parts[i] == "layers" and parts[i + 1].isdigit():
@@ -202,9 +131,9 @@ def _block_of(name: str) -> int | None:
     return None
 
 
-#: Name parts that begin a multimodal tower's tensors rather than the
-#: language model's (``vision_tower``, ``vision_model``, ``visual``,
-#: ``audio_tower``, ``image_newline``...), and the projectors that feed it.
+#
+#
+#
 _TOWER_STARTS = ("vision", "visual", "audio", "image")
 _TOWER_PARTS = frozenset(
     {"multi_modal_projector", "mm_projector", "embed_vision", "embed_audio"}
@@ -212,7 +141,7 @@ _TOWER_PARTS = frozenset(
 
 
 def _in_tower(name: str) -> bool:
-    """Whether a tensor belongs to a multimodal tower, not the language model."""
+    ""
     return any(
         part.startswith(_TOWER_STARTS) or part in _TOWER_PARTS
         for part in name.split(".")
@@ -249,15 +178,7 @@ def _positive(cfg: dict[str, Any], key: str) -> int:
 def _kv_layers(
     cfg: dict[str, Any], n_layer: int, heads: int, head_dim: int
 ) -> list[dict[str, Any]]:
-    """One row per layer that caches, each stating its own width.
-
-    Whether a layer slides is read from ``layer_types`` when the config has it.
-    A declared ``sliding_window`` (not switched off by ``use_sliding_window:
-    false``) with no per-layer list is UNKNOWN, not alternating and not "all":
-    ggufscan documents why an assumed split is wrong (the assignment, not just
-    the count, can set the total), and the sizer refuses a row whose layers
-    say ``None``. A config that declares no window at all has no sliding layer.
-    """
+    ""
     types = cfg.get("layer_types")
     if types is not None:
         if not isinstance(types, list) or len(types) != n_layer:
@@ -405,21 +326,14 @@ def _scan(directory: str) -> dict[str, Any]:
 
 
 def scan(path: str) -> dict[str, Any]:
-    """Read the checkpoint directory ``path``: one row, or ``{"file", "error"}``.
-
-    A directory this scanner refuses (an unknown dtype, a dtype that
-    disagrees with the offsets, a config missing a field, a layer kind it does
-    not size) comes back as an error row naming why, as ggufscan's does, so a
-    caller reading rows from JSON and one calling in-process see the same
-    thing and neither gets a number the file did not state.
-    """
+    ""
     try:
         return _scan(path)
     except (Refused, OSError, struct.error) as e:
         return {"file": path, "error": str(e) or repr(e)}
 
 
-# Guarded, as ggufscan's is: a gate may import this module to locate it, and an
-# unguarded loop would print "[]" on every such import.
+#
+#
 if __name__ == "__main__":
     print(json.dumps([scan(d) for d in sys.argv[1:]]))

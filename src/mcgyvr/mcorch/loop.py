@@ -1,44 +1,4 @@
-"""One HTTP request is one turn of the loop: Jev decides, the rung reasons between.
-
-The protocol is stateless — the harness sends the whole conversation every
-time — so everything a turn needs is in the messages it carries, and the loop
-recomputes its decisions from them. Inside one request the rung and mcorch's
-internal tools iterate until the rung either calls a harness tool (the turn
-ends with ``tool_use`` and the harness acts) or answers in text (the turn ends
-with ``end_turn``).
-
-Two decisions are Jev's, each a bounded question asked through the Jev seam
-and handed to the rung as a ``Jev:`` note in its system prompt, never a hidden
-branch:
-
-* **J1 intent** — when the latest message is a new user request: is it chat or
-  work?
-* **J2 ready_to_run** — asked by the authoring strategy when the rung authors a
-  contract (:mod:`mcgyvr.mcorch.authoring`).
-
-A third, **J3 next** — when the latest message carries a ``mcgyvr run`` result
-the harness read back: done, replan, or ask the user? — is decommissioned
-until proven otherwise (owner ruling, 2026-10-04): in the jev-mcorch run every
-Jev model answered it at chance (0.38 to 0.55) while J1 and J2 scored well, so
-after a run result the rung judges what comes next on its own and gets no
-``Jev:`` note. The question (:data:`NEXT`) and its asker (:func:`_next`) are
-kept, unasked, so recommissioning is one call; the investigation is lab
-issue #61 (the development repository).
-
-The harness's system prompt is replaced by mcorch's own (a harness sends many
-thousand tokens written for a frontier model; a local rung pays for every one
-of them in prompt processing and in confusion) and the tools it offers are kept
-only when named in the config's keep list. What was dropped is counted on the
-:class:`Trace`, because a prompt that silently shrank is a prompt nobody can
-reason about.
-
-**A request that offers no tools is a side request** — a harness's title or
-summary call. The rule is the shape and nothing else: without a harness behind
-it to run tools, nothing can drive the mcgyvr flow, so nothing is spent
-steering it. The rung answers alone, short, with the harness's own system
-prompt and no Jev. Claude Code's documentation does not state what its side
-requests look like, so this is mcorch's rule, stated here.
-"""
+""
 
 from __future__ import annotations
 
@@ -53,20 +13,20 @@ from mcgyvr.mcorch.anthropic import MessagesRequest
 from mcgyvr.mcorch.authoring import GATHER, Authoring, Evidenced
 from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungReply, RungToolCall
 
-#: How many internal rounds one request may take before the turn is ended with
-#: what the rung said last. Internal rounds are authoring and argument repairs;
-#: a rung that needs more than this is looping, and the harness should see it.
+#
+#
+#
 MAX_ROUNDS = 6
 
-#: The reply room a side request gets, in tokens, where the harness asked for
-#: more: a title or a summary is short, and a local rung's time is the cost.
+#
+#
 SIDE_REPLY_TOKENS = 512
 
-#: How much of a user request Jev is shown when asked its intent, in
-#: characters; the question is about kind, not detail.
+#
+#
 REQUEST_CHARS = 2000
 
-#: J1: a request is chat or work.
+#
 INTENT = Choice(
     "Is this request work for the repository — a change to make, a file to "
     "produce, a bug to fix — or conversation?",
@@ -76,10 +36,10 @@ INTENT = Choice(
     },
 )
 
-#: J3: after a run result, what comes next.
-#: Decommissioned until proven otherwise (owner ruling, 2026-10-04; the
-#: investigation is lab issue #61): defined, never asked. :func:`respond`
-#: does not call :func:`_next`; the rung judges a run result on its own.
+#
+#
+#
+#
 NEXT = Choice(
     "A mcgyvr run came to this result. What should the orchestrator do next?",
     options={
@@ -89,15 +49,14 @@ NEXT = Choice(
     },
 )
 
-#: The question names, stable so a transcript reads them by key.
+#
 INTENT_NAME = "intent"
 NEXT_NAME = "next"
 
 
 @dataclass(frozen=True)
 class Limits:
-    """The loop's bounds, carried rather than read from module constants so a
-    caller — the server, a test — states them."""
+    ""
 
     max_rounds: int = MAX_ROUNDS
     side_reply_tokens: int = SIDE_REPLY_TOKENS
@@ -105,7 +64,7 @@ class Limits:
 
 @dataclass(frozen=True)
 class Trace:
-    """What one turn did, for the transcript: kind, decisions, drops, rounds."""
+    ""
 
     kind: Literal["main", "side"]
     intent: str | None
@@ -115,22 +74,22 @@ class Trace:
     dropped_blocks: tuple[str, ...]
     rounds: int
     internal_calls: tuple[str, ...]
-    #: Jev's J3 answer. Always ``None`` while J3 is decommissioned (see the
-    #: module docstring); kept so a transcript row keeps its keys.
+    #
+    #
     next: str | None
-    #: Targets of open contracts the rung asked the harness to edit, refused.
+    #
     refused_edits: tuple[str, ...] = ()
-    #: What happened to repository evidence this turn, under an evidenced
-    #: strategy: ``asked`` (the harness was sent to read), ``used`` (a read
-    #: came back and was proposed from), ``unreadable``, ``no-shell``.
+    #
+    #
+    #
     evidence: str | None = None
-    #: How many contracts the digest handed the rung, ready to write.
+    #
     contracts: int = 0
 
 
 @dataclass(frozen=True)
 class Turn:
-    """The rung's final reply for this request, and the trace of getting it."""
+    ""
 
     reply: RungReply
     trace: Trace
@@ -146,13 +105,7 @@ def respond(
     internal: Sequence[Authoring],
     limits: Limits,
 ) -> Turn:
-    """Answer one request: a side request alone, a main request through the loop.
-
-    ``system`` is the rendered mcorch prompt with its notes slot still open
-    (filled here with this turn's notes). ``keep_tools``
-    names the harness tools kept; empty keeps all. ``internal`` are the
-    strategies whose tools are offered beside the harness's and run here.
-    """
+    ""
     turns, dropped_blocks = anthropic.to_openai_turns(request.messages)
     if not request.tools:
         return _side(request, turns, dropped_blocks, rung=rung, limits=limits)
@@ -165,8 +118,8 @@ def respond(
     asked: list[tuple[str, str]] = []
     notes: list[str] = []
     intent = _intent(request.messages, jev, asked, notes)
-    # J3 is decommissioned until proven otherwise (lab issue #61): a run result
-    # is the rung's to judge, so ``_next`` is not called and no note is added.
+    #
+    #
     following = None
     prompt = system.replace("{jev_notes}", "\n".join(notes))
 
@@ -176,10 +129,10 @@ def respond(
     targets = guard.open_targets(request.messages)
     history = list(turns)
 
-    # Evidence rides the harness. Under a strategy that needs the index, a
-    # work request is answered by sending the harness to read before the rung
-    # is asked anything; the read's result, when it comes back, is proposed
-    # from here and the rung sees the digest where the document was.
+    #
+    #
+    #
+    #
     evidenced = next((s for s in internal if isinstance(s, Evidenced)), None)
     gathered: str | None = None
     contracts = 0
@@ -207,8 +160,8 @@ def respond(
                 dropped_tools,
                 dropped_blocks,
             )
-        # Earlier reads are a repository dump the rung has already acted on;
-        # a note in their place keeps the prompt short.
+        #
+        #
         for tool_use_id in evidence.read_calls(request.messages):
             if latest is None or tool_use_id != latest.tool_use_id:
                 _replace_tool_turn(history, tool_use_id, _ALREADY_READ)
@@ -345,7 +298,7 @@ def _side(
 def _guarded(
     calls: Sequence[RungToolCall], targets: Mapping[str, str]
 ) -> dict[str, tuple[str, str]]:
-    """Call id → (target, contract id) for every call that would edit an open target."""
+    ""
     found: dict[str, tuple[str, str]] = {}
     if not targets:
         return found
@@ -361,7 +314,7 @@ def _guarded(
     return found
 
 
-#: The mark a digest leaves on every contract it hands over ready.
+#
 _READY = "ready: contract "
 
 _UNREADABLE = (
@@ -392,7 +345,7 @@ def _gather(
     dropped_tools: Sequence[str],
     dropped_blocks: Sequence[str],
 ) -> Turn:
-    """End the turn by sending the harness to read the repository, or say why not."""
+    ""
     shell = evidence.shell_tool(request.tools)
     if shell is None:
         reply = RungReply(
@@ -478,11 +431,7 @@ def _filter_tools(
 
 
 def _latest_user_text(messages: Sequence[Mapping[str, Any]]) -> str | None:
-    """The last message's text when it is a new user request, else ``None``.
-
-    A user message made of tool results is the harness reporting, not the user
-    asking; it carries no new request to classify.
-    """
+    ""
     last = messages[-1]
     if last.get("role") != "user":
         return None
@@ -524,7 +473,7 @@ def _intent(
 
 
 def _run_result(messages: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
-    """A RunResult the latest user message carries as a tool result, or ``None``."""
+    ""
     last = messages[-1]
     if last.get("role") != "user" or not isinstance(last.get("content"), list):
         return None
@@ -556,12 +505,7 @@ def _next(
     asked: list[tuple[str, str]],
     notes: list[str],
 ) -> str | None:
-    """Ask Jev J3 over the run result the latest message carries, and note it.
-
-    Decommissioned: nothing calls this until J3 is proven otherwise (lab
-    issue #61). It is kept whole, typechecked, so recommissioning is
-    restoring its one call in :func:`respond`.
-    """
+    ""
     result = _run_result(messages)
     if result is None:
         return None

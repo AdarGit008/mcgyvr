@@ -1,17 +1,5 @@
-#!/usr/bin/env python3
-"""link, time — one bounded timer on the rig, its reading printed and nothing else.
-
-``mcgyvr/serving/linktime.py`` goes to the rig on stdin as ``python3 -`` over the
-door's ssh, with the mode and arguments the door checked (``RUN_LINK``): copies
-between two of the rig's cards, or one end of a timed TCP exchange between two
-rigs. It imports the standard library alone, holds itself to its own time and
-byte bounds, writes nothing on the rig's disk and leaves no process behind.
-
-What it printed -- one line of JSON, the transfers it timed or why it could not
--- is printed here on stdout, the operator's, where ``mcgyvr fleet probe``
-reads it (:mod:`mcgyvr.fleet.linkread`). Nothing is filed by the door: the
-probe keeps the fitted reading in the user's data folder.
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -23,7 +11,7 @@ from pathlib import Path
 
 from mcgyvr.serving.gatelib import door_required, need, refuse, ssh
 
-#: The timer, beside the door that ships it.
+#
 TIMER = Path(__file__).resolve().parents[1] / "linktime.py"
 
 

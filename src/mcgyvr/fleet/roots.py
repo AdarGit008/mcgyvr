@@ -1,37 +1,4 @@
-"""Where live fleets are kept, and which setups a run is held to the live lock under.
-
-Owner, 2026-09-15: the config folder holds live fleets and the dev root holds
-the dev lock - 2 separate locks and fleets - data flows one way dev->live;
-"stamped for live = another fleet setup available for live (no overwrite, not
-in place of, new folder new files)"; "~/.mcgyvr/fleets/<name>/   live can
-switch between fleets runtime". The dev side is the lab's; the product keeps
-the live side, and one kind of run.
-
-* A live fleet is a folder of its own, ``~/.mcgyvr/fleets/<fleet>@<date>/``,
-  written once by :func:`mcgyvr.fleet.promote.promote` and never in place.
-  Owner, 2026-09-16: "all fleets get tagged with date" — the date is the
-  lock's own (:func:`mcgyvr.fleet.promote.lock_date`), and the folder's name is
-  the only place it is spelled: inside, the fleet keeps its plain name, and
-  :func:`layout_of` is how every reader gets from the one to the other. A
-  folder promoted before the ruling has no tag, and reads the same way.
-* ``~/.mcgyvr/live.json`` names the fleet live runs (``mcgyvr fleet use``), and
-  so the lock a run is held to (:func:`live_fleet_dir`). With no ``live.json``
-  there is no live lock.
-* A run is held to that lock whenever a fleet is live (:func:`runs_live`),
-  but one made under a setup in the data folder: mcgyvr's own files, where
-  ``mcgyvr setup`` stages a fleet, starts it and samples it before anything
-  of it is locked.
-
-Every reader of the lock asks :func:`live_fleet_dir`; none reads the working
-directory, because a lock found there is a lock nobody promoted.
-
-Two folders on the machine mcgyvr runs on can each be moved by the user: the
-config folder, for settings (:func:`home`: ``$MCGYVR_HOME``, else
-``~/.mcgyvr``), and the data folder, for mcgyvr's own files
-(:func:`data_home`: ``$MCGYVR_DATA``, else ``$XDG_STATE_HOME/mcgyvr``, else
-``~/.local/state/mcgyvr``). ``~/.mcgyvr`` above stands for the config
-folder's default: the literal is only the default, not a fixed place.
-"""
+""
 
 from __future__ import annotations
 
@@ -41,71 +8,57 @@ import re
 from datetime import date
 from pathlib import Path
 
-#: The variable that moves the config folder, and the folder when it is unset.
+#
 HOME_ENV = "MCGYVR_HOME"
 HOME_DIR = "~/.mcgyvr"
-#: The variable that moves the data folder; with it unset, the folder is
-#: :data:`DATA_NAME` under the XDG state folder, whose own default is
-#: :data:`DATA_DIR`'s parent.
+#
+#
+#
 DATA_ENV = "MCGYVR_DATA"
 STATE_ENV = "XDG_STATE_HOME"
 DATA_NAME = "mcgyvr"
 DATA_DIR = f"~/.local/state/{DATA_NAME}"
-#: Where each live fleet folder sits under the config folder.
+#
 FLEETS_DIR = "fleets"
-#: Where a fleet's lock sits in the folder that holds it: a live fleet folder,
-#: a stamp folder, or the folder :func:`mcgyvr.fleet.lock.write` is handed.
+#
+#
 LOCK_DIR = Path("lock")
-#: Where ``mcgyvr setup`` stages each run under the data folder.
+#
 SETUPS_DIR = "setup"
-#: The pointer naming the fleet live runs.
+#
 LIVE_FILE = "live.json"
-#: The two as help text names them: by the variable, with the default marked
-#: as the default. A refusal names the file it read (:func:`live_file`).
+#
+#
 FLEETS_SHOWN = f"${HOME_ENV}/{FLEETS_DIR} (default {HOME_DIR}/{FLEETS_DIR})"
 LIVE_FILE_SHOWN = f"${HOME_ENV}/{LIVE_FILE} (default {HOME_DIR}/{LIVE_FILE})"
-#: Where a setup run stages, as help text names it.
+#
 STAGING_SHOWN = (
     f"${DATA_ENV}/{SETUPS_DIR}/<run> (default {DATA_DIR}/{SETUPS_DIR}/<run>)"
 )
-#: The variable that moves the rig-file folder, and the folder's name under
-#: the config folder when it is unset.
+#
+#
 RIGS_ENV = "MCGYVR_RIGS"
 RIGS_DIR = "rigs"
-#: The rig-file folder as help text names it: by the variable, with the default
-#: (the config folder's ``rigs``) marked as the default.
+#
+#
 RIGS_SHOWN = f"${RIGS_ENV} (default ${HOME_ENV}/{RIGS_DIR})"
-#: What separates a fleet from the date of its lock in a promoted folder's name.
+#
 TAG = "@"
-#: The date a tag carries: the lock's ``validated_at`` day, ``YYYY-MM-DD``,
-#: then, for the second folder of one fleet on one day and on, ``-<n>`` from 2.
+#
+#
 _TAG_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:-[2-9]|-[1-9]\d+)?$")
 
 
 class LiveFleetError(Exception):
-    """The config folder's ``live.json`` cannot be read or names no fleet.
-
-    A config folder variable that names no usable folder is one of these too:
-    its ``live.json`` cannot be read.
-    """
+    ""
 
 
 class FolderError(RuntimeError):
-    """A variable that moves one of mcgyvr's folders names no usable folder, or
-    a folder the guard of the live folders must resolve cannot be resolved.
-
-    A ``RuntimeError``, as an unresolvable HOME already is for every reader of
-    these folders.
-    """
+    ""
 
 
 def _named(variable: str, default: str) -> Path | None:
-    """The folder ``variable`` names, or ``None`` when it is unset or empty.
-
-    Absolute after ``~`` is expanded, or refused: a relative folder is a
-    different folder from each working directory, and the door's gates run
-    from another directory than the command that opened it.
-    """
+    ""
     value = os.environ.get(variable)
     if not value:
         return None
@@ -123,24 +76,13 @@ def _named(variable: str, default: str) -> Path | None:
 
 
 def home() -> Path:
-    """The config folder: ``$MCGYVR_HOME``, else ``~/.mcgyvr``.
-
-    The lease a served machine keeps on itself never follows the variable: it
-    is :data:`mcgyvr.serving.gatelib.LEASE_FILE`, named from that machine's own
-    home. It lies in this folder only when the served machine is this one and
-    the folder is at its default.
-    """
+    ""
     named = _named(HOME_ENV, HOME_DIR)
     return named if named is not None else Path(HOME_DIR).expanduser()
 
 
 def data_home() -> Path:
-    """The data folder: ``$MCGYVR_DATA``, else ``$XDG_STATE_HOME/mcgyvr``, else
-    ``~/.local/state/mcgyvr``.
-
-    An ``$XDG_STATE_HOME`` that is not absolute is ignored, as the XDG base
-    directory convention says.
-    """
+    ""
     state = os.environ.get(STATE_ENV)
     under_state = (
         Path(state) / DATA_NAME if state and Path(state).is_absolute() else None
@@ -152,65 +94,44 @@ def data_home() -> Path:
 
 
 def staging_dir(run_id: str) -> Path:
-    """``<data folder>/setup/<run_id>``: where one ``mcgyvr setup`` run stages.
-
-    The staged ``fleet.yaml`` and ``policy.yaml``, the launch specs emitted for
-    them and the fetch lists of the weights it downloaded: setup emits, starts
-    and samples from here, and writes nothing in the working directory. The
-    folder stays once the run is over, as a stamp does: it is the record of
-    what that run staged, and the launch specs a live fleet promoted from it
-    wakes its units by (``serving.compose_dir``).
-    """
+    ""
     return data_home() / SETUPS_DIR / run_id
 
 
 def fleets_dir() -> Path:
-    """``<config folder>/fleets``: one folder per promoted fleet."""
+    ""
     return home() / FLEETS_DIR
 
 
 def rigs_dir() -> Path:
-    """The rig-file folder: ``$MCGYVR_RIGS``, else ``<config folder>/rigs``.
-
-    The door's user mode reads each rig file here
-    (:func:`mcgyvr.serving.rigfile.path`), whatever folder it came from.
-    """
+    ""
     named = _named(RIGS_ENV, f"{HOME_ENV}/{RIGS_DIR}")
     return named if named is not None else home() / RIGS_DIR
 
 
 def live_file() -> Path:
-    """``<config folder>/live.json``: which promoted fleet live runs."""
+    ""
     return home() / LIVE_FILE
 
 
 def split_name(name: str) -> tuple[str, str | None]:
-    """``(fleet, date)`` of a live name: ``<fleet>@<YYYY-MM-DD>``, or ``<fleet>`` alone.
-
-    The fleet is the layout's name — what ``fleet.yaml`` keys it by inside the
-    folder — and the date is the tag, ``None`` for a folder promoted before
-    the ruling. Nothing is checked here; :func:`is_fleet_name` does that.
-    """
+    ""
     fleet, separator, tag = name.partition(TAG)
     return fleet, (tag if separator else None)
 
 
 def layout_of(name: str) -> str:
-    """The layout a live name is a promotion of: its fleet, tag or no tag."""
+    ""
     return split_name(name)[0]
 
 
 def tagged(fleet: str, lock_date: str) -> str:
-    """The live name of ``fleet`` promoted from a lock dated ``lock_date``.
-
-    ``lock_date`` may carry ``-<n>`` from 2, for a later folder of the same day
-    (:func:`is_tag_date`)."""
+    ""
     return f"{fleet}{TAG}{lock_date}"
 
 
 def is_tag_date(text: str) -> bool:
-    """Whether ``text`` is a calendar day spelled ``YYYY-MM-DD``, or such a day
-    and ``-<n>`` from 2: a later folder of one fleet on that day."""
+    ""
     matched = _TAG_DATE.match(text)
     if not matched:
         return False
@@ -222,11 +143,7 @@ def is_tag_date(text: str) -> bool:
 
 
 def is_fleet_name(name: str) -> bool:
-    """Whether ``name`` can name one folder directly under the fleets directory.
-
-    A fleet, or a fleet at a date: ``<fleet>`` or ``<fleet>@<YYYY-MM-DD>``,
-    the date followed by ``-<n>`` from 2 for a later folder of the same day.
-    """
+    ""
     fleet, tag = split_name(name)
     if not fleet or fleet in (".", "..") or "/" in name:
         return False
@@ -234,14 +151,7 @@ def is_fleet_name(name: str) -> bool:
 
 
 def live_fleet() -> str | None:
-    """The fleet ``live.json`` names, or ``None`` when there is no ``live.json``.
-
-    A ``live.json`` that is there and names no fleet raises
-    :class:`LiveFleetError`: a pointer nobody can read is not the same as no
-    pointer, and live must not quietly run as if nothing were named. A config
-    folder variable that names no usable folder raises it too, with the
-    variable's refusal, and so does a config folder that cannot be searched.
-    """
+    ""
     try:
         path = live_file()
     except FolderError as exc:
@@ -258,28 +168,13 @@ def live_fleet() -> str | None:
 
 
 def live_fleet_dir() -> Path | None:
-    """The folder of the fleet ``live.json`` names, or ``None`` with none named."""
+    ""
     named = live_fleet()
     return None if named is None else fleets_dir() / named
 
 
 def runs_live(setup: Path | None) -> bool:
-    """Whether a run made under the setup at ``setup`` is held to the live lock.
-
-    Never when the setup lies in the data folder (:func:`data_home`): mcgyvr's
-    own files, never a setup a person keeps, where ``mcgyvr setup`` stages a
-    fleet (:func:`staging_dir`), starts it and samples it before anything of it
-    is locked; the fleet it locks is promoted out of there. Otherwise, whenever
-    a fleet is live (``live.json`` names one, or cannot be read), whatever
-    setup the run chose: the live fleet's own, or one a person named with
-    ``--config`` or ``$MCGYVR_CONFIG``, which live admission then holds to the
-    live fleet's layout. ``None`` is a setup with no folder, held in memory
-    by a caller of its own, and is held to the lock on the same terms. With no
-    fleet live there is no lock to hold a run to, and only a setup in the
-    config folder (:func:`is_live`) is held to it all the same, which refuses
-    it. A folder this cannot resolve, and a pointer that cannot be read, hold a
-    run to the lock: nobody can say it is not the live one.
-    """
+    ""
     try:
         if setup is not None and _resolved(setup).is_relative_to(
             _resolved(data_home())
@@ -293,12 +188,7 @@ def runs_live(setup: Path | None) -> bool:
 
 
 def _resolved(path: Path) -> Path:
-    """``path`` with ``~`` expanded and every link followed.
-
-    Raises :class:`FolderError` where it cannot be resolved. A link to itself
-    raises on Python 3.12; on 3.13/3.14 ``resolve()`` returns the path, which
-    every reader then sees as holding no ``live.json``.
-    """
+    ""
     try:
         return path.expanduser().resolve()
     except (OSError, RuntimeError) as exc:
@@ -306,11 +196,7 @@ def _resolved(path: Path) -> Path:
 
 
 def is_live(path: Path) -> bool:
-    """Whether ``path`` is the config folder or its default, or lies under either.
-
-    The default stays guarded when the variable moves the folder: any mcgyvr
-    command started without the variable reads its fleets there.
-    """
+    ""
     resolved = _resolved(path)
     return any(
         resolved.is_relative_to(_resolved(folder))

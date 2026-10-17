@@ -1,22 +1,4 @@
-"""Where the rig token is kept, and how: its owner's alone, apart from the config.
-
-A config never holds a secret; it names the environment variable that does
-(``api_key_env``). A rig token cannot live only in a variable: the hub shows
-it once, at ``mcgyvr rig join``, and the agent needs it again after every
-restart and reboot. So it is kept in one file of its own,
-``$MCGYVR_HOME/rig-credentials.json`` (:func:`path`), beside the config and
-never in it, with the hub it belongs to:
-
-* written whole or not at all — a staging file, then a rename;
-* at mode 0600 whatever the umask, in a config folder created at 0700 when
-  it does not exist (an existing folder keeps its mode);
-* read only when it is still that: a link, a file another user owns, a file
-  the group or others could read or write, or one that is not what this
-  module writes is refused with what to do, and never read past.
-
-What is shown of a token anywhere is :func:`shown`: the hub's public token id,
-never the secret after it.
-"""
+""
 
 from __future__ import annotations
 
@@ -30,37 +12,36 @@ from pathlib import Path
 from mcgyvr import atomic
 from mcgyvr.fleet import roots
 
-#: The file's name in the config folder.
+#
 CREDENTIALS_FILE = "rig-credentials.json"
-#: The largest file this module reads back; what it writes is far smaller.
+#
 MAX_CREDENTIALS_BYTES = 4096
-#: A token is sent in an HTTP header, so it is held to characters that cannot
-#: break one; the hub's own tokens are of these.
+#
+#
 TOKEN = re.compile(r"[A-Za-z0-9_-]{1,256}")
-#: The public part of a hub token: its kind and its id.
+#
 _TOKEN_ID = re.compile(r"(mh[a-z]_[0-9a-f]{16})_.+")
 
 
 class CredentialsError(Exception):
-    """The kept file is there but is not safe or not readable as written."""
+    ""
 
 
 @dataclass(frozen=True, kw_only=True)
 class Credentials:
-    """A rig token and the hub it was issued by, as ``mcgyvr rig join`` was
-    given it."""
+    ""
 
     hub: str
     token: str
 
 
 def path() -> Path:
-    """``$MCGYVR_HOME/rig-credentials.json`` (default ``~/.mcgyvr``)."""
+    ""
     return roots.home() / CREDENTIALS_FILE
 
 
 def shown(token: str) -> str:
-    """What may be shown of ``token``: its public id, or only its length."""
+    ""
     match = _TOKEN_ID.fullmatch(token)
     if match:
         return f"{match.group(1)}_…"
@@ -78,7 +59,7 @@ def _check(credentials: Credentials) -> None:
 
 
 def save(credentials: Credentials) -> Path:
-    """Keep ``credentials``, replacing what was kept; the path it is kept at."""
+    ""
     _check(credentials)
     target = path()
     folder = target.parent
@@ -95,7 +76,7 @@ def save(credentials: Credentials) -> Path:
 
 
 def load() -> Credentials | None:
-    """What is kept, ``None`` when nothing is, or :class:`CredentialsError`."""
+    ""
     target = path()
     try:
         fd = os.open(target, os.O_RDONLY | os.O_NOFOLLOW)
@@ -145,7 +126,7 @@ def load() -> Credentials | None:
 
 
 def remove() -> bool:
-    """Forget the kept token; whether there was one."""
+    ""
     target = path()
     if not target.exists() and not target.is_symlink():
         return False

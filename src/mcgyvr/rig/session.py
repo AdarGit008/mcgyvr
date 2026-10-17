@@ -1,101 +1,4 @@
-"""A rig's part in a hub's pooled-inference session: one state machine per session.
-
-The hub runs one model's layers across several rigs: one rig is the *head*
-(it serves the model and takes the requests the hub relays), the others are
-*workers* (their cards run the head's layers over an RPC server). It tells
-each rig what to do with session commands, and this module is a rig's side
-of them (:func:`register` puts its handlers on the dispatcher):
-
-* ``session_prepare`` starts the session's tunnel container
-  (:mod:`mcgyvr.rig.pooled`), which makes the session's WireGuard key on
-  this rig; it is answered ``session_prepared`` with the public key, the
-  listen port and the LAN endpoints (none when the rig has no LAN address:
-  a session of one rig needs none), once the tunnel says it is ready. When
-  it carries ``traversal`` (the hub's token and binding responders), the
-  tunnel's own port — before WireGuard takes it — asks the responders where
-  it is seen from, and keeps asking until the tunnel comes up, so the
-  address the hub hands this rig's peers is the one WireGuard's packets will
-  leave by; the answer carries the round trip (``stun_rtt_us``);
-* ``tunnel_up`` brings the tunnel up to the peers the hub names, as far as
-  :func:`mcgyvr.rig.tunnel.plan` allows, and walks each peer's candidates in
-  the hub's order, :attr:`Timing.attempt_s` each (or the hub's
-  ``attempt_s``; less when a peer's candidates would not leave its relay
-  time, :func:`candidate_time`), until a WireGuard handshake confirms one —
-  both rigs walk at once, so each side's handshakes open its own NAT for the
-  other's — then the peer's relay, bound from this machine
-  (:func:`bind_relay`), which it stays pointed at until
-  :attr:`Timing.connect_s` (or the hub's ``connect_timeout_s``) is over: the
-  peer may reach the relay later. A
-  path a handshake confirms is sent a ping as large as the tunnel's interface
-  carries (:data:`mcgyvr.rig.pooled.PING_SCRIPT`): one that answers a
-  small ping and loses those cannot carry a model, so a candidate found so
-  is spent like one that never answered, and a relay found so ends the walk
-  at once. It is
-  answered ``tunnel_report``: each peer's path (``lan``, ``direct``,
-  ``relay`` or ``none``), the endpoint WireGuard uses and the round trip
-  over the tunnel (also sent as ``peer_rtt``). The tunnel's table lets
-  WireGuard reach only the candidate being tried, then only the confirmed
-  endpoint; a peer no path reaches fails the session as ``no_path``. A peer
-  whose last path answered a small ping and lost every full-size one fails
-  it as ``path_too_narrow`` instead, and the ``tunnel_up`` is then answered
-  with an ``error`` of that code, not with a report: a report saying
-  ``none`` is what the hub reads as ``no_path``;
-* ``worker_start`` starts one RPC server per lent card, bound to the tunnel
-  address and reachable by the session's peers only, and says ``ready`` when
-  each listens;
-* ``head_start`` starts the model server on a model of this rig's own
-  inventory, on lent cards and the session's workers, and says ``loading``,
-  then ``ready`` once its API answers and has answered one warm-up request
-  of the agent's own (:func:`warm_up`: the first request a fresh engine
-  answers pays for what it does once per process, and that is not the
-  user's to wait for). While it starts, loads and serves, the head watches
-  its workers over the tunnel (:meth:`Sessions._watch`): a worker not heard
-  from for :attr:`Timing.peer_lost_s` fails the session as ``no_path`` (the
-  hub's code for a peer no path reaches) — an engine whose worker's rig is
-  gone is never told so, and would wait out its whole load. While it loads,
-  it also counts what the tunnel sends its workers (:meth:`Sessions._moving`):
-  a load that has not sent them :data:`LOAD_STALL_BYTES` in
-  :attr:`Timing.stall_s` fails the session as ``load_stalled`` — a path that
-  carries a ping and loses a full packet leaves the worker heard from and
-  the weights standing still. A head on this
-  rig's cards alone (a session of one rig) needs no ``tunnel_up``, only the
-  prepared tunnel container its head runs in;
-* ``session_query`` is answered with where the session stands;
-  ``session_stop`` tears it down.
-
-A rig may be in several sessions at once, one unit per card: each session
-holds the cards its ``worker_start`` or ``head_start`` named until it is torn
-down, and a command naming a card another session holds is refused ``busy``
-(as is a ``session_prepare`` when every lent card is held). Each session has
-its own tunnel container, its own tunnel port and its own head API port, so
-nothing of one is shared with another (the ``multi_session`` feature).
-
-Each session is one state (:data:`TRANSITIONS` is the whole table) and one
-thread that does its docker work in order. A handler reads its command
-(:mod:`mcgyvr.rig.sessionwire`), decides on this rig whether it may be done,
-and answers at once — ``ack`` for done or accepted, or ``error`` with the
-hub's code — while the work is queued to the session's thread. Every command
-is idempotent: the same command again is answered the same and starts
-nothing more; the same session asked for something else is refused.
-
-When the agent's channel drops, a session waits for the hub for
-:attr:`Timing.grace_s` (the hub's own grace) while the agent hurries back
-(:meth:`Sessions.waiting`); the agent's hello names the sessions still
-running and the hub resumes those it knows. On the hub's return each says
-where it stands now (:meth:`Sessions.online`), since what it said while the
-channel was down was lost with it; one the hub does not know is torn down,
-whether the hub stops it or answers what it said of it with
-``unknown_session`` (:meth:`Sessions.hub_error`).
-
-Teardown is guaranteed, not hoped for. Whatever ends a session — a stop, a
-failure (the hub is told ``failed`` with a code and an excerpt of what the
-engine said), a hub that stays away past :attr:`Timing.grace_s`, the agent's
-own exit (:meth:`Sessions.close`) — every container of it is removed, found
-by its labels as well as its names. An agent killed without a word cannot
-remove anything, so its tunnels outlive it only by their lease, which only a
-living session renews, and the next agent removes what a dead one left
-(:meth:`Sessions.sweep`).
-"""
+""
 
 from __future__ import annotations
 
@@ -130,7 +33,7 @@ from mcgyvr.rig import (
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.rig.sessionwire import SessionCode
 
-#: Every state a session moves through, and where it may go from each.
+#
 TRANSITIONS: dict[str, frozenset[str]] = {
     "preparing": frozenset({"prepared", "failed", "stopped"}),
     "prepared": frozenset({"tunnel_up", "starting", "failed", "stopped"}),
@@ -141,33 +44,33 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     "failed": frozenset({"stopped"}),
     "stopped": frozenset(),
 }
-#: The states of a session that holds containers.
+#
 LIVE = frozenset(TRANSITIONS) - {"failed", "stopped"}
-#: How many ended sessions are remembered, for a query or a repeated stop.
+#
 ENDED_KEPT = 16
-#: How many of the frames the sessions said are remembered by id, so a hub
-#: that answers one with ``unknown_session`` names the session it means.
+#
+#
 SAID_KEPT = 64
-#: How many lines of a container's output a failure carries.
+#
 LOG_LINES = 60
-#: How much of a model file is read at a time for its digest, in bytes.
+#
 DIGEST_CHUNK = 1 << 22
-#: How long a health check of the head's API waits, in seconds.
+#
 HEALTH_TIMEOUT_S = 2.0
-#: How many times teardown looks again for what is left of a session.
+#
 TEARDOWN_ROUNDS = 3
-#: The feature a rig that shares units with riders speaks: it advertises them
-#: (``unit_advert``) and serves rides to them (:mod:`mcgyvr.rig.hitchhike`).
+#
+#
 HITCHHIKE_FEATURE = "hitchhike_units"
-#: The feature a rig that runs several sessions at once speaks: one unit per
-#: card, never two sessions on one card (:meth:`Sessions.prepare`).
+#
+#
 MULTI_SESSION_FEATURE = "multi_session"
-#: The optional behaviours of the hub's protocol this agent speaks while it
-#: lends: the latency probe (:mod:`mcgyvr.rig.probe`), the traversal of a
-#: session's tunnel through the rigs' NATs (``tunnel_up`` is answered
-#: ``tunnel_report``), a head of several slots (``head_start``'s ``slots``;
-#: :func:`mcgyvr.rig.pooled.head_argv`), the shared units, and a session
-#: per card.
+#
+#
+#
+#
+#
+#
 FEATURES = (
     "probe",
     "traversal",
@@ -175,37 +78,37 @@ FEATURES = (
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
 )
-#: How many sessions may live on this rig at once: one per tunnel port
-#: (:meth:`mcgyvr.rig.sharing.Sharing.tunnel_ports`), the most a hello names.
+#
+#
 MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
-#: How many candidates' time a walk keeps for a peer's relay.
+#
 RELAY_ATTEMPTS = 2
-#: How many times the machine is asked for a free loopback port for a head's
-#: API before the session is refused: a port another session holds is not
-#: taken.
+#
+#
+#
 API_PORT_TRIES = 8
-#: The tunnel port's binding requests to the hub's responders: how long each
-#: round waits, in milliseconds; then one request each this many seconds
-#: until the tunnel comes up, for at most this long.
+#
+#
+#
 STUN_WAIT_MS = 500
 KEEP_EVERY_S = 15
 KEEP_FOR_S = 600
-#: The warm-up: at most this many words of prompt (about a token each, so
-#: more than one batch of the engine's), and this many tokens out.
+#
+#
 WARM_UP_WORDS = 600
 WARM_UP_TOKENS = 32
-#: The share of the session's context the warm-up's prompt may take, as a
-#: divisor: a quarter, so prompt, template and answer fit any context.
+#
+#
 WARM_UP_CONTEXT_SHARE = 4
-#: What a loading head sends its workers over the tunnel, in bytes, within
-#: :attr:`Timing.stall_s`, to count as moving: far above what pings,
-#: keepalives and a stuck connection's retries send in that time, far below
-#: what a load sends over the slowest link that finishes one.
+#
+#
+#
+#
 LOAD_STALL_BYTES = 1 << 20
 
 
 class Docker(Protocol):
-    """What a session needs of the daemon: :class:`mcgyvr.rig.pooled.Pool`."""
+    ""
 
     def ensure_tunnel_image(self) -> str: ...
 
@@ -232,7 +135,7 @@ class Docker(Protocol):
 
 @dataclass(frozen=True, kw_only=True)
 class Timing:
-    """How long a session's steps may take and how often it looks, in seconds."""
+    ""
 
     tick_s: float = 1.0
     lease_s: int = 60
@@ -247,17 +150,17 @@ class Timing:
     peer_lost_s: float = 45.0
     stall_s: float = 240.0
     warm_s: float = 300.0
-    # Longer than the 5 s after which WireGuard sends a lost handshake again.
+    #
     attempt_s: float = 6.0
     connect_s: float = 60.0
-    # How long a tunnel port rests after the session that held it: as long
-    # as Linux keeps a UDP flow that carried traffic, and with it the
-    # container address the host forwarded the port to.
+    #
+    #
+    #
     port_rest_s: float = 120.0
 
     @classmethod
     def quick(cls) -> Timing:
-        """Timing for tests: every step a fraction of a second."""
+        ""
         return cls(
             tick_s=0.01,
             lease_s=60,
@@ -280,7 +183,7 @@ class Timing:
 
 @dataclass(frozen=True, kw_only=True)
 class Machine:
-    """What a session needs of this machine, each read when it is needed."""
+    ""
 
     sharing: Callable[[], sharing_module.Sharing]
     report: Callable[[], hardware.Report]
@@ -295,7 +198,7 @@ class Machine:
 
 
 class _FailureError(Exception):
-    """A session's step failed; ``code`` is the hub's, ``excerpt`` the engine's."""
+    ""
 
     def __init__(self, code: str, message: str, excerpt: str = "") -> None:
         super().__init__(message)
@@ -320,7 +223,7 @@ class _Session:
     tunnel_asked: sessionwire.TunnelUp | None = None
     plan: tunnel.TunnelPlan | None = None
     workers_asked: sessionwire.WorkerStart | None = None
-    workers: tuple[tuple[int, int, int], ...] = ()  # card index, gpu, port
+    workers: tuple[tuple[int, int, int], ...] = ()  #
     head_asked: sessionwire.HeadStart | None = None
     head: pooled.HeadSpec | None = None
     head_file: Path | None = None
@@ -334,14 +237,14 @@ class _Session:
     checked_at: float = 0.0
     watched_at: float = 0.0
     heard: dict[str, tuple[int, float]] = field(default_factory=dict)
-    sent: int | None = None  # the bytes the tunnel sent its workers, last look
-    moved: tuple[int, float] | None = None  # ``sent`` a stall's worth ago, when
-    quiet_s: float = 0.0  # the longest a load took to send a stall's worth
+    sent: int | None = None  #
+    moved: tuple[int, float] | None = None  #
+    quiet_s: float = 0.0  #
     traversal: sessionwire.Traversal | None = None
     stun_rtt_us: int | None = None
     report: tuple[sessionwire.PeerPath, ...] | None = None
     reported_to: list[str] = field(default_factory=list)
-    released: bool = False  # its teardown is done: it holds nothing now
+    released: bool = False  #
 
     @property
     def tunnel_name(self) -> str:
@@ -349,8 +252,7 @@ class _Session:
 
     @property
     def cards(self) -> frozenset[int]:
-        """The cards this session holds: those its ``worker_start`` or its
-        ``head_start`` named, from when it was taken until teardown."""
+        ""
         held: set[int] = set()
         if self.workers_asked is not None:
             held.update(card.card_index for card in self.workers_asked.cards)
@@ -364,7 +266,7 @@ class _Session:
 
 
 def free_port() -> int:
-    """A port no one listens on on this machine's loopback, now."""
+    ""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(("127.0.0.1", 0))
         port: int = probe.getsockname()[1]
@@ -372,8 +274,7 @@ def free_port() -> int:
 
 
 def head_health(port: int) -> str:
-    """``ok``, ``loading`` or ``down``: what the head's API on loopback ``port``
-    says of itself."""
+    ""
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=HEALTH_TIMEOUT_S)
     try:
         connection.request("GET", "/health")
@@ -388,9 +289,7 @@ def head_health(port: int) -> str:
 
 
 def warm_up(port: int, ctx: int, timeout: float = Timing().warm_s) -> bool:
-    """Send the head's loopback API on ``port`` one small chat completion of
-    the agent's own, sized to fit a context of ``ctx``; whether it answered
-    200. Nothing a user sent is in it, and nothing it answers is kept."""
+    ""
     words = max(1, min(WARM_UP_WORDS, ctx // WARM_UP_CONTEXT_SHARE - WARM_UP_TOKENS))
     body = json.dumps(
         {
@@ -418,8 +317,7 @@ def warm_up(port: int, ctx: int, timeout: float = Timing().warm_s) -> bool:
 
 
 def bind_relay(grant: sessionwire.RelayGrant) -> int | None:
-    """The port a relay bound this rig's side of a peer to, from a socket of
-    this machine's own; ``None`` when it refused or never answered."""
+    ""
     try:
         answer = udpwire.bind_relay(grant.host, grant.port, grant.ticket)
     except (OSError, ValueError):
@@ -429,47 +327,42 @@ def bind_relay(grant: sessionwire.RelayGrant) -> int | None:
 
 @cache
 def _udpwire_source() -> str:
-    """:mod:`mcgyvr.rig.udpwire`'s text, which the tunnel container runs."""
+    ""
     return Path(udpwire.__file__).read_text(encoding="utf-8")
 
 
 @dataclass
 class _Walk:
-    """One peer's walk over its candidates, then its relay."""
+    ""
 
     peer: tunnel.PeerPlan
     step: int
     aim: tuple[str, int] | None
     since: float
-    attempt: float  # how long each candidate is tried
+    attempt: float  #
     relayed: bool = False
     result: sessionwire.PeerPath | None = None
-    held: tuple[str, int] | None = None  # the confirmed endpoint
+    held: tuple[str, int] | None = None  #
     moved: bool = False
-    rtt_us: int | None = None  # the round trip over the confirmed path
-    # A path of this peer lost full-size packets: the handshake made on it
-    # still stands, so what is tried after it is proved by a ping, not by it.
+    rtt_us: int | None = None  #
+    #
+    #
     narrowed: bool = False
-    why: str = ""  # what was lost, for the failure of a peer left no path
-    # The walk ended on a path found so, with nothing after it to try.
+    why: str = ""  #
+    #
     too_narrow: bool = False
 
 
 def candidate_time(
     attempt: float, connect: float, *, candidates: int, relay: bool
 ) -> float:
-    """How long a walk stays on each of a peer's ``candidates``: ``attempt``
-    seconds, or less when that many would not fit ``connect``, the time the
-    whole walk has. A peer with a relay keeps :data:`RELAY_ATTEMPTS`
-    candidates' time for it (a handshake through it and one retry), at most
-    half the walk's; the candidates share the rest, so the last resort is
-    reached however many there are."""
+    ""
     kept = min(RELAY_ATTEMPTS * attempt, connect / 2) if relay else 0.0
     return min(attempt, (connect - kept) / max(candidates, 1))
 
 
 def _log(line: str) -> None:
-    """Say ``line`` where the agent says what it does: its standard error."""
+    ""
     print(line, file=sys.stderr, flush=True)
 
 
@@ -486,8 +379,7 @@ def _alive(pid: int) -> bool:
 
 
 def trim_cache(folder: Path, max_mb: int) -> None:
-    """Remove the oldest files under ``folder`` until it holds at most
-    ``max_mb`` MiB; nothing outside it, and no link, is ever followed."""
+    ""
     found: list[tuple[float, int, Path]] = []
     for root, _dirs, files in os.walk(folder, followlinks=False):
         for name in files:
@@ -508,7 +400,7 @@ def trim_cache(folder: Path, max_mb: int) -> None:
 
 
 class Sessions:
-    """This rig's sessions: the handlers, the threads, and the teardown."""
+    ""
 
     def __init__(
         self,
@@ -528,23 +420,23 @@ class Sessions:
         self._clock = clock
         self._lock = threading.RLock()
         self._sessions: dict[str, _Session] = {}
-        # When each tunnel port was last let go (by this agent's clock).
+        #
         self._port_left: dict[int, float] = {}
         self._closed = False
         self._grace: threading.Timer | None = None
         self._ended_hooks: list[Callable[[str], None]] = []
         self._prepare_hooks: list[Callable[[], None]] = []
-        self._said: dict[str, str] = {}  # frame id -> session id
-        # The worker session whose workers mount the rig's cache, until its
-        # teardown hands it to the check: the engine writes a cached tensor in
-        # place and reads one back unchecked, so two sessions sent the same
-        # tensors would each load the other's half-written file as whole.
+        self._said: dict[str, str] = {}  #
+        #
+        #
+        #
+        #
         self._cache_holder: _Session | None = None
-        # The files of the cache this agent hashed, and the thread hashing
-        # and trimming it now, which holds it until it is done: a worker
-        # killed mid-write leaves a torn file under a whole tensor's name.
-        # What the last agent hashed is read back from beside the folder, so
-        # the first worker session after an agent restart mounts the cache.
+        #
+        #
+        #
+        #
+        #
         self._cache_ledger = tensorcache.Ledger(
             None
             if machine.cache_dir is None
@@ -553,25 +445,24 @@ class Sessions:
         self._cache_check: threading.Thread | None = None
         self._cache_stop = threading.Event()
 
-    # -- what the agent asks -------------------------------------------------
+    #
 
     def before_prepare(self, hook: Callable[[], None]) -> None:
-        """Call ``hook`` before a new session's tunnel is started (a probe
-        holding the tunnel's port lets it go)."""
+        ""
         self._prepare_hooks.append(hook)
 
     def on_end(self, hook: Callable[[str], None]) -> None:
-        """Call ``hook`` with a session's id when it ends (its relays end too)."""
+        ""
         self._ended_hooks.append(hook)
 
     def running(self) -> tuple[str, ...]:
-        """The sessions holding containers now, as a hello names them."""
+        ""
         with self._lock:
             live = [s.id for s in self._sessions.values() if s.state in LIVE]
         return tuple(live[: protocol.MAX_SESSIONS_REPORTED])
 
     def head_port(self, session_id: str) -> int | None:
-        """The loopback port of the session's head API when it is ready."""
+        ""
         with self._lock:
             found = self._sessions.get(session_id)
             if found and found.role == "head" and found.state == "ready":
@@ -579,8 +470,7 @@ class Sessions:
         return None
 
     def head_slots(self, session_id: str) -> int:
-        """How many requests the session's head serves at once: the
-        ``slots`` it was started with, one when it was not."""
+        ""
         with self._lock:
             found = self._sessions.get(session_id)
             if found is not None and found.head_asked is not None:
@@ -588,13 +478,13 @@ class Sessions:
         return sessionwire.DEFAULT_SLOTS
 
     def state_of(self, session_id: str) -> tuple[str, str | None]:
-        """Where session ``session_id`` stands, and its role."""
+        ""
         with self._lock:
             found = self._sessions.get(session_id)
             return (found.state, found.role) if found else ("absent", None)
 
     def settle(self, timeout: float) -> bool:
-        """Wait until no session has work queued or under way; whether it did."""
+        ""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             with self._lock:
@@ -606,8 +496,7 @@ class Sessions:
         return False
 
     def online(self) -> None:
-        """The hub is back: a session waiting out the grace is kept, and says
-        where it stands now."""
+        ""
         with self._lock:
             if self._grace is not None:
                 self._grace.cancel()
@@ -621,13 +510,12 @@ class Sessions:
             self._say(frame)
 
     def waiting(self) -> bool:
-        """Whether a session waits out the grace for the hub to return."""
+        ""
         with self._lock:
             return self._grace is not None and self._live() is not None
 
     def hub_error(self, error: protocol.Error) -> None:
-        """The hub refused a frame: one a session said, as ``unknown_session``,
-        means the hub does not know that session, and it is torn down."""
+        ""
         if error.code != SessionCode.UNKNOWN_SESSION or error.re is None:
             return
         with self._lock:
@@ -637,8 +525,7 @@ class Sessions:
                 self._ask_stop(found)
 
     def offline(self) -> None:
-        """The hub is gone: every session ends unless it returns within the
-        grace."""
+        ""
         with self._lock:
             if self._grace is None and not self._closed:
                 self._grace = threading.Timer(self.timing.grace_s, self._hub_lost)
@@ -646,8 +533,7 @@ class Sessions:
                 self._grace.start()
 
     def close(self) -> None:
-        """The agent ends: every session is torn down before this returns, and
-        whatever this agent started is removed."""
+        ""
         with self._lock:
             self._closed = True
             if self._grace is not None:
@@ -673,7 +559,7 @@ class Sessions:
             self._docker.remove(mine)
 
     def sweep(self) -> list[str]:
-        """Remove what an agent that is not running left; the names removed."""
+        ""
         left = [
             o.name
             for o in self._docker.owned()
@@ -684,10 +570,10 @@ class Sessions:
         self._docker.remove(left)
         return left
 
-    # -- the handlers --------------------------------------------------------
+    #
 
     def prepare(self, envelope: protocol.Envelope) -> str | None:
-        """``session_prepare``: answered ``session_prepared`` when the tunnel is."""
+        ""
         asked = sessionwire.read_session_prepare(envelope)
         with self._lock:
             if self._closed:
@@ -725,8 +611,8 @@ class Sessions:
                     SessionCode.BUSY,
                     "every card this rig lends is in another session",
                 )
-            # None is no refusal: a session of one rig needs no tunnel, and
-            # one of several with nothing to aim at fails at tunnel_up.
+            #
+            #
             hosts = endpoint_hosts(share, self.machine.interfaces)
             listen_port = self._tunnel_port(share)
             if listen_port is None:
@@ -770,8 +656,7 @@ class Sessions:
             return None
 
     def tunnel_up(self, envelope: protocol.Envelope) -> str | None:
-        """``tunnel_up``: answered ``tunnel_report`` once each peer's path is
-        found, or found to be none."""
+        ""
         asked = sessionwire.read_tunnel_up(envelope)
         with self._lock:
             session = self._live_named(asked.session_id)
@@ -807,7 +692,7 @@ class Sessions:
             return None
 
     def worker_start(self, envelope: protocol.Envelope) -> str:
-        """``worker_start``: acked once the cards are taken; ``ready`` follows."""
+        ""
         asked = sessionwire.read_worker_start(envelope)
         with self._lock:
             session = self._live_named(asked.session_id)
@@ -859,8 +744,7 @@ class Sessions:
             return sessionwire.ack(envelope.id)
 
     def head_start(self, envelope: protocol.Envelope) -> str:
-        """``head_start``: acked once the model and devices are taken;
-        ``loading`` and ``ready`` follow."""
+        ""
         asked = sessionwire.read_head_start(envelope)
         with self._lock:
             session = self._live_named(asked.session_id)
@@ -910,7 +794,7 @@ class Sessions:
             return sessionwire.ack(envelope.id)
 
     def query(self, envelope: protocol.Envelope) -> str:
-        """``session_query``: answered ``session_status``."""
+        ""
         asked = sessionwire.read_session_query(envelope)
         with self._lock:
             found = self._sessions.get(asked.session_id)
@@ -921,7 +805,7 @@ class Sessions:
             return self._status(found, envelope.id)
 
     def stop(self, envelope: protocol.Envelope) -> str:
-        """``session_stop``: acked; ``stopped`` follows once it is torn down."""
+        ""
         asked = sessionwire.read_session_stop(envelope)
         with self._lock:
             found = self._sessions.get(asked.session_id)
@@ -929,7 +813,7 @@ class Sessions:
                 self._ask_stop(found)
         return sessionwire.ack(envelope.id)
 
-    # -- under the lock ------------------------------------------------------
+    #
 
     def _live(self) -> _Session | None:
         for found in self._sessions.values():
@@ -938,8 +822,7 @@ class Sessions:
         return None
 
     def _holding(self, but: _Session | None = None) -> list[_Session]:
-        """The sessions that hold what they took — live, or ended and not yet
-        torn down — but ``but``."""
+        ""
         return [
             found
             for found in self._sessions.values()
@@ -947,19 +830,11 @@ class Sessions:
         ]
 
     def _held(self, but: _Session | None = None) -> frozenset[int]:
-        """The cards the sessions but ``but`` hold now."""
+        ""
         return frozenset(card for found in self._holding(but) for card in found.cards)
 
     def _tunnel_port(self, share: sharing_module.Sharing) -> int | None:
-        """The tunnel port of a new session: the lowest of the owner's
-        (:meth:`mcgyvr.rig.sharing.Sharing.tunnel_ports`) no session holds
-        and none held in the last :attr:`Timing.port_rest_s` — the host
-        still forwards a port just left to where its last session was, so a
-        new session's first handshakes could go to another's container.
-        With every free port still resting, the one that rested longest: a
-        refused start is worse than a first handshake that may be lost.
-        ``None`` when every one is held, or as many sessions live as a
-        hello names."""
+        ""
         holding = self._holding()
         if sum(found.state in LIVE for found in holding) >= MAX_LIVE_SESSIONS:
             return None
@@ -981,7 +856,7 @@ class Sessions:
         return port
 
     def _api_port(self) -> int | None:
-        """A loopback port for a new head's API that no session holds."""
+        ""
         held = {found.api_port for found in self._holding()}
         for _ in range(API_PORT_TRIES):
             port = self.machine.free_port()
@@ -990,8 +865,7 @@ class Sessions:
         return None
 
     def _taken(self, session: _Session, cards: Sequence[int]) -> str | None:
-        """Why ``session`` may not have ``cards``: one another session holds;
-        ``None`` when it may."""
+        ""
         held = self._held(session)
         for card in cards:
             if card in held:
@@ -1127,7 +1001,7 @@ class Sessions:
                 if found.state in LIVE:
                     self._ask_stop(found)
 
-    # -- the session's thread ------------------------------------------------
+    #
 
     def _say(self, frame: str) -> None:
         try:
@@ -1168,7 +1042,7 @@ class Sessions:
                     )
                     self._fail(session, _FailureError(code, str(failure)))
                     return
-                except Exception as failure:  # the session ends; the agent goes on
+                except Exception as failure:  #
                     self._fail(
                         session,
                         _FailureError(
@@ -1196,7 +1070,7 @@ class Sessions:
             steps[op](session)
 
     def _pause(self, session: _Session) -> bool:
-        """Wait one poll, renewing the lease; whether the session was stopped."""
+        ""
         self._renew(session)
         return session.stopping.wait(self.timing.poll_s)
 
@@ -1231,10 +1105,7 @@ class Sessions:
                 )
 
     def _watch(self, session: _Session) -> None:
-        """A head's look at its workers, each :attr:`Timing.monitor_s`: a
-        worker the tunnel received bytes from since the last look is heard
-        from; one quiet since then is pinged over the tunnel first; one not
-        heard from for :attr:`Timing.peer_lost_s` is lost."""
+        ""
         if session.role != "head" or not session.rpc or session.plan is None:
             return
         now = self._clock()
@@ -1280,15 +1151,7 @@ class Sessions:
                 )
 
     def _moving(self, session: _Session) -> None:
-        """A loading head's look at what the tunnel sent its workers, all of
-        them together (they take their layers one after another, so one
-        waits while another loads): a load that has not sent them
-        :data:`LOAD_STALL_BYTES` in :attr:`Timing.stall_s` has stalled. The
-        longest it took to send that much is kept (``quiet_s``). A head
-        alone has no worker and is never looked at. What the head reads
-        from its own disk is not counted — the engine maps the file, and a
-        read the machine has cached reaches no counter — so the time must
-        cover the longest a head reads without sending."""
+        ""
         if session.sent is None:
             return
         now = self._clock()
@@ -1311,9 +1174,7 @@ class Sessions:
             )
 
     def _loaded(self, session: _Session, started: float, how: str) -> None:
-        """Say how a split load went: how long it took, and the longest it
-        took to send its workers :data:`LOAD_STALL_BYTES`, which is what
-        :attr:`Timing.stall_s` is to be set above."""
+        ""
         if session.sent is None:
             return
         now = self._clock()
@@ -1327,10 +1188,7 @@ class Sessions:
         )
 
     def _warm(self, session: _Session, name: str) -> None:
-        """Warm the loaded head (:func:`warm_up`) while the session lives on:
-        its lease renewed, its head and its workers watched. The warm-up is
-        one request, which one slot serves, so it is sized to one slot's
-        context (``ctx``), never the whole cache's."""
+        ""
         assert session.api_port is not None and session.head is not None
         port, ctx = session.api_port, session.head.ctx
         done = threading.Event()
@@ -1414,10 +1272,7 @@ class Sessions:
     def _ask_responders(
         self, session: _Session, hello: pooled.TunnelHello
     ) -> int | None:
-        """Ask the hub's responders from the tunnel's port, then keep the
-        port's mapping alive until the tunnel comes up; the least round trip,
-        or ``None``. A responder this rig may not send to is not asked, and a
-        step that fails costs the round trip, never the session."""
+        ""
         assert session.traversal is not None
         own = [interface for _, interface in self.machine.interfaces()]
         own.append(ipaddress.IPv4Interface(hello.address))
@@ -1546,9 +1401,9 @@ class Sessions:
                 elif walk.aim is None or (
                     not walk.relayed and now - walk.since >= walk.attempt
                 ):
-                    # A candidate has its time; the relay, the last resort,
-                    # is held until the deadline: the peer, walking a longer
-                    # list, may only reach it later.
+                    #
+                    #
+                    #
                     self._next_aim(walk)
                     walk.since = self._clock()
                     changed = True
@@ -1569,12 +1424,11 @@ class Sessions:
         self._report(session, walks)
 
     def _next_aim(self, walk: _Walk) -> None:
-        """Point ``walk`` at the peer's next candidate, then its relay, or,
-        with no relay to bind, at nothing: the peer has no path."""
+        ""
         walk.moved = True
         candidates = walk.peer.candidates
         if walk.aim is not None and not walk.relayed:
-            walk.step += 1  # the candidate aimed at is spent
+            walk.step += 1  #
         if not walk.relayed and walk.step < len(candidates):
             found = candidates[walk.step]
             walk.aim = (str(found.host), found.port)
@@ -1590,10 +1444,7 @@ class Sessions:
         walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
 
     def _ping(self, session: _Session, walk: _Walk) -> pooled.PingSeen | None:
-        """What a ping over the tunnel to ``walk``'s peer says of the path a
-        handshake just confirmed: its round trip, and whether it carries a
-        full-size packet. ``None`` when the peer has no address to ping or
-        the ping could not be run or answered."""
+        ""
         host = walk.peer.tunnel_host
         if host is None:
             return None
@@ -1607,10 +1458,7 @@ class Sessions:
             return None
 
     def _spend(self, session: _Session, walk: _Walk, ping: pooled.PingSeen) -> None:
-        """Leave the path ``walk`` is aimed at, which answers a small ping
-        and loses every full-size one: a candidate is spent and the walk
-        goes on; the relay, with nothing after it, leaves the peer no path —
-        now, not at the deadline: waiting does not widen a path."""
+        ""
         assert walk.aim is not None
         host, port = walk.aim
         what = "its relay" if walk.relayed else "a candidate"
@@ -1630,16 +1478,14 @@ class Sessions:
         else:
             self._next_aim(walk)
             walk.since = self._clock()
-        # Nothing after it, relay or last candidate: the path that ended the
-        # walk is this one, and the failure is named for what it lost.
+        #
+        #
         walk.too_narrow = walk.result is not None
 
     def _confirmed(
         self, walk: _Walk, endpoint: tuple[str, int]
     ) -> sessionwire.PeerPath:
-        """The path a handshake confirmed at ``endpoint``, named for what was
-        aimed at (or, when WireGuard followed the peer elsewhere, for the
-        candidate at that address)."""
+        ""
         host, port = endpoint
         relay = walk.peer.relay
         if walk.relayed and relay is not None and host == str(relay.host):
@@ -1657,8 +1503,7 @@ class Sessions:
         )
 
     def _aim(self, session: _Session, walks: Sequence[_Walk]) -> None:
-        """Write the table for every peer — the confirmed endpoint alone, or
-        the address being tried — and point the peers that moved."""
+        ""
         args = [str(session.listen_port)]
         for walk in walks:
             if walk.held is not None:
@@ -1674,14 +1519,7 @@ class Sessions:
         self._docker.run_script(session.tunnel_name, pooled.PATH_SCRIPT, *args)
 
     def _report(self, session: _Session, walks: Sequence[_Walk]) -> None:
-        """Answer every ``tunnel_up`` waiting with the report — each
-        confirmed path with the round trip measured over it when it was
-        confirmed — and fail the session when a peer has no path. A peer
-        whose last path lost full-size packets fails it as
-        ``path_too_narrow``, and the ``tunnel_up`` is answered with an
-        ``error`` of that code in place of the report: the hub fails a
-        session whose report says ``none`` as ``no_path`` by itself, and
-        keeps the code of a command an agent refused."""
+        ""
         paths = []
         samples = []
         for walk in walks:
@@ -1702,7 +1540,7 @@ class Sessions:
             (w for w in walks if w.too_narrow and w.peer.rig_id in lost), None
         )
         if not lost:
-            # Up before the report says so: the hub acts on the report at once.
+            #
             self._move(session, "tunnel_up")
         with self._lock:
             session.report = tuple(paths)
@@ -1734,10 +1572,7 @@ class Sessions:
             )
 
     def _cache(self, session: _Session) -> Path | None:
-        """The rig's cache folder for ``session``'s workers, which then hold
-        it until their teardown; ``None`` while another session holds it or
-        the agent checks it, and while it holds a file the agent has not
-        hashed (the check is started then)."""
+        ""
         folder = self.machine.cache_dir
         if not session.sharing.cache or folder is None:
             return None
@@ -1753,9 +1588,7 @@ class Sessions:
         return folder
 
     def _check_cache(self, folder: Path, max_mb: int) -> None:
-        """Hash ``folder``, removing every file that is not whole, then trim
-        it; the check holds the folder until it is done. Called under the
-        lock, with no session holding the folder."""
+        ""
         if self._cache_check is not None or self._closed:
             return
 
@@ -1866,8 +1699,8 @@ class Sessions:
                     "model: this rig's file is not the one the digest names",
                 )
         pairs = [part for host, port in session.rpc for part in (host, str(port))]
-        # A head alone has no tunnel address, and no worker pair to open for
-        # it: the namespace's own address stands in.
+        #
+        #
         own = (
             session.plan.address.ip
             if session.plan is not None
@@ -1919,8 +1752,8 @@ class Sessions:
         self._say(self._status(session, None))
 
     def _teardown(self, session: _Session) -> None:
-        # The engines first, the tunnel last; then whatever the daemon still
-        # labels as this session's, found again, until nothing is left.
+        #
+        #
         names = list(dict.fromkeys(reversed(session.containers)))
         for _ in range(TEARDOWN_ROUNDS):
             with contextlib.suppress(pooled.PoolError):
@@ -1932,9 +1765,9 @@ class Sessions:
                 break
             self._docker.remove(names)
             names = []
-        # The holder hands the cache to the check (the hashing, then the
-        # trim), which holds it until it is done: no worker mounts a file
-        # the engine left torn, or reads one while it is removed.
+        #
+        #
+        #
         with self._lock:
             session.released = True
             self._port_left[session.listen_port] = self._clock()
@@ -1968,7 +1801,7 @@ class Sessions:
 
 
 def register(dispatcher: commands.Dispatcher, sessions: Sessions) -> None:
-    """Handle the hub's session commands with ``sessions``."""
+    ""
     dispatcher.register(
         "session_prepare", lambda envelope, _: sessions.prepare(envelope)
     )
@@ -1985,14 +1818,13 @@ def endpoint_hosts(
     share: sharing_module.Sharing,
     interfaces: Callable[[], tuple[tuple[str, ipaddress.IPv4Interface], ...]],
 ) -> tuple[str, ...]:
-    """The LAN addresses a rig offers its tunnel at: the owner's, else its own."""
+    ""
     hosts = share.endpoints or tuple(str(h) for h in tunnel.lan_hosts(interfaces()))
     return hosts[: protocol.MAX_ENDPOINTS]
 
 
 def endpoint_kind(host: str) -> str:
-    """``lan`` for an address on a LAN, ``public`` for one the owner named
-    beyond it (a forwarded port, a public address)."""
+    ""
     found = sessionwire._ipv4(host)
     return "lan" if found is not None and tunnel.is_lan(found) else "public"
 
@@ -2003,14 +1835,7 @@ def offer(
     hosts: Sequence[str],
     running: tuple[str, ...],
 ) -> protocol.Offer:
-    """What a hello says this rig lends.
-
-    A rig that lends no session offers no role, so the hub sends it no
-    session, and speaks the one feature of the units it shares with riders
-    (:mod:`mcgyvr.rig.hitchhike`), whether it shares any now or not: sharing
-    is policy the owner may turn on while the rig is connected, and the hub
-    takes adverts only from a rig whose hello named the feature.
-    """
+    ""
     roles = share.offered_roles()
     if not roles:
         return protocol.Offer(

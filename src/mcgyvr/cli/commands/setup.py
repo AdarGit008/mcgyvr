@@ -1,7 +1,4 @@
-"""The `mcgyvr setup` command: interactive rig selection and fleet writing.
-
-Only what is built is exposed.
-"""
+""
 
 from __future__ import annotations
 
@@ -44,7 +41,7 @@ from mcgyvr.serving import (
     units_for,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  #
     from mcgyvr.detect import Detection
     from mcgyvr.knowledge.record import ModelRecord
 
@@ -53,12 +50,7 @@ from mcgyvr.cli.sizing import _hosts_wanted, _model_specs, _resolve_hosts, _scan
 
 
 def _setup_priority(args: argparse.Namespace) -> str | None:
-    """The priority ``setup`` composes for, reading the old ``--profile``.
-
-    ``--profile`` is deprecated: a word naming a priority maps onto it, any
-    other text is ignored, and ``--priority`` wins when both are given. Each
-    case says so on stderr.
-    """
+    ""
     priority: str | None = args.priority
     if args.profile is None:
         return priority
@@ -90,21 +82,16 @@ def _setup_priority(args: argparse.Namespace) -> str | None:
 
 
 class _SetupInteractiveError(Exception):
-    """The interactive wizard stopped; the message says why."""
+    ""
 
 
 def _stdin_isatty() -> bool:
-    """Whether setup's stdin is a terminal, as a seam a test can state."""
+    ""
     return sys.stdin.isatty()
 
 
 def _setup_is_interactive(args: argparse.Namespace) -> bool:
-    """Whether ``mcgyvr setup`` should prompt rather than write from flags.
-
-    Interactive only with a person at the keyboard and no flag already given:
-    any flag names a decision already made, and a pipe is an agent driving the
-    command.
-    """
+    ""
     if not _stdin_isatty():
         return False
     return not (
@@ -124,7 +111,7 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
 
 
 def _parse_setup_rigs(answer: str) -> tuple[str, ...]:
-    """Rigs from one prompt answer: comma/space list, with ``--host`` stripped."""
+    ""
     rigs: list[str] = []
     for token in answer.replace(",", " ").split():
         if token == "--host":
@@ -142,12 +129,7 @@ _RIG_CHOICES = ("local", "remote", "both")
 
 
 def _ask_setup_rigs() -> tuple[str, ...]:
-    """Step 1: which rigs serve this setup, defaulting to this machine.
-
-    The first question accepts exactly ``local``, ``remote`` or ``both`` (Enter
-    is ``local``); ``remote`` and ``both`` ask again for the ssh host(s). A
-    stray answer is refused as a rig choice, never swallowed as a hostname.
-    """
+    ""
     said = _setup_choose(
         "Which rig(s) should serve this setup? [local] ",
         _RIG_CHOICES,
@@ -162,7 +144,7 @@ def _ask_setup_rigs() -> tuple[str, ...]:
 
 
 def _ask_remote_rigs() -> tuple[str, ...]:
-    """The ssh host(s) ``remote`` or ``both`` names, asked until one is named."""
+    ""
     for _ in range(_SETUP_TRIES):
         hosts = _parse_setup_rigs(_ask("Remote rig(s) (ssh host or user@host): "))
         if hosts:
@@ -171,12 +153,12 @@ def _ask_remote_rigs() -> tuple[str, ...]:
 
 
 def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
-    """An explicit yes to one irreversible step; anything else is no."""
+    ""
     return str(prompt(question)).strip().lower() in {"y", "yes"}
 
 
 def _ask(question: str, prompt: Callable[[str], str] = input) -> str:
-    """One typed answer, stripped; Enter is the empty answer."""
+    ""
     return str(prompt(question)).strip()
 
 
@@ -184,12 +166,7 @@ _SETUP_TRIES = 3
 
 
 def _setup_choose(question: str, choices: Sequence[str], what: str) -> str:
-    """One of ``choices``, asked by ``question``; Enter is the first.
-
-    An answer that is none of them is asked again, :data:`_SETUP_TRIES` times
-    in all, and then setup stops naming them: nothing has been read or
-    written yet, so stopping costs the user only the retype.
-    """
+    ""
     said = ""
     for _ in range(_SETUP_TRIES):
         said = _ask(question)
@@ -204,13 +181,12 @@ def _setup_choose(question: str, choices: Sequence[str], what: str) -> str:
 
 
 def _spoken_or(names: Sequence[str]) -> str:
-    """``a, b or c``."""
+    ""
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} or {names[-1]}"
 
 
 def _setup_use_cases() -> tuple[str, ...]:
-    """The use cases setup offers, coding (the default) first: the catalog's,
-    as ``--use-case`` offers them."""
+    ""
     from mcgyvr.catalog import catalog
     from mcgyvr.fleet.sample import CODING_USE_CASE
 
@@ -222,12 +198,7 @@ _USE_CASE_LETTERS = ("d", "c", "a", "m")
 
 
 def _ask_setup_use_case() -> str:
-    """Which use case the setup serves (``--use-case``); Enter or ``d`` is coding.
-
-    The letters are fixed to their role — ``d`` coding, ``c`` chat, ``a`` agent,
-    ``m`` media-gen — but the names come from :func:`_setup_use_cases` (coding
-    first), so the catalog stays the source of truth.
-    """
+    ""
     names = _setup_use_cases()
     letters = _USE_CASE_LETTERS[: len(names)]
     by_letter = dict(zip(letters, names, strict=False))
@@ -247,8 +218,7 @@ MCORCH_QUESTION = "Run mcorch, the local orchestrator, on a unit? [y/n] "
 
 
 def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
-    """The unit ``role`` (``Jev`` or ``mcorch``) runs on; one unit is not asked,
-    and Enter is the first of several."""
+    ""
     if len(units) == 1:
         return units[0]
     verb = "is" if role == "Jev" else "runs"
@@ -263,11 +233,7 @@ _PATH_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
 
 
 def _shell_rc(shell: str | None, home: Path | None = None) -> Path | None:
-    """The login shell rc file to append ``~/.local/bin`` to, by ``$SHELL``.
-
-    Only the basename decides; ``home`` defaults to the user's home. ``None``
-    for a shell setup does not know, which skips the offer.
-    """
+    ""
     if not shell:
         return None
     base = os.path.basename(shell)
@@ -284,7 +250,7 @@ def _shell_rc(shell: str | None, home: Path | None = None) -> Path | None:
 
 
 def _has_local_bin_path(text: str) -> bool:
-    """Whether ``text`` already carries a ``.local/bin`` PATH line."""
+    ""
     return any(".local/bin" in line and "PATH" in line for line in text.splitlines())
 
 
@@ -293,13 +259,7 @@ def _offer_path_append(
     shell: str | None = None,
     home: Path | None = None,
 ) -> Path | None:
-    """Offer to append ``~/.local/bin`` to the login shell PATH, after setup.
-
-    Return the rc file appended, or ``None`` when skipped: an unknown shell,
-    a file that already carries a ``.local/bin`` PATH line, or an answer that
-    was not an explicit yes. The append is interactive only, and happens only
-    after :func:`_confirm`.
-    """
+    ""
     if shell is None:
         shell = os.environ.get("SHELL")
     base = home if home is not None else Path.home()
@@ -332,13 +292,7 @@ def _offer_path_append(
 def _setup_scan_rigs(
     rigs: Sequence[str],
 ) -> tuple[dict[str, Scan], dict[str, dict[str, Any]]]:
-    """Step 2: read each rig once and record it as its rig file, so ``emit``
-    sizes from it and the door's gate 2 holds ``serve up`` to it.
-
-    Returns each rig's scan and the reading it was parsed from: the fleet is
-    approved later from that same reading (:func:`_own_fleet_live`), so a rig
-    is read once per setup.
-    """
+    ""
     from mcgyvr.fleet.promote import PromoteRefusedError
 
     scans: dict[str, Scan] = {}
@@ -356,7 +310,7 @@ def _setup_scan_rigs(
 def _setup_placements(
     rigs: Sequence[str], scans: Mapping[str, Scan]
 ) -> dict[str, Mapping[str, Any]]:
-    """Step 3: one coding/single placement per rig, printed as JSON."""
+    ""
     plans: dict[str, Mapping[str, Any]] = {}
     for rig in dict.fromkeys(rigs):
         try:
@@ -380,17 +334,7 @@ def _setup_placements(
 def _setup_on_disk_match(
     scan: Scan | None, model_id: str, quant: str, size_bytes: int
 ) -> ModelOnDisk | None:
-    """The first model already on the rig's disk matching id + quant + size.
-
-    The scan collected the rig's own inventory, so this holds for a remote rig
-    (its weights live on the rig, not on the machine running ``setup``). The id
-    is matched by its last segment, its canonical local name, or the id itself
-    — a GGUF's name carries no org — and the size only when it is known (a size
-    of 0 is not known). The quant is enforced only when the file tags one: the
-    canonical local name omits the quant, so an untagged GGUF (quant ``None``)
-    is reused on the strength of its name and size rather than refused for a
-    quant the file name does not state.
-    """
+    ""
     if scan is None:
         return None
     basename = model_id.lower().rsplit("/", 1)[-1]
@@ -412,7 +356,7 @@ def _setup_downloads(
     scans: Mapping[str, Scan],
     prompt: Callable[[str], str] = input,
 ) -> tuple[tuple[str, ModelRecord], ...]:
-    """Step 4: ask reuse or download for every placement, gated on the answer."""
+    ""
     from mcgyvr.knowledge import store as knowledge_store
 
     known = {record.key: record for record in knowledge_store.offline().records}
@@ -421,7 +365,7 @@ def _setup_downloads(
         placement = plan["placement"]
         model_id = str(placement.get("model_id") or "")
         if not model_id:
-            # A local-store pick is already on disk; nothing is downloaded.
+            #
             continue
         quant = str(placement.get("quant") or "")
         size_bytes = int(placement.get("size_bytes") or 0)
@@ -453,7 +397,7 @@ def _setup_downloads(
 
 
 def _setup_suffix() -> str:
-    """A RUN_ID suffix unique to this setup step (gate 5 claims the id)."""
+    ""
     import os
     import time
 
@@ -461,7 +405,7 @@ def _setup_suffix() -> str:
 
 
 def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
-    """Step 5: download one chosen model through the door's ``serve fetch``."""
+    ""
     from mcgyvr import wake as wakelib
     from mcgyvr.serving import fetchlist, safe_host
     from mcgyvr.serving.gatelib import DOOR_MODULE
@@ -493,13 +437,7 @@ def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
 def _setup_synthetic_detection(
     plans: Mapping[str, Mapping[str, Any]], window: int | None = None
 ) -> Detection:
-    """The planned servers as if they were already answering.
-
-    ``initialize`` binds only models a server lists, so the wizard writes the
-    staged setup once from this detection of the plan: each planned server at
-    the address its launch spec will answer on, serving ``window`` tokens per
-    slot (the window ``emit`` sizes it at, which the sample reads back).
-    """
+    ""
     from mcgyvr.detect import Backend, Detection
     from mcgyvr.serving import DEFAULT_PORT
 
@@ -534,12 +472,7 @@ def _setup_synthetic_detection(
 
 
 def _setup_context_window(plans: Mapping[str, Mapping[str, Any]]) -> int:
-    """The window ``emit`` sizes the bootstrap config at, across the rigs.
-
-    Each placement was priced at its own ``context_length``; the window handed
-    to ``emit`` is the smallest of them, the one every placed model fits at.
-    A placement without a readable window is refused, never guessed.
-    """
+    ""
     windows: list[int] = []
     for rig, plan in plans.items():
         placement = plan["placement"]
@@ -553,7 +486,7 @@ def _setup_context_window(plans: Mapping[str, Mapping[str, Any]]) -> int:
 
 
 def _setup_emit(path: Path, ctx_per_slot: int) -> None:
-    """Step 6a: ``mcgyvr emit`` the launch specs for the bootstrap config."""
+    ""
     from mcgyvr.cli.dispatcher import main
 
     code = main(
@@ -572,7 +505,7 @@ def _setup_emit(path: Path, ctx_per_slot: int) -> None:
 
 
 def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> None:
-    """Step 6b: start each emitted launch spec through the door's ``serve up``."""
+    ""
     from mcgyvr import wake as wakelib
     from mcgyvr.serving import spec_files, spec_name
 
@@ -588,11 +521,11 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
         else:
             files = spec_files(path, host)
             if not files:
-                # The product holds one unit per model: two rigs asked to
-                # serve the same model collapse to one backend, and the rig
-                # left out gets no launch spec. That is expected, not an
-                # emit failure, so skip it rather than abort the whole
-                # ``serve up``.
+                #
+                #
+                #
+                #
+                #
                 print(
                     f"{rig}: no launch spec was emitted for {host} — its model "
                     "is served from another rig (one unit per model); leaving "
@@ -611,8 +544,8 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
             ),
             env={
                 **os.environ,
-                # The config directory, not its fleet.yaml: the loader reads
-                # both fleet.yaml and policy.yaml (the ladder) from it.
+                #
+                #
                 CONFIG_PATH_ENV: str(path),
             },
         )
@@ -621,19 +554,7 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
 
 
 def _setup_interactive(path: Path, run_id: str = "") -> int:
-    """The guided ``mcgyvr setup``: prompt, then perform each step.
-
-    ASK the rigs, the use case (:func:`_ask_setup_use_case`), and the two
-    opt-ins ``--jev`` and ``--mcorch`` give (:data:`JEV_QUESTION`, and for
-    ``coding`` with Jev on :data:`MCORCH_QUESTION`), all before the plan.
-    READ each rig once, PLAN, then STAGE at ``path``: the setup written once
-    from the plan and its launch specs emitted once, both there. START its
-    units through the door on a yes, SAMPLE them (:func:`_setup_sample`), and
-    lock the stamped fleet and name it live on a second yes. ``media-gen``
-    has no sample yet, so nothing is started and it goes to the
-    acknowledgment (:func:`_setup_unsampled`). Nothing is written anywhere
-    else.
-    """
+    ""
     from mcgyvr.fleet.sample import CODING_USE_CASE, MEDIA_GEN, MEDIA_NOT_BUILT
 
     run_id = run_id or _setup_run_id()
@@ -648,8 +569,8 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
                 "stages it and asks before it locks it on no evidence."
             )
         wants_jev = _confirm(JEV_QUESTION)
-        # mcorch asks the Jev unit every bounded question (`--mcorch` needs
-        # `--jev`), so it is offered only with Jev on.
+        #
+        #
         wants_mcorch = (
             use_case == CODING_USE_CASE and wants_jev and _confirm(MCORCH_QUESTION)
         )
@@ -671,9 +592,9 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
             use_case=use_case,
             jev=jev,
             mcorch=mcorch,
-            # The window each slot is launched at, which the sample reads back.
+            #
             window=ctx_per_slot if mcorch is not None else None,
-            # Auto-wake on: the launch specs are emitted here and kept.
+            #
             compose_dir=path,
         )
         if not staged.written:
@@ -752,14 +673,7 @@ def _setup_unsampled(
     acknowledged: bool | None,
     readings: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Lock the staged setup at ``path``, which could not be sampled for
-    ``why``, on no evidence -- only once the user acknowledges it.
-
-    Says why it could not be sampled and what a lock on no evidence means.
-    ``acknowledged`` is the flag path's ``--accept-unsampled``; ``None`` asks
-    (:data:`ACCEPT_UNSAMPLED`). Unacknowledged, nothing is locked and the
-    limit says how to lock it.
-    """
+    ""
     print(f"The fleet could not be sampled: {why}.")
     print(NO_EVIDENCE_MEANS)
     print()
@@ -776,12 +690,7 @@ def _setup_unsampled(
 
 
 def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
-    """The card room, MiB, each unit of the staged setup at ``path`` is sized at.
-
-    Sized as ``emit`` sizes it, from the same rig files and table: the card
-    figure its fit was judged on, and the headroom held back beside it. The
-    lock holds each unit's card peak in the sample to this room.
-    """
+    ""
     import math
 
     try:
@@ -803,7 +712,7 @@ def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
 
 
 def _setup_run_contract(argv: list[str]) -> int:
-    """``mcgyvr run`` with ``argv``, in this process: the sample task's run."""
+    ""
     from mcgyvr.cli.dispatcher import main
 
     return main(argv)
@@ -815,17 +724,7 @@ def _setup_sample(
     readings: Mapping[str, Mapping[str, Any]],
     rooms: Mapping[str, int],
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """SAMPLE the started staged setup at ``path``, STAMP it, and LOCK it live
-    on the user's yes; ``(decisions, limits)`` saying what was done, or why not.
-
-    The setup is laid out as the user's own fleet, each rig pinned to the id
-    the read step named (:func:`mcgyvr.fleet.sampler.lay_out`), sampled through
-    the door (:func:`mcgyvr.fleet.sampler.run`) and judged and stamped
-    (:func:`mcgyvr.fleet.stamp.stamp`, under ``run_id``). A red sample is never
-    locked: its reasons are printed. A green one is locked from its stamp
-    (:func:`mcgyvr.fleet.lock.write_from_stamp`), promoted and named live
-    (:func:`_own_fleet_switch`).
-    """
+    ""
     from mcgyvr.fleet import sampler
     from mcgyvr.fleet.lock import OWN_FLEET, write_from_stamp
     from mcgyvr.fleet.promote import PromoteRefusedError, promote
@@ -866,7 +765,7 @@ def _setup_sample(
 
 
 def _setup_run_id() -> str:
-    """A name for one setup run: when it started, and 8 hex digits of its own."""
+    ""
     import secrets
     from datetime import UTC, datetime
 
@@ -874,18 +773,12 @@ def _setup_run_id() -> str:
 
 
 def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
-    """Where this setup run stages: ``PATH`` (or ``--config``) when named, else
-    ``$MCGYVR_CONFIG`` when set, else ``<data folder>/setup/<run_id>/``.
-
-    Never the working directory, and never a live fleet folder: those are
-    written only when a fleet is promoted
-    (:func:`mcgyvr.fleet.promote.promote`).
-    """
+    ""
     from mcgyvr.fleet.roots import staging_dir
 
     named = Path(args.path) if args.path else named_config_path()
-    # Absolute: the staged folder is written into the setup as the folder its
-    # launch specs are kept in (`serving.compose_dir`), read from anywhere.
+    #
+    #
     return named.absolute() if named is not None else staging_dir(run_id)
 
 
@@ -898,9 +791,9 @@ def _setup(args: argparse.Namespace) -> int:
         return 1
     if _setup_is_interactive(args):
         return _setup_interactive(path, run_id)
-    # Parsed before anything is detected: a mistyped `--api` is the operator's
-    # to fix, and making them wait out a network sweep to hear about it is
-    # spending their time to tell them something already known.
+    #
+    #
+    #
     try:
         api_units = tuple(parse_api_unit(spec) for spec in (args.api or ()))
     except ApiSpecError as exc:
@@ -923,7 +816,7 @@ def _setup(args: argparse.Namespace) -> int:
             compose_dir=path,
         )
     except InitError as exc:
-        # Loud on purpose: nothing was written, and the message says why.
+        #
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except (ConfigError, CapabilityTableError) as exc:
@@ -937,10 +830,10 @@ def _setup(args: argparse.Namespace) -> int:
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    # What setup wrote is the user's own fleet. The flags start nothing, so
-    # nothing of it is sampled: it is locked on no evidence, and only with
-    # `--accept-unsampled`. A setup run that did not write is not one it
-    # bound, so it locks nothing.
+    #
+    #
+    #
+    #
     approved, unapproved = (
         _setup_unsampled(
             result.path,
@@ -979,7 +872,7 @@ def _setup(args: argparse.Namespace) -> int:
 
 
 def _why_unsampled(setup: Path, use_case: str) -> str:
-    """Why the flag path's staged setup at ``setup`` is not sampled."""
+    ""
     from mcgyvr.fleet.sample import MEDIA_GEN, MEDIA_NOT_BUILT
 
     if use_case == MEDIA_GEN:
@@ -990,18 +883,7 @@ def _why_unsampled(setup: Path, use_case: str) -> str:
 def _own_fleet_live(
     setup: Path, readings: Mapping[str, Mapping[str, Any]] | None = None
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Lock the setup at ``setup`` as the user's own fleet on no evidence and
-    name it live; ``(decisions, limits)`` saying what was done, or why not.
-
-    For a fleet no sample ran on, once the user has acknowledged that: locked
-    on no evidence (:func:`mcgyvr.fleet.lock.write_unsampled`), promoted and
-    named live (:func:`_own_fleet_switch`). Every rig the setup lays a unit on
-    is read first -- the local machine without ssh, a remote one over ssh, or
-    by the reading ``readings`` already holds for it -- and the fleet is laid
-    out with each of them, named by the rig id its reading names. The lock is
-    written into a dev root of its own that is removed once the folder is
-    promoted: the folder holds all of it.
-    """
+    ""
     import tempfile
 
     from mcgyvr.fleet.lock import OWN_FLEET, LockRefusedError, write_unsampled
@@ -1030,13 +912,7 @@ def _own_fleet_live(
 def _own_fleet_switch(
     lock_and_promote: Callable[[], Path], rigs: Sequence[str], *, sampled: bool
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Lock and promote the user's own fleet with ``lock_and_promote``, and name
-    the folder it promoted live; ``(decisions, limits)``.
-
-    With the user's own fleet already live, the new folder is named in its
-    place, and the old one is kept. Any other live fleet is never replaced
-    (``mcgyvr fleet use`` switches), and then nothing is locked.
-    """
+    ""
     from mcgyvr.fleet.lock import LockRefusedError, is_own
     from mcgyvr.fleet.promote import PromoteRefusedError, use
     from mcgyvr.fleet.roots import LiveFleetError, live_fleet
@@ -1083,12 +959,7 @@ def _own_fleet_switch(
 
 
 def _rigs(setup: Path) -> tuple[str, ...]:
-    """The rigs the setup init wrote lays units on, in sorted order.
-
-    A machine of the user's is approved only by a read of it (:func:`_read_rig`):
-    the local machine without ssh, a remote one over ssh. A hosted unit lays
-    out no rig, so it names none.
-    """
+    ""
 
     try:
         fleet = load_fleet((setup / FLEET_FILENAME).read_text(encoding="utf-8"))
@@ -1103,18 +974,7 @@ def _rigs(setup: Path) -> tuple[str, ...]:
 
 
 def _read_rig(rig: str) -> dict[str, Any]:
-    """Read ``rig`` once with the one reader and write its rig file; return the
-    reading.
-
-    The machine mcgyvr runs on is read directly, no ssh; a remote one over the
-    one sanctioned read of a rig from outside the door,
-    :func:`mcgyvr.serving.gatelib.ssh_read_only`, which ships the reader as
-    one read-only line (``echo <base64> | base64 -d | python3 -I -B -``). Either
-    way the reading is the door's own, so the rig file it writes reads the same
-    when the door's gate 2 reads the rig again — which is why ``serve up`` on a
-    rig set up here finds the rig file it asks for. A rig that cannot be read,
-    or whose rig file will not write, is a refusal, not a traceback.
-    """
+    ""
     from mcgyvr.detect import is_local_host
     from mcgyvr.fleet.promote import PromoteRefusedError
     from mcgyvr.serving import rigfile
@@ -1141,8 +1001,7 @@ def _read_rig(rig: str) -> dict[str, Any]:
 
 
 def _rig_id(rig: str, reading: Mapping[str, Any]) -> str:
-    """The rig id ``rig``'s reading names (:func:`mcgyvr.fleet.ids.rig_id`), the
-    one the lock pins, or a refusal naming what was not read."""
+    ""
     from mcgyvr.fleet import ids
     from mcgyvr.fleet.promote import PromoteRefusedError
 
@@ -1153,7 +1012,7 @@ def _rig_id(rig: str, reading: Mapping[str, Any]) -> str:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `setup` command."""
+    ""
     use_case_names = _setup_use_cases()
 
     setup = sub.add_parser(
@@ -1194,8 +1053,8 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         action=_OneSetup,
         help=f"where to write (default: {INIT_DEFAULT_HELP})",
     )
-    # The setup it writes, and the one it reads first to keep hand edits. Its
-    # default chain is its own (INIT_DEFAULT_HELP): never the live fleet.
+    #
+    #
     setup.add_argument(
         "--config",
         dest="path",

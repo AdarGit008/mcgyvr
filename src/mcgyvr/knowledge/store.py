@@ -1,21 +1,4 @@
-"""Where model knowledge is kept, and the order it is read in.
-
-Two places hold records of :mod:`mcgyvr.knowledge.record`:
-
-* the **cache**, ``$MCGYVR_HOME/knowledge/`` (default ``~/.mcgyvr/knowledge``):
-  records filed with :func:`write`, one file per model at one quantisation;
-* the **shipped catalog**, ``data/model-catalog.json`` in the package: the
-  fallback a machine with no network and no cache still has.
-
-:func:`offline` reads the cache first, then the shipped catalog: a model the
-cache holds is taken from the cache, every other model from the catalog, and
-each says which (:attr:`Known.origin`). A cache file that cannot be read, or
-that is of another format version, is not read; it is named in
-:attr:`Knowledge.skipped` with why, and the catalog still answers. The cache
-is a cache: losing a file costs a lookup, never a plan.
-
-Nothing here opens a socket.
-"""
+""
 
 from __future__ import annotations
 
@@ -35,21 +18,21 @@ from mcgyvr.knowledge.record import (
     parse_document,
 )
 
-#: The shipped catalog's file name, in the package's data folder.
+#
 MODEL_CATALOG_FILENAME = "model-catalog.json"
-#: The cache's folder under the config folder.
+#
 CACHE_DIR = "knowledge"
-#: What a cache file's name is made of; anything else in a model id or a
-#: quantisation becomes ``_``.
+#
+#
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
-#: Where a record came from, as :attr:`Known.origin` says it.
+#
 CACHE = "cache"
 SHIPPED = "shipped"
 
 
 @dataclass(frozen=True)
 class Known:
-    """One record, and where it was read: :data:`CACHE` or :data:`SHIPPED`."""
+    ""
 
     record: ModelRecord
     origin: str
@@ -57,12 +40,7 @@ class Known:
 
 @dataclass(frozen=True)
 class Knowledge:
-    """What is known offline: the cache first, then the shipped catalog.
-
-    ``skipped`` names each cache file that was not read, with why.
-    ``oldest_read_at`` is the oldest day any number of ``known`` was read, or
-    ``None`` when nothing is known.
-    """
+    ""
 
     known: tuple[Known, ...]
     skipped: tuple[tuple[Path, str], ...]
@@ -78,11 +56,11 @@ class Knowledge:
 
 
 def catalog_path() -> Path:
-    """The shipped catalog, from a wheel or a source checkout."""
+    ""
     packaged = resources.files("mcgyvr") / "data" / MODEL_CATALOG_FILENAME
     if Path(str(packaged)).is_file():
         return Path(str(packaged))
-    # Running from a source checkout: data/ sits at the repo root.
+    #
     checkout = Path(__file__).resolve().parents[3] / "data" / MODEL_CATALOG_FILENAME
     if checkout.is_file():
         return checkout
@@ -102,7 +80,7 @@ def _read(path: Path, *, shipped: bool) -> tuple[ModelRecord, ...]:
 
 
 def shipped() -> tuple[ModelRecord, ...]:
-    """The shipped catalog's records. A catalog that does not read is refused."""
+    ""
     path = catalog_path()
     records = _read(path, shipped=True)
     if not records:
@@ -111,7 +89,7 @@ def shipped() -> tuple[ModelRecord, ...]:
 
 
 def cache_dir() -> Path:
-    """``$MCGYVR_HOME/knowledge`` (default ``~/.mcgyvr/knowledge``)."""
+    ""
     try:
         return roots.home() / CACHE_DIR
     except roots.FolderError as exc:
@@ -119,20 +97,13 @@ def cache_dir() -> Path:
 
 
 def cache_file(model_id: str, quant: str) -> Path:
-    """The cache file :func:`write` files the record of ``model_id`` at
-    ``quant`` in. The reader does not trust the name: it reads each file's own
-    records."""
+    ""
     stem = _UNSAFE.sub("_", f"{model_id.replace('/', '--')}--{quant}")
     return cache_dir() / f"{stem}.json"
 
 
 def write(record: ModelRecord) -> Path:
-    """File ``record`` in the cache, replacing what the cache held for it.
-
-    Through a staging name and :func:`os.replace`, so a reader sees the old
-    file or the new one, never half of one. The record is read back before it
-    is filed, so the cache cannot hold what :func:`offline` would refuse.
-    """
+    ""
     document = dump_document((record,))
     parse_document(document, f"the record of {record.model_id}", shipped=False)
     target = cache_file(record.model_id, record.quant)
@@ -162,11 +133,7 @@ def _cached() -> tuple[dict[tuple[str, str], ModelRecord], list[tuple[Path, str]
 
 
 def offline() -> Knowledge:
-    """What is known with no network: the cache first, then the shipped catalog.
-
-    In the shipped catalog's order, each model taken from the cache when the
-    cache holds it; then the models only the cache knows, in cache-file order.
-    """
+    ""
     cached, skipped = _cached()
     known: list[Known] = []
     for one in shipped():

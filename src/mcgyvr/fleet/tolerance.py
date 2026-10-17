@@ -1,13 +1,4 @@
-"""One tolerance class per unit, so every judge of a unit reads one class.
-
-A live unit is judged by the tolerance of its class: vLLM, llama.cpp,
-llama.cpp with experts on the CPU, and llama.cpp drafting with the GGUF's own
-MTP head. Each judged field (warm decode, prefill) has its own tolerance per
-class, looked up in :mod:`mcgyvr.derived`: an estimate shipped with mcgyvr
-that the user can set. The probe's judge (:mod:`mcgyvr.fleet.probe`) and the
-lock's NVMe baseline check (:mod:`mcgyvr.fleet.lock`) both ask
-:func:`tolerance_class`, so the two cannot put one unit in two classes.
-"""
+""
 
 from __future__ import annotations
 
@@ -17,26 +8,26 @@ from typing import Any
 CLASS_VLLM = "vllm"
 CLASS_LLAMACPP = "llamacpp"
 CLASS_CPU_EXPERTS = "cpu_experts"
-#: llama.cpp drafting with the GGUF's own grafted head (``--spec-type
-#: draft-mtp``). A class of its own, with its own tolerances, whether or not
-#: experts are on the CPU beside it.
+#
+#
+#
 CLASS_MTP = "mtp"
-#: Every class a unit can be in; each judged field states a tolerance for each.
+#
 CLASSES: tuple[str, ...] = (CLASS_VLLM, CLASS_LLAMACPP, CLASS_CPU_EXPERTS, CLASS_MTP)
 
-#: The llama-server flags that put expert tensors on the CPU.
+#
 _CPU_MOE = "--cpu-moe"
 _N_CPU_MOE = "--n-cpu-moe"
 _CPU_EXPERT_FLAGS = frozenset({_CPU_MOE, _N_CPU_MOE})
-#: The llama-server flag and value that run the GGUF's own MTP head as the draft.
+#
 _SPEC_TYPE = "--spec-type"
 _DRAFT_MTP = "draft-mtp"
-#: The same pair as one word, which llama-server reads the same.
+#
 _SPEC_TYPE_DRAFT_MTP = f"{_SPEC_TYPE}={_DRAFT_MTP}"
-#: ``launch.speculative`` asking for the head (``mcgyvr.serving.SPECULATIVE_MTP``,
-#: not imported: :mod:`mcgyvr.serving` reaches this module through
-#: :mod:`mcgyvr.derived`). The serving layer renders it as ``--spec-type
-#: draft-mtp`` only when it builds a unit; the fleet's judges read the block.
+#
+#
+#
+#
 _SPECULATIVE_MTP = "mtp"
 
 
@@ -54,7 +45,7 @@ def _positive_digits(value: Any) -> bool:
 
 
 def _argv_keeps_experts_on_cpu(argv: Any) -> bool:
-    """``--cpu-moe``, or ``--n-cpu-moe`` followed by a positive integer."""
+    ""
     if not isinstance(argv, list):
         return False
     for index, token in enumerate(argv):
@@ -72,8 +63,7 @@ def _argv_keeps_experts_on_cpu(argv: Any) -> bool:
 
 
 def _drafts_with_its_own_head(words: Any) -> bool:
-    """``--spec-type`` followed by ``draft-mtp``, or ``--spec-type=draft-mtp``,
-    in an argv or a flags list."""
+    ""
     if not isinstance(words, list):
         return False
     return _SPEC_TYPE_DRAFT_MTP in words or any(
@@ -84,21 +74,7 @@ def _drafts_with_its_own_head(words: Any) -> bool:
 
 
 def tolerance_class(unit: Mapping[str, Any]) -> str:
-    """The tolerance class of one ``fleet.yaml`` unit block.
-
-    ``engine: vllm`` is ``vllm``. Any other unit is llama.cpp (an absent engine
-    means llama.cpp, ``units.engine`` in :mod:`mcgyvr.config`), and it is
-    ``mtp`` when its launch drafts with the GGUF's own head — ``--spec-type``
-    followed by ``draft-mtp``, or ``--spec-type=draft-mtp``, in its ``argv`` or
-    among its ``flags``, or ``speculative: mtp``, whether or not experts are on
-    the CPU beside it — ``cpu_experts`` when its launch keeps experts on the
-    CPU, ``llamacpp`` otherwise. The launch keeps them there with a positive
-    ``n_cpu_moe``, with ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or
-    with ``--cpu-moe`` or ``--n-cpu-moe`` followed by a positive integer in its
-    ``argv`` (a locked unit's launch, verbatim). A value after ``--n-cpu-moe``
-    in the argv that is missing or not an integer does not count, and neither
-    does ``0``. Any other ``--spec-type`` value does not make a unit ``mtp``.
-    """
+    ""
     if unit.get("engine") == CLASS_VLLM:
         return CLASS_VLLM
     launch = unit.get("launch")

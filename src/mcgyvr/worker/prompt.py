@@ -1,67 +1,4 @@
-"""Assembling what a worker is sent: a measured bundle and a contract.
-
-Two messages. The bundle measurement varied only the system prompt and kept
-the contract as the user message, so that is the shape reproduced here: the
-bundle is *how to work*, the contract is *what to do*, and they do not mix.
-
-**The user message is built from :meth:`~mcgyvr.contract.Contract.worker_view`
-and nothing else.** That method is the only accessor for worker-facing fields,
-which is what makes "orchestrator-only fields never reach the worker prompt"
-(#94) a structural property instead of a review item. ``risk``,
-``verification``, ``acceptance`` and ``limits`` are how the orchestrator
-decides where to run work and whether to believe the result; a worker that
-could read them could argue with them. Reaching around ``worker_view()`` to
-render a field directly off the contract would quietly cost that property, so
-nothing here touches the contract's attributes except through it.
-
-**The target's content is rendered as its own section, and the section says
-what it is for.** A worker told to reply with the complete new content of a
-file, and shown a file, must not have to infer that the two are the same file —
-so the header names the target and says outright that this is the one to change
-(#150). The fence is chosen wider than any backtick run inside the content, for
-the reason :mod:`mcgyvr.worker.reply` closes a fence only on one at least as
-wide: a file that itself contains fences would otherwise end its own block and
-hand the worker a truncated target. No language tag is attached — the header
-already names the file, extension included, and a tag inferred here would be a
-second statement of the same fact with its own way of being wrong.
-
-**A contract's ``sources`` are rendered numbered, whole and fenced,** in the
-contract's order, so ``[n]`` names one file (e2e run 2, R11: an ``agent`` was
-asked to cite sources it was never given). The attempt reads their content off
-the tree (:mod:`mcgyvr.worker.sources`) and hands it in through the view like
-every other field; it counts against ``max_input_tokens`` like everything else
-here, and is never cut to fit.
-
-**``max_input_tokens`` is used, not shown.** It is worker-facing on the schema,
-but it is a budget the orchestrator enforces rather than an instruction a model
-can act on — telling a worker its own input ceiling spends tokens to say
-something the worker cannot use. It is spent here on the fit check instead.
-
-**The fit check is this module's**
-(:func:`~mcgyvr.gate.preflight.check_prompt_fits`). The contract declares
-``max_input_tokens`` as "the hard ceiling the assembled worker prompt must fit
-under", and this is the first point at which an assembled prompt exists to
-measure. A prompt that does not fit is returned as a
-:class:`~mcgyvr.gate.preflight.PreflightIssue` rather than raised: it is an
-orchestration error — the same class of thing as a dirty tree — and preflight's
-existing shape already says so. Raising would also deny a caller the assembled
-prompt it needs in order to report *what* did not fit.
-
-**A retry says what failed and nothing else.** When an attempt follows a
-rejected one, the prompt carries that attempt's failing checks —
-:class:`~mcgyvr.escalate.RetryNotes`, whose contents are #43's rule and not
-this module's: passing checks, observations the gate did not reject on, and a
-tool that was not installed are all excluded there, and rendering is all that
-happens here. The section goes last, after the output instruction, because it
-is the most specific thing in the prompt and the least useful to read first.
-
-**The estimate is injectable, and the count says which kind it was.** The
-model-free proxy under-counts by an amount that depends on the vocabulary
-(the lab's token-estimator measurement), so
-``check_prompt_fits`` charges a proxy count a reserve and an exact count
-nothing. Passing a real tokenizer here — with
-``counted_by=TOKENIZER`` to say so — is how a caller opts out of the reserve.
-"""
+""
 
 from __future__ import annotations
 
@@ -78,10 +15,10 @@ from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.worker.bundle import Bundle, bundle_for
 from mcgyvr.worker.reply import MEDIA_ARTIFACT, PROSE, WHOLE_FILE
 
-# What the worker is told to produce, per declared output schema. The parser and
-# this table are two halves of one protocol: whatever shape is described here is
-# what `mcgyvr.worker.reply` will accept back, and a schema absent from both is
-# absent from both.
+#
+#
+#
+#
 _REPLY_INSTRUCTIONS: dict[str, str] = {
     WHOLE_FILE: (
         "Reply with the complete new content of {target}, as one fenced code "
@@ -100,12 +37,12 @@ _REPLY_INSTRUCTIONS: dict[str, str] = {
 
 
 class UnsupportedSchemaError(ValueError):
-    """The contract declared a shape this port has no instruction or parser for."""
+    ""
 
 
 @dataclass(frozen=True)
 class WorkerPrompt:
-    """One assembled dispatch, with what it cost and whether it fits."""
+    ""
 
     system: str
     user: str
@@ -116,40 +53,35 @@ class WorkerPrompt:
 
     @property
     def fits(self) -> bool:
-        """Whether the assembled prompt is inside the contract's ceiling."""
+        ""
         return self.fit_issue is None
 
     @property
     def measured(self) -> str:
-        """The text the prompt's size is measured on: both halves, as sent.
-
-        One spelling, read by :func:`build_prompt` against the contract's
-        ceiling and by :mod:`mcgyvr.drive` against the rung's window, so the
-        two checks weigh the same prompt.
-        """
+        ""
         return _measured(self.system, self.user)
 
 
 def _measured(system: str, user: str) -> str:
-    """Both halves of a prompt, joined as they are weighed."""
+    ""
     return system + "\n" + user
 
 
-# CommonMark's minimum, and what every bundle instructs.
+#
 _MIN_FENCE = 3
 
 _BACKTICK_RUN = re.compile(r"`+")
 
 
 def _fence_for(content: str) -> str:
-    """A fence at least one backtick wider than anything ``content`` contains."""
+    ""
     runs = (len(run.group()) for run in _BACKTICK_RUN.finditer(content))
     widest = max(runs, default=0)
     return "`" * max(_MIN_FENCE, widest + 1)
 
 
 def _render_target_content(target: str, content: str) -> str:
-    """The target's current content, fenced, under a header that says what it is."""
+    ""
     body = content if content.endswith("\n") else content + "\n"
     fence = _fence_for(content)
     return (
@@ -159,14 +91,7 @@ def _render_target_content(target: str, content: str) -> str:
 
 
 def _render_sources(sources: Sequence[dict[str, Any]]) -> str:
-    """Each source under its number, ``[1]`` first, its content fenced.
-
-    Numbered in the contract's order, so ``[n]`` in a reply names one file and
-    always the same one. Fenced as the target is, for the same reason: a source
-    that holds a fence must not close its own block. A source whose content has
-    not been read — ``mcgyvr contract --worker-view``, before any tree is —
-    is listed by path alone.
-    """
+    ""
     blocks = []
     for number, source in enumerate(sources, start=1):
         header = f"[{number}] {source['path']}"
@@ -189,17 +114,10 @@ def _render_deps(deps: Sequence[dict[str, Any]]) -> list[str]:
 
 
 def render_user_message(view: dict[str, Any], retry: RetryNotes | None = None) -> str:
-    """Render the worker-facing half of a contract as the user message.
-
-    Takes the *view* rather than the contract so that the boundary is visible
-    in the signature: this function is incapable of reading a field
-    ``worker_view()`` did not hand it. ``retry`` is not a contract field and
-    does not reach around that — it is what the *last* attempt was told it got
-    wrong, which no contract can know.
-    """
+    ""
     sections: list[str] = [f"TASK ({view['task_type']}): {view['task']}"]
-    # A prose reply is the answer and is never written, so there is no file to
-    # name or show: a TARGET line would tell the worker the opposite.
+    #
+    #
     if view["output_schema"] != PROSE:
         sections.append(f"TARGET: {view['target']}")
         if view["target_content"]:
@@ -245,18 +163,7 @@ def build_prompt(
     counted_by: TokenCount = TokenCount.ESTIMATE,
     retry: RetryNotes | None = None,
 ) -> WorkerPrompt:
-    """Assemble the two messages a worker is sent, and check they fit.
-
-    ``estimate`` defaults to the model-free proxy every other budget in the
-    project is spent against; a caller with a real tokenizer passes it here and
-    sets ``counted_by=TOKENIZER`` so the fit check stops charging a reserve it
-    no longer needs.
-
-    ``retry`` makes this a second attempt on the same contract. It is measured
-    with the rest of the prompt rather than appended after the fit check: a
-    retry that no longer fits its own contract's ceiling is exactly the case
-    where saying so at zero cost is worth most.
-    """
+    ""
     if contract.output_schema not in _REPLY_INSTRUCTIONS:
         raise UnsupportedSchemaError(
             f"output_schema {contract.output_schema!r} has no reply instruction "
@@ -268,9 +175,9 @@ def build_prompt(
     system = bundle.text if bundle is not None else ""
     user = render_user_message(contract.worker_view(), retry)
     tokens = estimate(_measured(system, user))
-    # A session (`chat`, `agent`) is a raw connection to a model, and mcgyvr
-    # measures no prompt of one (owner, 2026-10-14): its size is still counted
-    # for the record, and nothing refuses it.
+    #
+    #
+    #
     issue = (
         None
         if contract.is_session

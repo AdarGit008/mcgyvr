@@ -1,15 +1,4 @@
-"""The deterministic acceptance gate (E5).
-
-The gate decides whether a worker's change is acceptable, deterministically
-and before any model is asked for an opinion. In a keyless install it is the
-entire acceptance bar, so it is the component a stranger's first successful
-task depends on most.
-
-Every check in the gate reads the same two facts — which files changed, and
-which lines the worker added — from a single shared :class:`ChangeSet`, so
-the change is detected in a fixed number of git invocations, not once per
-check or per file. See :mod:`mcgyvr.gate.changeset`.
-"""
+""
 
 from __future__ import annotations
 

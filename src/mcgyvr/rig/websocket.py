@@ -1,21 +1,4 @@
-"""A websocket client (RFC 6455) on the standard library, for the hub's channel.
-
-The rig agent keeps one websocket open to its hub. The product's runtime takes
-no dependency for that: this is the client half of the RFC and no more, over
-``socket`` and ``ssl``. It offers no extension and no subprotocol, sends text
-frames, answers pings, reassembles fragments, and closes the way the RFC says.
-
-The server is not trusted. Every bound is checked before it is acted on: the
-handshake answer is read up to :data:`MAX_HANDSHAKE_BYTES` and must be a
-correct switch, a frame's announced length is refused past the caller's
-``max_message`` before its payload is read, and a frame the RFC forbids a
-server to send closes the channel with the RFC's code
-(:class:`Close`). Every wait has a deadline, so a server that stalls is given
-up on rather than waited for.
-
-``wss://`` is TLS with the certificate and the host name checked
-(:func:`default_ssl_context`).
-"""
+""
 
 from __future__ import annotations
 
@@ -34,22 +17,22 @@ import urllib.parse
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-#: The most bytes a handshake answer may take, status line and headers.
+#
 MAX_HANDSHAKE_BYTES = 16 * 1024
-#: The RFC's constant a server proves it read the key with.
+#
 _GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-#: The longest payload of a control frame (ping, pong, close).
+#
 _MAX_CONTROL = 125
-#: How long a closing client waits for the server's own close, in seconds.
+#
 CLOSE_WAIT_S = 1.0
 
-#: A header name or value that cannot break the request it is written into.
+#
 _TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
 _VALUE = re.compile(r"[\t\x20-\x7e]*")
 
 
 class Opcode(enum.IntEnum):
-    """A frame's opcode."""
+    ""
 
     CONTINUATION = 0
     TEXT = 1
@@ -60,25 +43,24 @@ class Opcode(enum.IntEnum):
 
 
 class Close(enum.IntEnum):
-    """The close codes this client sends, and the one that is never sent."""
+    ""
 
     NORMAL = 1000
     PROTOCOL_ERROR = 1002
     INVALID_DATA = 1007
     TOO_BIG = 1009
-    #: Never on the wire: a close frame that carried no code.
+    #
     NO_STATUS = 1005
-    #: Never on the wire: the connection ended without a close frame.
+    #
     ABNORMAL = 1006
 
 
 class WebSocketError(Exception):
-    """The channel failed."""
+    ""
 
 
 class HandshakeError(WebSocketError):
-    """The server did not switch to a websocket; ``status`` is its HTTP status
-    when it answered with one."""
+    ""
 
     def __init__(self, message: str, status: int | None = None) -> None:
         super().__init__(message)
@@ -86,8 +68,7 @@ class HandshakeError(WebSocketError):
 
 
 class ClosedError(WebSocketError):
-    """The channel is closed: ``code`` and ``reason`` are the close's, and
-    ``by_peer`` says whether the server closed it."""
+    ""
 
     def __init__(self, code: int, reason: str, *, by_peer: bool) -> None:
         super().__init__(f"closed with {code}" + (f": {reason}" if reason else ""))
@@ -105,7 +86,7 @@ class _ViolationError(Exception):
 
 @dataclass(frozen=True, kw_only=True)
 class Target:
-    """Where a websocket URL points."""
+    ""
 
     secure: bool
     host: str
@@ -114,18 +95,14 @@ class Target:
 
     @property
     def authority(self) -> str:
-        """The ``Host`` header: the port only when it is not the scheme's own."""
+        ""
         host = f"[{self.host}]" if ":" in self.host else self.host
         default = 443 if self.secure else 80
         return host if self.port == default else f"{host}:{self.port}"
 
 
 def parse_url(url: str) -> Target:
-    """The target of a ``ws://`` or ``wss://`` URL, or ``ValueError``.
-
-    A URL with credentials, a fragment, a bad port or a character a request
-    line cannot carry is refused rather than repaired.
-    """
+    ""
     if not _VALUE.fullmatch(url) or " " in url or "\t" in url:
         raise ValueError("the URL holds a character a request cannot carry")
     parts = urllib.parse.urlsplit(url)
@@ -155,14 +132,14 @@ def parse_url(url: str) -> Target:
 
 
 def default_ssl_context() -> ssl.SSLContext:
-    """TLS as the hub is reached: the system's trust, the name checked."""
+    ""
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     return context
 
 
 def accept_key(key: str) -> str:
-    """The ``Sec-WebSocket-Accept`` a server owes for ``key``."""
+    ""
     digest = hashlib.sha1((key + _GUID).encode("ascii")).digest()
     return base64.b64encode(digest).decode("ascii")
 
@@ -178,7 +155,7 @@ def _mask(key: bytes, data: bytes) -> bytes:
 
 
 def encode_frame(opcode: Opcode, payload: bytes, key: bytes) -> bytes:
-    """One final, masked client frame."""
+    ""
     size = len(payload)
     first = 0x80 | opcode
     if size < 126:
@@ -198,9 +175,7 @@ class _Frame:
 
 
 def _parse_frame(buffer: bytes | bytearray, limit: int) -> tuple[_Frame, int] | None:
-    """The first frame in ``buffer`` and its length, ``None`` when it is not
-    all there yet, or :class:`_ViolationError`. The header is judged as soon as it
-    is there, so a length past ``limit`` is refused before its payload."""
+    ""
     if len(buffer) < 2:
         return None
     first, second = buffer[0], buffer[1]
@@ -252,8 +227,7 @@ def _close_payload(payload: bytes) -> tuple[int, str]:
 
 
 class WebSocket:
-    """One open channel. Not thread-safe: one caller sends and receives; only
-    :meth:`wake` may be called from another thread."""
+    ""
 
     def __init__(self, sock: socket.socket, *, max_message: int, buffer: bytes) -> None:
         self._sock = sock
@@ -262,8 +236,8 @@ class WebSocket:
         self._parts: list[bytes] = []
         self._kind: int | None = None
         self._closed: ClosedError | None = None
-        # A read waits on the socket and on this pair at once, so another
-        # thread can end it by writing a byte (:meth:`wake`).
+        #
+        #
         self._woken, self._waker = socket.socketpair()
         self._woken.setblocking(False)
         self._waker.setblocking(False)
@@ -272,14 +246,12 @@ class WebSocket:
         self._selector.register(self._woken, selectors.EVENT_READ)
 
     def wake(self) -> None:
-        """End a :meth:`receive` that waits now, or the next one when none
-        does, at once with ``None``. Safe from any thread; harmless once the
-        channel is closed."""
-        # BlockingIOError: a wake already waits to be read; OSError: closed.
+        ""
+        #
         with contextlib.suppress(OSError):
             self._waker.send(b"\0")
 
-    # -- sending --
+    #
 
     def _send(self, opcode: Opcode, payload: bytes, timeout: float) -> None:
         if self._closed is not None:
@@ -293,17 +265,16 @@ class WebSocket:
             raise self._closed or WebSocketError("send failed") from exc
 
     def send_text(self, text: str, *, timeout: float = 10.0) -> None:
-        """Send ``text`` as one frame; ``ValueError`` past the message bound."""
+        ""
         payload = text.encode("utf-8")
         if len(payload) > self._max:
             raise ValueError(f"a message of {len(payload)} bytes is past the bound")
         self._send(Opcode.TEXT, payload, timeout)
 
-    # -- receiving --
+    #
 
     def receive(self, timeout: float) -> str | bytes | None:
-        """The next message, or ``None`` when none is whole within ``timeout``
-        seconds; :class:`ClosedError` once the channel is closed."""
+        ""
         deadline = time.monotonic() + timeout
         while True:
             if self._closed is not None:
@@ -344,13 +315,12 @@ class WebSocket:
             self._buffer += chunk
 
     def _readable(self, left: float) -> bool:
-        """Whether the socket has bytes to read within ``left`` seconds;
-        ``False`` at once when woken (:meth:`wake`), the wake read."""
+        ""
         if isinstance(self._sock, ssl.SSLSocket) and self._sock.pending():
-            return True  # TLS already holds bytes the selector cannot see
+            return True  #
         ready = {key.fileobj for key, _ in self._selector.select(left)}
         if self._woken in ready:
-            with contextlib.suppress(OSError):  # BlockingIOError: all read
+            with contextlib.suppress(OSError):  #
                 while self._woken.recv(4096):
                     pass
             return False
@@ -388,7 +358,7 @@ class WebSocket:
         except UnicodeDecodeError as exc:
             raise _ViolationError(Close.INVALID_DATA, "text that is not UTF-8") from exc
 
-    # -- closing --
+    #
 
     def _answer_close(self, code: int) -> None:
         try:
@@ -401,7 +371,7 @@ class WebSocket:
         self._shut()
 
     def _fail(self, code: Close, why: str) -> None:
-        """Close for a server frame the RFC forbids."""
+        ""
         self._answer_close(code)
         self._closed = ClosedError(code, why, by_peer=False)
 
@@ -417,7 +387,7 @@ class WebSocket:
                 sock.close()
 
     def close(self, code: int = Close.NORMAL, reason: str = "") -> None:
-        """Close the channel: send the close, wait briefly for the server's."""
+        ""
         if self._closed is not None:
             return
         payload = struct.pack("!H", code) + reason.encode("utf-8")[: _MAX_CONTROL - 2]
@@ -493,12 +463,7 @@ def connect(
     max_message: int,
     ssl_context: ssl.SSLContext | None = None,
 ) -> WebSocket:
-    """Open a websocket to ``url``, sending ``headers`` with the upgrade.
-
-    ``timeout`` bounds the connect, the TLS handshake and the upgrade
-    together. :class:`HandshakeError` when the server is not reached or does
-    not switch; ``ValueError`` for a URL or header that cannot be sent.
-    """
+    ""
     target = parse_url(url)
     for name, value in headers.items():
         if not _TOKEN.fullmatch(name) or not _VALUE.fullmatch(value):

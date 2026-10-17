@@ -1,12 +1,4 @@
-"""What the running agent last knew of its rig, for ``mcgyvr rig status``.
-
-The agent writes it on every change it hears of (online, an ack, offline) to
-``rig-state.json`` in the data folder (:func:`mcgyvr.fleet.roots.data_home`),
-written whole each time. It holds no secret: the hub's address, the rig id the
-hub gave, the heartbeat interval, when the hub last acked, and the agent's
-process id. A file that cannot be read is no state, never an error: the agent
-writes it again on its next change.
-"""
+""
 
 from __future__ import annotations
 
@@ -17,19 +9,19 @@ from pathlib import Path
 from mcgyvr import atomic
 from mcgyvr.fleet import roots
 
-#: The file's name in the data folder.
+#
 STATE_FILE = "rig-state.json"
 
 
 @dataclass(frozen=True, kw_only=True)
 class State:
-    """The agent's last word on its rig. Times are seconds since the epoch."""
+    ""
 
     hub: str
     pid: int
     connected: bool
-    #: The hub's row id for the rig (its ack's ``rig_id``), not the machine's
-    #: ``rig-`` id.
+    #
+    #
     rig_id: str | None
     heartbeat_s: int | None
     last_ack_at: float | None
@@ -37,19 +29,19 @@ class State:
 
 
 def path() -> Path:
-    """``rig-state.json`` in the data folder."""
+    ""
     return roots.data_home() / STATE_FILE
 
 
 def write(state: State) -> None:
-    """Replace the kept state with ``state``."""
+    ""
     target = path()
     target.parent.mkdir(parents=True, exist_ok=True)
     atomic.write(target, json.dumps(asdict(state)) + "\n")
 
 
 def read() -> State | None:
-    """The kept state, or ``None`` when there is none that reads."""
+    ""
     try:
         data = json.loads(path().read_text(encoding="utf-8"))
         state = State(**data)
@@ -69,5 +61,5 @@ def read() -> State | None:
 
 
 def remove() -> None:
-    """Forget the kept state."""
+    ""
     path().unlink(missing_ok=True)

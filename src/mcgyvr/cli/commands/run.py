@@ -1,7 +1,4 @@
-"""The `mcgyvr run` and `mcgyvr sessions` commands, and delivery settlement.
-
-Only what is built is exposed.
-"""
+""
 
 from __future__ import annotations
 
@@ -25,7 +22,7 @@ from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
 from mcgyvr.exits import Exit
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  #
     from mcgyvr.contract import Contract
     from mcgyvr.deliver import Accepted
     from mcgyvr.deterministic import ToolStep
@@ -48,63 +45,7 @@ from mcgyvr.cli.sandbox import (
 
 
 def _run(args: argparse.Namespace) -> int:
-    """Drive one contract to a gated verdict, and optionally to a commit.
-
-    Committing is opt-in. A gate verdict costs the user a sandbox that is torn
-    down either way, and a commit is a write to a repository they did not hand
-    over for one — so ``--commit`` is what makes the difference, and its absence
-    leaves the accepted change in the working tree and nothing else in the
-    repository: no commit, no branch, no receipt.
-
-    Two paths, chosen by the contract rather than by a flag. A deterministic
-    contract names a program and is run here; anything else climbs a ladder and
-    is :func:`_climb`'s. The split is the contract's catalog entry (its
-    ``operation``'s, or its ``task_type``'s) because that is where the catalog
-    already records which family work of this kind may
-    *begin* on, and a flag that let a caller override it would be a second,
-    quieter answer to the question ``starts_on`` exists to settle.
-
-    **A tool step has three outcomes here, not two**
-    (:class:`~mcgyvr.drive.ToolOutcome`): the program **could not run**
-    (126/127, an environment issue — the work is still doable on a dearer
-    family); the program **ran and did the
-    job its type describes** (:attr:`~mcgyvr.drive.ToolOutcome.performed`, which
-    is where any residue it reported goes on to the gate, because the gate is
-    the thing that judges a result and stopping here means the result is never
-    judged); and the program **ran and failed** (fatal — a fixer that could not
-    load its config applied the guarantee to nothing, and the gate reading that
-    same config is broken in the same way).
-
-    The test is the exit code, against the set of codes that invocation reports
-    under — the rule :func:`mcgyvr.gate.adapter.trusted_stdout` applies to the
-    gate's own invocations. What the program said it will not fix is printed
-    here.
-
-    **Every run is journaled, in one place, and nothing a caller passes moves
-    it.** The journal is mcgyvr's own record — ``<journal.dir>/<orchestrator>.jsonl``
-    with the prompts and replies content-addressed under ``blobs/``, each
-    run's result under ``results/`` and each ``chat`` or ``agent`` session
-    under ``sessions/``. It exists to be *compounded*: how often the
-    floor finishes a task type on its own, what a rung costs per accepted
-    change, whether escalating paid are all questions about every run there has
-    been, and they can only be asked where every run is. ``--record DIR`` is a
-    complete second copy for the caller's own reading, and a copy that cannot
-    be written is a line on stderr rather than the end of a run mcgyvr has
-    already recorded. ``--result PATH`` is the same bargain for the result file: it
-    says where the *caller* reads it, and ours keeps its own.
-
-    **Both paths, not only the dispatching one.** A deterministic contract
-    sends nothing to a model and is journaled all the same: how often the floor
-    finishes a task type on its own cannot be computed from a table missing the
-    floor's runs. The floor writes one row naming the program that did the
-    work, with ``tier: deterministic`` beside it and no prompt, reply or token
-    counts, because it made no dispatch and must not look as though it did.
-
-    The orchestrator is the session that typed the command
-    (:mod:`mcgyvr.session`), resolved in :func:`main` before anything here runs,
-    so a row can be followed back to the conversation. The only thing printed
-    about the result is its path: the caller reads a file, not the scrollback.
-    """
+    ""
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
@@ -133,24 +74,24 @@ def _run(args: argparse.Namespace) -> int:
     if not (repo / ".git").exists():
         print(f"error: {repo} is not a git repository", file=sys.stderr)
         return 1
-    # Warned, never refused: the sandbox is HEAD by design, and a dirty tree
-    # only blocks delivery where the target itself is dirty. Said only where
-    # the run reads the tree at all (e2e run 3, T4).
+    #
+    #
+    #
     notes = _say_what_the_sandbox_leaves_out(repo) if _reads_the_tree(contract) else []
 
-    # The ladder path needs the config; the deterministic floor does not and
-    # must keep running without one. Both need the journal dir, which is the
-    # config's when there is one and the schema default when the floor runs
-    # bare — a default the reference states, not one invented here.
+    #
+    #
+    #
+    #e.
     config: Config | None = None
     config_error: ConfigError | None = None
-    # `--config` or nothing, handed on as it came: the loader locates the file
-    # when nobody named one, because the remedy for a config that is not there
-    # turns on who chose the path and a caller that resolves it first has
-    # already lost that. What stays here is the question the loader cannot
-    # answer — whether anybody named a path at all — because that decides
-    # whether this run says anything: a default location with nothing in it is
-    # the supported bare install, and a path someone typed is not.
+    #
+    #
+    #
+    #
+    #ides
+    #
+    #
     chosen = Path(args.config) if args.config else None
     named = chosen if chosen is not None else named_config_path()
     try:
@@ -162,37 +103,37 @@ def _run(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         config_error = exc
     if config is None and not contract.is_deterministic:
-        # `config_error` says `mcgyvr setup` and where the file would go, which
-        # is the whole remedy for an operator who already knows what a config
-        # is for. It is not the whole remedy for the reader this line actually
-        # has: an agent following the skill, which names no setup verb and no
-        # lever, onto a machine nobody has set up. So the message keeps the
-        # loader's own remedy and adds where the rest of it is written down.
+        #
+        #
+        #
+        #
+        #
+        #
         print(f"error: {config_error} {SETUP_DOC} says how.", file=sys.stderr)
         return 1
 
-    # Ours, and nothing a caller passes moves it. The journal is a corpus to be
-    # compounded — how often the floor finishes a task type on its own, what a
-    # rung costs per accepted change, whether escalating paid — and every one of
-    # those questions is about *all* the runs there have been.
+    #
+    # a
+    #of
+    #
     configured = config.get("journal.dir") if config is not None else None
     journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
-    # An mcorch writer's transcript is under this directory and nowhere the
-    # parser could have looked: attached now that the directory is known.
-    session = with_mcorch_transcript(session, journal_dir)
-    # Theirs, for their own reading. A complete copy — every line, every blob,
-    # the result file — so a reader of the journal reads it exactly as it reads
-    # ours, and a failure to write one is a note rather than the end of a
-    # run we have already recorded correctly (`Recording.copy_failed`).
     #
-    # A copy of the corpus *into* the corpus is dropped rather than made, and
-    # this is not a nicety: the copy is written to `<dir>/<orchestrator>.jsonl`
-    # by the same name ours is, so naming our own directory would append every
-    # line to the same file twice. `fold` keeps both rows — a repeat attempt id
-    # is a collision, not a supersede — so a reader that builds one table row
-    # per folded attempt would count one dispatch as two.
-    # Resolved before comparing, because `--record .` and an absolute
-    # `journal.dir` are the same directory spelled two ways.
+    #
+    session = with_mcorch_transcript(session, journal_dir)
+    #b,
+    #ds
+    #
+    #
+    #
+    #
+    #
+    #
+    #id
+    #ow
+    #
+    #
+    #
     asked = Path(args.record).expanduser() if args.record is not None else None
     mirrors = (
         (asked,)
@@ -200,47 +141,47 @@ def _run(args: argparse.Namespace) -> int:
         else ()
     )
 
-    # One stamp names the run: the result file carries it and every journal
-    # row keys on it, so a re-run of the same contract is a second run and
-    # not a second copy of the first (`Recording.run`). The destination is
-    # settled here rather than at the end because the note below states it,
-    # and a note may not state something the run has not decided.
+    #
+    #
+    #
+    #
+    #
     stamp = run_stamp()
-    # Ours is written whatever else is; `--result` says where the *caller*
-    # reads it, and that is the path the `result:` line names. The two are the
-    # same file when the flag is off, and `write` is called once for it.
+    #
+    #
+    #
     keep = result_path(journal_dir, contract.id, stamp)
     where = Path(args.result) if args.result else keep
 
     bare_install = isinstance(config_error, ConfigMissingError) and named is None
     if config_error is not None and not bare_install:
-        # Said, not swallowed. The floor runs without a config on purpose, so
-        # this is not an error — but a config that is *there* and cannot be
-        # used is not the same thing as none, and silence made the two
-        # identical: whatever `journal.dir` that file names is not the
-        # directory this run is about to write under, and the operator's only
-        # clue was a result file somewhere they had configured away from. So
-        # the note names the file, what is wrong with it, and where the answer
-        # went instead.
         #
-        # It names the result file because that is the path the caller reads;
-        # the floor's row and mcgyvr's own copy of the result go under the
-        # default journal dir. Only the floor reaches this line — a climb
-        # without a ladder was refused above.
+        #be
         #
-        # The reason is flattened first: a YAML parse error is several lines,
-        # and the tail of a multi-line message printed under a `note:` prefix
-        # is not part of the note as far as anything reading this output is
-        # concerned.
         #
-        # "sends its result to", not "its result lands at": this line is
-        # printed before the run, so the destination is all it has. Where the
-        # result *arrives* is not settled until `write` below returns, and
-        # `--result` at an unwritable path leaves the note having reported a
-        # file that was never created. Moving the note after the write would
-        # trade a false tense for a warning that arrives after the whole run,
-        # and after the failures that end it early — so the note keeps its
-        # place and states the fact it actually has.
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #mb
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #ts
+        #
         reason = " ".join(str(config_error).split())
         print(
             f"note: {path or 'the config'} is not usable ({reason}); this run "
@@ -251,7 +192,7 @@ def _run(args: argparse.Namespace) -> int:
     report = RunResult(
         contract=contract.id,
         task_type=contract.task_type,
-        # A session writes nothing, so it has no target, whatever it gave.
+        #
         target="" if contract.is_session else contract.target,
         orchestrator=session.orchestrator,
         run=stamp,
@@ -260,7 +201,7 @@ def _run(args: argparse.Namespace) -> int:
         notes=notes,
     )
 
-    # Every run, both paths: the floor dispatches nothing and is journaled too.
+    #
     try:
         recording = Recording(
             path=journal_dir / f"{session.orchestrator}.jsonl",
@@ -269,18 +210,18 @@ def _run(args: argparse.Namespace) -> int:
             session_file=session.session_file,
             mirrors=mirrors,
         )
-        # Every row carries the caller's tags, so tags that cannot be read
-        # are refused here, once, rather than as a failed row per attempt.
+        #
+        #
         run_tags()
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    # Asked before the run rather than discovered during it. Our sink raises on
-    # an unwritable path (`telemetry.observe`), and a raise from inside a
-    # dispatch reaches the caller as a traceback with no `result:` line; a
-    # directory that is a file or a path with no permission is an
-    # operator error that is free to state now and expensive to read later. A
-    # full disk part-way through is still a raise; this is the cheap half.
+    #
+    #
+    #
+    #
+    #
+    #
     try:
         journal_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
@@ -294,30 +235,30 @@ def _run(args: argparse.Namespace) -> int:
         return 1
     print(f"journal: {recording.path}", file=sys.stderr)
 
-    # Settled once, here, so both paths below open the same sandbox
-    # (`_sandbox_mode` says who answers).
+    #
+    #
     args.sandbox = _sandbox_mode(args.sandbox, contract, config)
-    # Settled once too, for delivery (`_commit`): it judges the bytes again,
-    # and a gate that read a different setup from the sandbox's would refuse
-    # where the change lands what the setup asked it to accept where it was
-    # written (`gate.param_mutation`).
+    #
+    #
+    #
+    #
     args.gate_adapters = gate_adapters(config)
-    # And whether, and onto which branch, an accepted change is committed: the
-    # same precedence (`_settle_delivery`).
+    #
+    #
     _settle_delivery(args, config)
 
     if contract.is_deterministic:
         code = _floor(args, contract, repo, report, config, recording=recording)
     else:
-        assert config is not None  # refused above when it could not load
+        assert config is not None  #
         code = _climb(args, contract, repo, config, recording=recording, report=report)
 
     report.exit_code = code
-    # Said once, at the end, and not per row: a directory that is a file fails
-    # identically for every line of the run, and a thousand notes about one
-    # mistake is a way of not reporting it. The result file carries it too, so
-    # a caller who reads the file rather than the scrollback — which is what the
-    # skill tells them to do — learns their copy is short.
+    #
+    #
+    #
+    #he
+    #t.
     for mirror, why in recording.copy_errors.items():
         report.copy_errors[str(mirror)] = why
         print(
@@ -327,11 +268,11 @@ def _run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
-    # A chat or agent run is a session, and its answer is kept (owner, e2e run
-    # 1 F7: "answers are not throwaway nowhere"): a record of its own under
-    # the journal, written before the result file so the result never names a
-    # record that is not there. Not fatal when it cannot be written: the answer
-    # is in the result file all the same, and the line says where it is not.
+    #
+    #
+    #
+    #
+    #
     if contract.is_session:
         logged = session_path(journal_dir, contract.id, stamp)
         try:
@@ -364,12 +305,12 @@ def _run(args: argparse.Namespace) -> int:
                         file=sys.stderr,
                     )
 
-    # Serialised once and copied, never written twice. `write` stamps
-    # ``finished`` from the clock on each call, so a second call would produce
-    # a file that differs from the first in the one field a reader would use to
-    # tell two runs apart — and these are one run. The caller's path is the one
-    # written, because it is what the `result:` line names and what they would
-    # notice missing; ours is a copy of those exact bytes.
+    #
+    #
+    #
+    #ne
+    #
+    #
     failed = where
     try:
         written = write(where, report)
@@ -377,12 +318,12 @@ def _run(args: argparse.Namespace) -> int:
             failed = keep
             _copy(written, keep)
     except OSError as exc:
-        # Said, not thrown. By now the run has happened — an accepted change
-        # is already in the working tree — and a traceback with no `result:`
-        # line reads to the caller as a run that never started. One line that
-        # names the path, the reason and what the run came to is the whole of
-        # what the file would have said that matters — where the change went
-        # included, which is `delivery`'s to say beside the judgement.
+        #ge
+        #:`
+        #
+        #
+        #nt
+        #
         went = report.delivery if report.delivery != report.detail else ""
         print(
             f"error: the result could not be written to {failed}: {exc}. "
@@ -394,9 +335,9 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 1
 
-    # Their copy of the result, under their copy of the journal, so a directory
-    # `--record` named is a whole journal and not a journal missing its answers.
-    # Not fatal, for the reason none of their copies are: ours is written.
+    #
+    #
+    #
     for mirror in mirrors:
         try:
             _copy(written, result_path(mirror, contract.id, stamp))
@@ -411,25 +352,13 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def _copy(source: Path, target: Path) -> None:
-    """The same bytes at a second path, whole or not at all.
-
-    Through a staging name and :func:`os.replace`, as
-    :func:`~mcgyvr.result.write` does, so a reader never opens a half-written
-    result — and the same tidy-up, so a copy that failed part-way leaves no
-    ``.part`` for the next reader to wonder about.
-    """
+    ""
     target.parent.mkdir(parents=True, exist_ok=True)
     atomic.write(target, source.read_bytes())
 
 
 def _sessions(args: argparse.Namespace) -> int:
-    """List the session log, newest first, or show one session whole.
-
-    The log is the journal's ``sessions/``: ``--journal DIR`` (a ``--record``
-    copy, say), else the config's ``journal.dir``, else the schema default — a
-    bare install has a journal too. One line per session in the listing, and
-    the question and the answer in full when one is named.
-    """
+    ""
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.result import SESSIONS_DIR, sessions
 
@@ -440,8 +369,8 @@ def _sessions(args: argparse.Namespace) -> int:
         try:
             configured = load_config(chosen).get("journal.dir")
         except ConfigError as exc:
-            # No config where nobody named one is the bare install, whose
-            # journal is the default; a config someone named is theirs to fix.
+            #
+            #
             bare = isinstance(exc, ConfigMissingError) and (
                 chosen is None and named_config_path() is None
             )
@@ -466,7 +395,7 @@ def _sessions(args: argparse.Namespace) -> int:
         return 0
 
     path = journal_dir / SESSIONS_DIR / f"{args.id}.json"
-    # An id is a file name in the log, never a path out of it.
+    #
     if Path(args.id).name != args.id or not path.is_file():
         print(
             f"error: no session {args.id!r} in {journal_dir / SESSIONS_DIR}; "
@@ -495,16 +424,7 @@ def _clip(text: str, width: int) -> str:
 
 
 class FloorStoppedError(Exception):
-    """The floor's program did not do the work, and said why.
-
-    A local exception rather than an early ``return``, because the run has to
-    reach :func:`~mcgyvr.telemetry.observe`'s ``except`` to leave a row. A
-    ``ruff`` that is not installed, and one that exits 2 on a config it cannot
-    load, are both things the corpus has to be able to count — "the floor could
-    not" is an answer to "how often does the floor finish this on its own", and
-    a run that returned quietly was indistinguishable from one that never
-    happened.
-    """
+    ""
 
 
 def _floor(
@@ -516,26 +436,7 @@ def _floor(
     *,
     recording: Recording,
 ) -> int:
-    """Run a deterministic contract's program, gate what it did, and record it.
-
-    **The floor journals, on the same terms as a dispatch.** It writes no
-    prompt and no reply because it sent none, but it is a run, and a corpus
-    that held only the runs the floor did *not* handle could not answer the one
-    question the deterministic tier exists to raise: how much work finishes
-    here, for free and in one attempt, rather than on a model.
-
-    The row is written once the program and the gate have both run inside
-    :func:`~mcgyvr.telemetry.observe`, and is corrected afterwards with how the
-    result was judged and where it went. ``rung`` is the program that did it —
-    ``ruff``, not a model — and ``tier`` is ``deterministic`` beside it, so one
-    query can count a floor run against a ladder attempt without the two
-    vocabularies colliding in one column.
-
-    What is deliberately outside the row: opening the sandbox. It is the
-    floor's ``pool.bind`` — the step before the work that decides whether there
-    is any — and the ladder does not journal a dispatch it could not make
-    either. What is counted is what ran.
-    """
+    ""
     from mcgyvr.deterministic import tool_steps
     from mcgyvr.drive import (
         DriveError,
@@ -548,9 +449,9 @@ def _floor(
     from mcgyvr.telemetry import correct, observe
 
     if args.record is not None:
-        # The floor dispatches nothing and journals all the same: the
-        # `--record` directory gets this run's row, its verdict and a copy of
-        # its result, and so does mcgyvr's own `journal.dir`.
+        #
+        #
+        #
         print(
             f"note: {contract.id} is a {contract.kind.name!r} contract and runs "
             f"on the deterministic floor; it dispatches nothing, so the copy in "
@@ -571,52 +472,52 @@ def _floor(
     except SandboxError as exc:
         return _error(report, str(exc))
 
-    # One row per run, not per step: `tool_steps` returns one step or none —
-    # "a tool fails identically on retry" — and a key per step would invent a
-    # breadth the floor does not have.
+    #��
+    # a
+    #
     rung = steps[0].tool.program or contract.kind.name
     attempt_id = recording.attempt_id(contract.id, rung, 1)
 
-    # What an in-process step said it did, for the journal's verdict row.
+    #
     performed: list[str] = []
 
     def work() -> GateResult:
         for note in sandbox.notes:
             print(f"note: {note}")
-        # The run's own ceiling, as its acceptance commands get
-        # (`acceptance_for`): left to `run_tool_step`, a step is timed by the
-        # config at the default location rather than the one `--config` named.
+        #
+        #
+        #
         ceiling = task_ceiling(config)
         for step in steps:
             outcome = run_tool_step(step, sandbox, timeout=ceiling)
             print(f"  {_ran(step)}")
             if not outcome.ran:
                 raise FloorStoppedError(str(outcome.environment_issue))
-            assert outcome.result is not None  # `ran` is `result is not None`
+            assert outcome.result is not None  #
             if not outcome.performed:
                 raise FloorStoppedError(
                     (outcome.result.stderr or outcome.result.stdout).strip()
                 )
             if not step.argv and outcome.result.stdout.strip():
-                # An in-process step's own account of what it touched — for
-                # `rename_symbol`, every file and line it renamed in and every
-                # same-named occurrence it judged to be another symbol. A
-                # program's stdout is its own business; this one is the only
-                # record of which files the change spans, so it is printed,
-                # kept in the result's notes and handed to the journal.
+                #or
+                #
+                #
+                #
+                #
+                #
                 said = outcome.result.stdout.strip()
                 print(textwrap.indent(said, "    "))
                 performed.append(f"{_ran(step)}\n{said}")
                 report.notes.append(f"{_ran(step)}: {said}")
             if not outcome.ok:
-                # Reported, not swallowed. The tool did what its type
-                # guarantees and is telling us what it will not do — for
-                # `lint_fix`, "a diagnostic the linter will not fix itself
-                # is explicitly out of scope for this type". Printing it is
-                # how the operator learns there is work left that no
-                # deterministic rung is going to take, and it goes to stdout
-                # beside the command rather than to stderr, because nothing
-                # here failed.
+                #
+                #or
+                #
+                #
+                #
+                #
+                #
+                #
                 left = (outcome.result.stdout or outcome.result.stderr).strip()
                 print(
                     f"  note: {step.tool.program} applied its fixes and left "
@@ -628,11 +529,11 @@ def _floor(
 
     try:
         with sandbox:
-            # The baseline `_climb` checks before a rung is charged, checked
-            # here before the tool runs: a suite already red on the unchanged
-            # tree is the contract's or the tree's problem, and judging it
-            # after the tool would file it as the tool's change, `rejected`.
-            # No row yet — the run has not started its work.
+            #
+            #
+            #
+            #
+            #k.
             acceptance = acceptance_for(contract, sandbox, config=config)
             if acceptance is not None:
                 baseline = acceptance.baseline()
@@ -666,15 +567,15 @@ def _floor(
                 performed="\n".join(performed),
             )
     except (FloorStoppedError, DriveError, SandboxError) as exc:
-        # The row exists by now — `observe` writes one on both of its paths,
-        # and everything caught here is raised from inside it or from the
-        # sandbox closing around it — so the verdict is written the way a
-        # climb's raised attempt's is. An uncorrected row reads as a run that
-        # died before anything could judge it, and "the floor could not" is an
-        # answer the corpus is being kept in order to count: a tier that
-        # finishes nothing on this machine is a different fact from a tier
-        # nobody asked. `open_sandbox` failing is caught above instead, where
-        # there is no row yet and a correction would be an orphan.
+        #s,
+        #
+        # a
+        #
+        #
+        #
+        #
+        #
+        #
         correct(
             path=recording.path,
             attempt_id=attempt_id,
@@ -688,25 +589,14 @@ def _floor(
 
 
 def _runs_no_command(contract: Contract) -> bool:
-    """Whether ``contract`` is a session that declares no command to run.
-
-    Such a run only stages its reply for the output checks, so its sandbox is
-    ``sandbox.sessions``'s to choose and not ``sandbox.mode``'s (owner, e2e
-    run 2 R10: docker for chat and agent is opt-in at setup).
-    """
+    ""
     return contract.is_session and not (
         contract.acceptance_commands or contract.demonstration_commands
     )
 
 
 def _sandbox_mode(typed: str | None, contract: Contract, config: Config | None) -> str:
-    """The sandbox mode a run of ``contract`` opens.
-
-    A flag typed at the terminal is a person overriding their own file and
-    wins. With none, a session that runs no command reads `sandbox.sessions`
-    (`tempdir` unset), and every other run reads `sandbox.mode` (`docker`
-    unset): a session that declares a command runs it as any task does.
-    """
+    ""
     if typed:
         return typed
     key, unset = (
@@ -725,14 +615,7 @@ SESSION_SANDBOX_NOTE = (
 
 
 def _ran(step: ToolStep) -> str:
-    """The line that says what a floor step ran, as a person would retype it.
-
-    A program is its command line. An in-process step has no command line —
-    :attr:`~mcgyvr.deterministic.ToolStep.argv` is empty on purpose — and
-    joining nothing printed a bare ``$``, which says a command ran and names
-    none. It is said instead as what it is: mcgyvr's own operation, with the
-    pair it was given.
-    """
+    ""
     if step.argv:
         return f"$ {' '.join(step.argv)}"
     said = f"(in-process) {step.tool.operation}"
@@ -742,12 +625,7 @@ def _ran(step: ToolStep) -> str:
 
 
 def _error(report: RunResult, detail: str, *, outcome: str = "error") -> int:
-    """Print an error the way every branch here does, and keep it for the result.
-
-    The outcome is set here, not left to whatever the caller had written
-    before things went wrong. A caller reporting under a more specific word
-    passes it.
-    """
+    ""
     print(f"error: {detail}", file=sys.stderr)
     report.outcome = outcome
     report.detail = detail
@@ -763,36 +641,7 @@ def _climb(
     recording: Recording | None = None,
     report: RunResult,
 ) -> int:
-    """Drive a model-executed contract up the ladder a config describes.
-
-    **Which flag selects a rung: none, and that is the answer rather than a
-    deferral.** Rung selection is already owned, in one place, by data this
-    command does not get to second-guess. The contract's ``task_type`` names the
-    family work of its kind may begin on; :func:`~mcgyvr.escalate.ascent` walks
-    the catalog's families upward from there; :func:`~mcgyvr.route.plan` takes
-    each family's rungs in the order the operator wrote them into the ladder
-    and gives each the attempts the policy's ``attempts`` map declares for it,
-    capped by the contract's ``limits.attempts``; and ``max_escalations`` with
-    ``max_attempts`` bound how far the walk gets. A ``--rung`` flag would be a
-    fourth party to a decision three files already settle, and the first time it
-    disagreed with the ladder the operator would have two orderings and no way
-    to tell which one ran.
-
-    Hence ``--config`` and no rung flag. It resolves the same way every other
-    command's does — ``$MCGYVR_CONFIG``, else the live fleet folder the
-    config folder's ``live.json`` names — because a
-    second resolution order for the same file is a
-    second file as far as an operator debugging one is concerned. The config is
-    loaded once, in :func:`_run`, because the journal dir is read off it before
-    a rung is chosen.
-
-    **An install that cannot run this contract is refused before a sandbox is
-    opened.** :attr:`~mcgyvr.escalate.Ascent.reason` already carries the sentence
-    each empty family wrote about itself — which rung was skipped, which variable
-    is unset — and ``escalate`` would reach the same conclusion on its own. Doing
-    it here is what keeps a container from being built for a task that was never
-    going to dispatch.
-    """
+    ""
     from mcgyvr.availability import AvailabilityVerdict
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
@@ -805,12 +654,12 @@ def _climb(
     from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import reviewers_for
 
-    # Live is admitted before anything here is built, opened or dispatched
-    # (the lab's fleet-identity plan, §6): each rig of the live
-    # fleet is read through the door and held to its lock
-    # (`mcgyvr.fleet.admission`). At the
-    # top, the conservative place: a refused run costs no pool, no capacity slot
-    # and no sandbox. A run under a staged setup (`_live`) reads no rig.
+    #
+    #e
+    #
+    #
+    #
+    #
     if _live(config):
         refused = _admitted_live(config)
         if refused is not None:
@@ -818,9 +667,9 @@ def _climb(
             report.detail = refused
             return Exit.REFUSED
 
-    # What the ladder manager (`mcgyvr manage`) has chosen for this ladder, if
-    # it runs one: the config a task climbs with, and the hooks that let the
-    # manager read the queue. An unmanaged ladder is handed back unchanged.
+    #
+    #
+    #
     from mcgyvr import ladder_manager
     from mcgyvr.pressure import Board
 
@@ -829,29 +678,29 @@ def _climb(
     if managed.note is not None:
         print(f"note: {managed.note}")
 
-    # Structural resolution, no probe: a live-reachability sweep costs one
-    # timeout per source and answers a question the dispatch below is about to
-    # ask for real. `mcgyvr local_pool --probe` is where an operator asks it in
-    # advance, and paying for it here would charge every run for a diagnosis.
     #
-    # `Availability.not_serving` — whether the model a rung declares is the one
-    # its port holds — is not asked here either: `source_map(config)` takes no
-    # probe, so this function resolves its ladder without a network. A wrong
-    # model is caught at dispatch instead: llama-server answers a request
-    # naming another model from the weights it holds, and the runner refuses a
-    # reply whose `model` names other weights (`runner.WrongWeightsError`).
+    #
+    #
+    #
+    #
+    #ne
+    #no
+    #
+    #
+    #
+    #
     pool = source_map(config)
 
-    # The width `mcgyvr config` prints, actually applied. Built here, once, and
-    # handed to both `ascent` and `escalate`: the reservations one makes are
-    # the loads the other reads, so two capacities would be two tallies of one
-    # rig. Its slot files are a host-wide rendezvous, which is what makes this
-    # bound hold across concurrent `mcgyvr run` processes and not merely
-    # within one — the case it exists for, since a single contract dispatches
-    # one request at a time and never contends with itself. Its server reader
-    # is what lets `fanout: idle` count a client that is not mcgyvr: a rung is
-    # full by either count (Capacity.judge), and it is read only where that
-    # question is asked.
+    #
+    #
+    #
+    #
+    #
+    #es
+    #
+    #
+    #
+    #
     from mcgyvr.pressure import server_counts
 
     try:
@@ -859,16 +708,16 @@ def _climb(
     except CapacityError as exc:
         return _error(report, str(exc))
 
-    # The cooldown learns from dispatch failures, not from a probe, so its
-    # liveness half is a stub that always reports live. Probing here would
-    # charge every run for a diagnosis the dispatch below is about to make for
-    # real, and `mcgyvr local_pool --probe` is where an operator asks it in advance.
-    # The probe parameter is typed `object` rather than `Endpoint` because the
-    # seam guard forbids importing `Endpoint` above the seam, and `object` is
-    # accepted contravariantly.
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     def _always_live(endpoint: object, timeout_s: float) -> AvailabilityVerdict:
         return AvailabilityVerdict(
-            source=endpoint.source,  # type: ignore[attr-defined]
+            source=endpoint.source,  #
             live=True,
             reason="",
             how="stub probe, no network",
@@ -889,18 +738,18 @@ def _climb(
             outcome=Outcome.NOTHING_TO_RUN.value,
         )
 
-    # Before the sandbox, for the reason the paragraph above gives: an install
-    # whose named verifier cannot serve is refused while refusing is still
-    # free. `verifier.enabled` is acted on here — on unless the config says
-    # `false` — and `reviewers_for` reads the rest once: the named
-    # `verifier.unit` (or, for work its own model wrote, the fallback
-    # `verify.stand_in_rung` picks), or, with none named, the next dearer
-    # local rung with another model for each builder (never a hosted one). A
-    # builder with no independent reviewer is not refused; its acceptance is
-    # labelled unverified and says so. A reply (`chat`, `agent`, `media`) is never
-    # reviewed, so none is resolved for it and a verifier the install cannot
-    # serve does not refuse it (owner, e2e run 2 R11: "agent and chat have no
-    # gates").
+    #
+    #
+    #ys
+    #ed
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
     try:
         reviewers = (
             reviewers_for(config, pool, capacity=capacity)
@@ -916,11 +765,11 @@ def _climb(
         )
 
     try:
-        # A session that runs no command and was not given a container is
-        # staged on this host without `open_sandbox`: no daemon is probed, so
-        # Docker need not be installed, and neither the weaker-mode note nor
-        # `sandbox.network: none`'s refusal applies — both are about commands,
-        # and none runs. Its workspace is a checkout of HEAD as in any mode.
+        #
+        #
+        #
+        #s,
+        #
         sandbox = (
             TempDirSandbox(repo, notes=(SESSION_SANDBOX_NOTE,))
             if _runs_no_command(contract) and args.sandbox == "tempdir"
@@ -929,9 +778,9 @@ def _climb(
                 mode=args.sandbox,
                 image=config.get("sandbox.image"),
                 setup=config.get("sandbox.setup") or (),
-                # The worker runs outside the sandbox and the sandbox has to be
-                # able to reach it: a container with no route to the source is
-                # a task that gates fine and never gets an answer to gate.
+                #
+                #
+                #
                 endpoints=tuple(unit.address for unit in config.units.values()),
                 **_sandbox_policy(config),
             )
@@ -943,13 +792,13 @@ def _climb(
         with sandbox:
             for note in sandbox.notes:
                 print(f"note: {note}")
-            # The baseline, before the first rung: `Acceptance.baseline`
-            # runs both lists against the unchanged tree, so a demonstration
-            # that already passes or a suite that is already red is refused
-            # here rather than charged to a model. The issue's own wording
-            # tells the two apart, because the operator's next move differs:
-            # one says fix the contract, the other says fix the tree. What the
-            # commands left behind was cleaned up, and the notes say what.
+            #
+            #
+            #
+            #
+            #
+            #
+            #
             acceptance = acceptance_for(contract, sandbox, config=config)
             if acceptance is not None:
                 baseline = acceptance.baseline()
@@ -958,11 +807,11 @@ def _climb(
                 report.notes.extend(baseline.notes)
                 issue = baseline.issue
                 if issue is not None:
-                    # Filed under `error`, the word the result file
-                    # documents for a run that reached no verdict — a
-                    # preflight issue is an orchestration error and not
-                    # a rejected change (gate/preflight.py). The detail
-                    # names it as one.
+                    #
+                    # a
+                    #
+                    #
+                    #
                     return _error(report, str(issue))
             driver = worker_attempt(
                 config,
@@ -982,11 +831,11 @@ def _climb(
                 contract,
                 driver,
                 capacity=capacity,
-                # The fleet-manager seam: a Jev difficulty judgment that may
-                # route a hard task to an asleep smarter rung before the api.
-                # ``None`` for an install with no asleep smarter rung, or one
-                # that has not enabled sleep-wake — which is every install
-                # that did not ask for the feature.
+                #
+                #
+                #
+                #ll
+                #
                 wake_hook=fleet_hook_for(config, pool, cooldown=cooldown),
                 presence=managed.presence,
             )
@@ -1000,15 +849,7 @@ def _climb(
 def _warning_pulled_steps(
     attempt: Callable[[Try], Judgement],
 ) -> Callable[[Try], Judgement]:
-    """``attempt``, warning once on stderr before each pulled step is dispatched.
-
-    Warned, not enforced. A step whose unit's combination is pulled
-    (:func:`mcgyvr.fleet.alerts.live_pulled_units`) is named, with each pulled
-    field and its count, and then dispatched exactly as it would have been:
-    this wraps the attempt and never answers for it, so the rungs, the attempts
-    and the outcome are the climb's own. Pulls that cannot be read are one
-    warning, and the run goes on; nothing here fails a run.
-    """
+    ""
     from mcgyvr.fleet.alerts import live_pulled_units
 
     try:
@@ -1054,56 +895,7 @@ def _report_climb(
     recording: Recording | None,
     report: RunResult,
 ) -> int:
-    """Print what the climb spent, correct the journal, and commit when asked.
-
-    Every attempt is printed, including the ones that failed, and under a failed
-    one the gate's findings, one ``✗`` line each. A ladder walk that reported
-    only its answer would leave an operator unable to tell one rung accepting
-    immediately from three rungs spent and the dearest one succeeding, which is
-    the difference the whole escalation policy is about; and a failure reported
-    without its findings leaves the caller unable to write a better contract,
-    which is the only thing a caller can do about it.
-
-    **This is where the journal learns how each attempt landed.** Each row was
-    written by :func:`~mcgyvr.telemetry.observe` before the gate ran, so it
-    says what was asked and what came back and not whether it was any good.
-    The verdict is appended now as a correction — ``passed``/``failed``, with
-    the finding lines as the detail of a failure, or ``error`` for an attempt
-    that raised — and :func:`_commit` appends a second one on the accepted
-    attempt saying where the work went. A rung that declined dispatched
-    nothing and has no row to correct. An attempt that drew more than once
-    (``breadth.draws``) wrote one row per draw: the verdict lands on the draw
-    it is about and every other draw of that attempt is ``failed``. ``best_of``
-    does not stop early — it draws all of them, gates each and ranks the lot —
-    so the rows beside the verdict's are draws whose work did not land, which
-    is what ``failed`` says about them here whatever their own gate thought of
-    them on its own.
-
-    **An attempt that raised accounts for every row it wrote, and the result
-    names the one it died in.** The entry's ``rows`` is how many rows the
-    attempt wrote — what is iterated here — its ``draws`` is the breadth it was
-    asked for, and its ``draw`` is the one that raised; all three are stated by
-    the driver (:class:`~mcgyvr.escalate.DispatchRaisedError`) because nothing
-    else knows: an exception carries no draw, and reading it back off the
-    journal is inference that mis-attributes twice over — a raise after the
-    draws lands on a dispatch that answered, and a draw whose row was lost
-    shifts every draw down one. A raise before the first dispatch wrote no
-    rows, so nothing is corrected; a correction appended for a row nobody wrote
-    is an orphan :func:`~mcgyvr.telemetry.fold` returns and the live view
-    drops.
-
-    **Every one of those rows is ``error``, including the draws that answered
-    before the raise.** They are not ``failed``: ``failed`` is a gate's word,
-    and while the earlier draws may well have been gated, the *attempt* they
-    belong to reached no verdict at all — writing one on them would report a
-    judgement that never happened, the same coinage this project refuses for a
-    draw that produced nothing. What distinguishes the row that actually raised
-    is not a different word but ``attempt_id``: the result names it, and only
-    it, and names nothing when the raise was no dispatch's.
-
-    The accepted attempt is the last entry of the history: ``route.climb``
-    returns the moment an attempt passes, right after recording it.
-    """
+    ""
     from mcgyvr.escalate import Assurance, Delivered
     from mcgyvr.result import AttemptResult
     from mcgyvr.route import Verdict
@@ -1115,10 +907,10 @@ def _report_climb(
         for finding in step.findings:
             print(f"    ✗ {finding}")
         attempt_id: str | None = None
-        # The draw the entry is about: the one the gate judged, or the one the
-        # attempt died in. `None` comes off a raised entry only, and says no
-        # dispatch of the attempt is the subject — so there is no row for the
-        # result to name, and every row it wrote is corrected all the same.
+        #
+        #
+        #he
+        #
         subject = step.draw
         if recording is not None and step.verdict is not Verdict.DECLINED:
             if subject is not None:
@@ -1165,8 +957,8 @@ def _report_climb(
         f"after {outcome.attempts_spent} attempt(s) and "
         f"{outcome.escalations} escalation(s)"
     )
-    # The headline waits for delivery when there is one: "accepted" is said
-    # only of a change that was written (e2e run 2, R2).
+    #
+    #
     verdict = _Headline(
         headline=f"{contract.id}: accepted {spent}",
         passed=f"{contract.id}: checks passed {spent}",
@@ -1174,13 +966,13 @@ def _report_climb(
     report.outcome = "accepted"
     report.rung = outcome.rung
     report.assurance = outcome.assurance.value
-    # How the work was judged, in the judgement's own words — verified by whom,
-    # unverified and why, or a reply's checks — into the result file, which is
-    # what a caller is told to read.
+    #m,
+    #is
+    #
     report.detail = outcome.judgement.detail
     if outcome.assurance is Assurance.UNVERIFIED:
-        # Said where it cannot be missed, because nothing else about the run
-        # looks different: the change is accepted on the gate alone.
+        #
+        #
         print(
             f"UNVERIFIED: {contract.id} is accepted with no independent review "
             f"approving it — {outcome.judgement.detail}",
@@ -1190,11 +982,11 @@ def _report_climb(
         print(f"note: {outcome.judgement.detail}", file=sys.stderr)
     bound = outcome.judgement.accepted
     if bound is None:
-        # `judge` only reaches PASSED through a gate that accepted, and
-        # `worker_attempt` binds on exactly that branch. Refusing rather than
-        # asserting because the alternative to a bound value is not a fallback:
-        # there is nothing to deliver, and a commit assembled from anything else
-        # would be bytes no gate read.
+        #
+        #
+        #
+        #
+        #
         verdict.say()
         return _error(
             report,
@@ -1202,9 +994,9 @@ def _report_climb(
             f"content, so there is nothing a delivery could re-judge.",
         )
     if contract.output_schema in ("prose", "media_artifact"):
-        # A raw-text reply is the answer, not a file that gets committed: the
-        # harness reads it off the result file rather than off a delivery. No
-        # `_commit` is attempted and the accepted exit is returned.
+        #
+        #
+        #
         report.answer = bound.content
         verdict.say()
         print(f"\n{contract.id}: answer —\n{bound.content}")
@@ -1224,9 +1016,9 @@ def _report_climb(
                 contract.id,
                 landed.rung,
                 landed.attempt,
-                # An accepted attempt was judged, and a judged entry names the
-                # draw it was judged on. Only a raised entry leaves this unset,
-                # and a raise is never the last entry of a `Delivered`.
+                #
+                #
+                #
                 landed.draw or 0,
             )
             if recording is not None
@@ -1236,27 +1028,7 @@ def _report_climb(
 
 
 def _correction_detail(step: Attempted, each: int, subject: int | None) -> str:
-    """What the correction on one draw's row says, in this caller's vocabulary.
-
-    Four sentences, because a row is corrected for four different reasons and a
-    reader of the journal has only this line to tell them apart: the draw the
-    verdict is about carries the gate's findings; a draw that lost to it says
-    which draw won; the draw an attempt raised in carries the raise; and a draw
-    of a raised attempt that is not that one says so and says where the raise
-    was instead — on another draw, or past the last draw that answered.
-
-    That last sentence is why the raised rows are not simply left alone. An
-    attempt accounts for every row it wrote: a suffixed row that keeps ``ok:
-    true`` and no outcome is indistinguishable from a run that died before it
-    could be corrected, which is precisely the reading breadth's own telemetry
-    must not invite.
-
-    A raise with ``draw: null`` has three causes: a gate that died on an early
-    draw, a draw whose ``pool.bind`` raised before it reached a row, and a raise
-    after the last draw. This line is only ever written about a row that
-    exists, so ``rows - 1`` is the last draw that answered, and naming that draw
-    is true of all three.
-    """
+    ""
     if step.raised:
         if each == subject:
             return step.detail
@@ -1283,28 +1055,7 @@ def _report_run(
     attempt_id: str | None = None,
     performed: str = "",
 ) -> int:
-    """Print the gate verdict, correct the row it is about, and commit when asked.
-
-    ``recording`` and ``attempt_id`` arrive from :func:`_floor`, its only
-    caller, which writes one row per run and needs it corrected the way
-    :func:`_report_climb` corrects a climb's: the row says the program ran, and
-    the correction says how the gate judged it. They are optional because the
-    correcting is the only part of this a caller can decline, not because there
-    is a second caller that declines it — a climb never comes through here, it
-    reports itself and reaches :func:`_commit` directly.
-
-    ``performed`` is what an in-process step said it did — a rename's files and
-    lines — and goes into the verdict's correction beside the findings, so the
-    journal keeps the one account of which files the change spans.
-
-    **What is delivered is what the program changed.** The binding is minted
-    over the sandbox's whole change set, the files the gate just judged, not
-    over ``target`` alone: a ``rename_symbol`` that renamed a definition and its
-    importers is one change in several files, and delivering only the target
-    left the user's tree importing a name that no longer exists. Delivery then
-    holds every file to the contract's scope and lands them in one commit, or
-    none.
-    """
+    ""
     from mcgyvr.deliver import Accepted, DeliveryError
     from mcgyvr.escalate import Assurance
     from mcgyvr.gate.changeset import ChangeSet
@@ -1321,10 +1072,10 @@ def _report_run(
     )
     report.findings = [str(finding) for finding in result.findings]
     if recording is not None and attempt_id is not None:
-        # The gate's word for it, in the gate's vocabulary — the same two words
-        # a climb's attempts are corrected with, so one query counts them
-        # together. `_commit` appends a second correction on top saying where
-        # the work went, and the folded row is that later one.
+        #ds
+        #
+        #
+        #
         said = [str(finding) for finding in result.findings]
         if performed:
             said.append(performed)
@@ -1354,14 +1105,14 @@ def _report_run(
         verdict.say()
         return _error(report, str(exc))
     if not changed:
-        # The program ran, the gate had nothing to object to, and the tree is
-        # exactly as it was: the target already is what the task type asks for.
-        # Delivery would refuse it as a change identical to its base — which is
-        # right for a model that answered with its target unchanged, and wrong
-        # for a program that did its job and found nothing to do. The floor's
-        # no-op ends on its own word, exit 0, with or without --commit, and
-        # nothing is written or committed. Checked after binding: a target
-        # that cannot be read is an error whatever changed.
+        #
+        #
+        #is
+        #
+        #
+        #
+        #
+        #
         detail = (
             f"{contract.target} already is what {contract.kind.name!r} asks for; "
             f"nothing was written"
@@ -1381,9 +1132,9 @@ def _report_run(
                 on_copy_error=recording.copy_failed,
             )
         return 0
-    # Only now: `accepted` tells the caller the change is in the target, and
-    # until the bytes are bound there is nothing to put there. A tool's change
-    # on the gate is what `deterministic` labels.
+    #
+    #
+    #
     report.outcome = "accepted"
     report.assurance = Assurance.DETERMINISTIC.value
     return _commit(
@@ -1400,17 +1151,7 @@ def _report_run(
 
 
 def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
-    """Settle ``args.commit`` to a bool and ``args.branch`` to a name or ``""``.
-
-    The precedence ``--sandbox`` has: a flag typed at the terminal is a person
-    overriding their own file for one run and wins; with no flag the policy
-    answers (``delivery.commit``, ``delivery.branch``); with neither, nothing is
-    committed. ``--branch NAME`` implies ``--commit`` — naming where to commit
-    is asking for a commit — while ``delivery.branch`` does not: it is where
-    commits go once something turns them on. ``--branch`` with ``--no-commit``
-    is refused at parse time (:func:`_one_delivery_answer`) and never reaches
-    here. A run with no usable config commits only when a flag says so.
-    """
+    ""
     typed = (getattr(args, "branch", None) or "").strip()
     policy_commit = bool(config.get("delivery.commit")) if config is not None else False
     policy_branch = (
@@ -1424,13 +1165,7 @@ def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
 def _one_delivery_answer(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> None:
-    """Refuse ``--branch`` that is blank, or typed beside ``--no-commit``.
-
-    At parse time, through the parser's own ``error``, so it exits 2 like every
-    other usage error and before a config is read or a sandbox opened. The two
-    flags ask for opposite things; picking one would be guessing which the
-    person meant.
-    """
+    ""
     branch = getattr(args, "branch", None)
     if branch is None:
         return
@@ -1466,17 +1201,7 @@ DETERMINISTIC = "deterministic"
 
 @dataclass(frozen=True)
 class _Headline:
-    """The stdout lines that say how a run's change was judged and where it went.
-
-    Built by the two reporters (:func:`_report_run`, :func:`_report_climb`)
-    and said once, by whichever path ends the run: :func:`_commit` after
-    delivery has answered, or the reporter itself on a path that delivers
-    nothing. ``headline`` is the line of a change that landed (or of a run
-    that never reached delivery); ``passed`` opens the line of one delivery
-    refused, which goes on to say ``but not written`` and why (e2e run 2, R2).
-    ``below`` is what is printed under either — the gate's findings and
-    environment issues.
-    """
+    ""
 
     headline: str
     passed: str
@@ -1505,41 +1230,7 @@ def _commit(
     recording: Recording | None = None,
     attempt_id: str | None = None,
 ) -> int:
-    """Deliver an accepted change into the user's repository, when asked to.
-
-    Shared by both halves of ``run`` so that "what ``--commit`` does" has one
-    answer. ``bound`` is an :class:`~mcgyvr.deliver.Accepted` in both cases and
-    never a string: the deterministic path mints it off the workspace the gate
-    read, the ladder path carries the one its attempt minted there, and delivery
-    re-judges either in the repository the commit lands in.
-
-    Whether to commit and onto which branch are ``args.commit`` and
-    ``args.branch`` as :func:`_settle_delivery` left them — the flags typed,
-    else ``delivery.commit`` and ``delivery.branch``, else no commit — the same
-    on both paths, whether or not the contract climbed a ladder. An empty
-    branch is the one checked out.
-
-    What *is* handed over is the gate's adapters as the run's setup built them
-    (``args.gate_adapters``, settled in :func:`_run`), so delivery judges by the
-    same ``gate`` settings the sandbox did. A caller that settled none is
-    refused by name rather than delivered under the strict default it did not
-    choose.
-
-    **The default is the working tree, and that is not a lack.** Not committing
-    — the shipped policy — leaves the accepted change in the target and the
-    repository otherwise untouched: no commit, no branch, no receipt. The journal row
-    of the accepted attempt is told so (``not_committed``), and told
-    ``committed <sha> on <branch>`` or ``delivery_refused`` otherwise, so the
-    folded outcome is how the work finally landed.
-
-    **The verdict's headline is printed here, once delivery has answered.**
-    A change delivery refused was not written, and a stdout that said
-    ``gate accepted`` above a refusal on stderr read as an acceptance (e2e
-    run 2, R2). So ``verdict`` is said as it was when the change landed, and
-    as ``<id>: checks passed, but not written: <reason>`` for every reason
-    delivery refuses; the exit code, the result file and the ``error:`` line
-    on stderr are unchanged.
-    """
+    ""
     from mcgyvr.deliver import DeliveryError, DeliveryRefusedError, deliver, place
     from mcgyvr.telemetry import correct
 
@@ -1556,9 +1247,9 @@ def _commit(
             )
 
     def refused(reason: str) -> None:
-        # The refusal is the run's outcome, so `detail` carries it too (set by
-        # the caller with the outcome); `delivery` says it where every other
-        # delivery says where the change went.
+        #
+        #
+        #
         verdict.say(refused=reason)
         _say_reported(bound)
         landed(DELIVERY_REFUSED, reason)
@@ -1586,8 +1277,8 @@ def _commit(
         except DeliveryError as exc:
             refused(str(exc))
             if isinstance(exc, DeliveryRefusedError):
-                # The checks behind the refusal, not only its sentence — the
-                # same lines a gate rejection leaves in `findings`.
+                #he
+                #
                 report.findings = [str(finding) for finding in exc.findings]
             return _error(report, str(exc), outcome=DELIVERY_REFUSED)
         verdict.say()
@@ -1596,8 +1287,8 @@ def _commit(
         print(f"\nLeft in {left}, not committed (pass --commit to commit).")
         for path, _ in bound.files(contract):
             _say_not_rerun(adapters, path)
-        # Beside the judgement, never over it: `detail` stays how the work
-        # was judged, and where it went is `delivery`'s (#183).
+        #
+        #
         report.delivery = f"not committed; change left in {left}"
         landed(NOT_COMMITTED, report.delivery)
         return 0
@@ -1636,7 +1327,7 @@ def _commit(
 
 
 def _say_not_rerun(adapters: Sequence[LanguageAdapter], path: str) -> None:
-    """Print which checker delivery left out because it loads ``path`` as code."""
+    ""
     from mcgyvr.deliver import not_rerun_here
 
     note = not_rerun_here(adapters, path)
@@ -1645,16 +1336,7 @@ def _say_not_rerun(adapters: Sequence[LanguageAdapter], path: str) -> None:
 
 
 def _say_reported(bound: Accepted) -> None:
-    """Print once each finding the gate reported only because the setup said so.
-
-    Under ``gate.param_mutation: report`` a function that changes its argument
-    is accepted, and the finding travels as one of the gate's observations,
-    which nothing else here prints. It is the one observation a user turned
-    from a refusal into a report, so it is the only one printed; the others
-    (style, repair notes) are not. Unset or ``refuse``, an accepted change
-    carries no such finding and nothing is printed. The behaviour lives in this
-    function and its one call in :func:`_commit`.
-    """
+    ""
     from mcgyvr.gate.typecheck import PARAM_MUTATION, ParamMutation
 
     for finding in bound.observations:
@@ -1670,27 +1352,7 @@ def _say_reported(bound: Accepted) -> None:
 
 
 def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    """Resolve who is writing the journal, or refuse at parse time.
-
-    Before a config is read, a sandbox opened or a directory created, through
-    the subparser's own ``error`` so the refusal reads like every other usage
-    error and exits 2. The writer is the session that typed the command
-    (:mod:`mcgyvr.session`): ``--orchestrator ID`` if given, else the Claude
-    Code or Pi session in the environment, else a refusal whose message names
-    all three. A default derived from the process is a single-orchestrator
-    assumption (the lab's port-from-local-ai note, §9), so there
-    is no default, only a flag and two variables to ask for.
-
-    An id containing ``/`` is refused here too, because the id *is* the file
-    name — ``DIR/<ID>.jsonl`` — and ``agent/a`` would write ``DIR/agent/a.jsonl``
-    with its blobs under ``DIR/agent/blobs``, where an index over ``DIR`` finds
-    neither.
-
-    A blank id is refused here as well, at parse time and exit 2. The
-    environment's session does not stand in for it: a
-    caller who typed the flag was naming the writer, and an empty value is that
-    caller getting the name wrong rather than declining to give one.
-    """
+    ""
     from mcgyvr.session import SessionError, resolve
 
     if args.orchestrator is not None and not args.orchestrator.strip():
@@ -1714,7 +1376,7 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
 def add_parser(
     sub: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
-    """Register `run` and `sessions`; returns the `run` subparser."""
+    ""
 
     run = sub.add_parser(
         "run",
@@ -1736,10 +1398,10 @@ def add_parser(
     _add_repo(run, "the git repository the work is done against")
     run.add_argument(
         "--sandbox",
-        # No default. `sandbox.mode` in the config is declared as where this
-        # comes from, and a flag that is never absent is a flag the config can
-        # never lose to. `_run` settles the precedence: typed flag, else the
-        # file, else `docker`.
+        #
+        #
+        #
+        #
         default=None,
         choices=("docker", "tempdir"),
         help=(
@@ -1750,8 +1412,8 @@ def add_parser(
     )
     run.add_argument(
         "--commit",
-        # No default, as for `--sandbox`: `delivery.commit` answers when no flag
-        # is typed (`_settle_delivery`).
+        #
+        #
         action=argparse.BooleanOptionalAction,
         default=None,
         help=(

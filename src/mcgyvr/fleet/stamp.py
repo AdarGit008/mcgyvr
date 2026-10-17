@@ -1,24 +1,4 @@
-"""A green sample stamps its fleet: the stamp folder, and no lock.
-
-Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample GREEN = fleet STAMPED;
-sample red = no stamp, and why. Owner, 2026-10-14: "one script that locks a
-fleet, one script that stamps a fleet without locking". Plan section 8.2: the
-sample's results are the dev-run evidence the lock is written from.
-
-:func:`stamp` judges the sample (:func:`mcgyvr.fleet.sample.judge`) and, only
-when it is green, writes the stamp folder ``<data folder>/stamps/<fleet>/
-<run_id>/`` (:func:`folder`; owner call, Round 8): ``setup/`` (the staged
-``fleet.yaml`` and ``policy.yaml``) and ``evidence.json``. That is all a stamp
-is. Locking it is :func:`mcgyvr.fleet.lock.write_from_stamp`'s, which
-``mcgyvr setup`` calls on the user's yes: it writes the lock into the stamp
-folder as a dev root of its own, so a stamp from an install needs no lab
-checkout; from there the fleet takes the path every live fleet takes, promote then use
-(:mod:`mcgyvr.fleet.promote`). Nothing is started or stopped here: what runs is
-the sample's.
-
-A red sample is "no stamp", by its own reasons, and leaves nothing behind: the
-folder is built beside its place and renamed in only once it is whole.
-"""
+""
 
 from __future__ import annotations
 
@@ -31,24 +11,24 @@ from pathlib import Path
 from mcgyvr.fleet.roots import FolderError, data_home, is_live
 from mcgyvr.fleet.sample import Sample, SampleError, judge
 
-#: The folder of stamps under the data folder.
+#
 STAMPS_DIR = "stamps"
-#: The staged setup, as a stamp folder keeps it.
+#
 SETUP_DIR = "setup"
-#: The dev-run evidence the lock is written from.
+#
 EVIDENCE_FILE = "evidence.json"
-#: The two files a staged setup holds.
+#
 SETUP_FILES = ("fleet.yaml", "policy.yaml")
 
 
 @dataclass(frozen=True)
 class Stamp:
-    """What :func:`stamp` did: the stamp folder written, or why not."""
+    ""
 
     fleet: str
-    #: The stamp folder under the data folder; ``None`` when nothing was stamped.
+    #
     folder: Path | None = None
-    #: Why nothing was stamped, one reason per line.
+    #
     why: tuple[str, ...] = ()
 
     @property
@@ -56,19 +36,19 @@ class Stamp:
         return self.folder is not None
 
     def lines(self) -> list[str]:
-        """What a caller prints: the stamp and where it is, or each reason."""
+        ""
         if self.folder is not None:
             return [f"stamped: {self.fleet} ({self.folder})"]
         return [f"no stamp: {self.fleet}", *(f"  {reason}" for reason in self.why)]
 
 
 def stamps_dir() -> Path:
-    """``<data folder>/stamps``: one folder per fleet, one per sample run in it."""
+    ""
     return data_home() / STAMPS_DIR
 
 
 def folder(fleet: str, run_id: str) -> Path:
-    """``<data folder>/stamps/<fleet>/<run_id>``, the dev root of one stamp."""
+    ""
     return stamps_dir() / fleet / run_id
 
 
@@ -79,8 +59,7 @@ def _plain(name: str) -> bool:
 
 
 def stamp(sample: Sample, *, run_id: str) -> Stamp:
-    """Write ``sample``'s stamp folder when the sample is green; say why not
-    otherwise. Nothing is locked, promoted or named live here."""
+    ""
 
     def red(*why: str) -> Stamp:
         return Stamp(fleet=sample.fleet, why=tuple(why))

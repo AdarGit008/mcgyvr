@@ -1,7 +1,4 @@
-"""The `mcgyvr detect`/`scan`/`recommend` commands.
-
-Only what is built is exposed.
-"""
+""
 
 from __future__ import annotations
 
@@ -20,7 +17,7 @@ from mcgyvr.fleet.roots import (
     RIGS_SHOWN,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  #
     pass
 
 
@@ -73,20 +70,7 @@ def _detect(args: argparse.Namespace) -> int:
 
 
 def _scan(args: argparse.Namespace) -> int:
-    """Measure this machine, record it as its rig file, and say what moved.
-
-    ``--json`` exits :attr:`Exit.OK` even when the scan disagrees with the
-    record, and that asymmetry is the point rather than an oversight.
-    ``--json`` is not a quieter mode of this command for a person; it prints
-    the wire format that :func:`mcgyvr.scan.Scan.from_json` reads — the same
-    shape the one reader prints on a rig. The exit-code
-    channel belongs to the human-facing command, which keeps exit 4: a rig
-    that lost a DIMM or a card still delivers its measurement down the wire
-    and the mismatch goes to stderr, where the operator reads it. The record is
-    this machine's rig file (``localhost``, :mod:`mcgyvr.serving.rigfile`), the
-    one record of a machine; what moved since it is said, and exit 4 is kept
-    for the hardware changing under it (a card, RAM, cores, bandwidth).
-    """
+    ""
     if args.rig is not None:
         return _scan_rig(args.rig, as_json=args.json)
     from mcgyvr.serving import rigfile
@@ -94,10 +78,10 @@ def _scan(args: argparse.Namespace) -> int:
     reading = scan_module.reading(
         model_stores=tuple(Path(store) for store in (args.model_store or ()))
     )
-    # Recorded before anything is reported, and recorded even when it
-    # disagrees with the last record. A mismatch is a successful measurement of
-    # a machine that changed, not a failed one; withholding it would leave the
-    # stale record in place for the next run to disagree with all over again.
+    #
+    #
+    #
+    #
     try:
         saved = rigfile.save(rigfile.LOCAL, reading)
     except (OSError, rigfile.RigFileError) as exc:
@@ -112,10 +96,10 @@ def _scan(args: argparse.Namespace) -> int:
     path = saved.path
 
     if args.json:
-        # stdout is the wire format `Scan.from_json` reads — the same shape the
-        # one reader prints on the rig. One banner line
-        # here and the scan stops parsing, so everything a person would read
-        # goes to stderr.
+        #he
+        #
+        #
+        #
         sys.stdout.write(measured.to_json())
         _report_moved(saved.before, changes, sys.stderr)
         return Exit.OK
@@ -174,14 +158,7 @@ def _scan(args: argparse.Namespace) -> int:
 
 
 def _scan_rig(rig: str, *, as_json: bool) -> int:
-    """Scan ``rig`` over ssh and save it as the door's rig file; say what moved.
-
-    The read is the read-only one ``mcgyvr recommend`` takes (the one reader,
-    shipped over the user's own ssh config and keys with ``BatchMode``), and
-    the file is what a user-mode door run holds the rig to
-    (:mod:`mcgyvr.serving.rigfile`). A rig that does not answer writes
-    nothing.
-    """
+    ""
     from mcgyvr.serving import rigfile
 
     try:
@@ -270,7 +247,7 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
 
 
 def _users_count(value: str) -> int:
-    """``single`` or a positive count — the two spellings ``recommend`` takes."""
+    ""
     if value == "single":
         return 1
     try:
@@ -285,11 +262,7 @@ def _users_count(value: str) -> int:
 
 
 def _recommend(args: argparse.Namespace) -> int:
-    """Print one JSON plan: which checkpoint and engine serve ``args.profile``.
-
-    Read-only: the rigs are re-read over the sanctioned detection ssh path and
-    nothing is written, woken or slept. The plan is the only thing on stdout.
-    """
+    ""
     try:
         made = recommend_module.plan(
             profile=args.profile,
@@ -305,7 +278,7 @@ def _recommend(args: argparse.Namespace) -> int:
 
 
 def _report_moved(before: Any, changes: Sequence[Any], stream: TextIO) -> None:
-    """What moved since this machine's last record, one line each."""
+    ""
     if before is None or not changes:
         return
     print(f"moved since the record of {before.read_at}:", file=stream)
@@ -314,7 +287,7 @@ def _report_moved(before: Any, changes: Sequence[Any], stream: TextIO) -> None:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register `detect`, `scan`, `recommend`."""
+    ""
 
     det = sub.add_parser(
         "detect",

@@ -1,24 +1,4 @@
-"""``fleet.yaml`` is what runs where; ``policy.yaml`` is how work moves between units.
-
-Two files, one vocabulary (the lab's fleet-identity plan, §2):
-
-* ``fleet.yaml`` is locked. It holds the ``units``, the ``rigs`` and the
-  ``fleets``. A unit carries every fact about what it is and can physically
-  do: its rig, address, engine, model, width, context window, reply size and
-  request timeout.
-* ``policy.yaml`` is not locked. It holds how work moves: the ``ladder`` (an
-  ordered list of unit names), then fanout, attempts, escalations and the rest.
-* ``relief.yaml`` is neither locked nor written by hand: ``mcgyvr rig rungs
-  sync`` writes it whole from the hub, and it holds the ``relief`` block, the
-  units other people lend this rider (hitchhike). They are not your rigs', so
-  they are not in the lock, and a sync must not rewrite a file a person
-  comments, so they are not in the policy.
-* "source", "rung" and "tier" are gone: a unit is the one term.
-
-The files are loaded separately and each refuses what belongs in another, so a
-fact about a unit cannot ride in the policy file and a routing decision cannot
-ride in the fleet file. Unknown keys are refused, never ignored.
-"""
+""
 
 from __future__ import annotations
 
@@ -28,14 +8,14 @@ import yaml
 
 
 class FleetFileError(Exception):
-    """``fleet.yaml`` or ``policy.yaml`` parsed, but does not satisfy the schema."""
+    ""
 
 
-#: What a unit is or can physically do. Locked: these belong in ``fleet.yaml``.
-#: Every field the lock (and live admission) reads off a unit is here: a field
-#: consumed but not accepted here can never reach the lock from ``fleet.yaml``,
-#: so the two lists are held in sync by
-#: ``tests/test_the_loader_accepts_every_field_its_consumers_read.py``.
+#
+#
+#
+#
+#
 _UNIT_KEYS = frozenset(
     {
         "rig",
@@ -60,7 +40,7 @@ _UNIT_KEYS = frozenset(
     }
 )
 
-#: How work moves between units. Not locked: these belong in ``policy.yaml``.
+#
 _POLICY_KEYS = frozenset(
     {
         "use_case",
@@ -89,18 +69,18 @@ _POLICY_KEYS = frozenset(
     }
 )
 
-#: The blocks ``fleet.yaml`` holds: what runs where.
+#
 _FLEET_KEYS = frozenset({"units", "rigs", "fleets"})
 
-#: What a fleet block holds: its layout as room slots, and the fleets it moves to.
+#
 _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
 
-#: What ``relief.yaml`` holds: the relief block, and only it. Each entry's keys
-#: are the schema's (``mcgyvr.config.RELIEF_FIELDS``), checked where the setup
-#: is validated.
+#
+#
+#
 _RELIEF_FILE_KEYS = frozenset({"relief"})
 
-#: Words the vocabulary retired. One term — "unit" — replaced several.
+#ral.
 _RETIRED_WORDS = {
     "sources": "name what serves under `units` — a unit is the one term",
     "source": "a unit is the one term",
@@ -112,7 +92,7 @@ _RETIRED_WORDS = {
 
 
 class _StrictLoader(yaml.SafeLoader):
-    """SafeLoader that refuses duplicate keys instead of taking the last one."""
+    ""
 
 
 def _no_duplicate_keys(
@@ -124,7 +104,7 @@ def _no_duplicate_keys(
         try:
             hash(key)
         except TypeError:
-            # `[dev]: x` — a list as a key. YAML allows it; a file does not.
+            #t.
             mark = key_node.start_mark
             raise FleetFileError(
                 f"key {key!r} at line {mark.line + 1} is not a plain name; a "
@@ -254,8 +234,8 @@ def _fleets(raw: object) -> dict[str, Any]:
 
 
 def _rigs(raw: object) -> dict[str, Any]:
-    # Only that the block is a mapping is checked here; a rig's `rig_id` is
-    # checked where the lock is written (`mcgyvr.fleet.lock`).
+    #
+    #
     return _document(raw, "fleet.yaml: rigs")
 
 
@@ -285,7 +265,7 @@ def _ladder(raw: object, where: str) -> list[str]:
 
 
 def load_fleet(text: str) -> dict[str, Any]:
-    """Parse a ``fleet.yaml`` document: units, rigs and fleets."""
+    ""
     given = _document(_yaml(text), "fleet.yaml")
     data: dict[str, Any] = {}
     for key, value in given.items():
@@ -305,7 +285,7 @@ def load_fleet(text: str) -> dict[str, Any]:
 
 
 def load_policy(text: str) -> dict[str, Any]:
-    """Parse a ``policy.yaml`` document: how work moves between units."""
+    ""
     given = _document(_yaml(text), "policy.yaml")
     data: dict[str, Any] = {}
     for key, value in given.items():
@@ -323,13 +303,7 @@ def load_policy(text: str) -> dict[str, Any]:
 
 
 def load_relief(text: str) -> dict[str, Any]:
-    """Parse a ``relief.yaml`` document: the relief block, and nothing else.
-
-    Only that the block is a mapping of names to blocks is checked here; each
-    entry's keys and values are the schema's, checked with the rest of the
-    setup. An empty block is no relief rungs, which is what a sync writes when
-    the hub matched none.
-    """
+    ""
     given = _document(_yaml(text), "relief.yaml")
     data: dict[str, Any] = {}
     for key, value in given.items():

@@ -1,62 +1,4 @@
-"""The containers of a pooled-inference session on this machine, and nothing more.
-
-A rig that lends its cards to a hub's session runs other people's work: the
-model server (the *head*) answers requests the hub relays, and the RPC server
-(the *worker*) runs whatever compute graph its head sends, with no
-authentication and no encryption of its own. So neither ever runs as an
-ordinary process, and neither ever touches a network but the session's.
-
-Each session is up to three kinds of container, all on this machine's own
-daemon (:func:`mcgyvr.sandbox.image.subprocess_runner`, which refuses
-``DOCKER_HOST`` and ``DOCKER_CONTEXT``), all labelled so a later agent can
-find what an earlier one left (:func:`Pool.owned`):
-
-* **the tunnel** (:func:`tunnel_argv`) — a small image of this product's own
-  (:data:`TUNNEL_DOCKERFILE`: WireGuard in user space, ``wg``, ``nft``,
-  ``ip``, and a Python to run :mod:`mcgyvr.rig.udpwire` with) that owns the
-  session's network namespace. It is the only container holding a
-  capability, ``NET_ADMIN``, and that capability reaches only its own
-  namespace, never the host's. On start it closes the namespace (an ``nft``
-  table dropping everything but loopback), makes the WireGuard interface,
-  and generates the session's private key straight into it (``wg genkey |
-  wg set … private-key /dev/stdin``): the key is never in a file, never in
-  an argument, never in a log, and dies with the container. It prints the
-  public key, its bridge address and gateway, and then lives only while the
-  agent keeps renewing its lease (:data:`LEASE_FILE`); a lease that runs out
-  takes the interface down and the container with it.
-
-  The table has four chains of its own that the scripts below fill and
-  empty whole, each in one ``nft`` transaction: ``stun_in``/``stun_out``
-  hold the hub's binding responders while the tunnel's port asks them where
-  it is seen from (:data:`STUN_SCRIPT`), and are emptied when the tunnel
-  comes up; ``wg_in``/``wg_out`` hold, per peer, the one address its
-  WireGuard packets may come from and go to — the candidate being tried
-  while the tunnel walks a peer's candidates, then the confirmed endpoint
-  (or the relay) alone, port and all (:data:`PATH_SCRIPT`). WireGuard takes
-  its listen port only when the tunnel comes up (:data:`TUNNEL_SCRIPT`), so
-  until then the port is the binding requests' own, and the address the hub
-  saw is the one WireGuard's packets leave by.
-* **a worker per lent card** (:func:`worker_argv`) and **the head**
-  (:func:`head_argv`) join the tunnel's namespace (``--network
-  container:…``) and so have no network of their own: what the tunnel's
-  table lets through (:data:`TUNNEL_SCRIPT`, :data:`OPEN_WORKER_SCRIPT`,
-  :data:`OPEN_HEAD_SCRIPT`) is all they reach. Each runs as the agent's own
-  unprivileged user, with every capability dropped, ``no-new-privileges``,
-  a read-only root, a seccomp profile of its own (:data:`SECCOMP_PROFILE`:
-  docker's default without tracing another process or handing out file
-  handles), memory and process limits, and one mount: the worker's own
-  cache folder, or the head's models folder read-only. Its process runs
-  under :data:`GUARD_SCRIPT`, which ends it when the tunnel's interface is
-  gone — so a tunnel that dies takes its worker or head with it.
-
-The head's API is published on ``127.0.0.1`` only, to the agent that relays
-to it; the tunnel's UDP port on the LAN addresses the owner lends on, and
-nowhere else.
-
-Every value that reaches a script is passed as a positional argument, never
-written into the script, and has been read as an address, a port or a key
-before it gets here (:mod:`mcgyvr.rig.tunnel`).
-"""
+""
 
 from __future__ import annotations
 
@@ -71,74 +13,74 @@ from pathlib import Path
 from mcgyvr.rig.sessionwire import WIREGUARD_KEY
 from mcgyvr.sandbox.image import DockerResult, DockerRunner, subprocess_runner
 
-#: The label every pooled container carries, and the labels that say whose.
+#
 LABEL = "mcgyvr.pool"
 LABEL_SESSION = "mcgyvr.pool.session"
 LABEL_AGENT = "mcgyvr.pool.agent"
 LABEL_PART = "mcgyvr.pool.part"
 
-#: The seccomp profile the worker and the head run under.
+#
 SECCOMP_PROFILE = Path(__file__).with_name("pooled-seccomp.json")
 
-#: The tunnel image: user-space WireGuard and the tools to configure it, on a
-#: base pinned by digest. Its tag is this text's digest (:func:`tunnel_image`).
+#
+#
 TUNNEL_DOCKERFILE = (
     "FROM alpine:3.22@sha256:"
     "5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8\n"
     "RUN apk add --no-cache wireguard-go wireguard-tools-wg nftables "
     "iproute2-minimal python3\n"
 )
-#: The tunnel image's repository; its tag is a digest of the Dockerfile.
+#
 TUNNEL_REPOSITORY = "mcgyvr-tunnel"
 
-#: The port the head's API listens on inside its namespace.
+#
 HEAD_API_PORT = 8080
-#: Where the worker's cache folder and the head's models folder are mounted.
+#
 CACHE_MOUNT = "/rpc-cache"
 MODELS_MOUNT = "/models"
-#: The KV cache type the head runs with, which planning sizes the cache by.
+#
 KV_CACHE_TYPE = "q8_0"
-#: The file whose age is the tunnel's lease, inside the tunnel container.
+#
 LEASE_FILE = "/run/mcgyvr/lease"
-#: Where the tunnel's binding keeper (:mod:`mcgyvr.rig.udpwire` ``keep``)
-#: writes its pid, so the tunnel can end it before WireGuard takes the port.
+#
+#
 KEEPER_PID_FILE = "/run/mcgyvr/stun.pid"
-#: The tunnel's Python, which runs :mod:`mcgyvr.rig.udpwire` as it is.
+#
 TUNNEL_PYTHON = "python3"
 
-#: Process limits: the tunnel runs three tools; the worker and the head an
-#: engine with its threads.
+#
+#
 TUNNEL_PIDS = 64
 WORKER_PIDS = 256
 HEAD_PIDS = 512
-#: The tunnel's memory, in MiB: WireGuard's buffer pools grow with
-#: throughput, and a model's weights cross the tunnel at LAN speed while the
-#: head loads; a tunnel killed for memory takes wg0, and the head, with it.
+#
+#
+#
 TUNNEL_MEMORY_MB = 1024
-#: Go's soft memory limit for wireguard-go, in MiB, well under the cap: it
-#: collects its garbage harder as it nears this instead of being OOM-killed.
+#
+#
 TUNNEL_GO_MEMORY_MB = TUNNEL_MEMORY_MB * 3 // 4
-#: The MTU of the tunnel's interface. WireGuard adds its header and tag (32
-#: bytes), UDP (8) and, at most, an IPv6 header (40) to each packet: 80 bytes,
-#: which must fit the smallest MTU an IPv6 path may have, 1280 -- a relay's
-#: path can be that small, and the tunnel's table drops the ICMP that would
-#: say a packet was too big, so a larger packet is lost without a word.
+#
+#
+#
+#
+#
 TUNNEL_MTU = 1200
-#: What a ping adds to its data inside the tunnel: an IPv4 header (20 bytes)
-#: and an ICMP header (8). A ping with the interface's MTU less this much of
-#: data is the largest packet the interface carries whole.
+#
+#
+#
 PING_HEADERS = 28
-#: How many full-size pings a new path is sent: one answer says it carries
-#: them, so a single packet lost on a path that does is not taken for an MTU.
+#
+#
 FULL_PINGS = 3
-#: The writable scratch each container gets, as tmpfs options.
+#
 TUNNEL_TMPFS = "/run:rw,nosuid,nodev,noexec,size=1m"
 ENGINE_TMPFS = "/tmp:rw,nosuid,nodev,noexec,size=64m"
 
-#: The tunnel's entry: close the namespace, make the interface and its key,
-#: say what the agent needs, then live as long as the lease. ``$1`` is the
-#: listen port (WireGuard takes it only when the tunnel comes up:
-#: :data:`TUNNEL_SCRIPT`), ``$2`` the lease in seconds.
+#
+#
+#
+#
 TUNNEL_ENTRY = (
     r"""set -eu
 umask 077
@@ -197,9 +139,9 @@ exit 4
 """
 )
 
-#: Let the hub's binding responders be asked from the tunnel's port: ``$1``
-#: the port, then each responder's address and port. Only those, from and to
-#: that port, until the tunnel comes up and empties the chains.
+#
+#
+#
 STUN_SCRIPT = r"""set -eu
 port="$1"
 shift
@@ -217,17 +159,17 @@ udp sport $2 udp dport $port accept"
 echo "open"
 """
 
-#: Bring the tunnel up: ``$1`` this rig's address with the session's prefix,
-#: ``$2`` the listen port, then five arguments per peer: its public key, the
-#: address and port it is first tried at (``-`` and ``0`` for none yet), the
-#: keepalive in seconds, and its allowed addresses, comma separated. The
-#: binding keeper is ended and the responders' rules emptied first, then
-#: WireGuard takes the port. The table is written before any peer is set, so
-#: WireGuard's first packet is never the one the table drops; each peer's
-#: address, and only that, may send to and receive from the listen port (any
-#: of its ports while candidates are walked: :data:`PATH_SCRIPT` narrows it);
-#: ICMP echo between the rig and its peers' addresses is let through, for the
-#: round-trip probe, its full-size ping and the head's watch of its workers.
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
 TUNNEL_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
@@ -278,14 +220,14 @@ done
 echo "up"
 """
 
-#: Aim the tunnel's peers: ``$1`` the listen port, then five arguments per
-#: peer — its key, the address and port it is tried at (``-`` and ``0`` for
-#: none), ``host`` (any port of that address may answer, while a candidate is
-#: tried) or ``exact`` (that endpoint alone, once confirmed), and ``1`` to
-#: point WireGuard there or ``0`` to leave WireGuard's own endpoint be (it
-#: may have followed a peer whose NAT moved the port). Every peer is named
-#: each time: the chains are written whole, in one transaction, before any
-#: peer is pointed anywhere.
+#
+#or
+#
+#
+#
+#
+#
+#
 PATH_SCRIPT = r"""set -eu
 port="$1"
 shift
@@ -319,10 +261,10 @@ done
 echo "aimed"
 """
 
-#: What the tunnel knows of its peers now: its clock, each peer's latest
-#: handshake (seconds since the epoch, 0 for none) and endpoint, read after
-#: one ping over the tunnel to each address given (``"$@"``), so a peer not
-#: yet shaken hands with has a packet to shake hands for.
+#
+#
+#
+#
 PEERS_SCRIPT = r"""for host in "$@"; do
   ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
 done
@@ -332,8 +274,8 @@ wg show wg0 latest-handshakes | sed 's/^/handshake /'
 wg show wg0 endpoints | sed 's/^/endpoint /'
 """
 
-#: Let a worker's port be reached: ``$1`` this rig's tunnel address, ``$2``
-#: the port, then the peers' allowed addresses that may reach it.
+#
+#
 OPEN_WORKER_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
@@ -347,13 +289,13 @@ done | nft -f -
 echo "open"
 """
 
-#: Let the head reach its workers and the agent reach the head: ``$1`` this
-#: rig's tunnel address, ``$2`` the bridge gateway (where the published API
-#: port's traffic comes from), then a worker's address and port per pair. A
-#: worker's answers are taken only on this namespace's ephemeral ports, where
-#: the head's own connections are, never on the API's. (The range is read whole
-#: with ``cat``: busybox's ``read`` reads a ``/proc/sys`` file a byte at a time
-#: and gets nothing.)
+#
+#
+#
+#
+#
+#
+#
 OPEN_HEAD_SCRIPT = r"""set -eu
 self="$1"
 gateway="$2"
@@ -377,24 +319,24 @@ tcp sport $2 tcp dport $low-$high accept"
 echo "open"
 """
 
-#: Whether ``$1``:``$2`` is listening in this namespace, read from the kernel's
-#: own table, so asking never takes the server's one client slot.
+#
+#
 LISTENING_SCRIPT = r"""set -eu
 hex=$(echo "$1" | awk -F. '{printf "%02X%02X%02X%02X", $4, $3, $2, $1}')
 port=$(printf '%04X' "$2")
 grep -q " $hex:$port 00000000:0000 0A " /proc/net/tcp
 """
 
-#: The mean round trip to ``$1`` over the tunnel, in milliseconds, once the
-#: tunnel's handshake is done: the first packet to a peer waits for it. Then
-#: whether the path carries a packet as large as the interface does, ``full
-#: ok`` or ``full lost`` and the ping's size: :data:`FULL_PINGS` pings of the
-#: interface's own MTU (read from it, never assumed) less
-#: :data:`PING_HEADERS`. Such a packet is never split inside the tunnel, and
-#: WireGuard's own packet around it is one the path must carry whole, so no
-#: don't-fragment flag is asked for (this image's ``ping`` has none). A path
-#: with a smaller MTU carries the small pings and loses these
-#: (:func:`read_ping`).
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
 PING_SCRIPT = (
     r"""set -eu
 ping -c 1 -W 2 -q "$1" >/dev/null
@@ -409,11 +351,11 @@ fi
 """
 )
 
-#: What the tunnel has heard from each peer and sent it: WireGuard's byte
-#: counts per peer key (received, sent), read after one ping over the tunnel
-#: to each address given (``"$@"``), so a quiet peer is asked for a word
-#: first. An unanswered ping is no error here: the counts say whether
-#: anything came back, and whether a load's weights go out.
+#
+#
+#
+#
+#
 TRANSFER_SCRIPT = r"""for host in "$@"; do
   ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
 done
@@ -421,7 +363,7 @@ wait
 wg show wg0 transfer
 """
 
-#: Run the engine (``"$@"``) only while the tunnel's interface lives.
+#
 GUARD_SCRIPT = r""""$@" &
 child=$!
 trap 'kill "$child" 2>/dev/null' TERM INT
@@ -437,23 +379,22 @@ wait "$child"
 """
 
 _NAME_DIGEST = 12
-#: The most digits a byte count of ``wg`` is read with: past 2**64.
+#
 _COUNT_DIGITS = 20
 _TUNNEL_LINE = re.compile(r"(public-key|address|gateway) (\S+)")
-#: A line of ``wg show … transfer``: a peer's key, bytes received, bytes sent.
+#t.
 _TRANSFER_LINE = re.compile(
     rf"({WIREGUARD_KEY.pattern})\t(\d{{1,{_COUNT_DIGITS}}})\t(\d{{1,{_COUNT_DIGITS}}})"
 )
 
 
 class PoolError(Exception):
-    """A docker call for a session failed; the message names the call."""
+    ""
 
 
 @dataclass(frozen=True, kw_only=True)
 class Owner:
-    """Who a session's containers run as and belong to: the agent's user and
-    process."""
+    ""
 
     uid: int
     gid: int
@@ -462,24 +403,24 @@ class Owner:
 
 @dataclass(frozen=True, kw_only=True)
 class TunnelSpec:
-    """The tunnel container of one session."""
+    ""
 
     session_id: str
     image: str
     listen_port: int
-    publish: tuple[str, ...]  # the LAN addresses the UDP port is published on
-    api_port: int | None  # the loopback port the head's API is published on
+    publish: tuple[str, ...]  #
+    api_port: int | None  #
     lease_s: int
 
 
 @dataclass(frozen=True, kw_only=True)
 class WorkerSpec:
-    """One RPC server on one card, bound to the session's tunnel address."""
+    ""
 
     session_id: str
     image: str
     binary: str
-    gpu: int  # the vendor's own index of the card
+    gpu: int  #
     bind: str
     port: int
     cache_dir: Path | None
@@ -488,43 +429,42 @@ class WorkerSpec:
 
 @dataclass(frozen=True, kw_only=True)
 class HeadSpec:
-    """The model server of one session."""
+    ""
 
     session_id: str
     image: str
     binary: str
-    gpus: tuple[int, ...]  # the vendor's own indexes, in bus order
+    gpus: tuple[int, ...]  #
     models_dir: Path
-    model: str  # the file, relative to ``models_dir``
-    name: str  # the model's name as the hub lists and asked for it
-    ctx: int  # the context of one slot
+    model: str  #
+    name: str  #
+    ctx: int  #
     n_gpu_layers: int
-    devices: tuple[str, ...]  # the engine's device names, in the hub's order
+    devices: tuple[str, ...]  #
     tensor_split: tuple[int, ...]
-    rpc: tuple[str, ...]  # ``address:port`` of each worker, RPC0 first
-    bind: str  # the namespace's bridge address, where the published port lands
+    rpc: tuple[str, ...]  #
+    bind: str  #
     memory_mb: int
-    slots: int = 1  # how many requests it serves at once, each with ``ctx``
+    slots: int = 1  #
 
 
 @dataclass(frozen=True, kw_only=True)
 class TunnelHello:
-    """What the tunnel printed on start: its public key and where it sits."""
+    ""
 
     public_key: str
-    address: str  # with the bridge's prefix
+    address: str  #
     gateway: str
 
 
 def container_name(session_id: str, part: str) -> str:
-    """The name of ``part`` of ``session_id``'s containers: a digest of the
-    session id, so any id the hub picks makes a name docker takes."""
+    ""
     digest = hashlib.sha256(session_id.encode()).hexdigest()[:_NAME_DIGEST]
     return f"mcgyvr-pool-{digest}-{part}"
 
 
 def tunnel_image() -> str:
-    """The tunnel image's tag: its repository and the Dockerfile's digest."""
+    ""
     digest = hashlib.sha256(TUNNEL_DOCKERFILE.encode()).hexdigest()[:_NAME_DIGEST]
     return f"{TUNNEL_REPOSITORY}:{digest}"
 
@@ -571,7 +511,7 @@ def _engine_lockdown(owner: Owner, memory_mb: int, pids: int) -> list[str]:
 
 
 def tunnel_argv(spec: TunnelSpec, owner: Owner) -> list[str]:
-    """``docker run`` of the session's tunnel, without the leading ``docker``."""
+    ""
     argv = [
         "run",
         "--detach",
@@ -616,7 +556,7 @@ def tunnel_argv(spec: TunnelSpec, owner: Owner) -> list[str]:
 
 
 def worker_argv(spec: WorkerSpec, owner: Owner) -> list[str]:
-    """``docker run`` of one RPC server, without the leading ``docker``."""
+    ""
     part = f"worker-{spec.gpu}"
     argv = [
         "run",
@@ -659,21 +599,7 @@ def worker_argv(spec: WorkerSpec, owner: Owner) -> list[str]:
 
 
 def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
-    """``docker run`` of the session's model server, without the leading
-    ``docker``.
-
-    It serves ``spec.slots`` requests at once, each slot with ``spec.ctx`` of
-    context of its own: ``-np`` slots and ``-c`` slots times ``ctx``, which the
-    engine divides between them. ``-np`` is always given, since the engine
-    shares one cache among every slot when it picks the count itself, and a
-    shared cache that fills fails every request it holds. ``-dev`` and
-    ``-ts`` are in the hub's order, unchanged: the last device holds the
-    output layer.
-
-    ``--alias`` is ``spec.name``, the name the hub listed the model under and
-    asked for: without it llama-server names every answer after the path it
-    was handed (``/models/<file>``), and the hub matches answers against the
-    name it asked for, as :mod:`mcgyvr.emit` does for a host unit."""
+    ""
     argv = [
         "run",
         "--detach",
@@ -732,7 +658,7 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
 
 
 def read_tunnel_hello(logs: str) -> TunnelHello | None:
-    """The tunnel's start lines in ``logs``, or ``None`` before it is ready."""
+    ""
     said: dict[str, str] = {}
     ready = False
     for line in logs.splitlines():
@@ -760,15 +686,12 @@ def _read_counts(said: str, column: int) -> dict[str, int]:
 
 
 def read_transfer(said: str) -> dict[str, int]:
-    """The bytes the tunnel received from each peer, by the peer's key, from
-    what :data:`TRANSFER_SCRIPT` printed; a line that does not read is left
-    out, so a peer it names counts as not heard from."""
+    ""
     return _read_counts(said, 2)
 
 
 def read_sent(said: str) -> dict[str, int]:
-    """The bytes the tunnel sent each peer, by the peer's key, from what
-    :data:`TRANSFER_SCRIPT` printed; a line that does not read is left out."""
+    ""
     return _read_counts(said, 3)
 
 
@@ -777,9 +700,7 @@ _FULL_LINE = re.compile(r"full (ok|lost) (\d{1,5})")
 
 @dataclass(frozen=True, kw_only=True)
 class PingSeen:
-    """What :data:`PING_SCRIPT` printed: the mean round trip in milliseconds
-    (``None`` when no small ping answered), whether a full-size ping answered
-    (``None`` when it did not say) and that ping's bytes of data."""
+    ""
 
     rtt_ms: float | None = None
     full: bool | None = None
@@ -787,15 +708,12 @@ class PingSeen:
 
     @property
     def narrow(self) -> bool:
-        """Whether the path carries small packets and loses full-size ones:
-        a small ping answered and no full-size one did. A peer that answers
-        nothing says nothing of the path's MTU."""
+        ""
         return self.rtt_ms is not None and self.full is False
 
 
 def read_ping(said: str) -> PingSeen:
-    """What the tunnel said of a ping to a peer; a line that does not read
-    is left out, so it says nothing against the path."""
+    ""
     rtt: float | None = None
     full: bool | None = None
     size: int | None = None
@@ -817,8 +735,7 @@ def read_ping(said: str) -> PingSeen:
 
 @dataclass(frozen=True, kw_only=True)
 class PeersSeen:
-    """What :data:`PEERS_SCRIPT` printed: the tunnel's clock, and by peer
-    key the latest handshake (0 for none) and the endpoint WireGuard uses."""
+    ""
 
     now: int
     handshakes: dict[str, int]
@@ -832,8 +749,7 @@ _PEER_LINE = re.compile(
 
 
 def read_peers(said: str) -> PeersSeen | None:
-    """What the tunnel said of its peers, or ``None`` when it said no time; a
-    line that does not read is left out."""
+    ""
     now = None
     handshakes: dict[str, int] = {}
     endpoints: dict[str, tuple[str, int]] = {}
@@ -863,7 +779,7 @@ def read_peers(said: str) -> PeersSeen | None:
 
 @dataclass(frozen=True, kw_only=True)
 class Owned:
-    """A pooled container on this machine's daemon, and whose it is."""
+    ""
 
     name: str
     session_id: str
@@ -872,7 +788,7 @@ class Owned:
 
 
 class Pool:
-    """A session's docker calls, through one :data:`DockerRunner`."""
+    ""
 
     def __init__(self, runner: DockerRunner = subprocess_runner) -> None:
         self._runner = runner
@@ -885,8 +801,7 @@ class Pool:
         return result
 
     def ensure_tunnel_image(self) -> str:
-        """The tunnel image's tag, built from :data:`TUNNEL_DOCKERFILE` first
-        when this daemon does not have it."""
+        ""
         tag = tunnel_image()
         found = self._runner(["image", "inspect", "--format", "{{.Id}}", tag], None)
         if found.ok:
@@ -900,64 +815,60 @@ class Pool:
         return tag
 
     def start(self, argv: Sequence[str]) -> None:
-        """Run one container: ``argv`` as the ``*_argv`` builders make it."""
+        ""
         self._call(argv, "run")
 
     def run_script(self, name: str, script: str, *args: str) -> str:
-        """Run ``script`` with ``args`` in container ``name``; what it printed."""
+        ""
         result = self._call(
             ["exec", name, "/bin/sh", "-c", script, "mcgyvr", *args], "exec"
         )
         return result.stdout
 
     def run_python(self, name: str, source: str, *args: str) -> str:
-        """Run Python ``source`` with ``args`` in container ``name``; what it
-        printed."""
+        ""
         result = self._call(
             ["exec", name, TUNNEL_PYTHON, "-I", "-c", source, *args], "exec"
         )
         return result.stdout
 
     def start_python(self, name: str, source: str, *args: str) -> None:
-        """Start Python ``source`` with ``args`` in container ``name``, and
-        leave it running."""
+        ""
         self._call(
             ["exec", "--detach", name, TUNNEL_PYTHON, "-I", "-c", source, *args],
             "exec",
         )
 
     def try_script(self, name: str, script: str, *args: str) -> bool:
-        """Whether ``script`` with ``args`` succeeds in container ``name``."""
+        ""
         result = self._runner(
             ["exec", name, "/bin/sh", "-c", script, "mcgyvr", *args], None
         )
         return result.ok
 
     def renew_lease(self, name: str) -> bool:
-        """Renew the tunnel's lease; ``False`` when it could not be."""
+        ""
         return self._runner(["exec", name, "touch", LEASE_FILE], None).ok
 
     def logs(self, name: str, tail: int) -> str:
-        """The last ``tail`` lines container ``name`` printed, both streams."""
+        ""
         result = self._runner(["logs", "--tail", str(tail), name], None)
         return result.stdout + result.stderr
 
     def state(self, name: str) -> str | None:
-        """Container ``name``'s state (``running``, ``exited``, …), or ``None``
-        when there is no such container."""
+        ""
         result = self._runner(
             ["container", "inspect", "--format", "{{.State.Status}}", name], None
         )
         return result.stdout.strip() if result.ok else None
 
     def remove(self, names: Sequence[str]) -> None:
-        """Remove the containers ``names``, running or not; a name with no
-        container is no error."""
+        ""
         if names:
             self._runner(["rm", "--force", "--volumes", *names], None)
 
     def owned(self) -> list[Owned]:
-        """Every pooled container this daemon has, running or not."""
+        ""
         result = self._call(
             [
                 "ps",

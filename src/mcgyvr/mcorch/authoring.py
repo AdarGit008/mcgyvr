@@ -1,31 +1,4 @@
-"""How mcorch turns a request into a contract: the strategy the config names.
-
-``orchestrator.authoring`` is a measured choice, not a default shipped here
-(the config loader refuses a file that leaves it unbound). Each strategy is an
-internal tool set — functions the rung may call that run inside one request
-and are never shown to the harness — so the rung's wire is one shape whatever
-the strategy, and the loop treats a strategy as "a tool the harness does not
-have".
-
-* ``direct``: the rung writes the contract. ``author_contract`` validates the
-  document through the public loader, :func:`mcgyvr.contract.loads` — the same
-  entry direct mode uses, so an authored contract is one ``mcgyvr run``
-  accepts — then asks Jev whether it is ready to run (J2). A refused document
-  comes back naming the key; a doubted one comes back with the doubt; a ready
-  one comes back canonical, for the rung to write to the tree verbatim.
-* ``prose`` and ``classifier`` need the repository's index
-  (:mod:`mcgyvr.orchestrator`) to shortlist targets and read regions. The
-  server holds no path to the user's repository, so the evidence rides the
-  harness (owner ruling: what a pi agent does, mcorch does): the loop has the
-  harness run ``mcgyvr read "<request>" --json`` and
-  :class:`Evidenced` assembles the index from the document that comes back
-  (:mod:`mcgyvr.mcorch.evidence`), asks the proposer — the rung for prose
-  proposals, Jev for typed ones with prose behind it — and runs the
-  deterministic decomposer over that index. The contracts come back to the
-  rung as a digest, ready to write, the same ``ready:`` shape ``direct``
-  answers with; the rung's internal tool ``gather_evidence`` asks for a fresh
-  read when a replan needs one.
-"""
+""
 
 from __future__ import annotations
 
@@ -47,13 +20,13 @@ from mcgyvr.orchestrator.decompose import (
     decompose,
 )
 
-#: The strategies the config may name, as the schema spells them.
+#
 STRATEGIES = ("direct", "prose", "classifier")
 
-#: The name of the question J2 asks, stable so a transcript reads it by key.
+#
 READY_QUESTION = "ready_to_run"
 
-#: The question itself: one Noul over the contract's own summary.
+#
 READY = Noul(
     "Is this contract ready to run as written: one target, a task a worker can "
     "carry out from the fields alone, and a way to judge the result?"
@@ -61,37 +34,37 @@ READY = Noul(
 
 
 class AuthoringUnavailableError(RuntimeError):
-    """The named strategy cannot run on this server, and the message says why."""
+    ""
 
 
-#: What an internal tool answers to say "the harness must read the repository
-#: for this request": the loop turns it into a shell call.
+#
+#
 GATHER = "gather:"
 
 
 class Authoring(Protocol):
-    """An internal tool set: what it offers the rung, and how it answers a call."""
+    ""
 
     @property
     def name(self) -> str: ...
 
     @property
     def needs_evidence(self) -> bool:
-        """Whether a work request is answered by reading the repository first."""
+        ""
         ...
 
     def tools(self) -> tuple[dict[str, Any], ...]:
-        """OpenAI function tools, offered beside the harness's."""
+        ""
         ...
 
     def handle(self, call: RungToolCall) -> str | None:
-        """The result text for a call this strategy owns, or ``None`` if not its."""
+        ""
         ...
 
 
 @dataclass(frozen=True)
 class Direct:
-    """The rung authors the contract; the loader and Jev judge it."""
+    ""
 
     jev: Jev
 
@@ -157,7 +130,7 @@ class Direct:
 
 
 def _summary(authored: contract.Contract) -> dict[str, Any]:
-    """What J2 is asked over: the contract's shape, never its file contents."""
+    ""
     return {
         "id": authored.id,
         "task_type": authored.task_type,
@@ -182,12 +155,7 @@ def _arguments(text: str) -> Mapping[str, Any] | None:
 
 @dataclass(frozen=True)
 class Evidenced:
-    """``prose`` or ``classifier``: the index rides the harness, the server proposes.
-
-    ``rung`` answers the prose proposer's prompt (the orchestrator unit, the
-    same one that converses); ``jev`` answers the classifier's typed choices
-    and J2; ``config`` says which task types the ladder can serve.
-    """
+    ""
 
     strategy: str
     jev: Jev
@@ -238,7 +206,7 @@ class Evidenced:
         return f"{GATHER}{request.strip()}"
 
     def propose(self, document: evidence.Document, *, max_output_tokens: int) -> str:
-        """The digest the rung reads in place of the document: contracts to write."""
+        ""
         index = evidence.index_from(document)
         prompt = document.prompt
         decomposition = decompose(
@@ -246,8 +214,8 @@ class Evidenced:
             prompt,
             propose=self._proposer(max_output_tokens),
             config=self.config,
-            # The checker lookup, made where the repository is and carried in
-            # the document: nothing here opens a path.
+            #
+            #
             located=document.located,
         )
         return self._digest(decomposition)
@@ -269,7 +237,7 @@ class Evidenced:
 
         typed = delegate.ClassifierProposer(classify=self.jev)
         chosen = delegate.proposer_by_authoring(self.strategy, typed=typed, prose=prose)
-        assert chosen is not None  # prose is always there to fall back to
+        assert chosen is not None  #
         return chosen
 
     def _digest(self, decomposition: Decomposition) -> str:
@@ -308,7 +276,7 @@ def authoring_for(
     rung: Rung | None = None,
     config: Config | None = None,
 ) -> Authoring:
-    """The named strategy as an internal tool set, or a refusal naming why not."""
+    ""
     if strategy == "direct":
         return Direct(jev=jev)
     if strategy in STRATEGIES:

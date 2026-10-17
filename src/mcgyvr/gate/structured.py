@@ -1,15 +1,4 @@
-"""Changed JSON and YAML must parse.
-
-One of the cheap checks that prevents an expensive failure: a worker that
-writes a malformed config or fixture would otherwise fail much later, inside a
-command execution, where the cause is harder to read. Parsing the changed
-structured files up front turns that into a precise, early finding.
-
-The whole resulting file is parsed, not just the added lines: a document is
-valid or it is not, and a worker can break parsing with a deletion as easily as
-an addition. YAML is parsed with PyYAML, a runtime dependency; where it cannot
-be imported, YAML files are left unvalidated rather than guessed at.
-"""
+""
 
 from __future__ import annotations
 
@@ -21,13 +10,13 @@ from typing import Any
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.findings import Finding
 
-# Imported dynamically and held as Any so this module type checks identically
-# whether or not the parser (and its stubs) are installed — a static `import
-# yaml` would flip between "unused ignore" and "missing import" across those
-# two environments.
-try:  # pragma: no cover - branch taken depends on whether PyYAML is installed
+#
+#rt
+#
+#
+try:  #
     _yaml: Any = import_module("yaml")
-except ImportError:  # pragma: no cover
+except ImportError:  #
     _yaml = None
 
 _JSON_EXT = (".json",)
@@ -35,7 +24,7 @@ _YAML_EXT = (".yaml", ".yml")
 
 
 def validate_structured_data(changeset: ChangeSet) -> list[Finding]:
-    """Findings for each changed JSON/YAML file that no longer parses."""
+    ""
     findings: list[Finding] = []
     for change in changeset.text_changes():
         path = change.path.lower()
@@ -79,7 +68,7 @@ def _validate_yaml(file: Path, rel: str) -> Finding | None:
         line = None
         mark = getattr(exc, "problem_mark", None)
         if mark is not None:
-            line = mark.line + 1  # PyYAML marks are 0-based
+            line = mark.line + 1  #
         return Finding(
             check="structured-data",
             path=rel,

@@ -1,60 +1,4 @@
-"""Which occurrences of a name are the symbol being renamed — precisely.
-
-The index (:mod:`mcgyvr.orchestrator.symbols`) is deliberately shallow: it
-records a call ``a.f()`` as a reference named ``f`` with no receiver and no
-column, because what it is for is pointing a reader at a few files. That is the
-right answer for a shortlist and the wrong one for a rewrite. Taken as a list of
-places to substitute, it renamed ``json.load(f)`` along with the module's own
-``load`` (e2e run 2), would have renamed ``self.load()`` of an unrelated class
-and ``from json import load``, and never saw ``f = load``, ``map(load, xs)``,
-``@load`` or ``__all__ = ["load"]`` at all, because none of those is a call.
-
-This module answers the question the rewrite actually asks — *which tokens are
-bindings of, or references to, this one module-level definition* — with the
-parsers the index already uses (:mod:`ast` for Python, tree-sitter for JS/TS)
-and a full, scope-aware walk of each candidate file. Every answer is a span: a
-1-based line in parser numbering (:func:`mcgyvr.lines.parser_lines`) and a
-0-based **byte** column within that line, which is what :mod:`ast` offsets and
-tree-sitter offsets both are. The caller splices bytes at exactly those spans;
-nothing here rewrites anything.
-
-**What is ours.** A file's module-level binding of the name is ours when the
-file defines it, or imports it — ``from m import name`` / ``import { name }
-from "./m"``, with no alias — from a module whose binding is ours, or star-
-imports / star-re-exports such a module. That is run to a fixpoint, so a package
-``__init__`` or a JS barrel that re-exports the name is itself a module through
-which it is reachable. Module paths are resolved from the tree's own files:
-relative imports against the importing file's directory, absolute dotted Python
-names as a path-parts *suffix* of a held file (``pkg.web`` is ``src/pkg/web.py``
-or ``src/pkg/web/__init__.py``), relative JS specifiers with the extensions and
-``index`` files a bundler would try. Nothing outside the tree is ever ours.
-
-**What is rewritten.** In a file whose binding is ours: every name token that
-resolves to that binding under the language's scoping rules (so a parameter or
-local of the same name is not), the definition's own name, ``global name``,
-``__all__`` entries, import and re-export specifiers. In any file: an attribute
-``w.name`` whose receiver is a module object bound to an ours module (``import
-pkg.web as w``, ``from pkg import web``, ``import * as w from "./web"``).
-
-**What is left alone, and said so.** ``x.name`` on any other receiver — another
-module, ``self``, an object — is a same-named attribute of something else, and
-which method an ``x.name`` reaches needs ``x``'s type, which nothing here has.
-So is a name bound by an import from another module, a local that shadows the
-module binding, a method or nested function, an object key. Each is returned as
-:attr:`Verdict.OTHER` so the caller can report it rather than drop it.
-
-**What is refused.** :class:`UnsafeRenameError` is raised, so that the caller
-writes nothing, when one scope binds the name both to ours and to something
-else; when the new name is already bound where the rename would put it, or by a
-scope between a rewritten reference and the binding it resolves to (the rename
-would collide or be captured); and for a JS shorthand ``{ name }``, where
-renaming the variable would change an object key and which of the two was meant
-cannot be decided.
-
-Python resolution is scope-aware and receiver-blind on purpose: a receiver is
-recognised by the dotted chain of the import that bound it, wherever in the file
-that import sits. A receiver name reassigned to something else is not tracked.
-"""
+""
 
 from __future__ import annotations
 
@@ -71,27 +15,21 @@ from tree_sitter import Node, Parser
 from mcgyvr.lines import parser_lines
 from mcgyvr.orchestrator.symbols import _grammar_for, _node_text, _walk, language_of
 
-# --- the answer ---------------------------------------------------------------
+#
 
 
 class Verdict(StrEnum):
-    """What one occurrence of the name is, for the purposes of a rename."""
+    ""
 
-    #: A binding of, or reference to, the symbol being renamed: rewritten.
+    #
     RENAME = "rename"
-    #: The same name meaning something else: left alone, and reported.
+    #
     OTHER = "other"
 
 
 @dataclass(frozen=True)
 class Occurrence:
-    """One token spelled like the name, with what it was judged to be.
-
-    ``line`` is 1-based in parser numbering, ``column`` the 0-based byte offset
-    of the token's first byte within that line's UTF-8 bytes. ``text`` is what
-    a reader of the report needs to recognise it — ``json.load``, ``from json
-    import load``, ``load (local to g)`` — never the whole line.
-    """
+    ""
 
     path: str
     line: int
@@ -102,14 +40,7 @@ class Occurrence:
 
 @dataclass(frozen=True)
 class Definition:
-    """Where the precise parser found a definition of the name.
-
-    ``line`` uses the index's numbering for the file (the parser's own), so a
-    caller can confirm a definition the index named at exactly that line.
-    ``module_level`` is whether the definition binds the name at module scope —
-    the only kind of definition whose references can be told apart without a
-    receiver's type.
-    """
+    ""
 
     path: str
     line: int
@@ -118,28 +49,18 @@ class Definition:
 
 @dataclass(frozen=True)
 class Resolution:
-    """Every occurrence judged, and what could not be judged at all.
-
-    ``unresolved`` holds ``path:line`` entries a reader should look at by hand:
-    a candidate file that does not parse, or a string literal that names the
-    symbol (``mock.patch("pkg.web.fetch_page")``), which no parser can tie to a
-    binding.
-    """
+    ""
 
     occurrences: tuple[Occurrence, ...]
     unresolved: tuple[str, ...]
 
 
 class UnsafeRenameError(Exception):
-    """The occurrences cannot be rewritten safely; the message names where."""
+    ""
 
 
 def definitions(path: str, source: bytes, name: str) -> tuple[Definition, ...] | None:
-    """Every definition of ``name`` in ``source``, or ``None`` if it cannot tell.
-
-    ``None`` means the file is in no language this module resolves, or does not
-    parse; an empty tuple means it parses and defines no ``name``.
-    """
+    ""
     language = language_of(path)
     if language == "python":
         tree = _parse_python(source)
@@ -157,23 +78,16 @@ def resolve(
     old: str,
     new: str,
 ) -> Resolution:
-    """Judge every occurrence of ``old`` in ``sources`` against ``defining``.
-
-    ``sources`` are the candidate files — every held file of ``defining``'s
-    language that could mention the name or re-export a module that does —
-    and must include ``defining``. ``held`` is every path the tree holds, which
-    is what module names are resolved against. Raises
-    :class:`UnsafeRenameError` for the cases the module docstring lists.
-    """
+    ""
     if language_of(defining) == "python":
         return _PythonResolver(sources, held, defining, old, new).run()
     return _JsResolver(sources, held, defining, old, new).run()
 
 
-# --- shared -------------------------------------------------------------------
+#
 
-#: Bytes that may continue an identifier. Non-ASCII bytes count, so ``loadé``
-#: is not a match for ``load`` the way an ASCII-only ``\b`` would make it.
+#`
+#
 _IDENT_BYTE = rb"A-Za-z0-9_\x80-\xff"
 
 
@@ -185,29 +99,29 @@ def _token(name: str) -> re.Pattern[bytes]:
 
 
 def _byte_lines(source: bytes) -> list[bytes]:
-    """``source`` cut where the parser cuts it, as bytes, terminators kept."""
+    ""
     text = source.decode("utf-8", "surrogateescape")
     return [line.encode("utf-8", "surrogateescape") for line in parser_lines(text)]
 
 
 def _short(text: str, limit: int = 60) -> str:
-    """One line of ``text``, cut to a length a report line can carry."""
+    ""
     first = text.strip().splitlines()[0] if text.strip() else ""
     return first if len(first) <= limit else first[: limit - 1] + "…"
 
 
-# --- Python ---------------------------------------------------------------------
+#
 
 
 def _parse_python(source: bytes) -> ast.Module | None:
     try:
         return ast.parse(source.decode("utf-8", "surrogateescape"))
     except (SyntaxError, ValueError, RecursionError, MemoryError):
-        # ValueError is the UnicodeEncodeError a surrogate-escaped byte raises.
+        #
         return None
 
 
-#: Compound statements whose bodies are still module scope when they sit there.
+#
 _MODULE_BLOCKS = (
     ast.If,
     ast.Try,
@@ -224,7 +138,7 @@ _DefNode = ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
 
 
 def _module_statements(body: Iterable[ast.stmt]) -> Iterator[ast.stmt]:
-    """Every statement that runs at module scope, inside ``if``/``try``/… too."""
+    ""
     for statement in body:
         yield statement
         if isinstance(statement, _MODULE_BLOCKS):
@@ -253,14 +167,14 @@ def _python_definitions(
 
 
 class _Bind(StrEnum):
-    """How a scope came to bind the name."""
+    ""
 
-    DEFINE = "define"  # def / class
-    IMPORT_FROM = "import_from"  # from m import name (no alias)
-    STAR = "star"  # from m import *
-    IMPORT_OTHER = "import_other"  # import name, from m import x as name
-    ASSIGN = "assign"  # a Name store: the same variable, renamed with it
-    OTHER = "other"  # a parameter, an except/match capture: not a Name token
+    DEFINE = "define"  #
+    IMPORT_FROM = "import_from"  #
+    STAR = "star"  #
+    IMPORT_OTHER = "import_other"  #
+    ASSIGN = "assign"  #
+    OTHER = "other"  #
 
 
 @dataclass(frozen=True)
@@ -271,7 +185,7 @@ class _Binding:
 
 
 class _Scope:
-    """One Python scope: what it binds and declares, and where it sits."""
+    ""
 
     __slots__ = (
         "bindings",
@@ -285,23 +199,18 @@ class _Scope:
     )
 
     def __init__(self, kind: str, parent: _Scope | None, label: str) -> None:
-        self.kind = kind  # "module" | "function" | "class" | "comprehension"
+        self.kind = kind  #
         self.parent = parent
         self.label = label
         self.bindings: set[str] = set()
         self.globals: set[str] = set()
         self.nonlocals: set[str] = set()
         self.events: list[_Binding] = []
-        self.new_lines: list[int] = []  # where the new name is already bound
+        self.new_lines: list[int] = []  #
 
 
 def _lookup(scope: _Scope, name: str) -> _Scope:
-    """The scope a use of ``name`` in ``scope`` resolves to, by Python's rules.
-
-    A function-like scope binds what it assigns unless it declares the name
-    ``global`` (the module) or ``nonlocal`` (an enclosing function). A class
-    body binds for its own statements only: scopes nested in it skip it.
-    """
+    ""
     current = scope
     own = True
     while current.parent is not None:
@@ -318,13 +227,13 @@ def _lookup(scope: _Scope, name: str) -> _Scope:
 
 
 def _lookup_enclosing(scope: _Scope, name: str) -> _Scope:
-    """Where a ``nonlocal name`` in ``scope`` points: the nearest function binding."""
+    ""
     current = scope.parent
     while current is not None and current.parent is not None:
         if current.kind != "class" and name in current.bindings:
             return current
         current = current.parent
-    return scope  # a nonlocal with nothing to point at does not compile anyway
+    return scope  #
 
 
 def _root(scope: _Scope) -> _Scope:
@@ -335,7 +244,7 @@ def _root(scope: _Scope) -> _Scope:
 
 @dataclass
 class _PyFile:
-    """One parsed Python file and everything the walk recorded about the names."""
+    ""
 
     path: str
     tree: ast.Module
@@ -352,13 +261,7 @@ class _PyFile:
 def _walk_python(
     path: str, tree: ast.Module, source: bytes, old: str, new: str
 ) -> _PyFile:
-    """One iterative walk that builds every scope and records the occurrences.
-
-    Iterative so a generated file's thousand-term expression does not hit the
-    recursion limit. Order does not matter: bindings are sets, and nothing is
-    resolved until the walk is complete — a use before its binding in the source
-    is still a use of it, which is Python's rule too.
-    """
+    ""
     module = _Scope("module", None, "<module>")
     found = _PyFile(path, tree, _byte_lines(source), module, [], [], [], [], [], [])
     stack: list[tuple[ast.AST, _Scope]] = [
@@ -375,7 +278,7 @@ def _walk_python(
             scope.events.append(_Binding(kind, line, extra.get("module")))
 
     def arguments_outside(args: ast.arguments, scope: _Scope) -> None:
-        # Defaults and annotations are evaluated where the function is defined.
+        #
         for default in (*args.defaults, *args.kw_defaults):
             if default is not None:
                 stack.append((default, scope))
@@ -429,7 +332,7 @@ def _walk_python(
         elif isinstance(
             node, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp
         ):
-            # The first iterable is evaluated outside; everything else inside.
+            #
             stack.append((node.generators[0].iter, scope))
             inner = _Scope("comprehension", scope, "<comprehension>")
             for position, generator in enumerate(node.generators):
@@ -442,7 +345,7 @@ def _walk_python(
             else:
                 stack.append((node.elt, inner))
         elif isinstance(node, ast.NamedExpr):
-            # A walrus binds in the nearest scope that is not a comprehension.
+            #
             target_scope = scope
             while (
                 target_scope.kind == "comprehension" and target_scope.parent is not None
@@ -500,7 +403,7 @@ def _walk_python(
 
 
 def _chain(node: ast.expr) -> str | None:
-    """``a.b.c`` for a Name/Attribute chain, ``None`` for anything else."""
+    ""
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
@@ -516,7 +419,7 @@ class _Origin(StrEnum):
 
 
 class _PythonResolver:
-    """The Python half of :func:`resolve`: a fixpoint, then one judgement per token."""
+    ""
 
     def __init__(
         self,
@@ -542,7 +445,7 @@ class _PythonResolver:
                 )
                 continue
             self.files[path] = _walk_python(path, tree, sources[path], old, new)
-        # Every module path the tree holds, by each suffix of its dotted name.
+        #
         self.by_suffix: dict[tuple[str, ...], set[str]] = {}
         self.held_python = {path for path in held if language_of(path) == "python"}
         for path in self.held_python:
@@ -551,7 +454,7 @@ class _PythonResolver:
                 self.by_suffix.setdefault(parts[start:], set()).add(path)
         self.ours: set[str] = {defining}
 
-    # -- module names -------------------------------------------------------
+    #
 
     def _absolute(self, dotted: str) -> set[str]:
         return set(self.by_suffix.get(tuple(dotted.split(".")), ()))
@@ -577,7 +480,7 @@ class _PythonResolver:
         return self._absolute(node.module) if node.module else set()
 
     def _submodule(self, importer: str, node: ast.ImportFrom, name: str) -> set[str]:
-        """The module ``from m import name`` binds, when ``name`` is a module."""
+        ""
         if node.level:
             joined = f"{node.module}.{name}" if node.module else name
             return self._relative(importer, node.level, joined)
@@ -587,7 +490,7 @@ class _PythonResolver:
         return bool(modules & self.ours)
 
     def _star_brings(self, modules: set[str]) -> bool:
-        """Whether ``from m import *`` of an ours module binds the name."""
+        ""
         for path in modules & self.ours:
             declared = (
                 _python_dunder_all(self.files[path].tree)
@@ -601,7 +504,7 @@ class _PythonResolver:
                 return True
         return False
 
-    # -- origins ---------------------------------------------------------------
+    #
 
     def _origin(self, found: _PyFile, scope: _Scope) -> _Origin:
         ours = other = False
@@ -636,7 +539,7 @@ class _PythonResolver:
                     self.ours.add(path)
                     changed = True
 
-    # -- the walk ------------------------------------------------------------
+    #
 
     def run(self) -> Resolution:
         self._fixpoint()
@@ -661,7 +564,7 @@ class _PythonResolver:
         )
 
     def _refuse_new_bound_at(self, found: _PyFile, scope: _Scope) -> None:
-        """The new name must be free in the scope the rename binds it in."""
+        ""
         if self.new not in scope.bindings:
             return
         where = "module scope" if scope.parent is None else scope.label
@@ -689,7 +592,7 @@ class _PythonResolver:
                     self._refuse_new_bound_at(found, scope)
             return origins[key]
 
-        # Names: the bulk of the work, and the only place scope matters.
+        #
         for name, scope in found.names:
             home = _lookup(scope, old)
             if (
@@ -698,9 +601,9 @@ class _PythonResolver:
                 and isinstance(name.ctx, ast.Load)
                 and module_origin is _Origin.OURS
             ):
-                # A class body reads a name it also binds from its own namespace
-                # if the binding has run, and from the module's if not: which
-                # one this use reads is a question about execution order.
+                #
+                #
+                #
                 raise UnsafeRenameError(
                     f"{path}:{name.lineno} reads {old!r} in the body of class "
                     f"{scope.label}, which also binds it; whether that is the "
@@ -727,7 +630,7 @@ class _PythonResolver:
                     _described(old, home),
                 )
 
-        # Definitions: the name token after `def` / `class`, not in the ast.
+        #
         for node, scope in found.defs:
             keyword = "class" if isinstance(node, ast.ClassDef) else "def"
             column = _def_name_column(found.lines, node)
@@ -741,7 +644,7 @@ class _PythonResolver:
                     path, node.lineno, column, Verdict.OTHER, f"{keyword} {old}{where}"
                 )
 
-        # `global old` / `nonlocal old`: the token inside the statement.
+        #
         for statement, scope in found.declarations:
             home = (
                 found.module
@@ -760,7 +663,7 @@ class _PythonResolver:
             keyword = "global" if isinstance(statement, ast.Global) else "nonlocal"
             yield Occurrence(path, located[0], located[1], verdict, f"{keyword} {old}")
 
-        # Imports: the specifier, and the module objects that become receivers.
+        #
         receivers: set[str] = set()
         for importing, scope in found.imports:
             if isinstance(importing, ast.Import):
@@ -781,7 +684,7 @@ class _PythonResolver:
                     shown = _short(ast.unparse(importing))
                     if self._is_ours(source):
                         if alias.asname is None:
-                            origin_of(scope)  # refuses a collision where it binds
+                            origin_of(scope)  #
                         yield Occurrence(
                             path, alias.lineno, alias.col_offset, Verdict.RENAME, shown
                         )
@@ -794,7 +697,7 @@ class _PythonResolver:
                 ):
                     receivers.add(alias.asname or alias.name)
 
-        # Attributes: `w.old` on a receiver bound to an ours module, and nothing else.
+        #
         for attribute in found.attributes:
             line = attribute.end_lineno or attribute.lineno
             stop = attribute.end_col_offset
@@ -806,7 +709,7 @@ class _PythonResolver:
             else:
                 yield Occurrence(path, line, column, Verdict.OTHER, shown)
 
-        # `__all__` entries of an ours module, and other strings that name it.
+        #
         listed: set[int] = set()
         if module_origin is _Origin.OURS:
             for entry in _dunder_all_entries(found.tree, old):
@@ -839,12 +742,7 @@ _DEF_KEYWORD = re.compile(rb"(?:async[ \t\x0c]+)?def[ \t\x0c]+|class[ \t\x0c]+")
 
 
 def _def_name_column(lines: list[bytes], node: _DefNode) -> int:
-    """Where the name after ``def``/``class`` starts on the definition's line.
-
-    The ast carries no position for the name itself. When the keyword is not
-    where the node says (a backslash-continued header), the node's own column is
-    returned, which the caller's byte check then reports as a missed span.
-    """
+    ""
     if not 1 <= node.lineno <= len(lines):
         return node.col_offset
     found = _DEF_KEYWORD.match(lines[node.lineno - 1], node.col_offset)
@@ -854,7 +752,7 @@ def _def_name_column(lines: list[bytes], node: _DefNode) -> int:
 def _statement_token(
     lines: list[bytes], statement: ast.Global | ast.Nonlocal, name: str
 ) -> tuple[int, int] | None:
-    """The line and byte column of ``name`` inside ``statement``'s source span."""
+    ""
     pattern = _token(name)
     last = statement.end_lineno or statement.lineno
     for number in range(statement.lineno, min(last, len(lines)) + 1):
@@ -911,12 +809,7 @@ def _dunder_all_entries(tree: ast.Module, name: str) -> Iterator[ast.Constant]:
 def _quoted_name_column(
     lines: list[bytes], node: ast.Constant, name: str
 ) -> int | None:
-    """The column inside the quotes of a plain ``"name"`` / ``'name'`` literal.
-
-    Only a literal whose source is exactly a quote, the name and the same quote
-    is rewritten: a prefixed, triple-quoted, escaped or implicitly concatenated
-    string is reported rather than guessed at.
-    """
+    ""
     if node.end_lineno != node.lineno or not 1 <= node.lineno <= len(lines):
         return None
     raw = lines[node.lineno - 1][node.col_offset : node.end_col_offset]
@@ -926,7 +819,7 @@ def _quoted_name_column(
     return None
 
 
-# --- JS/TS ---------------------------------------------------------------------
+#
 
 _FUNCTION_TYPES = frozenset(
     {
@@ -972,7 +865,7 @@ _JS_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")
 
 
 def _nearest(node: Node, types: frozenset[str]) -> Node:
-    """The nearest strict ancestor of ``node`` of one of ``types`` (else the root)."""
+    ""
     current = node.parent
     while current is not None:
         if current.type in types:
@@ -984,7 +877,7 @@ def _nearest(node: Node, types: frozenset[str]) -> Node:
 
 
 def _pattern_names(node: Node | None) -> Iterator[Node]:
-    """Every name a binding pattern binds — not its keys, not its defaults."""
+    ""
     if node is None:
         return
     if node.type in _NAME_TYPES or node.type == "shorthand_property_identifier_pattern":
@@ -1001,13 +894,7 @@ def _pattern_names(node: Node | None) -> Iterator[Node]:
 
 
 def _declarations(root: Node) -> Iterator[tuple[Node, Node]]:
-    """Every ``(name node, scope node)`` a declaration binds, imports included.
-
-    The scope is the node whose subtree the binding covers: ``var`` the nearest
-    function, ``let``/``const``/``class``/``function`` the nearest block,
-    parameters their function, a catch parameter its clause, a named function or
-    class expression itself, an import the whole program.
-    """
+    ""
     for node in _walk(root):
         kind = node.type
         if kind == "variable_declarator":
@@ -1060,7 +947,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, Node]]:
 
 
 def _js_definitions(path: str, root: Node, name: str) -> tuple[Definition, ...]:
-    """Definitions the index would record for ``name``, and whether module-level."""
+    ""
     found: list[Definition] = []
     for node in _walk(root):
         if node.type in (
@@ -1113,7 +1000,7 @@ def _specifier(statement: Node) -> str:
     return ""
 
 
-#: The leaf node types a JS/TS occurrence of a name can be.
+#
 _LEAF_TYPES = frozenset(
     {
         "identifier",
@@ -1130,21 +1017,17 @@ _SHORTHAND = frozenset(
 
 @dataclass
 class _JsFile:
-    """One parsed JS/TS file, with what one walk over it recorded.
-
-    Only declarations and leaves spelled like the old or the new name are kept,
-    so judging a token is a few dictionary hits rather than another walk.
-    """
+    ""
 
     path: str
     root: Node
-    starts: list[int]  # the byte offset each parser line starts at
-    leaves: list[Node]  # every name leaf spelled like the old name
-    scope_of: dict[tuple[int, int, str], Node]  # declaration name -> its scope
-    inner: dict[str, list[Node]]  # name -> the non-program scopes declaring it
-    program: dict[str, list[Node]]  # name -> its program-scope declarations
-    statements: list[Node]  # import and export statements
-    namespaces: list[Node]  # `* as ns` imports
+    starts: list[int]  #
+    leaves: list[Node]  #
+    scope_of: dict[tuple[int, int, str], Node]  #
+    inner: dict[str, list[Node]]  #
+    program: dict[str, list[Node]]  #
+    statements: list[Node]  #
+    namespaces: list[Node]  #
 
 
 def _js_file(path: str, source: bytes, old: str, new: str) -> _JsFile:
@@ -1186,7 +1069,7 @@ def _ancestors(node: Node) -> set[tuple[int, int, str]]:
 
 
 class _JsResolver:
-    """The JS/TS half of :func:`resolve`: ES modules, lexical scopes, no types."""
+    ""
 
     def __init__(
         self,
@@ -1205,10 +1088,10 @@ class _JsResolver:
         }
         self.ours: set[str] = {defining}
 
-    # -- module specifiers -----------------------------------------------------
+    #
 
     def _resolve_specifier(self, importer: str, specifier: str) -> set[str]:
-        """The held files a relative specifier can name; nothing for a package."""
+        ""
         if not specifier.startswith(("./", "../")):
             return set()
         base = posixpath.normpath(
@@ -1218,7 +1101,7 @@ class _JsResolver:
         tried.extend(f"{base}/index{ext}" for ext in _JS_EXTENSIONS)
         stem, dot, ext = base.rpartition(".")
         if dot and f".{ext}" in (".js", ".jsx", ".mjs", ".cjs"):
-            # TypeScript's ESM convention: `./a.js` in the source names `a.ts`.
+            #
             tried.extend(stem + other for other in (".ts", ".tsx", ".mts", ".cts"))
         return {path for path in tried if path in self.held}
 
@@ -1228,10 +1111,10 @@ class _JsResolver:
         named = self._resolve_specifier(found.path, _specifier(statement))
         return bool(named & self.ours)
 
-    # -- what a file binds -----------------------------------------------------
+    #
 
     def _program_binding(self, found: _JsFile) -> tuple[bool, bool, list[int]]:
-        """Whether module scope binds the name to ours, to something else, where."""
+        ""
         ours = other = False
         lines: list[int] = []
         for name in found.program.get(self.old, ()):
@@ -1256,7 +1139,7 @@ class _JsResolver:
         return ours, other, lines
 
     def _reexports(self, found: _JsFile) -> bool:
-        """Whether a barrel re-exports the name, unaliased, from an ours module."""
+        ""
         for statement in found.statements:
             if statement.type != "export_statement":
                 continue
@@ -1265,7 +1148,7 @@ class _JsResolver:
             clause = _child_of_type(statement, "export_clause")
             if clause is None:
                 if _child_of_type(statement, "namespace_export") is None:
-                    return True  # export * from "./ours"
+                    return True  #
                 continue
             for specifier in clause.named_children:
                 if (
@@ -1288,7 +1171,7 @@ class _JsResolver:
                     self.ours.add(path)
                     changed = True
 
-    # -- judging ---------------------------------------------------------------
+    #
 
     def run(self) -> Resolution:
         self._fixpoint()
@@ -1298,17 +1181,13 @@ class _JsResolver:
         return Resolution(tuple(occurrences), ())
 
     def _where(self, found: _JsFile, node: Node) -> tuple[int, int]:
-        """Parser line and byte column of ``node``, from its absolute byte offset.
-
-        Tree-sitter's own rows count ``\\n`` only; the caller splices lines cut
-        where the parser cuts them, so the position is recomputed against those.
-        """
+        ""
         offset = node.start_byte
         index = bisect.bisect_right(found.starts, offset) - 1
         return index + 1, offset - found.starts[index]
 
     def _shadowed(self, found: _JsFile, node: Node, name: str) -> bool:
-        """Whether a declaration of ``name`` in a scope around ``node`` hides it."""
+        ""
         scopes = found.inner.get(name)
         if not scopes:
             return False
@@ -1361,7 +1240,7 @@ class _JsResolver:
         return Occurrence(found.path, line, column, Verdict.RENAME, text)
 
     def _refuse_new_at_program(self, found: _JsFile) -> None:
-        """The new name must be free where the rename binds or exports it."""
+        ""
         for name in found.program.get(self.new, ()):
             line, _ = self._where(found, name)
             raise UnsafeRenameError(
@@ -1386,7 +1265,7 @@ class _JsResolver:
                     )
 
     def _namespaces(self, found: _JsFile) -> set[str]:
-        """Names bound by ``import * as ns from`` an ours module."""
+        ""
         names: set[str] = set()
         for node in found.namespaces:
             if self._from_ours(found, _ancestor(node, "import_statement")):
@@ -1417,7 +1296,7 @@ class _JsResolver:
     ) -> Occurrence:
         alias = specifier.child_by_field_name("alias")
         if alias is not None and _key(alias) == _key(leaf):
-            # A name this file chose — the local one, or the one it exports.
+            #s.
             return self._other(found, leaf, f"{self.old} (an alias)")
         statement = _ancestor(
             specifier, specifier.type.replace("specifier", "statement")
@@ -1430,7 +1309,7 @@ class _JsResolver:
             if self._from_ours(found, statement):
                 return self._rename(found, leaf, shown)
             return self._other(found, leaf, shown)
-        # `export { old }`: a use of this module's own binding.
+        #
         if file_ours:
             return self._rename(found, leaf, shown)
         return self._other(found, leaf, shown)
@@ -1442,7 +1321,7 @@ class _JsResolver:
         line, _ = self._where(found, leaf)
         scope = found.scope_of.get(_key(leaf))
         if scope is not None and scope.parent is None:
-            # A module-scope declaration: ours only as the definition itself.
+            #
             if path != self.defining:
                 yield self._other(found, leaf, old)
                 return

@@ -1,52 +1,4 @@
-"""The gate: order the checks, judge the change, return one result.
-
-This is E5's aggregator (#32). It takes a change set (computed once, #33) and
-runs every check against it in a deliberate order, cheapest and most decisive
-first:
-
-1. **scope** — did the worker touch only what its contract allowed? (#34)
-2. **secrets** — did it add a credential? (#37)
-
-Both are hard, safety-critical failures, so if either fires the run stops
-there: there is no value in linting a change that leaks a key or escaped its
-scope, and stopping saves the expensive subprocesses.
-
-3. **structured data** — do changed JSON/YAML files still parse? (#39)
-4. per language adapter (#35): **syntax** fast-fail, then **structural**
-   hazards on added lines, then batched **lint** and **format** — a file that
-   fails to parse is not linted. Lint runs once per adapter over all its
-   files; format runs once per adapter plus, for JS/TS, once per file prettier
-   says differs.
-5. **declared type checker** — only what the repository configured, and only
-   when nothing above rejected.
-
-6. **semantic resolution** — do the names the worker called exist in the
-   environment this repository declares? (#123) This one needs the per-task
-   sandbox, because answering it means importing the target's own packages.
-7. **acceptance commands** — the contract's own suite (#38), also in the
-   sandbox.
-8. **Jev verifier rung** — typed questions answered by the decision primitive
-   over the added lines and the contract, asked only of a change every rung
-   above accepted, because each question is a model request. Non-blocking:
-   its findings arrive as observations, and a model that cannot be reached is
-   an environment issue.
-
-Both sandboxed rungs are injected rather than constructed, and the cheaper of
-the two goes first: a sub-second resolution pass has no business queueing
-behind a test suite. The Jev rung is injected the same way — the gate receives
-it, it does not build it.
-
-Every finding is attributed to a worker-added line wherever the check can know
-one. A tool that is not installed is recorded as an *environment* issue, not a
-worker rejection — a keyless or minimal install still reaches a verdict on the
-checks it could run. A tool that is installed and then *fails* is a different
-thing with a different answer: the rung is recorded as
-inconclusive and the change is not accepted, because a rung that cannot say
-what bar it applied reported clean while applying none. A missing structural
-*validator* (the output-checks rung) is the exception to the first rule: its
-bar is one that must never read clean while absent, so it is inconclusive —
-a rejection — not a skipped environment issue.
-"""
+""
 
 from __future__ import annotations
 
@@ -74,22 +26,7 @@ from mcgyvr.scope import Scope
 
 @dataclass(frozen=True)
 class InconclusiveRung:
-    """A rung that could not say what bar it applied — a rejection, not a hole.
-
-    Not a finding: it makes no claim about the worker's change. Not merely an
-    environment issue either: this rung is a rejection — whichever of its two
-    shapes it took, it reported clean over a bar that never ran (#261).
-
-    ``exit_code`` distinguishes the two kinds. An ``int`` means the tool was
-    there and exited, and its answer is unreadable; ``None`` means the
-    required tool never ran at all — a validator that is not wired — which is
-    the same rejection, because a missing validator must not read as a clean
-    pass.
-
-    Carried structured rather than as a sentence because a run manifest has to
-    be able to answer *which rung was inconclusive* per row, and a rate quoted
-    from rows where lint could not run is not the rate it claims to be.
-    """
+    ""
 
     adapter: str
     rung: str
@@ -108,27 +45,7 @@ class InconclusiveRung:
 
 @dataclass(frozen=True)
 class GateResult:
-    """The gate's verdict on one change.
-
-    ``accepted`` requires two things: no findings, and no rung that could not
-    say whether it ran. ``environment_issues`` are things that stopped a check
-    from running (a missing tool) — they do not by themselves reject the worker,
-    but they are surfaced so a degraded run is never mistaken for a
-    fully-checked one.
-
-    ``inconclusive`` is the stronger case and it *does* reject. A
-    missing linter is a hole the operator can see; a linter that crashed is a
-    hole that looks like a pass. Every inconclusive rung is also rendered
-    into ``environment_issues``, so a reader that only knows about that field
-    still sees it.
-
-    ``observations`` are findings a rung reported without rejecting on: real,
-    line-attributed, and deliberately not part of the verdict. The semantic
-    rung (#123) starts there, because the sample behind its false-positive
-    rate is thin (#129) and a check that argues with correct code costs every
-    change while catching few. Promoting a rung from observation to rejection
-    is a policy flip, not a rewrite.
-    """
+    ""
 
     findings: tuple[Finding, ...] = ()
     environment_issues: tuple[str, ...] = field(default=())
@@ -162,7 +79,7 @@ class GateResult:
 
 
 class Gate:
-    """The deterministic acceptance gate over a set of language adapters."""
+    ""
 
     def __init__(self, adapters: Sequence[LanguageAdapter] | None = None) -> None:
         self.adapters: tuple[LanguageAdapter, ...] = (
@@ -183,20 +100,11 @@ class Gate:
         output: OutputChecks | None = None,
         contract_text: str = "",
     ) -> GateResult:
-        """Judge one change set. ``contract_text`` is the contract's own prose.
-
-        Only one rung reads it — ``param-mutation``, which a contract can
-        order and therefore has to be able to stand down (see
-        :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`). It is
-        a plain string with an empty default because the gate must still reach
-        a verdict for a caller holding no contract, and that verdict is the
-        strict one: a rung that read an absent contract as permission would
-        stand down hardest exactly where the least is known.
-        """
+        ""
         findings: list[Finding] = []
         observations: list[Finding] = []
 
-        # 1 & 2 — hard, decisive checks first. A failure here stops the run.
+        #n.
         if scope is not None:
             findings.extend(
                 Finding(
@@ -214,10 +122,10 @@ class Gate:
         if findings:
             return GateResult(findings=tuple(findings))
 
-        # 3 — cheap structural correctness of data files.
+        #s.
         findings.extend(validate_structured_data(changeset))
 
-        # 4 — per-adapter language checks.
+        #s.
         env_issues: list[str] = []
         inconclusive: list[InconclusiveRung] = []
         for adapter in self.adapters:
@@ -226,11 +134,11 @@ class Gate:
             ):
                 (observations if item.check == STYLE else findings).append(item)
 
-        # 4b — output checks: the structural evidence kinds the gate makes
-        # itself (media_valid, safety_pass, asr_wer). They judge the
-        # artifact a contract names rather than the diff, and run only when the
-        # contract declared them. A validator that is not wired records an
-        # inconclusive rung — a rejection — never a clean pass over no bar.
+        #es
+        #
+        #
+        #
+        #bar.
         if output is not None and not findings:
             output_report = output.run()
             findings.extend(output_report.findings)
@@ -239,14 +147,14 @@ class Gate:
 
         if typecheck is not None and not findings:
             try:
-                # The same split as the adapter branch above: a style finding
-                # is said out loud and never fatal, whatever rung produced it.
+                #
+                #
                 for item in typecheck.run(changeset):
                     (observations if item.check == STYLE else findings).append(item)
             except TypeCheckTimeoutError as exc:
-                # A timeout is a load fault, not a verdict: reported as a skip
-                # rather than an inconclusive rejection, so the same change is
-                # not accepted on a quiet machine and rejected on a loaded one.
+                #
+                #
+                #
                 env_issues.append(f"python: typecheck {exc.detail} — skipped")
             except ToolFailedError as exc:
                 rung = InconclusiveRung(
@@ -263,11 +171,11 @@ class Gate:
                     f"python: {exc.tool} not installed — typecheck skipped"
                 )
 
-        # 6 — semantic resolution (#123): the first rung that needs the
-        # sandbox, and much the cheaper of the two that do. It resolves the
-        # names on added lines against the packages the repository actually
-        # installs — the coverage `tests_pass` cannot give, since a suite is a
-        # verdict on itself and not on a diff.
+        #he
+        #
+        #
+        # a
+        #
         semantic_report: SemanticReport | None = None
         if semantic is not None and not findings:
             semantic_report = semantic.run(changeset)
@@ -275,23 +183,23 @@ class Gate:
             observations.extend(semantic_report.observations)
             env_issues.extend(semantic_report.environment_issues)
 
-        # 7 — acceptance commands (#38): the strongest deterministic signal
-        # but the most expensive, needing the sandbox (E4). It runs only when
-        # nothing cheaper already rejected the change — there is no value in
-        # spinning a suite for a diff that already fails lint or leaks a key.
-        # A missing tool (an env issue, not a finding) does not hold it back.
+        #al
+        #
+        #in
+        #
+        #
         if acceptance is not None and not findings:
             report = acceptance.run()
             findings.extend(report.findings)
             env_issues.extend(report.environment_issues)
 
-        # 8 — Jev verifier rung: typed questions answered by the decision
-        # primitive over the added lines and the contract. Last, and only on a
-        # change every other rung accepted: each question is a model request,
-        # possibly a paid one, and a change already rejected is not worth one.
-        # Non-blocking by default — its findings arrive as observations — and
-        # a model that cannot be reached is an environment issue, never a
-        # rejection.
+        #on
+        #
+        #
+        #
+        # and
+        #
+        #
         jev_report: JevReport | None = None
         if jev is not None and not findings and not inconclusive:
             jev_report = jev.run(changeset, contract_text)
@@ -322,7 +230,7 @@ class Gate:
         for change in adapter.owned(changeset.files):
             syntax = adapter.check_syntax(change, repo)
             if syntax:
-                findings.extend(syntax)  # a file that can't parse is not linted
+                findings.extend(syntax)  #
                 continue
             syntax_clean.append(change)
             findings.extend(
@@ -332,21 +240,21 @@ class Gate:
         if not syntax_clean:
             return findings
 
-        # One call per rung per adapter (the JS/TS format rung adds one call
-        # per file prettier says differs). Each rung is tried even when the
-        # one before it faulted: an operator fixing a broken environment wants
-        # both complaints, not one per run.
-        # Lint is handed the base so a line the change only rewrote is not
-        # charged with the faults it already had (see `LanguageAdapter.lint`).
+        #
+        #
+        #
+        #
+        #
+        #
         lint = partial(adapter.lint, base=changeset.base)
         for label, check in (("lint", lint), ("format", adapter.format_check)):
             try:
                 findings.extend(check(syntax_clean, repo))
             except ToolFailedError as exc:
-                # The tool was there and its answer is unreadable. Recorded in
-                # both channels: `inconclusive` decides the verdict, and the
-                # rendered sentence keeps every existing reader of
-                # `environment_issues` seeing it.
+                #
+                #
+                #
+                #
                 rung = InconclusiveRung(
                     adapter=adapter.name,
                     rung=label,

@@ -1,16 +1,5 @@
-#!/usr/bin/env python3
-"""gate 8 — every declared artifact exists and parses, here, as the run ends.
-
-A run that wrote a file that does not parse is not green, and it is said
-where the rig time was spent rather than discovered later. A `.json` is read
-with `json.loads`; any other declared file is held to being there.
-
-IT MUST BE ONE REGULAR FILE OF THE ENVELOPE. A declared name that is a
-symlink, a hard link or a path resolving outside the resolved envelope is
-named with where it points and is not read: a step once wrote through such a
-link into another envelope's committed evidence, and this gate parsed the
-victim as green.
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -57,9 +46,9 @@ def main() -> int:
                 file=sys.stderr,
             )
             status = 1
-            # Gate 5 moved the earlier pass aside for a successor that never
-            # came. Nothing recorded is lost, and the name still resolves:
-            # it goes back under its own name (the archived door's rule).
+            #
+            #
+            #
             aside = out_dir / str(superseded.get(name, ""))
             if (
                 name in superseded

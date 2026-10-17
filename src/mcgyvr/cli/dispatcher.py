@@ -1,7 +1,4 @@
-"""Command-line entrypoint: builds the parser and dispatches.
-
-Only what is built is exposed.
-"""
+""
 
 from __future__ import annotations
 
@@ -23,7 +20,7 @@ from mcgyvr.fleet.roots import (
     FolderError,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  #
     pass
 
 
@@ -49,7 +46,7 @@ from mcgyvr.rig import verbs as rig_verbs
 
 
 def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
-    """The whole command line, plus the `run` subparser on its own."""
+    ""
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
@@ -78,16 +75,12 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """The command line as a person types it.
-
-    Public so what a run reads and what a person typed can be checked against
-    each other.
-    """
+    ""
     return _build()[0]
 
 
 class _Version(argparse.Action):
-    """`--version`: the product, then the config a run here would be made under."""
+    ""
 
     def __call__(
         self,
@@ -112,7 +105,7 @@ class _Version(argparse.Action):
 
 @contextlib.contextmanager
 def hanging_up_on_interrupt() -> Iterator[None]:
-    """Ctrl-C hangs up on every dispatch of the process before it stops the command."""
+    ""
     from mcgyvr import runner
 
     if (

@@ -1,24 +1,6 @@
-#!/usr/bin/env python3
-# RUN_REWRITES: serve-fetch.json
-"""The door's serve step, fetch: download weights on the rig, held to their sha256.
-
-Reads the fetch list the door read and held to a hash before any gate
-(RUN_FETCH, :mod:`mcgyvr.serving.fetchlist`), says how many files and how
-many bytes in all before a byte moves (no cap; owner, 2026-10-07), and ships
-the fetcher (:mod:`mcgyvr.serving.fetcher`) to the rig through the ssh shim
-with its job on stdin. The fetcher resumes from a ``.part``, renames a file
-into the weights folder only when its sha256 matches, and deletes one that
-does not.
-
-A Hugging Face token is read here from the variable the door names
-(RUN_FETCH_TOKEN_ENV) and goes only into that stdin. It is never printed and
-never filed: serve-fetch.json carries what became of each file and nothing
-of the token.
-
-A file that did not end present, fetched or resumed is exit 1: a result, not
-a refusal. A download that ended short keeps its ``.part``, and the next fetch
-resumes it.
-"""
+#
+#
+""
 
 from __future__ import annotations
 
@@ -59,13 +41,13 @@ def main() -> int:
         done = ssh(
             host,
             fetchlist.REMOTE_COMMAND,
-            # Held to no fixed bound: a download takes as long as its bytes do.
-            # The fetcher's own reads time out (fetcher.TIMEOUT_S), so a
-            # stalled one ends and keeps its .part.
+            #
+            #
+            #
             timeout=None,
             input=fetchlist.payload(wants, hub, token_env, token),
         )
-    except subprocess.TimeoutExpired:  # pragma: no cover - no bound is set
+    except subprocess.TimeoutExpired:  #
         return 1
     if done.stderr:
         sys.stderr.write(done.stderr)

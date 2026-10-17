@@ -1,18 +1,4 @@
-"""A fleet is a named layout, and it moves only along the switches listed for it.
-
-* A **combination** is one rig's **room slots**, in order. Each slot holds a
-  unit, ``awake`` or ``asleep``, or is free. Slot k is identity; the order
-  units start in is not.
-* A **fleet** is a name pinned to the sha256 of its layout, one combination per
-  rig. A layout edited after it was locked no longer matches its pin.
-* A **switch** is listed: a fleet may move only to the fleets its ``next``
-  names. It is commanded at fleet level and carried out per rig and per slot:
-  slot k of the source pairs with slot k of the target, and a leaving slot's
-  stop precedes its arrival's start.
-* A switch's dev run is keyed by its **rig move** (the rig, the combination it
-  starts from and the actions), so one run proves every fleet switch that
-  derives the same move.
-"""
+""
 
 from __future__ import annotations
 
@@ -29,19 +15,15 @@ _STATES = (AWAKE, ASLEEP)
 
 
 class FleetError(Exception):
-    """A fleet layout or switch does not satisfy its lock or its listing."""
+    ""
 
 
 class SwitchRefusedError(FleetError):
-    """A switch was asked toward a fleet the source does not list."""
+    ""
 
 
 def combination_id(rig: str, slots: list[Any]) -> str:
-    """``cmb-`` for one rig's room slots, each awake, asleep or free.
-
-    Slot position is identity: the same units in another order are a different
-    combination, and an asleep unit keeps a room a freed unit does not.
-    """
+    ""
     plain_slots: list[Any] = []
     for slot in slots:
         if slot is None:
@@ -57,12 +39,12 @@ def combination_id(rig: str, slots: list[Any]) -> str:
 
 
 def layout_sha256(layout: dict[str, str]) -> str:
-    """The sha256 of a layout's canonical dump (rig -> combination), order-free."""
+    ""
     return hashlib.sha256(ids._canonical_dump(layout).encode("utf-8")).hexdigest()
 
 
 def check_pin(name: str, layout: dict[str, str], pinned: str) -> None:
-    """``None`` when ``layout`` still matches its pin; ``FleetError`` naming it."""
+    ""
     if layout_sha256(layout) != pinned:
         raise FleetError(f"{name}: the layout no longer matches its pin — re-lock")
 
@@ -70,15 +52,7 @@ def check_pin(name: str, layout: dict[str, str], pinned: str) -> None:
 def mcorch_units(
     policy: Mapping[str, Any], layout: Mapping[str, Any], *, name: str
 ) -> None:
-    """``None`` unless an mcorch policy's units are not awake in ``layout``.
-
-    Owner ruling: per fleet. A policy whose orchestrator is ``type: mcorch``
-    serves its orchestrator unit as the agent and asks its ``jev`` unit the
-    agent's typed decisions, so a fleet that runs it holds both as slots, each
-    awake: a conversation cannot wait out a wake. Read from the raw policy,
-    because the lock, promote and admission each hold one as written.
-    ``FleetError`` names every unit the layout lacks.
-    """
+    ""
     orchestrator = policy.get("orchestrator")
     if not isinstance(orchestrator, Mapping) or orchestrator.get("type") != MCORCH:
         return
@@ -113,7 +87,7 @@ def mcorch_units(
 def approve_switch(
     next_map: dict[str, list[str]], from_fleet: str, to_fleet: str
 ) -> None:
-    """``None`` for a listed switch, ``SwitchRefusedError`` naming the refusal."""
+    ""
     if to_fleet not in next_map.get(from_fleet, []):
         raise SwitchRefusedError(
             f"switch refused: {to_fleet} is not listed as a switch from {from_fleet}"
@@ -125,7 +99,7 @@ def _union_keys(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
 
 
 def _slot_actions(before_slot: Any, after_slot: Any) -> list[tuple[str, str]]:
-    """The verbs that turn one room slot into another, in order."""
+    ""
     if before_slot == after_slot:
         return []
 
@@ -179,24 +153,20 @@ def _rig_actions(
 def actions(
     before: dict[str, list[Any]], after: dict[str, list[Any]]
 ) -> list[tuple[str, str, str]]:
-    """The per-rig, per-slot verbs that transform ``before`` into ``after``."""
+    ""
     out: list[tuple[str, str, str]] = []
     for rig in _union_keys(before, after):
         out.extend(_rig_actions(rig, before.get(rig, []), after.get(rig, [])))
     return out
 
 
-#: One rig's part of a switch: the rig, the combination it starts from, and
-#: the verbs that transform its slots.
+#
+#
 Move = tuple[str, str, tuple[tuple[str, str], ...]]
 
 
 def rig_moves(before: dict[str, list[Any]], after: dict[str, list[Any]]) -> list[Move]:
-    """The distinct per-rig moves of a switch.
-
-    Two fleet switches that derive the same move return equal lists, so a dev
-    run keyed by a rig move proves every switch that uses it.
-    """
+    ""
     moves: list[Move] = []
     for rig in _union_keys(before, after):
         before_slots = before.get(rig, [])

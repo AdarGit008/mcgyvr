@@ -1,7 +1,4 @@
-"""The `mcgyvr delegate` command.
-
-Only what is built is exposed.
-"""
+""
 
 from __future__ import annotations
 
@@ -20,7 +17,7 @@ from mcgyvr.config import (
 from mcgyvr.config import load as load_config
 from mcgyvr.exits import Exit
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  #
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
 
@@ -30,22 +27,7 @@ from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
 
 def _delegate(args: argparse.Namespace) -> int:
-    """Turn a prompt plus a repository into validated contracts.
-
-    The delegated-mode half of the product, and the first real caller of
-    :func:`~mcgyvr.orchestrator.decompose.decompose`'s ``propose`` seam. This
-    command attaches and indexes the repository, and ``decompose`` runs the
-    rest of the deterministic pass (resolve â†’ read) internally; this command
-    also adds the one ingredient ``decompose`` does not bind itself: the
-    orchestrator role, resolved through :func:`~mcgyvr.delegate.proposer_for`
-    and dispatched below the pool seam by :func:`~mcgyvr.runner.dispatch_role`.
-
-    A keyless install has no orchestrator role, and that is an ordinary,
-    documented answer (:data:`~mcgyvr.delegate.NO_ORCHESTRATOR_ROLE`, exit
-    ``REFUSED``) rather than a traceback. With a role bound, the emitted
-    contracts are printed or written to ``--output``, and ``--run`` drives
-    each of them through the existing ``run`` machinery.
-    """
+    ""
 
     from mcgyvr.config import ConfigError
     from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
@@ -71,10 +53,10 @@ def _delegate(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    # A default location with nothing in it is the supported bare install; a
-    # path somebody typed is not (the same distinction ``_run`` draws). Both
-    # leave ``config`` unset, and the bare one is answered as "no orchestrator
-    # role" because there is nowhere to bind one.
+    #
+    #
+    #
+    #
     bare_install = isinstance(config_error, ConfigMissingError) and named is None
     if config is None and not bare_install:
         print(f"error: {config_error}", file=sys.stderr)
@@ -101,9 +83,9 @@ def _delegate(args: argparse.Namespace) -> int:
     into = Path(args.into) if args.into else None
     try:
         with attach(args.repo, into=into) as repo:
-            # Before the read: the baseline below is observed in the working
-            # tree, and each drafted contract runs in a sandbox of HEAD, so on
-            # a dirty tree the two can disagree.
+            #
+            #
+            #
             _say_what_the_sandbox_leaves_out(repo.root)
             index = build_index(repo.root)
             decomposition = decompose(
@@ -127,19 +109,14 @@ def _delegate(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except (DelegationError, RunnerError, SourceUnavailableError) as exc:
-        # The role was bound and could not be asked, or answered unreadably â€”
-        # a reviewer-side fault, reported, never a traceback.
+        #€”
+        #
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
 
 def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
-    """The proposer ``mcgyvr delegate`` drafts with, by ``orchestrator.authoring``.
-
-    ``classifier`` puts the typed proposer (the jev unit, or the orchestrator
-    role when none is bound) first and the prose proposer behind it; anything
-    else is the prose proposer alone, as before the field existed.
-    """
+    ""
     from mcgyvr.delegate import (
         classifier_proposer_for,
         proposer_by_authoring,
@@ -156,7 +133,7 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
 
 
 def _report_decomposition(dec: Decomposition) -> None:
-    """One line per outcome, to stderr so stdout stays machine-readable."""
+    ""
     if dec.contracts:
         print(f"{len(dec.contracts)} contract(s) proposed:", file=sys.stderr)
         for contract in dec.contracts:
@@ -171,11 +148,7 @@ def _report_decomposition(dec: Decomposition) -> None:
 
 
 def _write_delegated(dec: Decomposition, output: Path | None) -> list[Path]:
-    """Write each emitted contract to ``output``, or print them to stdout.
-
-    Returns the files written, so ``--run`` can drive the same documents it
-    showed the caller.
-    """
+    ""
     if output is None:
         for document in dec.documents:
             print(document)
@@ -196,12 +169,7 @@ def _run_delegated(
     dec: Decomposition,
     written: Sequence[Path],
 ) -> int:
-    """Execute each emitted contract through the existing ``run`` machinery.
-
-    Contracts that were only printed to stdout are staged into a temporary
-    directory first; ``_run`` reads a contract from a path, and the same
-    document must reach both the caller and the runner.
-    """
+    ""
     if not dec.contracts:
         return 0
 
@@ -252,7 +220,7 @@ def _run_delegated(
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `delegate` command."""
+    ""
 
     delegate = sub.add_parser(
         "delegate",

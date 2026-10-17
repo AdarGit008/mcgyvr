@@ -1,35 +1,4 @@
-"""The Anthropic Messages API shape, read from a harness and written back to it.
-
-mcorch is a model to its harness and a client to its rung, and the two speak
-different dialects: the harness (Claude Code, pi) sends Messages API requests —
-``system``, ``messages`` whose content is text, ``tool_use`` and ``tool_result``
-blocks, ``tools`` with an ``input_schema`` — and the rung (llama.cpp, vLLM)
-speaks OpenAI chat/completions, where a call is ``tool_calls`` with JSON-text
-arguments and a result is a ``role: tool`` turn. This module is the one place
-the two meet, in both directions, so nothing else has to know either shape.
-
-Three rules are structural:
-
-* **Nothing the rung cannot read is forwarded.** Images, documents and thinking
-  blocks are dropped and counted (:func:`to_openai_turns` returns the kinds
-  dropped), never passed through as text the rung would have to guess at.
-* **A tool result follows its call.** OpenAI requires a ``tool`` turn directly
-  after the assistant turn that called it; the Messages API puts results in the
-  next user message, before any text. Results are emitted first, in block order,
-  and the user's text after them.
-* **The harness gets only what it can run.** A call whose arguments are not
-  JSON is named by :func:`unreadable_calls` and never becomes a ``tool_use``
-  block, because a ``tool_use`` with no object input is a request the harness
-  cannot carry out and the rung would never learn why.
-
-The streaming shape is the documented one: ``message_start``, then per content
-block ``content_block_start`` / ``content_block_delta`` / ``content_block_stop``,
-then ``message_delta`` carrying ``stop_reason`` and the output count, then
-``message_stop``; ``ping`` events keep the connection open while the loop
-works. The text behind the events is complete before the first event is
-written — buffered, by design — and a reader depends on the sequence and the
-shapes, not the pacing.
-"""
+""
 
 from __future__ import annotations
 
@@ -43,11 +12,11 @@ from mcgyvr.mcorch import guard
 from mcgyvr.mcorch.wire import RungReply
 from mcgyvr.orchestrator.read import estimate_tokens
 
-#: The roles a Messages request may carry; a facade accepts no others.
+#
 _ROLES = frozenset({"user", "assistant"})
 
-#: The block types this module can translate. Every other block is dropped and
-#: counted by kind.
+#
+#
 _TEXT = "text"
 _TOOL_USE = "tool_use"
 _TOOL_RESULT = "tool_result"
@@ -55,7 +24,7 @@ _TOOL_RESULT = "tool_result"
 
 @dataclass(frozen=True)
 class ApiError:
-    """A refusal in the API's own shape: a status and a typed error object."""
+    ""
 
     status: int
     kind: str
@@ -68,13 +37,13 @@ class ApiError:
 
 
 def invalid(message: str) -> ApiError:
-    """A 400 ``invalid_request_error`` with ``message``."""
+    ""
     return ApiError(400, "invalid_request_error", message)
 
 
 @dataclass(frozen=True)
 class MessagesRequest:
-    """A Messages request as the loop reads it: the fields mcorch acts on."""
+    ""
 
     model: str
     max_tokens: int
@@ -86,13 +55,7 @@ class MessagesRequest:
 
 
 def parse_request(body: bytes) -> MessagesRequest | ApiError:
-    """Read a Messages request body, or say which field refused it.
-
-    Fields the loop does not act on (``temperature``, ``stop_sequences``,
-    ``thinking``, ``tool_choice``, ``cache_control`` …) are accepted and
-    ignored: a facade that refused every harness extension would refuse every
-    harness.
-    """
+    ""
     try:
         raw = json.loads(body.decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as exc:
@@ -147,7 +110,7 @@ def parse_request(body: bytes) -> MessagesRequest | ApiError:
 
 
 def _system_text(system: object) -> str | None:
-    """The system prompt as one string, or ``None`` when it is neither shape."""
+    ""
     if system is None:
         return ""
     if isinstance(system, str):
@@ -165,19 +128,13 @@ def _system_text(system: object) -> str | None:
     return "\n\n".join(parts)
 
 
-# --- harness -> rung ---------------------------------------------------------
+#
 
 
 def to_openai_turns(
     messages: Sequence[Mapping[str, Any]],
 ) -> tuple[tuple[dict[str, Any], ...], tuple[str, ...]]:
-    """The conversation as OpenAI turns, and the kinds of block dropped.
-
-    A user message's ``tool_result`` blocks come first, each as a ``tool`` turn,
-    then its text as one ``user`` turn. An assistant message's text is its
-    ``content`` and its ``tool_use`` blocks are its ``tool_calls``. A block of
-    any other kind is dropped and its kind recorded, in order of appearance.
-    """
+    ""
     turns: list[dict[str, Any]] = []
     dropped: list[str] = []
     for message in messages:
@@ -222,7 +179,7 @@ def _user_turns(
 
 
 def _result_text(content: object, dropped: list[str]) -> str:
-    """A tool result's content as text; nested non-text blocks are dropped."""
+    ""
     if isinstance(content, str):
         return content
     parts: list[str] = []
@@ -268,7 +225,7 @@ def _assistant_turn(
 def tools_to_openai(
     tools: Iterable[Mapping[str, Any]],
 ) -> tuple[dict[str, Any], ...]:
-    """Messages API tool definitions as OpenAI function tools."""
+    ""
     functions: list[dict[str, Any]] = []
     for tool in tools:
         function: dict[str, Any] = {
@@ -280,11 +237,11 @@ def tools_to_openai(
     return tuple(functions)
 
 
-# --- rung -> harness ---------------------------------------------------------
+#
 
 
 def unreadable_calls(reply: RungReply) -> tuple[str, ...]:
-    """The ids of the reply's calls whose arguments are not a JSON object."""
+    ""
     unreadable: list[str] = []
     for call in reply.tool_calls:
         if guard.arguments(call.arguments) is None:
@@ -293,7 +250,7 @@ def unreadable_calls(reply: RungReply) -> tuple[str, ...]:
 
 
 def new_id(prefix: str) -> str:
-    """A fresh id in the API's spelling: a prefix and hex nobody else minted."""
+    ""
     return f"{prefix}_{secrets.token_hex(12)}"
 
 
@@ -304,15 +261,7 @@ def message_from(
     message_id: str,
     input_tokens: int | None = None,
 ) -> dict[str, Any]:
-    """The rung's reply as a Messages API ``message`` object.
-
-    Text first, then one ``tool_use`` block per readable call, each under an
-    id minted here (the rung's own ids are its wire, not the harness's). The
-    stop reason is ``tool_use`` when the message calls, ``max_tokens`` when the
-    rung was cut, else ``end_turn``. Token counts are the rung's where it
-    reported them and the product's estimate where it did not — a usage object
-    is required by the shape, and an estimate says so by being an estimate.
-    """
+    ""
     content: list[dict[str, Any]] = []
     if reply.text:
         content.append({"type": _TEXT, "text": reply.text})
@@ -362,7 +311,7 @@ def message_from(
 
 
 def events_for(message: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
-    """The SSE events a complete ``message`` streams as: (event name, JSON data)."""
+    ""
     opening = dict(message)
     opening["content"] = []
     opening["stop_reason"] = None
@@ -416,10 +365,10 @@ def events_for(message: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
 
 
 def sse(event: str, data: Mapping[str, Any] | str) -> bytes:
-    """One server-sent event on the wire: its name, its data, a blank line."""
+    ""
     payload = data if isinstance(data, str) else json.dumps(data)
     return f"event: {event}\ndata: {payload}\n\n".encode()
 
 
-#: The keep-alive a facade sends while it has nothing to say yet.
+#
 PING = sse("ping", {"type": "ping"})

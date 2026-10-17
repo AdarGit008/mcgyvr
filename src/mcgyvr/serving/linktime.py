@@ -1,41 +1,5 @@
-#!/usr/bin/env python3
-"""Time one link between two cards, in one module a rig can run as it is.
-
-``python -m mcgyvr.serving.run link`` ships this very file to a rig as
-``python3 - mcgyvr-linktime MODE ARGS`` (gate ``link-01-time.py``), where it
-times a few small transfers and prints them as one line of JSON. It imports the
-standard library and nothing else, for the same reason the lock's harness does:
-the rig has no mcgyvr to import.
-
-Three modes, each a part of one reading:
-
-``peer GPU_A GPU_B``
-    Copies from one card of the rig to another, through the CUDA driver
-    (``libcuda.so.1``, which every machine with an NVIDIA driver has), with the
-    cards numbered in bus order as a split unit's launch numbers them. The bus
-    between two cards is what a split over them crosses.
-
-``sink ADDR PORT``
-    One end of the network between two rigs: listen on ``ADDR:PORT`` (the
-    address the head reaches this worker at), take one connection, and answer
-    every message with one byte.
-
-``send ADDR PORT``
-    The other end: connect to the sink, and time each message from its first
-    byte out to the answer back.
-
-**Bounded and leaving nothing.** Every payload is at most :data:`PEER_PAYLOADS`'
-or :data:`NETWORK_PAYLOADS`' largest, a card is copied to only while it has
-:data:`HEADROOM_BYTES` free past the payload, the sink takes one connection and
-no more than :data:`SINK_MOST_BYTES`, and every mode ends within
-:data:`WHOLE_S`. Nothing is written to the rig's disk, and the two buffers a
-peer copy allocates are freed before it exits.
-
-What is printed: ``{"transfers": [[bytes, seconds], ...]}`` on success (the
-sink prints ``{"received": bytes}``), ``{"error": "..."}`` otherwise, with a
-non-zero exit. :mod:`mcgyvr.serving.interconnect` fits the line through the
-transfers; this module never fits and never keeps anything.
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -50,41 +14,41 @@ import sys
 import time
 from typing import Any
 
-#: The word the door names this timer by on the rig.
+#
 LINK_WORD = "mcgyvr-linktime"
-#: The timer's modes.
+#
 MODES = ("peer", "sink", "send")
-#: The port a sink listens on when the probe names none: one the head can reach
-#: on the worker's bind address, as it reaches the worker's own processes.
+#
+#
 LINK_PORT = 50151
 
-#: Card-to-card payloads, bytes: a small one, where latency is most of the time,
-#: and two larger, where bandwidth is. Each is copied :data:`REPEATS` times.
+#
+#
 PEER_PAYLOADS = (1 << 16, 1 << 20, 1 << 23)
-#: Machine-to-machine payloads, bytes, chosen the same way.
+#
 NETWORK_PAYLOADS = (1 << 12, 1 << 18, 1 << 22)
-#: How many times each payload is timed.
+#
 REPEATS = 3
-#: What a card must still have free past a payload before it is copied to, so
-#: the timer never takes room a unit on that card is about to need.
+#
+#
 HEADROOM_BYTES = 256 << 20
-#: The most a sink reads before it ends the exchange: every payload the sender
-#: sends, each repeat and its warm-up, and nothing more.
+#
+#
 SINK_MOST_BYTES = (sum(NETWORK_PAYLOADS) * (REPEATS + 1)) + 64
-#: How long a sink waits for its one connection, and a sender for the sink.
+#
 ACCEPT_S = 60.0
 CONNECT_S = 30.0
-#: How long either end waits on the other for one message or its answer.
+#
 IDLE_S = 15.0
-#: The bound on a whole mode, whatever it waits on.
+#
 WHOLE_S = 120.0
 
-#: A message's header: the payload's length in bytes, big-endian.
+#
 _HEADER = struct.Struct(">Q")
 
 
 class LinkTimeError(Exception):
-    """The link could not be timed; the message says why."""
+    ""
 
 
 def _ipv4(text: str) -> str:
@@ -106,16 +70,16 @@ def _card(text: str) -> int:
     return int(text)
 
 
-# --------------------------------------------------------------------------
-# card to card, through the CUDA driver
-# --------------------------------------------------------------------------
+#
+#
+#
 
 
 class _Driver:
-    """The few CUDA driver calls a peer copy needs, each checked."""
+    ""
 
     def __init__(self) -> None:
-        # The launch pins the cards to bus order; so does this, before cuInit.
+        #
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
         try:
             self.lib = ctypes.CDLL("libcuda.so.1")
@@ -149,8 +113,7 @@ class _Driver:
 
 
 def time_peer(card_a: int, card_b: int) -> list[tuple[int, float]]:
-    """Timed copies from ``card_a`` to ``card_b``, each payload timed
-    :data:`REPEATS` times."""
+    ""
     if card_a == card_b:
         raise LinkTimeError("a peer copy is between two cards, not one")
     driver = _Driver()
@@ -185,7 +148,7 @@ def time_peer(card_a: int, card_b: int) -> list[tuple[int, float]]:
             driver.call("cuCtxSynchronize")
             return time.perf_counter() - begin
 
-        # One copy first, not kept: it pays for setting the path up.
+        #
         copy(min(PEER_PAYLOADS))
         return [(size, copy(size)) for size in PEER_PAYLOADS for _ in range(REPEATS)]
     finally:
@@ -198,9 +161,9 @@ def time_peer(card_a: int, card_b: int) -> list[tuple[int, float]]:
                 driver.call("cuDevicePrimaryCtxRelease_v2", device)
 
 
-# --------------------------------------------------------------------------
-# machine to machine, over TCP
-# --------------------------------------------------------------------------
+#
+#
+#
 
 
 def _exactly(conn: socket.socket, count: int) -> bytes:
@@ -215,7 +178,7 @@ def _exactly(conn: socket.socket, count: int) -> bytes:
 
 
 def sink(address: str, port: int) -> int:
-    """Take one connection on ``address:port`` and answer each message; bytes read."""
+    ""
     started = time.monotonic()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -227,8 +190,8 @@ def sink(address: str, port: int) -> int:
         server.settimeout(ACCEPT_S)
         try:
             conn, _ = server.accept()
-        # socket.timeout, not TimeoutError: a rig's Python 3.8 keeps them apart.
-        except socket.timeout:  # noqa: UP041
+        #
+        except socket.timeout:  #
             raise LinkTimeError(
                 f"nothing connected to {address}:{port} within {ACCEPT_S:g} s"
             ) from None
@@ -251,8 +214,7 @@ def sink(address: str, port: int) -> int:
 
 
 def send(address: str, port: int) -> list[tuple[int, float]]:
-    """Timed messages to the sink at ``address:port``, each payload timed
-    :data:`REPEATS` times."""
+    ""
     started = time.monotonic()
     conn: socket.socket | None = None
     while conn is None:
@@ -279,7 +241,7 @@ def send(address: str, port: int) -> list[tuple[int, float]]:
                 raise LinkTimeError("the sink answered with something else")
             return time.perf_counter() - begin
 
-        # One message first, not kept: it pays for the connection's slow start.
+        #
         message(min(NETWORK_PAYLOADS))
         out = [
             (size, message(size)) for size in NETWORK_PAYLOADS for _ in range(REPEATS)

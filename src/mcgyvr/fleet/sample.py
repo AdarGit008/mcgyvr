@@ -1,38 +1,4 @@
-"""The sample: what a staged fleet showed when it ran, and whether that is green.
-
-Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: the owner's confirm is
-approval to run the SAMPLE -- start the servers and run the sample check task.
-A green sample is the fleet STAMPED (:mod:`mcgyvr.fleet.stamp`); a red one is
-no stamp, and the sample says why.
-
-A :class:`Sample` is what ran: the staged setup (``fleet.yaml`` and
-``policy.yaml``, the fleet not yet locked), the door reads taken of it
-(``python -m mcgyvr.serving.run read --fleet F --probe U [--load WxN]``, each
-filed under the setup's journal by :func:`mcgyvr.fleet.read.record`), and the
-outcome of the use case's task (:class:`Outcome`). :func:`judge` reads it all
-back and says, plan section 8.2:
-
-* **every awake unit** was probed by the lock's own harness: warm decode and
-  prefill read, restarts read and none, its card read, and nothing alerted
-  against its ``room_mib``;
-* **the use case's task** passed: ``coding`` the deterministic gate on any
-  rung; ``chat`` one completion per unit, served at the planned window per
-  slot (``window``) and slots (``width``); ``agent`` the grounded and the
-  safety checks; ``media-gen`` is not sampled yet (P11);
-* **an opted-in Jev** (``policy.yaml`` ``jev.unit``) gave one typed choice: a
-  label and a probability;
-* **no unit sleeps**: until P10 builds the llama.cpp swap, a fleet with an
-  asleep slot is red (owner, Round 8).
-
-What the reads measured becomes the dev-run evidence the lock is written
-from (:mod:`mcgyvr.fleet.lock`): the rig file the user's scan saved
-(:mod:`mcgyvr.serving.rigfile`) gives each card's MiB, the last read's rig
-id names the machine and its snapshot gives the card's reserve as the
-combination's overhead, and each unit's card peak is the highest card reading
-around the sample (its card and its load's peak), its steady card the last
-read's. The evidence carries ``passed`` as the sample's verdict. Nothing here
-reads a rig or writes a file.
-"""
+""
 
 from __future__ import annotations
 
@@ -47,43 +13,37 @@ from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
 
-#: The use cases and the task outcome each is judged by (plan section 8.2).
-#: ``chat`` is the config's own constant.
+#
+#
 CODING_USE_CASE = "coding"
 AGENT = "agent"
 MEDIA_GEN = "media-gen"
-#: The use case a policy that names none runs, as the config's default.
+#
 DEFAULT_USE_CASE = CODING_USE_CASE
-#: The checks an :class:`Outcome` reports.
+#
 TASK_GATE = "gate"
 TASK_COMPLETION = "completion"
 TASK_GROUNDED = "grounded"
 TASK_SAFETY = "safety"
 TASK_CHOICE = "choice"
 CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
-#: Why a fleet with a sleeper is not stamped yet (owner, Round 8).
+#
 SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
-#: Why a media-gen fleet is not stamped yet.
+#
 MEDIA_NOT_BUILT = "the media sample isn't built yet (P11)"
-#: The figures every awake unit's probe must read.
+#
 PROBE_FIELDS = ("warm_decode_tok_s", "prefill_tok_s")
-#: The snapshot reading the combination's overhead is taken from.
+#
 RESERVE_FIELD = "gpu_reserve_mib"
 
 
 class SampleError(Exception):
-    """The sample cannot be judged at all: its setup cannot be read."""
+    ""
 
 
 @dataclass(frozen=True)
 class Outcome:
-    """One check of the use case's task, as the sample's runner saw it.
-
-    ``check`` is one of :data:`CHECKS`. ``unit`` is the unit it ran on (the
-    rung, for the coding gate). ``served`` is what a ``completion`` read back
-    from the unit: ``window`` (tokens per slot) and ``slots``. ``label`` and
-    ``probability`` are a Jev ``choice``'s answer.
-    """
+    ""
 
     check: str
     unit: str | None = None
@@ -96,14 +56,7 @@ class Outcome:
 
 @dataclass(frozen=True)
 class Sample:
-    """What ran: the staged setup, the reads of it, and the task's outcomes.
-
-    ``reads`` are the door read ids of the sample, in the order taken; the last
-    one that read a rig is its steady state. ``journal`` is where those reads
-    filed, by default the setup's own (``journal.dir`` of its ``policy.yaml``).
-    ``validated_at`` is by default the moment of the sample's last read.
-    ``envelope`` is the door run's envelope, when it filed one.
-    """
+    ""
 
     setup: Path
     fleet: str
@@ -116,12 +69,7 @@ class Sample:
 
 @dataclass(frozen=True)
 class Verdict:
-    """The sample judged: green, or each reason it is not.
-
-    ``evidence`` is the dev-run evidence the reads support, its ``passed``
-    the verdict, or ``None`` when a rig has no read or no rig file to build it
-    from.
-    """
+    ""
 
     green: bool
     why: tuple[str, ...]
@@ -130,7 +78,7 @@ class Verdict:
 
 @dataclass
 class _UnitRead:
-    """One unit's rows across the sample's reads."""
+    ""
 
     card: list[int] = field(default_factory=list)
     peaks: list[int] = field(default_factory=list)
@@ -168,7 +116,7 @@ def _number(value: Any) -> TypeGuard[int | float]:
 
 
 class _Reads:
-    """The rows the sample's reads filed for its fleet, from its setup, in order."""
+    ""
 
     def __init__(self, sample: Sample, journal: Path) -> None:
         order = {run_id: index for index, run_id in enumerate(sample.reads)}
@@ -226,7 +174,7 @@ def _setup(sample: Sample) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def _why_unprobed(rows: Sequence[Mapping[str, Any]], name: str) -> str:
-    """What the reads said of a unit whose figures are missing, last read first."""
+    ""
     for row in reversed(rows):
         failed = row.get("failed") or {}
         if name in failed:
@@ -277,7 +225,7 @@ def _ran(
 
 
 def _failed(check: str, ran: Sequence[Outcome], what: str) -> list[str]:
-    """Reasons for a check that must pass at least once: did not run, or each why."""
+    ""
     if not ran:
         return [f"{check}: {what} did not run"]
     if any(one.passed for one in ran):
@@ -358,8 +306,7 @@ def _task_reasons(
 def _rig_block(
     saved: Any, snapshot: Mapping[str, Any], rig_id: object
 ) -> dict[str, Any]:
-    """``card_mib`` for a one-card rig, else ``cards`` held card by card; the
-    rig id the last read named, and its snapshot."""
+    ""
     block: dict[str, Any] = {}
     if isinstance(rig_id, str) and rig_id:
         block["rig_id"] = rig_id
@@ -372,11 +319,7 @@ def _rig_block(
 
 
 def judge(sample: Sample) -> Verdict:
-    """The sample judged against plan section 8.2, with its evidence.
-
-    :class:`SampleError` only when the staged setup cannot be read; everything
-    a sample can fail on is a reason in the verdict.
-    """
+    ""
     from mcgyvr.fleet.probe import ProbeError, journal_dir
     from mcgyvr.serving import rigfile
 

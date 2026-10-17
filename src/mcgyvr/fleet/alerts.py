@@ -1,13 +1,4 @@
-"""An alert pulls its combination at once, until a re-validation is committed.
-
-``check`` judges observations against their locked values and files every one
-under the journal, stamped with the fleet, rig, combination and unit it was
-computed for. An alert pulls its combination and warns once (the journal is
-the memory, so a repeat warns nowhere). A pull
-clears only when the combination's validation is re-committed; ``rejudge``
-re-checks the journal under a tighter rule and pulls nothing.
-(the lab's fleet-identity plan, §5 and §7.)
-"""
+""
 
 from __future__ import annotations
 
@@ -23,12 +14,12 @@ from mcgyvr.fleet.roots import LOCK_DIR
 
 
 class AllPulledError(Exception):
-    """Live refuses all work: every combination is pulled."""
+    ""
 
 
-#: A judged field maps to (direction, tolerance kind). ``direction`` is "up"
-#: (alert above the bound) or "down" (alert below it). Anything not listed is
-#: recorded, never alerted.
+#
+#
+#
 _JUDGED: dict[str, tuple[str, str]] = {
     "warm_decode_tok_s": ("down", "pct"),
     "prefill_tok_s": ("down", "pct"),
@@ -36,30 +27,24 @@ _JUDGED: dict[str, tuple[str, str]] = {
     "card_peak_mib": ("up", "abs"),
     "l2_wake_s": ("up", "s"),
     "downtime_s": ("up", "s"),
-    #: A live probe's card reading, judged against the unit's own ``room_mib``
-    #: (owner, 2026-09-15): the fit bound the lock proved, and no new number.
+    #
+    #
     "card_mib": ("up", "room"),
-    #: A read's load peak of the unit's process, judged against ``room_mib`` like
-    #: the card (owner, 2026-09-15, B1): room is the measured process peak (B3).
+    #
+    #
     "load_peak_mib": ("up", "room"),
 }
 
 
 def _number(value: Any) -> float | None:
-    """A plain number, or ``None`` for anything else (``bool`` included)."""
+    ""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     return float(value)
 
 
 def _plain_pct(entries: Mapping[str, Any], field: str) -> float | None:
-    """``field``'s own class percent, from the ``tolerance_pct`` beside it.
-
-    ``tolerance_pct`` maps each judged field to its percent: warm decode and
-    prefill are measured apart, and neither is judged by the other's (owner,
-    2026-09-15). A field it does not name, or a ``tolerance_pct`` that is not
-    such a mapping, states no percent.
-    """
+    ""
     by_field = entries.get("tolerance_pct")
     if not isinstance(by_field, Mapping):
         return None
@@ -69,14 +54,7 @@ def _plain_pct(entries: Mapping[str, Any], field: str) -> float | None:
 def _plain_hit(
     entry: Any, entries: Mapping[str, Any], field: str, kind: str, value: float
 ) -> bool | None:
-    """Whether ``value`` falls outside a lock's plain value, or ``None`` unjudged.
-
-    The lock pins a unit's figures as plain numbers (the ``approved`` block of
-    one combination record per rig). A probe judges each with its own
-    class percent, carried beside them in ``tolerance_pct`` keyed by field
-    (:func:`_plain_pct`), and its card against ``room_mib``. A figure with no
-    locked value, or no stated bound, is recorded and not judged.
-    """
+    ""
     if kind == "room":
         room = _number(entries.get("room_mib"))
         return None if room is None else value > room
@@ -89,8 +67,8 @@ def _plain_hit(
     return None
 
 
-#: A run id of the form ``run-YYYYMMDDTHHMMSS-…`` carries its own time; a pull
-#: clears against a lock validated after it.
+#ll
+#
 _RUN_AT = re.compile(r"run-(\d{8}T\d{6})")
 
 
@@ -103,18 +81,14 @@ def _run_at(run_id: str) -> str | None:
 
 
 def _short(identifier: str) -> str:
-    """``cmb-b50b1259…``: an id's prefix and first eight hex digits."""
+    ""
     return identifier if len(identifier) <= 12 else f"{identifier[:12]}…"
 
 
 def _warning(
     observed: Mapping[str, Any], stamp: Mapping[str, str], unit_id: str | None
 ) -> str:
-    """The line a live pull warns with, naming its unit, rig and combination.
-
-    The unit is the name the observation carries as ``unit``; a caller that
-    gives none is named by what it has, its switch or its short unit id.
-    """
+    ""
     who = observed.get("unit") or observed.get("switch") or _short(str(unit_id))
     where = [stamp["rig"]] if stamp.get("rig") else []
     where.append(_short(stamp["combination_id"]))
@@ -137,11 +111,7 @@ def _append(path: Path, row: dict[str, Any]) -> Path:
 
 
 def record(journal: Path, stamp: Mapping[str, str], values: Mapping[str, Any]) -> Path:
-    """File one reading under the journal, stamped by what it was computed for.
-
-    Returns the file path, which is one file per combination and unit, so two
-    readings of the same figure land in the same file.
-    """
+    ""
     path = _journal_file(journal, stamp["combination_id"], stamp["unit_id"])
     return _append(path, {**dict(stamp), **dict(values)})
 
@@ -152,7 +122,7 @@ def _judge(
     field = observed["field"]
     value = observed["observed"]
 
-    # A restart is judged exactly against zero: no tolerance reaches it.
+    #
     if field == "restarts":
         if int(value) != 0:
             alert: dict[str, Any] = {"field": "restarts", "direction": "up"}
@@ -186,7 +156,7 @@ def _judge(
         elif kind == "abs":
             bound = expected + float(tolerance.get("abs", 0.0))
             hit = float(value) > bound
-        else:  # "s"
+        else:  #
             bound = expected + float(tolerance.get("s", 0.0))
             hit = float(value) > bound
     else:
@@ -208,13 +178,7 @@ def _judge(
 def _judged_pct(
     observed: Mapping[str, Any], approved: Mapping[str, Any]
 ) -> float | None:
-    """The percent ``observed``'s field is judged at, or ``None`` if by none.
-
-    What :func:`_judge` applies to a field judged by a percent: the locked
-    entry's own ``tolerance.pct``, or the field's class percent beside a plain
-    value (:func:`_plain_pct`). A row filed by :func:`check` carries it as
-    ``tolerance_pct``, so a reading says which percent it was held to.
-    """
+    ""
     field = observed["field"]
     rule = _JUDGED.get(field)
     if rule is None or rule[1] != "pct":
@@ -255,15 +219,7 @@ def check(
     run_id: str,
     lease_id: str,
 ) -> Iterator[dict[str, Any]]:
-    """Judge observations against locked values, file them, and yield alerts.
-
-    Each alert is yielded and warned once per unit-and-field, and the filed
-    alert row is what :func:`pulled` reads. An observation may carry its unit's
-    name as ``unit``, which the warning names, and the moment it was measured
-    as ``at``, which its row carries; without one, the row carries the run id's
-    time. A row judged by a percent carries it as ``tolerance_pct``
-    (:func:`_judged_pct`).
-    """
+    ""
     run_at = _run_at(run_id)
     for observed in observations:
         field = observed["field"]
@@ -327,14 +283,7 @@ def _validated_at(
 
 
 def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, Any]]]:
-    """The pulled combinations, with the unit, field and count of each pull.
-
-    A combination is pulled while it has a live alert newer than its committed
-    validation; a re-committed validation (a newer ``validated_at``) clears it.
-    With no ``lock_root`` — no fleet named live — nothing clears a pull. A row
-    read without a lock (``read --fleet``, stamped ``locked=false``) pulls
-    nothing; a row with no ``locked`` was read with the lock.
-    """
+    ""
     groups: dict[str, dict[str, Any]] = {}
     for row in _rows(journal):
         if not row.get("alert") or "unit_id" not in row:
@@ -371,20 +320,13 @@ def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, An
 
 
 class PullsUnreadableError(Exception):
-    """The live fleet, its journal or its lock cannot be read for pulls."""
+    ""
 
 
 def pulled_units(
     fleet: dict[str, Any], fleet_name: str, journal: Path, lock_root: Path | None
 ) -> dict[str, list[dict[str, Any]]]:
-    """``unit name -> the pulls of its combination``, for ``fleet_name``'s units.
-
-    A unit is pulled when the combination its rig holds in the fleet's layout
-    is pulled (:func:`pulled`). Every pull of that combination is listed against
-    it, as :func:`pulled` gives it plus ``unit``, the name of the unit that
-    alerted (its id where the fleet names no such unit). A unit whose
-    combination is not pulled is absent.
-    """
+    ""
     units = fleet.get("units", {})
     names = {
         block.get("unit_id"): name
@@ -411,15 +353,7 @@ def pulled_units(
 
 
 def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
-    """:func:`pulled_units` for the fleet the config folder's ``live.json`` names.
-
-    The journal and the lock are the two ``mcgyvr fleet alerts`` reads: the
-    live fleet's ``<journal.dir>/fleet``, where ``mcgyvr fleet probe`` files
-    (:func:`mcgyvr.fleet.probe.journal_dir`), and the live fleet's lock. With no
-    fleet named live there is no layout to pull a unit from, so ``{}``. Anything
-    that stops the pulls being read — ``live.json``, ``fleet.yaml``,
-    ``policy.yaml``, a journal file — raises :class:`PullsUnreadableError`.
-    """
+    ""
     from mcgyvr.fleet.probe import ProbeError, _live, journal_dir
     from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 
@@ -443,7 +377,7 @@ def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
 def routable(
     units: Mapping[str, str], journal: Path, lock_root: Path | None
 ) -> list[str]:
-    """The units whose combination is not pulled, or :class:`AllPulledError`."""
+    ""
     pulled_combs = pulled(journal, lock_root)
     free = [
         unit for unit, combination in units.items() if combination not in pulled_combs
@@ -459,7 +393,7 @@ def routable(
 def rejudge(
     journal: Path, combination_id: str, approved: Mapping[str, Any]
 ) -> list[dict[str, Any]]:
-    """What a tighter rule finds in the journal for one combination; pulls nothing."""
+    ""
     found: list[dict[str, Any]] = []
     for row in _rows(journal):
         if row.get("combination_id") != combination_id:

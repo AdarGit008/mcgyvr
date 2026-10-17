@@ -1,37 +1,4 @@
-"""A dev lock becomes a live fleet by promotion: a new folder, never in place.
-
-Owner, 2026-09-15: "stamped for live = another fleet setup available for live
-(no overwrite, not in place of, new folder new files)"; "~/.mcgyvr/fleets/
-<name>/   live can switch between fleets runtime". Owner, 2026-09-16: "all
-fleets get tagged with date - promote with the date in fleet name - switching
-between verified fleets is a common action during runtime".
-
-:func:`promote` reads one fleet's dev lock from the dev root and writes
-``~/.mcgyvr/fleets/<fleet>@<date>/`` — a setup of its own that ``mcgyvr
-config`` loads: ``fleet.yaml`` (that fleet's units, rigs and
-fleet block), ``policy.yaml`` (the dev policy, its ladder filtered to those
-units) and the fleet's lock in its own lock tree. The date is the lock's
-own (:func:`lock_date`) and the folder's name is the only place it is
-spelled: inside, the fleet keeps its plain name, so a re-lock on a new date
-is a new folder beside the old, which stays as a verified config, and a
-folder promoted before the ruling is tagged by a rename (:func:`tag`). Every
-refusal is decided before anything is written, the folder is built beside its
-place and renamed into it, and an existing folder is never touched.
-
-:func:`use` names the fleet live runs in the config folder's ``live.json``: any
-promoted folder whose layout still matches its own lock. It says whether the
-move from the fleet that was live is one that fleet's lock measured
-(:class:`Switch`), and starts nothing. Nothing here writes the dev root.
-
-Every live fleet comes this one way, whichever writer in
-:mod:`mcgyvr.fleet.lock` wrote its lock. A lock approved on no evidence
-(:func:`mcgyvr.fleet.lock.write_unsampled`: the user's own fleet, which no
-sample ran on) pins no combination record, so it is dated by the day of its
-approval, and a later approval of that day is ``<date>-2``, then ``-3``; it
-carries its hosted units with it, as no layout holds a unit on no rig. The
-user's own fleet (:data:`mcgyvr.fleet.lock.OWN_FLEET`) takes the next folder of
-the day too when ``mcgyvr setup`` locks it again from a new sample.
-"""
+""
 
 from __future__ import annotations
 
@@ -58,8 +25,8 @@ from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import FleetError, layout_sha256, mcorch_units
 
-# LOCK_DIR is re-exported: a promoted folder holds its lock where the dev
-# root does.
+#
+#
 from mcgyvr.fleet.lock import LOCK_DIR as LOCK_DIR
 from mcgyvr.fleet.lock import OWN_FLEET, approved_on_no_evidence
 from mcgyvr.fleet.roots import (
@@ -75,20 +42,20 @@ from mcgyvr.fleet.roots import (
 )
 from mcgyvr.fleet.spans import SpanError, check_spans
 
-#: An IPv4 address in a spelling ``inet_aton`` reads and ``ipaddress`` does not:
-#: one to four parts, each decimal, octal (a leading 0) or hexadecimal (0x).
+#
+#
 _OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")
-#: The NAT64 well-known prefix (RFC 6052) as its first 12 bytes; the last 4 of
-#: an address under it are an IPv4 address.
+#
+#
 _NAT64 = bytes.fromhex("0064ff9b 00000000 00000000")
-#: Names only a local network answers: ``localhost`` and its subdomains (RFC
-#: 6761), multicast DNS (RFC 6762), the home network (RFC 8375) and names kept
-#: for private use. A name with no dot at all is one too.
+#
+#
+#
 LOCAL_SUFFIXES = (".localhost", ".local", ".home.arpa", ".internal")
 
 
 class PromoteRefusedError(Exception):
-    """A promotion, a live switch or a tag was refused, naming what is in the way."""
+    ""
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -111,7 +78,7 @@ def _read_setup(path: Path, loader: Callable[[str], dict[str, Any]]) -> dict[str
 def _pinned(
     fleet: dict[str, Any], name: str, lock: dict[str, Any], where: str
 ) -> dict[str, str]:
-    """``rig id -> combination id`` for ``name``, refused unless it matches ``lock``."""
+    ""
     layout = fleet["fleets"][name].get("layout", {})
     try:
         ids = layout_ids(fleet, layout)
@@ -128,12 +95,12 @@ def _pinned(
 
 
 def _records(ids: dict[str, str]) -> list[Path]:
-    """The combination records a layout's pins name, relative to a lock root."""
+    ""
     return [LOCK_DIR / "rigs" / rig / f"{cmb}.json" for rig, cmb in sorted(ids.items())]
 
 
 def _date_of(root: Path, name: str, records: list[Path]) -> str:
-    """The latest ``validated_at`` day among ``records``, refused if any has none."""
+    ""
     latest: datetime | None = None
     for record in records:
         path = root / record
@@ -159,7 +126,7 @@ def _date_of(root: Path, name: str, records: list[Path]) -> str:
 
 
 def _approval_day(name: str, lock: dict[str, Any]) -> str:
-    """The day a lock approved on no evidence was approved, ``YYYY-MM-DD``."""
+    ""
     stamp = lock.get("approved_at")
     try:
         approved = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
@@ -174,24 +141,14 @@ def _approval_day(name: str, lock: dict[str, Any]) -> str:
 
 
 def _lock_day(root: Path, name: str, lock: dict[str, Any], ids: dict[str, str]) -> str:
-    """The day of ``name``'s lock under ``root``: its records' latest
-    ``validated_at``, or, for a lock approved on no evidence, which has no
-    record, the day of its approval."""
+    ""
     if approved_on_no_evidence(lock):
         return _approval_day(name, lock)
     return _date_of(root, name, _records(ids))
 
 
 def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
-    """The day the lock under ``root`` validated ``name``'s layout, ``YYYY-MM-DD``.
-
-    The latest ``validated_at`` among the combination records the lock wrote
-    for the layout (one combination record per rig of the layout); for a lock
-    approved on no evidence, the day of its approval. ``root`` is
-    a dev root or a promoted folder, and ``fleet`` the loaded ``fleet.yaml``
-    the lock was written from — the dev setup's, or
-    the folder's own — which names the layout's pins.
-    """
+    ""
     if name not in (fleet.get("fleets") or {}):
         raise PromoteRefusedError(f"{name} is not a fleet of the setup handed in")
     lock_path = root / LOCK_DIR / f"{name}.json"
@@ -203,17 +160,7 @@ def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
 
 
 def promote(dev_root: Path, setup: Path, name: str) -> Path:
-    """Write ``<config folder>/fleets/<name>@<lock date>/`` from the dev lock;
-    that folder.
-
-    ``name`` is the plain fleet name; the date is the lock's
-    (:func:`lock_date`), never today's. ``setup`` is the dev setup directory
-    holding the ``fleet.yaml`` and ``policy.yaml`` the dev lock was written
-    from. Refused, with nothing written, when ``name`` carries a tag, is not
-    a fleet of that ``fleet.yaml``, has no dev lock, its layout no longer
-    matches the dev lock, a combination record is missing or undated, the
-    tagged folder already exists, or the folder would not load as a setup.
-    """
+    ""
     if TAG in name:
         raise PromoteRefusedError(
             f"{name!r}: promote takes the plain fleet name; the date in the "
@@ -265,9 +212,9 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
                 "written over or in place of another; a re-lock on a new date is "
                 "a new folder"
             )
-        # Each approval on no evidence is a lock of its own, and so is each
-        # lock `mcgyvr setup` writes of the user's own fleet, so a later one of
-        # the same day is the next folder of that day.
+        #
+        #
+        #
         folder = fleets_dir() / tagged(name, f"{day}-{later}")
         later += 1
 
@@ -312,8 +259,7 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
 
 
 def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
-    """Write ``files`` (path in the folder -> bytes) as ``folder``: built beside
-    its place under the fleets directory and renamed into it, never over it."""
+    ""
     fleets_dir().mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{name}.", dir=fleets_dir()))
     try:
@@ -332,20 +278,7 @@ def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
 
 
 def on_a_users_machine(address: str) -> str | None:
-    """Why ``address`` is a machine of the user's rather than a hosted service,
-    or ``None`` when it does not say so.
-
-    Read from the address as written, and nothing is looked up: an IP address
-    that is not public (loopback, private, link-local, shared, reserved), in
-    any spelling a resolver reads as one (``inet_aton``'s octal, hexadecimal
-    and short forms; an IPv4 address mapped into IPv6 or behind the NAT64
-    prefix, judged as that IPv4 address; a name in other scripts, judged as
-    its IDNA spelling, so a full stop of another script is a dot), or a name
-    only a local network answers (:data:`LOCAL_SUFFIXES`, ``localhost``, or a
-    name with no dot). A public name that a local resolver points at a machine
-    of the user's is not caught here: resolving would ask the network from an
-    offline install, and the answer may differ at the run.
-    """
+    ""
     try:
         host = urlsplit(address).hostname
     except ValueError:
@@ -353,8 +286,8 @@ def on_a_users_machine(address: str) -> str | None:
     if not host:
         return "names no host"
     if not host.isascii():
-        # As the resolver will spell it: its IDNA step folds the dots of
-        # other scripts and full-width digits into ASCII ones.
+        #
+        #
         try:
             host = host.encode("idna").decode("ascii")
         except UnicodeError:
@@ -384,27 +317,27 @@ def on_a_users_machine(address: str) -> str | None:
 
 @dataclass(frozen=True)
 class Switch:
-    """What ``use`` did: the pointer it wrote, and what the lock knows of the move."""
+    ""
 
-    #: the config folder's ``live.json``, as written.
+    #
     pointer: Path
-    #: The live name now: ``<fleet>@<date>``, or a plain pre-ruling name.
+    #
     name: str
-    #: The layout ``name`` is a promotion of.
+    #
     layout: str
-    #: The live name before, ``None`` when no fleet was live.
+    #
     previous: str | None
-    #: Whether the previous fleet's lock lists ``layout`` in its ``next``.
+    #
     locked: bool
-    #: The lock's measured moves for a locked switch: one per rig, with
-    #: ``downtime_s`` and ``wake_s`` as the lock recorded them.
+    #
+    #
     moves: list[dict[str, Any]] = field(default_factory=list)
-    #: Why the move is unmeasured, when it is and a fleet was live.
+    #
     unmeasured: str | None = None
 
 
 def _measured(previous: str, layout: str) -> tuple[bool, list[dict[str, Any]], str]:
-    """Whether ``previous``'s lock lists a switch to ``layout``; its moves, else why."""
+    ""
     from_layout = split_name(previous)[0]
     lock_path = fleets_dir() / previous / LOCK_DIR / f"{from_layout}.json"
     if not lock_path.is_file():
@@ -423,14 +356,7 @@ def _measured(previous: str, layout: str) -> tuple[bool, list[dict[str, Any]], s
 
 
 def use(name: str) -> Switch:
-    """Name ``name`` the fleet live runs, in the config folder's ``live.json``.
-
-    Refused when ``<config folder>/fleets/<name>/`` does not exist or its layout no
-    longer matches its own lock. Any other promoted folder may be named — a
-    verified fleet is one the lock approved — and the :class:`Switch` says
-    whether the move from the fleet that was live is one its lock measured.
-    Nothing is started.
-    """
+    ""
     if not is_fleet_name(name):
         raise PromoteRefusedError(f"{name!r} cannot name a fleet folder")
     layout, _tag = split_name(name)

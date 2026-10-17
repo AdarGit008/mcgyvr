@@ -1,27 +1,4 @@
-"""Time a link a split unit crosses, through the door, for ``mcgyvr fleet probe``.
-
-A unit split across cards pays for the link between them, and a shipped
-estimate prices that link until the user's own reading replaces it
-(:mod:`mcgyvr.serving.interconnect`). This module takes that reading. It never
-reaches a rig itself: every timing is one ``python -m mcgyvr.serving.run link``
-(:data:`mcgyvr.serving.gatelib.DOOR_MODULE`), which ships the bounded timer
-(:mod:`mcgyvr.serving.linktime`) to the rig and prints what it timed.
-
-* Two cards of one rig (``pcie``): one link run on the rig, ``--peer A B``.
-* Two rigs (``network``): a ``--sink`` on the worker, at the address the head
-  reaches it at (the worker shard's ``bind``, or its rig when that is already
-  an IPv4 address), started first; then a ``--send`` from the head to it. The
-  sink takes one connection and ends.
-
-What comes back is a list of timed transfers, nothing more: fitting them and
-keeping the fit is :func:`mcgyvr.serving.interconnect.read_link`'s. A timing
-that fails says why, and the probe names that link as not read.
-
-It runs only when the user runs ``mcgyvr fleet probe`` and an awake unit of the
-live fleet spans cards or rigs, and only for the links those units cross: at
-most one card-to-card and one machine-to-machine timing per probe, since a
-reading is kept for its link's class.
-"""
+""
 
 from __future__ import annotations
 
@@ -37,24 +14,20 @@ from typing import Protocol
 from mcgyvr.fleet.links import PCIE, link_class
 from mcgyvr.serving import linktime
 
-#: How long a link run through the door is waited for: the timer's own bound,
-#: plus the time the door takes to start and to reach the rig.
+#
+#
 DOOR_WAIT_S = linktime.WHOLE_S + 60.0
-#: The most transfers a timer's answer is read for; a longer answer is refused.
+#
 MOST_TRANSFERS = 64
 
 
 class LinkReadError(ValueError):
-    """A link could not be timed; the message names the link and why."""
+    ""
 
 
 @dataclass(frozen=True)
 class LinkEnds:
-    """The two cards a link joins, and where the far end listens.
-
-    ``address`` is the IPv4 address the head reaches the worker at, for a link
-    between two rigs; ``None`` for two cards of one rig.
-    """
+    ""
 
     host_a: str
     gpu_a: int
@@ -68,19 +41,19 @@ class LinkEnds:
 
     @property
     def key(self) -> str:
-        """How a probe report names this link."""
+        ""
         if self.link_class == PCIE:
             return f"{self.host_a} card {self.gpu_a} -> card {self.gpu_b}"
         return f"{self.host_a} -> {self.host_b}"
 
 
-#: Times one link: its two ends -> the transfers timed across it.
+#
 LinkTimer = Callable[[LinkEnds], Sequence[tuple[int, float]]]
 
 
 @dataclass(frozen=True)
 class Ran:
-    """What one link run through the door ended with."""
+    ""
 
     code: int
     stdout: str
@@ -88,20 +61,20 @@ class Ran:
 
 
 class Pending(Protocol):
-    """A link run that was started and is not yet waited on."""
+    ""
 
     def wait(self) -> Ran:
-        """Its end, within :data:`DOOR_WAIT_S`."""
+        ""
 
 
 class Door(Protocol):
-    """Runs the link timer on one rig through the door."""
+    ""
 
     def run(self, host: str, args: Sequence[str]) -> Ran:
-        """One link run on ``host``, to its end."""
+        ""
 
     def start(self, host: str, args: Sequence[str]) -> Pending:
-        """One link run on ``host``, started and left running."""
+        ""
 
 
 class _Started:
@@ -119,7 +92,7 @@ class _Started:
 
 
 class DoorLinks:
-    """The real door: ``python -m mcgyvr.serving.run link --host H ...``."""
+    ""
 
     def start(self, host: str, args: Sequence[str]) -> Pending:
         from mcgyvr.serving.gatelib import DOOR_MODULE
@@ -140,7 +113,7 @@ class DoorLinks:
 
 
 def _said(ran: Ran, what: str) -> dict[str, object]:
-    """The timer's one line of JSON, or a refusal naming ``what`` and why."""
+    ""
     lines = [line for line in ran.stdout.splitlines() if line.strip()]
     said: object = None
     if lines:
@@ -178,7 +151,7 @@ def _transfers(said: dict[str, object], what: str) -> list[tuple[int, float]]:
 
 
 def worker_address(rig: str, bind: str | None) -> str | None:
-    """The IPv4 address the head reaches a worker on ``rig`` at, or ``None``."""
+    ""
     for candidate in (bind, rig):
         if candidate is None:
             continue
@@ -192,7 +165,7 @@ def worker_address(rig: str, bind: str | None) -> str | None:
 def time_link(
     door: Door, ends: LinkEnds, *, port: int = linktime.LINK_PORT
 ) -> list[tuple[int, float]]:
-    """The timed transfers across ``ends``, each run through ``door``."""
+    ""
     what = f"the link {ends.key}"
     if ends.link_class == PCIE:
         ran = door.run(ends.host_a, ["--peer", str(ends.gpu_a), str(ends.gpu_b)])
@@ -213,7 +186,7 @@ def time_link(
 
 
 def door_timer(door: Door | None = None) -> LinkTimer:
-    """A :data:`LinkTimer` that times through ``door`` (the real door by default)."""
+    ""
     through = door if door is not None else DoorLinks()
 
     def timer(ends: LinkEnds) -> list[tuple[int, float]]:

@@ -1,26 +1,4 @@
-"""A model file's geometry: its header row, with one source and one date.
-
-The product's serving sizer (:func:`mcgyvr.serving.fit`) sizes a unit from one
-``ggufscan`` row: the tensor table summed per block,
-the cache geometry per layer, the recurrent state, the experts per block (an
-MoE) and the multi-token-prediction head (MTP). A model record
-(:mod:`mcgyvr.knowledge.record`) says what a file weighs; this says how it is
-built, so an MoE can be sized offline, by the same law as a file on a rig.
-
-A row is one reading of one file, so it carries **one** kind, source and date
-for all of its numbers (``gguf-header-range:<repo>@<revision>/<file>``, read
-over HTTP ``Range``, never a weight). It is kept per file at a revision:
-
-* the **cache**, ``$MCGYVR_HOME/knowledge/geometry/``, one file per
-  ``repo@revision/file``, written by :func:`write`;
-* the **shipped** rows, ``data/model-geometry.json``, the headers of the
-  shipped catalog's files, so a machine with no network and no cache can still
-  size them.
-
-:func:`load` reads the cache first, then the shipped rows. A cache file that
-cannot be read is not read; it is named in :attr:`Geometries.skipped` with
-why, and the shipped rows still answer. Nothing here opens a socket.
-"""
+""
 
 from __future__ import annotations
 
@@ -37,16 +15,16 @@ from mcgyvr import atomic
 from mcgyvr.knowledge import store
 from mcgyvr.knowledge.record import KnowledgeError, Weights, _text
 
-#: The version of a geometry document, the shipped file's and each cache file's.
+#
 SCHEMA_VERSION = 1
-#: The cache's folder under the knowledge cache.
+#
 GEOMETRY_DIR = "geometry"
-#: The shipped rows' file name, in the package's data folder.
+#
 SHIPPED_FILENAME = "model-geometry.json"
-#: The one source a row may come from, and its kind.
+#
 SOURCE = "gguf-header-range"
 KIND = "fact"
-#: What a cache file's name is made of; anything else becomes ``_``.
+#
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 _FILE_KEYS = ("repo", "revision", "file")
 _DOCUMENT_KEYS = frozenset({"schema_version", "weights", "geometry"})
@@ -56,11 +34,7 @@ _NUMBER_KEYS = frozenset({"value", "kind", "source", "read_at"})
 
 @dataclass(frozen=True)
 class Geometry:
-    """One file's header row, where it was read, when, and where it is kept.
-
-    ``origin`` is :data:`mcgyvr.knowledge.store.CACHE` or
-    :data:`mcgyvr.knowledge.store.SHIPPED`.
-    """
+    ""
 
     repo: str
     revision: str
@@ -77,39 +51,36 @@ class Geometry:
 
 @dataclass(frozen=True)
 class Geometries:
-    """Every row known offline, the cache's before the shipped ones.
-
-    ``skipped`` names each cache file that was not read, with why.
-    """
+    ""
 
     rows: Mapping[tuple[str, str, str], Geometry]
     skipped: tuple[tuple[Path, str], ...]
 
     def of(self, weights: Weights | None) -> Geometry | None:
-        """The row of the file ``weights`` names, if one is known."""
+        ""
         if weights is None:
             return None
         return self.rows.get((weights.repo, weights.revision, weights.file))
 
 
 def locator(repo: str, revision: str, file: str) -> str:
-    """Where a row was read: the file at its revision."""
+    ""
     return f"{repo}@{revision}/{file}"
 
 
 def cache_dir() -> Path:
-    """``$MCGYVR_HOME/knowledge/geometry``."""
+    ""
     return store.cache_dir() / GEOMETRY_DIR
 
 
 def cache_file(repo: str, revision: str, file: str) -> Path:
-    """The cache file the row of ``file`` at ``revision`` is filed in."""
+    ""
     stem = _UNSAFE.sub("_", f"{repo.replace('/', '--')}@{revision}--{file}")
     return cache_dir() / f"{stem}.json"
 
 
 def shipped_path() -> Path:
-    """The shipped rows, from a wheel or a source checkout."""
+    ""
     packaged = resources.files("mcgyvr") / "data" / SHIPPED_FILENAME
     if Path(str(packaged)).is_file():
         return Path(str(packaged))
@@ -120,8 +91,7 @@ def shipped_path() -> Path:
 
 
 def parse(raw: Any, where: str, *, origin: str) -> Geometry:
-    """One geometry document, validated: one row of one file, with one kind,
-    one source naming that file at that revision, and one day."""
+    ""
     if not isinstance(raw, dict):
         raise KnowledgeError(f"{where}: a geometry document is not an object")
     if raw.get("schema_version") != SCHEMA_VERSION:
@@ -183,7 +153,7 @@ def parse(raw: Any, where: str, *, origin: str) -> Geometry:
 
 
 def dump(one: Geometry) -> dict[str, Any]:
-    """``one`` as a document, the shape :func:`parse` reads back."""
+    ""
     return {
         "schema_version": SCHEMA_VERSION,
         "weights": {"repo": one.repo, "revision": one.revision, "file": one.file},
@@ -199,12 +169,7 @@ def dump(one: Geometry) -> dict[str, Any]:
 def write(
     repo: str, revision: str, file: str, row: Mapping[str, Any], *, today: date
 ) -> Path:
-    """File the header row of ``file`` at ``revision`` in the cache.
-
-    Through a staging name and :func:`os.replace`, as the record cache is, and
-    read back before it is filed, so the cache cannot hold what :func:`load`
-    would refuse.
-    """
+    ""
     one = Geometry(
         repo=repo,
         revision=revision,
@@ -223,7 +188,7 @@ def write(
 
 
 def shipped() -> tuple[Geometry, ...]:
-    """The shipped rows. A file that does not read is refused."""
+    ""
     path = shipped_path()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -247,7 +212,7 @@ def shipped() -> tuple[Geometry, ...]:
 
 
 def load() -> Geometries:
-    """Every row known with no network: the cache's, then the shipped ones."""
+    ""
     rows: dict[tuple[str, str, str], Geometry] = {}
     skipped: list[tuple[Path, str]] = []
     folder = cache_dir()

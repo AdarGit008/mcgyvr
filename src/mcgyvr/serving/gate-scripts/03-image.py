@@ -1,19 +1,5 @@
-#!/usr/bin/env python3
-"""gate 3 — the daemon a tag is resolved through is the rig's, and answers now.
-
-The door owns the daemon; a serve step owns its tags. What is checked here
-is that `docker` — the shim on the PATH the door exports, which reaches
-`ssh://RUN_HOST` — answers, that the daemon answering is the machine gate 2
-read (its `Name` is the snapshot's hostname), and the version it runs is said,
-not compared. A tag resolved against one
-daemon and a container started on another is the hole this gate closes; a
-daemon on the wrong docker mounts a different set of device files (the Vulkan
-ICD manifest, 2026-09-03) and benches a different machine under the same name.
-
-`command -v docker` is not this check. A CLI with no daemon behind it passes
-that and fails inside the step, after the run is stamped, rather than as a
-refusal to start.
-"""
+#
+""
 
 from __future__ import annotations
 

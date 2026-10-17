@@ -1,28 +1,4 @@
-"""Compose detection and proposal into a written config.
-
-The first thing a stranger runs: clean machine, no key, no Docker, and the
-result is a config that supports a real local task.
-
-Three properties are enforced here rather than left to habit:
-
-1. **Non-interactive.** The output is a file plus a printed account of what
-   was decided and why. Nothing prompts, so an agent can invoke it.
-2. **Idempotent.** Re-running reports a delta and does not overwrite. Hand
-   edits are the expected state of this file — it is the one file the
-   product asks a person to maintain — so clobbering them silently would be
-   the worst thing this command could do. Writing over them requires
-   ``force``, and the delta says exactly what would change.
-3. **Honest about what is missing.** No API key and no Docker are both
-   supported, and each is reported with what it costs rather than quietly
-   degraded. Nothing to dispatch to is NOT supported: rather than write a
-   config that cannot load, init refuses and says what to bind. A file that
-   dispatches nowhere is not a head start — it is a misconfiguration that
-   surfaces later and further from its cause.
-
-The generated file's comments are rendered from ``config.SCHEMA`` — the same
-declarations the loader validates against. A comment cannot drift from the
-rule it describes, because there is only one of each.
-"""
+""
 
 from __future__ import annotations
 
@@ -73,10 +49,10 @@ if TYPE_CHECKING:
 
 COMMENT_WIDTH = 78
 
-#: What init says beside the units it bound from a server's listing, when it
-#: bound one. It matched no estimate to any of them, and names the one reader
-#: that still sizes a unit by its model's name (``mcgyvr.serving.units_for``,
-#: over ``mcgyvr.serving.declared_models``), so the sentence is true of it.
+#
+#
+#
+#
 NO_ESTIMATE_NOTICE = (
     "No estimate was matched to a unit bound from a server's listing: mcgyvr "
     "cannot yet match an estimate to a model by its weights. Until it can, "
@@ -85,10 +61,10 @@ NO_ESTIMATE_NOTICE = (
     "example under `launch` or as `room_mib`, wins over that row."
 )
 
-#: How the ladder init writes is ordered, said beside it when a unit was bound
-#: from a listing. All three parts of the order are named, because only the
-#: last is the servers' own: the order of the machines is the command line's,
-#: and the order of the server programs is mcgyvr's probe order.
+#
+#
+#
+#
 LISTED_ORDER_NOTICE = (
     "The ladder is written in the order init found the models: the machines "
     "in the order `--host` named them (this one when none was named), then on "
@@ -99,61 +75,37 @@ LISTED_ORDER_NOTICE = (
     "climbed cheapest first, and that order is yours to set in policy.yaml."
 )
 
-#: What a composed ladder optimises for: ``mcgyvr setup --priority``. The old
-#: free-text ``--profile`` is read for one release; a word naming one of these
-#: maps onto it, and any other text is ignored.
+#
+#
+#
 PRIORITIES = ("throughput", "quality", "cost")
 
-# A YAML scalar is safe bare only if it cannot be read as anything else. A
-# model id like `qwen2.5-coder:7b` carries a colon and a URL carries both a
-# colon and slashes, so most values here need quoting.
+#
+#
+#
 _BARE_SAFE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.\-]*$")
 _RESERVED = frozenset({"true", "false", "null", "yes", "no", "on", "off", "~"})
 
 
 class InitError(Exception):
-    """There is nothing to write a working config from.
-
-    Raised instead of writing a config that cannot load. A file that
-    dispatches nowhere is not a head start — it is a misconfiguration that
-    surfaces later and further from its cause, which is exactly what the
-    loader's fail-loud rule exists to prevent (``mcgyvr.config``).
-    """
+    ""
 
 
 class ApiSpecError(Exception):
-    """A ``--api`` value does not say what a hosted unit is.
-
-    Separate from :class:`InitError`, which means the machine had nothing to
-    write a config from. This one means the operator's own words could not be
-    read, and the remedy is to retype them rather than to change the machine.
-    """
+    ""
 
 
-#: What a ``--api`` value must say. They are the unit's own schema keys rather
-#: than a second set of words for the same three facts.
+#
+#
 API_SPEC_KEYS: tuple[str, ...] = ("model", "address", "api_key_env")
 
-#: What a ``--api`` value may also say, by the same schema keys.
+#
 API_SPEC_OPTIONAL_KEYS: tuple[str, ...] = ("output_tokens",)
 
 
 @dataclass(frozen=True)
 class ApiUnit:
-    """A hosted unit the operator asked for, by the unit's own schema keys.
-
-    Three facts, spelled exactly as :data:`mcgyvr.config.UNIT_FIELDS` spells
-    them, so the flag and the file it writes cannot drift into two
-    vocabularies for one thing — and ``output_tokens``, the room the unit's
-    replies are given, which the operator may state and otherwise gets
-    :data:`API_OUTPUT_TOKENS`.
-
-    ``api_key_env`` is the NAME of an environment variable, never a key. The
-    value is not accepted here, not read here and never written: it is
-    resolved at the moment of dispatch by :meth:`mcgyvr.local_pool.Endpoint.credential`,
-    which is what keeps a secret out of this file, out of a repr and out of
-    every error message that quotes an address.
-    """
+    ""
 
     model: str
     address: str
@@ -162,26 +114,12 @@ class ApiUnit:
 
     @property
     def name(self) -> str:
-        """What the ladder calls this unit.
-
-        Minted by the one function that names a tier, with the ``api``
-        locality — so a hosted rung is named by the same rule as a local one,
-        and the model segment is normalized into something that is safe as a
-        YAML key a human edits.
-        """
+        ""
         return binding_name(self.model, locality=API)
 
 
 def parse_api_unit(spec: str) -> ApiUnit:
-    """One ``--api`` value as an :class:`ApiUnit`, or a refusal saying why.
-
-    The shape is ``key=value`` pairs separated by commas, which is the form
-    this repository already passes named facts in (``mcgyvr.fleet.read``, the
-    door's export lines). Every key but ``output_tokens`` is required, and an
-    unknown one is refused rather than ignored, for the reason the loader
-    refuses an unknown config key: a value that is silently dropped is a
-    setting the operator believes they made.
-    """
+    ""
     stated: dict[str, str] = {}
     for part in spec.split(","):
         part = part.strip()
@@ -231,19 +169,7 @@ def parse_api_unit(spec: str) -> ApiUnit:
 
 
 def _api_setup_rejected(api_units: Sequence[ApiUnit], why: ConfigError) -> str:
-    """A refusal for a setup that *was* asked for and still does not load.
-
-    Distinct from :func:`_nothing_to_bind` because the situation is: the
-    operator named units and the composition of them was rejected. Telling
-    them "no local backend answered, start one" would send them to fix a
-    machine that was never the problem.
-
-    The values they typed are deliberately not echoed. One of them is the name
-    of a credential variable, and a mistyped one is the case where somebody
-    pasted the key itself — quoting it back would put a secret in a terminal
-    and a scrollback, which is the whole hazard the `api_key_env` rule exists
-    to end.
-    """
+    ""
     named = ", ".join(unit.name for unit in api_units)
     return (
         f"Refusing to write a config that cannot load.\n\n"
@@ -258,20 +184,14 @@ def _api_setup_rejected(api_units: Sequence[ApiUnit], why: ConfigError) -> str:
 
 
 def _listing(names: Sequence[str]) -> str:
-    """``A``, ``A and B``, ``A, B and C``."""
+    ""
     if len(names) < 2:
         return "".join(names)
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def _these_cards(detection: Detection) -> str:
-    """Every card the card tool read, as the cards of the machine it ran on.
-
-    The card tool reads only the machine mcgyvr runs on, whichever hosts the
-    sweep asked, so the cards are labelled as that machine's and a rig the
-    sweep reached over the network is said not to have been read. Card memory
-    is not why nothing was bound, so no size is offered as a reason.
-    """
+    ""
     remote = [
         host
         for host in dict.fromkeys(target.host for target in detection.swept)
@@ -291,22 +211,7 @@ def _these_cards(detection: Detection) -> str:
 
 
 def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal) -> str:
-    """Say what was tried, what is missing, and what to do about it.
-
-    Reached only when no listed model was bound and no hosted unit was asked
-    for: init binds a model only when a running server lists it, so a server
-    that answers and lists nothing is named as such, a server that lists only
-    ids init does not bind is given the proposal's reason for each, and no
-    card is a reason.
-
-    Starting a local backend is offered whenever none answers here; loading a
-    model is offered whenever a server answered. A unit bound by hand, which
-    states the card room it needs, is offered for a card whose memory size was
-    not determined, and for a machine with no GPU this build can see while a
-    local backend answers. The cards are reported as this machine's by
-    :func:`_these_cards`. The README quickstart quotes the text for no backend
-    and no card, so a change here is a change to that quote.
-    """
+    ""
     local = [b for b in detection.backends if b.is_local]
     binds = "init binds only a model a running server lists."
     nothing = f"there is nothing to bind: {binds}"
@@ -388,7 +293,7 @@ def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal)
 
 @dataclass(frozen=True)
 class Delta:
-    """One difference between the config on disk and what would be written."""
+    ""
 
     key: str
     current: Any
@@ -437,12 +342,12 @@ def _render_leaf(spec: Field, value: Any, indent: int, note: str = "") -> list[s
     pad = " " * indent
     lines = _comment(spec.doc, indent)
     if note:
-        # What init decided for this key on this machine, beside the key, so
-        # the file says why it holds this value and how to change it.
+        #
+        #
         lines.extend(_comment(note, indent))
     if value is None or value == []:
-        # Unset and optional. Shown commented so the key is discoverable
-        # without being bound to a value nobody chose.
+        #
+        #
         hint = spec.bind_hint or "unset"
         lines.append(f"{pad}# {spec.name}:  # {hint}")
         return lines
@@ -505,8 +410,8 @@ def _render_list_item(
 
 
 FLEET_FIELDS: tuple[Field, ...] = tuple(f for f in SCHEMA if f.name == "units")
-#: Everything else but ``relief``, which is ``relief.yaml``'s and written only
-#: by ``mcgyvr rig rungs sync``: ``init`` writes no relief rung.
+#
+#
 POLICY_FIELDS: tuple[Field, ...] = tuple(
     f for f in SCHEMA if f.name not in ("units", "relief")
 )
@@ -538,13 +443,13 @@ def _header(title: str, decisions: Sequence[str] = ()) -> list[str]:
 
 
 def render_fleet(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
-    """Render ``fleet.yaml``: the units (what runs where)."""
+    ""
     lines = _header(FLEET_FILENAME, decisions)
     lines.extend(_render_fields(FLEET_FIELDS, data, 0))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-#: Written beside ``sandbox.mode`` when init found no Docker daemon to run on.
+#
 NO_DAEMON_MODE_NOTE = (
     "No Docker daemon answered when init ran, so this is `tempdir`: the "
     "explicitly weaker mode, in which a contract's acceptance commands run on "
@@ -556,17 +461,13 @@ NO_DAEMON_MODE_NOTE = (
 def render_policy(
     data: Mapping[str, Any], notes: Mapping[str, str] | None = None
 ) -> str:
-    """Render ``policy.yaml``: the ladder and the policy over it.
-
-    ``notes`` maps a dotted key to what init decided about it on this machine,
-    written as a comment beside the key.
-    """
+    ""
     lines = _header(POLICY_FILENAME)
     lines.extend(_render_fields(POLICY_FIELDS, data, 0, notes))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-#: Written beside ``sandbox.sessions`` when it asks for Docker init did not find.
+#
 NO_DAEMON_SESSIONS_NOTE = (
     "No Docker daemon answered when init ran, so a chat or agent run is "
     "refused until one does, unless `allow_fallback` is on. `sessions: "
@@ -575,7 +476,7 @@ NO_DAEMON_SESSIONS_NOTE = (
 
 
 def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, str]:
-    """The decisions said beside their keys: Docker asked for and not found."""
+    ""
     sandbox = data.get("sandbox") or {}
     notes: dict[str, str] = {}
     if not detection.docker and sandbox.get("mode") == "tempdir":
@@ -586,41 +487,23 @@ def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, st
 
 
 def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
-    """Both files as one text, for a caller that wants the whole proposal."""
+    ""
     return render_fleet(data, decisions) + "\n" + render_policy(data)
 
 
 def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
-    """The schema's own default for each named key.
-
-    `init` writes these keys out rather than leaving the renderer to show them
-    commented, so the file says what the loader does. A static key is read
-    from the schema and never spelled twice — a moved default reaches a new
-    install by moving.
-    """
+    ""
     by_name = {field.name: field for field in fields}
     return {name: by_name[name].default for name in names}
 
 
 def _deployment_default(use_case: str) -> str:
-    """The deployment the plan defaults every use case to at install.
-
-    Every use case defaults to hybrid, where an API-tier orchestrator drives
-    mcgyvr and the ladder's dearest rungs are hosted API models. This is an
-    *install-time* default matching the schema's own default, so a fresh
-    setup states the choice rather than leaving it silent.
-    """
+    ""
     return "hybrid"
 
 
 def _rig_name(backend: Any, fallback: str) -> str:
-    """The machine a unit runs on, named as the door reaches it.
-
-    A rig is a machine, not a backend kind: init wrote the backend's name
-    (``llama.cpp``), which no door can reach. A backend on this machine is the
-    rig ``localhost`` (the owner's name for it); a remote one is the host the
-    sweep named; a rung with no backend keeps its source's name.
-    """
+    ""
     if backend is None:
         return fallback
     return "localhost" if backend.is_local else backend.host
@@ -634,28 +517,7 @@ def build(
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> dict[str, Any]:
-    """The fleet data implied by what was detected, proposed and asked for.
-
-    A unit carries the whole fact: its address and engine, the model it
-    serves and its width. There is no separate ``sources``/``models``/``tiers``
-    split to keep consistent — the unit is the one term.
-
-    A unit bound from a listing carries no ``room_mib``: the card room a unit
-    needs is the user's to state, from a reading of their own machine, and a
-    figure init wrote would be one nobody read there.
-
-    ``api_units`` are the hosted units the operator named on the command line.
-    They are not detected and not proposed, because neither question applies:
-    a hosted endpoint answers whether or not this machine has a card, and no
-    estimate in the capability table describes it. They enter as units like any
-    other, which is what makes the result the same two files any other init
-    writes rather than a second kind of output.
-
-    ``use_case`` is which of the four use cases the install serves, and
-    ``deployment`` is how it is run; ``None`` deployment falls back to
-    :func:`_deployment_default` for the use case, so the file states the choice
-    rather than leaving the schema's ``hybrid`` default to fill it silently.
-    """
+    ""
     backends = {backend.name: backend for backend in detection.backends}
     units: dict[str, Any] = {}
     for rung in proposal.rungs:
@@ -666,91 +528,91 @@ def build(
             "width": 1,
         }
         if backend is not None and backend.window is not None:
-            # The context length the backend serves, read off it by the sweep:
-            # the ceiling a `code` contract's cap is held to beside its prompt
-            # (owner, 2026-10-14). One it could not read is not written, and
-            # `_limits` names the unit as not configured.
+            #
+            #
+            #
+            #
             unit["window"] = backend.window
         if backend is not None and backend.kind == "vllm":
             unit["engine"] = "vllm"
         unit["rig"] = _rig_name(backend, rung.source)
         units[rung.name] = unit
     for api in api_units:
-        # The same whole fact, minus the `rig` a hosted endpoint does not have,
-        # because it is not a machine in your fleet. `api_key_env` is a
-        # variable NAME; the key is never held here.
+        #
+        #
+        #
         units[api.name] = {
             "address": api.address,
             "model": api.model,
             "api_key_env": api.api_key_env,
             "width": 1,
-            # Written, because a hosted unit's window cannot be read off it:
-            # this is the ceiling a `code` contract's cap is held to on it, and
-            # never the number sent in its place (owner, 2026-10-14).
+            #
+            #
+            #
             "output_tokens": api.output_tokens,
         }
     ordered_api_units = tuple(api_units)
     return {
-        # Written at their defaults so the file says which setup it is. The
-        # values are the schema's, never spelled here (see `_defaults`).
+        #
+        #
         **_defaults(SCHEMA, "max_escalations", "task_timeout_s", "users"),
-        # The use case and its deployment model are the install's two choices.
-        # The deployment is written out (rather than left to the schema's
-        # default) so the file states the choice the plan defaults made.
+        #
+        #
+        #
         "use_case": use_case,
         "deployment": (
             deployment if deployment is not None else _deployment_default(use_case)
         ),
         "units": units,
-        # Local rungs first, hosted ones last, in the order `--api` named
-        # them. A ladder is climbed cheapest first, so declare the tiers
-        # cheapest first — `deepseek-flash` then `deepseek-v4-pro` — and the
-        # ladder climbs local rungs, flash, pro.
+        #
+        #
+        # the
+        #
         "ladder": [rung.name for rung in proposal.rungs]
         + [api.name for api in ordered_api_units],
         "fanout": "none",
-        # The type is written at its default, so the file says the bound unit
-        # drafts contracts and names the key that makes it the agent instead.
+        #
+        #
         "orchestrator": {
             **_defaults(ORCHESTRATOR_FIELDS, "type"),
             "unit": None,
             "model": None,
         },
-        # Written at its default — on — with no unit: the reviewer of each
-        # rung's work is then the next dearer local rung serving another model.
+        #each
+        #
         "verifier": {
             **_defaults(VERIFIER_UNIT_FIELDS, "enabled"),
             "unit": None,
             "model": None,
         },
-        # Unbound: every typed decision asks the unit it asks without one.
+        #
         "jev": {"unit": None, "model": None},
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
-            # Written at their defaults, each under the comment that names the
-            # other choice: what a run does with no daemon, the network a task
-            # container reaches, and whether a chat or agent session gets one,
-            # are worth seeing before they matter. `initialize` writes the
-            # setup's `--session-sandbox` over the last.
+            #
+            #
+            #
+            #
+            #
             **_defaults(SANDBOX_FIELDS, "allow_fallback", "network", "sessions"),
             "image": None,
             "setup": [],
         },
-        # Commit written at its default — off — so the file says the run
-        # leaves its change uncommitted; the branch commented, under the doc
-        # that says what naming one does.
+        # run
+        #
+        #
         "delivery": {**_defaults(DELIVERY_FIELDS, "commit"), "branch": None},
-        # Written out at its default rather than left for the renderer to show
-        # commented. An omitted key renders as `# draws:  # unset`, which is
-        # true of the file and false of the behaviour: the loader fills 1 in.
-        # A knob whose off position is a number is better read than inferred.
+        #
+        #
+        #
+        #
         "breadth": _defaults(BREADTH_FIELDS, "draws"),
         "cleanup": _defaults(CLEANUP_FIELDS, "enabled"),
-        # Written at its default so the file shows what the gate refuses and
-        # where to relax it, rather than a commented key reading as unset.
+        #
+        #
         "gate": _defaults(GATE_FIELDS, "param_mutation"),
-        # Spelled out for the same reason: the journal is where a user's runs
-        # are recorded, and a key they can see is a key they can move.
+        #
+        #
         "journal": _defaults(JOURNAL_FIELDS, "dir"),
     }
 
@@ -758,15 +620,7 @@ def build(
 def _opt_ins(
     data: dict[str, Any], *, jev: str | None, mcorch: str | None, window: int | None
 ) -> dict[str, Any]:
-    """``data`` with the two opt-ins written in, each naming a written unit.
-
-    ``jev`` binds ``jev.unit``: dedicated VRAM, never slept or woken, that
-    every typed decision asks. ``mcorch`` makes that unit the agent itself —
-    ``orchestrator.type: mcorch``, ``authoring: direct`` (the strategy a rung
-    carries out with no index of its own), and the ``window`` the operator
-    read off it, which the loader requires. No model is picked here: a unit
-    init did not write is refused naming the ones it did.
-    """
+    ""
     units = dict(data["units"])
     for flag, name in (("--jev", jev), ("--mcorch", mcorch)):
         if name is not None and name not in units:
@@ -807,22 +661,12 @@ def _opt_in_decisions(
 
 
 def unit_names(detection: Detection) -> tuple[str, ...]:
-    """The units :func:`initialize` writes for ``detection``'s servers, by name,
-    in ladder order: what ``jev`` and ``mcorch`` may name. Hosted units the
-    caller adds are not among them."""
+    ""
     return tuple(rung.name for rung in propose(sources=_sources_for(detection)).rungs)
 
 
 def _sources_for(detection: Detection) -> list[AvailableSource]:
-    """Detected backends as proposal inputs, in the order they were found.
-
-    ``backend`` is the kind of server (``vllm``, ``llama-server``); ``name`` is
-    what the source will be called in the config, which for a multi-host sweep
-    is qualified with the machine. They are the same string on a single-host
-    sweep and must not be conflated: qualifying a name is a config concern,
-    and the kind is what the server is. Each source keeps its server's listing
-    order, which is the last part of the order the ladder is written in.
-    """
+    ""
     return [
         AvailableSource(
             name=backend.name,
@@ -850,8 +694,8 @@ def _decisions(
         if remote
         else ""
     )
-    # Every card is named, in the order the card tool printed them, whatever
-    # its size. No card decides a unit: init binds what a server lists.
+    #
+    #
     for gpu in detection.gpus:
         decisions.append(f"GPU {gpu.name} with {gpu.size}, via {gpu.how}{scope}.")
     for backend in detection.backends:
@@ -885,13 +729,7 @@ def _limits(
     proposal: Proposal,
     api_units: Sequence[ApiUnit] = (),
 ) -> tuple[str, ...]:
-    """What is NOT configured, and what that costs. Never silent.
-
-    The proposal's own notes belong here rather than among the decisions:
-    "no backend answered" and "a second listing was not bound" are both
-    statements about what this install does not do yet, not about what was
-    chosen.
-    """
+    ""
     limits = list(detection.notes) + list(proposal.notes)
     backends = {backend.name: backend for backend in detection.backends}
     for rung in proposal.rungs:
@@ -906,7 +744,7 @@ def _limits(
                 f"is set."
             )
     if api_units:
-        # What a bound API unit costs, said where every other cost is said.
+        #
         named = ", ".join(f"{u.name} (${u.api_key_env})" for u in api_units)
         limits.append(
             f"Hosted units are bound and every dispatch to one spends money: "
@@ -940,14 +778,7 @@ def _limits(
 
 
 def _distinct_api_units(api_units: Sequence[ApiUnit]) -> tuple[ApiUnit, ...]:
-    """The asked-for units, refusing two that would mint one name.
-
-    Two units of the same model name the same rung, and a ladder cannot list a
-    rung twice. The loader would catch it — but it would arrive as a schema
-    complaint about a duplicate ladder entry, which describes the file rather
-    than the mistake, so it is named here where the operator's own words still
-    exist to point at.
-    """
+    ""
     seen: dict[str, ApiUnit] = {}
     for unit in api_units:
         clash = seen.get(unit.name)
@@ -964,7 +795,7 @@ def _distinct_api_units(api_units: Sequence[ApiUnit]) -> tuple[ApiUnit, ...]:
 
 
 def _flatten(data: Any, prefix: str = "") -> dict[str, Any]:
-    """Flatten to dotted keys so a delta can name exactly what changed."""
+    ""
     if isinstance(data, Mapping):
         out: dict[str, Any] = {}
         for key, value in data.items():
@@ -979,7 +810,7 @@ def _flatten(data: Any, prefix: str = "") -> dict[str, Any]:
 
 
 def diff(current: Config, proposed: Mapping[str, Any]) -> tuple[Delta, ...]:
-    """What would change if the proposal were written over ``current``."""
+    ""
     have = _flatten(current.data)
     want = _flatten(proposed)
     keys = sorted(set(have) | set(want))
@@ -993,12 +824,7 @@ def diff(current: Config, proposed: Mapping[str, Any]) -> tuple[Delta, ...]:
 def _decision_from(
     found: Detection, proposal: Proposal
 ) -> tuple[Endpoint | None, str | None]:
-    """The decision endpoint and model the first detected backend provides.
-
-    The Jev decision runs on the first backend that answered, over its first
-    listed model, so a composed init needs no further wiring than ``--priority``:
-    the same wire path a dispatch to that backend uses answers the decision.
-    """
+    ""
     backend = found.backends[0] if found.backends else None
     endpoint = endpoint_for_backend(backend) if backend is not None else None
     if proposal.rungs:
@@ -1013,7 +839,7 @@ def _decision_from(
 def _composition_note(
     priority: str, recommendation: Recommendation, data: Mapping[str, Any]
 ) -> str:
-    """What the Jev layer chose, named so the written file explains itself."""
+    ""
     ladder = ", ".join(str(name) for name in data.get("ladder", ()))
     return (
         f"Priority {priority!r}: the Jev layer selected the "
@@ -1026,7 +852,7 @@ def _composition_note(
 
 
 def _compose_unavailable_note(priority: str) -> str:
-    """A priority was asked for but nothing can run the decision on it."""
+    ""
     return (
         f"A priority {priority!r} was asked for, but no backend answered "
         f"to run the Jev decision on, so init wrote the deterministic ladder "
@@ -1036,7 +862,7 @@ def _compose_unavailable_note(priority: str) -> str:
 
 
 def _compose_failed_note(priority: str, why: Exception) -> str:
-    """The decision was asked for but its answer could not be read."""
+    ""
     return (
         f"A priority {priority!r} was asked for, but the Jev decision "
         f"could not be read ({why}), so init wrote the deterministic ladder "
@@ -1062,51 +888,7 @@ def initialize(
     session_sandbox: str | None = None,
     compose_dir: Path | None = None,
 ) -> InitResult:
-    """Write a config for this install, or report what a rewrite would change.
-
-    ``detection`` is injectable so the whole command can be exercised against
-    machines nobody here owns. No table is read: init binds the models the
-    servers it found list, and matches no estimate to them.
-
-    ``hosts`` names the machines to sweep for backends; empty means this one.
-    It is ignored when ``detection`` is supplied, because the caller has then
-    already decided what was found — honouring both would be two answers to
-    one question, and the network one would win a test that meant to stay
-    offline.
-
-    ``api_units`` are hosted units the operator asked for. They are additive
-    to whatever was detected rather than a mode: a machine with a local
-    backend and a key gets both, in one ladder, which is the escalation this
-    product exists to run. A machine with neither still refuses — an empty
-    ladder is refused by the self-parse below, exactly as it always was, and
-    nothing here special-cases around that check.
-
-    ``priority`` (one of :data:`PRIORITIES`) turns on the Jev-composed path:
-    the candidate configs assembled from the measured machine and the schema
-    are ranked by :func:`mcgyvr.compose.recommend` and the chosen one is
-    written instead of the default ladder. The model only names a candidate, so
-    it can never invent a number. ``decision_endpoint`` and ``decision_model``
-    name where the decision runs; when they are omitted they are taken from the
-    first detected backend, and when no backend can run it the deterministic
-    ladder is written with a note saying so. Without ``priority`` nothing
-    changes.
-
-    ``use_case`` is which of the four use cases the install serves, and
-    ``deployment`` is how it is run (``hybrid`` or ``local-only``). When
-    ``deployment`` is omitted the default ``hybrid`` is written, so the file
-    states the choice rather than leaving the schema to fill it silently.
-
-    ``session_sandbox`` is ``sandbox.sessions``: whether a ``chat`` or
-    ``agent`` run that runs no command gets a container (``docker``, an
-    opt-in) or is staged on this host (``tempdir``). ``None`` writes the
-    schema's default.
-
-    ``compose_dir`` turns auto-wake on: ``serving.enable_sleep_wake: true``
-    and ``serving.compose_dir`` naming it, the folder the setup's launch specs
-    are emitted to and kept in, so a request to a unit that is down wakes it
-    through the door (:func:`mcgyvr.wake.for_config`). ``None`` writes
-    neither.
-    """
+    ""
     found = (
         detection
         if detection is not None
@@ -1114,8 +896,8 @@ def initialize(
     )
     asked = _distinct_api_units(api_units)
     proposal = propose(sources=_sources_for(found))
-    # The two opt-ins, checked before anything is composed or written: a
-    # refusal here costs the operator nothing but the flag they retype.
+    #
+    #
     if mcorch is not None:
         if jev is None:
             raise InitError(
@@ -1172,7 +954,7 @@ def initialize(
         else:
             compose_limits = (_compose_unavailable_note(priority),)
 
-    # After the composition, so a composed candidate carries the opt-ins too.
+    #
     data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
     if session_sandbox is not None:
         data["sandbox"] = {**dict(data["sandbox"]), "sessions": session_sandbox}
@@ -1192,9 +974,9 @@ def initialize(
         + (f"Use case {use_case!r} under deployment {chosen_deployment!r}.",)
         + _opt_in_decisions(jev=jev, mcorch=mcorch, window=window)
     )
-    # The single-user half of the ruling, surfaced rather than computed and
-    # dropped: a local-only non-chat install on one user is flagged, never
-    # refused.
+    #
+    #
+    #
     if local_orchestrator(
         use_case=use_case,
         local_only=chosen_deployment == LOCAL_ONLY,
@@ -1209,17 +991,17 @@ def initialize(
     fleet_content = render_fleet(data, decisions)
     policy_content = render_policy(data, _policy_notes(found, data))
 
-    # Parse our own output before anything is written. It normalizes the
-    # proposal the same way a loaded config is normalized, and it makes it
-    # impossible for init to emit files the loader rejects.
+    #
+    #
+    #
     try:
         normalized: Mapping[str, Any] = parse_config(
             fleet_content, policy_content, path=path
         ).data
     except ConfigError as exc:
-        # Two refusals, because they are two situations with two remedies. If
-        # units were asked for, the machine was never the problem and saying
-        # "start a local backend" would send someone to fix the wrong thing.
+        #
+        #
+        #
         if asked:
             raise InitError(_api_setup_rejected(asked, exc)) from exc
         raise InitError(_nothing_to_bind(found, exc, proposal)) from exc
@@ -1245,8 +1027,8 @@ def initialize(
     try:
         current = load_config(path)
     except ConfigError as exc:
-        # A setup that will not parse is still someone's files, and still
-        # refuses to be overwritten without force.
+        #
+        #
         reason = str(exc).split(".")[0]
         deltas = (
             Delta(str(path), f"does not parse ({reason})", "a freshly generated setup"),

@@ -1,51 +1,5 @@
-#!/usr/bin/env python3
-"""gate 7 — nothing of ours is left running, and the rig reads as it did.
-
-RUNS AFTER THE STEP WHATEVER THE STEP DID, including a signal and including a
-hard lock that took the ssh pipe with it. A step that dies compares nothing,
-and the run whose end state is unknown is exactly the one that ended
-silently, each ending mid-log-stream with no OOM, no Xid and no shutdown
-record.
-
-A LEFTOVER CONTAINER IS NAMED, NOT KILLED. The set of containers up AFTER the
-step is compared with the set gate 2 read BEFORE it (`containers=` in the
-snapshot, which gate 2 holds to `none`): anything up now that was not up then
-is named, whatever it is called, and the run is not green. The `<RUN_ID>-`
-prefix is only the label of "yours" — a step once left a container without
-it and the prefix filter alone called the run clean. docker's name filter is
-a prefix match, so `<RUN_ID>-` also covers a --suffix run of the same step;
-killing on that basis could stop a container this invocation did not start.
-The door does not repair a machine it found wrong: the kill is the operator's,
-with the name in hand.
-
-A RIG THAT MOVED IS FILED IN THE RUN'S END. What a run wrote under two
-machine states has to say so: each `COMPARED` key that reads differently after
-the step is filed in the run's end record as `rig_moved`
-(`{"<key>": {"before": ..., "after": ...}}`, absent when nothing moved), the
-run's output says it in one line, and the run is not green. The artifacts are
-left as the step wrote them.
-
-`docker` here is the door's shim, so `docker ps` asks the RIG's daemon — the
-same one gate 3 matched to the machine gate 2 read.
-
-The rig may run things mcgyvr did not start, which gate 2 reported and
-admitted: a container up before the run is not this run's leftover in any
-direction, and none is touched. The compose file's own units are judged
-whatever was up before: a `serve up` expects every one up, a `serve down` none.
-
-A `serve up --unit` OR `serve down --unit` RUN (RUN_SERVE_ONLY) acts on the
-named units alone: those are judged whatever was up before
-(an `up` expects each up, a `down` each gone), the file's other units are
-left as they are and judged neither way, and anything else the run left is
-named as on any run. A whole `serve up`, `sleep` or `wake` judges the file's
-awake set: a service under a compose profile (RUN_SERVE_ASLEEP, a swap partner
-that starts asleep) is left down by a whole `up` and judged neither way; a
-whole `down` expects it gone like the rest. A `serve fetch` starts nothing, so
-anything up after it that was not up before is named. And the run's log gets
-its end, ``<RUN_ID>.end.json`` beside the header: the rig as read after the
-step, the containers up, the units serving, what was left or missing, what of
-the rig moved, and how the step exited.
-"""
+#
+""
 
 from __future__ import annotations
 
@@ -64,9 +18,9 @@ from mcgyvr.serving.gatelib import (
 )
 from mcgyvr.serving.rigread import snapshot
 
-#: The snapshot keys (:data:`mcgyvr.serving.rigscan.SNAPSHOT_KEYS`) a run is held
-#: to from start to end. `uptime_since` is among them because a reboot is the
-#: loudest possible "this is not the machine you measured on".
+#
+#
+#
 COMPARED = (
     "uptime_since",
     "cpu_max_mhz",
@@ -84,13 +38,12 @@ COMPARED = (
 
 
 def _ids(reading: str | None) -> set[str]:
-    """The container ids a snapshot's `containers=` names; `none` is none."""
+    ""
     return {part for part in (reading or "").split(";") if part and part != "none"}
 
 
 def _containers_up() -> dict[str, str] | None:
-    """Every container the rig's daemon lists now, id -> name, or None if the
-    daemon could not be asked (which is a finding of its own)."""
+    ""
     try:
         listed = subprocess.run(
             ["docker", "ps", "--format", "{{.ID}}\t{{.Names}}"],
@@ -138,7 +91,7 @@ def main() -> int:
 
 
 def file_end(seen: dict[str, object]) -> None:
-    """Write a user-mode run's end, once, beside its header in the envelope."""
+    ""
     out_dir = Path(need("RUN_OUT_DIR"))
     path = out_dir / f"{need('RUN_ID')}.end.json"
     escape = envelope_escape(out_dir) or artifact_escape(path, out_dir)
@@ -156,43 +109,43 @@ def file_end(seen: dict[str, object]) -> None:
 
 
 def judge(seen: dict[str, object], *, user: bool) -> int:
-    """Gate 7's judgement, with what it read kept in ``seen`` for a user's log."""
+    ""
     status = 0
     run_id = need("RUN_ID")
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
 
-    # AFTER against BEFORE. Gate 2 read `containers=` before the step and
-    # refused unless it was `none`, so whatever is up now the step left —
-    # named for this run or not. A serve run reads differently, and says so
-    # in its own vocabulary: `serve up` EXPECTS the containers the door read
-    # from the compose file, and every one of them, while `serve down`
-    # opened on a busy daemon and expects it empty — so there `before` is
-    # not a licence, and anything up at all is named.
+    #
+    #��
+    #
+    #
+    #
+    #is
+    #
     serve = os.environ.get("RUN_SERVE", "")
     expected = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
-    # `serve up|down --unit` acts on the named units alone: they are judged,
-    # up after an `up` and gone after a `down`, whatever was up before, and
-    # the file's other units are left as they are, up or not, and judged
-    # neither way. Anything else the run left is named as for any run.
+    #
+    #
+    #
+    #
     alone = serve in ("up", "down") and bool(
         os.environ.get("RUN_SERVE_ONLY", "").split()
     )
     judged = set(os.environ.get("RUN_SERVE_ONLY", "").split()) if alone else expected
-    # A whole `up` leaves the file's sleepers down (a compose profile), and
-    # `sleep` and `wake` act on what is up: those runs judge the awake set,
-    # and a sleeper is judged neither way. A whole `down` takes them too.
+    #
+    #
+    #
     if not alone and serve in ("up", "sleep", "wake"):
         judged = expected - set(os.environ.get("RUN_SERVE_ASLEEP", "").split())
     untouched = expected - judged
     seen["only"] = sorted(judged) if alone else []
-    # `sleep` and `wake` open on a serving rig as `down` does, and end with
-    # the declared containers running as `up` does: the units keep their
-    # process through both.
+    #
+    #
+    #
     opened_busy = serve in ("down", "sleep", "wake")
     keeps = serve in ("up", "sleep", "wake")
-    # A user's rig may hold containers mcgyvr did not start: what was up
-    # before the run is no leftover of it, in any direction. Nor, on a
-    # `--unit` run, is a container up before it.
+    #
+    #
+    #
     before = (
         set() if opened_busy and not (user or alone) else _ids(pre.get("containers"))
     )
@@ -200,7 +153,7 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
     if up is None:
         status = 1
     else:
-        # A unit of the compose file is judged whatever was up before.
+        #
         left = {
             ident: name
             for ident, name in up.items()
@@ -226,7 +179,7 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
                 )
                 status = 1
         seen["left"] = sorted(left.values())
-        # A unit a `serve down --unit` named and did not take down.
+        #
         stuck = sorted(name for name in left.values() if name in judged)
         if stuck:
             print(
@@ -260,8 +213,8 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
     try:
         post = snapshot(need("RUN_HOST"))
     except SystemExit:
-        # `snapshot` refuses by exiting; here that is a finding and not a
-        # refusal — the run is simply not green, and gate 8 still runs.
+        #
+        #s.
         print(
             "gate 7: the rig could not be re-read after the step; its end "
             "state is unknown and the run is not green",
@@ -270,9 +223,9 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
         return 1
     seen["rig_after"] = post
 
-    # The runtime reader's own account of the daemon (rig-units.sh, read with
-    # the rest of the rig): a container it lists that `docker ps` did not is
-    # named by id, so the two readings cannot disagree quietly.
+    #
+    #
+    #
     unseen = _ids(post.get("containers")) - before - set(up or {})
     if unseen:
         print(

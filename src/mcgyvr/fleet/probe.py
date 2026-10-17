@@ -1,70 +1,4 @@
-"""A live unit is judged by a solo probe that repeats its lock's own measurement.
-
-Owner, 2026-09-15 (F2): every dispatch row keeps its decode, prefill and
-in-flight figures as data, and only a probe judges. The lock measured a short
-prompt and 256 tokens out, so a dispatch is not the lock's quantity, and the
-probe asks the lock's own question instead:
-
-* a vLLM unit gets :data:`VLLM_HARNESS`: one 64-token warm-up, five 256-token
-  decodes with ``ignore_eos`` (``completion_tokens`` over wall seconds) and
-  three 16-token requests of the long prompt (``prompt_tokens`` over wall
-  seconds, which that harness calls its TTFT);
-* a llama.cpp unit gets :data:`LLAMA_HARNESS`: ``/completion`` with a 64-token
-  warm-up, five 256-token decodes read from ``timings.predicted_per_second``
-  and three 16-token long prompts read from ``timings.prompt_per_second``,
-  with ``cache_prompt`` off.
-
-Both take the median, as the lock's numbers were taken (the lab's fleet
-reports for box1 and box2). Unlike the harnesses, the probe does not run on
-the rig: it asks the unit at its address.
-
-**A vLLM figure is recorded, not judged.** Owner, 2026-09-15: "vLLM stopwatch
-on the rig; record till then". ``measure_vllm.py`` timed its requests on the
-rig at 127.0.0.1. The probe times the same requests by wall clock from off the
-rig, so each one carries a network round trip the lock's figure does not. So a
-vLLM unit's decode and prefill are filed with the probe's stamp and
-``off_the_rig: true`` through :func:`mcgyvr.fleet.alerts.record`, as a
-contended unit's are, and :attr:`Report.off_the_rig` names them. They raise no
-alert and pull nothing. A llama.cpp figure is the server's own ``timings``,
-which carry no network time, and is judged.
-
-**Only an idle unit is probed.** The unit's own in-flight count
-(:func:`mcgyvr.runner.unit_in_flight`) is read before and after. A unit busy
-before is not probed. A unit busy after — or whose count cannot be read after —
-took work during the probe: its figures are filed as ``contended`` and not
-judged.
-
-**A unit that spans rigs is measured once, at its head.** It holds a slot on
-every rig it spans, but one process answers at one address: the head's. So it is
-probed, filed and judged once, against the head rig's lock record, and never once
-per rig. Every rig it spans is still read through the door, workers included.
-Given a ``link_reader``, the links the awake split units cross are timed too
--- at most one between two cards of a rig and one between two rigs
-(:func:`link_ends`) -- and kept as the user's own reading of that link class
-(:func:`mcgyvr.serving.interconnect.read_link`); what each recorded is
-:attr:`Report.links`. ``mcgyvr fleet probe`` times them through the door
-(:mod:`mcgyvr.fleet.linkread`), and only when such a unit is awake.
-
-**Card memory and restarts are read through the door.** Both are rig reads,
-and a rig is reached only behind the door (``tests/test_one_door.py``). Given a
-``reader`` — ``mcgyvr fleet probe`` passes :func:`mcgyvr.fleet.read.spawn_read`
-(owner, 2026-09-15, F2b) — the probe reads each rig first with
-``python -m mcgyvr.serving.run read``, which files and judges both by their
-rules, card at most the unit's ``room_mib`` and restarts exactly 0. The same
-read runs a vLLM unit's measurement on the rig (``read --probe``), where the
-lock's stopwatch ran, and judges it there. A rig whose read filed nothing — or a
-probe given no reader — names both figures as not read, and times its vLLM units
-off the rig, recorded and not judged, as above.
-
-Every figure is stamped with the live fleet, rig, rig id, combination id and
-unit id, and filed under ``<journal.dir>/fleet/`` with ``at``, the moment its
-unit's measurement finished. A judged figure is filed
-through :func:`mcgyvr.fleet.alerts.check`, against the unit's plain locked
-value and that field's own class tolerance
-(:func:`mcgyvr.derived.class_tolerances`): warm decode and prefill each have
-their own measured percents (owner, 2026-09-15), and the row carries the one it
-was judged at.
-"""
+""
 
 from __future__ import annotations
 
@@ -103,22 +37,22 @@ from mcgyvr.fleet.roots import (
 from mcgyvr.fleet.spans import Span, SpanError, spans
 from mcgyvr.fleet.tolerance import CLASS_VLLM, tolerance_class
 
-#: Where the probe files, under the config's ``journal.dir``.
+#
 JOURNAL_SUBDIR = "fleet"
 
-#: The two harnesses the lock's numbers were measured with. Their method is
-#: :mod:`mcgyvr.fleet.harness`, which the probe asks of a unit at its address and
-#: the door's ``read --probe`` runs on the rig.
+#
+#
+#
 VLLM_HARNESS = "the lock's vLLM harness"
 LLAMA_HARNESS = "the lock's llama.cpp harness"
 
-#: The figures a probe cannot read from a unit's HTTP face.
+#
 NOT_READ_ON_THE_RIG: tuple[str, ...] = ("card_mib", "restarts")
 NOT_READ_REASON = (
     "read on the rig, and a rig is reached only behind the door "
     "(python -m mcgyvr.serving.run; tests/test_one_door.py)"
 )
-#: Why a vLLM unit's figures are recorded and not judged (owner, 2026-09-15).
+#
 OFF_THE_RIG_REASON = (
     "timed by wall clock from off the rig, over the network at {address}, "
     "while the lock timed on the rig at 127.0.0.1 ({harness})"
@@ -128,44 +62,41 @@ InFlight = Callable[[str, Mapping[str, Any]], int | None]
 
 
 class ProbeError(Exception):
-    """The probe cannot run at all: no fleet is live, or its folder is unreadable."""
+    ""
 
 
 @dataclass
 class Report:
-    """What one probe did, unit by unit."""
+    ""
 
-    #: unit name -> the medians measured, by lock field.
+    #
     probed: dict[str, dict[str, float]] = field(default_factory=dict)
-    #: unit name -> what it had in flight, for a unit not probed because busy.
+    #
     busy: dict[str, int] = field(default_factory=dict)
-    #: units that took work during their probe: filed, not judged.
+    #
     contended: list[str] = field(default_factory=list)
-    #: unit name -> why its probe could not run.
+    #
     failed: dict[str, str] = field(default_factory=dict)
-    #: unit name -> (the figures not read, why).
+    #
     not_read: dict[str, tuple[tuple[str, ...], str]] = field(default_factory=dict)
-    #: unit name -> (the figures filed, why): timed from off the rig, not judged.
+    #
     off_the_rig: dict[str, tuple[tuple[str, ...], str]] = field(default_factory=dict)
-    #: the alerts the judge raised.
+    #
     alerts: list[dict[str, Any]] = field(default_factory=list)
-    #: ``"head -> worker"`` -> what the read of that link says, for each pair a
-    #: spanning unit joins.
+    #
+    #
     links: dict[str, str] = field(default_factory=dict)
-    #: ``"head -> worker"`` -> why that link could not be read.
+    #
     links_failed: dict[str, str] = field(default_factory=dict)
 
     @property
     def exit_code(self) -> int:
-        """1 when any unit's, or any link's, probe could not run, else 0."""
+        ""
         return 1 if self.failed or self.links_failed else 0
 
 
 def folder_policy(folder: Path | None) -> dict[str, Any]:
-    """A fleet folder's ``policy.yaml``, as written; empty where it has none.
-
-    :class:`ProbeError` when the file is there and cannot be read.
-    """
+    ""
     policy_path = None if folder is None else folder / "policy.yaml"
     if policy_path is None or not policy_path.is_file():
         return {}
@@ -176,11 +107,7 @@ def folder_policy(folder: Path | None) -> dict[str, Any]:
 
 
 def journal_dir(folder: Path | None) -> Path:
-    """``<journal.dir>/fleet`` for a live fleet folder, where the probe files.
-
-    ``journal.dir`` is read from the folder's ``policy.yaml``; with no folder, or
-    none stated, it is the config's default.
-    """
+    ""
     configured: Any = None
     block = folder_policy(folder).get("journal")
     if isinstance(block, Mapping):
@@ -190,7 +117,7 @@ def journal_dir(folder: Path | None) -> Path:
 
 
 def unit_in_flight(name: str, unit: Mapping[str, Any]) -> int | None:
-    """The unit's own in-flight count, from ``/slots`` or vLLM's ``/metrics``."""
+    ""
     from mcgyvr.runner import unit_in_flight as read
 
     width = unit.get("width")
@@ -211,13 +138,7 @@ def _approved(
     unit: Mapping[str, Any],
     tolerances: Mapping[str, Mapping[str, float]],
 ) -> dict[str, dict[str, Any]]:
-    """The judge's view of one unit: its locked values, their percents and room.
-
-    ``tolerances`` is :func:`mcgyvr.derived.class_tolerances`, judged field ->
-    class -> percent. The unit's one class (:func:`tolerance_class`) picks each
-    field's own percent, carried as ``tolerance_pct`` keyed by field: prefill is
-    judged at prefill's class percent and warm decode at decode's.
-    """
+    ""
     path = folder / LOCK_DIR / "rigs" / rig_id / f"{combination}.json"
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
@@ -239,14 +160,7 @@ def _approved(
 
 
 def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
-    """``(layout, folder, fleet.yaml)`` of the live fleet, or :class:`ProbeError`.
-
-    The pointer names a promoted folder, ``<fleet>@<lock date>`` or a plain
-    pre-ruling name; what comes back first is the layout — the name the
-    folder's ``fleet.yaml`` keys the fleet by and its lock is filed under
-    (:func:`mcgyvr.fleet.roots.layout_of`) — which is what every reader of
-    the live fleet holds a rig to.
-    """
+    ""
     try:
         name = live_fleet()
         folder = live_fleet_dir()
@@ -269,17 +183,17 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
     return layout, folder, fleet
 
 
-#: Times one link: its two ends -> ``[(bytes, seconds)]``
-#: (:data:`mcgyvr.fleet.linkread.LinkTimer`; ``mcgyvr fleet probe`` passes
-#: :func:`mcgyvr.fleet.linkread.door_timer`).
+#
+#
+#
 LinkReader = Callable[[LinkEnds], Sequence[tuple[int, float]]]
-#: What a link read says it was taken by, kept with the reading.
+#
 LINK_HOW = "mcgyvr fleet probe"
-#: A read of one rig through the door: ``(rig, run id, units to probe) -> exit``.
+#
 Reader = Callable[[str, str, Sequence[str]], int]
-#: Why a rig's figures are not read when its read through the door filed none.
+#
 UNREAD_RIG_REASON = "the door's read of {rig} exited {code} and filed no reading"
-#: Why a figure the door's reader could not read is not read.
+#
 UNREAD_BY_THE_READER = "the door's reader on the rig could not read them"
 
 
@@ -292,12 +206,7 @@ def _read_rigs(
     journal: Path,
     report: Report,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
-    """Each rig's read through the door, filed under ``run_id``, and why not.
-
-    Every rig ``awake`` holds a slot on is read, a spanning unit's workers
-    included; a vLLM unit is measured on the rig only where it is ``measured``,
-    which for a spanning unit is its head.
-    """
+    ""
     filed: dict[str, dict[str, Any]] = {}
     unread: dict[str, str] = {}
     if reader is None:
@@ -321,7 +230,7 @@ def _read_rigs(
 
 
 def _from_the_rig(report: Report, unit: str, row: Mapping[str, Any]) -> None:
-    """What ``read --probe`` measured of ``unit`` on the rig, into the report."""
+    ""
     probed = (row.get("probed") or {}).get(unit)
     if isinstance(probed, Mapping):
         report.probed[unit] = {str(k): float(v) for k, v in probed.items()}
@@ -338,15 +247,7 @@ def _from_the_rig(report: Report, unit: str, row: Mapping[str, Any]) -> None:
 def link_ends(
     spanning: Mapping[str, Span], measured: Sequence[tuple[str, str]]
 ) -> list[LinkEnds]:
-    """The links to time: at most one card-to-card and one machine-to-machine.
-
-    Each awake unit that spans two cards of one rig crosses that rig's bus, and
-    each that spans rigs crosses the network from its head to each worker. A
-    reading is kept for its link's class, not for the pair it was taken
-    between (:mod:`mcgyvr.serving.interconnect`), so one link of each class is
-    timed, the first in sorted order: the probe stays bounded however many
-    units are split.
-    """
+    ""
     found: dict[str, list[LinkEnds]] = {}
     for unit in sorted({unit for _, unit in measured if unit in spanning}):
         span = spanning[unit]
@@ -379,12 +280,7 @@ def _read_links(
     moment: datetime,
     report: Report,
 ) -> None:
-    """Time each link :func:`link_ends` names and keep it as the user's reading.
-
-    :mod:`mcgyvr.serving.interconnect` is imported here, not at the top: only
-    a probe that reads links needs it. A link that cannot be read is named in
-    :attr:`Report.links_failed` and fails the probe, like a unit.
-    """
+    ""
     from mcgyvr.serving import interconnect
 
     refused = (ValueError, OSError, interconnect.InterconnectError)
@@ -419,15 +315,7 @@ def run(
     reader: Reader | None = None,
     link_reader: LinkReader | None = None,
 ) -> Report:
-    """Probe the live fleet's awake units, file every figure, judge the solo ones.
-
-    Raises :class:`ProbeError` when nothing can be probed at all (no live
-    fleet, an unreadable folder, a unit named that is not awake in it); a unit
-    whose own probe cannot run is in :attr:`Report.failed`. With ``reader``,
-    every rig is read through the door first (module docstring). With
-    ``link_reader``, the links the awake split units cross are timed and kept
-    as the user's reading (:func:`link_ends`).
-    """
+    ""
     name, folder, fleet = _live(units)
     transport = transport if transport is not None else HttpTransport()
     in_flight = in_flight if in_flight is not None else unit_in_flight
@@ -454,7 +342,7 @@ def run(
         spanning = spans(fleet)
     except SpanError as exc:
         raise ProbeError(str(exc)) from exc
-    # A unit that spans rigs answers at its head, so only the head is measured.
+    #
     measured = [
         (rig, unit)
         for rig, unit in awake
@@ -495,8 +383,8 @@ def run(
         rig_id = rig_ids[rig]
         combination = combinations[rig_id]
         address = str(unit["address"])
-        # measure_vllm's wall clock runs here, off the rig; llama.cpp's
-        # timings are the server's own.
+        #
+        #
         timed_off_the_rig = tolerance_class(unit) == CLASS_VLLM
         try:
             approved = _approved(
@@ -509,8 +397,8 @@ def run(
         except (_UnitError, OSError, ValueError) as exc:
             report.failed[unit_name] = str(exc)
             continue
-        # Each unit's rows carry the moment its own measurement finished, not
-        # the run's start: a pull clears against the newest alert's time.
+        #
+        #
         finished = moment + timedelta(seconds=clock() - started)
         at = f"{finished:%Y-%m-%dT%H:%M:%S}"
         report.probed[unit_name] = figures

@@ -1,26 +1,4 @@
-"""The session and relay messages of the hub's protocol v1, as the agent speaks them.
-
-The hub's schema is the one definition (``tests/rig_schema.py`` pins it);
-this module reads the commands the hub sends a rig that offered to lend
-(``session_prepare``, ``tunnel_up``, ``worker_start``, ``head_start``,
-``session_query``, ``session_stop``, ``relay_request``, ``relay_data``,
-``relay_credit``, ``relay_cancel``, the latency probe's ``probe_open`` and
-``probe_run``, and a ride to a shared unit, ``unit_relay_request``) and writes
-the agent's side (``session_prepared``, ``session_status``,
-``tunnel_report``, ``relay_response``, ``relay_data``, ``relay_end``,
-``peer_rtt``, ``probe_opened``, ``probe_result``, and the shared units'
-``unit_advert``).
-
-Reading is the shape and the bounds the schema states, checked here with
-nothing taken on trust: every field is read by name and type (a ``true`` is
-not a number), every string whole against its pattern, every address as an
-address, every list against its bounds and its uniqueness rule. A refusal is
-:class:`mcgyvr.rig.protocol.ProtocolError` with ``bad_message`` naming the
-field, never the value. What a valid command may *mean* on this rig (an
-address it will not reach, a card it does not lend, a model it does not
-have) is not read here; :mod:`mcgyvr.rig.tunnel` and :mod:`mcgyvr.rig.session`
-decide that.
-"""
+""
 
 from __future__ import annotations
 
@@ -36,7 +14,7 @@ from typing import Any, Literal
 from mcgyvr.rig import protocol
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 
-#: The bounds the schema states, by name.
+#
 MAX_ENDPOINTS = protocol.MAX_ENDPOINTS
 MAX_PEERS = 15
 MAX_ALLOWED_IPS = 4
@@ -47,15 +25,15 @@ MAX_CTX = 1 << 20
 MIN_CTX = 256
 MAX_TENSOR_SHARE = 1 << 20
 MAX_GPU_LAYERS = 4096
-#: How many requests a head serves at once: ``head_start``'s ``slots``, each
-#: with ``ctx`` of its own. The hub sends more than one only to an agent that
-#: speaks the ``head_slots`` feature.
+#
+#
+#
 MAX_SLOTS = 16
 DEFAULT_SLOTS = 1
-#: The units a host shares with riders (hitchhike, the ``hitchhike_units``
-#: feature): the most one ``unit_advert`` carries; how often, in seconds, the
-#: agent sends one at least; and how old, in seconds, one is when the hub takes
-#: it as withdrawn.
+#
+#
+#
+#
 MAX_UNITS = 16
 UNIT_ADVERT_INTERVAL_S = 60
 UNIT_ADVERT_STALE_S = 180
@@ -70,12 +48,12 @@ RELAY_MAX_RESPONSE_BYTES = 64 << 20
 RELAY_MAX_WINDOW = 64
 RELAY_MAX_TIMEOUT_S = 3600
 RELAY_MAX_SEQ = 1 << 31
-#: The most a ``relay_end`` reports of either count.
+#
 RELAY_MAX_TOKENS = 1 << 31
 MAX_CONTENT_TYPE = 128
-#: The longest base64 text of one relay chunk.
+#
 RELAY_MAX_CHUNK_B64 = 4 * -(-RELAY_MAX_CHUNK_BYTES // 3)
-#: The probe's and the traversal's bounds, and their defaults.
+#
 MAX_STUN_ENDPOINTS = 2
 MIN_PROBE_TTL_S = 5
 MAX_PROBE_TTL_S = 120
@@ -94,7 +72,7 @@ MAX_CONNECT_TIMEOUT_S = 300
 MAX_RATE_KBPS = 100_000_000
 MAX_PCT = 100
 
-#: The shapes of the wire's strings, matched whole.
+#
 SESSION_ID = protocol.MESSAGE_ID
 MODEL_NAME = protocol.MODEL_NAME
 DIGEST = protocol.DIGEST
@@ -106,14 +84,14 @@ CONTENT_TYPE = re.compile(
     r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(; ?[A-Za-z0-9_-]+=[A-Za-z0-9_.-]+)?"
 )
 BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
-#: A token or a probe secret: 16 random bytes as 32 hex digits.
+#
 TOKEN = re.compile(r"[0-9a-f]{32}")
-#: A relay ticket, opaque to the rig.
+#
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
 
 Role = Literal["head", "worker"]
 ROLES = protocol.ROLES
-#: The states a session is reported in, as the schema lists them.
+#
 STATES = (
     "absent",
     "preparing",
@@ -126,13 +104,13 @@ STATES = (
     "stopped",
 )
 RELAY_OUTCOMES = ("complete", "error", "cancelled", "timeout", "too_large")
-#: The relayed endpoints, and the head's path for each: the only paths the
-#: agent ever asks the head for on a relay.
+#
+#
 RELAY_PATHS = {"chat_completions": "/v1/chat/completions"}
 
 
 class SessionCode:
-    """The error codes of session and relay answers, as the hub names them."""
+    ""
 
     BUSY = "busy"
     NOT_CAPABLE = "not_capable"
@@ -149,19 +127,19 @@ class SessionCode:
     MODEL_MISMATCH = "model_mismatch"
     NO_PATH = "no_path"
     UNKNOWN_UNIT = "unknown_unit"
-    #: A head whose load stopped moving.
+    #
     LOAD_STALLED = "load_stalled"
-    #: A peer whose last path answers a small ping and loses every full-size
-    #: one.
+    #
+    #
     PATH_TOO_NARROW = "path_too_narrow"
 
 
-# --- what the hub sends ----------------------------------------------------------
+#
 
 
 @dataclass(frozen=True, kw_only=True)
 class Endpoint:
-    """A candidate address a tunnel is reached at."""
+    ""
 
     host: str
     port: int
@@ -170,7 +148,7 @@ class Endpoint:
 
 @dataclass(frozen=True, kw_only=True)
 class Traversal:
-    """Where a session's binding requests go, and the token they carry."""
+    ""
 
     token: bytes
     stun: tuple[Endpoint, ...]
@@ -185,7 +163,7 @@ class SessionPrepare:
 
 @dataclass(frozen=True, kw_only=True)
 class RelayGrant:
-    """A relay this rig may fall back to for one peer; ``ticket`` is opaque."""
+    ""
 
     host: str
     port: int
@@ -265,8 +243,8 @@ class HeadStart:
     session_id: str
     model: str
     digest: str | None
-    ctx: int  # the context of one slot
-    devices: tuple[LocalDevice | RpcDevice, ...]  # in the hub's order, kept
+    ctx: int  #
+    devices: tuple[LocalDevice | RpcDevice, ...]  #
     tensor_split: tuple[int, ...]
     n_gpu_layers: int
     slots: int = DEFAULT_SLOTS
@@ -297,8 +275,7 @@ class RelayRequest:
 
 @dataclass(frozen=True, kw_only=True)
 class UnitRelayRequest:
-    """A ride: a ``relay_request`` aimed at a unit this host shares, named by
-    the ``unit_id`` its advert gave it, in place of a session."""
+    ""
 
     unit_id: str
     request_id: str
@@ -330,7 +307,7 @@ class RelayCancel:
 
 
 class _Body:
-    """One body read field by field; a refusal names the field."""
+    ""
 
     def __init__(self, body: Mapping[str, Any], at: str, re_id: str) -> None:
         self._body = body
@@ -430,9 +407,7 @@ def _endpoints(body: _Body, field: str) -> tuple[Endpoint, ...]:
 
 
 def _slots(body: _Body) -> int:
-    """``slots`` of ``body``: how many requests a unit serves at once, 1 to
-    :data:`MAX_SLOTS`, :data:`DEFAULT_SLOTS` when it is left out. One reading
-    for every message that carries it."""
+    ""
     return body.number("slots", 1, MAX_SLOTS, default=DEFAULT_SLOTS)
 
 
@@ -445,7 +420,7 @@ def _token(body: _Body, field: str) -> bytes:
 
 
 def read_session_prepare(envelope: protocol.Envelope) -> SessionPrepare:
-    """The ``session_prepare`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     role = body.one_of("role", ROLES)
     traversal = None
@@ -463,7 +438,7 @@ def read_session_prepare(envelope: protocol.Envelope) -> SessionPrepare:
 
 
 def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
-    """The ``tunnel_up`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     address = _cidr(body.text("address", IPV4_CIDR))
@@ -521,7 +496,7 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
 
 
 def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
-    """The ``worker_start`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     cards = []
@@ -539,7 +514,7 @@ def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
 
 
 def read_head_start(envelope: protocol.Envelope) -> HeadStart:
-    """The ``head_start`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     model = body.nested("model", body.raw("model"))
@@ -597,13 +572,13 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
 
 
 def read_session_query(envelope: protocol.Envelope) -> SessionQuery:
-    """The ``session_query`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     return SessionQuery(session_id=body.text("session_id", SESSION_ID))
 
 
 def read_session_stop(envelope: protocol.Envelope) -> SessionStop:
-    """The ``session_stop`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     return SessionStop(
         session_id=body.text("session_id", SESSION_ID),
@@ -612,7 +587,7 @@ def read_session_stop(envelope: protocol.Envelope) -> SessionStop:
 
 
 def read_probe_open(envelope: protocol.Envelope) -> ProbeOpen:
-    """The ``probe_open`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     stun = _endpoints(body, "stun")
     if len(stun) > MAX_STUN_ENDPOINTS:
@@ -628,7 +603,7 @@ def read_probe_open(envelope: protocol.Envelope) -> ProbeOpen:
 
 
 def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
-    """The ``probe_run`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     peers = []
     for item in body.items("peers", 1, MAX_PEERS):
@@ -666,7 +641,7 @@ def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
 
 
 def _relayed(body: _Body) -> dict[str, Any]:
-    """The fields a relay and a ride share, read one way for both."""
+    ""
     return {
         "request_id": body.text("request_id", protocol.MESSAGE_ID),
         "endpoint": body.one_of("endpoint", tuple(RELAY_PATHS)),
@@ -681,7 +656,7 @@ def _relayed(body: _Body) -> dict[str, Any]:
 
 
 def read_relay_request(envelope: protocol.Envelope) -> RelayRequest:
-    """The ``relay_request`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     return RelayRequest(
         session_id=body.text("session_id", SESSION_ID), **_relayed(body)
@@ -689,7 +664,7 @@ def read_relay_request(envelope: protocol.Envelope) -> RelayRequest:
 
 
 def read_unit_relay_request(envelope: protocol.Envelope) -> UnitRelayRequest:
-    """The ``unit_relay_request`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     return UnitRelayRequest(
         unit_id=body.text("unit_id", protocol.MESSAGE_ID), **_relayed(body)
@@ -697,7 +672,7 @@ def read_unit_relay_request(envelope: protocol.Envelope) -> UnitRelayRequest:
 
 
 def read_relay_data(envelope: protocol.Envelope) -> RelayData:
-    """The ``relay_data`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     request_id = body.text("request_id", protocol.MESSAGE_ID)
     seq = body.number("seq", 0, RELAY_MAX_SEQ)
@@ -718,7 +693,7 @@ def read_relay_data(envelope: protocol.Envelope) -> RelayData:
 
 
 def read_relay_credit(envelope: protocol.Envelope) -> RelayCredit:
-    """The ``relay_credit`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     return RelayCredit(
         request_id=body.text("request_id", protocol.MESSAGE_ID),
@@ -727,7 +702,7 @@ def read_relay_credit(envelope: protocol.Envelope) -> RelayCredit:
 
 
 def read_relay_cancel(envelope: protocol.Envelope) -> RelayCancel:
-    """The ``relay_cancel`` in ``envelope``, or :class:`ProtocolError`."""
+    ""
     body = _start(envelope)
     return RelayCancel(
         request_id=body.text("request_id", protocol.MESSAGE_ID),
@@ -735,7 +710,7 @@ def read_relay_cancel(envelope: protocol.Envelope) -> RelayCancel:
     )
 
 
-# --- what the agent sends ---------------------------------------------------------
+#
 
 
 def _need(ok: bool, why: str) -> None:
@@ -759,7 +734,7 @@ def _frame(kind: str, body: dict[str, Any], re: str | None) -> str:
 
 
 def endpoint_body(endpoint: Endpoint) -> dict[str, Any]:
-    """An endpoint as the wire carries it; ``ValueError`` if it is not one."""
+    ""
     _need(bool(HOST.fullmatch(endpoint.host)), "endpoints: a host not of its shape")
     _need(1 <= endpoint.port <= MAX_PORT, "endpoints: a port that is not one")
     _need(bool(protocol.TAG.fullmatch(endpoint.kind)), "endpoints: a kind not a tag")
@@ -779,7 +754,7 @@ def session_prepared(
     endpoints: Sequence[Endpoint],
     stun_rtt_us: int | None = None,
 ) -> str:
-    """The ``session_prepared`` answering ``re``."""
+    ""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(bool(WIREGUARD_KEY.fullmatch(public_key)), "public_key: not a key")
     _need(1 <= listen_port <= MAX_PORT, "listen_port: not a port")
@@ -798,8 +773,7 @@ def session_prepared(
 
 @dataclass(frozen=True, kw_only=True)
 class PeerPath:
-    """How this rig reaches one peer: ``path`` is ``lan``, ``ipv6``,
-    ``direct``, ``relay`` or ``none``."""
+    ""
 
     rig_id: str
     path: str
@@ -808,7 +782,7 @@ class PeerPath:
 
 
 def tunnel_report(re: str | None, *, session_id: str, peers: Sequence[PeerPath]) -> str:
-    """The ``tunnel_report`` answering ``tunnel_up`` ``re``, or unprompted."""
+    ""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(1 <= len(peers) <= MAX_PEERS, f"peers: not 1 to {MAX_PEERS}")
     _need(len({p.rig_id for p in peers}) == len(peers), "peers: a rig twice")
@@ -833,7 +807,7 @@ def probe_opened(
     endpoints: Sequence[Endpoint],
     stun_rtt_us: int | None,
 ) -> str:
-    """The ``probe_opened`` answering ``probe_open`` ``re``."""
+    ""
     _need(bool(protocol.MESSAGE_ID.fullmatch(probe_id)), "probe_id: not an id")
     _need(len(endpoints) <= MAX_ENDPOINTS, f"endpoints: more than {MAX_ENDPOINTS}")
     _rtt(stun_rtt_us, "stun_rtt_us")
@@ -848,7 +822,7 @@ def probe_opened(
 
 @dataclass(frozen=True, kw_only=True)
 class ProbeOutcome:
-    """What a probe found of one peer."""
+    ""
 
     rig_id: str
     reached: bool
@@ -860,7 +834,7 @@ class ProbeOutcome:
 
 
 def probe_result(re: str, *, probe_id: str, results: Sequence[ProbeOutcome]) -> str:
-    """The ``probe_result`` answering ``probe_run`` ``re``."""
+    ""
     _need(bool(protocol.MESSAGE_ID.fullmatch(probe_id)), "probe_id: not an id")
     _need(len(results) <= MAX_PEERS, f"results: more than {MAX_PEERS}")
     _need(len({r.rig_id for r in results}) == len(results), "results: a rig twice")
@@ -889,8 +863,7 @@ def probe_result(re: str, *, probe_id: str, results: Sequence[ProbeOutcome]) -> 
 
 
 def scrub(text: str) -> str:
-    """``text`` with control characters and bidirectional overrides replaced,
-    newlines and tabs kept, cut to the longest log excerpt."""
+    ""
     kept = "".join(
         char
         if char in "\n\t" or protocol.CARD_NAME.fullmatch(char)
@@ -910,7 +883,7 @@ def session_status(
     progress_pct: int | None = None,
     log_excerpt: str = "",
 ) -> str:
-    """A ``session_status``, answering ``re`` or unprompted."""
+    ""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(state in STATES, "state: not a session state")
     body: dict[str, Any] = {"session_id": session_id, "state": state}
@@ -929,7 +902,7 @@ def session_status(
 
 
 def relay_response(request_id: str, *, status: int, content_type: str) -> str:
-    """The ``relay_response`` that opens a relayed answer."""
+    ""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
     _need(100 <= status <= 599, "status: not an HTTP status")
     _need(
@@ -945,7 +918,7 @@ def relay_response(request_id: str, *, status: int, content_type: str) -> str:
 
 
 def relay_data(request_id: str, *, seq: int, data: bytes) -> str:
-    """One ``relay_data`` frame of the relayed answer."""
+    ""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
     _need(0 <= seq <= RELAY_MAX_SEQ, "seq: out of bounds")
     _need(0 < len(data) <= RELAY_MAX_CHUNK_BYTES, "data: not one chunk")
@@ -967,10 +940,7 @@ def relay_end(
     error_code: str | None = None,
     made: tuple[int, int] | None = None,
 ) -> str:
-    """The one ``relay_end`` of a relayed request. ``made`` is what the rig
-    made before it stopped, as its model server counted it: the prompt's
-    tokens and the tokens generated (``tokens_in``, ``tokens_out``; both or
-    neither, and a hub that does not know them reads past them)."""
+    ""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
     _need(outcome in RELAY_OUTCOMES, "outcome: not a relay outcome")
     body: dict[str, Any] = {"request_id": request_id, "outcome": outcome}
@@ -987,7 +957,7 @@ def relay_end(
 
 
 def peer_rtt(samples: Sequence[tuple[str, int]]) -> str:
-    """A ``peer_rtt`` of ``(rig_id, rtt_us)`` samples."""
+    ""
     _need(1 <= len(samples) <= MAX_RTT_SAMPLES, "samples: not 1 to 32")
     body = []
     for rig_id, rtt_us in samples:
@@ -999,17 +969,7 @@ def peer_rtt(samples: Sequence[tuple[str, int]]) -> str:
 
 @dataclass(frozen=True, kw_only=True)
 class AdvertisedUnit:
-    """One unit a host shares with riders, as its advert says it.
-
-    ``slots`` is how many requests the unit serves at once and ``ctx`` the
-    context of each; ``free_slots`` the slots the host's own requests leave
-    free now (the rides it serves are not taken off); ``rider_cap`` the most
-    rides at once the host allows, below ``slots``, so rides alone never fill
-    a unit. The host's own requests go first, and a free slot is enough: a
-    unit takes a ride while one of its slots is free and fewer than
-    ``rider_cap`` rides run on it; no slot is kept free for the host beyond
-    that.
-    """
+    ""
 
     unit_id: str
     model: str
@@ -1024,8 +984,7 @@ def _whole(value: object, low: int, high: int) -> bool:
 
 
 def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
-    """The ``unit_advert`` of every unit the host shares, the whole set: an
-    empty one withdraws them all. ``ValueError`` for one the schema refuses."""
+    ""
     _need(len(units) <= MAX_UNITS, f"units: more than {MAX_UNITS}")
     _need(len({unit.unit_id for unit in units}) == len(units), "units: an id twice")
     _need(len({unit.model for unit in units}) == len(units), "units: a model twice")
@@ -1061,10 +1020,10 @@ def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
 
 
 def ack(re: str) -> str:
-    """The ``ack`` of a command done, or accepted: ``re`` is the command's id."""
+    ""
     return _frame("ack", {}, re)
 
 
 def refusal(re: str, code: str, message: str) -> str:
-    """The ``error`` refusing command ``re`` with ``code``."""
+    ""
     return protocol.error(protocol.new_id(), code=code, message=message, re=re)

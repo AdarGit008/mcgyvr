@@ -1,7 +1,4 @@
-"""The `mcgyvr attach`/`index`/`resolve`/`read` commands.
-
-Only what is built is exposed.
-"""
+""
 
 from __future__ import annotations
 
@@ -11,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  #
     pass
 
 from mcgyvr.cli.common import _add_repo, _mib
@@ -23,8 +20,8 @@ def _attach(args: argparse.Namespace) -> int:
     into = Path(args.into) if args.into else None
     try:
         with attach(args.repo, into=into) as repo:
-            # Print inside the context: for an ephemeral clone the working
-            # location only exists here, and the point is to show it resolved.
+            #
+            #
             print(f"Repository attached ({repo.origin}):")
             print(f"  root:     {repo.root}")
             print(
@@ -47,8 +44,8 @@ def _attach(args: argparse.Namespace) -> int:
             else:
                 print("  worktree: clean")
     except AttachError as exc:
-        # Loud on purpose: the boundary is "a repository is required", and the
-        # message names what to supply.
+        #
+        #
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
@@ -122,9 +119,9 @@ def _index(args: argparse.Namespace) -> int:
         for symbol in defs:
             detail = f" [{symbol.detail}]" if symbol.detail else ""
             print(f"  def  {symbol.path}:{symbol.line}{detail}")
-            # The signature is what a contract would carry as a dep, so
-            # showing it here is how a reviewer checks the text against the
-            # file without loading the index themselves.
+            #
+            #
+            #
             for line in symbol.signature.splitlines():
                 print(f"         {line}")
         for symbol in refs:
@@ -154,7 +151,7 @@ def _resolve(args: argparse.Namespace) -> int:
         print(f"  {rank}. {candidate.path}  ({candidate.score:g})")
         for reason in candidate.evidence:
             print(f"       · {reason}")
-    # An ambiguous outcome is a reportable state, not a failure of the command.
+    #
     return 0
 
 
@@ -182,8 +179,8 @@ def _read(args: argparse.Namespace) -> int:
 
     resolution = resolve(index, args.query, limit=args.limit)
 
-    # Supplied context enters only here, after the deterministic pass has already
-    # produced its shortlist — it can re-rank and pay for reads, never redirect.
+    #
+    #t.
     contents: dict[str, str] = {}
     for held in args.holds:
         try:
@@ -224,8 +221,8 @@ def _read(args: argparse.Namespace) -> int:
             f"  #{read.candidate_rank} {read.path}:{read.start}-{read.end}"
             f"  [{read.reason}]  ~{read.estimated_tokens}t{held_marker}"
         )
-    # A rejected hint is always surfaced: silence would be the caller trusting a
-    # picture the repository does not agree with.
+    #
+    #
     for finding in accelerated.findings:
         print(f"  ! {finding.path}: {finding.detail}")
     if plan.deferred:
@@ -233,21 +230,14 @@ def _read(args: argparse.Namespace) -> int:
         print(f"\n  deferred {len(plan.deferred)} region(s) (~{cost}t over budget):")
         for item in plan.deferred:
             print(f"    #{item.candidate_rank} {item.path}:{item.start}-{item.end}")
-    # Exhaustion is a reported plan, not a command failure — the caller decides.
+    #s.
     return 0
 
 
 def _read_document(
     query: str, root: Path, index: Any, resolution: Any, plan: Any
 ) -> dict[str, Any]:
-    """The `read --json` document: shortlist, reads, and every such file's text.
-
-    The texts come from the index the command built, not from a second read
-    of the disk, so the document is the index: a server that assembles one
-    from it (:mod:`mcgyvr.mcorch.evidence`) holds what this command held.
-    ``located`` is the adapters' checker lookup, made here because only here
-    is the repository on disk.
-    """
+    ""
     from mcgyvr.orchestrator.decompose import locate_checkers
 
     wanted = [candidate.path for candidate in resolution.candidates]
@@ -278,14 +268,14 @@ def _read_document(
             for path in wanted
             if path in by_path
         ],
-        # The checker each language adapter locates here, where the repository
-        # is: the one lookup a server reading this document cannot make itself.
+        #
+        #
         "located": locate_checkers(root),
     }
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register `attach`, `index`, `resolve`, `read`."""
+    ""
 
     att = sub.add_parser(
         "attach",

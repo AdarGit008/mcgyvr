@@ -1,30 +1,4 @@
-"""Which addresses a session's tunnel may use, decided on this rig and nowhere else.
-
-The hub says where a rig's tunnel sits and whom it talks to (``tunnel_up``);
-nothing it says is taken on trust. :func:`plan` reads that command against
-this machine and refuses, by name, any address the tunnel must not use:
-
-* the tunnel's own network must be private, hold at least two hosts, and
-  overlap no network this machine is on (its LAN, its bridges, the tunnel
-  container's own bridge) — a hub that put the session on the LAN's own
-  addresses would route the LAN into the tunnel;
-* every peer's allowed addresses must lie inside that network and not hold
-  this rig's own address — an ``0.0.0.0/0`` would hand a peer every packet;
-* a peer's candidates are its endpoints this rig may be aimed at, in the
-  hub's order (:func:`candidates`): a ``lan`` endpoint at a LAN address, a
-  ``reflexive`` or ``public`` one at any address a rig may be at — never
-  loopback, link-local, multicast, reserved, unspecified, inside the
-  tunnel's network or one of this machine's own; a host name, an IPv6
-  address (the tunnel's namespace has none) or a kind this agent does not
-  walk is skipped. The hub hands out only addresses it vouches for (a LAN
-  address, or one it saw itself), and these checks hold whatever it hands;
-* a peer's relay grant is kept only when it names such an address, never a
-  name to resolve; a peer with neither a candidate nor a relay is refused.
-
-The endpoints this rig offers are its own LAN addresses (:func:`lan_hosts`),
-or the ones its owner named; :func:`read_interfaces` reads them from the
-kernel, with nothing spawned.
-"""
+""
 
 from __future__ import annotations
 
@@ -37,17 +11,17 @@ from dataclasses import dataclass
 
 from mcgyvr.rig import sessionwire
 
-#: The narrowest network that holds two hosts.
+#
 NARROWEST_PREFIX = 30
-#: The kernel's requests for an interface's address and its mask.
+#
 _SIOCGIFADDR = 0x8915
 _SIOCGIFNETMASK = 0x891B
-#: An ``ifreq``'s size and where its address sits in it.
+#
 _IFREQ_BYTES = 256
 _IFNAME_BYTES = 16
 _SOCKADDR_ADDRESS = slice(20, 24)
-#: Interfaces that are this machine's own plumbing, never a LAN: loopback,
-#: container bridges and their pairs, virtual machines' bridges, and tunnels.
+#
+#
 VIRTUAL_PREFIXES = (
     "lo",
     "docker",
@@ -67,7 +41,7 @@ VIRTUAL_PREFIXES = (
 
 
 class RefusedError(Exception):
-    """A command this rig will not carry out as asked; ``code`` is the hub's."""
+    ""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -75,13 +49,13 @@ class RefusedError(Exception):
         self.message = message
 
 
-#: The endpoint kinds a tunnel walks, and the path each is reported as.
+#
 PATHS = {"lan": "lan", "public": "direct", "reflexive": "direct"}
 
 
 @dataclass(frozen=True, kw_only=True)
 class Candidate:
-    """One address a peer may be reached at, as the hub named it."""
+    ""
 
     endpoint: sessionwire.Endpoint
     host: ipaddress.IPv4Address
@@ -94,7 +68,7 @@ class Candidate:
 
 @dataclass(frozen=True, kw_only=True)
 class RelayAim:
-    """A peer's relay grant, at an address this rig may send to."""
+    ""
 
     grant: sessionwire.RelayGrant
     host: ipaddress.IPv4Address
@@ -102,8 +76,7 @@ class RelayAim:
 
 @dataclass(frozen=True, kw_only=True)
 class PeerPlan:
-    """One peer as the tunnel will be told of it: its candidates in order,
-    and its relay."""
+    ""
 
     rig_id: str
     public_key: str
@@ -114,7 +87,7 @@ class PeerPlan:
 
     @property
     def tunnel_host(self) -> ipaddress.IPv4Address | None:
-        """The peer's own address in the tunnel, when it has one alone."""
+        ""
         for net in self.allowed:
             if net.prefixlen == net.max_prefixlen:
                 return net.network_address
@@ -123,15 +96,14 @@ class PeerPlan:
 
 @dataclass(frozen=True, kw_only=True)
 class TunnelPlan:
-    """The tunnel as it will be brought up."""
+    ""
 
     address: ipaddress.IPv4Interface
     listen_port: int
     peers: tuple[PeerPlan, ...]
 
     def script_args(self) -> list[str]:
-        """The arguments :data:`mcgyvr.rig.pooled.TUNNEL_SCRIPT` takes:
-        each peer at its first candidate, or at none yet."""
+        ""
         args = [str(self.address), str(self.listen_port)]
         for peer in self.peers:
             first = peer.candidates[0] if peer.candidates else None
@@ -145,19 +117,19 @@ class TunnelPlan:
         return args
 
     def peer_of(self, host: ipaddress.IPv4Address) -> PeerPlan | None:
-        """The peer whose allowed addresses hold ``host``, if any."""
+        ""
         for peer in self.peers:
             if any(host in net for net in peer.allowed):
                 return peer
         return None
 
     def peer_nets(self) -> tuple[ipaddress.IPv4Network, ...]:
-        """Every peer's allowed addresses."""
+        ""
         return tuple(net for peer in self.peers for net in peer.allowed)
 
 
 def is_lan(address: ipaddress.IPv4Address) -> bool:
-    """Whether ``address`` is one a LAN peer may be reached at."""
+    ""
     return address.is_private and not (
         address.is_loopback
         or address.is_link_local
@@ -168,8 +140,7 @@ def is_lan(address: ipaddress.IPv4Address) -> bool:
 
 
 def read_interfaces() -> tuple[tuple[str, ipaddress.IPv4Interface], ...]:
-    """This machine's IPv4 interfaces, by name, as the kernel has them now;
-    none when they cannot be read."""
+    ""
     found: list[tuple[str, ipaddress.IPv4Interface]] = []
     try:
         names = [name for _, name in socket.if_nameindex()]
@@ -196,7 +167,7 @@ def read_interfaces() -> tuple[tuple[str, ipaddress.IPv4Interface], ...]:
 def lan_hosts(
     interfaces: Iterable[tuple[str, ipaddress.IPv4Interface]],
 ) -> tuple[ipaddress.IPv4Address, ...]:
-    """The addresses of ``interfaces`` a LAN peer may reach this rig at."""
+    ""
     return tuple(
         interface.ip
         for name, interface in interfaces
@@ -209,9 +180,7 @@ def may_aim_at(
     network: ipaddress.IPv4Network | None,
     own: Sequence[ipaddress.IPv4Interface],
 ) -> bool:
-    """Whether this rig may send a peer's (or a relay's, or a responder's)
-    packets to ``host``: an address a rig may be at, outside the tunnel's
-    ``network`` and none of this machine's own."""
+    ""
     return not (
         host.is_loopback
         or host.is_link_local
@@ -228,7 +197,7 @@ def candidates(
     network: ipaddress.IPv4Network,
     own: Sequence[ipaddress.IPv4Interface],
 ) -> tuple[Candidate, ...]:
-    """``peer``'s endpoints this rig may be aimed at, in the hub's order."""
+    ""
     found = []
     for endpoint in peer.endpoints:
         host = sessionwire._ipv4(endpoint.host)
@@ -260,9 +229,7 @@ def plan(
     listen_port: int,
     own: Sequence[ipaddress.IPv4Interface],
 ) -> TunnelPlan:
-    """``up`` as this rig will bring it up, or :class:`RefusedError` naming what it
-    will not do. ``own`` is every address this machine and the session's
-    tunnel container are on."""
+    ""
     if up.listen_port != listen_port:
         raise RefusedError(
             "bad_message", "listen_port: not the port this session was prepared on"

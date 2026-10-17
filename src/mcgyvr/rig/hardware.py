@@ -1,26 +1,4 @@
-"""The hardware a rig reports to its hub: the product's own reading, as it is now.
-
-Nothing here detects anything. The one reader (:mod:`mcgyvr.serving.rigscan`)
-reads the machine — its short reading, :func:`~mcgyvr.serving.rigscan.read_machine`,
-which asks for no raised rights and times no copy — and the machine is named on
-the hub by its rig id (:func:`mcgyvr.fleet.ids.rig_id`), the digest of its
-machine id and its cards: the same id the lock pins and live admission reads.
-
-So the hub hears of the machine what the product knows of it, and the same
-rules hold: a machine the product would not name (a card whose name or size
-was not read, a card tool that failed) is not reported under another name —
-the refusal is the rig id's own, with what the user can do. The hub binds a
-rig to the first machine id it hears, so a machine whose cards change is a
-different machine to it, as it is to the product.
-
-Of a card, the report carries what the protocol has room for: its name made
-printable and cut to fit, its total and free memory in MiB. A card whose free
-memory was not read is reported with none free, the reading that promises
-nothing; a card the reading names unsized is not a card the hub can use and
-is left out, as the rig id leaves it out. Cards are numbered for the hub in
-the reading's order (by vendor, then the vendor's index), so a machine of two
-vendors gives each card its own number.
-"""
+""
 
 from __future__ import annotations
 
@@ -33,25 +11,25 @@ from mcgyvr.rig import protocol
 
 
 class HardwareError(Exception):
-    """This machine could not be read, or not named; the message says why."""
+    ""
 
 
 @dataclass(frozen=True, kw_only=True)
 class Report:
-    """What a hello says of this machine, and what a heartbeat refreshes."""
+    ""
 
     machine_id: str
     ram_total_mb: int
     ram_free_mb: int | None
     cards: tuple[protocol.CardReport, ...]
     notes: tuple[str, ...]
-    #: Each reported card's vendor and the vendor's own index of it, in the
-    #: order of :attr:`cards`: what a container is given the card by.
+    #
+    #
     sources: tuple[tuple[str, int], ...] = ()
 
 
 def read_machine() -> Mapping[str, Any]:
-    """This machine's short reading, by the one reader."""
+    ""
     from mcgyvr.serving import rigscan
 
     return rigscan.read_machine()
@@ -69,8 +47,7 @@ def _mib(gb: float) -> int:
 
 
 def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
-    """This machine as a hello reports it, read now: by :func:`read_machine`
-    unless another reader is named."""
+    ""
     try:
         reading = (reader or read_machine)()
     except OSError as exc:
@@ -136,7 +113,7 @@ def hello_frame(
     agent_version: str,
     offer: protocol.Offer | None = None,
 ) -> str:
-    """The hello that says ``report``, and ``offer`` when the rig lends."""
+    ""
     return protocol.hello(
         message_id,
         machine_id=report.machine_id,
@@ -149,7 +126,7 @@ def hello_frame(
 
 
 def heartbeat_frame(report: Report, message_id: str) -> str:
-    """The heartbeat that refreshes the free memory ``report`` read."""
+    ""
     return protocol.heartbeat(
         message_id,
         ram_free_mb=report.ram_free_mb,

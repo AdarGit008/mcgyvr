@@ -1,27 +1,6 @@
-#!/usr/bin/env python3
-# RUN_REWRITES: serve-sleep.json
-"""The door's serve step, sleep: put every unit to sleep and keep it running.
-
-A vLLM unit run with sleep mode can drop its weights and its KV cache from the
-card and keep its process: a level-2 sleep (`servelib.sleep`, where level 1 is
-banned). The container stays up, the card is free, and a wake reads the
-weights back from disk into the same process instead of starting a container.
-Gate 7 therefore expects the declared containers still running after this
-step, as it does after `serve up`.
-
-Every unit is asked first whether it has a sleep route at all. One that has
-none — llama.cpp, or vLLM run without its development routes — has no way to
-sleep, so nothing is asked of any unit and the step exits
-`gatelib.NO_SLEEP_ROUTE`: the card is as it was, and the caller stops it with
-`serve down` instead. A card sleeps whole or not at all. An answer that could
-not be read is not a route either; nothing is guessed on a live rig.
-
-A unit asked to sleep that does not then say it is asleep is exit 1, a result.
-
-`serve sleep --unit C` (RUN_SERVE_ONLY) sleeps only the named containers: a
-card's co-resident vLLM units are separate processes, and one can sleep to
-make room for another. The rest of the card is not asked anything.
-"""
+#
+#
+""
 
 from __future__ import annotations
 
@@ -34,7 +13,7 @@ def main() -> int:
     if ctx is None:
         return 2
 
-    # `--unit`: the units to sleep, the rest of the card left as it is.
+    #
     only = ctx.only
     units = tuple(s for s in ctx.units if not only or s.container in only)
     before = {s.container: servelib.sleeping(ctx.host, s.port) for s in units}

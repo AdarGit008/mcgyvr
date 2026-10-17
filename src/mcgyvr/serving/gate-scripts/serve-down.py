@@ -1,21 +1,6 @@
-#!/usr/bin/env python3
-# RUN_REWRITES: serve-down.json
-"""The door's serve step, down: stop every unit the compose file names.
-
-The inverse of serve-up, filed in the same envelope under its own name. After
-`docker compose down` the rig's daemon is listed again, and any declared name
-still up is exit 1 — a result gate 7 then repeats as a finding, because in
-this mode gate 7 expects an empty daemon.
-
-`serve down --unit C` (RUN_SERVE_ONLY) stops and removes only the named
-containers, by their compose services, and leaves the file's other units
-running (:func:`mcgyvr.serving.servelib.down`); a named one still up after
-it is exit 1. This is how a unit that cannot sleep is put away in a swap.
-
-A whole `down` also names the file's services that start asleep (a compose
-profile, a swap partner) and removes them alone: a swap may have left one
-running, and `compose down` is not promised to reach a profile.
-"""
+#
+#
+""
 
 from __future__ import annotations
 

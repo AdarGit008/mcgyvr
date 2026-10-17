@@ -1,23 +1,4 @@
-"""The lock's own measurement of a unit, in one module the rig can run as it is.
-
-The lab's 2026-09-13 fleet measurement harnesses (``measure_vllm.py`` on box2
-and ``harness_llama.py`` on box1) measured the numbers the fleet lock holds.
-This is their method, once:
-
-* vLLM: one 64-token warm-up, five 256-token decodes with ``ignore_eos``
-  (``completion_tokens`` over wall seconds) and three 16-token requests of the
-  long prompt (``prompt_tokens`` over wall seconds);
-* llama.cpp: ``/completion`` with a 64-token warm-up, five 256-token decodes read
-  from ``timings.predicted_per_second`` and three 16-token long prompts read from
-  ``timings.prompt_per_second``, with ``cache_prompt`` off.
-
-Both take the median. :mod:`mcgyvr.fleet.probe` asks it of a unit at its
-address. ``python -m mcgyvr.serving.run read --probe`` ships this very file to
-the rig as ``python3 - mcgyvr-harness SPEC`` and runs it at 127.0.0.1, where the
-lock's wall clock ran (owner, 2026-09-15: "vLLM stopwatch on the rig"). So it
-imports the standard library and nothing else, and runs on any Python 3.8 a rig
-has: the rig has no mcgyvr to import.
-"""
+""
 
 from __future__ import annotations
 
@@ -36,7 +17,7 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, Literal, Protocol, overload
 
-#: The word the door's ``read --probe`` names this harness by on the rig.
+#
 HARNESS_WORD = "mcgyvr-harness"
 
 _SHORT_TEXT = "Write a Python function that reverses a singly linked list in place.\n"
@@ -47,10 +28,10 @@ _LONG_BLOCK = (
     "table of tensor name, shape, and byte size for every tensor that has an "
     "expert dimension. Be complete and correct.\n\n"
 )
-#: ``measure_vllm.py``'s ``SHORT`` and ``LONG``, as written there.
+#
 VLLM_SHORT: list[dict[str, str]] = [{"role": "user", "content": _SHORT_TEXT}]
 VLLM_LONG = _LONG_BLOCK * 28
-#: ``harness_llama.py``'s ``SHORT_PROMPT`` and ``LONG_PROMPT``, as written there.
+#
 LLAMA_SHORT_PROMPT = _SHORT_TEXT
 LLAMA_LONG_PROMPT = (_LONG_BLOCK * 28).strip()
 
@@ -59,74 +40,65 @@ DECODE_TOKENS = 256
 PREFILL_TOKENS = 16
 DECODE_SAMPLES = 5
 PREFILL_SAMPLES = 3
-#: The harnesses' own request timeouts: 10 s for the model list, 900 s a sample.
+#
 MODELS_TIMEOUT_S = 10.0
 REQUEST_TIMEOUT_S = 900.0
-#: Where each engine publishes what it has in flight, read after a measurement.
+#
 STATUS_PATHS = {"vllm": "/metrics", "llama.cpp": "/slots"}
-#: The two gauges vLLM's ``/metrics`` counts a unit's requests in flight by.
+#
 VLLM_RUNNING = "vllm:num_requests_running"
 VLLM_WAITING = "vllm:num_requests_waiting"
-#: A load leaves this many tokens of each window to generation and fills the rest
-#: with prompt: the window is full either way, and a prompt fills it fastest.
+#
+#
 LOAD_OUTPUT_TOKENS = 64
-#: How often a load samples the unit's container on the card while it runs.
+#
 LOAD_SAMPLE_S = 0.5
-#: How long a load runs from when its requests start (owner ruling NB5, "measure
-#: pace for 30 seconds then verdict"): at this many seconds every unfinished
-#: request's connection is closed. It is the only limit a load is held to.
+#
+#
+#
 LOAD_LIMIT_S = 30
 
 
 class HarnessError(Exception):
-    """One unit's measurement could not be taken."""
+    ""
 
 
 class Transport(Protocol):
-    """JSON over HTTP to a unit's address."""
+    ""
 
     def get(self, url: str, timeout: float) -> Any:
-        """The JSON document at ``url``."""
+        ""
 
     def post(self, url: str, payload: dict[str, Any], timeout: float) -> Any:
-        """The JSON answer to ``payload`` posted at ``url``."""
+        ""
 
 
 class LoadTransport(Protocol):
-    """JSON over HTTP to a unit's address, with no timeout a load does not set.
-
-    A load is held to ``LOAD_LIMIT_S`` and no other number (owner ruling NB5), so
-    its model list and tokenize calls pass ``timeout=None``; the probes keep
-    :class:`Transport`'s.
-    """
+    ""
 
     def get(self, url: str, timeout: float | None) -> Any:
-        """The JSON document at ``url``."""
+        ""
 
     def post(self, url: str, payload: dict[str, Any], timeout: float | None) -> Any:
-        """The JSON answer to ``payload`` posted at ``url``."""
+        ""
 
 
-#: What a reply that is not a readable answer raises while it is read: a refused
-#: or dropped connection and a timeout (``OSError``), a body that is not JSON
-#: (``ValueError``), a status line that is not one or a body that ends before
-#: the length it stated (``http.client.HTTPException``, which is no
-#: ``OSError``), and JSON nested deeper than the reader follows
-#: (``RecursionError``, which is neither).
+#
+#
+#
+#
+#
+#
 _UNREADABLE_REPLY = (OSError, ValueError, http.client.HTTPException, RecursionError)
 
-#: The most characters of a server's own text an error quotes. A status line
-#: may be tens of kilobytes long, and an error is read in a terminal and kept
-#: in a report, so it quotes both ends of a longer text and not the middle.
+#
+#
+#
 REPLY_QUOTED_AT_MOST = 200
 
 
 def _bounded(text: str) -> str:
-    """``text`` escaped, cut in the middle when longer than the bound.
-
-    Escaped as ``repr`` escapes it, so no control character a server sent
-    reaches a terminal as it is; the bound is :data:`REPLY_QUOTED_AT_MOST`.
-    """
+    ""
     shown = repr(text)
     if len(shown) <= REPLY_QUOTED_AT_MOST:
         return shown
@@ -135,11 +107,7 @@ def _bounded(text: str) -> str:
 
 
 def _json_answer(request: str | urllib.request.Request, timeout: float | None) -> Any:
-    """The JSON a unit answered ``request`` with, or a :class:`HarnessError`.
-
-    The error names the address asked and what happened, so a unit that answered
-    badly reads as a measurement not taken, never as a crash of the harness.
-    """
+    ""
     url = request if isinstance(request, str) else request.full_url
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -151,14 +119,14 @@ def _json_answer(request: str | urllib.request.Request, timeout: float | None) -
 
 
 class HttpTransport:
-    """The harnesses' own requests, sent to a unit's address with ``urllib``."""
+    ""
 
     def get(self, url: str, timeout: float | None) -> Any:
-        """The JSON document at ``url``."""
+        ""
         return _json_answer(url, timeout)
 
     def post(self, url: str, payload: dict[str, Any], timeout: float | None) -> Any:
-        """The JSON answer to ``payload`` posted at ``url``."""
+        ""
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
@@ -217,11 +185,7 @@ def measure_vllm(
     *,
     with_samples: bool = False,
 ) -> dict[str, Any]:
-    """``measure_vllm.py``'s decode and prefill, asked of the unit at ``address``.
-
-    With ``with_samples``, every sample is kept beside its median, in the order
-    taken (owner ruling N7): ``decode_samples`` and ``prefill_samples``.
-    """
+    ""
     base = address.rstrip("/")
     listing = transport.get(f"{base}/v1/models", MODELS_TIMEOUT_S)
     try:
@@ -291,11 +255,7 @@ def measure_llamacpp(
 def measure_llamacpp(
     address: str, transport: Transport, *, with_samples: bool = False
 ) -> dict[str, Any]:
-    """``harness_llama.py``'s decode and prefill, asked of the unit at ``address``.
-
-    With ``with_samples``, every sample is kept beside its median, in the order
-    taken (owner ruling N7): ``decode_samples`` and ``prefill_samples``.
-    """
+    ""
     url = f"{address.rstrip('/')}/completion"
     transport.post(
         url,
@@ -343,7 +303,7 @@ def measure_llamacpp(
 
 
 def _page(url: str) -> str | None:
-    """The page at ``url`` as text, or ``None`` when it could not be read."""
+    ""
     try:
         with urllib.request.urlopen(url, timeout=MODELS_TIMEOUT_S) as response:
             text: str = response.read().decode("utf-8", "replace")
@@ -353,12 +313,7 @@ def _page(url: str) -> str | None:
 
 
 def on_the_rig(spec: Mapping[str, Any]) -> dict[str, Any]:
-    """The lock's measurement of the unit at ``127.0.0.1:<port>``, then its status.
-
-    ``spec`` is ``{"engine": "vllm" | "llama.cpp", "port": N}``. The status page
-    is read after the measurement so the door can tell a unit that took work
-    during it from one that did not; before it, the door read it already.
-    """
+    ""
     engine = str(spec.get("engine"))
     port = int(spec["port"])
     address = f"http://127.0.0.1:{port}"
@@ -372,15 +327,15 @@ def on_the_rig(spec: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _now() -> str:
-    # timezone.utc, not datetime.UTC (3.11+): this file runs on the rig's own
-    # python3, which the module docstring holds to 3.8.
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  # noqa: UP017
+    #
+    #
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  #
 
 
 def _tokens(
     engine: str, base: str, transport: LoadTransport, model: str | None, text: str
 ) -> int:
-    """How many tokens the unit's own tokenizer makes of ``text``."""
+    ""
     if engine == "vllm":
         body = transport.post(
             f"{base}/tokenize", {"model": model, "prompt": text}, None
@@ -400,7 +355,7 @@ def _tokens(
 def _load_prompt(
     engine: str, base: str, transport: LoadTransport, model: str | None, window: int
 ) -> tuple[str, int]:
-    """The long block, repeated to leave ``LOAD_OUTPUT_TOKENS`` of the window."""
+    ""
     target = window - LOAD_OUTPUT_TOKENS
     one = _tokens(engine, base, transport, model, _LONG_BLOCK)
     blocks = max(1, target // max(1, one))
@@ -418,7 +373,7 @@ def _load_prompt(
 
 
 def _poll(poll: str, *args: str) -> str:
-    """``rig-units.sh`` run on this rig in one of its single-reading modes."""
+    ""
     try:
         done = subprocess.run(
             ["bash", "-s", "--", *args],
@@ -433,7 +388,7 @@ def _poll(poll: str, *args: str) -> str:
 
 
 def _unbounded_page(url: str) -> str | None:
-    """A page read with no timeout: a load is held to its own limit and no other."""
+    ""
     try:
         with urllib.request.urlopen(url) as response:
             text: str = response.read().decode("utf-8", "replace")
@@ -445,14 +400,7 @@ def _unbounded_page(url: str) -> str | None:
 def prometheus_totals(
     page: str | None, names: tuple[str, ...]
 ) -> dict[str, float] | None:
-    """The named samples in a Prometheus text page, summed over label sets.
-
-    Summed, so a server naming its model or engine in the labels still reads
-    as one series. ``None`` for a missing page or a sample whose value is not a
-    number; a name that is simply absent is absent from the result. The one reader
-    of such a page: the runner reads a unit's page beside a dispatch with it, and
-    a load reads it here, on the rig (owner ruling NBc).
-    """
+    ""
     if page is None:
         return None
     totals: dict[str, float] = {}
@@ -474,18 +422,13 @@ def prometheus_totals(
 
 
 def metric_total(page: str | None, name: str) -> float | None:
-    """One named sample on a Prometheus page, summed over label sets, or ``None``."""
+    ""
     totals = prometheus_totals(page, (name,))
     return None if totals is None else totals.get(name)
 
 
 def slots_in_flight(page: str | None) -> int | None:
-    """llama-server's ``/slots``: how many slots are ``is_processing``, or ``None``.
-
-    ``None`` for anything that is not a non-empty list of slots each saying
-    ``is_processing`` as a boolean — a disabled endpoint answers an error
-    object, and a half-read list is not a count.
-    """
+    ""
     if page is None:
         return None
     try:
@@ -504,7 +447,7 @@ def slots_in_flight(page: str | None) -> int | None:
 
 
 def vllm_in_flight(page: str | None) -> int | None:
-    """vLLM's ``/metrics``: requests running plus waiting, ``None`` without both."""
+    ""
     totals = prometheus_totals(page, (VLLM_RUNNING, VLLM_WAITING))
     if totals is None or VLLM_RUNNING not in totals or VLLM_WAITING not in totals:
         return None
@@ -512,35 +455,28 @@ def vllm_in_flight(page: str | None) -> int | None:
 
 
 def in_flight(engine: str | None, page: str | None) -> int | None:
-    """What a unit's own status page says it has in flight, read by its engine."""
+    ""
     return vllm_in_flight(page) if engine == "vllm" else slots_in_flight(page)
 
 
 class Batch(Protocol):
-    """A load's requests, running: finished or not, counted, closed at the limit."""
+    ""
 
     def done(self) -> bool:
-        """Whether no request is still running."""
+        ""
 
     def completed(self) -> int:
-        """How many requests the unit answered."""
+        ""
 
     def errors(self) -> list[str]:
-        """What failed, other than the load's own close."""
+        ""
 
     def close(self) -> int:
-        """Close every unfinished request's connection; how many it closed."""
+        ""
 
 
 class Requests:
-    """W requests, each on an ``http.client`` connection of its own, with no timeout.
-
-    A load is held to ``LOAD_LIMIT_S`` and no other number. At that limit
-    :meth:`close` shuts each unfinished connection's socket, which ends the read
-    its thread is blocked in; a failure that follows the close is the close, not
-    an error. Whether the unit then stops the work is the engine's to do, and the
-    load reads the unit's status page afterwards to see.
-    """
+    ""
 
     def __init__(self, url: str, payloads: Sequence[Mapping[str, Any]]) -> None:
         split = urllib.parse.urlsplit(url)
@@ -551,8 +487,8 @@ class Requests:
         self._closing = False
         self._connections: list[http.client.HTTPConnection] = []
         self._threads: list[threading.Thread] = []
-        # One connection per request, paired as it is made: no zip(strict=),
-        # which this file cannot use on the rig's Python 3.8.
+        #
+        #
         for payload in payloads:
             connection = http.client.HTTPConnection(
                 split.hostname or "127.0.0.1", split.port
@@ -623,33 +559,7 @@ def load(
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> dict[str, Any]:
-    """W concurrent requests filling the unit's N-token window, for at most 30 s.
-
-    Owner rulings B1 and NB5, 2026-09-15. ``spec`` is ``{"mode": "load",
-    "engine", "port", "width": W, "window": N, "container": ID, "poll":
-    <rig-units.sh>, "pace_path": <page> | None}``.
-
-    * Each request's prompt is the long block counted by the unit's own
-      tokenizer, up to ``N - LOAD_OUTPUT_TOKENS``, and its ``max_tokens`` is the
-      rest of the window.
-    * ``rig-units.sh --card-holders`` is sampled every ``LOAD_SAMPLE_S`` until
-      every request has finished or ``LOAD_LIMIT_S`` has passed since they
-      started; then every unfinished request's connection is closed.
-    * The pace counter page (``pace_path``) is read just before the requests
-      start and again once they have ended, with the seconds between.
-    * Then the unit's own status page is read every ``LOAD_SAMPLE_S`` until the
-      unit reads idle, with no time limit on the wait (owner ruling NBc); a page
-      that cannot be read ends it. ``idle_after_close`` says whether the first
-      reading was already idle, and ``idle_after_s`` how long idle took.
-    * The card is sampled beside every one of those readings too (owner ruling,
-      2026-09-15: "Sample the card until idle"): ``samples`` holds every sample,
-      the first ``samples_before_close`` taken before the close, and
-      ``sampled_until_idle`` says whether they run through to an idle reading.
-    * Nothing here has a timeout but ``LOAD_LIMIT_S``.
-
-    ``transport``, ``fetch``, ``poll``, ``start``, ``clock`` and ``sleep`` stand in
-    for the unit, its pages, the rig's poll, the requests, the time and the wait.
-    """
+    ""
     engine = str(spec.get("engine"))
     base = f"http://127.0.0.1:{int(spec['port'])}"
     width = int(spec["width"])
@@ -711,17 +621,17 @@ def load(
     ended = clock()
     pace_end = page(f"{base}{pace_path}") if pace_path else None
     status_url = f"{base}{STATUS_PATHS.get(engine, STATUS_PATHS['llama.cpp'])}"
-    # Owner ruling NBc: read the unit's own status page until it reads idle, with
-    # no time limit on the wait. A page that cannot be read at all ends it.
+    #
+    #
     after_page: str | None = None
     idle_after_close: bool | None = None
     idle_after_s: float | None = None
     idle_error: str | None = None
     readings = 0
     while True:
-        # Owner ruling, 2026-09-15: "Sample the card until idle". A close does not
-        # cancel the unit's work (the lab's lock-fleets measurement), so the
-        # card is sampled beside every status reading, the idle one included.
+        #
+        #
+        #
         samples.append(read_rig("--card-holders"))
         after_page = page(status_url)
         busy = in_flight(engine, after_page)
@@ -764,7 +674,7 @@ def load(
 
 
 def main(argv: list[str]) -> int:
-    """``python3 - mcgyvr-harness SPEC``: one JSON line on stdout, always."""
+    ""
     if len(argv) != 3 or argv[1] != HARNESS_WORD:
         print(json.dumps({"error": f"usage: python3 - {HARNESS_WORD} SPEC"}))
         return 2
