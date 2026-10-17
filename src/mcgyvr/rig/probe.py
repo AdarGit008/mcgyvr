@@ -1,4 +1,29 @@
-""
+"""The UDP probes this rig runs for the hub, and what they report of a path.
+
+Before any session the hub asks two rigs how well they reach each other, in
+three frames. A ``probe_open`` names a probe id, a token, the hub's STUN
+endpoints and a ttl: this rig binds one UDP socket, asks the responder from
+that socket so the hub learns the socket's public address, and answers with
+the LAN endpoints this rig is reached on and the least round trip to the
+responder. A ``probe_run`` then names the peers to measure and how hard to
+hit them: this rig pings every candidate the hub named, answers the pings
+its peers send it, sends a bulk train to the first candidate that answered,
+and ends with one outcome per peer — reached or not, the candidate, the
+median and least round trip, the loss and the train's rate.
+
+Everything that comes off the socket is hostile. A ping is answered only
+when it carries the secret of a peer of the running probe and comes from an
+address the hub named for that peer, never larger than the ping, and only so
+many times per peer and per second; a pong counts once, for a ping this rig
+sent with that stamp, so a replay measures nothing. A rig pings no address a
+peer cannot be at unless the address rule handed in says it may, and a
+probe's socket closes when its ttl is up or the agent ends.
+
+Each probe runs on a thread of its own. The send, the port to bind, the
+hosts to offer, this host's own addresses, the address rule, whether this
+rig lends anything at all, the bind host and the clock are all handed in, so
+the whole of this runs off a fake socket and a fake clock.
+"""
 
 from __future__ import annotations
 
@@ -17,29 +42,34 @@ from dataclasses import dataclass, field
 from mcgyvr.rig import commands, protocol, sessionwire, udpwire
 from mcgyvr.rig.sessionwire import SessionCode
 
-#
+# How many probes this rig keeps open at once; one more open is refused busy.
 MAX_OPEN = 4
-#
+# How long each STUN attempt waits for the hub's responder to answer.
 STUN_WAIT_S = 0.5
-#
+# Most bytes one bulk datagram carries: a full-size probe packet.
 BULK_BYTES = udpwire.PROBE_PACKET_MAX_BYTES
-#
-#
+# A peer pings from each of its candidates once per round, so this is the most
+# pings one peer can send in a run; the guard never cuts a run short.
 MAX_PONGS_PER_PEER = sessionwire.MAX_PROBE_COUNT * sessionwire.MAX_ENDPOINTS
-#
+# Pongs all probes together give out in a second, so none amplifies a flood.
 MAX_PONGS_PER_S = 500
-#
-#
+# Most packets one bulk train may hold: the bound a train's packet count and
+# its sequence numbers are read against.
 MAX_TRAIN = -(-sessionwire.MAX_PROBE_BULK_BYTES // udpwire.PROBE_PACKET_MIN_BYTES)
-#
+# How long each pass of a probe's loop waits for datagrams before the next.
 SLICE_S = 0.05
-#
-#
+# How long release waits for a probe's thread to close its socket and free the
+# port a session is about to take.
 RELEASE_WAIT_S = 2.0
 
 
 def reachable(address: ipaddress.IPv4Address) -> bool:
-    ""
+    """Whether a path to this address can exist: not loopback or the like.
+
+    This is the default address rule. Loopback, link-local, multicast,
+    reserved and unspecified addresses are where no peer of another rig is,
+    so nothing is sent to them unless the caller hands in another rule.
+    """
     return not (
         address.is_loopback
         or address.is_link_local
@@ -64,7 +94,7 @@ class _Peer:
     sent: dict[int, tuple[float, int, int]] = field(default_factory=dict)
     samples: dict[int, list[float]] = field(default_factory=dict)
     pinged: dict[int, int] = field(default_factory=dict)
-    first: int | None = None  #
+    first: int | None = None  # the candidate whose pong arrived first
     pongs: int = 0
     bulk_sent: bool = False
     train: set[int] = field(default_factory=set)
@@ -95,7 +125,17 @@ class _Probe:
 
 
 class Probes:
-    ""
+    """The probes this rig has open, with the socket and thread behind each.
+
+    ``send`` posts a frame through the rig's one outbox. ``port`` is the port to
+    bind — the one this rig lends — or None while a session holds it, and then
+    any free port does. ``hosts`` and ``own`` say which LAN addresses to offer
+    peers and which addresses are this host's own, so a candidate at one of
+    ``own`` is dropped: that is this rig, and the hub built the pair wrong.
+    ``allowed`` is the rule on every other address the hub names, ``lending``
+    refuses probes when this rig offers nothing to ride, and ``clock`` drives
+    the ttl, the ping schedule and the bulk rate.
+    """
 
     def __init__(
         self,
@@ -121,16 +161,22 @@ class Probes:
         self._probes: dict[str, _Probe] = {}
         self._pong_times: list[float] = []
 
-    #
+    # What the agent calls from outside the probe threads to end them and give
+    # the ports they hold back.
 
     def close(self) -> None:
-        ""
+        """Mark every probe closed; each thread then closes its socket."""
         with self._lock:
             for probe in self._probes.values():
                 probe.closed.set()
 
     def release(self, port: int) -> None:
-        ""
+        """Free ``port`` for the session that is about to take it.
+
+        Every probe whose socket is bound to this port is marked closed and
+        given RELEASE_WAIT_S to end, because the session's tunnel cannot bind
+        a port a probe still holds.
+        """
         with self._lock:
             holding = []
             for probe in self._probes.values():
@@ -143,14 +189,23 @@ class Probes:
             probe.finished.wait(RELEASE_WAIT_S)
 
     def open_count(self) -> int:
-        ""
+        """How many probes this rig has open, which is what MAX_OPEN bounds."""
         with self._lock:
             return sum(1 for p in self._probes.values() if not p.closed.is_set())
 
-    #
+    # Frames from the hub: each returns a refusal to send back, or None when
+    # the frame is taken.
 
     def open(self, envelope: protocol.Envelope) -> str | None:
-        ""
+        """Answer a ``probe_open``: bind the socket, or say why not.
+
+        A probe id used before is not opened twice: the same settings make the
+        new ask wait for the open answer, or get it again when it has gone
+        out, and other settings are refused. A rig that lends nothing, or that
+        has MAX_OPEN probes open already, refuses. The socket binds the port
+        this rig lends, else any free port, and a thread then asks the
+        responder and sends ``probe_opened``.
+        """
         asked = sessionwire.read_probe_open(envelope)
         if not self._lending():
             return sessionwire.refusal(
@@ -192,7 +247,13 @@ class Probes:
         return None
 
     def run(self, envelope: protocol.Envelope) -> str | None:
-        ""
+        """Answer a ``probe_run``: keep the peers this rig may measure.
+
+        The probe must be open and must not have run before. A candidate is
+        kept only when it is IPv4, not this host's own address and allowed by
+        the address rule; a peer left with no candidate is still reported, as
+        not reached. The probe's thread then schedules the rounds.
+        """
         asked = sessionwire.read_probe_run(envelope)
         with self._lock:
             probe = self._probes.get(asked.probe_id)
@@ -222,7 +283,8 @@ class Probes:
             probe.run_at = self._clock()
         return None
 
-    #
+    # The helpers behind a probe: its answer frame, socket, endpoints, STUN
+    # ask, loop, and the pings, trains and outcomes the loop produces.
 
     def _opened(self, probe: _Probe, re: str) -> str:
         return sessionwire.probe_opened(
@@ -443,6 +505,6 @@ def _us(seconds: float) -> int:
 
 
 def register(dispatcher: commands.Dispatcher, probes: Probes) -> None:
-    ""
+    """Handle ``probe_open`` and ``probe_run`` on the agent's dispatcher."""
     dispatcher.register("probe_open", lambda envelope, _: probes.open(envelope))
     dispatcher.register("probe_run", lambda envelope, _: probes.run(envelope))

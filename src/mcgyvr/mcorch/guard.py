@@ -1,4 +1,17 @@
-""
+"""Preflight refusal to write the target of a contract that is still open.
+
+mcorch hands the tool calls over to the harness, so it sees every one of them
+first. This module reads the conversation the request carries, remembers which
+targets are the target of an open contract, and answers a write or edit call on
+one of them with a refusal naming the contract instead of handing the call
+over.
+
+A target opens when an assistant write or edit call carries content that loads
+as a non-session contract: its `target` is remembered against its `id`. It
+closes when a user tool result arrives holding a run result document — JSON with
+both `contract` and `outcome` — whose `contract` is that id. Only write and edit
+tool calls are examined; a shell edit is outside what this sees.
+"""
 
 from __future__ import annotations
 
@@ -9,18 +22,25 @@ from typing import Any
 
 from mcgyvr import contract
 
-#
+# The harness tool names that write or edit a file: the capitalized and the
+# lower-case spellings, plus MultiEdit.
 WRITE_TOOLS = frozenset({"Write", "write", "Edit", "edit", "MultiEdit"})
 
-#
+# The keys a write or edit call may carry the file it touches under, in the
+# order they are tried; the first one holding a non-empty string is the path.
 PATH_KEYS = ("file_path", "path", "filePath")
 
-#
+# The keys every `mcgyvr run` result document carries. A tool result missing
+# either of them is not a run result, so it closes no contract.
 RESULT_KEYS = ("contract", "outcome")
 
 
 def arguments(text: str) -> dict[str, Any] | None:
-    ""
+    """The tool call's arguments as a mapping.
+
+    Empty or blank input is an empty mapping. Text that is not JSON, or JSON
+    that is not an object, is unreadable and comes back as `None`.
+    """
     if not text.strip():
         return {}
     try:
@@ -31,7 +51,11 @@ def arguments(text: str) -> dict[str, Any] | None:
 
 
 def path_of(input_: Mapping[str, Any]) -> str | None:
-    ""
+    """The file a write or edit call touches.
+
+    The first of PATH_KEYS holding a non-empty string, or `None` when the call
+    names no file under any of them.
+    """
     for key in PATH_KEYS:
         value = input_.get(key)
         if isinstance(value, str) and value:
@@ -40,7 +64,13 @@ def path_of(input_: Mapping[str, Any]) -> str | None:
 
 
 def open_targets(messages: Sequence[Mapping[str, Any]]) -> dict[str, str]:
-    ""
+    """The targets of the contracts still open in `messages`, by contract id.
+
+    Messages are read in order: an assistant write or edit call whose content
+    loads as a non-session contract opens its target, and a user tool result
+    holding a run result document for that contract closes it again. A target
+    written twice keeps the id from the later write.
+    """
     opened: dict[str, str] = {}
     for message in messages:
         content = message.get("content")
@@ -70,7 +100,7 @@ def _open(block: Mapping[str, Any], opened: dict[str, str]) -> None:
     except contract.ContractError:
         return
     if authored.is_session:
-        #
+        # A session writes nothing, so a target it gave anyway guards no file.
         return
     opened[authored.target] = authored.id
 
@@ -101,7 +131,13 @@ def _close(block: Mapping[str, Any], opened: dict[str, str]) -> None:
 def edits_open_target(
     name: str, input_: Mapping[str, Any], targets: Mapping[str, str]
 ) -> str | None:
-    ""
+    """The id of the open contract whose target this call would edit, if any.
+
+    Only a write or edit tool call on a named path is considered. A path
+    matches a target when its trailing parts equal the target's parts, so an
+    absolute path or a deeper path to the same file counts, while a file whose
+    path merely ends the same letters does not.
+    """
     if name not in WRITE_TOOLS or not targets:
         return None
     path = path_of(input_)
@@ -116,7 +152,13 @@ def edits_open_target(
 
 
 def refusal(name: str, target: str, contract_id: str) -> str:
-    ""
+    """The answer handed back to the rung in place of the refused call.
+
+    It names the call and the target that was held back, the contract that owns
+    the target, and the way through: fix the contract and run it again, or ask
+    the user. It says the refusal is about the contract and never a reason to
+    edit the file by yourself.
+    """
     return (
         f"refused: {name} on {target} was not handed to the harness — it is the "
         f"target of contract {contract_id!r}, which is open. Work on a target "

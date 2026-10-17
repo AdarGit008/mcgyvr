@@ -1,4 +1,27 @@
-""
+"""Judge fleet measurements against what their lock approved, and pull on a trip.
+
+Each observation is appended to the journal as one JSON object per line, under
+``<journal>/<combination_id>/<unit_id>.jsonl``, or ``<switch>.jsonl`` for a
+figure read off a switch. A row carries the stamp it was computed for, its
+``field``, its ``observed`` value, ``run_id``, ``lease_id``, an ``at`` time and
+an ``alert`` flag.
+
+:data:`_JUDGED` names the judged fields and how each one trips: warm decode and
+prefill fall a percentage below a locked figure, card steady and peak rise an
+absolute number of MiB above one, L2 wake and downtime rise a number of seconds
+above one, and the card and load peaks are held to the room a unit declares for
+its card. Restarts are judged apart from that table: any count above zero trips.
+A field judged from a plain approved figure takes only the percentage and room
+rules; the absolute and second rules need the expected/tolerance mapping. A
+field with nothing approved on file is recorded and not judged.
+
+A trip warns once on stderr and pulls its whole combination, so :func:`pulled`
+can list the pulled combinations, :func:`routable` keeps live work off their
+units, and :func:`pulled_units` names the slots a live fleet skips. Nothing
+clears a pull on its own: a combination whose lock record holds a later
+``validated_at`` than its newest alert is no longer pulled, and :func:`rejudge`
+reports what a newly approved table would trip without rewriting the journal.
+"""
 
 from __future__ import annotations
 
@@ -14,12 +37,12 @@ from mcgyvr.fleet.roots import LOCK_DIR
 
 
 class AllPulledError(Exception):
-    ""
+    """Live has nowhere to route: every combination its units work on is pulled."""
 
 
-#
-#
-#
+# Field -> (the direction a trip runs, how its bound is read): "pct" is a
+# percentage below a locked figure, "abs" an absolute rise above one, "s" a
+# rise in seconds, and "room" the room a unit declares for its card.
 _JUDGED: dict[str, tuple[str, str]] = {
     "warm_decode_tok_s": ("down", "pct"),
     "prefill_tok_s": ("down", "pct"),
@@ -27,24 +50,24 @@ _JUDGED: dict[str, tuple[str, str]] = {
     "card_peak_mib": ("up", "abs"),
     "l2_wake_s": ("up", "s"),
     "downtime_s": ("up", "s"),
-    #
-    #
+    # The card a rig reads and the peak a load holds carry no locked figure:
+    # each is held to the ``room_mib`` its unit states, going over it a trip.
     "card_mib": ("up", "room"),
-    #
-    #
+    # A load peak is filed under that same rule, so a load that outgrows the
+    # room trips as loudly as the card read itself.
     "load_peak_mib": ("up", "room"),
 }
 
 
 def _number(value: Any) -> float | None:
-    ""
+    """The value as a float, or None for a bool or anything not a number."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     return float(value)
 
 
 def _plain_pct(entries: Mapping[str, Any], field: str) -> float | None:
-    ""
+    """One field's percentage tolerance from the entries, or None if unstated."""
     by_field = entries.get("tolerance_pct")
     if not isinstance(by_field, Mapping):
         return None
@@ -54,7 +77,12 @@ def _plain_pct(entries: Mapping[str, Any], field: str) -> float | None:
 def _plain_hit(
     entry: Any, entries: Mapping[str, Any], field: str, kind: str, value: float
 ) -> bool | None:
-    ""
+    """Whether a plain approved entry trips on this value, or None if it cannot.
+
+    "room" trips above the unit's ``room_mib`` and "pct" below the entry less
+    its percentage. "abs" and "s" need an expected/tolerance mapping, so a
+    plain figure judges nothing for them.
+    """
     if kind == "room":
         room = _number(entries.get("room_mib"))
         return None if room is None else value > room
@@ -67,8 +95,8 @@ def _plain_hit(
     return None
 
 
-#ll
-#
+# A run id carries its start as ``run-YYYYMMDDTHHMMSS``; a row filed from a run
+# with no time of its own takes that start, written as ``YYYY-MM-DDTHH:MM:SS``.
 _RUN_AT = re.compile(r"run-(\d{8}T\d{6})")
 
 
@@ -81,14 +109,19 @@ def _run_at(run_id: str) -> str | None:
 
 
 def _short(identifier: str) -> str:
-    ""
+    """An identifier cut to 12 characters with an ellipsis, to fit a warning line."""
     return identifier if len(identifier) <= 12 else f"{identifier[:12]}…"
 
 
 def _warning(
     observed: Mapping[str, Any], stamp: Mapping[str, str], unit_id: str | None
 ) -> str:
-    ""
+    """The stderr line for a first trip: who it names, the field, and on what.
+
+    The unit is named by its ``unit`` or ``switch``, else by its shortened unit
+    id; then come the field, the fleet it pulled, the rig and the shortened
+    combination, and a pointer at ``mcgyvr fleet alerts``.
+    """
     who = observed.get("unit") or observed.get("switch") or _short(str(unit_id))
     where = [stamp["rig"]] if stamp.get("rig") else []
     where.append(_short(stamp["combination_id"]))
@@ -111,7 +144,11 @@ def _append(path: Path, row: dict[str, Any]) -> Path:
 
 
 def record(journal: Path, stamp: Mapping[str, str], values: Mapping[str, Any]) -> Path:
-    ""
+    """Append one row of the stamp's and the values' keys, returning its path.
+
+    The row lands under the stamp's combination and unit, so a plain reading is
+    filed beside the judged ones.
+    """
     path = _journal_file(journal, stamp["combination_id"], stamp["unit_id"])
     return _append(path, {**dict(stamp), **dict(values)})
 
@@ -122,7 +159,8 @@ def _judge(
     field = observed["field"]
     value = observed["observed"]
 
-    #
+    # Restarts are judged exactly, with no tolerance reaching them: any count
+    # above zero trips, whatever the table holds for the field.
     if field == "restarts":
         if int(value) != 0:
             alert: dict[str, Any] = {"field": "restarts", "direction": "up"}
@@ -156,7 +194,7 @@ def _judge(
         elif kind == "abs":
             bound = expected + float(tolerance.get("abs", 0.0))
             hit = float(value) > bound
-        else:  #
+        else:  # "s": a rise in seconds above the expected figure
             bound = expected + float(tolerance.get("s", 0.0))
             hit = float(value) > bound
     else:
@@ -178,7 +216,13 @@ def _judge(
 def _judged_pct(
     observed: Mapping[str, Any], approved: Mapping[str, Any]
 ) -> float | None:
-    ""
+    """The percentage tolerance that judged this observation, or None.
+
+    It is read from the mapping's ``tolerance.pct``, else from the plain
+    per-field figure, and None comes back when the field is not judged by a
+    percentage or nothing states one. The caller files it with the row, so the
+    bar a value was held to stays readable.
+    """
     field = observed["field"]
     rule = _JUDGED.get(field)
     if rule is None or rule[1] != "pct":
@@ -219,7 +263,15 @@ def check(
     run_id: str,
     lease_id: str,
 ) -> Iterator[dict[str, Any]]:
-    ""
+    """File each observation as a journal row, warn once, and yield each trip.
+
+    A row goes under the stamp's combination and the observation's unit id, or
+    under ``switch`` when it names a switch, and holds the stamp, the field,
+    the observed value, the run and lease it came from, the time it happened
+    at, whether it alerted, and for a percentage-judged field the tolerance it
+    was judged by. A trip is yielded, and its warning is printed only when no
+    row in that file has alerted this field before.
+    """
     run_at = _run_at(run_id)
     for observed in observations:
         field = observed["field"]
@@ -283,7 +335,14 @@ def _validated_at(
 
 
 def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, Any]]]:
-    ""
+    """The pulled combinations, each with the unit/field pairs that tripped.
+
+    Only rows that alerted and name a unit count, and a row stamped
+    ``locked: "false"`` is left out. Each pair is counted over the rows that
+    tripped it, and a combination whose lock record holds a ``validated_at``
+    later than its newest alert drops out; one with no ``at`` on any alert
+    stays pulled.
+    """
     groups: dict[str, dict[str, Any]] = {}
     for row in _rows(journal):
         if not row.get("alert") or "unit_id" not in row:
@@ -320,13 +379,18 @@ def pulled(journal: Path, lock_root: Path | None) -> dict[str, list[dict[str, An
 
 
 class PullsUnreadableError(Exception):
-    ""
+    """The live fleet or its journal could not be read, so the pulls are unknown."""
 
 
 def pulled_units(
     fleet: dict[str, Any], fleet_name: str, journal: Path, lock_root: Path | None
 ) -> dict[str, list[dict[str, Any]]]:
-    ""
+    """The units this fleet must skip: unit name -> its pulled unit/field pairs.
+
+    A rig whose combination is pulled hands those pairs to the layout's slots
+    on that rig, with each pulled unit id resolved to the name the fleet gives
+    it. A unit on a rig with nothing pulled is absent.
+    """
     units = fleet.get("units", {})
     names = {
         block.get("unit_id"): name
@@ -353,7 +417,12 @@ def pulled_units(
 
 
 def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
-    ""
+    """The pulled units of the live fleet, read from its journal and locks.
+
+    Nothing is pulled when no fleet is live, and an empty mapping comes back
+    then. Anything unreadable raises :class:`PullsUnreadableError` rather than
+    passing for a fleet with nothing pulled.
+    """
     from mcgyvr.fleet.probe import ProbeError, _live, journal_dir
     from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 
@@ -377,7 +446,11 @@ def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
 def routable(
     units: Mapping[str, str], journal: Path, lock_root: Path | None
 ) -> list[str]:
-    ""
+    """The units free to take work: those whose combination is not pulled.
+
+    With units to route and every one of their combinations pulled, live
+    refuses all work by raising :class:`AllPulledError`, naming them.
+    """
     pulled_combs = pulled(journal, lock_root)
     free = [
         unit for unit, combination in units.items() if combination not in pulled_combs
@@ -393,7 +466,12 @@ def routable(
 def rejudge(
     journal: Path, combination_id: str, approved: Mapping[str, Any]
 ) -> list[dict[str, Any]]:
-    ""
+    """What a newly approved table would trip on, from the rows already filed.
+
+    Every journal row of this combination is run through the rules again and
+    reported by unit and field when it trips. Nothing is written and nothing
+    is pulled.
+    """
     found: list[dict[str, Any]] = []
     for row in _rows(journal):
         if row.get("combination_id") != combination_id:

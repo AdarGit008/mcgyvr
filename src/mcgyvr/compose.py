@@ -1,4 +1,17 @@
-""
+"""The setup composed from measured facts, with the choice of one left to a model.
+
+A candidate is a whole setup both config files can be rendered from: the data
+`initialize.build` writes from a `Detection`, a `Proposal` and the declared
+`ApiUnit`s. `candidate_setups` assembles every candidate the facts allow, and
+`recommend` asks one typed `Choice` question naming them, so what the model
+picks is which setup is written — never a number inside one, since each
+candidate is built by code from the measured machine and the declared schema
+before the question is asked.
+
+The endpoint the question is sent to is a backend the sweep already reached,
+via `endpoint_for_backend`, or one the caller names. With only one candidate
+assembled there is nothing to choose and no model is consulted at all.
+"""
 
 from __future__ import annotations
 
@@ -14,9 +27,9 @@ from mcgyvr.propose import Proposal
 if TYPE_CHECKING:
     from mcgyvr.initialize import ApiUnit
 
-#
-# a
-#r.
+# What each candidate is offered as in the `Choice` the model answers: one
+# description per candidate name, saying where the work runs and what it costs,
+# read against the priority and the measured machine that make up the state.
 OWN_DESCRIPTION = (
     "run only on the machine(s) already listed, with no hosted unit: no API "
     "spend and no key to export"
@@ -33,7 +46,9 @@ HOSTED_DESCRIPTION = (
 
 @dataclass(frozen=True)
 class SetupCandidate:
-    ""
+    """One setup the composition may select: the `name` it is offered under, the
+    `description` the model reads beside that name, and the `data` both files are
+    rendered from, as `initialize.build` wrote it."""
 
     name: str
     description: str
@@ -42,7 +57,10 @@ class SetupCandidate:
 
 @dataclass(frozen=True)
 class Recommendation:
-    ""
+    """The composition this module settled on: the `selected` candidate, every
+    `candidates` entry it was chosen from, the `decision` read from the endpoint
+    (None when there was a single candidate and nothing was asked), and the
+    `priority` the selection was made for."""
 
     selected: SetupCandidate
     candidates: tuple[SetupCandidate, ...]
@@ -51,7 +69,9 @@ class Recommendation:
 
 
 def endpoint_for_backend(backend: Backend) -> Endpoint:
-    ""
+    """The decision endpoint a detected backend answers on: the backend's own name
+    and base URL, the OpenAI-compatible protocol, one request at a time, and no
+    credential, since a backend the sweep reached is asked without a key."""
     return Endpoint(
         source=backend.name,
         base_url=backend.base_url,
@@ -69,9 +89,21 @@ def candidate_setups(
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> tuple[SetupCandidate, ...]:
-    ""
-    #
-    #
+    """Every setup these facts allow, in a fixed order.
+
+    `own` comes first, and only when the proposal listed a rung. When hosted
+    units were named, `escalate` follows — it needs a listed rung to start on, so
+    it is offered only beside `own` — and `hosted` last, which binds the hosted
+    units alone. A machine with neither a listed rung nor a hosted unit yields no
+    candidate at all, which the caller sees as an empty tuple.
+
+    Each candidate's data is what `build` writes from the same detection,
+    proposal and hosted units, plus the `use_case` and `deployment` passed
+    through unchanged, so two calls on the same facts give the same setups.
+    """
+    # Imported here rather than at module level: `initialize` imports `recommend`
+    # and `Recommendation` from this module, so building the import at call time
+    # is what keeps the two modules from importing each other on load.
     from mcgyvr.initialize import build
 
     asked: dict[str, Any] = {"use_case": use_case, "deployment": deployment}
@@ -110,7 +142,15 @@ def decision_state(
     *,
     api_units: Sequence[ApiUnit] = (),
 ) -> dict[str, Any]:
-    ""
+    """The state the choice is made on, as plain JSON-ready values: the priority
+    asked for, the machine as measured (each card's name and VRAM, the CPU count,
+    RAM and whether a Docker daemon answered), the listed ladder as name, model
+    and host, and the hosted units as name and model.
+
+    Every entry is a value detection, the proposal or the hosted spec already
+    established, so the model reads the facts of this machine rather than numbers
+    it could state itself.
+    """
     return {
         "priority": priority,
         "measured": {
@@ -141,7 +181,17 @@ def recommend(
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> Recommendation:
-    ""
+    """Compose the setup for one priority: assemble the candidates, then ask
+    `endpoint`, serving `model`, which of them fits.
+
+    The question is a single `Choice` whose options are the candidate names and
+    their descriptions, asked against `decision_state`, and the reply's chosen
+    name selects the candidate returned. One candidate is returned without any
+    request — there is nothing to choose and `decision` is then None — while no
+    candidate at all raises a ValueError, since nothing can be composed from a
+    machine with no listed rung and no hosted unit. `timeout_s` bounds the request
+    and the other keyword arguments reach `build` through `candidate_setups`; a
+    reply no label can be read from raises `DecisionError` out of `classify`."""
     candidates = candidate_setups(
         detection,
         proposal,

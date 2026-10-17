@@ -1,5 +1,15 @@
-#
-""
+#!/usr/bin/env python3
+# Gate 5 of the serving door: mint the run identity and open its envelope.
+"""Gate 5: validate the step's declarations, mint a run id, claim its envelope.
+
+The step file's `# RUN_REWRITES:` line names every artifact the step writes.
+This gate parses that line, refuses names that are not plain file names or that
+appear twice, derives the run id `<date>-<host>-<step>[-<suffix>]`, refuses an
+id another invocation is holding or has already used, renames artifacts this
+same step left in the envelope to `<name>.superseded-<old run id>`, writes the
+run header `<run id>.run.json`, and exports RUN_ID, RUN_OUT_DIR, RUN_DATE,
+RUN_STEP, RUN_HOST, RUN_DECLARED and RUN_SUPERSEDED for the gates that follow.
+"""
 
 from __future__ import annotations
 
@@ -37,7 +47,12 @@ RUN_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def declarations(step_file: Path) -> dict[str, list[str]]:
-    ""
+    """Map each directive to the names its `# <DIRECTIVE>:` line declares.
+
+    A step file may carry one such line per directive; a second line would be a
+    declaration no gate reads, so two lines are refused. A directive with no
+    line maps to an empty list.
+    """
     text = step_file.read_text(encoding="utf-8", errors="replace")
     out: dict[str, list[str]] = {}
     for directive in DIRECTIVES:
@@ -54,7 +69,11 @@ def declarations(step_file: Path) -> dict[str, list[str]]:
 
 
 def artifact_run_id(path: Path) -> str | None:
-    ""
+    """Return the `run_id` string recorded in the JSON file at `path`.
+
+    None when the file is not JSON, is not a JSON object, or carries no string
+    `run_id`.
+    """
     try:
         doc = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except ValueError:
@@ -64,18 +83,19 @@ def artifact_run_id(path: Path) -> str | None:
 
 
 def minted_by(run_id: str, host: str, step: str) -> bool:
-    ""
+    """True when `run_id` is `<YYYY-MM-DD>-<host>-<step>` plus optional `-<suffix>`."""
     named = f"{re.escape(host)}-{re.escape(step)}"
     return re.fullmatch(rf"\d{{4}}-\d{{2}}-\d{{2}}-{named}(?:-.+)?", run_id) is not None
 
 
 def header_path(out_dir: Path, run_id: str) -> Path:
-    ""
+    """Path of the run header inside `out_dir`, named after the run id."""
     return out_dir / f"{run_id}.run.json"
 
 
 def header_record(run_id: str, step_name: str, run_date: str) -> dict[str, str]:
-    ""
+    """Header fields taken from the gate environment: id, step, host, date,
+    config, version, start time."""
     return {
         "run_id": run_id,
         "step": step_name,
@@ -88,7 +108,8 @@ def header_record(run_id: str, step_name: str, run_date: str) -> dict[str, str]:
 
 
 def user_header(record: dict[str, str]) -> dict[str, object]:
-    ""
+    """Extend `record` with the user-mode fields: mode, command, pre-run rig,
+    compose file and text."""
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
     compose = os.environ.get("RUN_COMPOSE")
     text = Path(compose).read_text(encoding="utf-8") if compose else None
@@ -103,7 +124,8 @@ def user_header(record: dict[str, str]) -> dict[str, object]:
 
 
 def envelope(run_date: str, run_id: str) -> Path:
-    ""
+    """The envelope directory for this run date and run id, refusing when the
+    data folder cannot be named."""
     try:
         return envelope_of(run_date, run_id)
     except (FolderError, RuntimeError) as exc:
@@ -147,7 +169,8 @@ def main() -> int:
     if not RUN_DATE_RE.match(run_date):
         refuse(f"gate 5: RUN_DATE={run_date!r} is not YYYY-MM-DD")
 
-    #
+    # The run id is minted from date, host, step file and optional suffix, then
+    # checked as a plain name because it prefixes container names.
     step = step_name(step_file)
     run_id = run_id_of(run_date, host, step_file, suffix)
     if not PLAIN_NAME.match(run_id):
@@ -160,9 +183,9 @@ def main() -> int:
     if escape is not None:
         refuse(f"gate 5: {escape}. Nothing is minted into a directory that is a link")
 
-    #
-    #
-    #
+    # An existing claim file means another invocation is running under this run
+    # id, or died still holding it. Two invocations never share an id, so a
+    # same-day re-run is given its own id with --suffix instead of waiting.
     if claim_path(out_dir, run_id).exists():
         refuse(
             f"gate 5: a run with this RUN_ID ({run_id}) is in progress or died "
@@ -172,7 +195,8 @@ def main() -> int:
         )
 
     def linked(name: str) -> None:
-        ""
+        """Refuse `name` unless it resolves to one regular file directly inside
+        the envelope."""
         escape = artifact_escape(out_dir / name, out_dir)
         if escape is not None:
             refuse(
@@ -182,8 +206,8 @@ def main() -> int:
                 "never guarded"
             )
 
-    #
-    #
+    # An artifact this same step left in an earlier run is not overwritten: it
+    # is renamed to `<name>.superseded-<old run id>` and reported on stderr.
     aside_of: dict[str, str] = {}
     for name in declared["RUN_REWRITES"]:
         path = out_dir / name
@@ -219,10 +243,9 @@ def main() -> int:
             )
         aside_of[name] = aside
 
-    #€”
-    #nd
-    #
-    #
+    # The header is the record that this run id was minted: if it is already in
+    # the envelope, the id belongs to an earlier run and is refused here, before
+    # any artifact is renamed or any header is written.
     header = header_path(out_dir, run_id)
     if header.exists():
         refuse(
@@ -233,9 +256,9 @@ def main() -> int:
     record = header_record(run_id, step, run_date)
     header_doc: Mapping[str, object] = user_header(record)
 
-    #
-    #
-    #
+    # When the door runs under a lease, this run id is stamped onto it so the
+    # lease records which run it guards. A direct invocation holds no lease and
+    # then there is nothing to stamp.
     lease = lease_of_run()
     if lease is not None:
         lease_stamp(need("RUN_HOST"), lease, run_id)
@@ -252,8 +275,8 @@ def main() -> int:
                 file=sys.stderr,
             )
     except OSError:
-        #
-        #
+        # The header or a rename failed after the claim was taken, so the claim
+        # is released rather than left held by a run that never opened.
         release(out_dir, run_id)
         raise
 
@@ -263,9 +286,9 @@ def main() -> int:
     export("RUN_STEP", step)
     export("RUN_HOST", need("RUN_HOST"))
     export("RUN_DECLARED", json.dumps(declared, separators=(",", ":")))
-    #
-    #
-    #
+    # RUN_DECLARED and RUN_SUPERSEDED carry the parsed declarations and the
+    # name -> aside mapping as compact JSON, so later gates see what this step
+    # promised to write and which earlier artifacts were moved out of the way.
     export("RUN_SUPERSEDED", json.dumps(aside_of, separators=(",", ":")))
     print(f"gate 5: RUN_ID={run_id} -> {out_dir}")
     return 0

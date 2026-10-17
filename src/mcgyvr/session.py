@@ -1,4 +1,17 @@
-""
+"""Settle which orchestrator typed this command, and where its transcript is.
+
+A journal row names the orchestrator that produced it, and a name is only worth
+writing if a reader can follow it to a transcript. `resolve` takes the
+`--orchestrator` value when there is one, and otherwise reads the session the
+command was typed from: Claude Code's `CLAUDE_CODE_SESSION_ID`, or a Pi
+transcript's path in `PI_SESSION_FILE`. Either way the tool's own session id is
+looked up on disk — under `CLAUDE_CONFIG_DIR` or `~/.claude` for Claude Code,
+under `~/.pi/agent/sessions` for Pi — and a run whose transcript cannot be found
+is refused with `SessionError` rather than filed under a transcript that does
+not exist or under a default. An mcorch server's transcript is not on disk when
+the name is settled, so `with_mcorch_transcript` attaches it later, once the
+journal directory is known.
+"""
 
 from __future__ import annotations
 
@@ -16,34 +29,48 @@ PI_SESSION_VAR = "PI_SESSION_FILE"
 
 CLAUDE = "claude"
 PI = "pi"
-#
-#
-#
-#er
-#
-#
-#
+# An orchestrator is named `<tool>-<id>`, and the id is the journal's file name:
+# `claude-<session id>`, `pi-<session id>`, or `mcorch-<stamp>`. The first two
+# are traced back to the tool's own transcript on disk; an mcorch writer's
+# transcript lives under the journal directory and is attached by
+# `with_mcorch_transcript` once that directory is known. Claude Code exports its
+# session id and config root; a Pi transcript path has to be exported by
+# something, and nothing shipped here does.
 
-#
-#
-#
+# Every id this module accepts, and every file name it composes one into: a set
+# with no `.`/`..` and no path separator, so an id can never reach outside the
+# transcript directory it is looked up in.
 _ID = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 class SessionError(Exception):
-    ""
+    """No session was named, or the one named has no transcript to trace to."""
 
 
 @dataclass(frozen=True)
 class Session:
-    ""
+    """The orchestrator named for a run, and the transcript to file it under.
+
+    `orchestrator` is the name a journal row and a result carry. `session_file`
+    is that name's transcript as an absolute path, or None for a name this host
+    cannot trace yet: an mcorch writer whose transcript does not exist, and any
+    id passed to `--orchestrator` that does not carry a known tool's prefix.
+    """
 
     orchestrator: str
     session_file: Path | None = None
 
 
 def resolve(explicit: str | None, env: Mapping[str, str] | None = None) -> Session:
-    ""
+    """Settle the session named by `explicit`, or else by the environment.
+
+    An `explicit` value — a `--orchestrator` id — wins outright. Without one the
+    environment decides: `CLAUDE_CODE_SESSION_ID` names a Claude Code session and
+    `PI_SESSION_FILE` points at a Pi transcript, and both at once is refused
+    because nothing says which one typed this command. No session at all is
+    refused too, so a run nobody can be traced to never starts. `SessionError`
+    carries the reason; `env` replaces `os.environ` when given.
+    """
     environment = os.environ if env is None else env
     if explicit is not None:
         return _explicit(explicit, environment)
@@ -110,7 +137,11 @@ def _home(environment: Mapping[str, str]) -> Path:
 
 
 def _cwd_slug() -> str:
-    ""
+    """The current directory as Claude Code names its project folder.
+
+    Claude Code files a transcript under `projects/<cwd>`, with each `/` of the
+    absolute path replaced by a dash, so `_cwd_slug` reproduces that name.
+    """
     return os.getcwd().replace("/", "-")
 
 
@@ -118,9 +149,9 @@ def _claude_transcript(session_id: str, environment: Mapping[str, str]) -> Path:
     root = _claude_root(environment)
     if not _ID.match(session_id):
         raise SessionError(f"{session_id!r} is not a Claude Code session id")
-    #
-    #
-    #
+    # This directory's own project folder is tried first; a resumed or copied
+    # session can sit under another one, so a miss there falls back to every
+    # folder under `projects`. The first path in sorted order is taken.
     here = root / "projects" / _cwd_slug() / f"{session_id}.jsonl"
     found = (
         [here]
@@ -151,14 +182,26 @@ def _pi_transcript(session_id: str, environment: Mapping[str, str]) -> Path:
 
 
 def _pi_id(path: Path) -> str:
-    ""
+    """The session id in a Pi transcript's file name, `<stamp>_<id>.jsonl`.
+
+    The stem is split at its last underscore, so a stamp that holds one still
+    yields the id; a stem with no underscore is taken as the id whole.
+    """
     stem = path.stem
     _, sep, uuid = stem.rpartition("_")
     return uuid if sep else stem
 
 
 def with_mcorch_transcript(named: Session, journal_dir: Path) -> Session:
-    ""
+    """Attach an mcorch writer's transcript under `journal_dir`, when it is there.
+
+    An mcorch server is named `mcorch-<stamp>` and writes one JSON row per
+    request to `journal_dir/mcorch/<name>.jsonl`, but its id is minted before the
+    run knows the journal directory, so the file is looked up here instead. A
+    session that already has a transcript, or that is not an mcorch writer, is
+    returned unchanged; so is an mcorch writer whose transcript does not exist
+    yet, since a writer that has not written is still a name, not a refusal.
+    """
     if named.session_file is not None or not named.orchestrator.startswith(
         f"{MCORCH}-"
     ):

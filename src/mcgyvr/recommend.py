@@ -1,4 +1,14 @@
-""
+"""Turn a usage profile and a set of rigs into a plan naming one placement.
+
+`plan` measures each named host (or takes scans handed in already measured),
+discovers GGUF checkpoints in the model stores it is given, sizes their weights
+plus per-user cache against each rig's free VRAM and host RAM with `vramfit`,
+and falls back to the shipped knowledge-base catalog when no local checkpoint
+fits. The surviving candidates are offered to the decision model on the local
+endpoint when it answers, and the largest candidate wins when it does not. Only
+the `coding` profile gets a placement; every other profile returns the bare rig
+measurements with no placement.
+"""
 
 from __future__ import annotations
 
@@ -32,19 +42,19 @@ from mcgyvr.serving import (
     vramfit,
 )
 
-#
+# Usage profiles the CLI accepts; only PLACEMENT_PROFILE gets a placement.
 PROFILES = ("coding", "chatting", "media_gen", "other")
 PLACEMENT_PROFILE = "coding"
 
-#
-#
-#
+# The tail appended to a quoted model-store directory to list the .gguf files
+# sitting directly in it; `gatelib` admits exactly the `find '<dir>'` command
+# shape this completes, which is what keeps discovery read-only on a rig.
 _DISCOVER_SUFFIX = " -maxdepth 1 -name '*.gguf' -print"
 
-#
-#
-#
-#
+# The launch flags every llama.cpp candidate starts from: offload all layers,
+# turn flash attention on, and pin both the ubatch and the batch to
+# `DEFAULT_UBATCH` so the launch matches the geometry the fit check sized.
+# `_llamacpp_flags` layers `--model`, the MTP head and `--parallel` on top.
 _LLAMACPP_FLAGS = {
     "-ngl": "99",
     "-fa": "on",
@@ -54,16 +64,23 @@ _LLAMACPP_FLAGS = {
 
 
 class CatalogError(Exception):
-    ""
+    """The model catalog could not be read, so no catalog candidates exist."""
 
 
 class RecommendError(Exception):
-    ""
+    """Planning failed: a path was refused, a header was unreadable, or nothing
+    fitted any rig."""
 
 
 @dataclass(frozen=True)
 class Candidate:
-    ""
+    """One way to serve one model on the rigs that were scanned.
+
+    A discovered local checkpoint fills `checkpoint` and leaves `model_id` and
+    `quant` empty, while a catalog entry does the reverse; `flags` is what the
+    chosen engine should be launched with, and `wake` is true when the scan found
+    no GPU on the rig at all.
+    """
 
     name: str
     description: str
@@ -78,7 +95,11 @@ class Candidate:
 
 
 def discover_command(directory: str) -> str:
-    ""
+    """The read-only `find` command listing the .gguf files directly inside `directory`.
+
+    A directory with an embedded single quote is refused: quoting it would need an
+    escape the gate library's `find '<dir>'` shape does not allow.
+    """
     if "'" in directory:
         raise RecommendError(
             "a model-store directory with an embedded single quote cannot be "
@@ -88,7 +109,13 @@ def discover_command(directory: str) -> str:
 
 
 def load_catalog() -> dict[str, Any]:
-    ""
+    """The shipped catalog, merged with the cache offline, as a JSON-shaped dict.
+
+    Each known record is flattened to the fields sizing needs — id, quantisation,
+    file size, context length, per-token KV bytes, per-sequence recurrent bytes
+    and the engines that can serve it. A `KnowledgeError` from the store is
+    re-raised as `CatalogError`.
+    """
     try:
         known = knowledge_store.offline()
     except KnowledgeError as exc:
@@ -110,7 +137,13 @@ def load_catalog() -> dict[str, Any]:
 
 
 def _read_header(host: str, path: str) -> Mapping[str, Any]:
-    ""
+    """Read the GGUF header of `path` on `host` through the gate library's
+    header reader.
+
+    The reader prints a JSON list whose first element is the header object, so
+    output that is not JSON, is empty, or whose first element is not an object
+    raises `RecommendError`, as does a header reporting its own `error`.
+    """
     try:
         command = gatelib.header_read_command(path)
     except ValueError as exc:
@@ -137,7 +170,12 @@ def _read_header(host: str, path: str) -> Mapping[str, Any]:
 
 
 def _discover(host: str, directory: str) -> tuple[str, ...]:
-    ""
+    """The .gguf paths sitting directly in `directory` on `host`, blank lines dropped.
+
+    A host whose ssh reader exits non-zero raises `ScannerMissing`, and discovery
+    swallows that as an empty tuple: a rig without the scanner contributes no
+    local candidates instead of failing the whole plan.
+    """
     try:
         listing = scan_module._ssh(host, discover_command(directory))
     except ScannerMissing:
@@ -148,19 +186,27 @@ def _discover(host: str, directory: str) -> tuple[str, ...]:
 
 
 def _scan_host(host: str) -> Scan:
-    ""
+    """Measure one rig over ssh and return its scan."""
     return scan_module.scan_over(Reach.ssh(host))
 
 
 def _host_ram_bytes(scan: Scan) -> int | None:
-    ""
+    """Available host RAM in bytes, or `None` when the scan reported no memory."""
     if scan.memory is None:
         return None
     return int(scan.memory.available_gb * BYTES_PER_GB)
 
 
 def _slot_bytes(header: Mapping[str, Any], users: int) -> int | None:
-    ""
+    """Cache bytes a checkpoint needs for `users` sequences at its full training
+    context.
+
+    The header's `n_ctx_train` is one sequence's context and the cache totals come
+    from `vramfit`: KV bytes over that context across `users` sequences plus the
+    recurrent state for the same count. A header without a positive integer
+    `n_ctx_train`, or a geometry `vramfit` cannot size, yields `None`, which the
+    caller reads as "does not fit".
+    """
     n_ctx_train = header.get("n_ctx_train")
     if not isinstance(n_ctx_train, int) or n_ctx_train <= 0:
         return None
@@ -179,7 +225,14 @@ def _slot_bytes(header: Mapping[str, Any], users: int) -> int | None:
 
 
 def _fits(scan: Scan, header: Mapping[str, Any], users: int) -> bool:
-    ""
+    """Whether `header`'s weights plus `users` slots of cache fit this rig.
+
+    Weights are charged to the roomiest card's free VRAM: a mixture-of-experts
+    checkpoint whose blocks are placeable counts only its non-expert bytes there
+    and must keep its expert bytes inside the host's available RAM, while any
+    other checkpoint charges its whole file size. A rig with no free VRAM, a
+    header whose cache cannot be sized, or a missing RAM figure means no fit.
+    """
     free = _free_vram_bytes(scan)
     if free <= 0:
         return False
@@ -202,7 +255,10 @@ def _fits(scan: Scan, header: Mapping[str, Any], users: int) -> bool:
 
 
 def _measured(scan: Scan) -> dict[str, Any]:
-    ""
+    """The scan trimmed to the hardware figures the plan document reports for a rig.
+
+    Each of memory, bandwidth and disk is `None` when the scan did not measure it.
+    """
     gpus = [
         {
             "index": gpu.index,
@@ -239,7 +295,12 @@ def _measured(scan: Scan) -> dict[str, Any]:
 
 
 def _llamacpp_flags(*, checkpoint: str | None, mtp: bool, users: int) -> dict[str, str]:
-    ""
+    """The llama.cpp launch flags: the shared baseline plus this candidate's extras.
+
+    `--model` names a local checkpoint when there is one, `mtp` turns on the
+    checkpoint's grafted speculative head with its draft-token cap, and more than
+    one user sets `--parallel`.
+    """
     flags = dict(_LLAMACPP_FLAGS)
     if checkpoint is not None:
         flags["--model"] = checkpoint
@@ -258,7 +319,12 @@ def _has_mtp(header: Mapping[str, Any]) -> bool:
 def _local_candidates(
     scan: Scan, header: Mapping[str, Any], users: int
 ) -> tuple[Candidate, ...]:
-    ""
+    """Candidates for one discovered checkpoint that already fitted on this rig.
+
+    A checkpoint carrying a grafted MTP head yields two candidates, one serving
+    that head and one without it, so the decision can weigh speculative decode
+    against the plain path; a checkpoint without one yields only the plain path.
+    """
     checkpoint = str(header.get("file") or "")
     size_bytes = int(header.get("size_bytes") or 0)
     wake = not scan.gpus
@@ -289,7 +355,15 @@ def _local_candidates(
 
 
 def _catalog_slot_bytes(entry: Mapping[str, Any], users: int) -> int | None:
-    ""
+    """Cache bytes a catalog entry needs for `users` sequences, or `None` if unsizable.
+
+    The entry's context length is split across the sequences with
+    `vramfit.context_per_sequence`, and the total is those cells times the user
+    count times the per-token KV bytes, plus the per-sequence recurrent bytes. A
+    context or KV figure that is not a positive integer, or a recurrent figure
+    that is not a non-negative integer, makes the entry unsizable rather than
+    cheap.
+    """
     ctx = entry.get("context_length")
     kv_per_token = entry.get("kv_bytes_per_token")
     recurrent = entry.get("recurrent_bytes_per_slot", 0)
@@ -313,7 +387,7 @@ def _catalog_slot_bytes(entry: Mapping[str, Any], users: int) -> int | None:
 
 
 def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
-    ""
+    """Whether a catalog entry's file size plus its cache fits a rig's free VRAM."""
     free = _free_vram_bytes(scan)
     if free <= 0:
         return False
@@ -327,7 +401,11 @@ def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
 def _catalog_candidates(
     scan: Scan, catalog: Mapping[str, Any], users: int
 ) -> tuple[Candidate, ...]:
-    ""
+    """One candidate per engine that can serve a catalog entry fitting this rig.
+
+    Entries that do not fit, and entries that are not objects, are skipped, and
+    `wake` follows whether the scan found any GPU on the rig.
+    """
     wake = not scan.gpus
     candidates: list[Candidate] = []
     for entry in catalog.get("models", ()):
@@ -342,9 +420,9 @@ def _catalog_candidates(
             if engine == "llama.cpp":
                 flags = _llamacpp_flags(checkpoint=None, mtp=False, users=users)
             else:
-                #
-                #
-                #
+                # Only llama.cpp has a flag spelling this module knows, so a
+                # catalog entry naming another engine is planned with no flags
+                # rather than with another engine's flags guessed at.
                 flags = {}
             candidates.append(
                 Candidate(
@@ -364,7 +442,7 @@ def _catalog_candidates(
 
 
 def _decision_endpoint() -> Endpoint:
-    ""
+    """The local OpenAI-protocol endpoint a decision model is expected to answer on."""
     return Endpoint(
         source="recommend",
         base_url=f"http://127.0.0.1:{DEFAULT_PORT}",
@@ -375,14 +453,19 @@ def _decision_endpoint() -> Endpoint:
 
 
 def _deterministic_pick(candidates: tuple[Candidate, ...]) -> Candidate:
-    ""
+    """The pick made without a model: the candidate with the largest weights."""
     return max(candidates, key=lambda candidate: candidate.size_bytes)
 
 
 def _decide(
     candidates: tuple[Candidate, ...], state: Mapping[str, Any]
 ) -> tuple[Candidate, str]:
-    ""
+    """Choose one candidate, asking the local decision model when it is live.
+
+    The probe's "not live" verdict, an error from the request, and an answer
+    naming something that was not offered all fall back to `_deterministic_pick`;
+    the second element says which route decided, `"model"` or `"deterministic"`.
+    """
     endpoint = _decision_endpoint()
     verdict = availability.probe_endpoint(endpoint)
     if not verdict.live:
@@ -415,7 +498,8 @@ def _decide(
 
 
 def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
-    ""
+    """The chosen candidate as the plan document's `placement`, tagged with where
+    it came from."""
     return {
         "engine": candidate.engine,
         "checkpoint": candidate.checkpoint,
@@ -437,7 +521,22 @@ def plan(
     model_stores: Sequence[str] = (),
     premeasured: Mapping[str, Scan] | None = None,
 ) -> dict[str, Any]:
-    ""
+    """Plan one placement for `profile` and `users` across `hosts`, and return
+    the document.
+
+    Every host is taken from `premeasured` when that is given — a host it does
+    not cover raises `RecommendError` — and otherwise measured over ssh, with
+    hosts that were unreachable, had no scanner, or failed to scan collected by
+    name instead of failing the plan. Each measured rig is reported in `rigs`, and
+    a host named twice is handled once.
+
+    Only the `coding` profile goes further: each .gguf in `model_stores` is read
+    and kept as a candidate when it fits some rig, and when none does, or no store
+    was given, the shipped catalog supplies candidates from every rig's scan.
+    The candidates are then decided by `_decide`, and the plan states the
+    placement, which route decided it, and the decision endpoint for a model
+    decision. Having no candidate at all raises `RecommendError`.
+    """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
     no_scanner: list[str] = []

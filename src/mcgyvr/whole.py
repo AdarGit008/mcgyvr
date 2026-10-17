@@ -1,4 +1,13 @@
-""
+"""Assemble a streamed chat completion into the one answer a client asked for.
+
+A relay may have to ask an OpenAI-protocol server to stream even when its
+client wants a single JSON body: `asking` rewrites such a request, `Whole`
+feeds on the server-sent events and joins each choice's deltas, and `answer`
+returns the status, content type and body of the equivalent non-streamed
+response. An error reported inside the stream is carried out as an error body,
+and the text and logprobs taken in are counted in `size` so a caller can stop
+on a reply that grows too large.
+"""
 
 from __future__ import annotations
 
@@ -6,40 +15,41 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-#
-#
-#
-#
+# The most one event may hold before it counts as one that never ended: a chat
+# completion's events are far smaller, so reaching this means the blank line
+# separating events never arrived. `feed` raises rather than buffer without
+# end.
 MAX_EVENT_BYTES = 64 * 1024
-#
+# The content type of an answer dumped back as one JSON body.
 JSON_TYPE = "application/json; charset=utf-8"
-#
+# The media type a chat completion is streamed as.
 EVENT_STREAM = "text/event-stream"
 
-#
-#
-#
+# The chunk keys not carried into the answer verbatim: the choices are joined
+# across events, the object is restated as a non-streamed completion's, and the
+# usage is held aside to be added after the choices.
 _ASSEMBLED = frozenset({"choices", "object", "usage"})
 
 
 def media(content_type: str) -> str:
-    ""
+    """The bare media type of a Content-Type value: parameters dropped, lowercased."""
     return content_type.split(";")[0].strip().lower()
 
 
 def dump(value: Any) -> bytes:
-    ""
+    """The value as compact JSON, keys sorted, non-ASCII kept as itself."""
     try:
         text = json.dumps(
             value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         )
         return text.encode()
-    except UnicodeEncodeError:  #
+    except UnicodeEncodeError:  # text UTF-8 cannot carry, so escape it instead
         return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
 def asking(request: dict[str, Any]) -> dict[str, Any]:
-    ""
+    """The request made to stream, keeping any stream options it already had and
+    turning on the last event's usage report."""
     options = request.get("stream_options")
     return {
         **request,
@@ -52,7 +62,8 @@ def asking(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def as_stream(body: bytes) -> bytes | None:
-    ""
+    """The request body rewritten to stream, or None when the body is not a JSON
+    object or holds text UTF-8 cannot carry, which the caller relays as it is."""
     try:
         asked = json.loads(body)
     except ValueError:
@@ -63,7 +74,7 @@ def as_stream(body: bytes) -> bytes | None:
         return json.dumps(
             asking(asked), ensure_ascii=False, separators=(",", ":")
         ).encode()
-    except UnicodeEncodeError:  #
+    except UnicodeEncodeError:  # text UTF-8 cannot carry, so stream nothing
         return None
 
 
@@ -76,16 +87,18 @@ class _ToolCall:
 
 @dataclass
 class _Choice:
-    ""
+    """One choice's fragments joined as they arrive: text, reasoning, tool calls,
+    logprobs, and the finish reason once the stream reports it."""
 
-    text: str = ""  #
+    text: str = ""  # the content fragments joined so far
     reasoning: str = ""
     tool_calls: dict[int, _ToolCall] = field(default_factory=dict)
     logprobs: list[Any] = field(default_factory=list)
     finish_reason: str | None = None
 
     def whole(self, index: int) -> dict[str, Any]:
-        ""
+        """This choice as one entry of a non-streamed answer, its tool calls in
+        index order and its content null only when the reply is tool calls alone."""
         message: dict[str, Any] = {"role": "assistant"}
         if self.reasoning:
             message["reasoning_content"] = self.reasoning
@@ -110,12 +123,13 @@ class _Choice:
 
 
 class Whole:
-    ""
+    """One streamed answer being assembled: `feed` it the bytes as they arrive
+    and `answer` returns the whole body once every choice has finished."""
 
     def __init__(self) -> None:
-        self._held = b""  #
+        self._held = b""  # the event so far, short of its blank-line separator
         self._choices: dict[int, _Choice] = {}
-        self._last: dict[str, Any] = {}  #
+        self._last: dict[str, Any] = {}  # chunk fields kept for the answer, later wins
         self._usage: dict[str, Any] | None = None
         self._error: Any = None
         self.size = 0
@@ -129,7 +143,9 @@ class Whole:
             raise ValueError("an event longer than any of a chat completion's")
 
     def answer(self) -> tuple[int, str, bytes] | None:
-        ""
+        """The answer as status, content type and body, or None while any choice
+        still lacks a finish reason; an error met in the stream becomes an error
+        body, carrying its code as the status when that code is one."""
         if self._error is not None:
             code = self._error.get("code") if isinstance(self._error, dict) else None
             status = 500
@@ -186,7 +202,7 @@ class Whole:
             return
         choices = event.get("choices")
         if "choices" not in event and isinstance(event.get("error"), dict):
-            #
+            # an error event with no choices alongside it ends the assembly here
             self._error = event["error"]
             return
         for key, value in event.items():
@@ -235,7 +251,8 @@ class Whole:
             call.arguments += self._text(function.get("arguments"))
 
     def _text(self, value: Any) -> str:
-        ""
+        """The fragment as text, empty when it is not a string, its UTF-8 length
+        added to `size`."""
         if not isinstance(value, str):
             return ""
         self.size += len(value.encode("utf-8", errors="replace"))

@@ -1,4 +1,13 @@
-""
+"""
+Storage for the knowledge layer: the shipped model catalog, read from the
+package's data folder, and the per-user cache of measured records that overrides
+it.
+
+Both sources are JSON documents validated by ``mcgyvr.knowledge.record`` as they
+are read; a shipped record may not carry a machine reading, a cached one may.
+``offline`` merges the two and reports, rather than raises on, cache files it
+could not use.
+"""
 
 from __future__ import annotations
 
@@ -18,21 +27,22 @@ from mcgyvr.knowledge.record import (
     parse_document,
 )
 
-#
+# The catalog file the package ships; every shipped record is read from it.
 MODEL_CATALOG_FILENAME = "model-catalog.json"
-#
+# The folder under the mcgyvr home that holds one file per cached record.
 CACHE_DIR = "knowledge"
-#
-#
+# A cache file stem keeps these characters as they are; every other one becomes "_".
+# Model ids and quantisations carry spaces and "+", so names are flattened,
+# not used raw.
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
-#
+# The origin a Known record reports: CACHE for a cache file, SHIPPED for the catalog.
 CACHE = "cache"
 SHIPPED = "shipped"
 
 
 @dataclass(frozen=True)
 class Known:
-    ""
+    """A record together with the origin it was read from, CACHE or SHIPPED."""
 
     record: ModelRecord
     origin: str
@@ -40,7 +50,9 @@ class Known:
 
 @dataclass(frozen=True)
 class Knowledge:
-    ""
+    """The merged view ``offline`` returns: the records it will use, in shipped
+    order followed by cache-only records, and the cache files it skipped, each
+    with the reason it could not be used."""
 
     known: tuple[Known, ...]
     skipped: tuple[tuple[Path, str], ...]
@@ -56,11 +68,14 @@ class Knowledge:
 
 
 def catalog_path() -> Path:
-    ""
+    """The shipped catalog: the packaged data file when the package has one,
+    otherwise ``data/`` of a source checkout; raises KnowledgeError when neither
+    exists."""
     packaged = resources.files("mcgyvr") / "data" / MODEL_CATALOG_FILENAME
     if Path(str(packaged)).is_file():
         return Path(str(packaged))
-    #
+    # No packaged data file, so this is a source checkout: data/ sits beside
+    # src/, three levels up.
     checkout = Path(__file__).resolve().parents[3] / "data" / MODEL_CATALOG_FILENAME
     if checkout.is_file():
         return checkout
@@ -80,7 +95,9 @@ def _read(path: Path, *, shipped: bool) -> tuple[ModelRecord, ...]:
 
 
 def shipped() -> tuple[ModelRecord, ...]:
-    ""
+    """The catalog's records, validated as shipped so that none of them carries a
+    machine reading; raises KnowledgeError when the file is missing, unreadable or
+    declares no models."""
     path = catalog_path()
     records = _read(path, shipped=True)
     if not records:
@@ -89,7 +106,8 @@ def shipped() -> tuple[ModelRecord, ...]:
 
 
 def cache_dir() -> Path:
-    ""
+    """The cache folder inside the mcgyvr home; a home that cannot be resolved
+    becomes a KnowledgeError."""
     try:
         return roots.home() / CACHE_DIR
     except roots.FolderError as exc:
@@ -97,13 +115,17 @@ def cache_dir() -> Path:
 
 
 def cache_file(model_id: str, quant: str) -> Path:
-    ""
+    """Where one model_id at one quantisation is cached: ``/`` in the model id
+    becomes ``--``, the pair is joined by ``--``, every character outside the safe
+    set becomes ``_``, and the name ends in ``.json``."""
     stem = _UNSAFE.sub("_", f"{model_id.replace('/', '--')}--{quant}")
     return cache_dir() / f"{stem}.json"
 
 
 def write(record: ModelRecord) -> Path:
-    ""
+    """Cache one record: dump it as a single-model document, parse that document
+    back as a cache document to check it, write it atomically to the cache path of
+    the record's model and quantisation, and return that path."""
     document = dump_document((record,))
     parse_document(document, f"the record of {record.model_id}", shipped=False)
     target = cache_file(record.model_id, record.quant)
@@ -133,7 +155,11 @@ def _cached() -> tuple[dict[tuple[str, str], ModelRecord], list[tuple[Path, str]
 
 
 def offline() -> Knowledge:
-    ""
+    """Merge the cache with the shipped catalog without touching the network: a
+    cached record replaces the shipped record with the same model_id and
+    quantisation, cache-only records follow the shipped ones, and cache files that
+    could not be read or repeat a key already present are reported in
+    ``skipped``."""
     cached, skipped = _cached()
     known: list[Known] = []
     for one in shipped():

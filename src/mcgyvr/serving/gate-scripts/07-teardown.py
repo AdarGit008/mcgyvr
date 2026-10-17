@@ -1,5 +1,22 @@
-#
-""
+#!/usr/bin/env python3
+# Gate 7 of a serve run: it names the containers the step left up, holds the
+# rig's card to gate 2's reading, and files the run's end record. It removes
+# nothing — the kill is the operator's, with the name in hand.
+"""Gate 7 of the door's ladder: what the step left, and how the run ended.
+
+It runs after gate 6 whatever the step did, and reads two views of the one
+host the door named: `docker ps`, for the id and name of every container up,
+and the rig's runtime reader over ssh, for the card and the containers it
+lists. What it finds is held to the containers the compose file declares
+(`RUN_SERVE_EXPECTED`, less the `RUN_SERVE_ASLEEP` sleepers) and to the
+reading gate 2 took before the step (`RUN_PRE_RIG`): a container gate 2 read
+none of, a judged unit still up after `serve down`, a judged unit missing
+after `up`/`sleep`/`wake`, or a `COMPARED` key that moved each print one
+`gate 7:` line on stderr and make the gate exit 1. No container is removed.
+
+Either way `file_end` files the run's end as `<RUN_ID>.end.json` in
+`RUN_OUT_DIR`, once and never again.
+"""
 
 from __future__ import annotations
 
@@ -18,9 +35,10 @@ from mcgyvr.serving.gatelib import (
 )
 from mcgyvr.serving.rigread import snapshot
 
-#
-#
-#
+# The card and daemon keys gate 7 holds a run to: gate 2 read them before the
+# step and gate 7 reads them again after it, so a key that differs is the rig
+# having moved under the run — filed as `rig_moved` in the end record, said in
+# one line on stderr, and the run is not green.
 COMPARED = (
     "uptime_since",
     "cpu_max_mhz",
@@ -38,12 +56,24 @@ COMPARED = (
 
 
 def _ids(reading: str | None) -> set[str]:
-    ""
+    """The container ids in one rig reading, as a set.
+
+    The runtime reader writes `containers=` as ids joined by `;`, or the word
+    `none` when nothing holds the rig; an absent reading has no ids at all.
+    """
     return {part for part in (reading or "").split(";") if part and part != "none"}
 
 
 def _containers_up() -> dict[str, str] | None:
-    ""
+    """Every container up, as id -> name, from one `docker ps` on the rig.
+
+    The call carries no name filter: gate 7 asks what is up, not what is up
+    under this run's prefix, since a step that named its container something
+    else still left it standing. None comes back when the daemon did not answer
+    in 120s or the call failed — whether the run left a container is then
+    unknown, which is said on stderr and leaves the caller holding the run not
+    green.
+    """
     try:
         listed = subprocess.run(
             ["docker", "ps", "--format", "{{.ID}}\t{{.Names}}"],
@@ -91,7 +121,14 @@ def main() -> int:
 
 
 def file_end(seen: dict[str, object]) -> None:
-    ""
+    """File the run's end as `<RUN_ID>.end.json` in the run's envelope.
+
+    `seen` is everything gate 7 decided about the run, plus the `ended_at`
+    stamped here. The file is opened `x`, so a run's end is filed exactly once:
+    a second call says it is already filed and writes nothing. A folder or path
+    that escapes the envelope — a symlinked directory or file, a hard link, a
+    name landing elsewhere — is said on stderr, and nothing is written there.
+    """
     out_dir = Path(need("RUN_OUT_DIR"))
     path = out_dir / f"{need('RUN_ID')}.end.json"
     escape = envelope_escape(out_dir) or artifact_escape(path, out_dir)
@@ -109,43 +146,52 @@ def file_end(seen: dict[str, object]) -> None:
 
 
 def judge(seen: dict[str, object], *, user: bool) -> int:
-    ""
+    """Hold the run to what it left on the rig, and answer the run's status.
+
+    `seen` collects what the gate read, for the end record: `only` when a
+    `--unit` run judged a subset, `containers_up`, `serving`, `missing`,
+    `left`, `rig_after` and `rig_moved`. The return is 0 when the rig reads as
+    gate 2 read it and nothing the run is held to is left up, 1 otherwise.
+
+    `user` marks the door's own teardown of a serve run, which `main` is: it
+    makes a judged unit that gate 2 already read before the step count as this
+    run's too, since by the end it had to be serving or stopped.
+    """
     status = 0
     run_id = need("RUN_ID")
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
 
-    #
-    #��
-    #
-    #
-    #
-    #is
-    #
+    # The shape of the run, from the environment the door exported: the
+    # direction it serves, and the containers the compose file declares. A
+    # `fetch`, `read` or `link` run serves nothing, so both are empty there and
+    # no container is judged for it — its step's leftovers are still named.
     serve = os.environ.get("RUN_SERVE", "")
     expected = set(os.environ.get("RUN_SERVE_EXPECTED", "").split())
-    #
-    #
-    #
-    #
+    # A `--unit` run of `up` or `down` moves only the units it named, so it is
+    # judged on exactly those and the file's other containers are untouched
+    # (neither expected up nor named as left). `sleep` and `wake` with `--unit`
+    # still need the awake ladder up, so they are judged on all of it.
     alone = serve in ("up", "down") and bool(
         os.environ.get("RUN_SERVE_ONLY", "").split()
     )
     judged = set(os.environ.get("RUN_SERVE_ONLY", "").split()) if alone else expected
-    #
-    #
-    #
+    # A whole `up`, `sleep` or `wake` is judged on the awake units only: a
+    # sleeper under a compose profile is neither expected up nor named as
+    # missing, and what `expected` holds beyond `judged` is untouched.
     if not alone and serve in ("up", "sleep", "wake"):
         judged = expected - set(os.environ.get("RUN_SERVE_ASLEEP", "").split())
     untouched = expected - judged
     seen["only"] = sorted(judged) if alone else []
-    #
-    #
-    #
+    # `opened_busy`: the directions that reach a ladder something else left up,
+    # so gate 2's reading is not necessarily this run's work. `keeps`: the
+    # directions that leave the ladder up, so a judged unit should be serving
+    # when the step ends rather than gone.
     opened_busy = serve in ("down", "sleep", "wake")
     keeps = serve in ("up", "sleep", "wake")
-    #
-    #
-    #
+    # What gate 2 read before the step, by container id: a container already up
+    # then is not one this run left — except on a busy-opened ladder with
+    # neither the door's teardown (`user`) nor a `--unit` run asking, where
+    # nothing is excused.
     before = (
         set() if opened_busy and not (user or alone) else _ids(pre.get("containers"))
     )
@@ -153,7 +199,9 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
     if up is None:
         status = 1
     else:
-        #
+        # Left: what gate 2 read none of before the step, plus — for the door's
+        # teardown or a `--unit` run — the judged units gate 2 did read, since
+        # those had to be serving or stopped by now.
         left = {
             ident: name
             for ident, name in up.items()
@@ -179,7 +227,8 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
                 )
                 status = 1
         seen["left"] = sorted(left.values())
-        #
+        # Judged units still up after `down`: the step was asked to stop them
+        # and did not.
         stuck = sorted(name for name in left.values() if name in judged)
         if stuck:
             print(
@@ -213,8 +262,9 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
     try:
         post = snapshot(need("RUN_HOST"))
     except SystemExit:
-        #
-        #s.
+        # `snapshot` — and the `need` it calls — says a rig that cannot be read
+        # through `refuse()`, which raises `SystemExit`; caught here so the run
+        # is still ended and judged not green rather than dying mid-teardown.
         print(
             "gate 7: the rig could not be re-read after the step; its end "
             "state is unknown and the run is not green",
@@ -223,9 +273,9 @@ def judge(seen: dict[str, object], *, user: bool) -> int:
         return 1
     seen["rig_after"] = post
 
-    #
-    #
-    #
+    # The rig's runtime reader is a second view of the same host. What it lists
+    # now that neither gate 2's reading nor `docker ps` carried is a container
+    # the step left, however `docker ps` came to miss it.
     unseen = _ids(post.get("containers")) - before - set(up or {})
     if unseen:
         print(

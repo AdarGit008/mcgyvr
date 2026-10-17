@@ -1,5 +1,28 @@
-#
-""
+#!/usr/bin/env python3
+# The door: the one process through which a rig is reached, a fixed
+# ladder of gates is run, and whatever a run leaves behind is settled.
+# Nothing is added, skipped or reordered at run time.
+"""The one access point to the rigs.
+
+Three verbs. `serve up|down|sleep|wake|fetch` starts, stops, sleeps or
+wakes a ladder on a rig, or fetches weights onto it; `read` reads a
+rig's facts, containers and card; `link` times a link on one.
+
+Each verb settles its own flags and refuses what it cannot hold the run
+to: a `RUN_*`/`DOCKER_*` variable inherited from the caller (the door
+mints its own vocabulary), a flag that belongs to another verb, a gate
+script that is missing or cannot be run. It then puts the door's own
+`gate-scripts/bin` first on PATH, where `ssh` and `docker` are shims
+that admit only the host the run was opened for, and runs that verb's
+fixed sequence of gate scripts as subprocesses of `sys.executable`,
+with the repository root as the working directory.
+
+A gate reports what it settled by writing `KEY=VALUE` lines on the
+`RUN_EXPORT_FD` pipe the door hands it, and the door accepts only the
+keys that gate declares, so the whole vocabulary of a run is known
+before the first gate starts. A refusal is a status and a rule, said on
+stderr.
+"""
 
 from __future__ import annotations
 
@@ -23,39 +46,43 @@ from mcgyvr.fleet.roots import RIGS_SHOWN
 from mcgyvr.serving import gatelib
 from mcgyvr.serving.gatelib import DOOR_MODULE
 
-#
-#
-#
+# The gate scripts, resolved beside this file so a run does not depend
+# on the working directory: gates are named relative to HERE, and every
+# gate runs with the repository root (ROOT) as its working directory.
 HERE = Path(__file__).resolve().parent
 GATE_SCRIPTS = HERE / "gate-scripts"
-#
+# The wrappers a gate or a step finds first on PATH. `ssh` admits
+# exactly the host the run was opened for; `docker` sends the daemon
+# there through that same shim.
 BIN = GATE_SCRIPTS / "bin"
 SHIMS = ("docker", "ssh")
-#
-#
-#
-#es
-#
-#
-#
-#
-#
-#
-#
-#
+# The shims are checked for themselves, apart from the gates: while one
+# of them cannot be run, PATH falls through to the operator's own binary
+# and nothing admits the host a gate was told to reach.
+# The files the gates read, or run on the rig side, rather than the gate
+# scripts themselves: modules and shell scripts that gate scripts and
+# gatelib resolve at run time. rigscan.py reads the rig's facts,
+# rig-units.sh lists its containers, linktime.py times one link, and
+# fetcher.py downloads weights from inside the rig. The modules sit
+# beside this file so the gates can import them; rig-units.sh sits with
+# the gate scripts because it is read whole and sent to the rig. They
+# are read and never executed here, so check_manifest() asks only that
+# each is a file, and a missing one is refused exactly as a missing
+# gate script is: a check that is gone is a check that stopped running,
+# not one that passed.
 READERS = (
     HERE / "rigscan.py",
     GATE_SCRIPTS / "rig-units.sh",
     HERE / "linktime.py",
     HERE / "fetcher.py",
 )
-#
-#
-#
-#
-#
-#
-#
+# The five serve directions, each mapping to the step script that carries
+# it out. The direction is the `serve` positional, so these keys are its
+# choices; it goes out as RUN_SERVE and its script's path as
+# RUN_STEP_FILE. A direction is not a gate: gates 1, 2, 3, 5 and 6 run
+# for every one of them, and only the script at gate 6 differs.
+# check_manifest() requires all five files to exist and to be executable
+# before anything starts.
 SERVE_STEPS = {
     "up": GATE_SCRIPTS / "serve-up.py",
     "down": GATE_SCRIPTS / "serve-down.py",
@@ -63,17 +90,20 @@ SERVE_STEPS = {
     "wake": GATE_SCRIPTS / "serve-wake.py",
     "fetch": GATE_SCRIPTS / "serve-fetch.py",
 }
-#
+# The prefixes the door mints for itself. One already set in the calling
+# environment means the caller is itself a run, and every verb refuses
+# it.
 MINTED_PREFIXES = ("RUN_", "DOCKER_")
-#
-#
-#
-#
+# The repository root: HERE is src/mcgyvr/serving, so ROOT is the
+# checkout the gates run in and the base _rel() reports paths against,
+# so a refusal names a file inside the checkout rather than an absolute
+# path of whoever's machine it was.
 ROOT = HERE.parents[2]
 
 
 class RefusedError(Exception):
-    ""
+    """A refusal: the status the invocation exits with, and the rule it was
+    refused under."""
 
     def __init__(self, status: int, rule: str) -> None:
         super().__init__(rule)
@@ -83,7 +113,9 @@ class RefusedError(Exception):
 
 @dataclass(frozen=True)
 class Entry:
-    ""
+    """One script in a sequence: its name, why it runs, the status a
+    non-zero exit from it means, and the keys it may export to the door.
+    """
 
     script: str
     why: str
@@ -91,9 +123,10 @@ class Entry:
     exports: tuple[str, ...] = ()
 
 
-#
-#
-#
+# The gates a `serve` run walks, in order. A non-zero status stops the
+# run at that gate, except at gate 6: the step's status is kept and the
+# run goes on to the ALWAYS gates, which is why a failing step still has
+# its rig torn down and its artifacts parsed.
 SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "01-config.py",
@@ -137,10 +170,11 @@ SEQUENCE: tuple[Entry, ...] = (
     ),
 )
 
-#rd
-#
-#
-#
+# The gates that run at the end of every serve run, whatever gate 6 did:
+# they settle what the run left behind, and an interrupt does not skip
+# them.
+# Their failure is said on stderr and does not override the step's own
+# status, which the door has already settled.
 ALWAYS: tuple[Entry, ...] = (
     Entry(
         "07-teardown.py",
@@ -157,10 +191,10 @@ ALWAYS: tuple[Entry, ...] = (
     ),
 )
 
-#
-#
-#
-#
+# The lease release, which is not in ALWAYS: it runs only when this run
+# actually holds a lease (RUN_LEASE), and it runs from _serve_run()'s
+# `finally`, so it covers an early refusal too, and a rig is not left
+# claimed by a run that failed before it could use it.
 LEASE_RELEASE = Entry(
     "lease-release.py",
     "the rig's lease is released if it is still this run's; a rig that "
@@ -169,20 +203,21 @@ LEASE_RELEASE = Entry(
     status=1,
 )
 
-#
-#
-#
-#
-#
-#
+# The sequence `serve` runs: the gates above, in that order. It is
+# SEQUENCE itself and not a filtered copy, so no direction gets a
+# shorter ladder — `fetch` downloads weights and starts nothing, but it
+# is held to the same config, lease, daemon and envelope gates before
+# its step runs. Gates 7 and 8, the claim and the lease are
+# _serve_run()'s, and apply to all five directions alike.
 SERVE_SEQUENCE: tuple[Entry, ...] = SEQUENCE
 
-#
-#
-#
-#
-#
-#
+# The sequence `read` walks: the config gate, then one reader that
+# measures the rig and files what it found under the read fleet's
+# journal. A read is a look, not a run: it takes no lease, writes no
+# envelope and has no teardown, so a rig another run holds is still
+# read, as it is. A reader's status 2 stops the sequence and is reported
+# with the entry's `why`; any other non-zero status is returned as it
+# is.
 READ_SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "read-01-config.py",
@@ -196,13 +231,13 @@ READ_SEQUENCE: tuple[Entry, ...] = (
         "leased, nothing torn down, and a busy rig read as it is",
     ),
 )
-#
-#
-#
-#
-#
-#
-#
+# The sequence `link` walks: one bounded timer on the rig, its source on
+# stdin and its reading printed as one line of JSON. A link is a
+# measurement on a machine, not a run of a ladder: nothing is leased,
+# nothing is filed under a journal, and nothing is left behind, so the
+# sequence is one entry and there is no ALWAYS pass for it. The timer's
+# status is the invocation's, and check_manifest() still requires its
+# script before anything connects.
 LINK_SEQUENCE: tuple[Entry, ...] = (
     Entry(
         "link-01-time.py",
@@ -210,72 +245,78 @@ LINK_SEQUENCE: tuple[Entry, ...] = (
         "reading on stdout; nothing leased, nothing filed, nothing left behind",
     ),
 )
-#
+# The three mutually exclusive modes, each with the two metavariables its
+# --help shows; the flag's own name is the mode word the timer is given.
 LINK_MODES = {
     "--peer": ("GPU_A", "GPU_B"),
     "--sink": ("ADDR", "PORT"),
     "--send": ("ADDR", "PORT"),
 }
-#
+# The shape a read's id has — run-<UTC stamp>-<8 hex digits> — minted by
+# mint_read_id() and held to by read() when --run-id is given.
 READ_ID = re.compile(r"^run-(\d{8}T\d{6})-([0-9a-f]{8})$")
-#
-#
+# The shape --load takes: WxN, W requests in flight each filling an
+# N-token window, both counts positive and without a leading zero.
 LOAD_SPEC = re.compile(r"^([1-9][0-9]*)x([1-9][0-9]*)$")
 
 
 def mint_read_id(now: datetime | None = None) -> str:
-    ""
+    """A fresh read id: the UTC moment it was minted, and four random bytes
+    in hex.
+    """
     moment = now if now is not None else datetime.now(UTC)
     return f"run-{moment:%Y%m%dT%H%M%S}-{secrets.token_hex(4)}"
 
 
-#
-#
+# Every name the door itself puts in a gate's environment, before any
+# gate exports anything; a test builds a hand-made run from this list.
 EXPORTED = (
-    #
-    #
-    #
-    #
+    # Settled by every verb: where the checkout and the shims are, the step
+    # script the run is walking, the rig as ssh names it, and the suffix that
+    # distinguishes a re-run. A gate reads what it needs of these through
+    # gatelib.need(), so an empty one means it was started outside the door.
     "RUN_ROOT",
     "RUN_BIN",
     "RUN_STEP_FILE",
     "RUN_HOST",
     "RUN_SUFFIX",
-    #
-    #
+    # `serve` only: the direction, and the compose file it acts on (empty for
+    # `fetch`), with the containers that file declares.
     "RUN_SERVE",
     "RUN_COMPOSE",
     "RUN_SERVE_EXPECTED",
-    #
-    #
+    # `serve` only: the containers --unit named, sorted and space-joined;
+    # empty when --unit named none.
     "RUN_SERVE_ONLY",
-    #
-    #
+    # `serve` only: the containers the compose file marks asleep, sorted;
+    # teardown subtracts them from what it expects to have been running.
     "RUN_SERVE_ASLEEP",
-    #
-    #
+    # `fetch` only: the fetch list as one JSON blob, and the variable the
+    # token is read from on the rig (HF_TOKEN unless --hf-token-env names
+    # another).
     "RUN_FETCH",
     "RUN_FETCH_TOKEN_ENV",
-    #
-    #
-    #
+    # `read` only: the id the rows are filed under, the units to probe, the
+    # WxN load to run beside them, and the fleet to file under instead of the
+    # live one — each an empty string when unused.
     "RUN_READ_ID",
     "RUN_READ_PROBE",
     "RUN_READ_LOAD",
     "RUN_READ_FLEET",
-    #
+    # `link` only: the timer's mode word and its two arguments, space-joined.
     "RUN_LINK",
-    #
-    #
+    # The command that started this invocation, shell-quoted so a journal row
+    # or a teardown message can repeat it; and RUN_STEP_EXIT, which
+    # _serve_run() adds once the step is over — its status, or `interrupted`.
     "RUN_COMMAND",
     "RUN_STEP_EXIT",
     *(name for entry in (*SEQUENCE, *ALWAYS) for name in entry.exports),
 )
 
 
-#
-#
-#
+# What a gate may write on RUN_EXPORT_FD: one KEY=VALUE per line, an
+# uppercase name then anything. run_entry() refuses a line of any other
+# shape rather than guessing what the gate meant.
 EXPORT_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 
 
@@ -284,7 +325,12 @@ def _refuse(status: int, rule: str) -> NoReturn:
 
 
 def pin_config(env: dict[str, str]) -> None:
-    ""
+    """Make MCGYVR_CONFIG absolute in `env` before any gate reads it.
+
+    A relative path would otherwise be resolved against whatever
+    directory a gate, or the rig, happened to run in. A value that cannot
+    be read as a path is a refusal.
+    """
     named = env.get(CONFIG_PATH_ENV)
     if not named:
         return
@@ -302,16 +348,24 @@ def pin_config(env: dict[str, str]) -> None:
 
 
 def _command(verb: str, argv: list[str]) -> str:
-    ""
+    """The door's own command line for a verb, shell-quoted so it can be
+    repeated or filed as a fact.
+    """
     return shlex.join(["python", "-m", DOOR_MODULE, *([verb] if verb else []), *argv])
 
 
-#
+# --host's help. The rig is known by its ssh name, which is also the name
+# its scan file carries under RIGS_SHOWN.
 HOST_HELP = f"the rig, as your ssh names it: its name in {RIGS_SHOWN}/"
 
 
 def check_manifest() -> None:
-    ""
+    """Refuse when the door itself is incomplete.
+
+    Every gate script, serve step and reader must be present, every gate
+    script and serve step must be executable, and both shims must be
+    present and executable. A missing one is a refusal and never a skip.
+    """
     missing = [
         e.script
         for e in (*SEQUENCE, *ALWAYS, *READ_SEQUENCE, *LINK_SEQUENCE, LEASE_RELEASE)
@@ -337,9 +391,9 @@ def check_manifest() -> None:
             f"not executable: {', '.join(unrunnable)}. chmod +x, or the door "
             "cannot run a gate it is holding you to",
         )
-    #
-    #
-    #
+    # The shims are held to existing and to the executable bit: a gate's ssh
+    # and docker are only door-owned while the shims ahead of them on PATH
+    # can be run.
     shims_gone = [
         name
         for name in SHIMS
@@ -356,7 +410,14 @@ def check_manifest() -> None:
 
 
 def run_entry(entry: Entry, env: dict[str, str]) -> int:
-    ""
+    """Run one gate script and fold in what it exported.
+
+    The gate is started with the run's environment plus RUN_EXPORT_FD, a
+    pipe this function reads to EOF while the gate runs. Every non-blank
+    line on it must be a KEY=VALUE of a key this entry declares, with no
+    NUL byte in the value; a gate that exits 0 must have exported every
+    key it declares. Returns the gate's exit status.
+    """
     script = GATE_SCRIPTS / entry.script
     read_fd, write_fd = os.pipe()
     try:
@@ -377,10 +438,10 @@ def run_entry(entry: Entry, env: dict[str, str]) -> int:
                 reported = pipe.read()
                 status = proc.wait()
             except KeyboardInterrupt:
-                #
-                #
-                #
-                #
+                # An interrupted gate is stopped before the interrupt goes on: the
+                # teardown gates run after this one returns, and they cannot judge a rig
+                # that a half-finished gate still holds. _end() is bounded, so a gate
+                # that ignores SIGTERM is killed rather than allowed to hang the run.
                 _end(proc)
                 raise
     finally:
@@ -427,7 +488,10 @@ def run_entry(entry: Entry, env: dict[str, str]) -> int:
 
 
 def _end(proc: subprocess.Popen[bytes]) -> None:
-    ""
+    """Stop a gate script: ask it to terminate, then kill it if it is still
+    running after 30 seconds. A gate that has already exited is left
+    alone.
+    """
     if proc.poll() is not None:
         return
     proc.terminate()
@@ -439,7 +503,9 @@ def _end(proc: subprocess.Popen[bytes]) -> None:
 
 
 def _ambient() -> str | None:
-    ""
+    """The first RUN_*/DOCKER_* variable already set in the calling
+    environment, or None when the caller is not itself a run.
+    """
     for name in sorted(os.environ):
         if name.startswith(MINTED_PREFIXES):
             return name
@@ -454,7 +520,9 @@ def _rel(path: Path, base: Path = ROOT) -> str:
 
 
 def _serve_parse(argv: list[str]) -> argparse.Namespace:
-    ""
+    """The `serve` flags: a direction, a host, and what that direction needs
+    to be given.
+    """
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run serve",
         description=(
@@ -525,7 +593,9 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
 
 
 def _serve_refusal(opts: argparse.Namespace) -> str | None:
-    ""
+    """Why these `serve` flags cannot be run, or None when they fit their
+    direction.
+    """
     if opts.direction == "fetch":
         given = [
             flag
@@ -551,7 +621,10 @@ def _serve_refusal(opts: argparse.Namespace) -> str | None:
 
 
 def serve(argv: list[str]) -> int:
-    ""
+    """Run one `serve` direction: settle the flags, build the run's
+    environment, walk SERVE_SEQUENCE, and let _serve_run() settle what is
+    left behind.
+    """
     opts = _serve_parse(argv)
     inherited = _ambient()
     if inherited is not None:
@@ -569,9 +642,10 @@ def serve(argv: list[str]) -> int:
     units: tuple[Any, ...] = ()
     fetch: dict[str, str] = {}
     if opts.direction == "fetch":
-        #
-        #
-        #
+        # `fetch` starts nothing, so it takes a fetch list and no compose file.
+        # The list is read, and the endpoint and token variable settled, here: a
+        # list that will not parse is a refusal before anything reaches the rig,
+        # not a failure halfway to it.
         from mcgyvr.serving import fetchlist
 
         listed = Path(opts.weights)
@@ -603,9 +677,10 @@ def serve(argv: list[str]) -> int:
                 file=sys.stderr,
             )
             return 2
-        #
-        #
-        #
+        # Every other direction acts on a compose file, so the file must exist
+        # and parse here: the containers it declares become the run's
+        # expectations, and every --unit is held to them before anything is
+        # exported.
         from mcgyvr.serving import servelib
 
         try:
@@ -613,8 +688,8 @@ def serve(argv: list[str]) -> int:
         except servelib.ComposeError as escape:
             print(f"run.py: REFUSED — {escape}", file=sys.stderr)
             return 2
-        #
-        #
+        # --unit is checked against the containers the file declares, not against
+        # the ones this direction happens to start.
         unknown = sorted(set(opts.unit) - {unit.container for unit in units})
         if unknown:
             print(
@@ -651,7 +726,15 @@ def serve(argv: list[str]) -> int:
 
 
 def _serve_run(env: dict[str, str]) -> int:
-    ""
+    """Walk SERVE_SEQUENCE for one `serve` invocation and settle the run.
+
+    A gate that fails before gate 6 stops the sequence and is reported
+    with the entry's `why`; a step that fails is recorded and the ALWAYS
+    gates run anyway, since the run holds a claim and a lease by then. An
+    interrupt becomes status 130 only after the ALWAYS gates have had
+    their say. The claim and the lease are released in `finally`,
+    whichever path got here.
+    """
     interrupted = False
     step_status = 0
     try:
@@ -680,16 +763,19 @@ def _serve_run(env: dict[str, str]) -> int:
             return 130
         return step_status or after
     finally:
-        #
-        #
-        #
-        #
+        # Settled whichever path got here: the claim file first (it is what says
+        # a run is in progress in the envelope's log), then the rig's lease,
+        # which is released only if it is still this run's. A refusal from
+        # either is printed, never raised: the status returned is the one chosen
+        # above.
         _release_claim(env)
         _release_lease(env)
 
 
 def _read_parse(argv: list[str]) -> argparse.Namespace:
-    ""
+    """The `read` flags: which rig, what to measure on it, and where its rows
+    are filed.
+    """
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run read",
         description=(
@@ -740,7 +826,12 @@ def _read_parse(argv: list[str]) -> argparse.Namespace:
 
 
 def read(argv: list[str]) -> int:
-    ""
+    """Run one `read`: check the id and the probe/load pairing, then walk
+    READ_SEQUENCE.
+
+    A read holds no lease and has no teardown, so there is no ALWAYS pass
+    and no claim to release; the readers file their own rows.
+    """
     opts = _read_parse(argv)
     inherited = _ambient()
     if inherited is not None:
@@ -806,7 +897,9 @@ def read(argv: list[str]) -> int:
 
 
 def _link_parse(argv: list[str]) -> argparse.Namespace:
-    ""
+    """The `link` flags: the rig, and exactly one mode with its two
+    arguments.
+    """
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run link",
         description=(
@@ -825,7 +918,12 @@ def _link_parse(argv: list[str]) -> argparse.Namespace:
 
 
 def _link_args(opts: argparse.Namespace) -> list[str]:
-    ""
+    """The timer's mode and arguments, from whichever mode flag was given.
+
+    A card is its index and the two must differ; an address is an IPv4
+    literal, never a name; a port is 1024-65535. Anything else is a
+    refusal before a connection is made.
+    """
     for flag in LINK_MODES:
         given = getattr(opts, flag[2:])
         if given is None:
@@ -851,7 +949,12 @@ def _link_args(opts: argparse.Namespace) -> list[str]:
 
 
 def link(argv: list[str]) -> int:
-    ""
+    """Run one `link`: settle the mode, build the environment, walk
+    LINK_SEQUENCE.
+
+    Nothing is leased, filed or torn down, so there is nothing to release
+    when the timer returns.
+    """
     opts = _link_parse(argv)
     inherited = _ambient()
     if inherited is not None:
@@ -911,14 +1014,21 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-#
+# The signals the settling path ignores while it runs: the ALWAYS gates
+# and the two releases finish even if the operator interrupts again.
 UNSTOPPABLE = (signal.SIGINT, signal.SIGTERM)
 
 
 def _always(env: dict[str, str]) -> int:
-    ""
+    """Run the ALWAYS gates, then release the claim.
+
+    Returns the status the door adds when the step did not already fail,
+    and 0 when no envelope was made (no RUN_ID). An interrupt arriving
+    here is ignored until the gates are done: they are the ones that say
+    what the run left behind, and a second Ctrl-C must not skip them.
+    """
     if "RUN_ID" not in env:
-        return 0  #
+        return 0  # gate 5 never ran: no run, so no claim to release
     previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
     after = 0
     try:
@@ -938,14 +1048,18 @@ def _always(env: dict[str, str]) -> int:
 
 
 def _release_claim(env: dict[str, str]) -> None:
-    ""
+    """Remove the run's claim file, when its envelope and run id are both
+    known.
+    """
     out_dir, run_id = env.get("RUN_OUT_DIR"), env.get("RUN_ID")
     if out_dir and run_id:
         gatelib.release(Path(out_dir), run_id)
 
 
 def _release_lease(env: dict[str, str]) -> None:
-    ""
+    """Release the rig's lease if this run holds one, with interrupts
+    ignored so the rig is not left claimed.
+    """
     if not env.get(gatelib.LEASE_VAR):
         return
     previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in UNSTOPPABLE}
@@ -960,7 +1074,9 @@ def _release_lease(env: dict[str, str]) -> None:
 
 
 def _stop(entry: Entry, status: int, env: dict[str, str]) -> int:
-    ""
+    """Report a gate's refusal — the entry's own `why` — and return the
+    status the invocation exits with.
+    """
     print(f"run.py: REFUSED at {entry.script} — {entry.why}", file=sys.stderr)
     return status or entry.status
 
@@ -970,9 +1086,10 @@ def _sigterm(_signum: int, _frame: types.FrameType | None) -> None:
 
 
 if __name__ == "__main__":
-    #
-    #
-    #
+    # Both signals are turned into KeyboardInterrupt so the settling path
+    # runs exactly once: a supervisor's SIGTERM and an operator's Ctrl-C take
+    # the same route through _serve_run() and _always(), where the ALWAYS
+    # gates and the releases still run.
     signal.signal(signal.SIGTERM, _sigterm)
     signal.signal(signal.SIGINT, _sigterm)
     sys.exit(main())

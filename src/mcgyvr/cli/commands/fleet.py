@@ -1,4 +1,9 @@
-""
+"""The `mcgyvr fleet` subcommands. `use` names a promoted fleet live in
+`live.json` and says whether the move from the fleet that was live is one that
+fleet's lock measured; `probe` judges the live fleet's awake units by the figures
+their lock approves and files the result; `alerts` lists the combinations the
+journal holds pulled, with the unit/field pairs that tripped them.
+"""
 
 from __future__ import annotations
 
@@ -11,12 +16,18 @@ from mcgyvr.fleet.roots import (
     LIVE_FILE_SHOWN,
 )
 
-if TYPE_CHECKING:  #
+if TYPE_CHECKING:  # pragma: no cover - typing only
     pass
 
 
 def _fleet_alerts(args: argparse.Namespace) -> int:
-    ""
+    """Print every pulled unit/field pair as `<combination> <unit_id> <field>`.
+
+    The journal is `--journal`, or the live fleet's filed journal; the lock tree
+    the pulls are read against is `--root`, or the folder of the fleet the live
+    pointer names. A journal or lock tree that cannot be named is printed to
+    stderr and returns 1; otherwise 0.
+    """
     from mcgyvr.fleet.alerts import pulled
     from mcgyvr.fleet.probe import ProbeError, journal_dir
     from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
@@ -34,8 +45,8 @@ def _fleet_alerts(args: argparse.Namespace) -> int:
         root = Path(args.root)
     else:
         try:
-            #
-            #
+            # The lock tree defaults to the folder of the fleet the live
+            # pointer names; a pointer that is broken is reported, not raised.
             root = live_fleet_dir()
         except LiveFleetError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -47,14 +58,22 @@ def _fleet_alerts(args: argparse.Namespace) -> int:
 
 
 def _fleet_use(args: argparse.Namespace) -> int:
-    ""
+    """Point `live.json` at the promoted fleet named on the command line.
+
+    Says what was live before: nothing, the same fleet, a move the previous
+    fleet's lock measured (with each rig's downtime and wakes), or a move that
+    lock does not measure. A refusal or a filesystem error is printed to stderr
+    and returns 1; otherwise 0.
+    """
     from mcgyvr.fleet.promote import PromoteRefusedError, use
     from mcgyvr.fleet.roots import layout_of
 
     try:
         switch = use(args.name)
     except (PromoteRefusedError, OSError) as exc:
-        #
+        # A name that is not a fleet folder, a folder that holds no such fleet
+        # in its setup, or a pointer that cannot be read or written: refused,
+        # and nothing was switched.
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(f"live: {switch.name} ({switch.pointer})")
@@ -67,7 +86,8 @@ def _fleet_use(args: argparse.Namespace) -> int:
             f"move: {switch.previous} -> {switch.name} is locked: "
             f"{layout_of(switch.previous)}'s lock lists {switch.layout} in next"
         )
-        #
+        # The moves the lock measured, each as its rig, its downtime and the
+        # wakes it pays; a lock that recorded no moves prints none.
         for move in switch.moves:
             wakes = ", ".join(
                 f"{unit} {seconds} s"
@@ -87,7 +107,15 @@ def _fleet_use(args: argparse.Namespace) -> int:
 
 
 def _fleet_probe(args: argparse.Namespace) -> int:
-    ""
+    """Probe the live fleet's awake units and print what the run found.
+
+    The units named narrow the run; with none named, every awake unit of the
+    live fleet is probed. Probed figures, units left alone for work in flight,
+    contended units, fields the rig could not read or timed from off it, alerts,
+    links and failures are each printed as their own line. A `ProbeError` is
+    printed to stderr and returns 1; otherwise the report's exit code is
+    returned, which is 1 when a unit or a link failed and 0 otherwise.
+    """
     from mcgyvr.fleet import linkread, read
     from mcgyvr.fleet.probe import ProbeError, run
 
@@ -123,7 +151,9 @@ def _fleet_probe(args: argparse.Namespace) -> int:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    ""
+    """Add the `fleet` subparser to `sub`, with its `use`, `probe` and `alerts`
+    subcommands, each one's arguments and the command its `func` runs.
+    """
 
     fleet = sub.add_parser(
         "fleet",

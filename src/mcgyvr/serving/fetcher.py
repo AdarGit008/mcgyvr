@@ -1,5 +1,19 @@
-#
-""
+#!/usr/bin/env python3
+# Download the weight files a job lists into the local weights directory,
+# resuming partial transfers and checking each file against the size and
+# sha256 the job states before it is moved into place. The report of what
+# happened to every file goes to stdout as JSON; anything that was already
+# there and does not match is left untouched rather than overwritten.
+"""
+Fetch the weight files described by a JSON job and report on each one.
+
+Files are streamed into ``<path>.part`` in ``CHUNK_BYTES`` reads, hashing as
+they arrive; a ``.part`` left by an earlier run is hashed and continued with a
+Range request. Only a file whose length and sha256 match the job is renamed to
+its final path. Each file yields a row with a ``state`` of ``present``,
+``fetched``, ``resumed``, ``incomplete``, ``mismatch`` or ``refused`` plus a
+``why`` sentence when it did not end up in place.
+"""
 
 from __future__ import annotations
 
@@ -13,17 +27,20 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-#
+# Environment variable that, when set, names the weights directory instead of
+# the default below.
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
-#
+# Appended to the final path to name the partially downloaded file; it is
+# renamed onto the final path once the bytes are verified.
 PART = ".part"
-#
+# Read and download block size: 8 MiB per read from disk or from the socket.
 CHUNK_BYTES = 8 << 20
-#
-#
+# Seconds urllib may spend on the request to the Hub, both while connecting and
+# on each blocking read of the response.
 TIMEOUT_S = 60.0
 
-#
+# State of one file after the attempt; GOOD is the set of states in which the
+# verified file is sitting at its destination.
 PRESENT = "present"
 FETCHED = "fetched"
 RESUMED = "resumed"
@@ -34,7 +51,7 @@ GOOD = frozenset({PRESENT, FETCHED, RESUMED})
 
 
 def weights_dir() -> str:
-    ""
+    """Return MCGYVR_WEIGHTS expanded if it is set, else ~/.cache/mcgyvr/weights."""
     override = os.environ.get(WEIGHTS_DIR_ENV)
     if override:
         return os.path.expanduser(override)
@@ -42,7 +59,7 @@ def weights_dir() -> str:
 
 
 def _hash_into(path: str, hasher: Any) -> int:
-    ""
+    """Feed all of path into hasher in CHUNK_BYTES reads; return bytes hashed."""
     held = 0
     with open(path, "rb") as handle:
         while True:
@@ -58,8 +75,8 @@ def _ask(url: str, start: int, token: str | None) -> Any:
     if start:
         request.add_header("Range", f"bytes={start}-")
     if token:
-        #
-        #
+        # Sent unredirected so the bearer token is not replayed to whatever
+        # host a redirect points at.
         request.add_unredirected_header("Authorization", f"Bearer {token}")
     return urllib.request.urlopen(request, timeout=TIMEOUT_S)
 
@@ -67,7 +84,13 @@ def _ask(url: str, start: int, token: str | None) -> Any:
 def fetch_one(
     want: dict[str, Any], root: str, token_env: str, token: str | None
 ) -> dict[str, Any]:
-    ""
+    """Make the file want describe exist under root and return its report row.
+
+    want holds name, bytes, sha256 and url. The row carries file, to, bytes and
+    sha256, plus state, resumed_from (bytes of an earlier partial download that
+    were kept), cut (a read error during the transfer), and why (a sentence
+    naming the reason the file is not in place).
+    """
     name = str(want["name"])
     size = int(want["bytes"])
     sha256 = str(want["sha256"])
@@ -78,8 +101,8 @@ def fetch_one(
     if os.path.lexists(dest):
         hasher = hashlib.sha256()
         try:
-            #
-            #
+            # Size decides first and only an exact size match is hashed; a
+            # directory or other non-file counts as -1.
             held = os.path.getsize(dest) if os.path.isfile(dest) else -1
             held = _hash_into(dest, hasher) if held == size else held
         except OSError as exc:
@@ -132,7 +155,8 @@ def fetch_one(
         with response:
             status = response.getcode()
             if have and status == 200:
-                #
+                # The Range request was ignored and the whole file is coming
+                # from byte 0, so the partial already on disk is dropped.
                 hasher = hashlib.sha256()
                 have = 0
                 row["resumed_from"] = 0
@@ -176,7 +200,12 @@ def fetch_one(
 
 
 def main(job_text: str) -> int:
-    ""
+    """Fetch every file in the JSON job and print the report as JSON.
+
+    One progress line per file goes to stderr; the JSON report, holding
+    weights_dir and the per-file rows, goes to stdout. Returns 0 when every
+    file ended in a GOOD state and 1 otherwise.
+    """
     job = json.loads(job_text)
     root = weights_dir()
     os.makedirs(root, exist_ok=True)

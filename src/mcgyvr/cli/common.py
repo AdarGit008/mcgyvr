@@ -1,4 +1,12 @@
-""
+"""The option and argument pieces the `mcgyvr` verbs spell the same way.
+
+Two things are named on most command lines: the setup to read, with `--config`,
+and the repository to work on, with `--repo`. The helpers here attach those
+options to a subparser and carry the types and actions behind them, including
+the refusals the shapes leave room for: a blank path, a repository written as a
+positional, and two different setups named on one command line. The constants
+carry the default each option's help text states.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +24,7 @@ from mcgyvr.fleet.roots import (
     STAGING_SHOWN,
 )
 
-if TYPE_CHECKING:  #
+if TYPE_CHECKING:  # pragma: no cover - typing only
     pass
 
 
@@ -41,7 +49,13 @@ def _mib(size_bytes: int) -> str:
 
 
 def _named_path(value: str) -> str:
-    ""
+    """The type of a path argument, refusing a blank one and passing the rest.
+
+    A blank value is what an unset environment variable leaves behind, so it is
+    told apart from a path the user meant: the help tells them to pass a path,
+    or to leave the argument off and take the default on purpose. The value is
+    returned as typed; whoever loads it expands and resolves it.
+    """
     if not value.strip():
         raise argparse.ArgumentTypeError(
             "a blank value is not a path. It is what an unset variable leaves "
@@ -52,7 +66,12 @@ def _named_path(value: str) -> str:
 
 
 class _RepoByPosition(argparse.Action):
-    ""
+    """Refuse a repository named by position, and say to name it with `--repo`.
+
+    `_add_repo` registers this as a hidden optional positional, so a bare path
+    lands here instead of on argparse's unrecognised-argument error and the
+    message can show how the repository is spelled.
+    """
 
     def __call__(
         self,
@@ -68,7 +87,12 @@ class _RepoByPosition(argparse.Action):
 
 
 def _add_repo(parser: argparse.ArgumentParser, what: str) -> None:
-    ""
+    """Attach `--repo` to `parser`, with `what` completing the help sentence.
+
+    The repository defaults to the working directory and must be a named path.
+    The hidden positional carrying `_RepoByPosition` is added alongside it so
+    the same repository written without the option is refused by name.
+    """
     parser.add_argument(
         "--repo",
         default=".",
@@ -91,7 +115,15 @@ def add_config(
     dest: str = "config",
     what: str = "config to read",
 ) -> None:
-    ""
+    """Attach `--config` to `parser`, storing the named setup under `dest`.
+
+    The help's parenthetical default is `CONFIG_DEFAULT_HELP`, the environment
+    variable and then the live fleet folder. The default is `SUPPRESS`, so a
+    verb reading `getattr(args, dest, None)` can tell a setup it was given from
+    one it must look up. `what` completes the help sentence, and `_OneSetup`
+    makes a setup named more than once on the command line have to be the same
+    one.
+    """
     parser.add_argument(
         "--config",
         dest=dest,
@@ -104,7 +136,14 @@ def add_config(
 
 
 class _OneSetup(argparse.Action):
-    ""
+    """Accept one setup, however many places on the command line name it.
+
+    A global `--config` and a verb's own `--config` (or `setup`'s positional
+    PATH) all land in one destination: naming the same path twice is allowed,
+    and two paths that differ after `~` is expanded are an error saying to name
+    one. A value that is not a string — a `None` positional default, say — is
+    stored only when nothing earlier named a setup.
+    """
 
     def __call__(
         self,

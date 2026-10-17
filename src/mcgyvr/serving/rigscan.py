@@ -1,5 +1,19 @@
-#
-""
+#!/usr/bin/env python3
+# Rig scan: reads what this machine is into one JSON document.
+"""Read what this machine is into one JSON document.
+
+The card (GPU) facts come from nvidia-smi, rocm-smi and the DRM entries of
+sysfs; the CPU, memory, boot time and swappiness come from /proc, /sys and
+lscpu; disk, model files, docker, ssh and interface addresses come from the
+local host. A value that cannot be read is never filled in: it is named in
+`unread` with the field it belongs to and a reason, and prose about a whole
+missing section goes in `notes`.
+
+`read_machine` returns the short document (machine identity, cards, memory),
+`scan` adds GPU sizing, CPU, measured memory bandwidth, disk, models on disk,
+docker, network and the token-only `snapshot` that a later visit is compared
+against, and `main` prints either; every tool call and file read is bounded.
+"""
 
 import contextlib
 import hashlib
@@ -23,85 +37,88 @@ MIB_PER_GB = 1024.0
 BYTES_PER_GB = 1024.0**3
 MIB_BYTES = 1024 * 1024
 
-#
-#
-#
+# The bandwidth probe copies a block of memory COPY_PASSES times and keeps the
+# fastest pass; the block drops to COPY_MIB_TIGHT when the memory spare is under
+# TIGHT_RAM_GB past the two blocks the probe holds at once.
 COPY_MIB = 256
 COPY_PASSES = 5
 COPY_MIB_TIGHT = 64
 TIGHT_RAM_GB = 2.0
 
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
-#
+# Machine identity sources, in order: the first machine-id file holding a value,
+# then the host name.
 MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
 HOSTNAME_FILE = "/proc/sys/kernel/hostname"
 DRM = "/sys/class/drm"
 
-#
+# What one tool call may take: seconds before it is killed, and bytes of output kept.
 BOUND_S = 20.0
 BYTES_MAX = 262144
-#
+# What text read from a file or a tool may take: one line's length, and how many
+# lines a whole card list may run to.
 LINE_MAX = 4096
 LINES_MAX = 4096
-#
+# Longest printed name taken as a name.
 NAME_MAX = 256
-#
+# Longest run of digits taken as a size: is_size caps a size at 10**18.
 DIGITS_MAX = 18
 
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
 SECONDS_VARIABLE = "MCGYVR_TEST_TOOL_SECONDS"
 
-#
+# Quantisation tag closing a GGUF file name, as in Q4_K_M.gguf or BF16.gguf.
 GGUF_QUANT = re.compile(
     r"[-_.]((?:I?Q\d+(?:_[A-Z0-9]+)*)|BF16|FP16|F16|F32|MXFP4(?:_MOE)?)\.gguf$",
     re.IGNORECASE,
 )
 
-#
-#
-#
-#
-#
-#
+# The NVIDIA tool is asked for one line per card with a fixed field list, in that
+# order, comma separated, with no header and no units, so each line is split back
+# out by position. Its answer also settles whether this machine has an NVIDIA card
+# at all: a tool that runs and prints no row is reported as left over from a
+# machine whose card is gone, while a tool that is absent or fails leaves the card
+# list unread, with the tool's own reason kept.
 FIRST_TOOL = "nvidia-smi"
 FIRST_QUERY = "index,memory.total,memory.used,memory.free,name"
-#
-#
+# The snapshot asks again for the fields the short reading does not carry: the
+# slot, the compute capability, the driver and the reserved memory. Tools that do
+# not know memory.reserved are asked the shorter query instead.
 SNAPSHOT_QUERY = "index,pci.bus_id,compute_cap,driver_version,memory.reserved"
 SNAPSHOT_QUERY_OLD = "index,pci.bus_id,compute_cap,driver_version"
-#
-#
-#
-#
+# The AMD tool prints one JSON object keyed by card name, with the VRAM total and
+# used memory in bytes, which are divided down to MiB to match the NVIDIA rows.
+# The keys, not the arguments to the tool, decide which cards are reported, so a
+# machine with no AMD card simply yields no member.
 SECOND_TOOL = "rocm-smi"
 SECOND_ARGS = ("--showproductname", "--showmeminfo", "vram", "--json")
-#
-#
+# sysfs names a card's vendor by PCI id; the first map turns that id into the
+# vendor label used everywhere else, and the second says which tool reads it.
 PCI_VENDORS = {"0x10de": "nvidia", "0x1002": "amd", "0x8086": "intel"}
 VENDOR_TOOLS = {"nvidia": FIRST_TOOL, "amd": SECOND_TOOL}
 
-#
+# A template that makes `docker version` print the daemon's version and nothing else.
 DOCKER_VERSION_FORMAT = "{{.Server.Version}}"
-#
-#
+# ssh sets SSH_CONNECTION to "client_ip client_port server_ip server_port" in the
+# session's environment, so its third field is the address this machine was reached at.
 SSH_CONNECTION_ENV = "SSH_CONNECTION"
-#
+# Arguments that make `ip` list the IPv4 addresses, one interface per line.
 IP_ADDR_ARGS = ("-4", "-o", "addr", "show")
 
-#
-#
-#
+# Note text for a card list that could not be read: the first is used when the
+# NVIDIA tool never answered, so nothing at all is known about the cards; the
+# second when it answered but one row was unreadable and that card is left out.
 GPU_NOT_DETERMINED = "GPU: not determined"
 GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
 
-#
-#
-#
-#
-#
-#ts
-#or
-#
+# The snapshot is the part of the reading that a later visit is compared against:
+# flat text tokens, one per key, in the order below. Every value is folded to a
+# single token so a difference is a string difference and not a difference of
+# spacing; a value that could not be read is left out of the map and named in the
+# reading's unread list instead, so a key that is absent means "not read" and
+# never "zero".
+# The card keys describe the first NVIDIA card alone; the further cards are folded
+# into one token each, so a card arriving or leaving still shows as a change.
 SNAPSHOT_KEYS = (
     "uptime_since",
     "cpu_max_mhz",
@@ -128,8 +145,8 @@ SNAPSHOT_KEYS = (
     "nproc",
     "hostname",
 )
-#
-#
+# The part of the snapshot that comes from the GPU state: when the card reading
+# fails, every one of these keys is reported unread with the same reason.
 SNAPSHOT_CARD_KEYS = (
     "gpu_name",
     "gpu_vram_mib",
@@ -149,19 +166,21 @@ _PCI_ID = re.compile(r"0x[0-9a-fA-F]{4}", re.ASCII)
 
 
 def _fingerprint(seed: str) -> str:
-    #
-    #
-    #
+    # Sixteen hex digits of sha256 over the seed: the same seed gives the same id
+    # on every run of this code, and sixteen digits fit the id in one token while
+    # leaving little room for two seeds to collide.
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
 
 
 def tok(value: str) -> str:
-    ""
+    """Fold every run of whitespace and of underscores to one underscore, and take
+    underscores off both ends, so the value is a single token."""
     return re.sub(r"_+", "_", re.sub(r"\s+", "_", value)).strip("_")
 
 
 def is_text(value: str) -> bool:
-    ""
+    """True when every character is printable: no control, format or private
+    character, and no line or paragraph separator. A space is allowed."""
     return all(
         unicodedata.category(c)[0] != "C"
         and unicodedata.category(c) not in ("Zl", "Zp")
@@ -170,7 +189,10 @@ def is_text(value: str) -> bool:
 
 
 def name_problem(value: object) -> str | None:
-    ""
+    """Say what keeps a printed value from being used as a name, or None when it is
+    usable: it must be text, non-empty, no longer than NAME_MAX, not the tool's
+    [N/A] placeholder, free of replacement characters, printable, and without
+    space around it."""
     if not isinstance(value, str):
         return "the name is not text"
     if value == "":
@@ -187,24 +209,34 @@ def name_problem(value: object) -> str | None:
 
 
 def is_size(value: object) -> bool:
-    ""
+    """True for an int that is not negative and is below 10**DIGITS_MAX; a bool is
+    not a size, and neither is a float."""
     return type(value) is int and 0 <= value < 10**DIGITS_MAX
 
 
 def is_machine_id(value: object) -> bool:
-    ""
+    """True for the machine id this module makes: sixteen lowercase hex digits."""
     return isinstance(value, str) and _HEX16.fullmatch(value) is not None
 
 
-#
-#
-#
+# Calling a tool is the one place a scan can hang or flood, so it goes through
+# _run: stdout is read under a time bound and a byte bound, the process group is
+# killed rather than waited on, and every way the answer can be unusable comes
+# back as a reason a note can carry to the reader.
 
 
 def _run(
     argv: Sequence[str], *, bound: float = BOUND_S
 ) -> tuple[str | None, str | None]:
-    ""
+    """Run argv and return (text, None), or (None, why) when it gave no usable text.
+
+    The tool is looked up on PATH first, so a tool that is not installed gives
+    (None, None): nothing was tried, and nothing failed. Stdout is read through a
+    selector until the tool closes it, the bound runs out, or the output passes
+    BYTES_MAX; stderr is discarded and the process is started in its own session,
+    so a kill takes any children with it. The text is decoded as utf-8 with
+    replacement, since a tool may print bytes that are not text.
+    """
     found = shutil.which(argv[0])
     if found is None:
         return None, None
@@ -263,12 +295,15 @@ def _run(
 
 
 def _at(root: str, path: str) -> str:
-    ""
+    """The path as it is read: root is prefixed to it, so a test tree can stand in
+    for the real one, and with no root the absolute path is used as it is."""
     return root + path if root else path
 
 
 def _read(root: str, path: str) -> tuple[str | None, str]:
-    ""
+    """Read a whole file and return (text, ""), or (None, why) when it is not there,
+    cannot be opened, or holds more than BYTES_MAX bytes. The reason is a fragment
+    made to follow the path in a note, as in "device/vendor is not there"."""
     where = _at(root, path)
     if not os.path.lexists(where):
         return None, "is not there"
@@ -283,7 +318,9 @@ def _read(root: str, path: str) -> tuple[str | None, str]:
 
 
 def _first_line(root: str, path: str) -> tuple[str | None, str]:
-    ""
+    """Read the first line of a file, stripped, and return (line, ""), or
+    (None, why) when the file is unreadable or the line is longer than LINE_MAX.
+    Only the first line is looked at, so a second line is not an error here."""
     text, why = _read(root, path)
     if text is None:
         return None, why
@@ -293,13 +330,22 @@ def _first_line(root: str, path: str) -> tuple[str | None, str]:
     return line.strip(), ""
 
 
-#
-#
-#
+# One reading of the machine's cards, mutable so that the three sources can add to
+# it: which cards were found, which were printed twice, which fields could not be
+# read and why, and which sources and vendors answered.
 
 
 class _Reading:
-    ""
+    """The cards found so far, keyed by vendor and index, and everything that could
+    not be read about them.
+
+    `unread` holds {field, why} pairs with the field path a caller can match on
+    ("card.nvidia.0.total"). `cards` holds one entry per card, and a vendor and
+    index printed twice is dropped from it into `twice`, since the source then
+    contradicts itself. `sources` names the tools and files that answered,
+    `covered` the vendors whose own tool answered, `printed` counts the rows each
+    tool printed, and `unsized` lists cards whose total memory nothing could read.
+    """
 
     def __init__(self) -> None:
         self.cards: dict[tuple[str, int], dict[str, Any]] = {}
@@ -309,7 +355,8 @@ class _Reading:
         self.sources: list[str] = []
         self.covered: set[str] = set()
         self.printed: dict[str, int] = {}
-        #
+        # Set once the NVIDIA tool runs and answers at all, whatever it printed;
+        # _gpus uses it to tell "no NVIDIA card here" from "no answer to read".
         self.first_answered = False
 
     def note(self, field: str, why: str) -> None:
@@ -336,7 +383,9 @@ class _Reading:
     def number(
         self, value: str, field: str, source: str, *, bytes_: bool = False
     ) -> int | None:
-        ""
+        """Read a printed size, in MiB when bytes_ is set, noting field and source and
+        returning None for each way it can fail: no value, [N/A], something that is
+        not all digits, or more digits than a size can have."""
         value = value.strip()
         if value == "":
             self.note(field, f"{source} printed no value for it")
@@ -353,7 +402,8 @@ class _Reading:
         return None
 
     def name(self, value: str, field: str, source: str) -> str | None:
-        ""
+        """The printed name, trimmed and folded to NFC, or None when it is empty or
+        fails name_problem; either way the field is noted with the reason."""
         value = unicodedata.normalize("NFC", value.strip())
         if value == "":
             self.note(field, f"{source} printed no name for it")
@@ -400,7 +450,14 @@ def _lines(text: str, reading: _Reading, field: str, what: str) -> list[str] | N
 
 
 def _first_tool(reading: _Reading, bound: float) -> list[dict[str, Any]]:
-    ""
+    """Read the NVIDIA rows into the reading and return its NVIDIA cards.
+
+    A line is index,total,used,free,name in that order. A line that is not a card
+    line is noted and skipped; when it comes right after a card, that card's name
+    is dropped, as the name has probably run over a line break. A tool that answers
+    with nothing is noted as probably left over from a machine whose card is gone,
+    and a tool that could not be run leaves the cards unread.
+    """
     text, why = _run(
         (FIRST_TOOL, f"--query-gpu={FIRST_QUERY}", "--format=csv,noheader,nounits"),
         bound=bound,
@@ -433,8 +490,9 @@ def _first_tool(reading: _Reading, bound: float) -> list[dict[str, Any]]:
         index = fields[0].strip()
         if not _DIGITS.fullmatch(index):
             if last is not None and last in reading.cards:
-                #
-                #
+                # The name is the last field on a row, so a line break inside it
+                # shows up here: this card keeps its numbers and loses its name,
+                # rather than being read as a card whose index is not a number.
                 reading.cards[last]["name"] = None
                 reading.note(
                     f"card.nvidia.{last[1]}.name",
@@ -476,14 +534,23 @@ def _first_tool(reading: _Reading, bound: float) -> list[dict[str, Any]]:
 
 
 def _text_of(value: object) -> str:
-    ""
+    """A JSON member as the text a number field can be read from: a float through
+    repr, so its decimal part survives, other numbers and strings as they are, and
+    anything else as the empty string, which reads as no value."""
     if isinstance(value, bool) or not isinstance(value, str | int | float):
         return ""
     return repr(value) if isinstance(value, float) else str(value)
 
 
 def _second_tool(reading: _Reading, bound: float) -> None:
-    ""
+    """Read the AMD cards from the JSON the tool prints into the reading.
+
+    Members named card<N> are the cards; inside one, keys are matched without
+    regard to case, the VRAM total and used memory arrive in bytes and are divided
+    to MiB, and the name is card series with card model as the fallback. Output that
+    is not a JSON object, or a card count past LINES_MAX, leaves the cards unread
+    with the reason.
+    """
     text, why = _run((SECOND_TOOL, *SECOND_ARGS), bound=bound)
     if text is None:
         if why is not None:
@@ -551,7 +618,14 @@ def _second_tool(reading: _Reading, bound: float) -> None:
 
 
 def _sysfs(reading: _Reading, root: str) -> None:
-    ""
+    """Add the cards the tools did not report, from the DRM entries in sysfs.
+
+    Each cardN with a device directory is a card, its vendor is the PCI vendor id
+    (a card with no product_name is named PCI vid:did), and its memory comes from
+    mem_info_vram_total and mem_info_vram_used, in bytes. A card of a vendor whose
+    own tool already answered is counted but not added, so the count per vendor can
+    still say that a tool's list is short.
+    """
     drm = _at(root, DRM)
     try:
         entries = os.listdir(drm)
@@ -581,7 +655,8 @@ def _sysfs(reading: _Reading, root: str) -> None:
                 "it may be a display that is not a PCI card",
             )
         seen[vendor] = seen.get(vendor, 0) + 1
-        #
+        # A vendor whose tool already answered keeps the tool's rows: sysfs would
+        # otherwise add a second entry for the same card under another index.
         if vendor in reading.covered:
             continue
         key = f"card.{vendor}.{number}"
@@ -641,7 +716,8 @@ def _sysfs(reading: _Reading, root: str) -> None:
         )
     if len(reading.cards) > start:
         reading.sources.append("sysfs")
-    #
+    # sysfs counts every card of a vendor, including the ones the tool printed, so
+    # a tool that printed fewer rows than sysfs shows can be said to be short.
     for vendor, count in sorted(seen.items()):
         if vendor in reading.covered and count > reading.printed.get(vendor, 0):
             tool = VENDOR_TOOLS[vendor]
@@ -653,7 +729,9 @@ def _sysfs(reading: _Reading, root: str) -> None:
 
 
 def _host(root: str, reading: _Reading) -> str:
-    ""
+    """The host name from sysfs, or the node name when there is no test root and the
+    file gave nothing; a name that is missing or ill-formed is noted and read as the
+    empty string."""
     got, _ = _first_line(root, HOSTNAME_FILE)
     if not got and not root:
         got = platform.node()
@@ -672,7 +750,14 @@ def _host(root: str, reading: _Reading) -> str:
 
 
 def _machine(root: str, reading: _Reading) -> tuple[dict[str, Any], list[str]]:
-    ""
+    """The machine's identity: host name, kernel release, and an id hashed from the
+    first machine-id file that holds a value, or from the host name when none does.
+
+    `id_from` names the seed that was used. A file holding what a machine id cannot
+    be (a control character, a second line, more than a line) is not hashed, and the
+    host name is not used in its place, since the machine evidently has an id that
+    could not be read; that case and the host-name case are both noted.
+    """
     host = _host(root, reading)
     notes: list[str] = []
     machine: dict[str, Any] = {
@@ -710,9 +795,8 @@ def _machine(root: str, reading: _Reading) -> tuple[dict[str, Any], list[str]]:
             "derive it from",
         )
         return machine, notes
-    #ne
-    #er
-    #
+    # No machine-id file held a value, so the host name is the seed; the note
+    # appended below says that the id then holds only until the machine is renamed.
     machine["id"], machine["id_from"] = _fingerprint(f"host:{host}"), "hostname"
     notes.append(
         "Machine id: derived from the hostname — no /etc/machine-id. It is "
@@ -723,7 +807,8 @@ def _machine(root: str, reading: _Reading) -> tuple[dict[str, Any], list[str]]:
 
 
 def machine_id(*, root: str = "") -> str:
-    ""
+    """The machine id alone, for callers that need nothing else; the empty string
+    when it could not be read."""
     machine, _ = _machine(root, _Reading())
     return str(machine["id"])
 
@@ -741,7 +826,15 @@ def _meminfo_field(text: str, key: str) -> int | None:
 def _memory(
     root: str, bound: float
 ) -> tuple[dict[str, Any] | None, list[dict[str, str]], list[str]]:
-    ""
+    """Total and available memory in GB, with the facts behind them and the notes
+    about anything missing.
+
+    A figure that was not read is never passed off as whole: without MemTotal the
+    memory is None with a note, and available memory is None when nothing reported
+    it. On macOS, where there is no meminfo and no test root, sysctl gives the total
+    and the note says available memory was not read. The middle value is the
+    {field, how} facts and the last one the note prose.
+    """
     text, _ = _read(root, "/proc/meminfo")
     if text is None:
         if platform.system() == "Darwin" and not root:
@@ -763,8 +856,8 @@ def _memory(
     if total is None:
         return None, [], ["Memory: /proc/meminfo carried no MemTotal."]
     if available is None:
-        #es
-        #o.
+        # Kernels that print no MemAvailable have only MemFree, which is what is
+        # left before caches give anything back; the fact's "how" records the swap.
         available = _meminfo_field(text, "MemFree")
         how = "/proc/meminfo MemFree (no MemAvailable)"
     if available is None:
@@ -787,7 +880,13 @@ def _memory(
 
 
 class _Short:
-    ""
+    """One short reading of the machine, kept as the document it is handed out as.
+
+    The card list is merged from all three sources, and then any card field that
+    came back empty without a reason of its own is given one, so the list never
+    shows a blank it cannot explain. `unsized` holds the cards still missing a
+    memory size after the merge, and `notes` the prose from identity and memory.
+    """
 
     def __init__(self, root: str, bound: float) -> None:
         reading = _Reading()
@@ -799,7 +898,9 @@ class _Short:
         memory, self.memory_facts, memory_notes = _memory(root, bound)
         self.notes += memory_notes
         cards = [reading.cards[where] for where in sorted(reading.cards)]
-        #
+        # A field that no source filled and no source explained is still named, so
+        # a card list reads as incomplete field by field and not only as a list
+        # that happens to be shorter.
         for card in cards:
             key = f"card.{card['vendor']}.{card['index']}"
             for field, name in (
@@ -829,19 +930,29 @@ class _Short:
 
 
 def read_machine(*, root: str = "", bound: float = BOUND_S) -> dict[str, Any]:
-    ""
+    """The short reading of this machine: its identity, its cards with the sources
+    that answered and the fields that could not be read, and its memory. No CPU,
+    disk, docker or snapshot work is done here."""
     return _Short(root, bound).document
 
 
-#
-#
-#
+# The gpus section of a scan is built from the NVIDIA rows alone; the cards of
+# other vendors stay in the card list, unsized for a fit. A row that could not be
+# read is named in a note with its reasons instead of vanishing, and a machine whose
+# NVIDIA tool never answered is reported as not determined, never as zero.
 
 
 def _gpus(
     rows: list[dict[str, Any]], answered: bool, unread: list[dict[str, str]]
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]], list[str]]:
-    ""
+    """The gpus section, the facts behind it, and the notes about the rows left out.
+
+    Reserved memory is the total less the used and the free, floored at zero. A card
+    with any of its fields unread is left out of the section, with the reasons from
+    the reading's unread list, since MIG and vGPU rows print memory as [N/A] and
+    land there. The section comes back empty, with a note, when the NVIDIA tool never
+    answered or answered with no device.
+    """
     how = f"{FIRST_TOOL} --query-gpu={FIRST_QUERY}"
     if not answered:
         return (
@@ -905,7 +1016,9 @@ def _gpus(
 
 
 def _cpu(bound: float) -> tuple[dict[str, int] | None, list[dict[str, str]], list[str]]:
-    ""
+    """Core and thread counts from lscpu, the cores as Core(s) per socket times the
+    socket count, and os.cpu_count() for both counts when lscpu gives no core count,
+    with a note saying that this count is of threads and not of cores."""
     text, _ = _run(("lscpu",), bound=bound)
     if text is not None:
         threads = _lscpu_int(text, "CPU(s)")
@@ -941,7 +1054,8 @@ def _cpu(bound: float) -> tuple[dict[str, int] | None, list[dict[str, str]], lis
 
 
 def _lscpu_field(text: str, key: str) -> str | None:
-    ""
+    """The value lscpu printed for a key, without the colon or the space around it;
+    None when the output carries no such key."""
     for line in text.splitlines():
         name, sep, rest = line.partition(":")
         if sep and name.strip() == key:
@@ -955,7 +1069,9 @@ def _lscpu_int(text: str, key: str) -> int | None:
 
 
 def _spare_gb(root: str) -> float:
-    ""
+    """The memory a new allocation could take, in GB, from MemAvailable or MemFree;
+    0.0 when meminfo cannot be read, so a machine whose memory cannot be seen is
+    measured by the bandwidth probe as a small one."""
     text, _ = _read(root, "/proc/meminfo")
     if text is None:
         return 0.0
@@ -966,7 +1082,15 @@ def _spare_gb(root: str) -> float:
 
 
 def measure_bandwidth(root: str = "") -> dict[str, Any] | None:
-    ""
+    """Copy one block of memory onto another and keep the fastest pass.
+
+    Two buffers are allocated and one is copied onto the other COPY_PASSES times;
+    the result is the highest bytes-copied-per-second of those passes, so one slow
+    pass does not drag it down. The block is COPY_MIB, or COPY_MIB_TIGHT when the
+    machine has less than TIGHT_RAM_GB spare beyond the two buffers. None when the
+    buffers cannot be allocated or no pass could be timed, which the caller reports
+    as not measured rather than filling in.
+    """
     mib = COPY_MIB
     if _spare_gb(root) < TIGHT_RAM_GB + 2 * mib / MIB_PER_GB:
         mib = COPY_MIB_TIGHT
@@ -975,7 +1099,7 @@ def measure_bandwidth(root: str = "") -> dict[str, Any] | None:
         target = bytearray(mib * MIB_BYTES)
     except (MemoryError, ValueError):
         return None
-    target[:] = source  #
+    target[:] = source  # every page of the target is touched before any is timed
     moved = float(len(source))
     fastest = 0.0
     for _ in range(COPY_PASSES):
@@ -995,7 +1119,8 @@ def measure_bandwidth(root: str = "") -> dict[str, Any] | None:
 
 
 def default_weights_dir() -> str:
-    ""
+    """Where weights live when the caller names no directory: MCGYVR_WEIGHTS with ~
+    expanded, or ~/.cache/mcgyvr/weights."""
     override = os.environ.get(WEIGHTS_DIR_ENV)
     if override:
         return os.path.expanduser(override)
@@ -1003,7 +1128,9 @@ def default_weights_dir() -> str:
 
 
 def _disk_device(path: str) -> str | None:
-    ""
+    """The device the path is on, from /proc/self/mounts: the source of the longest
+    mount point the resolved path falls under, with escaped spaces in the mount point
+    decoded. None when mounts cannot be read or no mount point contains the path."""
     try:
         with open("/proc/self/mounts", encoding="utf-8") as handle:
             mounts = handle.read()
@@ -1023,7 +1150,12 @@ def _disk_device(path: str) -> str | None:
 
 
 def _disk(path: str) -> tuple[dict[str, Any], list[dict[str, str]]]:
-    ""
+    """Free and total space in GB on the weights path, and the device behind it.
+
+    The counts are asked of the path and then of its parents, since the weights
+    directory may not exist yet; when nothing on the way up can be read both stay
+    zero, so a free_gb of 0.0 is as much a failed reading as a full disk.
+    """
     free, total = 0, 0
     probe = path
     while True:
@@ -1060,7 +1192,14 @@ def _model_name_and_quant(name: str) -> tuple[str, str | None]:
 def _models_on_disk(
     roots: Iterable[str],
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
-    ""
+    """The model files under each root, once each, with the size the filesystem
+    reports.
+
+    A .gguf file is split into a model name and a quantisation tag, a .safetensors
+    file keeps its base name and no tag. Hidden files and hidden directories are
+    skipped, symlinked directories are not followed, and a file whose size cannot be
+    read is left out.
+    """
     found: list[dict[str, Any]] = []
     facts: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -1093,7 +1232,8 @@ def _models_on_disk(
 
 
 def _docker(bound: float) -> tuple[str | None, str | None]:
-    ""
+    """The version the docker daemon answered with, or None and the reason there is
+    no version: no CLI here, the call failed, or the daemon gave nothing."""
     text, why = _run(
         ("docker", "version", "--format", DOCKER_VERSION_FORMAT), bound=bound
     )
@@ -1106,7 +1246,9 @@ def _docker(bound: float) -> tuple[str | None, str | None]:
 
 
 def _parse_ip_addr(output: str) -> list[dict[str, str]]:
-    ""
+    """The interface names and IPv4 addresses in `ip -o -4 addr show` output, with
+    the prefix length and any @peer suffix taken off. A line without an inet word, or
+    with nothing after it, is skipped."""
     found: list[dict[str, str]] = []
     for line in output.splitlines():
         parts = line.split()
@@ -1125,7 +1267,13 @@ def _parse_ip_addr(output: str) -> list[dict[str, str]]:
 
 
 def _network(bound: float) -> tuple[dict[str, Any], list[dict[str, str]], list[str]]:
-    ""
+    """The address this machine was reached at and the IPv4 addresses on its
+    interfaces.
+
+    Only an ssh session carries the address it was reached at, in SSH_CONNECTION,
+    and only a four-field setting is believed. Each of the two is noted when it could
+    not be read, and the note says which.
+    """
     said = os.environ.get(SSH_CONNECTION_ENV, "").split()
     reached = said[2] if len(said) == 4 else None
     text, _ = _run(("ip", *IP_ADDR_ARGS), bound=bound)
@@ -1151,13 +1299,17 @@ def _network(bound: float) -> tuple[dict[str, Any], list[dict[str, str]], list[s
     return {"reached_at": reached, "ipv4": ipv4}, facts, notes
 
 
-#
-#
-#
+# The snapshot is a map of key to one token per fact. Every key goes through put(),
+# so one rule holds for all of them: a token that folded away to nothing is not a
+# value, and the key is reported unread with the reason it was read as empty.
 
 
 class _Snapshot:
-    ""
+    """The snapshot map under construction, and the keys that could not be filled.
+
+    `values` holds one token per key. An empty token is kept only for gpu_others,
+    where it means that there is no further card, not that one went unread.
+    """
 
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
@@ -1187,8 +1339,8 @@ def _uptime_since(root: str, bound: float) -> tuple[str | None, str]:
 
 
 def _cpu_max_mhz(root: str, bound: float) -> tuple[str | None, str]:
-    #
-    #
+    # cpufreq publishes kHz and the snapshot wants whole MHz, so the value is divided
+    # down; lscpu's CPU max MHz is the fallback, cut before the decimal point.
     khz, _ = _first_line(root, "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
     if khz and _DIGITS.fullmatch(khz):
         return str(int(khz) // 1000), ""
@@ -1213,7 +1365,10 @@ def _cpu_model(root: str, bound: float) -> tuple[str | None, str]:
 
 
 def _ram_mt_s(bound: float) -> tuple[str | None, str]:
-    #
+    # The DDR speed is only in the firmware tables, which dmidecode needs root to
+    # read, so `sudo -n` is tried second: it fails at once instead of asking for a
+    # password. Different modules at different speeds make one token dishonest, so
+    # more than one speed is reported as unread.
     out, _ = _run(("dmidecode", "-t", "memory"), bound=bound)
     if not out:
         out, _ = _run(("sudo", "-n", "dmidecode", "-t", "memory"), bound=bound)
@@ -1262,9 +1417,9 @@ def _power_limit(root: str, which: str) -> tuple[str | None, str]:
             "limits are unread"
         )
     index, want = (0, "long_term") if which == "pl1" else (1, "short_term")
-    #
-    #
-    #
+    # The constraint is checked by name and not by its number, so that an index
+    # meaning something else on this machine is caught here: a name that does not
+    # match leaves the limit unread instead of reporting another limit's value.
     value, why = _first_line(root, f"{folder}/constraint_{index}_power_limit_uw")
     if value is None:
         return (
@@ -1285,7 +1440,14 @@ def _power_limit(root: str, which: str) -> tuple[str | None, str]:
 def _snapshot_cards(
     snapshot: _Snapshot, cards: list[dict[str, Any]], bound: float
 ) -> None:
-    ""
+    """Fill the GPU keys of the snapshot from the first NVIDIA card.
+
+    The snapshot query adds the slot, the compute capability, the driver and, where
+    the tool knows the field, the reserved memory; a tool that does not know
+    memory.reserved is asked the shorter query. The further NVIDIA cards are folded
+    into gpu_others, one token each. When the tool is absent or names no card, every
+    card key is reported unread with that one reason.
+    """
     nvidia = sorted(
         (c for c in cards if c["vendor"] == "nvidia"), key=lambda c: c["index"]
     )
@@ -1332,8 +1494,9 @@ def _snapshot_cards(
         "gpu_slot", slot, f"{FIRST_TOOL} gave no pci.bus_id for the first card"
     )
     snapshot.put("driver", driver, f"{FIRST_TOOL} gave no driver_version")
-    #
-    #
+    # The reserved memory is what the card holds back for itself: the tool's own
+    # figure where it reports one, and the total less the used and the free where it
+    # does not, or where the figure is not a number.
     reserve = facts[3] if reserved_read and len(facts) > 3 else ""
     if not _DIGITS.fullmatch(reserve):
         total, used, free = first["total_mib"], first["used_mib"], first["free_mib"]
@@ -1352,8 +1515,8 @@ def _snapshot_cards(
         reserve,
         f"{FIRST_TOOL} reports no memory.reserved and no usable total/used/free",
     )
-    #
-    #
+    # Each further card becomes one token, slot:name:total:cc, and the tokens are
+    # sorted so that the order the tool prints its cards in cannot read as a change.
     others = []
     for card in nvidia[1:]:
         slot_of, cc_of = [*extra.get(card["index"], []), "", ""][:2]
@@ -1382,14 +1545,14 @@ def _snapshot(
     snapshot.put(*_pair("pl1_uw", _power_limit(root, "pl1")))
     snapshot.put(*_pair("pl2_uw", _power_limit(root, "pl2")))
     _snapshot_cards(snapshot, cards, bound)
-    #
-    #
+    # Docker is recorded by the version its daemon answered with, so that a daemon
+    # upgrade is the change and an installed CLI on its own is not.
     snapshot.put(
         "docker", docker, f"cannot read the docker daemon's version: {docker_why}"
     )
     snapshot.put("kernel", platform.release(), "cannot read the kernel version")
-    #
-    #
+    # The machine id and the host name are the values the machine section carries,
+    # copied here so that the snapshot alone tells one machine from another.
     snapshot.put("hostname", machine.get("host") or None, "cannot read the hostname")
     snapshot.put(
         "os_machine_id",
@@ -1429,9 +1592,9 @@ def _pair(key: str, read: tuple[str | None, str]) -> tuple[str, str | None, str]
     return key, read[0], read[1]
 
 
-#
-#
-#
+# The whole scan: the short reading first, then each section the short reading does
+# not carry, each kept with the {field, how} facts it rests on and the prose about
+# what could not be read, so a consumer can tell a measured value from a missing one.
 
 
 def scan(
@@ -1441,7 +1604,13 @@ def scan(
     root: str = "",
     bound: float = BOUND_S,
 ) -> dict[str, Any]:
-    ""
+    """The whole reading of this machine, in one document.
+
+    The short reading is the base, and gpus, cpu, bandwidth, disk, models_on_disk,
+    docker, network and snapshot are added to it, with every fact, note and unread
+    field gathered from those sections. The weights directory is the one given, or
+    the default, and model_stores are searched alongside it.
+    """
     read = _Short(root, bound)
     short = read.document
     machine = short["machine"]
@@ -1493,7 +1662,13 @@ def scan(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    ""
+    """Print the scan, or the short reading with --cards, as JSON on stdout.
+
+    MCGYVR_TEST_MACHINE_ROOT is prefixed to every path that is read, and
+    MCGYVR_TEST_TOOL_SECONDS replaces the time bound when it holds 1 to 6 digits
+    giving a whole number of seconds above zero; anything else in it is noted rather
+    than used. Any argument other than --cards is a usage error, which returns 2.
+    """
     args = list(sys.argv[1:] if argv is None else argv)
     root = os.environ.get(ROOT_VARIABLE, "")
     bound = BOUND_S

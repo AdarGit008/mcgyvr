@@ -1,4 +1,15 @@
-""
+"""Turning a request into proposals through the orchestrator role.
+
+Two proposers live here. ``proposer_for`` renders the evidence as a prose
+prompt, dispatches it to the ``orchestrator`` role and parses the JSON reply
+into proposals. ``classifier_proposer_for`` asks the same role a short series
+of typed multiple-choice questions — task type, target, then symbol — and
+turns the answers into one proposal, declining when a confidence falls short.
+``proposer_by_authoring`` picks between them for the configured strategy.
+
+``NO_ORCHESTRATOR_ROLE`` is what a caller prints when no orchestrator unit is
+bound, so no prompt can be turned into contracts.
+"""
 
 from __future__ import annotations
 
@@ -22,17 +33,17 @@ from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 from mcgyvr.runner import Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
-if TYPE_CHECKING:  #
+if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.local_pool import SourceMap
 
-#
-#
-#
+# The role whose bound unit turns a prompt into contracts: `proposer_for`
+# dispatches the prose prompt there, `classifier_proposer_for` asks the typed
+# questions there. No binding means nothing here can propose.
 ORCHESTRATOR_ROLE = "orchestrator"
 
-#
-#
+# Printed, with a refusal exit, when no orchestrator unit is bound and so no
+# prompt can be turned into contracts: the text names the ways forward.
 NO_ORCHESTRATOR_ROLE = (
     "the orchestrator role is not configured, so a prompt cannot be turned "
     "into contracts here. Bind `orchestrator.unit` and `orchestrator.model` "
@@ -42,19 +53,28 @@ NO_ORCHESTRATOR_ROLE = (
 
 
 class DelegationError(RuntimeError):
-    ""
+    """Base for every way delegation can fail to produce proposals."""
 
 
 class OrchestratorUnavailableError(DelegationError):
-    ""
+    """The role resolves to no unit, so its prompt cannot be dispatched."""
 
 
 class UnreadableProposalError(DelegationError):
-    ""
+    """A reply that cannot be read as proposals: not JSON, or the wrong shape."""
 
 
 def build_prompt(evidence: Evidence) -> str:
-    ""
+    """Render the evidence as the prose prompt the orchestrator replies to.
+
+    The request comes first, then the resolution's candidates with each one's
+    score and the signals that matched it, then the regions already read —
+    labelled with their file, line span, selection reason and the candidate
+    that motivated them — then the regions deferred for budget, the task-type
+    vocabulary and the reply format. Sections that would carry nothing (no
+    candidates, no deferred regions) are omitted, and the rest are joined with
+    blank lines.
+    """
     resolution = evidence.resolution
     exploration = evidence.exploration
     sections: list[str] = []
@@ -100,7 +120,13 @@ def build_prompt(evidence: Evidence) -> str:
 
 
 def _vocabulary(vocabulary: Sequence[Any]) -> str:
-    ""
+    """List the servable task types with the facts a proposal has to respect.
+
+    Each block names the type, its doc and its guarantee, then either the
+    evidence derived from the contract (for evidence-derived types, rule by
+    rule) or the evidence it requires, flagged when the type also needs
+    acceptance or demonstration commands. An empty vocabulary renders "(none)".
+    """
     blocks: list[str] = []
     for task in vocabulary:
         lines = [f"- {task.name}: {task.doc}"]
@@ -127,7 +153,13 @@ def _vocabulary(vocabulary: Sequence[Any]) -> str:
 
 
 def _reply_format() -> str:
-    ""
+    """Describe the JSON array `proposals_from_reply` reads, field by field.
+
+    It states the keys every object needs — plus the output cap a code type must
+    also carry — what each optional key means and what it derives downstream,
+    that optional keys are omitted rather than written as null, and that `[]` is
+    the reply when nothing can be proposed.
+    """
     return (
         "REPLY FORMAT:\n"
         "Return one JSON array of proposal objects and no prose. Each object "
@@ -171,7 +203,12 @@ def _reply_format() -> str:
 
 
 def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
-    ""
+    """Read an orchestrator reply as proposals, in the order it listed them.
+
+    The body is unwrapped from any code fence and parsed as JSON; a single
+    object is read as a one-item array. Raises `UnreadableProposalError` when
+    the body is not JSON, is not an array, or any entry fails validation.
+    """
     body = _fenced_body(reply)
     try:
         data = json.loads(body)
@@ -196,7 +233,13 @@ def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
 
 
 def _fenced_body(reply: str) -> str:
-    ""
+    """Return the reply's body, without the first fenced block around it.
+
+    Line endings are normalised and the text trimmed first. A fence opens with
+    up to three spaces then three or more backticks and closes with a line of
+    at least as many backticks and nothing else; the lines between them are
+    returned. Without a closed fence, the whole trimmed reply is returned.
+    """
     text = reply.replace("\r\n", "\n").replace("\r", "\n").strip()
     lines = text.split("\n")
     for index, line in enumerate(lines):
@@ -213,7 +256,7 @@ def _fenced_body(reply: str) -> str:
 
 
 def _proposal_of(item: object) -> Proposal:
-    ""
+    """Build one `Proposal` from one reply entry, validating each field."""
     if not isinstance(item, dict):
         raise UnreadableProposalError(
             f"a proposal entry is a {type(item).__name__}, not an object"
@@ -246,7 +289,10 @@ def _required_str(item: dict[str, object], key: str) -> str:
 
 
 def _optional_cap(item: dict[str, object]) -> int | None:
-    ""
+    """Read `max_output_tokens`: absent means no cap.
+
+    Anything present but not a whole number of at least 1 is refused.
+    """
     value = item.get("max_output_tokens")
     if value is None:
         return None
@@ -267,7 +313,7 @@ def _optional_str(item: dict[str, object], key: str) -> str:
 
 
 def _optional_bool(item: dict[str, object], key: str) -> bool:
-    ""
+    """Read a boolean flag: absent means false, and a non-boolean is refused."""
     value = item.get(key)
     if value is None:
         return False
@@ -314,7 +360,13 @@ def proposer_for(
     capacity: Capacity | None = None,
     max_output_tokens: int | None = None,
 ) -> Proposer | None:
-    ""
+    """Build the prose proposer on the `orchestrator` role, or None if unbound.
+
+    The role has to name a model, else nothing can propose. The returned
+    callable renders the evidence with `build_prompt`, dispatches it to the
+    role — through `capacity`, when one is given, and capped by
+    `max_output_tokens` — and parses the reply with `proposals_from_reply`.
+    """
     if source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
 
@@ -328,7 +380,7 @@ def proposer_for(
             ),
             capacity=capacity,
         )
-        if completion is None:  #
+        if completion is None:  # The role lists a model but resolves to no unit.
             raise OrchestratorUnavailableError(
                 f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
             )
@@ -337,24 +389,31 @@ def proposer_for(
     return propose
 
 
-#
-#
-#
-#
+# The confidence a typed answer must reach for its proposal to be trusted. A
+# classifier answering below it counts as having declined to choose: nothing is
+# proposed, and the caller can fall back to the prose proposer.
 MIN_CONFIDENCE = 0.5
 
-#k.
+# The option that picks no symbol, because the whole file is the work.
 _NO_SYMBOL = ""
 
-#
-#
-#
+# One typed question carries at most 62 options: the single-token labels read
+# back are A-Z, a-z and 0-9. Targets are truncated to this, and the symbol
+# question keeps one slot back for the "no specific symbol" option.
 _MAX_CHOICE_OPTIONS = 62
 
 
 @dataclass(frozen=True)
 class ClassifierProposer:
-    ""
+    """A proposer that asks typed multiple-choice questions rather than prose.
+
+    `classify` is the seam — it answers named questions about a state — and
+    `confidence` is the floor each answer must clear. A call asks the task type
+    and the target, then a symbol inside the target, and returns one proposal
+    built from those answers, or nothing when any of them is unusable, falls
+    short of the floor, or names a type needing an output cap this proposer
+    cannot supply.
+    """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
     confidence: float = MIN_CONFIDENCE
@@ -389,12 +448,12 @@ class ClassifierProposer:
         ):
             return ()
         kind = _kind_for(kind_answer.choice, vocabulary)
-        if kind is None:  #
+        if kind is None:  # The name is not a type this config can serve.
             return ()
         if kind.needs_output_cap:
-            #
-            #
-            #
+            # A type needing an output cap gets no proposal here: the cap says
+            # what a reply is worth in tokens, and this proposer has no way to
+            # judge that, so it declines instead of guessing.
             return ()
         target = target_answer.choice
 
@@ -429,7 +488,13 @@ def classifier_proposer_for(
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
 ) -> Proposer | None:
-    ""
+    """Build the typed proposer, or None when neither Jev nor a role is bound.
+
+    The questions go through `classify_for`, which reads them with the `jev`
+    role when that one is bound and with the `orchestrator` role — the role
+    named here — otherwise. `capacity` gates each question, `confidence` is the
+    floor the returned proposer holds its answers to.
+    """
     if not jev_bound(source_map) and source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
 
@@ -445,17 +510,21 @@ def classifier_proposer_for(
     return ClassifierProposer(classify=classify, confidence=confidence)
 
 
-#
+# Reading one decision into one proposal.
 
 
 def _choice(decision: Decision, name: str) -> ChoiceAnswer | None:
-    ""
+    """Read the typed answer filed under `name`, or None if absent or not a choice."""
     answer = decision.answers.get(name)
     return answer if isinstance(answer, ChoiceAnswer) else None
 
 
 def _candidate_targets(evidence: Evidence) -> tuple[str, ...]:
-    ""
+    """Paths the evidence points at: candidates first, then reads, deduplicated.
+
+    Truncated to `_MAX_CHOICE_OPTIONS`, since each becomes one option of a
+    single typed question.
+    """
     paths: list[str] = []
     seen: set[str] = set()
     for candidate in evidence.resolution.candidates:
@@ -470,7 +539,7 @@ def _candidate_targets(evidence: Evidence) -> tuple[str, ...]:
 
 
 def _symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
-    ""
+    """The symbols the index holds as definitions in `target`, in index order."""
     return tuple(
         symbol
         for symbol in evidence.index.symbols.all()
@@ -479,7 +548,12 @@ def _symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
 
 
 def _symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
-    ""
+    """Render up to 61 symbols as question options, plus one for "no symbol".
+
+    A symbol's detail is its option text, falling back to "symbol", and a name
+    appears once. `_NO_SYMBOL` is added last and means the whole file is the
+    work, so the question never exceeds `_MAX_CHOICE_OPTIONS` options.
+    """
     options: dict[str, str] = {}
     for symbol in symbols[: _MAX_CHOICE_OPTIONS - 1]:
         if symbol.name not in options:
@@ -489,31 +563,36 @@ def _symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
 
 
 def _kind_for(name: str, vocabulary: Sequence[TaskType]) -> TaskType | None:
-    ""
+    """Find the servable type named `name`, or None when this config cannot serve it."""
     return next((task for task in vocabulary if task.name == name), None)
 
 
 def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
-    ""
+    """The task line: the type's doc up to its first full stop, then the subject."""
     return f"{kind.doc.split('.', 1)[0]}: {_subject(target, symbol)}."
 
 
 def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
-    ""
+    """Stop conditions: none for a deterministic type, else the generic one.
+
+    A deterministic type starts on a gate and needs no stop condition; any other
+    gets `generic_stop_condition`, which tells the worker to report BLOCKED
+    rather than decide something the contract does not state.
+    """
     if kind.deterministic:
         return ()
     return (generic_stop_condition(kind.name, _subject(target, symbol)),)
 
 
 def _subject(target: str, symbol: str | None) -> str:
-    ""
+    """Name the work's subject: the file alone, or the symbol within it."""
     return target if symbol is None else f"{symbol} in {target}"
 
 
 def _state(
     evidence: Evidence, targets: tuple[str, ...], vocabulary: Sequence[TaskType]
 ) -> dict[str, Any]:
-    ""
+    """The state the typed questions are about: request, targets, type names."""
     return {
         "request": evidence.prompt,
         "candidates": list(targets),
@@ -522,7 +601,11 @@ def _state(
 
 
 def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
-    ""
+    """The servable types a classifier can propose: those needing no commands.
+
+    A type whose evidence requires acceptance or demonstration commands is left
+    out, because a typed answer cannot supply the commands themselves.
+    """
     return tuple(
         task
         for task in vocabulary
@@ -533,7 +616,13 @@ def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
 def proposer_by_authoring(
     strategy: str | None, *, typed: Proposer | None, prose: Proposer | None
 ) -> Proposer | None:
-    ""
+    """Pick the proposer for the configured `strategy`.
+
+    Only "classifier" opts into the typed proposer, and even then only in front
+    of a prose proposer: the typed one answers first and prose stands in when it
+    declines. Every other strategy proposes in prose. None means nothing can
+    propose — no prose proposer, or a typed one with no prose to fall back on.
+    """
     if strategy != "classifier" or typed is None:
         return prose
     if prose is None:

@@ -1,4 +1,25 @@
-""
+"""Public surface of the gate subpackage.
+
+Re-exports the gate's building blocks so callers can import them from
+``mcgyvr.gate`` instead of the individual modules:
+
+- acceptance: :class:`Acceptance` and :class:`AcceptanceReport`.
+- adapter: :class:`LanguageAdapter` plus the environment, tool-failure, and
+  tool-unavailable errors.
+- adapters: the :class:`JavaScriptAdapter` and :class:`PythonAdapter`
+  implementations of :class:`LanguageAdapter`.
+- changeset: :class:`ChangeSet`, :class:`FileChange`, and
+  :class:`ChangeSetError`.
+- findings: :class:`Finding`.
+- jev: :class:`JevCheck` and :class:`JevReport`.
+- preflight: the prompt/reply budget helpers (``reply_cap``,
+  ``sized_reply_cap``, ``unit_ceiling``, ``ESTIMATE_RESERVE``, and their
+  types), plus the ``check_*`` preflight validators.
+- runner: :class:`Gate`, :class:`GateResult`, and :class:`InconclusiveRung`.
+- semantic: :class:`SemanticCheck` and :class:`SemanticReport`.
+
+``__all__`` lists exactly the names re-exported here.
+"""
 
 from __future__ import annotations
 

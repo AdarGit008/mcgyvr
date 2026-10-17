@@ -1,4 +1,18 @@
-""
+"""The authoring strategies mcorch binds as its internal tools.
+
+Two kinds. `Direct` proposes from the request alone: the model calls
+`author_contract` with a whole YAML document, `Direct.handle` validates it with
+`contract.loads`, asks the jev whether it is ready to run, and answers with a
+refusal, a doubt to address, or the canonical document to write. `Evidenced`
+proposes from a reading of the repository: `handle` answers `gather_evidence`
+with a `GATHER`-prefixed request the loop turns into a `mcgyvr read`, and
+`propose` runs the decomposer over that reading through a prose or classifier
+proposer and digests the contracts and refusals back to the model.
+
+`authoring_for` picks one of `STRATEGIES` over the `Jev` and `Rung` seams wired
+by `wire.bind`; `READY_QUESTION` and `READY` are the single jev question both
+kinds ask before handing a contract over.
+"""
 
 from __future__ import annotations
 
@@ -20,13 +34,16 @@ from mcgyvr.orchestrator.decompose import (
     decompose,
 )
 
-#
+# The names `authoring_for` accepts: "direct" authors from the request alone,
+# the other two propose from a reading of the repository.
 STRATEGIES = ("direct", "prose", "classifier")
 
-#
+# The key the readiness question is asked under, and read back from the decision.
 READY_QUESTION = "ready_to_run"
 
-#
+# The one question asked of every contract before it is handed to the model: it
+# must name a single target, carry a task a worker can do from the fields alone,
+# and give the gate something to judge the result by.
 READY = Noul(
     "Is this contract ready to run as written: one target, a task a worker can "
     "carry out from the fields alone, and a way to judge the result?"
@@ -34,37 +51,45 @@ READY = Noul(
 
 
 class AuthoringUnavailableError(RuntimeError):
-    ""
+    """`authoring_for` was asked for a strategy that proposes through the rung,
+    and the server was bound without one."""
 
 
-#
-#
+# Prefix `Evidenced.handle` puts in front of a gather request; the loop strips it
+# and serves the rest as a `mcgyvr read` before the model is asked again.
 GATHER = "gather:"
 
 
 class Authoring(Protocol):
-    ""
+    """One authoring strategy as the loop uses it: the tool specs it offers, the
+    answer it gives a call to one of them, and whether it proposes from a
+    reading of the repository."""
 
     @property
     def name(self) -> str: ...
 
     @property
     def needs_evidence(self) -> bool:
-        ""
+        """Whether the strategy proposes from a reading of the repository, and so
+        waits for a `mcgyvr read` before it can author anything."""
         ...
 
     def tools(self) -> tuple[dict[str, Any], ...]:
-        ""
+        """The tool specs the loop adds to the model's own tools, so a call of
+        one of them is answered here instead of being forwarded to the harness."""
         ...
 
     def handle(self, call: RungToolCall) -> str | None:
-        ""
+        """The text answering `call`, or None when the tool is not this
+        strategy's and the next strategy should be asked."""
         ...
 
 
 @dataclass(frozen=True)
 class Direct:
-    ""
+    """Author from the request alone: the model calls `author_contract`, and gets
+    the validated document back to write to the tree. `jev` decides whether the
+    contract is ready to run."""
 
     jev: Jev
 
@@ -130,7 +155,9 @@ class Direct:
 
 
 def _summary(authored: contract.Contract) -> dict[str, Any]:
-    ""
+    """The fields of `authored` the readiness question is decided on: what the
+    contract is, what a worker is asked to do and to which target, how the result
+    is judged, and the scope's allow list."""
     return {
         "id": authored.id,
         "task_type": authored.task_type,
@@ -155,7 +182,11 @@ def _arguments(text: str) -> Mapping[str, Any] | None:
 
 @dataclass(frozen=True)
 class Evidenced:
-    ""
+    """Author from a reading of the repository, in the configured `strategy`:
+    "prose" builds a prompt from the evidence and parses the rung's reply into
+    proposals, "classifier" asks the jev typed questions. `rung` makes the
+    proposal calls, `jev` decides readiness, and `config` bounds which task types
+    are offered."""
 
     strategy: str
     jev: Jev
@@ -206,7 +237,11 @@ class Evidenced:
         return f"{GATHER}{request.strip()}"
 
     def propose(self, document: evidence.Document, *, max_output_tokens: int) -> str:
-        ""
+        """The digest the model reads in place of one `mcgyvr read` document: index
+        its files, decompose its prompt through this strategy's proposer with
+        `config` and the checker commands the read already found, and report every
+        contract as ready or in doubt and every refusal with its reason.
+        `max_output_tokens` is the room one prose proposal call gets."""
         index = evidence.index_from(document)
         prompt = document.prompt
         decomposition = decompose(
@@ -214,8 +249,8 @@ class Evidenced:
             prompt,
             propose=self._proposer(max_output_tokens),
             config=self.config,
-            #
-            #
+            # The checker commands the read already located, so a `type_check`
+            # acceptance is derived without probing the disk again.
             located=document.located,
         )
         return self._digest(decomposition)
@@ -237,7 +272,7 @@ class Evidenced:
 
         typed = delegate.ClassifierProposer(classify=self.jev)
         chosen = delegate.proposer_by_authoring(self.strategy, typed=typed, prose=prose)
-        assert chosen is not None  #
+        assert chosen is not None  # prose is always given, so something proposes
         return chosen
 
     def _digest(self, decomposition: Decomposition) -> str:
@@ -276,7 +311,11 @@ def authoring_for(
     rung: Rung | None = None,
     config: Config | None = None,
 ) -> Authoring:
-    ""
+    """The strategy named `strategy`, wired to the given seams.
+
+    `direct` needs only `jev`. The other names in `STRATEGIES` propose through the
+    rung, so they raise `AuthoringUnavailableError` when `rung` is None. A name
+    outside `STRATEGIES` raises `ValueError`."""
     if strategy == "direct":
         return Direct(jev=jev)
     if strategy in STRATEGIES:

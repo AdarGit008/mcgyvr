@@ -1,4 +1,14 @@
-""
+"""Judging one staged sample: green stamps the fleet, red says why not.
+
+:func:`judge` reads the sample's own read rows out of the journal and the rig
+files the reads saved, holds every rig of the fleet's layout to a card reserve
+and every awake unit to its probe, then reads the use case's task outcomes
+(``coding``'s gate, ``chat``'s completion, ``agent``'s grounded contract and
+safety check) and, when the policy names one, the Jev unit's typed choice. Any
+reason at all makes the sample red; with none, and with a rig file and a read
+for every rig, the verdict carries the ``rigs``/``combinations``/``moves``
+evidence a stamp writes and the lock is written from.
+"""
 
 from __future__ import annotations
 
@@ -13,37 +23,43 @@ from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
 
-#
-#
+# The use cases a sample can judge: a policy's `use_case` names one of them,
+# and each is held to its own task in `_task_reasons`.
 CODING_USE_CASE = "coding"
 AGENT = "agent"
 MEDIA_GEN = "media-gen"
-#
+# A policy that names no use case is judged as a coding fleet.
 DEFAULT_USE_CASE = CODING_USE_CASE
-#
+# The checks `mcgyvr.fleet.sampler` runs, as `Outcome.check` names them.
 TASK_GATE = "gate"
 TASK_COMPLETION = "completion"
 TASK_GROUNDED = "grounded"
 TASK_SAFETY = "safety"
 TASK_CHOICE = "choice"
 CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
-#
+# Why a unit laid out asleep makes the sample red: it cannot be woken yet.
 SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
-#
+# Why the media-gen use case samples red: it has no sample to run yet.
 MEDIA_NOT_BUILT = "the media sample isn't built yet (P11)"
-#
+# The probe figures every awake unit is measured on and read back into evidence.
 PROBE_FIELDS = ("warm_decode_tok_s", "prefill_tok_s")
-#
+# The snapshot field that carries the card's reserve, the combination's overhead.
 RESERVE_FIELD = "gpu_reserve_mib"
 
 
 class SampleError(Exception):
-    ""
+    """The sample cannot be judged: its setup or its journal cannot be read."""
 
 
 @dataclass(frozen=True)
 class Outcome:
-    ""
+    """One check's answer, as `mcgyvr.fleet.sampler` ran it.
+
+    `check` is one of `CHECKS`, `unit` the unit it ran on (None for the fleet as
+    a whole), `passed` whether it passed, `why` the reason when it did not, and
+    `served` what the unit answered back (`window`, `slots`); a typed choice
+    also carries its `label` and `probability`.
+    """
 
     check: str
     unit: str | None = None
@@ -56,7 +72,15 @@ class Outcome:
 
 @dataclass(frozen=True)
 class Sample:
-    ""
+    """One sample to judge.
+
+    `setup` is the staged folder its `fleet.yaml` and `policy.yaml` are read
+    from and that its reads were filed against, `fleet` the fleet of that setup
+    that was laid out, and `reads` the run ids of its reads in the order they
+    ran, which is the order their rows are read back in. `journal` overrides the
+    folder the rows are filed in, and `validated_at` and `envelope` are carried
+    into the evidence when the caller pins them.
+    """
 
     setup: Path
     fleet: str
@@ -69,7 +93,12 @@ class Sample:
 
 @dataclass(frozen=True)
 class Verdict:
-    ""
+    """What `judge` decided.
+
+    `green` is true only when `why` is empty; `why` holds one line per thing
+    that failed, and `evidence` is the dev-run evidence when every rig was read,
+    else None.
+    """
 
     green: bool
     why: tuple[str, ...]
@@ -78,7 +107,13 @@ class Verdict:
 
 @dataclass
 class _UnitRead:
-    ""
+    """One unit's readings, gathered from its read rows.
+
+    `card` and `peaks` are its card readings over the sample and the load peaks
+    about it, `restarts` its restart counts, `figures` the probe figures that
+    were measured uncontended, `backend` its attention backend, and `alerts` the
+    fields that went over the room it was given.
+    """
 
     card: list[int] = field(default_factory=list)
     peaks: list[int] = field(default_factory=list)
@@ -116,7 +151,14 @@ def _number(value: Any) -> TypeGuard[int | float]:
 
 
 class _Reads:
-    ""
+    """The sample's read rows, filed by rig and by unit.
+
+    Rows come from the journal's `<run id>/<file>.jsonl`, and are kept only when
+    their run id is one of the sample's reads, their fleet is the sample's fleet
+    and their setup is the sample's setup. Rows whose file is `RIG_ROWS` are the
+    rig's, keyed by rig; the rest are a unit's, keyed by unit id. Each list is
+    sorted into the sample's read order, so its last row is the newest read.
+    """
 
     def __init__(self, sample: Sample, journal: Path) -> None:
         order = {run_id: index for index, run_id in enumerate(sample.reads)}
@@ -174,7 +216,12 @@ def _setup(sample: Sample) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def _why_unprobed(rows: Sequence[Mapping[str, Any]], name: str) -> str:
-    ""
+    """Why no read probed the unit, asked of the newest row first.
+
+    A read that failed on the unit gives its own reason, else the work it had in
+    flight, else that it took other work during the probe; a sample whose reads
+    never named the unit at all says so.
+    """
     for row in reversed(rows):
         failed = row.get("failed") or {}
         if name in failed:
@@ -225,7 +272,11 @@ def _ran(
 
 
 def _failed(check: str, ran: Sequence[Outcome], what: str) -> list[str]:
-    ""
+    """One reason per failed outcome of a check, or one saying it never ran.
+
+    Nothing when any of the check's outcomes passed: a check that passed on one
+    rung of the fleet is not a red reason.
+    """
     if not ran:
         return [f"{check}: {what} did not run"]
     if any(one.passed for one in ran):
@@ -306,7 +357,12 @@ def _task_reasons(
 def _rig_block(
     saved: Any, snapshot: Mapping[str, Any], rig_id: object
 ) -> dict[str, Any]:
-    ""
+    """The evidence for one rig.
+
+    Its rig id when the read observed one, the card size from the rig file the
+    scan saved (one `card_mib`, or `cards` by index when the rig has several),
+    and the snapshot the sample's last read of it filed.
+    """
     block: dict[str, Any] = {}
     if isinstance(rig_id, str) and rig_id:
         block["rig_id"] = rig_id
@@ -319,7 +375,17 @@ def _rig_block(
 
 
 def judge(sample: Sample) -> Verdict:
-    ""
+    """Judge the sample: green with no reason left, else red with all of them.
+
+    Each rig of the fleet's layout is held to its rig file, to a read of this
+    fleet and setup among the sample's reads, and to a card reserve in the
+    snapshot; a unit laid out asleep is red because the swap is not built, and
+    every awake unit must have its probe figures, restarts, card and room. Then
+    the use case's task outcomes are read, and the Jev unit's typed choice when
+    the policy names one. The evidence is built only when every rig had both a
+    rig file and a read, and is dated the sample's `validated_at`, else the
+    newest read's moment.
+    """
     from mcgyvr.fleet.probe import ProbeError, journal_dir
     from mcgyvr.serving import rigfile
 

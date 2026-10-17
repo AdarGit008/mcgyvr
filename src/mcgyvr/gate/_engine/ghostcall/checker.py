@@ -1,4 +1,4 @@
-""
+"""Validate parsed call chains by introspecting installed packages."""
 
 import importlib
 import inspect

@@ -1,4 +1,15 @@
-""
+"""Admit live work on the live fleet, or refuse it before any rig is touched.
+
+The live fleet's name comes from the live file and its folder is loaded. The
+units of the config being loaded are checked against that fleet's layout, so a
+unit that would dispatch to a machine the live fleet does not hold is refused.
+The fleet folder's policy is loaded and the layout is checked against its lock
+with no readings at all, so a layout that no longer matches its pin is refused
+before any rig is read. Each rig of the layout is then read through the door
+under one minted run id, the readings the read filed are collected, and
+``admit_live`` turns them into a ``Plan``, returned as an ``Admission`` with the
+door commands that would carry it out.
+"""
 
 from __future__ import annotations
 
@@ -9,13 +20,19 @@ from typing import Any
 from mcgyvr.fleet.admit import LiveRefusedError, Plan, admit_live
 from mcgyvr.fleet.promote import on_a_users_machine
 
-#
+# Runs one rig's read: rig name, run id, and any probe arguments; returns the
+# door's exit code, 0 when the read went through. `read.spawn_read` in practice.
 Reader = Callable[[str, str, Sequence[str]], int]
 
 
 @dataclass(frozen=True)
 class Admission:
-    ""
+    """What live work on the live fleet came to, or what stands in its way.
+
+    `fleet` is the live fleet's name, `plan` is what `admit_live` found between
+    the readings and the locked layout, and `commands` are the door commands
+    that would close that gap.
+    """
 
     fleet: str
     plan: Plan
@@ -23,14 +40,23 @@ class Admission:
 
     @property
     def admitted(self) -> bool:
-        ""
+        """Whether the rigs already read as the locked layout: nothing to clean
+        and nothing to restore."""
         return not self.plan.clean and not self.plan.restore
 
 
 def unapproved(
     units: Mapping[str, Mapping[str, Any]], fleet: Mapping[str, Any], name: str
 ) -> list[str]:
-    ""
+    """Return a line for each unit of `units` the live fleet `name` does not
+    already hold as laid out.
+
+    A unit that names a rig is held when the fleet's layout places it on that
+    rig and the fleet holds it at the same address; otherwise it is reported
+    as `unit (on rig)`. A unit that names no rig is reported only when its
+    address is one a user's machine answers to, as `unit (why)`, with `why`
+    saying why that address is not a public one.
+    """
     layout = fleet["fleets"][name].get("layout") or {}
     held = fleet.get("units") or {}
     placed = {
@@ -59,7 +85,16 @@ def admit(
     *,
     units: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Admission:
-    ""
+    """Admit live work on the live fleet and return what it would change.
+
+    `units` is the loaded config's units, checked against the live fleet's
+    layout; `reader` stands in for `read.spawn_read` so a test can read without
+    a machine. Raises `LiveRefusedError` when no fleet is live, when a unit is
+    not approved for live work, when the fleet folder's policy cannot be read,
+    when the layout does not match its lock, when a rig's read fails or files
+    no reading under the minted run id, or when `admit_live` refuses the
+    readings it was given.
+    """
     from mcgyvr.fleet import read
     from mcgyvr.fleet.probe import ProbeError, folder_policy, journal_dir
     from mcgyvr.fleet.roots import LiveFleetError, live_file, live_fleet
@@ -70,8 +105,8 @@ def admit(
     except LiveFleetError as exc:
         raise LiveRefusedError(str(exc)) from exc
     if named is None:
-        #
-        #
+        # The live file names no fleet, so no rig can be read and nothing is
+        # admitted: name the file and the command that puts a fleet in it.
         raise LiveRefusedError(
             f"no fleet is live: {live_file()} names none (`mcgyvr fleet use`)"
         )
@@ -87,14 +122,14 @@ def admit(
             "machine is not approved for live work yet (a machine is approved "
             "by a read of it)"
         )
-    #
-    #
+    # The fleet folder's policy is what the layout is checked against, so a
+    # policy that cannot be read refuses live instead of reading as empty.
     try:
         policy = folder_policy(fleet.folder)
     except ProbeError as exc:
         raise LiveRefusedError(str(exc)) from exc
-    #
-    #
+    # Admit with no readings at all: that checks the layout against its lock and
+    # policy before any rig is read, and the plan it returns is thrown away.
     admit_live(fleet.folder, fleet.fleet, fleet.name, {}, policy=policy)
 
     spawn = reader if reader is not None else read.spawn_read
@@ -125,7 +160,13 @@ def admit(
 
 
 def door_commands(fleet: Mapping[str, Any], name: str, plan: Plan) -> list[str]:
-    ""
+    """Write the door commands that would carry out `plan` for fleet `name`.
+
+    One line per container of ours that a rig holds but this fleet's layout does
+    not place, saying how to take the rig's compose down and bring `name`'s units
+    back, and one line per unit whose read state is not the state its slot
+    gives, naming the unit and the compose that would start it.
+    """
     from mcgyvr.serving import spec_name
     from mcgyvr.serving.gatelib import DOOR_MODULE
 

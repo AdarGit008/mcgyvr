@@ -1,4 +1,15 @@
-""
+"""Turn one reply's text into the bytes meant for a file, or a named refusal.
+
+A whole-file reply is treated as a file only when the protocol can vouch for it:
+the backend stopped complete, the output schema is one this module implements,
+and the text holds exactly one closed fenced block. Everything else - no fence,
+two blocks because the model offered an alternative, a fence the cap cut off, an
+empty block - becomes a `ReplyError` carrying a code, so a caller can tell the
+causes apart instead of writing a plausible file. Given a target path, a block
+that holds no code for that extension is refused as a refusal rather than a file,
+and a reply that spent its whole cap on hidden reasoning is named as empty.
+`prose` and `media_artifact` replies are the raw text, never a fence hunt.
+"""
 
 from __future__ import annotations
 
@@ -9,37 +20,32 @@ from typing import Any
 
 from mcgyvr.runner import Completion, StopReason
 
-#
-#
+# The output schemas with a parser here. Each names what the reply is taken to be:
+# a whole file, raw prose, or a raw media-artifact request.
 WHOLE_FILE = "whole_file"
 PROSE = "prose"
 MEDIA_ARTIFACT = "media_artifact"
 
-#
-#
-#
-#
+# The JSON field a schema-pinned reply is expected to carry the file text in, and the
+# field assumed when a pinned schema names no single string property. It is also the
+# field of the `{"content": ...}` envelope an unpinned whole-file reply may arrive in,
+# which is unwrapped before its text is judged.
 _ENVELOPE_FIELD = "content"
 
-#
-#s.
-#
-#€”
-#
-#
-# a
-#
-#
+# FENCE_OPEN matches a line that opens a fence: at most three leading spaces, three
+# or more backticks, then an optional info string containing no backtick. The match
+# records the backtick count, which is the width a closing fence must reach, and the
+# info string, whose first word is kept as the language tag. Because closing needs at
+# least as many backticks, a wider outer fence carries an inner one through as content.
 FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([^`]*)$")
 
 
-#
-#
-#
-#
-#
-#er
-#
+# Which comment leader makes a line carry no code, keyed by target extension. Only
+# Python (#) and JavaScript/TypeScript (//) are judged: the same leading character
+# opens a real line of Markdown or Ruby, so an extension missing from this table
+# leaves the refusal gate with no opinion rather than a wrong one. Leaders are
+# matched against a stripped line, which is why JS lists the two-slash leader and
+# not the single slash of a block comment.
 _PY_EXTENSIONS = (".py", ".pyi")
 _JS_EXTENSIONS = (".ts", ".mts", ".cts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 _LINE_COMMENTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
@@ -47,13 +53,14 @@ _LINE_COMMENTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     (_JS_EXTENSIONS, ("//",)),
 )
 
-#
-#
+# A whole-line /* ... */ block comment. Matched across lines and removed before the
+# line-by-line check, so a JS/TS block comment cannot pass for code.
 _BLOCK_COMMENT = re.compile(r"(?m)^[ \t]*/\*.*?\*/[ \t]*$", re.DOTALL)
 
 
 def _leaders(target: str) -> tuple[str, ...] | None:
-    ""
+    """The comment leaders that make a line code-free for `target`, or None when
+    the target's extension is not one this module judges."""
     for extensions, leaders in _LINE_COMMENTS:
         if target.endswith(extensions):
             return leaders
@@ -61,22 +68,21 @@ def _leaders(target: str) -> tuple[str, ...] | None:
 
 
 def _carries_no_code(body: str, target: str) -> bool:
-    ""
+    """Whether `body` holds no code for `target`: either a JSON object or array, or
+    nothing but blank lines and comments. Callers read True as a refusal, so a
+    target whose extension this module does not judge always answers False."""
     leaders = _leaders(target)
     if leaders is None:
         return False
 
-    #
-    #nd
-    #
-    #
-    #
+    # A JSON object or array is a status blob ("what went wrong"), not a file body.
+    # It is tested before the comment scan because such a blob is not comment-led
+    # and would otherwise read as code. Only containers count: a scalar such as 42
+    # or a lone string falls through to the scan, so a docstring-only module parses.
     try:
         blob = json.loads(body)
     except (ValueError, RecursionError):
-        #
-        #er
-        #
+        # Not JSON, so not a data blob; the comment scan below decides.
         blob = None
     if isinstance(blob, dict | list):
         return True
@@ -92,7 +98,8 @@ def _carries_no_code(body: str, target: str) -> bool:
 
 
 def _carried_file(text: str, field: str = _ENVELOPE_FIELD) -> str | None:
-    ""
+    """The text a JSON envelope carries in `field`, or None when `text` is not a
+    JSON object, or that field is missing, blank, or not a string."""
     stripped = text.strip()
     if not stripped.startswith("{"):
         return None
@@ -109,7 +116,8 @@ def _carried_file(text: str, field: str = _ENVELOPE_FIELD) -> str | None:
 
 
 def _schema_field(schema: dict[str, Any]) -> str:
-    ""
+    """The property of a pinned schema that holds the file text: the first
+    required string property, else the only string property, else `content`."""
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         return _ENVELOPE_FIELD
@@ -129,7 +137,8 @@ def _schema_field(schema: dict[str, Any]) -> str:
 
 
 def _is_string_type(spec: dict[str, Any]) -> bool:
-    ""
+    """Whether a schema type spec admits a string: `"string"`, or a type list
+    with `"string"` among its entries."""
     kind = spec.get("type")
     if isinstance(kind, str):
         return kind == "string"
@@ -137,12 +146,15 @@ def _is_string_type(spec: dict[str, Any]) -> bool:
 
 
 def _as_file(content: str) -> str:
-    ""
+    """`content` with a trailing newline added when it does not already end in
+    one."""
     return content if content.endswith("\n") else content + "\n"
 
 
 def _is_close(line: str, width: int) -> bool:
-    ""
+    """Whether `line` closes a fence of `width` backticks: indented by at most
+    three spaces, starting with that many backticks, then only backticks and
+    whitespace."""
     stripped = line.lstrip(" ")
     if len(line) - len(stripped) > 3:
         return False
@@ -153,7 +165,8 @@ def _is_close(line: str, width: int) -> bool:
 
 @dataclass(frozen=True)
 class ParsedFile:
-    ""
+    """One reply the protocol accepted: the bytes to write, plus the fence's
+    language tag."""
 
     content: str
     info_string: str = ""
@@ -167,7 +180,8 @@ class ParsedFile:
 
 @dataclass(frozen=True)
 class ReplyError:
-    ""
+    """One reply the protocol refused, carrying a stable `code` so a caller can
+    tell an ambiguous reply from a truncated one or a refusal."""
 
     code: str
     message: str
@@ -177,7 +191,10 @@ class ReplyError:
 
 
 def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | None:
-    ""
+    """The reason `output_schema` and `stop_reason` alone make a reply unreadable,
+    or None when its text may be parsed. Runs before any text is inspected, so an
+    unsupported schema or an incomplete reply is reported by cause rather than as
+    a malformed block."""
     if output_schema not in (WHOLE_FILE, PROSE, MEDIA_ARTIFACT):
         return ReplyError(
             "unsupported-schema",
@@ -195,7 +212,8 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
 
 
 def empty_at_cap(reply: Completion) -> ReplyError | None:
-    ""
+    """The error for a reply that was truncated with no visible text, meaning the
+    cap went to hidden reasoning, or None for any other reply."""
     if reply.stop_reason is not StopReason.TRUNCATED or reply.text.strip():
         return None
     cap = reply.max_output_tokens
@@ -219,12 +237,15 @@ def empty_at_cap(reply: Completion) -> ReplyError | None:
 
 
 def _prose(text: str) -> str:
-    ""
+    """`text` with CRLF and lone CR newlines normalised to LF, and nothing else
+    changed."""
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _refusal(target: str) -> ReplyError:
-    ""
+    """The error for a block that carries no code for `target`: a refusal dressed
+    as file content, which has to escalate rather than be retried on this
+    rung."""
     return ReplyError(
         "refusal",
         f"the reply's fenced block carries no code â€” it is a refusal "
@@ -236,7 +257,13 @@ def _refusal(target: str) -> ReplyError:
 def _fenced(
     text: str, *, output_schema: str, stop_reason: StopReason
 ) -> ParsedFile | ReplyError:
-    ""
+    """Parse `text` as exactly one fenced block and return its body.
+
+    The schema and stop-reason gate runs first, then every fence in the text is
+    collected: no block, more than one, one left unclosed, or an empty body is a
+    named error. The chosen block's lines are joined with LF and closed with one
+    newline, and the info string's first word is kept beside the content.
+    """
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
@@ -288,9 +315,9 @@ def _fenced(
             "empty-block",
             "the reply's fenced block is empty, which is not a file",
         )
-    # a
-    #
-    #
+    # The body is written as a file: the block's own lines joined with LF and
+    # closed with one newline. The width test already settled which fence closed
+    # this block, so the body is taken as-is rather than re-scanned for fences.
     return ParsedFile(content=content + "\n", info_string=info)
 
 
@@ -301,7 +328,13 @@ def parse_reply(
     stop_reason: StopReason = StopReason.COMPLETE,
     target: str | None = None,
 ) -> ParsedFile | ReplyError:
-    ""
+    """Parse a reply into the text to write, or a ReplyError saying why not.
+
+    `prose` and `media_artifact` are the raw text. A whole-file reply must be one
+    closed fenced block, which an unpinned reply may itself wrap a JSON envelope
+    around. With no `target`, nothing is judged about the content; with one, a
+    block that carries no code for that extension is refused as a refusal.
+    """
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
@@ -310,16 +343,16 @@ def parse_reply(
     parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
     if isinstance(parsed, ReplyError):
         if parsed.code == "no-fenced-block" and target is None:
-            # a
-            #
-            #
-            #
+            # A reply with no fence may still be a JSON {content: ...} envelope,
+            # and with no target there is nothing to judge it against, so the
+            # envelope's field is taken. A reply without the envelope keeps the
+            # no-fenced-block error.
             carried = _carried_file(text)
             if carried is not None:
                 return ParsedFile(content=_as_file(carried))
         return parsed
     if target is None:
-        #
+        # No target, so no content judgement: the block may itself be the envelope.
         carried = _carried_file(parsed.content)
         if carried is not None:
             return ParsedFile(content=_as_file(carried), info_string=parsed.info_string)
@@ -337,7 +370,14 @@ def parse_pinned(
     stop_reason: StopReason = StopReason.COMPLETE,
     target: str | None = None,
 ) -> ParsedFile | ReplyError:
-    ""
+    """Parse a reply whose request pinned a response schema.
+
+    The file text is read from the schema's string field, falling back to a single
+    fenced block when the text is not that envelope. A block that cannot be the
+    file on its own terms (no target, or no code for the target) is unwrapped once
+    more in case the block itself is the envelope. `prose` and `media_artifact`
+    stay raw text, and no schema at all means `parse_reply`.
+    """
     if response_schema is None:
         return parse_reply(
             text, output_schema=output_schema, stop_reason=stop_reason, target=target
@@ -347,32 +387,21 @@ def parse_pinned(
     if unreadable is not None:
         return unreadable
     if output_schema in (PROSE, MEDIA_ARTIFACT):
-        #
-        #
-        #re
-        #
+        # prose and media_artifact are the raw text even under a pinned schema: the
+        # gate above already refused an incomplete reply, and a fence hunt here
+        # would return an incidental fenced snippet as the answer.
         return ParsedFile(content=_prose(text))
 
     field = _schema_field(response_schema)
     info = ""
     carried = _carried_file(text, field)
     if carried is None:
-        #
-        #so
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
+        # Not the envelope at the top level, so the reply may be a plain fenced block,
+        # or a fenced block whose body is the envelope. Either way the fence rules
+        # still hold, so _fenced parses it and a malformed reply keeps its named error.
+        # The block's text is then unwrapped from the field, but only where the block
+        # cannot be the file itself: no target to judge it against, or content that
+        # carries no code for the target.
         parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
         if isinstance(parsed, ReplyError):
             return parsed

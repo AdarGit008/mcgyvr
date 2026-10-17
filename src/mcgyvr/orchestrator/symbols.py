@@ -1,4 +1,10 @@
-""
+"""Extract definitions, references, exports and imports from source files.
+
+Python files are parsed with :mod:`ast`; JavaScript, TypeScript and TSX files
+are parsed with the bundled tree-sitter grammars. Every extracted item is
+returned as a :class:`Symbol` carrying its :class:`SymbolKind` and the file
+path plus 1-based line where it was found.
+"""
 
 from __future__ import annotations
 
@@ -13,15 +19,15 @@ from tree_sitter_javascript import language as _js_language
 from tree_sitter_typescript import language_tsx as _tsx_language
 from tree_sitter_typescript import language_typescript as _ts_language
 
-#nd
-#
+# nd
+# One tree-sitter grammar per language distribution, built once at import time.
 _JS = Language(_js_language())
 _TS = Language(_ts_language())
 _TSX = Language(_tsx_language())
 
-#ch
-#
-#
+# ch
+# Suffix tuples are grouped per language because str.endswith() takes a tuple;
+# they drive the extension-to-language dispatch in language_of().
 _PYTHON_EXTENSIONS = (".py", ".pyi")
 _TSX_EXTENSIONS = (".tsx",)
 _TS_EXTENSIONS = (".ts", ".mts", ".cts")
@@ -29,7 +35,8 @@ _JS_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs")
 
 
 class SymbolKind(StrEnum):
-    ""
+    """What a :class:`Symbol` represents: a definition site, a call site, an
+    export site, or an import site."""
 
     DEFINITION = "definition"
     REFERENCE = "reference"
@@ -39,7 +46,13 @@ class SymbolKind(StrEnum):
 
 @dataclass(frozen=True)
 class Symbol:
-    ""
+    """One symbol occurrence.
+
+    ``line`` is 1-based. ``detail`` holds a kind-specific label (``"function"``,
+    ``"method"``, ``"class"`` for definitions; the module path for imports) and
+    ``signature`` holds the source text of the declaration header or, for
+    imports, the whole unparsed statement.
+    """
 
     name: str
     kind: SymbolKind
@@ -50,7 +63,7 @@ class Symbol:
 
 
 def language_of(path: str) -> str | None:
-    ""
+    """Return ``"python"`` or ``"js/ts"`` from the file extension, else None."""
     if path.endswith(_PYTHON_EXTENSIONS):
         return "python"
     if path.endswith(_TSX_EXTENSIONS + _TS_EXTENSIONS + _JS_EXTENSIONS):
@@ -59,7 +72,10 @@ def language_of(path: str) -> str | None:
 
 
 def extract(path: str, source: bytes) -> list[Symbol]:
-    ""
+    """Extract the symbols of ``source``, dispatching on :func:`language_of`.
+
+    Files with an unrecognised extension yield an empty list.
+    """
     language = language_of(path)
     if language == "python":
         return _python_symbols(path, source)
@@ -68,16 +84,16 @@ def extract(path: str, source: bytes) -> list[Symbol]:
     return []
 
 
-#
+# Python extraction, built on the standard library AST.
 
 
 def _python_symbols(path: str, source: bytes) -> list[Symbol]:
     try:
         tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
     except (SyntaxError, ValueError):
-        #
-        #
-        #
+        # Undecodable bytes already became lone surrogates above, so this is a
+        # real syntax error (or a ValueError such as embedded null bytes): the
+        # file is skipped rather than aborting the whole scan.
         return []
     collector = _PythonCollector(path)
     collector.visit(tree)
@@ -86,7 +102,7 @@ def _python_symbols(path: str, source: bytes) -> list[Symbol]:
 
 
 class _PythonCollector(ast.NodeVisitor):
-    ""
+    """Collect :class:`Symbol` records while walking a Python module."""
 
     def __init__(self, path: str) -> None:
         self.path = path
@@ -139,14 +155,18 @@ class _PythonCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import) -> None:
-        ""
+        """Record one IMPORT symbol per alias of a plain ``import`` statement."""
         statement = ast.unparse(node)
         for alias in node.names:
             self._add(alias.name, SymbolKind.IMPORT, node.lineno, alias.name, statement)
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        ""
+        """Record one IMPORT symbol per alias of a ``from ... import ...``.
+
+        The detail is the module path rebuilt from ``node.level`` dots and
+        ``node.module``, so relative imports keep their leading dots.
+        """
         module = "." * node.level + (node.module or "")
         statement = ast.unparse(node)
         for alias in node.names:
@@ -154,7 +174,12 @@ class _PythonCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def collect_exports(self, tree: ast.Module) -> None:
-        ""
+        """Record EXPORT symbols for the module's public surface.
+
+        Declared names from ``__all__`` are used when present, otherwise the
+        module-level definitions that do not start with an underscore. A name
+        with no known definition line defaults to line 1.
+        """
         definitions = _module_level_definitions(tree)
         declared = _dunder_all(tree)
         names = (
@@ -169,7 +194,12 @@ class _PythonCollector(ast.NodeVisitor):
 def _python_signature(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
 ) -> str:
-    ""
+    """Render a definition header as source text, without its body.
+
+    A shallow copy of ``node`` is unparsed with the body replaced by the
+    docstring (kept verbatim) or ``...``, which drops nested code while
+    preserving decorators, name, parameters and return annotation.
+    """
     docstring = ast.get_docstring(node, clean=False)
     body: ast.expr = (
         ast.Constant(docstring) if docstring is not None else ast.Constant(Ellipsis)
@@ -180,7 +210,8 @@ def _python_signature(
 
 
 def _called_name(func: ast.expr) -> str | None:
-    ""
+    """Return the name a call refers to: ``f()`` gives ``"f"``, ``a.b()`` gives
+    ``"b"``; any other callee expression gives None."""
     if isinstance(func, ast.Name):
         return func.id
     if isinstance(func, ast.Attribute):
@@ -189,7 +220,8 @@ def _called_name(func: ast.expr) -> str | None:
 
 
 def _module_level_definitions(tree: ast.Module) -> dict[str, int]:
-    ""
+    """Map module-level function names, class names and simple assignment
+    targets to their line numbers, keeping the first binding seen."""
     lines: dict[str, int] = {}
     for node in tree.body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
@@ -202,7 +234,11 @@ def _module_level_definitions(tree: ast.Module) -> dict[str, int]:
 
 
 def _dunder_all(tree: ast.Module) -> list[str] | None:
-    ""
+    """Return the string elements of a module-level ``__all__`` list or tuple.
+
+    Returns None when the module assigns ``__all__`` to something else or does
+    not define it at all.
+    """
     for node in tree.body:
         if not isinstance(node, ast.Assign):
             continue
@@ -217,7 +253,7 @@ def _dunder_all(tree: ast.Module) -> list[str] | None:
     return None
 
 
-#
+# JavaScript/TypeScript extraction, built on tree-sitter.
 
 
 def _grammar_for(path: str) -> Language:
@@ -274,7 +310,10 @@ def _js_definition(path: str, node: Node) -> Symbol | None:
 
 
 def _js_declarator_definition(path: str, node: Node) -> Symbol | None:
-    ""
+    """Record a DEFINITION for ``const f = () => ...`` / ``= function () {}``.
+
+    Declarators holding any other kind of value are ignored.
+    """
     value = node.child_by_field_name("value")
     if value is None or value.type not in ("arrow_function", "function_expression"):
         return None
@@ -292,7 +331,11 @@ def _js_declarator_definition(path: str, node: Node) -> Symbol | None:
 
 
 def _declaration_keyword(declarator: Node) -> str:
-    ""
+    """Return the declaring keyword of a declarator, e.g. ``"const "``.
+
+    An empty string is returned when the parent is not a lexical or variable
+    declaration or the first child is not ``const``/``let``/``var``.
+    """
     parent = declarator.parent
     if parent is None or parent.type not in (
         "lexical_declaration",
@@ -306,7 +349,12 @@ def _declaration_keyword(declarator: Node) -> str:
 
 
 def _js_exports(path: str, node: Node) -> list[Symbol]:
-    ""
+    """Collect the EXPORT symbols of one ``export`` statement.
+
+    A ``default`` keyword yields an EXPORT named ``"default"``; every exported
+    specifier, definition or declarator inside the statement yields one EXPORT
+    per name, each at its own line.
+    """
     exports: list[Symbol] = []
     line = _line(node)
     if _has_child(node, "default"):
@@ -324,7 +372,13 @@ def _js_exports(path: str, node: Node) -> list[Symbol]:
 
 
 def _js_imports(path: str, node: Node) -> list[Symbol]:
-    ""
+    """Collect the IMPORT symbols of one ``import`` statement.
+
+    Named specifiers, namespace imports and default imports each become one
+    symbol; the module string is stored as the detail and the statement text as
+    the signature. A side-effect import (``import "mod"``) contributes a single
+    symbol named after the module.
+    """
     module = _import_source(node)
     statement = _node_text(node) or ""
     names: list[tuple[str, int]] = []
@@ -338,8 +392,9 @@ def _js_imports(path: str, node: Node) -> list[Symbol]:
             if local is not None:
                 names.append((local, _line(descendant)))
         elif descendant.type == "import_clause":
-            #
-            #
+            # A default import is a bare identifier directly inside the import
+            # clause, so it is picked up here rather than by the specifier or
+            # namespace branches above.
             for child in descendant.children:
                 if child.type == "identifier":
                     text = _node_text(child)
@@ -354,7 +409,7 @@ def _js_imports(path: str, node: Node) -> list[Symbol]:
 
 
 def _import_source(node: Node) -> str:
-    ""
+    """Return the module string of an import node, or ``""`` if it has none."""
     source = node.child_by_field_name("source")
     if source is None:
         return ""
@@ -365,7 +420,8 @@ def _import_source(node: Node) -> str:
 
 
 def _last_identifier(node: Node) -> str | None:
-    ""
+    """Return the text of the last identifier child, i.e. the local binding
+    introduced by a namespace import (``* as ns``)."""
     for child in reversed(node.children):
         if child.type == "identifier":
             return _node_text(child)
@@ -373,7 +429,11 @@ def _last_identifier(node: Node) -> str | None:
 
 
 def _js_signature(node: Node, body_owner: Node | None = None) -> str:
-    ""
+    """Return the declaration header of ``node`` as decoded source text.
+
+    The text is cut at the body of ``body_owner`` (defaulting to ``node``) and
+    trailing whitespace is stripped, so the body is excluded.
+    """
     owner = body_owner if body_owner is not None else node
     text = node.text
     if text is None:
@@ -385,7 +445,11 @@ def _js_signature(node: Node, body_owner: Node | None = None) -> str:
 
 
 def _js_reference(path: str, node: Node) -> Symbol | None:
-    ""
+    """Record a REFERENCE for a call expression's callee.
+
+    The callee is named by its identifier (``f(...)``) or, for member calls, by
+    its property (``a.b(...)`` gives ``"b"``); other callee shapes are skipped.
+    """
     callee = node.child_by_field_name("function")
     if callee is None:
         return None
@@ -401,7 +465,11 @@ def _js_reference(path: str, node: Node) -> Symbol | None:
 
 
 def _walk(root: Node) -> Iterator[Node]:
-    ""
+    """Yield ``root`` and all its descendants depth-first.
+
+    An explicit stack is used instead of recursion so deep trees cannot hit the
+    interpreter's recursion limit.
+    """
     stack = [root]
     while stack:
         node = stack.pop()

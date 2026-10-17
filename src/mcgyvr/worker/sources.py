@@ -1,4 +1,16 @@
-""
+"""The files a contract names as `sources`, read out of the workspace and handed
+to a worker as text.
+
+`read_sources` returns the content of each named source in the order the contract
+states them, and it reads under the rules every read of the tree for a worker
+follows: a path must stay inside the workspace (no absolute path, no `.git`
+entry, no symlink crossing, no climb out of the root), no file on the way to it
+may be one `holds_a_secret` recognizes, and it must be a text file the run's base
+tree still has and that the orchestrator will read at its size. A source that
+fails any of these raises `SourceError` naming the source and saying nothing was
+sent, so the attempt is refused before a token is spent — a single unreadable
+source does not silently vanish from the prompt.
+"""
 
 from __future__ import annotations
 
@@ -11,11 +23,19 @@ from mcgyvr.scope import OutsideTreeError, inside
 
 
 class SourceError(Exception):
-    ""
+    """A source the contract named cannot be given to the worker as text, so no
+    prompt is sent. The message names the source by its position in the contract
+    and its relative path, says why it was refused, and ends by stating that
+    nothing was sent."""
 
 
 def read_sources(workspace: Path, sources: Sequence[str]) -> tuple[str, ...]:
-    ""
+    """The content of each source in `sources`, in the order they were named.
+
+    The result lines up with `sources` by position, so the index of each is what
+    `SourceError` reports. The first source that cannot be read raises, before
+    any content is returned; `_read` holds the rules a read follows.
+    """
     return tuple(_read(workspace, index, rel) for index, rel in enumerate(sources))
 
 

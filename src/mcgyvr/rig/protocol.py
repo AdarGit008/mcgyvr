@@ -1,4 +1,16 @@
-""
+"""The rig agent's half of the hub's agent protocol, version 1.
+
+A frame is one JSON object, one websocket text frame: ``v``, ``type``, ``id``,
+an optional ``re`` naming the message this one answers, and a ``body``. The
+limits, name shapes and close and error codes below are the ones the hub's
+published schema holds, and the builders here write the frames an agent sends
+(``hello``, ``heartbeat``, ``error``) while ``decode`` and the readers take the
+frames it receives.
+
+A builder checks its arguments and raises ``ValueError`` naming the field at
+fault rather than write a frame the hub would refuse, and a reader raises
+``ProtocolError`` carrying the code to answer with.
+"""
 
 from __future__ import annotations
 
@@ -10,60 +22,74 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-#
+# The version this agent writes in ``v`` and the only one it reads: another
+# number is refused as ``unsupported_version``.
 PROTOCOL_VERSION = 1
-#
+# Largest frame, in bytes of UTF-8, that this agent reads or writes.
 MAX_MESSAGE_BYTES = 64 * 1024
-#
-#
+# Frames per second one agent may send over its channel.
+# The agent paces itself at half this, so it stays well inside the limit.
 MAX_FRAMES_PER_SECOND = 100
-#
+# Most cards one hello or one heartbeat may report.
 MAX_CARDS = 16
-#
+# Highest card index a report may name; indexes start at 0 and no card may be
+# reported twice in one frame.
 MAX_CARD_INDEX = 63
-#
+# Longest card name, in characters, a report may carry.
 CARD_NAME_MAX = 128
-#
+# Upper bound on any RAM or VRAM figure in a frame, counted in MiB.
 MAX_MB = 1 << 30
-#
+# Longest error text, in characters: a longer one is cut to this before it is
+# sent, and a received one longer than this is refused.
 MAX_ERROR_TEXT = 500
-#
+# The seconds a hub may set as the heartbeat interval in an ack.
 HEARTBEAT_INTERVAL_S = (1, 3600)
-#
+# Most models a hello may name.
 MAX_MODELS = 64
-#
+# Most live session ids a hello may list.
 MAX_SESSIONS_REPORTED = 4
-#
+# Upper bound on a model file's size, and on the bytes one of its tensors takes.
 MAX_MODEL_BYTES = 1 << 50
-#
-#
+# Upper bound on a model's layer count.
+# Upper bound on a model's context length and on its embedding and head counts.
 MAX_LAYERS = 4096
 MAX_COUNT = 1 << 20
-#
+# Upper bound on the key and value cache a model spends per token.
 MAX_KV_BYTES_PER_TOKEN = 1 << 30
 
-#
+# The shapes the envelope's own fields take: message ids, type tags (which also
+# serve as error codes, endpoint kinds and feature names), machine ids and
+# agent versions.
 MESSAGE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 TAG = re.compile(r"[a-z][a-z0-9_]{0,63}")
 MACHINE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 AGENT_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}")
-#
-#
-#
+# A card name is text a hub may show, so it excludes control characters,
+# C1 controls, the bidi embedding and override marks and the bidi isolates: a
+# name from a driver cannot reorder or hide what a hub draws around it.
 CARD_NAME = re.compile("[^\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]+")
 
 
 class CloseCode(enum.IntEnum):
-    ""
+    """The codes a hub closes the channel with, as the wire spells them.
 
-    POLICY = 1008  #
-    REVOKED = 4001  #
-    TIMEOUT = 4008  #
-    SUPERSEDED = 4009  #
+    The values are the hub's: 1008 is the websocket's own policy violation, and
+    4001 onwards are the hub's own reasons.
+    """
+
+    POLICY = 1008  # the channel broke the websocket's rules, e.g. too many frames
+    REVOKED = 4001  # the hub revoked this rig's token
+    TIMEOUT = 4008  # this agent's heartbeats stopped reaching the hub
+    SUPERSEDED = 4009  # another agent took this rig over with the same token
 
 
 class ErrorCode(enum.StrEnum):
-    ""
+    """The error codes this agent and the hub send in an ``error`` frame.
+
+    A reader accepts any type tag as a code, so this is what the two sides name
+    rather than the whole set a hub may send; the agent stops on the refusals
+    it cannot retry and keeps retrying after the rest.
+    """
 
     BAD_MESSAGE = "bad_message"
     UNSUPPORTED_VERSION = "unsupported_version"
@@ -77,7 +103,12 @@ class ErrorCode(enum.StrEnum):
 
 
 class ProtocolError(Exception):
-    ""
+    """A frame that broke the protocol, said in the terms an error frame uses.
+
+    ``code`` is the code to answer with, ``message`` the text to show, cut to
+    ``MAX_ERROR_TEXT`` characters, and ``re`` the id of the message at fault,
+    left None when the frame was too broken to name one.
+    """
 
     def __init__(self, code: str, message: str, re: str | None = None) -> None:
         super().__init__(message)
@@ -88,7 +119,11 @@ class ProtocolError(Exception):
 
 @dataclass(frozen=True, kw_only=True)
 class Envelope:
-    ""
+    """One frame as it arrived: its type tag, its id, the id it answers, its body.
+
+    ``body`` is the JSON object as decoded, with nothing checked in it; the
+    reader for the envelope's type checks the fields it needs.
+    """
 
     type: str
     id: str
@@ -98,7 +133,12 @@ class Envelope:
 
 @dataclass(frozen=True, kw_only=True)
 class Ack:
-    ""
+    """A hub's answer to a hello or a heartbeat.
+
+    ``rig_id`` is the rig the hub bound this agent to and
+    ``heartbeat_interval_s`` how often it wants heartbeats from now on; the
+    hub may leave either out, and then the agent keeps what it had.
+    """
 
     re: str
     rig_id: str | None
@@ -107,7 +147,7 @@ class Ack:
 
 @dataclass(frozen=True, kw_only=True)
 class Error:
-    ""
+    """An ``error`` frame's body: the code, the text to show, and what it answers."""
 
     re: str | None
     code: str
@@ -116,7 +156,7 @@ class Error:
 
 @dataclass(frozen=True, kw_only=True)
 class CardReport:
-    ""
+    """One card as a hello reports it: its index, its name and its VRAM in MiB."""
 
     index: int
     name: str
@@ -126,7 +166,15 @@ class CardReport:
 
 @dataclass(frozen=True, kw_only=True)
 class ModelInfo:
-    ""
+    """A model file a hello offers, with what planning needs from its header.
+
+    ``size_bytes`` is the file's size and ``digest`` its sha256, when the agent
+    has one. The rest come from the file's header: the architecture, the layer
+    and training context counts, the embedding and head counts, the key and
+    value cache one token costs, and the bytes the token embedding and output
+    tensors take. A field the header does not give is None and goes unspoken on
+    the wire.
+    """
 
     name: str
     size_bytes: int
@@ -138,20 +186,27 @@ class ModelInfo:
     n_head: int | None = None
     n_head_kv: int | None = None
     kv_bytes_per_token: int | None = None
-    #
-    #
-    #
+    # The bytes the token embedding tensor and the output tensor take. A model
+    # whose output tensor is tied to its embedding has no output tensor of its
+    # own and carries 0 here, while a header that names neither leaves both None.
     embd_bytes: int | None = None
     output_bytes: int | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
 class Offer:
-    ""
+    """What an agent can do with its rig, as a hello advertises it.
+
+    ``roles`` are the ones it takes: ``head`` serves a session's model and
+    ``worker`` lends hardware to one. ``runtime`` names the inference runtime
+    and ``features`` the behaviours the agent speaks, while ``endpoints`` are
+    candidate addresses peers may reach the rig's tunnel on, ``models`` the
+    files it can serve, and ``sessions`` the ids of the sessions it is in now.
+    """
 
     roles: tuple[str, ...]
     runtime: str | None
-    endpoints: tuple[tuple[str, int, str], ...]  #
+    endpoints: tuple[tuple[str, int, str], ...]  # (host, port, kind) of one candidate
     models: tuple[ModelInfo, ...]
     sessions: tuple[str, ...]
     features: tuple[str, ...] = ()
@@ -159,14 +214,14 @@ class Offer:
 
 @dataclass(frozen=True, kw_only=True)
 class CardReading:
-    ""
+    """One card in a heartbeat: its index and the VRAM it has free, in MiB."""
 
     index: int
     vram_free_mb: int
 
 
 def new_id() -> str:
-    ""
+    """A fresh message id: 32 hex digits, which ``MESSAGE_ID`` allows."""
     return uuid.uuid4().hex
 
 
@@ -179,7 +234,15 @@ def _refuse_constant(name: str) -> Any:
 
 
 def decode(raw: str | bytes) -> Envelope:
-    ""
+    """Read one frame into an ``Envelope``, refusing what is not of the wire.
+
+    ``raw`` may be text or UTF-8 bytes, and either way it must be one JSON
+    object of at most ``MAX_MESSAGE_BYTES`` with this version, a type tag, a
+    valid message id and, when it has one, a ``re`` naming a message id. A
+    frame without a body reads as an empty one, and NaN or Infinity is refused
+    as not JSON. Every refusal is a ``ProtocolError``, naming the frame's id as
+    the message to answer whenever that id was readable.
+    """
     if len(raw) > MAX_MESSAGE_BYTES:
         raise ProtocolError(ErrorCode.BAD_MESSAGE, "message too large")
     try:
@@ -217,7 +280,12 @@ def decode(raw: str | bytes) -> Envelope:
 
 
 def read_ack(envelope: Envelope) -> Ack:
-    ""
+    """Read an ack's body: the rig id and the beat interval the hub set.
+
+    The frame must answer a message, so ``re`` cannot be missing.
+    ``rig_id`` and ``heartbeat_interval_s`` may be left out, and an interval
+    must be a whole number of seconds within ``HEARTBEAT_INTERVAL_S``.
+    """
     if envelope.re is None:
         raise ProtocolError(
             ErrorCode.BAD_MESSAGE, "re: an ack answers a message", envelope.id
@@ -239,7 +307,12 @@ def read_ack(envelope: Envelope) -> Ack:
 
 
 def read_error(envelope: Envelope) -> Error:
-    ""
+    """Read an error frame's body: its code and the text to show.
+
+    The code must be a type tag and the message, when it gives one, text of at
+    most ``MAX_ERROR_TEXT`` characters; an error may answer a message or come
+    on its own, so ``re`` is passed through as it stands.
+    """
     code = envelope.body.get("code")
     if not isinstance(code, str) or not TAG.fullmatch(code):
         raise ProtocolError(
@@ -255,7 +328,8 @@ def read_error(envelope: Envelope) -> Error:
     return Error(re=envelope.re, code=code, message=message)
 
 
-#
+# What the builders share: a check that raises ValueError naming the field at
+# fault, and the checks for the bounded values a hello and a heartbeat carry.
 
 
 def _need(ok: bool, why: str) -> None:
@@ -303,17 +377,18 @@ def _bounded(value: int | None, low: int, high: int, field: str) -> None:
     )
 
 
-#
+# The shapes of what an offer names: model names, digests, architectures,
+# runtimes and endpoint hosts, at the patterns the hub's schema holds.
 MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 SHORT_TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}")
 RUNTIME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}")
 ENDPOINT_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.:-]{0,252}")
-#
+# The roles an agent may offer, and the most it may offer at once.
 ROLES = ("head", "worker")
-#
+# Most endpoints one offer may name.
 MAX_ENDPOINTS = 8
-#
+# Most features one offer may name.
 MAX_FEATURES = 16
 
 
@@ -415,7 +490,15 @@ def hello(
     cards: Sequence[CardReport],
     offer: Offer | None = None,
 ) -> str:
-    ""
+    """A ``hello`` frame: what this machine is, and what it offers.
+
+    ``machine_id`` and ``agent_version`` name the machine and the agent build,
+    ``ram_total_mb`` and ``ram_free_mb`` are MiB of memory, and ``cards`` are
+    the cards with their names and their VRAM in MiB. An ``offer`` adds the
+    capabilities, endpoints, models and sessions the rig brings; left out, the
+    frame says nothing about them. Free RAM is left out when it is None, and a
+    card with more free VRAM than it has in total is refused.
+    """
     _need(bool(MACHINE_ID.fullmatch(machine_id)), "machine_id: not a machine id")
     _need(bool(AGENT_VERSION.fullmatch(agent_version)), "agent_version: not a version")
     _megabytes(ram_total_mb, "ram_total_mb")
@@ -459,7 +542,11 @@ def hello(
 def heartbeat(
     message_id: str, *, ram_free_mb: int | None, cards: Sequence[CardReading]
 ) -> str:
-    ""
+    """A ``heartbeat`` frame: how much memory and VRAM is free right now.
+
+    Free RAM is left out when it is None, and each card carries only its index
+    and its free MiB.
+    """
     if ram_free_mb is not None:
         _megabytes(ram_free_mb, "ram_free_mb")
     _cards(cards)
@@ -476,7 +563,11 @@ def heartbeat(
 
 
 def error(message_id: str, *, code: str, message: str, re: str | None) -> str:
-    ""
+    """An ``error`` frame: a type tag for the code, the text to show, what it answers.
+
+    The text is cut to ``MAX_ERROR_TEXT`` characters, and ``re`` is None when
+    the error answers nothing in particular.
+    """
     _need(bool(TAG.fullmatch(code)), "code: not an error code")
     return _frame(
         "error", message_id, {"code": code, "message": message[:MAX_ERROR_TEXT]}, re

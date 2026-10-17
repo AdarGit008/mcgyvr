@@ -1,4 +1,11 @@
-""
+"""Identity strings for machines, rigs and combos.
+
+An id is an identity prefix such as ``rig-`` followed by the SHA-256 hex digest
+of a canonical YAML dump of the fields that identify the thing, so the same
+fields always yield the same id and different fields never collide by prose.
+Prefixes not in :data:`IDENTITY_PREFIXES` are refused rather than hashed: the
+retired kinds and any unknown kind raise :class:`ValueError`.
+"""
 
 from __future__ import annotations
 
@@ -16,14 +23,24 @@ _RETIRED_PREFIXES = frozenset({"msp-", "rsh-", "fsh-", "cfg-", "flt-", "mch-"})
 
 
 class _CanonicalDumper(yaml.SafeDumper):
-    ""
+    """Safe dumper that never writes anchors or aliases.
+
+    Repeating the same object in the dumped fields therefore produces the same
+    text as separate but equal objects, which is what keeps the digest
+    dependent on the values alone.
+    """
 
     def ignore_aliases(self, data: object) -> bool:
         return True
 
 
 def _plain(value: Any) -> Any:
-    ""
+    """Copy a value into plain containers the dumper writes identically.
+
+    Mappings become dicts keyed by ``str(key)``, non-text sequences become
+    lists, and :class:`~pathlib.Path` values become strings; anything else is
+    returned as it is.
+    """
     if isinstance(value, Mapping):
         return {str(k): _plain(v) for k, v in value.items()}
     if isinstance(value, Sequence) and not isinstance(value, str | bytes):
@@ -34,7 +51,11 @@ def _plain(value: Any) -> Any:
 
 
 def _canonical_dump(fields: Any) -> str:
-    ""
+    """Dump fields as YAML in one fixed shape.
+
+    Keys are sorted, collections are block style, unicode is written as itself
+    and the line width is effectively unbounded, so no field is ever wrapped.
+    """
     return yaml.dump(
         _plain(fields),
         Dumper=_CanonicalDumper,
@@ -46,7 +67,13 @@ def _canonical_dump(fields: Any) -> str:
 
 
 def digest(prefix: str, fields: dict[str, Any]) -> str:
-    ""
+    """Return the identity string for fields under the given prefix.
+
+    The canonical UTF-8 YAML dump of fields is hashed with SHA-256 and its hex
+    digest is appended to prefix. A prefix that is not one of
+    :data:`IDENTITY_PREFIXES` raises :class:`ValueError`, naming it as retired
+    or unknown and listing the live identity kinds.
+    """
     if prefix not in IDENTITY_PREFIXES:
         kind = "retired" if prefix in _RETIRED_PREFIXES else "unknown"
         raise ValueError(
@@ -57,11 +84,13 @@ def digest(prefix: str, fields: dict[str, Any]) -> str:
     return prefix + hashlib.sha256(raw).hexdigest()
 
 
-#
+# Longest reason quoted back from the reader, in characters, and a field path
+# naming one whole card such as card.nvidia.0 rather than one of its attributes.
 _WHY_MAX = 300
 _CARD_WHOLE = re.compile(r"card\.[^.]+\.[0-9]+", re.ASCII)
 
-#
+# Remedy reported for each refused field: what was not read, and what would let
+# the machine be read again.
 _REMEDY_MACHINE_ID = (
     "no machine id was read: the machine needs a machine-id file or a host name "
     "the reader can read"
@@ -94,7 +123,16 @@ def _listed(value: object) -> list[Any]:
 
 
 def _policy(reading: Mapping[str, Any]) -> tuple[list[tuple[str, str]], list[Any]]:
-    ""
+    """Decide which fields of a reading can be hashed into a rig id.
+
+    A field is refused, paired with its remedy, when the machine id is not a
+    machine id or was not read, when a card's name has a problem or was not
+    read, when a card's size was not read or is not a whole number of MiB, when
+    the list of cards may be short, and when an unread field names a card or the
+    reading as a whole. Cards whose vendor source publishes no size at all are
+    neither refused nor kept; the second return value holds the cards that were
+    kept, in the order the reading lists them.
+    """
     from mcgyvr.serving import rigscan
 
     found: list[tuple[str, str]] = []
@@ -131,11 +169,17 @@ def _policy(reading: Mapping[str, Any]) -> tuple[list[tuple[str, str]], list[Any
 
 
 def rig_id(reading: Mapping[str, Any]) -> str:
-    ""
+    """Return the ``rig-`` id of a reading, or refuse to make one.
+
+    If :func:`_policy` refuses any field, the reading is not hashed at all and
+    :class:`ValueError` is raised naming each refused field with the reader's
+    reason for it, when the reading gives one, and its remedy. Otherwise the
+    id is the digest of the machine id and the cards' names and sizes, with the
+    cards sorted by normalized name and size and the names normalized to NFC.
+    """
     refused, cards = _policy(reading)
     if refused:
-        #
-        #
+        # Flatten each field's reason to printable text, keep the first one, clip it.
         why: dict[str, str] = {}
         for item in _listed(reading.get("unread")):
             if isinstance(item, Mapping):
@@ -143,6 +187,7 @@ def rig_id(reading: Mapping[str, Any]) -> str:
                     c if c.isprintable() else " " for c in str(item.get("why"))
                 )
                 why.setdefault(str(item.get("field")), said.strip()[:_WHY_MAX])
+        # Name each refused field with its reason when given, then its remedy.
         said = "; ".join(
             f"{field} ({why[field]}; {remedy})"
             if field in why

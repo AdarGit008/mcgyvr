@@ -1,4 +1,21 @@
-""
+"""The schema of the model knowledge document: every number says where it came from.
+
+A document is an object with a `schema_version` and a `models` list, plus an
+optional `_purpose` note; each entry of `models` is one model at one
+quantisation, so the pair `(model_id, quant)` is its identity. A record holds
+`engines` that can serve it, `weights` naming one file at one revision when the
+record is about a downloadable file, four whole-number fields (`size_bytes`,
+`context_length`, `kv_bytes_per_token`, `recurrent_bytes_per_slot`) and the
+`scores` filed under the boards in `BOARDS`. Every number is a `Number`: a
+value, a kind from `KINDS`, a source written `<origin>:<where>` whose origin is
+one of `SOURCES`, and the day it was read.
+
+`parse_document` reads such a document and `parse_record` one entry of it; both
+refuse a key the record does not have, a missing field, a kind, source, date or
+board metric that does not fit, and raise `KnowledgeError` with the `where` they
+were given. With `shipped=True`, a `reading` is refused as well, because a
+reading is a number taken on a machine and the shipped catalog carries none.
+`dump_document` writes records back in the shape the parsers accept."""
 
 from __future__ import annotations
 
@@ -7,24 +24,25 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-#
-#
+# The version of the document format these readers accept. A document that
+# states any other version is refused rather than read on a guess.
 SCHEMA_VERSION = 2
 
-#
-#
+# The closed list of kinds a number may claim: a fact stated by the source it
+# names, an estimate the model card makes about itself, or a reading taken on a machine.
 KINDS: tuple[str, ...] = ("fact", "estimate", "reading")
-#
+# A reading, and the origin a reading alone comes from: a machine of the user's.
 KIND_READING = "reading"
 MEASURED = "measured"
-#
+# An estimate, and the origin that is always self-reported: the model card.
 KIND_ESTIMATE = "estimate"
 SELF_REPORTED = "model-card"
-#
+# The origin of a score: the leaderboard whose published figures it was read from.
 BOARD = "board"
 
-#
-#
+# Every origin a number's source may name, with what a number from that
+# origin is a reading of. A source is `<origin>:<where>`, so what follows the colon
+# says where at that origin the number was read, and is never empty.
 SOURCES: Mapping[str, str] = {
     "hub-api": (
         "the Hugging Face Hub model API (/api/models/<repo>), at the revision "
@@ -50,7 +68,9 @@ SOURCES: Mapping[str, str] = {
 
 @dataclass(frozen=True)
 class Board:
-    ""
+    """One leaderboard scores can be read from: what it ranks, the metric name its
+    rows carry, whether a higher value is better, and where and as what format
+    its rows are fetched."""
 
     id: str
     ranks: str
@@ -60,7 +80,7 @@ class Board:
     format: str
 
 
-#
+# The boards a score may name, each with the one metric its rows carry.
 BOARDS: tuple[Board, ...] = (
     Board(
         id="lmarena-text",
@@ -124,7 +144,7 @@ BOARDS: tuple[Board, ...] = (
     ),
 )
 
-#
+# The use cases no public board ranks, and, per use case, what ranks them instead.
 UNRANKED: Mapping[str, str] = {
     "tts": (
         "no public board publishes data; ranked by mcgyvr's own ASR-WER gate "
@@ -134,12 +154,13 @@ UNRANKED: Mapping[str, str] = {
 
 
 class KnowledgeError(Exception):
-    ""
+    """A knowledge document, or one number in it, does not say what it must."""
 
 
 @dataclass(frozen=True)
 class Number:
-    ""
+    """One number of the knowledge: its value, the kind it claims, the source it
+    was read from and the day it was read."""
 
     value: int | float
     kind: str
@@ -149,7 +170,8 @@ class Number:
 
 @dataclass(frozen=True)
 class Score:
-    ""
+    """One board figure: the board and metric it is filed under, and the value
+    itself, which carries its own source and date."""
 
     board: str
     metric: str
@@ -158,7 +180,8 @@ class Score:
 
 @dataclass(frozen=True)
 class Weights:
-    ""
+    """The one file a record is about: its repository, the revision read, the file
+    name at that revision, and the file's sha256."""
 
     repo: str
     revision: str
@@ -166,14 +189,14 @@ class Weights:
     sha256: str
 
 
-#
+# The whole-number fields of a record, each held as a `Number`.
 _INT_FIELDS: tuple[str, ...] = (
     "size_bytes",
     "context_length",
     "kv_bytes_per_token",
     "recurrent_bytes_per_slot",
 )
-#
+# Of those fields, the two that must be strictly positive; the others may be zero.
 _POSITIVE = frozenset({"context_length", "kv_bytes_per_token"})
 _RECORD_KEYS = frozenset(
     {"model_id", "quant", "engines", "weights", "scores", *_INT_FIELDS}
@@ -186,7 +209,8 @@ _DOCUMENT_KEYS = frozenset({"schema_version", "models", "_purpose"})
 
 @dataclass(frozen=True)
 class ModelRecord:
-    ""
+    """One model at one quantisation: what serves it, the file it names, its four
+    whole-number fields and the scores read for it."""
 
     model_id: str
     quant: str
@@ -203,7 +227,8 @@ class ModelRecord:
         return (self.model_id, self.quant)
 
     def numbers(self) -> Iterator[tuple[str, Number]]:
-        ""
+        """Every number of the record, named: the four whole-number fields by their
+        field name, then each score as `scores[<board>]`."""
         for name in _INT_FIELDS:
             number = getattr(self, name)
             assert isinstance(number, Number)
@@ -319,7 +344,14 @@ def _weights(raw: Any, where: str) -> Weights | None:
 
 
 def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
-    ""
+    """Read one entry of a knowledge document into a `ModelRecord`.
+
+    `where` names the document the entry came from and prefixes every error;
+    `shipped` marks the packaged catalog, where a reading is refused. A key the
+    record does not have, a missing field, a number out of range, a score from a
+    board not in `BOARDS` or under another metric than that board's, raises
+    `KnowledgeError`.
+    """
     if not isinstance(raw, dict):
         raise KnowledgeError(f"{where}: a model entry is not an object")
     model_id = _text(raw.get("model_id"), f"{where} model_id")
@@ -356,7 +388,13 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
 
 
 def parse_document(raw: Any, where: str, *, shipped: bool) -> tuple[ModelRecord, ...]:
-    ""
+    """Read a whole knowledge document into its records.
+
+    The document must be an object at `SCHEMA_VERSION` whose keys are all in
+    `_DOCUMENT_KEYS` and whose `models` is a list; `where` prefixes every error
+    and `shipped` marks the packaged catalog. Two records for one
+    `(model_id, quant)` raise `KnowledgeError`.
+    """
     if not isinstance(raw, dict):
         raise KnowledgeError(f"{where}: the document is not an object")
     if raw.get("schema_version") != SCHEMA_VERSION:
@@ -389,7 +427,9 @@ def _dump_number(number: Number) -> dict[str, Any]:
 
 
 def dump_record(one: ModelRecord) -> dict[str, Any]:
-    ""
+    """The object a document holds for one record: its identity and engines, the
+    weights when it has some, its four numbers and its scores, each number
+    written as value, kind, source and `read_at` day."""
     out: dict[str, Any] = {
         "model_id": one.model_id,
         "quant": one.quant,
@@ -407,7 +447,7 @@ def dump_record(one: ModelRecord) -> dict[str, Any]:
 
 
 def dump_document(records: Sequence[ModelRecord]) -> dict[str, Any]:
-    ""
+    """A whole knowledge document of `records` at `SCHEMA_VERSION`."""
     return {
         "schema_version": SCHEMA_VERSION,
         "models": [dump_record(one) for one in records],

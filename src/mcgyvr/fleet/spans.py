@@ -1,4 +1,20 @@
-""
+"""
+A unit's shards: the rigs and cards it occupies, and the room each card needs.
+
+A unit's ``launch.shards`` lists one shard per card it occupies, in order, the
+first on its head rig. A shard names the rig its card is on (``rig``), the
+card's index there (``gpu``), and optionally the room that card must hold for it
+in MiB (``room_mib``) and the IPv4 address a worker there listens on (``bind``).
+:func:`parse_shard` reads one shard and :func:`spans` every unit that declares
+shards, keyed by unit name, telling head rig from worker rigs and cards from
+rooms.
+
+A unit that spans cards is pinned card by card, so its room on a rig is the sum
+of its shards' rooms there (:func:`shard_rooms`, :func:`room_on`), and a layout
+holds it whole on every rig it spans (:func:`check_spans`): a slot on a rig it
+does not span, a spanned rig with no slot, or a state that differs between the
+rigs is refused.
+"""
 
 from __future__ import annotations
 
@@ -10,13 +26,15 @@ from typing import Any
 
 from mcgyvr.fleet.layout import FleetError
 
-#
-#
+# The only keys a shard may state: the rig its card is on, that card's index,
+# the room the card must hold for it in MiB, and the address a worker binds.
 _SHARD_KEYS = frozenset({"rig", "gpu", "room_mib", "bind"})
 
 
 class SpanError(FleetError):
-    ""
+    """A unit's shards name no card it can launch on, or a layout does not hold
+    a spanning unit whole.
+    """
 
 
 def _is_number(value: Any) -> bool:
@@ -25,28 +43,40 @@ def _is_number(value: Any) -> bool:
 
 @dataclass(frozen=True)
 class Shard:
-    ""
+    """One card a unit occupies: the rig it sits on and its index there.
+
+    ``room_mib`` is the room that card must hold for this shard, None where
+    nobody stated one. ``bind`` is the IPv4 address a worker on this shard
+    listens on, None where it is not stated.
+    """
 
     rig: str
     gpu: int
-    #
+    # The MiB this card must hold for the shard, rounded up from what was
+    # stated; None where the shard states no room of its own.
     room_mib: int | None
-    #
+    # The IPv4 address a worker on this shard listens on; None where nobody
+    # named one.
     bind: str | None
 
 
 @dataclass(frozen=True)
 class Span:
-    ""
+    """One unit's shards, in the order ``launch.shards`` lists them.
+
+    The first shard is the head's, so ``head`` is the rig the unit is declared
+    on and the first of its ``rigs``.
+    """
 
     unit: str
-    #
+    # The rig the unit is declared on, ``units.<unit>.rig``, which its first
+    # shard must be on.
     head: str
     shards: tuple[Shard, ...]
 
     @property
     def rigs(self) -> tuple[str, ...]:
-        ""
+        """The rigs the unit spans, in shard order and each named once."""
         seen: dict[str, None] = {}
         for shard in self.shards:
             seen.setdefault(shard.rig, None)
@@ -54,12 +84,14 @@ class Span:
 
     @property
     def workers(self) -> tuple[str, ...]:
-        ""
+        """The rigs the unit spans other than its head, in shard order."""
         return tuple(rig for rig in self.rigs if rig != self.head)
 
     @property
     def cards(self) -> dict[str, tuple[int, ...]]:
-        ""
+        """Each rig the unit spans mapped to the cards it occupies there, in
+        shard order.
+        """
         out: dict[str, list[int]] = {}
         for shard in self.shards:
             out.setdefault(shard.rig, []).append(shard.gpu)
@@ -67,16 +99,27 @@ class Span:
 
     @property
     def room(self) -> dict[tuple[str, int], int | None]:
-        ""
+        """Each card the unit occupies, as ``(rig, gpu)``, mapped to the room
+        its shard needs there, None where the shard states none.
+        """
         return {(shard.rig, shard.gpu): shard.room_mib for shard in self.shards}
 
     def shards_on(self, rig: str) -> tuple[Shard, ...]:
-        ""
+        """The unit's shards on ``rig`` in shard order, empty when it spans no
+        card there.
+        """
         return tuple(shard for shard in self.shards if shard.rig == rig)
 
 
 def parse_shard(unit: str, index: int, raw: Any) -> Shard:
-    ""
+    """Read one entry of ``units.<unit>.launch.shards`` as a :class:`Shard`.
+
+    ``index`` is the entry's position in the list, which names it in a refusal.
+    Only rig, gpu, room_mib and bind are read: the rig must be a named one, the
+    gpu a whole number from 0, a stated room_mib a number of MiB above 0 (kept
+    as a whole MiB, rounded up), and a stated bind an IPv4 address rather than
+    a name. Anything else raises :class:`SpanError`.
+    """
     where = f"units.{unit}.launch.shards[{index}]"
     if not isinstance(raw, Mapping):
         raise SpanError(
@@ -121,7 +164,14 @@ def parse_shard(unit: str, index: int, raw: Any) -> Shard:
 
 
 def spans(fleet: Mapping[str, Any]) -> dict[str, Span]:
-    ""
+    """Every unit of ``fleet`` that declares shards, as a :class:`Span` by name.
+
+    A unit whose launch states no ``launch.shards`` spans nothing and is left
+    out. A unit that states them states at least one shard, puts its head's
+    shard first (on the rig ``units.<unit>.rig`` names), names no card twice,
+    and names only rigs the fleet lists under ``rigs``; anything else raises
+    :class:`SpanError`.
+    """
     rigs = fleet.get("rigs") or {}
     found: dict[str, Span] = {}
     for name, unit in (fleet.get("units") or {}).items():
@@ -168,7 +218,15 @@ def spans(fleet: Mapping[str, Any]) -> dict[str, Span]:
 def shard_rooms(
     unit_name: str, unit: Mapping[str, Any], span: Span, rig: str
 ) -> dict[int, int]:
-    ""
+    """The room each card of ``rig`` must hold for ``unit``, by card index.
+
+    A shard states its own room_mib. A unit pinned to one card (a span of one
+    shard) may state its room once on the unit instead, which its shard then
+    takes; a unit stating both must state one figure, not two. A shard on
+    ``rig`` whose room nobody states raises :class:`SpanError`, as does a unit
+    that spans no card there: a unit that spans cards states the room each
+    needs.
+    """
     shards = span.shards_on(rig)
     if not shards:
         raise SpanError(f"{unit_name}: spans no card on {rig}")
@@ -202,14 +260,26 @@ def shard_rooms(
 
 
 def room_on(unit_name: str, unit: Mapping[str, Any], span: Span, rig: str) -> int:
-    ""
+    """The unit's whole room on ``rig``: its shards' rooms there summed.
+
+    This is the figure the unit's slots on that rig are fit against; see
+    :func:`shard_rooms` for what a shard's room is and when it is refused.
+    """
     return sum(shard_rooms(unit_name, unit, span, rig).values())
 
 
 def check_spans(
     fleet: Mapping[str, Any], layout: Mapping[str, Any], *, name: str = ""
 ) -> None:
-    ""
+    """Hold ``layout`` to laying every spanning unit out whole.
+
+    ``layout`` maps each rig name to that rig's room slots, each a
+    ``(unit, state)`` pair or None for a free room. A unit that spans rigs holds
+    a slot on every rig it spans and on no rig it does not, and all its slots
+    are in one state, awake or asleep, since it is one unit across those rigs. A
+    unit holding no slot is not checked. ``name``, where given, prefixes each
+    refusal with the fleet it names.
+    """
     prefix = f"{name}: " if name else ""
     for unit, span in spans(fleet).items():
         held: dict[str, set[str]] = {}

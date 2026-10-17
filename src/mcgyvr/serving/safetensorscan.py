@@ -1,5 +1,14 @@
-#
-""
+#!/usr/bin/env python3
+# Tensor table for safetensors model directories: one JSON row per directory.
+"""Size safetensors shards into the tensor table a vLLM split is planned from.
+
+Every shard header is read and its tensor entries are summed into decoder
+blocks, input and output embeddings, and multimodal towers; config.json states
+the layer count, widths, head counts and layer types the KV cache rows are
+sized from. What the header or the config does not state is refused rather
+than guessed, so a row carries either the sums or an "error" naming what is
+missing.
+"""
 
 from __future__ import annotations
 
@@ -9,8 +18,9 @@ import struct
 import sys
 from typing import Any
 
-#
-#
+# Bytes per element for the dtypes the size checks below accept; an unlisted
+# F8_* variant is sized at one byte by dtype_size(), and any other name is
+# refused there rather than given a guessed width.
 _DTYPE_BYTES: dict[str, int] = {
     "F64": 8,
     "F32": 4,
@@ -29,20 +39,25 @@ _DTYPE_BYTES: dict[str, int] = {
     "F8_E5M2": 1,
 }
 
-#
+# The two config.json layer_types values whose KV cache this scanner models.
 _FULL = "full_attention"
 _SLIDING = "sliding_attention"
 
-#
+# Width of the little-endian u64 that opens a safetensors file and gives the
+# header length.
 _LENGTH_FIELD = struct.calcsize("<Q")
 
 
-class Refused(ValueError):  #
-    ""
+class Refused(ValueError):  # noqa: N818 - a refusal, named as one
+    """An input this scanner will not size, with the reason in its message."""
 
 
 def dtype_size(dtype: str) -> int:
-    ""
+    """Bytes per element of ``dtype``; any name it cannot size is refused.
+
+    A name in _DTYPE_BYTES answers its entry, an unlisted F8_* variant answers
+    one byte, and every other name is refused rather than assumed.
+    """
     if dtype in _DTYPE_BYTES:
         return _DTYPE_BYTES[dtype]
     if dtype.startswith("F8_"):
@@ -56,7 +71,13 @@ def dtype_size(dtype: str) -> int:
 
 
 def _read_header(path: str) -> tuple[dict[str, Any], int]:
-    ""
+    """The header table of the safetensors file at ``path``, and its data size.
+
+    The data size is what the file holds after the length field and the
+    header. A file shorter than the length field, a header longer than the
+    file, a header that is not UTF-8 JSON, and a header that is not a JSON
+    object are each refused.
+    """
     size = os.path.getsize(path)
     with open(path, "rb") as f:
         head = f.read(_LENGTH_FIELD)
@@ -80,7 +101,12 @@ def _read_header(path: str) -> tuple[dict[str, Any], int]:
 
 
 def _tensors(path: str) -> list[tuple[str, str, list[int], int]]:
-    ""
+    """``(name, dtype, shape, byte size)`` for each tensor in a shard.
+
+    __metadata__ is skipped. An entry with no dict, dtype, valid shape or
+    valid data_offsets is refused, as is one whose dtype width disagrees with
+    the offsets it spans and one whose offsets run past the data region.
+    """
     table, data_size = _read_header(path)
     out: list[tuple[str, str, list[int], int]] = []
     for name, entry in table.items():
@@ -123,7 +149,11 @@ def _tensors(path: str) -> list[tuple[str, str, list[int], int]]:
 
 
 def _block_of(name: str) -> int | None:
-    ""
+    """The number in the first ``layers.<n>`` segment of ``name``, or None.
+
+    None means the tensor sits outside the decoder stack, where no block owns
+    it.
+    """
     parts = name.split(".")
     for i in range(len(parts) - 1):
         if parts[i] == "layers" and parts[i + 1].isdigit():
@@ -131,9 +161,9 @@ def _block_of(name: str) -> int | None:
     return None
 
 
-#
-#
-#
+# Tensor names holding multimodal tower weights: a segment that starts with one
+# of these prefixes, or that is one of _TOWER_PARTS, marks weights outside the
+# decoder stack, which go to bytes_tower instead of a block or an embedding sum.
 _TOWER_STARTS = ("vision", "visual", "audio", "image")
 _TOWER_PARTS = frozenset(
     {"multi_modal_projector", "mm_projector", "embed_vision", "embed_audio"}
@@ -141,7 +171,11 @@ _TOWER_PARTS = frozenset(
 
 
 def _in_tower(name: str) -> bool:
-    ""
+    """Whether a segment of ``name`` names a vision, audio or other tower.
+
+    Matching segments are the ones that start with _TOWER_STARTS or are in
+    _TOWER_PARTS; their bytes stay out of the block and embedding sums.
+    """
     return any(
         part.startswith(_TOWER_STARTS) or part in _TOWER_PARTS
         for part in name.split(".")
@@ -178,7 +212,13 @@ def _positive(cfg: dict[str, Any], key: str) -> int:
 def _kv_layers(
     cfg: dict[str, Any], n_layer: int, heads: int, head_dim: int
 ) -> list[dict[str, Any]]:
-    ""
+    """One KV cache row per decoder layer: index, sliding flag, and sizes.
+
+    The flag comes from layer_types when the config lists them (True for
+    sliding_attention, False for full_attention), and is None when a window is
+    declared without per-layer types, where the per-layer kind is left open.
+    Every row states the same k_elems and v_elems, heads x head_dim.
+    """
     types = cfg.get("layer_types")
     if types is not None:
         if not isinstance(types, list) or len(types) != n_layer:
@@ -326,14 +366,18 @@ def _scan(directory: str) -> dict[str, Any]:
 
 
 def scan(path: str) -> dict[str, Any]:
-    ""
+    """The tensor table row for the model directory at ``path``.
+
+    A directory that cannot be sized answers a row with "file" and "error"
+    instead of raising, so one bad directory does not hide the others.
+    """
     try:
         return _scan(path)
     except (Refused, OSError, struct.error) as e:
         return {"file": path, "error": str(e) or repr(e)}
 
 
-#
-#
+# One JSON row per directory named on the command line, so a directory that
+# cannot be sized shows up as an error row beside the ones that could.
 if __name__ == "__main__":
     print(json.dumps([scan(d) for d in sys.argv[1:]]))

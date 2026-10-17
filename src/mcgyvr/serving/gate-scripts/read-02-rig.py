@@ -1,5 +1,25 @@
-#
-""
+#!/usr/bin/env python3
+"""read, rig — one reading of the rig, held to the user's rig file, and filed.
+
+Two readers go to the rig over the door's ssh, neither landing on its disk:
+the one reader of the machine (:mod:`mcgyvr.serving.rigscan`, as ``python3 -I -B -``)
+for its facts, its cards and its rig id, and the runtime reader
+(``rig-units.sh``, on stdin to ``bash -s``) for every container and its
+restart count, every card holder by pid and container, and each unit's sleep
+and in-flight page.
+
+**Compared, never acted on.** The rig is held to the user's own rig file
+(:mod:`mcgyvr.serving.rigfile`) by gate 2's own user check, and a rig that is
+not its file is refused with nothing filed. Unlike gate 2 this takes no
+lease and refuses no held or busy rig: a read is how a
+serving rig is looked at.
+
+**Filed** under the journal of the fleet read, the live one or with
+``--fleet`` one of the run's setup, by :func:`mcgyvr.fleet.read.record`.
+With ``--probe``, each idle unit named has the lock's own harness
+(``mcgyvr/fleet/harness.py``) run on the rig as ``python3 -``, at 127.0.0.1
+(:func:`harness_on_rig`).
+"""
 
 from __future__ import annotations
 
@@ -20,14 +40,21 @@ from mcgyvr.serving.gatelib import (
 )
 
 HERE = Path(__file__).resolve().parent
-#
-#
+#: A reading of the rig, and a probe's harness run on it. A load's harness run has
+#: none: see :func:`harness_on_rig`.
 READ_TIMEOUT_S = 180
 PROBE_TIMEOUT_S = 1800
 
 
 def harness_on_rig(host: str, spec: str, source: str) -> str | None:
-    ""
+    """The lock's harness run on ``host`` over the door's ssh, its source on stdin.
+
+    Its stdout, or ``None`` when a probe's run outlasts ``PROBE_TIMEOUT_S``. A load
+    (spec ``mode`` ``load``) is run with no timeout: a load is held to its own
+    ``harness.LOAD_LIMIT_S`` and its wait for the unit to read idle after the
+    close has no time limit, so an ssh timeout here would cap both. The probes
+    keep ``PROBE_TIMEOUT_S``.
+    """
     from mcgyvr.fleet import harness
 
     try:
@@ -55,8 +82,8 @@ def main() -> int:
     run_id = need("RUN_READ_ID")
     probe = os.environ.get("RUN_READ_PROBE", "").split()
     load = os.environ.get("RUN_READ_LOAD") or None
-    #
-    #
+    # `read --fleet F`: F of the setup the run's config was loaded from, which
+    # read-01 exported as RUN_CONFIG ("none" when there was no config).
     fleet_name = os.environ.get("RUN_READ_FLEET") or None
     config = os.environ.get("RUN_CONFIG", "none")
     setup = None if config == "none" else Path(config)

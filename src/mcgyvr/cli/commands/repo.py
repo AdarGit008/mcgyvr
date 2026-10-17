@@ -1,4 +1,13 @@
-""
+"""The `mcgyvr repo` commands: attach, index, resolve, and read.
+
+`attach` shows what a repository turned out to be — root, starting revision, how
+it was obtained, whether it is dirty. `index` builds the deterministic index and
+reports what it cost, optionally running a text search or a symbol lookup over
+it. `resolve` turns a natural-language query into a ranked shortlist of paths.
+`read` goes one step further and prints the regions that shortlist justifies,
+within a token budget. The heavy lifting lives in `mcgyvr.orchestrator`; each
+command here is argument plumbing, a human-readable report, and an exit code.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:  #
+if TYPE_CHECKING:  # pragma: no cover - typing only
     pass
 
 from mcgyvr.cli.common import _add_repo, _mib
@@ -20,8 +29,8 @@ def _attach(args: argparse.Namespace) -> int:
     into = Path(args.into) if args.into else None
     try:
         with attach(args.repo, into=into) as repo:
-            #
-            #
+            # Inside the context `repo` is an AttachedRepo describing what was
+            # obtained: origin, root, checked-out revision, and uncommitted paths.
             print(f"Repository attached ({repo.origin}):")
             print(f"  root:     {repo.root}")
             print(
@@ -44,8 +53,8 @@ def _attach(args: argparse.Namespace) -> int:
             else:
                 print("  worktree: clean")
     except AttachError as exc:
-        #
-        #
+        # AttachError covers every way the source was unusable: a path that is
+        # not a git checkout, a refused ssh remote, a clone that failed.
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
@@ -119,9 +128,9 @@ def _index(args: argparse.Namespace) -> int:
         for symbol in defs:
             detail = f" [{symbol.detail}]" if symbol.detail else ""
             print(f"  def  {symbol.path}:{symbol.line}{detail}")
-            #
-            #
-            #
+            # A definition's signature may span several lines; each one is
+            # printed on its own indented line so the first line stays aligned
+            # under the `def` entry it belongs to.
             for line in symbol.signature.splitlines():
                 print(f"         {line}")
         for symbol in refs:
@@ -151,7 +160,8 @@ def _resolve(args: argparse.Namespace) -> int:
         print(f"  {rank}. {candidate.path}  ({candidate.score:g})")
         for reason in candidate.evidence:
             print(f"       · {reason}")
-    #
+    # An ambiguous or empty verdict is still an answer, so it still exits 0;
+    # only a bad repository path or an index failure is an error.
     return 0
 
 
@@ -179,8 +189,8 @@ def _read(args: argparse.Namespace) -> int:
 
     resolution = resolve(index, args.query, limit=args.limit)
 
-    #
-    #t.
+    # The caller's --holds paths are read here, from the working tree, so verify()
+    # can compare the text the caller holds against the lines the index parsed.
     contents: dict[str, str] = {}
     for held in args.holds:
         try:
@@ -221,8 +231,9 @@ def _read(args: argparse.Namespace) -> int:
             f"  #{read.candidate_rank} {read.path}:{read.start}-{read.end}"
             f"  [{read.reason}]  ~{read.estimated_tokens}t{held_marker}"
         )
-    #
-    #
+    # Findings come from checking the supplied paths against the index and from
+    # re-ranking: a dropped hint, stale held text, or a hint the deterministic
+    # pass never shortlisted. They are reported, not fatal.
     for finding in accelerated.findings:
         print(f"  ! {finding.path}: {finding.detail}")
     if plan.deferred:
@@ -230,14 +241,22 @@ def _read(args: argparse.Namespace) -> int:
         print(f"\n  deferred {len(plan.deferred)} region(s) (~{cost}t over budget):")
         for item in plan.deferred:
             print(f"    #{item.candidate_rank} {item.path}:{item.start}-{item.end}")
-    #s.
+    # Regions left deferred mean the budget ran out, which is a reportable
+    # outcome rather than an error, so the command still exits 0.
     return 0
 
 
 def _read_document(
     query: str, root: Path, index: Any, resolution: Any, plan: Any
 ) -> dict[str, Any]:
-    ""
+    """The single JSON document `repo read --json` prints.
+
+    It carries the query and root, the resolution with each candidate's score and
+    evidence, every read region with its text, the full text of each shortlisted
+    and read path as the index holds it, and the type-check command each language
+    adapter locates here — enough for a consumer with no path to this repository
+    to work from the evidence alone.
+    """
     from mcgyvr.orchestrator.decompose import locate_checkers
 
     wanted = [candidate.path for candidate in resolution.candidates]
@@ -268,14 +287,14 @@ def _read_document(
             for path in wanted
             if path in by_path
         ],
-        #
-        #
+        # Type-check commands keyed by adapter name, so the document also says
+        # how this repository's types can be checked without rediscovering it.
         "located": locate_checkers(root),
     }
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    ""
+    """Register the attach, index, resolve, and read subcommands and their flags."""
 
     att = sub.add_parser(
         "attach",

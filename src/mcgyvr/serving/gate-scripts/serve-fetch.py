@@ -1,6 +1,26 @@
-#
-#
-""
+#!/usr/bin/env python3
+# RUN_REWRITES: serve-fetch.json
+# The `serve-fetch` gate: read the fetch list the door exported for this run,
+# run the fetcher on the run's host over ssh, and record what landed there.
+"""
+Fetch a run's weight files onto its host, from this side of `ssh`.
+
+The script is a gate started by the door, so it takes the fetch list
+(`RUN_FETCH`), the target host (`RUN_HOST`), the export directory
+(`RUN_OUT_DIR`) and the run id (`RUN_ID`) from the environment and refuses to
+run without them. It parses and validates the list, resolves the hub endpoint
+from `HF_ENDPOINT`, and prints every file with its pinned revision and size,
+plus the total — with no size cap, so a large list is a slow run rather than a
+refused one.
+
+The host is not assumed to have mcgyvr installed: the fetcher's own source and
+a JSON job describing each file are piped to `python3 -` on the host
+(`fetchlist.REMOTE_COMMAND`). The fetcher's last stdout line is read as the
+JSON report of what happened to each file; the rows are joined back to the
+wanted repo, revision and path by filename, echoed, and written with the run's
+settings to `<RUN_OUT_DIR>/serve-fetch.json`. The exit status is 0 only when
+the fetcher exited 0 and every file ended in one of `fetcher.GOOD`'s states.
+"""
 
 from __future__ import annotations
 
@@ -41,13 +61,14 @@ def main() -> int:
         done = ssh(
             host,
             fetchlist.REMOTE_COMMAND,
-            #
-            #
-            #
+            # REMOTE_COMMAND is `python3 -`, so the payload travels on stdin:
+            # it carries the fetcher's source and the token, which must not be
+            # readable in the host's process list. No timeout: the run ends
+            # when the files have been transferred, however long that takes.
             timeout=None,
             input=fetchlist.payload(wants, hub, token_env, token),
         )
-    except subprocess.TimeoutExpired:  #
+    except subprocess.TimeoutExpired:  # pragma: no cover - no bound is set
         return 1
     if done.stderr:
         sys.stderr.write(done.stderr)

@@ -1,4 +1,23 @@
-""
+"""Writes a fleet's lock from dev evidence, and reads what a lock pins.
+
+A fleet folder's `lock/` holds two kinds of file:
+
+* `lock/<fleet>.json` holds the fleet's layout sha256, its `next` list, and for
+  each switch it lists the rig moves that switch makes;
+* `lock/rigs/<rig_id>/<combination>.json` holds one rig combination's
+  validation, which every fleet that lays that combination out shares.
+
+Nothing is locked on a claim. :func:`write` refuses, naming the fleet, unless a
+fleet's combination passed a dev run, every rig move a listed switch makes ran
+and recorded its downtime and wake times, each rig's dev read names the rig id
+the fleet pins, and the combination's own measured figures hold: overhead plus
+every unit's room inside its card, a vLLM unit's pinned KV size and reported
+attention backend, a llama.cpp unit's measured card peak, a reply that finishes
+inside its request timeout at its validated warm decode, and NVMe use that
+holds against its no-NVMe baseline. A setup that no sample could run on is
+locked by :func:`write_unsampled` instead, on no evidence, approved by the
+product itself.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +41,8 @@ from mcgyvr.fleet.layout import (
     mcorch_units,
 )
 
-#
+# Re-exported: the folder a fleet's lock files sit in, which the modules that
+# promote and admit a fleet import from here.
 from mcgyvr.fleet.roots import LOCK_DIR as LOCK_DIR
 from mcgyvr.fleet.roots import fleets_dir, split_name
 from mcgyvr.fleet.spans import (
@@ -35,42 +55,48 @@ from mcgyvr.fleet.spans import (
 )
 from mcgyvr.fleet.tolerance import tolerance_class
 
-#
-#
+# The fleet a setup no dev sample ran on is locked under: the user's own read
+# rigs laid out awake, beside the hosted units the setup also carries.
 OWN_FLEET = "own"
-#
+# The command recorded as the approver when a setup is locked on no evidence.
 OWN_APPROVER = "mcgyvr setup"
-#
-#
-#
+# The commands whose word approves a lock with no dev run behind it: `mcgyvr
+# setup` writes one today, and `mcgyvr init` wrote one before it was renamed, so
+# a lock either way is the user's own fleet.
 OWN_APPROVERS = frozenset({OWN_APPROVER, "mcgyvr init"})
 
 
 class LockRefusedError(Exception):
-    ""
+    """A fleet or combination is not locked; the message names what failed."""
 
 
 def tolerances() -> dict[str, Any]:
-    ""
+    """The warm decode tolerance of each unit class, in percent, under
+    `warm_decode_class_pct`.
+    """
     from mcgyvr.derived import class_tolerances
 
     return {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
 
 
 def wake_limit_s(wake_s: float, tolerance: dict[str, Any]) -> float:
-    ""
+    """A wake's wall time limit: its validated wake plus the tolerance in seconds."""
     return wake_s + float(tolerance["s"])
 
 
 def _slots_key(slots: Any) -> tuple[Any, ...]:
-    ""
+    """Slots as tuple keys, so a combination or a rig move can be looked up by
+    the slots it ran.
+    """
     return tuple(tuple(slot) if slot is not None else None for slot in slots)
 
 
 def _switch_moves(
     before: dict[str, Any], after: dict[str, Any]
 ) -> list[tuple[str, Any, Any]]:
-    ""
+    """The rig moves between two layouts: for each rig whose slots differ, the rig
+    and its slots before and after, in rig order.
+    """
     moves: list[tuple[str, Any, Any]] = []
     for rig in sorted(set(before) | set(after)):
         from_slots = before.get(rig, [])
@@ -83,7 +109,9 @@ def _switch_moves(
 def _warm_decode_tolerance_pct(
     unit: dict[str, Any], tolerances: dict[str, Any]
 ) -> float | None:
-    ""
+    """The unit's class tolerance in percent, or None when the lock states none
+    for its class.
+    """
     by_class = tolerances.get("warm_decode_class_pct")
     if not isinstance(by_class, dict):
         return None
@@ -99,7 +127,9 @@ def _combination_id_for(
     rig_name: str,
     slots: Any,
 ) -> str:
-    ""
+    """The combination id of one rig's slots, hashed over the rig and unit ids the
+    fleet pins rather than the names it spells.
+    """
     plain: list[Any] = []
     for slot in slots:
         if slot is None:
@@ -111,7 +141,9 @@ def _combination_id_for(
 
 
 def _card_figures(fleet_name: str, rig_name: str, raw: Any) -> dict[int, int]:
-    ""
+    """The rig's measured MiB per card, keyed by card index, from a dev reading
+    that states its cards one by one.
+    """
     if not isinstance(raw, dict) or not raw:
         raise LockRefusedError(
             f"{fleet_name}: {rig_name} states `cards` in dev as {raw!r}; it is a "
@@ -141,7 +173,9 @@ def _unit_rooms(
     units: dict[str, Any],
     found: dict[str, Span],
 ) -> dict[str, int]:
-    ""
+    """Each unit's room on this rig: its shards' rooms summed where it declares
+    shards, else its stated `room_mib`; an asleep unit keeps its room.
+    """
     rooms: dict[str, int] = {}
     for slot in slots:
         if slot is None:
@@ -177,7 +211,9 @@ def _fit_cards(
     figures: dict[int, int],
     overhead_mib: Any,
 ) -> None:
-    ""
+    """Refuse unless each card holds the room of the units' shards on it plus the
+    combination's overhead.
+    """
     used: dict[int, int] = {}
     for slot in slots:
         if slot is None:
@@ -219,7 +255,9 @@ def _combination_record(
     comb: dict[str, Any],
     tolerances: dict[str, Any],
 ) -> tuple[str, dict[str, Any]]:
-    ""
+    """The combination id and the record the lock keeps for one rig's slots: what
+    the dev run validated, checked against the fleet and the measured card.
+    """
     units = fleet.get("units", {})
     rig_ids = {name: block["rig_id"] for name, block in fleet.get("rigs", {}).items()}
     unit_ids = {
@@ -280,20 +318,20 @@ def _combination_record(
         if engine is not None:
             entry["engine"] = engine
 
-        #
-        #
+        # A unit that declares shards is pinned card by card: the room each of its
+        # shards needs on this rig, so a live run can check what it sits on.
         span = found.get(unit_name)
         if span is not None:
             entry["cards"] = {
                 str(gpu): room
                 for gpu, room in shard_rooms(unit_name, unit, span, rig_name).items()
             }
-        #
+        # A spanning unit is measured on its head rig, so a worker slot needs none.
         measured_here = span is None or span.head == rig_name
 
-        #
-        #
-        #
+        # The container the unit runs in, and the address it answered on when
+        # its combination was validated, recorded with the unit so a rewired or
+        # re-imaged unit is not read as the one that passed.
         container = unit.get("container")
         if isinstance(container, str) and container:
             entry["container"] = container
@@ -425,7 +463,19 @@ def write(
     policy: dict[str, Any] | None = None,
     tolerances: dict[str, Any],
 ) -> None:
-    ""
+    """
+    Lock one setup's fleets from the dev evidence its sample recorded.
+
+    Refuses, naming the fleet, unless every combination a fleet lays out passed
+    a dev run, every rig move a listed switch makes ran and recorded its
+    downtime and wake times, each rig's
+    dev read names the rig id the fleet pins, no outside unit answers at a rig
+    unit's address, the policy ladder names only units the fleet has, every
+    fleet serves the policy's mcorch units, and every spanning unit holds a
+    room slot in one state on each rig it spans. Then writes each fleet's
+    `lock/<fleet>.json` and one `lock/rigs/<rig_id>/<combination>.json` per
+    combination, a combination two fleets lay out being written once.
+    """
     units = fleet.get("units", {})
     fleets = fleet.get("fleets", {})
 
@@ -435,16 +485,16 @@ def write(
                 raise LockRefusedError(
                     f"policy ladder names {name!r}, a unit this fleet does not have"
                 )
-        #
-        #
+        # A fleet that serves an mcorch policy with no orchestrator or jev unit
+        # awake is not locked: no run could start on it.
         try:
             for fleet_name, block in fleets.items():
                 mcorch_units(policy, block.get("layout", {}), name=fleet_name)
         except FleetError as exc:
             raise LockRefusedError(str(exc)) from exc
 
-    #
-    #
+    # Every unit's shards must make one whole span, and a unit that spans rigs
+    # must hold a room slot in the same state on each of them.
     try:
         spans(fleet)
         for fleet_name, block in fleets.items():
@@ -452,10 +502,10 @@ def write(
     except SpanError as exc:
         raise LockRefusedError(str(exc)) from exc
 
-    #
-    #
-    #
-    #
+    # The rig id a fleet pins is the id a live read knows the machine by, so it
+    # must be the id the rig's own dev reading names; a lock that pinned another
+    # would admit the wrong machine, or none. A rig no dev run read passes here,
+    # and a fleet that lays one out is refused below for having no dev run.
     for rig_name, block in (fleet.get("rigs") or {}).items():
         named = ((evidence.get("rigs") or {}).get(rig_name) or {}).get("rig_id")
         if named is None:
@@ -598,7 +648,15 @@ def write(
 
 
 def write_from_stamp(stamp_dir: Path) -> Path:
-    ""
+    """
+    Lock the fleets of a stamped sample, and name the `lock/` folder of its stamp.
+
+    The stamp holds `setup/fleet.yaml`, `setup/policy.yaml` and `evidence.json`;
+    a folder that is no stamp, or whose setup or evidence cannot be read, is
+    refused. The warm decode tolerances come from the derived numbers; a branch
+    that cannot weigh them refuses the lock. What is written is written into
+    the stamp folder.
+    """
     from mcgyvr.derived import DerivedNumbersError
     from mcgyvr.fleet.stamp import EVIDENCE_FILE, SETUP_DIR
 
@@ -633,12 +691,18 @@ def write_from_stamp(stamp_dir: Path) -> Path:
 
 
 def approved_on_no_evidence(record: Mapping[str, Any]) -> bool:
-    ""
+    """Whether the lock's approver is a command that approves one on no evidence."""
     return record.get("approved_by") in OWN_APPROVERS
 
 
 def is_own(name: str) -> bool:
-    ""
+    """
+    Whether a fleet name is the fleet `own`, with a lock in its folder.
+
+    The name's fleet part must be `own`, dated tag and all, and that folder
+    must hold `lock/own.json`: a lock approved on no evidence, or one that
+    pins the layout sha256 a sample's lock wrote.
+    """
     if split_name(name)[0] != OWN_FLEET:
         return False
     path = fleets_dir() / name / LOCK_DIR / f"{OWN_FLEET}.json"
@@ -652,7 +716,8 @@ def is_own(name: str) -> bool:
 
 
 def _unit_id(unit: Mapping[str, Any]) -> str:
-    ""
+    """The id `own` pins a rig unit by: a digest of its engine, address and model,
+    a missing engine read as llama.cpp."""
     engine = unit.get("engine")
     return ids.digest(
         "unt-",
@@ -667,7 +732,9 @@ def _unit_id(unit: Mapping[str, Any]) -> str:
 def pinned_containers(
     fleet: Mapping[str, Any], layout: Mapping[str, Any]
 ) -> dict[str, dict[str, str]]:
-    ""
+    """The container each laid-out unit names, per rig, pinned so a live read can
+    find the unit by the container it was approved with.
+    """
     units = fleet.get("units") or {}
     pinned: dict[str, dict[str, str]] = {}
     for rig, slots in layout.items():
@@ -690,7 +757,17 @@ def write_unsampled(
     rigs: Mapping[str, str],
     acknowledged: bool,
 ) -> Path:
-    ""
+    """
+    Lock the fleet `own` for a setup no sample ran on, on no evidence.
+
+    Refuses unless the caller passes `acknowledged`, the setup lays out no
+    rigs or fleets of its own, every unit on a rig sits on a read rig, each
+    read rig holds a unit, no hosted unit points at a machine of the user's,
+    and the layout serves the policy's mcorch units. Lays each read rig's
+    units out awake, pins their unit ids and their containers, and stages the
+    fleet, the policy and `lock/own.json` under `dev_root`; returns the
+    `lock/` folder.
+    """
     from mcgyvr.fleet.promote import on_a_users_machine
     from mcgyvr.fleet.stamp import SETUP_DIR
 
@@ -760,10 +837,10 @@ def write_unsampled(
             own["units"][unit]["unit_id"] = _unit_id(units[unit])
     record = {
         "layout_sha256": layout_sha256(layout_ids(own, layout)),
-        #
-        #
-        #
-        #
+        # The container each laid-out unit names is pinned beside the layout, so a
+        # live read matches the unit by the container it was approved in and a
+        # rewritten one is not admitted. No combination record is written: there
+        # is no dev run to record, and the approval is the whole of the evidence.
         "containers": pinned_containers(own, layout),
         "next": [],
         "switches": [],
@@ -778,7 +855,7 @@ def write_unsampled(
         raise LockRefusedError(
             f"{OWN_FLEET}: the fleet would not load as a setup: {exc}"
         ) from exc
-    #
+    # Read the fleet back as it will load: the layout must come back as the one pinned.
     written = load_fleet(fleet_text)
     if layout_sha256(layout_ids(written, layout)) != record["layout_sha256"]:
         raise LockRefusedError(

@@ -1,4 +1,4 @@
-""
+"""Parse Python source: collect imports and dotted attribute chains."""
 
 import ast
 from dataclasses import dataclass, field
@@ -7,14 +7,14 @@ from typing import Optional
 
 @dataclass
 class ImportRef:
-    ""
+    """How a name in scope maps to a real module path."""
     module: str
     attr: Optional[str] = None
 
 
 @dataclass
 class CallInfo:
-    ""
+    """A dotted attribute chain rooted at a known import."""
     raw_chain: list[str]
     resolved_chain: list[str]
     lineno: int

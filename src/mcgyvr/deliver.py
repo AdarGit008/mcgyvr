@@ -1,4 +1,27 @@
-""
+"""Land a judged change in the user's repository, or refuse to and say why.
+
+:func:`deliver` is how a change reaches the user's tree. It takes the bytes an
+attempt produced — or the :class:`Accepted` the gate minted for them — and
+resolves which files they land in, takes a lock on the repository, checks that
+writing them cannot destroy work (a detached HEAD, a merge or rebase in
+progress, uncommitted edits, a file that moved in HEAD since the base, a path
+outside the contract's scope, a named branch that is checked out in another
+worktree or holds a different copy of the file), writes the files, re-runs the
+gate over the change they make, and commits — onto the checked-out branch, or
+onto a named branch through ``commit-tree`` and ``update-ref`` with the
+checkout left as it was. :func:`place` walks the same path without the commit.
+
+A verdict is never taken on faith. :class:`Accepted` carries the digest of the
+content it was reached on, and content that no longer hashes to that digest is
+refused rather than shipped, because "accepted" would then describe bytes
+nothing judged; ``accepted=True`` handed in from outside is refused for the same
+reason, since this module can check a digest but not a claim.
+
+Every write is bracketed by the lock of :func:`_exclusive` and by a snapshot of
+the paths about to change, so a refusal after the write restores the previous
+bytes and removes the directories the call created. A verdict covering several
+files (:attr:`Accepted.companions`) lands all of them or none.
+"""
 
 from __future__ import annotations
 
@@ -22,42 +45,50 @@ from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.orchestrator.repo import AttachedRepo
 from mcgyvr.scope import OutsideTreeError, inside
 
-#
-#
-#
-#
+# git's empty tree: the object every empty tree hashes to, and the only
+# tree-ish that can stand for a base when there is no commit yet.
+# `_resolve` substitutes it for an unborn HEAD, so a diff against it reads
+# every file as added.
 _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-#
-#
-#
-#
-#
+# The lock file `_exclusive` flocks inside the git directory. It sits in
+# `.git` rather than the work tree so it is never picked up as a file the
+# delivery itself made, and it is one name for the whole repository so two
+# deliveries cannot interleave their dirty-tree check, their writes and
+# their commit.
 _LOCK_NAME = "mcgyvr-delivery.lock"
 
 
-#
-#ve
-#
+# A path that does not exist, used as `core.hooksPath` for every commit this
+# module makes. With it (and `--no-verify` where hooks run) the repository's
+# commit hooks cannot rewrite the index or the message, so what lands is what
+# the gate judged.
 _NO_HOOKS = "/nonexistent/mcgyvr-delivery-runs-no-hooks"
 
 
 @dataclass(frozen=True)
 class Identity:
-    ""
+    """The name and email git records on a delivery commit."""
 
     name: str
     email: str
 
 
-#
-#
+# The identity every delivery commit is attributed to, so a commit does not
+# depend on the machine having a git identity configured.
 IDENTITY = Identity("mcgyvr", "delivery@mcgyvr.invalid")
 
 
 @dataclass(frozen=True)
 class Accepted:
-    ""
+    """A gate verdict bound to the exact bytes it was reached on.
+
+    `content` is what the gate judged, `accepted` whether it passed, and `digest`
+    ties the two together: :attr:`intact` re-hashes the content, which catches a
+    caller that edited the string after the verdict was minted. `path` and
+    `companions` extend one verdict over the several files a program-driven change
+    can touch.
+    """
 
     content: str
     accepted: bool
@@ -99,7 +130,14 @@ class Accepted:
         result: GateResult,
         paths: Sequence[str] | None = None,
     ) -> Accepted:
-        ""
+        """Bind a gate result to the files in `repo` it was reached on.
+
+        Without `paths` this reads the contract's target. With `paths` it reads each
+        one, drops duplicates, and puts the contract's target first when it is among
+        them; the rest become companions. A file that is not in the tree to be read
+        raises :class:`DeliveryError`, because a verdict cannot be bound to content that
+        is not there.
+        """
         root = _root(repo)
         if not paths:
             text = _bound_text(root, contract, _target(root, contract))
@@ -133,13 +171,17 @@ class Accepted:
 
     @property
     def intact(self) -> bool:
-        ""
+        """Whether `content` and every companion still hash to the stored digest."""
         return self.digest == digest_of(self.content) and all(
             companion.intact for companion in self.companions
         )
 
     def files(self, contract: Contract) -> tuple[tuple[str, str], ...]:
-        ""
+        """The ``(path, content)`` pairs this verdict covers, primary file first.
+
+        The primary path falls back to the contract's target when :attr:`path` is
+        empty.
+        """
         return (
             (self.path or contract.target, self.content),
             *((companion.path, companion.content) for companion in self.companions),
@@ -148,7 +190,7 @@ class Accepted:
 
 @dataclass(frozen=True)
 class Companion:
-    ""
+    """One of the further files a single verdict covers, bound by digest."""
 
     path: str
     content: str
@@ -156,12 +198,17 @@ class Companion:
 
     @property
     def intact(self) -> bool:
-        ""
+        """Whether `content` still hashes to `digest`."""
         return self.digest == digest_of(self.content)
 
 
 def _bound_text(root: Path, contract: Contract, rel: str) -> str:
-    ""
+    """Read `rel` from `root` as text, or raise when it is not there.
+
+    Bytes are decoded with ``surrogateescape`` so content that git stores as
+    bytes survives the round trip. A file that cannot be read is fatal: a verdict
+    cannot be bound to content the tree does not hold.
+    """
     try:
         return (root / rel).read_bytes().decode("utf-8", "surrogateescape")
     except OSError as exc:
@@ -172,16 +219,24 @@ def _bound_text(root: Path, contract: Contract, rel: str) -> str:
 
 
 def digest_of(content: str) -> str:
-    ""
+    """The sha256 of `content`: how a verdict is tied to the bytes it judged.
+
+    Encoded with ``surrogatepass``, so the digest is defined even for text
+    holding a lone surrogate — the same text :func:`_encoded` refuses to write.
+    """
     return hashlib.sha256(content.encode("utf-8", "surrogatepass")).hexdigest()
 
 
 class DeliveryError(Exception):
-    ""
+    """A delivery could not be attempted: bad arguments, or git failed."""
 
 
 class DeliveryRefusedError(DeliveryError):
-    ""
+    """A delivery was attempted and refused, with the reasons carried.
+
+    Raised by :func:`place`, which has no :class:`Delivery` to return; the same
+    refusals come back from :func:`deliver` as an uncommitted :class:`Delivery`.
+    """
 
     def __init__(
         self,
@@ -197,7 +252,13 @@ class DeliveryRefusedError(DeliveryError):
 
 @dataclass(frozen=True)
 class Delivery:
-    ""
+    """The outcome of a delivery: whether it committed, and what a person owes next.
+
+    A refusal and a success are both one of these, so a caller reads
+    :attr:`committed` rather than catching an exception. `reason` explains a
+    refusal; `commit`, `path`, `paths`, `base`, `branch` and `handoff` describe a
+    commit.
+    """
 
     committed: bool
     reason: str = ""
@@ -283,7 +344,22 @@ def deliver(
     identity: Identity = IDENTITY,
     adapters: Sequence[LanguageAdapter] | None = None,
 ) -> Delivery:
-    ""
+    """Write `content` into `repo`, re-check it, and commit it.
+
+    The steps, in order: resolve `content` to text and to an optional bound verdict
+    (:func:`_verdict`); work out which files land (:func:`_files`); take the
+    delivery lock; resolve `base`; refuse a detached HEAD or a rebase, merge,
+    cherry-pick or bisect in progress, and refuse a named `branch` that is checked
+    out elsewhere or holds a different copy of a delivered path; run the checks that
+    come before any write (:func:`_unwritable`); refuse a dirty working tree; write
+    the files, re-run the gate over the change they make (:func:`_refusal`), and
+    commit — through ``commit-tree``/``update-ref`` onto `branch` when one is named,
+    otherwise through ``git add`` and ``git commit`` on the checked-out branch.
+
+    A refusal after the write leaves nothing behind: every path goes back to the
+    bytes it held, the directories the call created are removed, and anything staged
+    is unstaged. The returned :class:`Delivery` says which of the two happened.
+    """
     root = _root(repo)
     text, refused, bound = _verdict(content, accepted)
     files = _files(root, contract, text, bound)
@@ -322,12 +398,12 @@ def deliver(
         before = {rel: _snapshot(root / rel) for rel in call.paths}
         created = _all_missing_dirs(root, call.paths)
         staged = False
-        #he
-        #
-        #
-        #
-        #
-        #
+        # Two flags for the `finally` below. `staged` records that the paths went into
+        # the repository's real index, so a rollback owes it a `git reset`.
+        # `landed_here` records that the commit landed on the checked-out branch, where
+        # the delivered bytes are meant to stay in the working tree. A commit onto a
+        # named branch leaves it false on purpose: that commit lives only in the branch
+        # ref, so the work tree is put back the way it was found.
         landed_here = False
         try:
             for rel, payload in payloads.items():
@@ -349,17 +425,15 @@ def deliver(
             landed_here = True
             return call.delivered(sha)
         finally:
-            #
-            # a
-            #ee
-            #
-            #
-            #
-            #
-            #
-            #do
-            #
-            #
+            # Rollback, for every way out of the block above short of a commit on the
+            # checked-out branch: each delivered path goes back to the bytes read into
+            # `before` and is deleted when there was no file before, the directories
+            # in `created` are removed once empty, and paths that reached the real
+            # index are unstaged. It runs on the refusal returns as well as on an
+            # exception, so a change that fails its re-check leaves the tree as it was
+            # found rather than half-written, and the restore happens before the caller
+            # sees the result. `git reset` touches only the index, which is what makes
+            # that order safe.
             if not landed_here:
                 for rel, held in before.items():
                     _restore(root / rel, held)
@@ -370,7 +444,13 @@ def deliver(
 
 @dataclass(frozen=True)
 class _Call:
-    ""
+    """The arguments a decision needs, and the two ways to answer it.
+
+    `path` is the primary file and `paths` every file the call delivers, the primary
+    one first (empty means just `path`, which :meth:`refuse` and
+    :meth:`delivered` normalise). `base` is the resolved revision the change is
+    diffed against.
+    """
 
     root: Path
     path: str
@@ -384,7 +464,7 @@ class _Call:
         findings: Sequence[Finding] = (),
         inconclusive: Sequence[InconclusiveRung] = (),
     ) -> Delivery:
-        ""
+        """An uncommitted :class:`Delivery` for `reason`, carrying path and paths."""
         return Delivery(
             committed=False,
             reason=reason,
@@ -408,7 +488,12 @@ class _Call:
 
 
 def _root(repo: Path | str | AttachedRepo) -> Path:
-    ""
+    """The root of `repo`, refusing a directory that is not a git repository.
+
+    An :class:`~mcgyvr.orchestrator.repo.AttachedRepo` contributes its `root`; a
+    path is taken as given. A root with no ``.git`` entry (a directory, or the file
+    a worktree has instead) cannot hold a commit.
+    """
     root = repo.root if isinstance(repo, AttachedRepo) else Path(repo)
     if not (root / ".git").exists():
         raise DeliveryError(f"{root} is not a git repository; nothing can be delivered")
@@ -416,7 +501,7 @@ def _root(repo: Path | str | AttachedRepo) -> Path:
 
 
 def _refuse_pattern_target(contract: Contract) -> None:
-    ""
+    """Reject a pattern target: one delivery needs one literal path."""
     if is_pattern(contract.target):
         raise DeliveryError(
             f"{contract.id} targets {contract.target!r}, which is a pattern. "
@@ -428,7 +513,14 @@ def _refuse_pattern_target(contract: Contract) -> None:
 def _verdict(
     content: str | Accepted, accepted: bool | None
 ) -> tuple[str, bool, Accepted | None]:
-    ""
+    """Split the caller's content into ``(text, refused, bound)``.
+
+    `accepted=True` is refused outright: it asserts a verdict this call cannot
+    check, and acting on it would ship bytes no gate is known to have read. An
+    :class:`Accepted` supplies its own verdict — and raises when `accepted`
+    contradicts it — while a bare string is marked refused only when the caller
+    passes ``accepted=False``.
+    """
     if accepted is True:
         raise DeliveryError(
             "accepted=True asserts a verdict delivery cannot check: it says these "
@@ -450,7 +542,12 @@ def _verdict(
 
 @contextlib.contextmanager
 def _exclusive(root: Path) -> Iterator[None]:
-    ""
+    """Hold an exclusive ``flock`` on the delivery lock file for the block.
+
+    This is what serialises deliveries into one repository: the checks that read
+    the working tree and the commit that changes it happen under one lock. The lock
+    is released when the descriptor is closed, including on an exception.
+    """
     try:
         fd = os.open(_git_dir(root) / _LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
     except OSError as exc:
@@ -459,16 +556,20 @@ def _exclusive(root: Path) -> Iterator[None]:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
     finally:
-        os.close(fd)  #
+        os.close(fd)  # closing the descriptor releases the lock
 
 
 def _git_dir(root: Path) -> Path:
-    ""
+    """The repository's absolute git directory (a worktree's own, not the main one)."""
     return Path(_git(root, "rev-parse", "--absolute-git-dir").strip())
 
 
 def _branch_named(root: Path, branch: str) -> str:
-    ""
+    """`branch` without surrounding whitespace, or ``""`` when none was named.
+
+    A name git would not accept as a branch is an error rather than a silent
+    fall-back to the checked-out branch.
+    """
     named = branch.strip()
     if named and _refuses_ref(root, named):
         raise DeliveryError(
@@ -480,7 +581,11 @@ def _branch_named(root: Path, branch: str) -> str:
 
 
 def _elsewhere(root: Path, branch: str) -> str:
-    ""
+    """`branch` when it is not the one checked out in `root`, else ``""``.
+
+    ``""`` means "commit onto the checked-out branch"; a value means the commit has
+    to be built without touching the checkout.
+    """
     if not branch:
         return ""
     current = subprocess.run(
@@ -495,7 +600,14 @@ def _elsewhere(root: Path, branch: str) -> str:
 def _branch_refusal(
     root: Path, branch: str, base: str, rels: Sequence[str]
 ) -> str | None:
-    ""
+    """Why committing onto `branch` is unsafe, or ``None`` when it is safe.
+
+    Refuses when the branch is checked out in any worktree, because the commit
+    would change the files under that checkout, and when the branch's tip holds a
+    different version of a delivered path than `base` does, because the commit would
+    overwrite a copy nothing judged. A branch that does not exist yet has no copy to
+    clash with.
+    """
     where = ""
     for line in _git(root, "worktree", "list", "--porcelain").splitlines():
         if line.startswith("worktree "):
@@ -521,7 +633,7 @@ def _branch_refusal(
 
 
 def _branch_tip(root: Path, branch: str) -> str:
-    ""
+    """The commit `branch` points at, or ``""`` for a branch that does not exist."""
     done = subprocess.run(
         ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}^{{commit}}"],
         cwd=root,
@@ -532,7 +644,7 @@ def _branch_tip(root: Path, branch: str) -> str:
 
 
 def _blob(root: Path, rev: str, rel: str) -> str:
-    ""
+    """The blob id `rel` has at `rev`, or ``""`` when it has none."""
     done = subprocess.run(
         ["git", "rev-parse", "--verify", "--quiet", f"{rev}:{rel}"],
         cwd=root,
@@ -543,7 +655,7 @@ def _blob(root: Path, rev: str, rel: str) -> str:
 
 
 def _refuses_ref(root: Path, branch: str) -> bool:
-    ""
+    """Whether git rejects `branch` as a branch name."""
     done = subprocess.run(
         ["git", "check-ref-format", "--branch", branch],
         cwd=root,
@@ -555,7 +667,16 @@ def _refuses_ref(root: Path, branch: str) -> bool:
 def _commit_onto(
     root: Path, rels: Sequence[str], message: str, identity: Identity, branch: str
 ) -> str:
-    ""
+    """Commit `rels` onto `branch` and move the ref, without touching the checkout.
+
+    The tree is built in a scratch index (``GIT_INDEX_FILE`` in a temporary
+    directory), so the repository's own index and work tree are untouched: the
+    parent tree is read into it, the delivered paths are added, and the result is
+    written. ``commit-tree`` mints the commit with `identity` and signing off, and
+    ``update-ref`` moves ``refs/heads/<branch>`` to it with the old tip as the
+    expected value, so a branch that moved in the meantime fails the update instead
+    of losing the commit that moved it. Returns the new commit's sha.
+    """
     tip = _branch_tip(root, branch)
     parent = tip or _head(root)
     with _scratch_index() as index:
@@ -575,8 +696,8 @@ def _commit_onto(
         "commit-tree",
         tree,
         *parents,
-        #
-        #
+        # The message goes in as one argv element, so no byte of the contract's task
+        # text is ever read by a shell.
         "-m",
         message,
     ).strip()
@@ -594,13 +715,13 @@ def _commit_onto(
 
 @contextlib.contextmanager
 def _scratch_index() -> Iterator[dict[str, str]]:
-    ""
+    """Yield an environment pointing git at a temporary, empty index."""
     with tempfile.TemporaryDirectory(prefix="mcgyvr-delivery-") as where:
         yield {"GIT_INDEX_FILE": str(Path(where) / "index")}
 
 
 def _head(root: Path) -> str:
-    ""
+    """The current HEAD commit, or ``""`` when the repository has no commit yet."""
     done = subprocess.run(
         ["git", "rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
         cwd=root,
@@ -611,7 +732,11 @@ def _head(root: Path) -> str:
 
 
 def _push_step(root: Path, branch: str) -> str:
-    ""
+    """The ``git push`` a person needs to move `branch` off this machine.
+
+    The repository's first configured remote is named when there is one; with no
+    remote the line says so, because no push can work until one is added.
+    """
     remotes = _git(root, "remote").split()
     if not remotes:
         return (
@@ -622,7 +747,11 @@ def _push_step(root: Path, branch: str) -> str:
 
 
 def _target(root: Path, contract: Contract) -> str:
-    ""
+    """The contract's target as a repository-relative POSIX path.
+
+    Raises :class:`DeliveryError` when the contract names no target, or one that
+    resolves outside `root`.
+    """
     named = contract.target.strip()
     if not named:
         raise DeliveryError(f"{contract.id} names no target to deliver")
@@ -636,7 +765,7 @@ def _target(root: Path, contract: Contract) -> str:
 
 
 def _inside(root: Path, contract: Contract, named: str) -> str:
-    ""
+    """`named` as a repository-relative POSIX path, refusing anything outside `root`."""
     try:
         resolved = inside(root, named.strip())
     except OutsideTreeError as refusal:
@@ -649,7 +778,14 @@ def _inside(root: Path, contract: Contract, named: str) -> str:
 def _files(
     root: Path, contract: Contract, text: str, bound: Accepted | None
 ) -> tuple[tuple[str, str], ...]:
-    ""
+    """The ``(path, content)`` pairs this delivery writes, primary file first.
+
+    A bound verdict that names a path supplies its own file set, companions
+    included, and each is re-resolved inside `root`; otherwise the contract's target
+    is used, which must then be a literal path rather than a pattern. Raises when
+    the same path appears twice, since delivery does not choose between two contents
+    for one file.
+    """
     if bound is None or not bound.path:
         _refuse_pattern_target(contract)
         primary = _target(root, contract)
@@ -669,7 +805,11 @@ def _files(
 
 
 def _named_base(base: str) -> None:
-    ""
+    """Reject an empty base, which is not shorthand for HEAD.
+
+    HEAD is a moving name: diffing against it would ship whatever the branch has
+    reached by the time delivery runs rather than the change this task made.
+    """
     if not base.strip():
         raise DeliveryError(
             "delivery was given an empty base. A base is the revision the "
@@ -681,14 +821,24 @@ def _named_base(base: str) -> None:
 
 
 def _resolve(root: Path, base: str) -> str:
-    ""
+    """The revision to diff against: `base` as given, or the empty tree for no HEAD.
+
+    ``"HEAD"`` is the only value resolved here. An unborn repository has no HEAD
+    commit, so the empty-tree sentinel stands in and every file reads as added.
+    """
     if base != "HEAD":
         return base
     return _head(root) or _EMPTY_TREE
 
 
 def _checkout_hazard(root: Path, *, detached_ok: bool = False) -> str | None:
-    ""
+    """Why committing in `root` right now would be unsafe, or ``None``.
+
+    Refuses a detached HEAD unless `detached_ok` — a named branch gives the commit
+    a ref to live on, so the detached checkout does not matter — and refuses while a
+    rebase, merge, cherry-pick or bisect is in progress, since the commit would land
+    in the middle of one.
+    """
     branch = _git(root, "rev-parse", "--abbrev-ref", "HEAD").strip()
     if branch == "HEAD" and not detached_ok:
         return (
@@ -717,7 +867,13 @@ def _checkout_hazard(root: Path, *, detached_ok: bool = False) -> str | None:
 
 
 def _uncommitted(root: Path, rels: Sequence[str]) -> tuple[str, ...]:
-    ""
+    """Working-tree paths a delivery here would put at risk.
+
+    That is every modified tracked path git reports anywhere in the repository,
+    plus a delivered path that exists on disk without being tracked: writing and
+    staging the delivery would overwrite either. Order is kept and duplicates
+    dropped.
+    """
     unsafe = list(_modified(root))
     for rel in rels:
         if (root / rel).exists() and not _tracked(root, rel):
@@ -726,7 +882,12 @@ def _uncommitted(root: Path, rels: Sequence[str]) -> tuple[str, ...]:
 
 
 def _modified(root: Path) -> tuple[str, ...]:
-    ""
+    """Tracked paths git reports as changed, read from NUL-separated porcelain output.
+
+    Each record is ``XY <path>``, so the path starts at byte 3. A rename or copy
+    record carries the original path as a second NUL-terminated field, and that one
+    is skipped; the trailing empty token ends the scan.
+    """
     tokens = _git_bytes(
         root, "status", "--porcelain", "-z", "--untracked-files=no"
     ).split(b"\x00")
@@ -734,7 +895,7 @@ def _modified(root: Path) -> tuple[str, ...]:
     i = 0
     while i < len(tokens):
         record = tokens[i]
-        if not record:  #
+        if not record:  # the trailing empty token of the split
             break
         paths.append(record[3:].decode("utf-8", "surrogateescape"))
         i += 2 if record[:1] in (b"R", b"C") else 1
@@ -742,12 +903,12 @@ def _modified(root: Path) -> tuple[str, ...]:
 
 
 def _tracked(root: Path, rel: str) -> bool:
-    ""
+    """Whether git knows `rel` as a tracked path."""
     return bool(_git(root, "ls-files", "--", rel).strip())
 
 
 def _ignored(root: Path, rel: str) -> bool:
-    ""
+    """Whether an ignore rule matches `rel`."""
     done = subprocess.run(
         ["git", "check-ignore", "--quiet", "--", rel],
         cwd=root,
@@ -759,7 +920,12 @@ def _ignored(root: Path, rel: str) -> bool:
 def _delivered_changes(
     root: Path, base: str, rels: Sequence[str]
 ) -> dict[str, FileChange | None]:
-    ""
+    """Detect the change set against `base` and pick `rels` out of it.
+
+    Returns one entry per requested path, ``None`` where the diff does not mention
+    it — a path identical to the base, or one git ignores — which the caller has to
+    refuse. A diff that cannot be produced is a :class:`DeliveryError`.
+    """
     try:
         changed = ChangeSet.detect(root, base)
     except ChangeSetError as exc:
@@ -775,12 +941,18 @@ def _judged(
     adapters: Sequence[LanguageAdapter] | None,
     contract: Contract,
 ) -> GateResult:
-    ""
+    """Run the gate over `changes`, leaving out the rungs that would execute them.
+
+    An adapter reports through ``loads_as_code`` which of its rungs load a given path
+    as code rather than reading it — a lint or format config module, say. Those rungs
+    are dropped for this run, because running them here would execute the delivered
+    file. :class:`_Without` stubs exactly those rungs out and delegates the rest.
+    """
     owners = tuple(adapters) if adapters is not None else _ADAPTERS()
-    #
-    #
-    #
-    #
+    # A changed config module is not data the linter reads but a module it imports,
+    # so running that rung on this machine would execute the delivered bytes.
+    # `loads_as_code` names those rungs per path; `_Without` reports nothing for
+    # them and leaves the check to the sandbox.
     kept = tuple(
         _Without(owner, loads)
         if (
@@ -796,7 +968,11 @@ def _judged(
 
 
 def not_rerun_here(adapters: Sequence[LanguageAdapter] | None, path: str) -> str:
-    ""
+    """A line naming the tools that would execute `path`, or ``""`` for none.
+
+    The rungs delivery skips are not skipped silently: the tools that load `path`
+    as code are named, so a report can say where the file was checked instead.
+    """
     owners = tuple(adapters) if adapters is not None else _ADAPTERS()
     tools = sorted(
         {tool for owner in owners for tool in owner.loads_as_code(path).values()}
@@ -812,7 +988,12 @@ def not_rerun_here(adapters: Sequence[LanguageAdapter] | None, path: str) -> str
 
 
 class _Without(LanguageAdapter):
-    ""
+    """An adapter that answers for another adapter but stubs out named rungs.
+
+    Every method is delegated unchanged except ``lint`` and ``format_check``, which
+    report nothing when ``"lint"`` or ``"format"`` is in the rung set handed to the
+    constructor.
+    """
 
     def __init__(self, adapter: LanguageAdapter, rungs: frozenset[str]) -> None:
         self._adapter = adapter
@@ -855,17 +1036,17 @@ class _Without(LanguageAdapter):
 
 
 def _unjudged(rungs: Sequence[InconclusiveRung]) -> str:
-    ""
+    """The inconclusive rungs as one semicolon-separated line."""
     return "; ".join(str(rung) for rung in rungs)
 
 
-def _ADAPTERS() -> tuple[LanguageAdapter, ...]:  #ss
-    ""
+def _ADAPTERS() -> tuple[LanguageAdapter, ...]:  # noqa: N802 — a default, not a class
+    """The default adapters when a caller names none: Python, then JavaScript."""
     return (PythonAdapter(), JavaScriptAdapter())
 
 
 def _snapshot(path: Path) -> bytes | None:
-    ""
+    """The current bytes of `path`, or ``None`` when there is no file there."""
     try:
         return path.read_bytes()
     except FileNotFoundError:
@@ -873,7 +1054,12 @@ def _snapshot(path: Path) -> bytes | None:
 
 
 def _encoded(content: str) -> bytes:
-    ""
+    """`content` as the bytes to write, or ``UnicodeEncodeError`` for a lone surrogate.
+
+    ``surrogateescape`` round-trips the undecodable bytes a file may already hold
+    and raises for a surrogate that stands for no byte at all — the case
+    :func:`_unwritable` refuses up front.
+    """
     return content.encode("utf-8", "surrogateescape")
 
 
@@ -884,34 +1070,40 @@ def _refusal(
     payloads: Mapping[str, bytes],
     adapters: Sequence[LanguageAdapter] | None,
 ) -> Delivery | None:
-    ""
+    """Why the written files must not be committed, or ``None`` when they may be.
+
+    It runs after the write, so it judges what a commit would actually ship: every
+    delivered path has to appear in the change set against `resolved` (an ignored
+    path and one identical to the base do not), the paths have to be inside the
+    contract's scope, a fresh gate run over the change set has to report no findings
+    and no inconclusive rung, and the bytes on disk have to still equal the payloads
+    written. The returned :class:`Delivery` names the first condition that failed.
+    """
     root = call.root
     rels = tuple(payloads)
-    #
-    #
+    # A message names the one path when there is one, and lists them when several
+    # files were delivered.
     shown = rels[0] if len(rels) == 1 else _listed(rels)
     changes = _delivered_changes(root, resolved, rels)
     for rel, change in changes.items():
         if change is not None:
             continue
         if _ignored(root, rel):
-            #
-            #
-            #
-            #he
-            #
-            #
-            #
+            # An ignored path never reaches the change set, so the gate never saw it
+            # and `git add` would not stage it: what would be delivered is not the
+            # content that was judged and cannot be committed under the contract's
+            # name. It is reported apart from the identical-to-base case below,
+            # because the fix is to un-ignore the path rather than to change the file.
             return call.refuse(
                 f"{rel} is ignored by {root.name}'s .gitignore, so it was "
                 f"not in the change set the gate judged and is not in the "
                 f"one delivery can commit. Un-ignore the path or point the "
                 f"contract at one the repository tracks."
             )
-        #
-        #
-        #
-        #
+        # ``None`` means the path is not in the diff against the base: what is on
+        # disk is what the base holds. The accepted change is not there — the write
+        # did not take, or the tree already had it — so there is nothing to commit
+        # under the contract's name.
         return call.refuse(
             f"{rel} is identical to {_shown(resolved)}: the accepted change "
             f"is no longer present, so there is nothing to commit"
@@ -919,10 +1111,9 @@ def _refusal(
 
     outside = contract.scope.violations(rels)
     if outside:
-        #
-        #
-        #
-        #
+        # Checked again here rather than trusted from the pre-write check: the paths are
+        # now resolved ones, and scope is re-asserted at the point where a commit is
+        # about to happen.
         return call.refuse(_outside(contract, outside))
 
     verdict = _judged(
@@ -938,11 +1129,10 @@ def _refusal(
             verdict.findings,
         )
     if verdict.inconclusive:
-        #
-        #
-        #
-        #
-        #
+        # An inconclusive rung blocks the commit. It reported no finding, but it
+        # also did not apply the bar it was configured to apply, so there is no
+        # verdict to ship. It is carried in ``inconclusive`` so the caller can tell
+        # "the tool could not run" from "the change is wrong".
         return call.refuse(
             f"{shown} could not be judged in {root.name}: "
             f"{_unjudged(verdict.inconclusive)}. Nothing is committed: a "
@@ -955,13 +1145,10 @@ def _refusal(
 
     for rel, payload in payloads.items():
         if _snapshot(root / rel) != payload:
-            #
-            #
-            #
-            # a
-            #
-            #
-            #
+            # The gate run above reads the tree, and anything on this machine can write
+            # to it in between. Re-reading each path and comparing it with the payload
+            # catches a file that no longer holds the accepted bytes, so the commit
+            # cannot ship content the verdict never covered.
             return call.refuse(
                 f"{rel} changed between the write and the commit: what is on "
                 f"disk is no longer the accepted content, and committing it "
@@ -971,7 +1158,7 @@ def _refusal(
 
 
 def _outside(contract: Contract, outside: Sequence[str]) -> str:
-    ""
+    """The refusal text for paths the contract's scope does not allow."""
     if len(outside) == 1:
         return (
             f"{outside[0]} is outside the scope {contract.id} declares, so it may "
@@ -991,7 +1178,15 @@ def place(
     base: str,
     adapters: Sequence[LanguageAdapter] | None = None,
 ) -> Path:
-    ""
+    """Write the accepted files into `repo` and leave them uncommitted.
+
+    The pre-write checks of :func:`deliver` (:func:`_unwritable`), plus a refusal
+    when any delivered path already has uncommitted edits, which the write would
+    overwrite. Then the files are written, the change is re-judged by
+    :func:`_refusal`, and the primary path is returned. A refusal after the write
+    restores every path and removes the directories created, raising
+    :class:`DeliveryRefusedError`.
+    """
     root = Path(repo)
     files = _files(root, contract, content.content, content)
     _named_base(base)
@@ -1040,8 +1235,9 @@ def place(
             kept = True
             return root / call.path
         finally:
-            #
-            #s.
+            # On a refusal after the write, every path goes back to the bytes it held
+            # and the directories the call made are removed: a refused placement leaves
+            # no trace.
             if not kept:
                 for rel, held in before.items():
                     _restore(root / rel, held)
@@ -1055,7 +1251,14 @@ def _unwritable(
     refused: bool,
     bound: Accepted | None,
 ) -> Delivery | None:
-    ""
+    """Why nothing may be written at all, or ``None`` when the write may go ahead.
+
+    The checks that come before the first byte: a verdict that refused, a verdict
+    whose digest no longer matches its content (primary file or companion), a path
+    outside the contract's scope, a path that HEAD has moved since `base`, and
+    content that will not encode. Each answer is a refused :class:`Delivery`, which
+    :func:`deliver` returns and :func:`place` raises.
+    """
     if refused:
         return call.refuse(
             f"the gate did not accept {contract.id}; nothing was written",
@@ -1110,7 +1313,11 @@ def _unwritable(
 
 
 def _moved_since(root: Path, base: str, rel: str) -> str:
-    ""
+    """HEAD's sha when `rel` differs between `base` and HEAD, else ``""``.
+
+    An unborn HEAD has nothing to have moved, so it answers ``""``; a ``git diff``
+    that cannot run is an error rather than an answer.
+    """
     head = _head(root)
     if not head:
         return ""
@@ -1122,13 +1329,13 @@ def _moved_since(root: Path, base: str, rel: str) -> str:
 
 
 def _write(path: Path, payload: bytes) -> None:
-    ""
+    """Write `payload` to `path`, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)
 
 
 def _missing_dirs(path: Path) -> tuple[Path, ...]:
-    ""
+    """The directories above `path` that do not exist yet, deepest first."""
     missing: list[Path] = []
     parent = path.parent
     while not parent.exists():
@@ -1140,20 +1347,20 @@ def _missing_dirs(path: Path) -> tuple[Path, ...]:
 
 
 def _all_missing_dirs(root: Path, paths: Sequence[str]) -> tuple[Path, ...]:
-    ""
+    """Every directory `paths` need and do not have, deepest first, deduplicated."""
     missing = {d for rel in paths for d in _missing_dirs(root / rel)}
     return tuple(sorted(missing, key=lambda d: len(d.parts), reverse=True))
 
 
 def _remove_created(dirs: Sequence[Path]) -> None:
-    ""
+    """Remove `dirs`, ignoring any that is not empty or is already gone."""
     for directory in dirs:
         with contextlib.suppress(OSError):
             directory.rmdir()
 
 
 def _restore(path: Path, before: bytes | None) -> None:
-    ""
+    """Put `path` back to `before`, deleting it when there was no file before."""
     if before is None:
         path.unlink(missing_ok=True)
     else:
@@ -1161,7 +1368,12 @@ def _restore(path: Path, before: bytes | None) -> None:
 
 
 def _commit(root: Path, rels: Sequence[str], message: str, identity: Identity) -> str:
-    ""
+    """Commit `rels` on the checked-out branch and return the new HEAD sha.
+
+    `identity` supplies author and committer, signing is off so the commit cannot ask
+    for a key, and hooks are disabled so no hook can change what lands. ``--`` keeps
+    git from reading a path as a revision.
+    """
     _git(
         root,
         "-c",
@@ -1184,7 +1396,12 @@ def _commit(root: Path, rels: Sequence[str], message: str, identity: Identity) -
 
 
 def _message(contract: Contract, base: str, paths: Sequence[str] = ()) -> str:
-    ""
+    """The commit message for a delivery.
+
+    The subject is the contract id and its task, shortened to 72 columns, and the
+    body names the contract, the target and the base. A ``Files:`` line is added
+    only when the delivery covers paths beyond the contract's own target.
+    """
     files = (
         f"Files: {', '.join(paths)}\n"
         if paths and tuple(paths) != (contract.target.strip(),)
@@ -1205,23 +1422,32 @@ def _message(contract: Contract, base: str, paths: Sequence[str] = ()) -> str:
 
 
 def _shown(base: str) -> str:
-    ""
+    """The empty-tree sentinel spelled out for a reader, and any other base as given."""
     return "the empty tree" if base == _EMPTY_TREE else base
 
 
 def _listed(paths: Sequence[str]) -> str:
-    ""
+    """The first five paths comma-separated, with a count of the rest when longer."""
     shown = ", ".join(paths[:5])
     return shown if len(paths) <= 5 else f"{shown} (+{len(paths) - 5} more)"
 
 
 def _git(root: Path, *args: str, env: Mapping[str, str] | None = None) -> str:
-    ""
+    """Run git in `root` and return its stdout as text.
+
+    ``surrogateescape`` keeps paths that are not valid UTF-8 intact on the way back;
+    :func:`_git_bytes` raises when the command fails.
+    """
     return _git_bytes(root, *args, env=env).decode("utf-8", "surrogateescape")
 
 
 def _git_bytes(root: Path, *args: str, env: Mapping[str, str] | None = None) -> bytes:
-    ""
+    """Run git in `root` and return its raw stdout, raising when it fails.
+
+    `env` is merged over the current environment, which is how a scratch index
+    (``GIT_INDEX_FILE``) reaches a command. A non-zero status becomes a
+    :class:`DeliveryError` carrying git's stderr.
+    """
     proc = subprocess.run(
         ["git", *args],
         cwd=root,

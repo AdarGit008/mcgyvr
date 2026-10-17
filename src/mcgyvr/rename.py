@@ -1,4 +1,12 @@
-""
+"""The in-process executor for `rename_symbol`: rewrite one symbol's references.
+
+`apply` builds the tree's index, decides which file holds the symbol's module-level
+definition, asks `mcgyvr.orchestrator.references` for a verdict on every spelling of
+the old name, splices the ones judged to be that symbol by byte column, and writes
+the result. It fails closed: a pair that is not usable, occurrences that cannot be
+told apart, a collision with the new name, a path outside the tree, or a rename that
+would rewrite nothing each raise `RenameError` before any file is written.
+"""
 
 from __future__ import annotations
 
@@ -20,13 +28,13 @@ from mcgyvr.orchestrator.references import (
 from mcgyvr.orchestrator.symbols import language_of
 from mcgyvr.scope import OutsideTreeError, Scope, inside
 
-#
-#
-#
+# The only shape a rename may write: a plain ASCII identifier. The rewrite is a byte
+# splice rather than a re-parse, so anything else — an expression, a dotted path, a
+# space — would leave text that does not parse while the exit code claims success.
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-#
-#
+# A star import (Python) or star export (JS/TS) can bring the old name into a file
+# without ever spelling it, so a file holding one is still judged as a reference site.
 _STAR = {
     "python": re.compile(r"\bimport\s+\*"),
     "js/ts": re.compile(r"\bexport\s*\*"),
@@ -34,12 +42,19 @@ _STAR = {
 
 
 class RenameError(Exception):
-    ""
+    """The rename was refused, so no file was written."""
 
 
 @dataclass(frozen=True)
 class RenameReport:
-    ""
+    """What one rename did: the pair, the files and lines rewritten, and the leftovers.
+
+    `occurrences` counts the spans actually replaced, spread over `files`; `locations`
+    gives the rewritten line numbers per file. `unresolved` and `left_alone` hold
+    `path:line` renderings of what was deliberately not touched — spellings the
+    resolver could not place, or same-named occurrences of another symbol — and
+    `summary` renders all of it for the caller's stdout.
+    """
 
     old: str
     new: str
@@ -74,7 +89,17 @@ class RenameReport:
 
 
 def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameReport:
-    ""
+    """Rename `old` to `new` across `workspace` and report every rewritten span.
+
+    The pair is rejected before anything is read when either name is empty, when
+    `new` is not an identifier, or when the two are equal. `target` is the contract
+    path, used only to pick one of several module-level definitions of the name. The
+    tree is indexed, the defining module is settled by `_defining_module`, and one
+    candidate text per same-language file is handed to `resolve`, whose verdict splits
+    the occurrences into rewrites and left-alones. Rewrites are spliced in memory and
+    every resulting path is checked with `inside` before the first write, so a refusal
+    leaves the tree exactly as it was.
+    """
     if not old or not new:
         raise RenameError(
             "rename_symbol needs `rename.from` and `rename.to`. The floor "
@@ -99,11 +124,11 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
     held = {file.path: file for file in index.files}
     defining = _defining_module(index, held, old, target)
 
-    #
-    #
-    #of
-    #de
-    #
+    # Only files written in the defining module's language are candidates, and of those
+    # only ones that could hold a reference: the defining file itself, a file that
+    # spells the name as a whole word, or one with a star import/export. Each candidate
+    # is handed over as its indexed lines rejoined with "\n", which is the same text
+    # `_splice` will later cut into.
     language = language_of(defining) or ""
     word = re.compile(rf"(?<!\w){re.escape(old)}(?!\w)")
     star = _STAR[language]
@@ -128,8 +153,9 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
         else:
             others.add((occurrence.path, occurrence.line, occurrence.text))
 
-    #
-    #
+    # Splice in memory: the new bytes, the line numbers touched and any span the
+    # parser placed where the old name is not are all settled before the disk is
+    # touched, so nothing is half-renamed.
     planned: dict[str, bytes] = {}
     locations: list[tuple[str, tuple[int, ...]]] = []
     missed: list[str] = []
@@ -152,8 +178,9 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
             f"renamed, and a rename that renamed nothing is not a success."
         )
 
-    #
-    #
+    # Containment is checked for every planned path before any of them is written, so
+    # a path that climbs out of the workspace, crosses a symlink or touches `.git`
+    # refuses the whole rename instead of a part of it.
     targets: dict[str, Path] = {}
     for path in planned:
         try:
@@ -184,7 +211,16 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
 def _defining_module(
     index: Index, held: dict[str, IndexedFile], old: str, target: str
 ) -> str:
-    ""
+    """Return the path of the module-level file the rename of `old` starts from.
+
+    The index's definitions of `old` are confirmed against the parser, because only a
+    module-level definition fixes which same-named occurrences are this symbol. A name
+    with no definition, a definition the parser cannot find on the line the index named,
+    and a name defined only as a method or nested function are refused. When several
+    module-level files define it, each is a different symbol: `target` is treated as a
+    scope pattern and must permit exactly one of them, otherwise the rename is refused
+    rather than guessed.
+    """
     named = index.symbols.definitions(old)
     if not named:
         raise RenameError(
@@ -259,7 +295,15 @@ class _Spliced:
 def _splice(
     source: bytes, occurrences: list[Occurrence], old: str, new: str
 ) -> _Spliced:
-    ""
+    """Replace `old` with `new` at each occurrence's byte column in `source`.
+
+    Occurrence columns are byte offsets into their line, so the substitutions on one
+    line are applied right to left and the earlier columns stay valid. Each line is
+    kept exactly as it was, terminators included, and reassembled without re-splitting,
+    so bytes the parser never looked at survive the rewrite. A line outside the file,
+    or a column where the bytes are not exactly `old`, is not touched and is reported
+    in `missed`; `count` and `lines` cover only the replacements actually made.
+    """
     lines = parser_lines(source.decode("utf-8", "surrogateescape"))
     before, after = old.encode("utf-8"), new.encode("utf-8")
     by_line: dict[int, set[int]] = defaultdict(set)

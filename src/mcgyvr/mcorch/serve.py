@@ -1,4 +1,16 @@
-""
+"""The facade: the orchestrator rung served over HTTP as the Anthropic Messages API.
+
+A harness is pointed at this address with ``ANTHROPIC_BASE_URL``, and asks for
+messages the way it asks any API for them. Each message request is parsed into
+a :class:`~mcgyvr.mcorch.anthropic.MessagesRequest`, run as one turn of the loop
+by the :class:`Facade`'s responder, and written back in the API's own shapes:
+one ``message`` object, or the server-sent event sequence, with ``ping``
+keep-alives while the turn is still running. The two side doors the API
+documents are here as well, ``GET /v1/models`` and ``POST
+/v1/messages/count_tokens``; every other path is a ``not_found_error``. A body
+larger than the cap is refused unread, and a client that hangs up mid-turn
+hangs up on the rung, so the unit stops instead of decoding for nobody.
+"""
 
 from __future__ import annotations
 
@@ -20,31 +32,31 @@ from mcgyvr.mcorch.anthropic import ApiError, MessagesRequest
 from mcgyvr.mcorch.loop import Turn
 from mcgyvr.orchestrator.read import estimate_tokens
 
-#
-#
+# The address the facade listens on unless told otherwise: the loopback,
+# so no other machine reaches the rung behind it by accident.
 DEFAULT_BIND = "127.0.0.1"
 
-#
+# The port `mcgyvr mcorch serve` listens on when it is not told one.
 FACADE_PORT = 8787
 
-#
-#
+# The most of a request body that will be read: a harness sends whole
+# transcripts, and a body over this is refused rather than read.
 MAX_BODY_BYTES = 32 * 1024 * 1024
 
-#
-#
+# How often a turn in flight is looked in on, and so how often a streamed
+# answer gets its ping; each look waits at most this long.
 PING_INTERVAL_S = 5.0
 
-#
-#
-#
+# The one model id this server answers as: it is the id in the model
+# documents, the loop behind it never reads the model asked for, and a
+# GET for any other id is a not_found_error.
 MODEL_ID = "mcorch"
 
-#
+# One turn of the loop as the facade calls it: a parsed request in, a Turn out.
 type Responder = Callable[[MessagesRequest], Turn]
 
-#
-#
+# Told about each finished turn — its request, the turn, the stop reason,
+# and the seconds it took — once the message has been built.
 type Observer = Callable[[MessagesRequest, Turn, str, float], None]
 
 _MESSAGES = "/v1/messages"
@@ -54,7 +66,9 @@ _MODELS = "/v1/models"
 
 @dataclass(frozen=True)
 class Facade:
-    ""
+    """What the server is given: the responder that runs one turn, the model
+    id it answers as, the largest body it will read, how often it looks at a
+    client mid-turn, and an optional observer of finished turns."""
 
     respond: Responder
     model: str = MODEL_ID
@@ -64,7 +78,11 @@ class Facade:
 
 
 def make_server(facade: Facade, *, bind: str, port: int) -> ThreadingHTTPServer:
-    ""
+    """A threading HTTP server on ``bind:port`` that answers through ``facade``.
+
+    The handler is subclassed here so this facade, and not another
+    server's, is the one its requests reach.
+    """
 
     class Handler(_Handler):
         pass
@@ -84,11 +102,11 @@ class _Handler(BaseHTTPRequestHandler):
     sys_version = ""
 
     def log_message(self, format: str, *args: Any) -> None:
-        #
-        #
+        # Silent on purpose: the base class writes a line to stderr for every
+        # request, and a harness drives this server request after request.
         return
 
-    #
+    # Dispatch: the base class calls one of these by HTTP method, per request.
 
     def do_GET(self) -> None:
         path = urlsplit(self.path).path.rstrip("/")
@@ -126,7 +144,7 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             self._message(request)
 
-    #
+    # Reading the body, and counting one without running a turn.
 
     def _body(self) -> bytes | None:
         length = self.headers.get("Content-Length")
@@ -163,7 +181,7 @@ class _Handler(BaseHTTPRequestHandler):
         )
         self._json(HTTPStatus.OK, {"input_tokens": counted})
 
-    #
+    # Answering a turn that has run: a message object, or the event stream.
 
     def _turn(self, request: MessagesRequest) -> tuple[Turn, dict[str, Any], float]:
         started = time.monotonic()
@@ -231,12 +249,20 @@ class _Handler(BaseHTTPRequestHandler):
         except OSError:
             self.close_connection = True
 
-    #
+    # Watching a turn while it runs: it is hung up on when its client leaves.
 
     def _watched(
         self, request: MessagesRequest, still_there: Callable[[], bool]
     ) -> dict[str, Any] | None:
-        ""
+        """Run the turn on a worker thread under a hang-up, and keep watch.
+
+        Returns the worker's outcome — ``{"message": ...}``, or ``{"error":
+        ...}`` if the responder raised — or ``None`` if the client went first,
+        in which case the rung has been hung up on and the connection is
+        marked to close. ``still_there`` is called once per ping interval and
+        is how the streaming path sends its pings; a ``False`` from it counts
+        as the client having gone.
+        """
         hangup = runner.Hangup()
         outcome: dict[str, Any] = {}
 
@@ -260,7 +286,13 @@ class _Handler(BaseHTTPRequestHandler):
                 return None
 
     def _client_gone(self) -> bool:
-        ""
+        """Whether the client has closed its end of the connection.
+
+        A connection that is readable now and reads empty has hung up. The
+        read peeks, so bytes a pipelining client has already sent stay in
+        the buffer and it counts as still there. A socket that cannot be
+        asked counts as gone.
+        """
         try:
             readable, _, _ = select.select([self.connection], [], [], 0)
             if not readable:
@@ -270,7 +302,8 @@ class _Handler(BaseHTTPRequestHandler):
             return True
 
     def _ping(self) -> bool:
-        ""
+        """Write one ping event to the stream and say whether it went: a write
+        that fails is the client gone, which ends the wait."""
         try:
             self.wfile.write(anthropic.PING)
             self.wfile.flush()
@@ -278,7 +311,7 @@ class _Handler(BaseHTTPRequestHandler):
             return False
         return True
 
-    #
+    # Writing: the model documents a listing is made of, and both bodies.
 
     def _listing(self) -> dict[str, Any]:
         model = self._model()

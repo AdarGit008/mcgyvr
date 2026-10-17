@@ -1,4 +1,20 @@
-""
+"""The rig's side of the agent protocol: one rig kept joined to its hub.
+
+``Agent.run`` holds a channel open for as long as the hub allows it. Each
+connection reads this machine, says hello with that reading and with the offer
+of what the rig lends, waits for the hello's ack, then sends a heartbeat every
+interval carrying a fresh reading and takes the hub's frames through a
+``Dispatcher``. Readings are taken on a side thread ahead of the beat that
+carries them and answers that find the send budget spent wait in an ``Outbox``,
+so neither a slow machine nor a slow hub holds the other up. A channel that is
+lost is retried with jittered backoff; a refusal (a token that is wrong,
+revoked, superseded, or bound to another machine) is final, and ``run`` returns
+why it ended for the caller to show.
+
+Nothing here writes to the terminal except through ``say``, which goes to
+stderr, and nothing here knows the hub's address or this machine's cards: both
+arrive as callables from the caller.
+"""
 
 from __future__ import annotations
 
@@ -14,35 +30,35 @@ from typing import Protocol
 from mcgyvr.rig import commands, hardware, protocol, websocket
 from mcgyvr.rig.outbox import Outbox
 
-#
-#
+# How often a heartbeat goes out when the hub's ack named no interval of its
+# own; the hub sets an interval per rig, and this is only the fallback.
 DEFAULT_HEARTBEAT_S = 15
-#
+# Seconds the hello may wait for its ack before the channel is given up as dead.
 HELLO_ACK_TIMEOUT_S = 15.0
-#
-#
+# Heartbeats that may go unanswered before the agent gives up on the channel;
+# one ack clears them all, since the hub acks as it reads rather than one by one.
 MISSED_ACKS = 3
-#
+# Frames this agent may send per second, half of the protocol's ceiling.
 FRAMES_PER_SECOND = protocol.MAX_FRAMES_PER_SECOND // 2
-#
-#
+# Seconds one receive may wait while the outbox is empty, so the loop still
+# wakes often enough to notice a stop request or a heartbeat falling due.
 RECEIVE_SLICE_S = 1.0
-#
+# A shorter receive slice while frames wait in the outbox, so they leave early.
 OUTBOX_SLICE_S = 0.01
-#
+# Longest text ``shown`` returns; anything longer is cut with an ellipsis.
 SHOWN_MAX = 200
-#
-#
+# Ceiling on the reconnect delay while ``hurry`` says a person is waiting, so a
+# hub that is coming back is rejoined in seconds rather than by backoff.
 HURRY_S = 2.0
-#
-#
+# Seconds a heartbeat asked for by ``beat_soon`` waits after the one before it,
+# so an early beat does not put two beats back to back on the hub.
 EARLY_BEAT_S = 1.0
-#
-#
-#
+# Seconds before a heartbeat falls due that its reading is started, never more
+# than one interval: the read runs on a side thread, so the beat carries what
+# was newest when it went out and a slow machine delays no beat.
 READ_AHEAD_S = 5.0
 
-#
+# What a person is told for each error the hub can refuse a rig for good with.
 _REFUSALS = {
     protocol.ErrorCode.REVOKED: (
         "the hub revoked this rig's token (the rig was deleted, or its token "
@@ -68,14 +84,14 @@ _REFUSALS = {
 
 
 class Channel(Protocol):
-    ""
+    """The agent's link to the hub: frames out, whatever arrives in, a close."""
 
     def send_text(self, text: str) -> None: ...
 
     def receive(self, timeout: float) -> str | bytes | None: ...
 
     def wake(self) -> None:
-        ""
+        """Make a waiting receive return soon, so the loop sees queued frames."""
         ...
 
     def close(self, code: int = 1000, reason: str = "") -> None: ...
@@ -83,7 +99,12 @@ class Channel(Protocol):
 
 @dataclass(frozen=True, kw_only=True)
 class Backoff:
-    ""
+    """Reconnect delays that grow from ``first_s`` by ``factor`` up to ``cap_s``.
+
+    ``delay`` jitters each one so many rigs do not retry in step, and a session
+    that lasted ``steady_s`` counts as a fresh start: the delay after it begins
+    short again instead of resuming where the failed attempts had climbed to.
+    """
 
     first_s: float = 1.0
     factor: float = 2.0
@@ -91,14 +112,15 @@ class Backoff:
     steady_s: float = 60.0
 
     def delay(self, attempt: int, draw: float) -> float:
-        ""
+        """Seconds to wait before retry ``attempt``, ``draw`` (0 to 1) picking
+        a point in the upper half of the ceiling."""
         ceiling = min(self.cap_s, self.first_s * self.factor ** min(attempt, 64))
         return ceiling / 2 + draw * ceiling / 2
 
 
 @dataclass(frozen=True, kw_only=True)
 class Ended:
-    ""
+    """How a run ended: asked to stop, or refused, and the reason to show."""
 
     stopped: bool
     why: str
@@ -106,7 +128,7 @@ class Ended:
 
 @dataclass(frozen=True, kw_only=True)
 class Status:
-    ""
+    """What the agent last knew of its connection, for whatever shows the rig."""
 
     connected: bool
     rig_id: str | None
@@ -115,7 +137,8 @@ class Status:
 
 
 def shown(text: str) -> str:
-    ""
+    """Text fit to print: only characters a card name may hold, whitespace
+    squeezed, and anything past ``SHOWN_MAX`` cut with an ellipsis."""
     kept = "".join(c if protocol.CARD_NAME.fullmatch(c) else " " for c in text)
     kept = " ".join(kept.split())
     return kept if len(kept) <= SHOWN_MAX else kept[: SHOWN_MAX - 1] + "…"
@@ -126,19 +149,23 @@ def _say(line: str) -> None:
 
 
 class _LostError(Exception):
-    ""
+    """The channel is gone, but another attempt may get past what took it."""
 
 
 class _RefusedError(Exception):
-    ""
+    """The hub refused this rig for good; the same token will not do again."""
 
 
 class _StoppedError(Exception):
-    ""
+    """The agent was asked to stop, or the run was interrupted."""
 
 
 class _Session:
-    ""
+    """What one connection learned from the hub, filled in as its frames arrive.
+
+    ``acked`` collects the ids of frames the hub has acked, which is what the
+    hello's timeout, the heartbeat count, and the send budget are read from.
+    """
 
     def __init__(
         self,
@@ -148,8 +175,8 @@ class _Session:
         self._told = acked
         self._errors = errors
         self.acked: set[str] = set()
-        #
-        #
+        # The rig id and the heartbeat interval arrive with an ack, and the last
+        # error is kept so a close can be explained by what the hub said first.
         self.rig_id: str | None = None
         self.interval: int | None = None
         self.last_error: protocol.Error | None = None
@@ -168,7 +195,9 @@ class _Session:
 
 
 def _judge(failure: Exception, last_error: protocol.Error | None) -> Exception:
-    ""
+    """Read a transport failure as the error that decides what happens next: a
+    refusal for a token the hub will not take or another agent's takeover, a
+    loss for anything another attempt may get past."""
     said = (
         f" ({shown(last_error.message)})" if last_error and last_error.message else ""
     )
@@ -203,7 +232,12 @@ def _aside(job: Callable[[], None]) -> None:
 
 
 class _Readings:
-    ""
+    """This machine read on a side thread, so a slow read holds up no beat.
+
+    Each read is numbered: ``kept`` is the newest reading with the number it was
+    given, so a read that finishes late cannot replace a newer one, and ``ended``
+    counts finished reads so a waiting session can tell one has landed.
+    """
 
     def __init__(
         self,
@@ -222,12 +256,14 @@ class _Readings:
         self.running = False
 
     def hand(self, report: hardware.Report) -> None:
-        ""
+        """Keep a reading the caller already made, numbered as reads are now, so
+        a read still under way cannot replace it with older news."""
         with self._lock:
             self.kept = (self.begun, report)
 
     def begin(self, wake: Callable[[], None]) -> None:
-        ""
+        """Start a numbered read on a side thread and wake the session once it
+        has landed, whatever the machine answered."""
         self.running = True
         self.begun += 1
         number = self.begun
@@ -252,7 +288,9 @@ class _Readings:
 
 
 class Agent:
-    ""
+    """Keeps one rig joined to its hub: hello, heartbeats with readings, the
+    hub's commands, and reconnection until the hub refuses the rig or a caller
+    stops it."""
 
     def __init__(
         self,
@@ -280,7 +318,8 @@ class Agent:
     ) -> None:
         self._connect = connect
         self._read = read_hardware
-        #
+        # Readings run on a thread of the agent's own unless the caller says how
+        # to start one, which is what lets a test read in the calling thread.
         self._readings = _Readings(read_hardware, aside or _aside)
         self._version = agent_version
         self._clock = clock
@@ -304,15 +343,17 @@ class Agent:
         self._soon = threading.Event()
 
     def beat_soon(self) -> None:
-        ""
+        """Ask for a heartbeat as soon as one may go out, so news the hub is
+        waiting on need not wait for the next beat that is due."""
         self._soon.set()
 
     def stop(self) -> None:
-        ""
+        """Ask the agent to stop: a reconnect wait ends at once, and ``run``
+        returns as soon as the channel is closed."""
         self._stopping.set()
 
     def run(self) -> Ended:
-        ""
+        """Stay joined and answering until stopped or refused, then say which."""
         attempt = 0
         try:
             return self._sessions(attempt)
@@ -349,7 +390,8 @@ class Agent:
             self._say("stopped")
             return Ended(stopped=True, why="asked to stop")
 
-    #
+    # The parts of a run: what to report, what may be sent, and the one channel
+    # at a time that the hello, the heartbeats, and the hub's frames go over.
 
     def _status(
         self,
@@ -368,14 +410,16 @@ class Agent:
         )
 
     def _room(self) -> int:
-        ""
+        """Frames that may still be sent this second, one slot held back for the
+        send that is asking."""
         now = self._clock()
         while self._sent and now - self._sent[0] >= 1.0:
             self._sent.popleft()
         return FRAMES_PER_SECOND - 1 - len(self._sent)
 
     def _send(self, channel: Channel, frame: str, *, answer: bool) -> bool:
-        ""
+        """Send a frame now; an answer that finds the send budget spent goes to
+        the outbox instead. False means it was neither sent nor queued."""
         if answer and self._room() <= 0:
             return self._outbox is not None and self._outbox.put(frame, timeout=0)
         channel.send_text(frame)
@@ -383,13 +427,13 @@ class Agent:
         return True
 
     def _drain(self, channel: Channel) -> None:
-        ""
+        """Hand queued frames to the channel while the send budget has room."""
         while self._outbox is not None and self._room() > 0:
             frame = self._outbox.take()
             if frame is None:
                 return
-            #
-            #
+            # A queued frame is text, or something that makes the text when the
+            # frame is taken, so a frame that reads this machine is made late.
             channel.send_text(frame if isinstance(frame, str) else frame())
             self._sent.append(self._clock())
 
@@ -429,7 +473,8 @@ class Agent:
         until: float,
         done: Callable[[], bool] = lambda: False,
     ) -> None:
-        ""
+        """Serve the channel until ``until`` or until ``done`` says to stop:
+        drain the outbox, take whatever the hub sends, answer it."""
         while not done():
             if self._stopping.is_set():
                 raise _StoppedError
@@ -447,7 +492,9 @@ class Agent:
                 self._send(channel, answer, answer=True)
 
     def _news(self, ended: int, asks: bool) -> Callable[[], bool]:
-        ""
+        """A ``done`` test for ``_pump``: true once a side read has landed since
+        ``ended``, or when a heartbeat is asked for and ``asks`` says the loop is
+        still waiting on one."""
         return lambda: self._readings.ended != ended or (asks and self._soon.is_set())
 
     def _converse(
@@ -501,16 +548,16 @@ class Agent:
         unacked: list[str] = []
         next_beat = self._clock() + interval
         last_beat = self._clock()
-        read_for: float | None = None  #
-        early: int | None = None  #
+        read_for: float | None = None  # which beat the read under way is for
+        early: int | None = None  # the read an early beat waits for, if asked
         while True:
-            ended = readings.ended  #
+            ended = readings.ended  # so _pump returns once a read has landed
             if early is None and self._soon.is_set():
                 self._soon.clear()
-                early = readings.begun + 1  #
+                early = readings.begun + 1  # the read this early beat will carry
             now = self._clock()
             if read_for != next_beat and now >= next_beat - ahead:
-                read_for = next_beat  #
+                read_for = next_beat  # one read per beat: which beat it is for
                 if not readings.running:
                     readings.begin(channel.wake)
             if early is not None and readings.begun < early and not readings.running:
@@ -530,7 +577,7 @@ class Agent:
                 continue
             if any(beat in session.acked for beat in unacked):
                 unacked.clear()
-            session.acked.clear()  #
+            session.acked.clear()  # the acks this beat needed are all counted now
             if len(unacked) >= MISSED_ACKS:
                 raise _LostError(
                     f"the hub acked none of the last {MISSED_ACKS} heartbeats"

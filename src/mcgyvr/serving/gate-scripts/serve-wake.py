@@ -1,6 +1,19 @@
-#
-#
-""
+#!/usr/bin/env python3
+# RUN_REWRITES: serve-wake.json
+# The `wake` serve step: the gate-6 script a `serve ... wake` run ends at.
+# It wakes the units that read as asleep, waits for all, and files its record.
+"""Wake the sleeping units of this run, then wait for every one of them to serve.
+
+The units are the ones `serve_prologue` re-read from the emitted compose file,
+narrowed by `--unit` when the door was given it. A unit is asked to wake only
+when its `/is_sleeping` route answered True, so an awake unit is neither woken
+twice nor reported as woken; the rest are recorded without a wake answer. Every
+unit in the set is then polled by `servelib.wait_for`, healthy or not, and the
+step files `woken` and `units` as `serve-wake.json`.
+
+The exit status is the step's: 2 when the prologue refused and nothing was
+touched, 1 when a wake call did not land or a unit is not serving, 0 otherwise.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +25,7 @@ def main() -> int:
     if ctx is None:
         return 2
 
-    #
+    # No --unit narrowing means every unit; otherwise only the named ones.
     only = ctx.only
     units = tuple(s for s in ctx.units if not only or s.container in only)
     woken: dict[str, bool | None] = {}

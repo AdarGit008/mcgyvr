@@ -1,4 +1,12 @@
-""
+"""The `ladder` commands: sleep and wake a card, manage the ladder, emit it.
+
+`serve` puts one card to sleep or wakes it through the serving door; `manage`
+runs the ladder manager, which sleeps and wakes the ladder's units by the queue
+Jev answers on; `emit` writes one compose file per launch spec, or compares the
+files already on disk with what the config plans; and `mcorch serve` serves the
+orchestrator rung as an Anthropic Messages API address for a harness. Nothing
+here starts a process: emitting writes a file, and the door does the switching.
+"""
 
 from __future__ import annotations
 
@@ -50,7 +58,7 @@ from mcgyvr.serving import (
     units_for,
 )
 
-if TYPE_CHECKING:  #
+if TYPE_CHECKING:  # pragma: no cover - typing only
     pass
 
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _named_path
@@ -59,7 +67,13 @@ from mcgyvr.cli.sizing import _hosts_wanted, _model_specs, _resolve_hosts, _scan
 
 
 def _serve(args: argparse.Namespace) -> int:
-    ""
+    """Put one card to sleep, or wake it, through the serving door.
+
+    The host is the one a unit's `address` names. `Exit.REFUSED` covers a fleet
+    that is live and not admitted as locked, a card the door will not switch,
+    and a card whose slots could not be drained for the sleep; a door that
+    exited without switching the card is `Exit.ERROR`.
+    """
     try:
         config = load_config(Path(args.config) if args.config else None)
     except ConfigError as exc:
@@ -69,10 +83,10 @@ def _serve(args: argparse.Namespace) -> int:
     from mcgyvr import wake as wakelib
     from mcgyvr.capacity import Capacity, SlotUnavailableError
 
-    #
-    #
-    #
-    #
+    # A fleet that is live but does not read as locked is refused before the
+    # door is opened: `_admitted_live` prints what would have to be cleaned or
+    # restored, and its detail is the refusal. A fleet that is not live has no
+    # door aimed at it, so it goes on to the switch below.
     if (
         args.direction == "wake"
         and _live(config)
@@ -119,7 +133,12 @@ def _serve(args: argparse.Namespace) -> int:
 
 
 def _manage(args: argparse.Namespace) -> int:
-    ""
+    """Run the ladder manager: tick on the config's interval, switching cards.
+
+    Nothing to manage is `Exit.OK`, and so is a loop stopped by an interrupt.
+    `Exit.REFUSED` covers a live fleet that is not admitted as locked, and a
+    manager lock this run could not hold.
+    """
     try:
         config = load_config(Path(args.config) if args.config else None)
     except ConfigError as exc:
@@ -137,8 +156,9 @@ def _manage(args: argparse.Namespace) -> int:
     if _live(config) and _admitted_live(config) is not None:
         return Exit.REFUSED
 
-    #
-    #
+    # One manager per host: the lock answers True when it is held, False when
+    # another `mcgyvr manage` holds it, and anything else when no lock could be
+    # taken — both of those refuse, with a different sentence each.
     with exclusive(ladder_manager.MANAGER_LOCK) as held:
         if held is not True:
             print(
@@ -154,7 +174,11 @@ def _manage(args: argparse.Namespace) -> int:
 
 
 def _card_mib(config: Config) -> dict[str, dict[int, int]]:
-    ""
+    """Card memory in MiB, by host and card index, for the ladder's cards.
+
+    The figures come from the recorded scans; an empty mapping means no scan of
+    those hosts could be read, which is not the same as hosts with no cards.
+    """
     from mcgyvr import wake as wakelib
     from mcgyvr.serving import cards
 
@@ -167,7 +191,12 @@ def _card_mib(config: Config) -> dict[str, dict[int, int]]:
 
 
 def _manage_held(args: argparse.Namespace, config: Config) -> int:
-    ""
+    """Manage the ladder with the host's manager lock held: build, say, run.
+
+    The manager is built from the config: capacity measured through a gauge,
+    the rung Jev answers on, the ladder as `View` sees it, the card switches,
+    the pressure reading and the cooling tracker. `--once` takes one tick.
+    """
     from mcgyvr import fleet_manager, ladder_manager
     from mcgyvr import wake as wakelib
     from mcgyvr.capacity import Capacity, CapacityError
@@ -190,8 +219,8 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     stated = config.units[fast.name].request_timeout_s
     bounds = ladder_manager.Bounds.of(config)
     board = Board()
-    #
-    #
+    # The rung Jev answers on, whose card is never slept: `jev.unit` when the
+    # config names one, else the fast rung, since Jev has to run on a local one.
     jev = config.get("jev.unit") or fast.name
     view = ladder_manager.View.of(config, jev=jev)
     switches = wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config))
@@ -232,7 +261,12 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
 def _merge_resolved(
     block: Mapping[str, Any], resolved: Mapping[str, Any]
 ) -> dict[str, Any]:
-    ""
+    """A unit block with what the emitted launch resolved filled into it.
+
+    What the block already states wins: `engine`, `image`, `container` and
+    `hf_cache` are filled only where the block is empty, and `launch` is merged
+    key by key, so a stated argv or env survives the stamp.
+    """
     merged = dict(block)
     for key in ("engine", "image", "container", "hf_cache"):
         if key in resolved and not merged.get(key):
@@ -248,7 +282,11 @@ def _merge_resolved(
 
 
 def _block_declares(block: Mapping[str, Any]) -> bool:
-    ""
+    """Whether the unit block states a launch of its own, wholly or in part.
+
+    Any of `launch`, `hf_cache`, `room_mib` or `kv_cache_memory_bytes` means a
+    person has said how the unit runs, so a stamp adds no sizing figures to it.
+    """
     return bool(
         block.get("launch")
         or block.get("hf_cache") is not None
@@ -258,7 +296,11 @@ def _block_declares(block: Mapping[str, Any]) -> bool:
 
 
 def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
-    ""
+    """The sizing figures a model spec states, as keys a launch records.
+
+    Only the figures the spec holds are returned, so a figure it does not state
+    is left out of the stamped launch rather than written as a zero.
+    """
     keys: dict[str, Any] = {}
     for key in ("vram_gb", "disk_gb", "ram_gb", "kv_cache_dtype_k", "kv_cache_dtype_v"):
         value = getattr(spec, key, None)
@@ -268,7 +310,11 @@ def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
 
 
 def _render_launch_block(launch: Mapping[str, Any]) -> str:
-    ""
+    """One unit's `launch` mapping as YAML, indented to sit in a unit block.
+
+    `yaml.safe_dump` sorts the keys; `launch:` is written at four spaces and
+    its lines at six, so the block lands inside a unit at indent two.
+    """
     dumped = yaml.safe_dump(dict(launch), sort_keys=True, width=200)
     lines = ["    launch:"]
     lines.extend(
@@ -278,7 +324,12 @@ def _render_launch_block(launch: Mapping[str, Any]) -> str:
 
 
 def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
-    ""
+    """Render `fleet.yaml` with each unit's launch written into its own block.
+
+    `render_fleet` writes the schema's units and cannot render a `launch`
+    mapping, so the launches are lifted out before it runs and put back where
+    the schema's commented `launch` leaf sits, under the unit they belong to.
+    """
     launches: dict[str, Mapping[str, Any]] = {}
     render_units: dict[str, Any] = {}
     for name, block in (fleet.get("units") or {}).items():
@@ -303,7 +354,7 @@ def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    ""
+    """Write `text` to `path` through `atomic.write`, staging a file beside it."""
     atomic.write(path, text)
 
 
@@ -314,7 +365,12 @@ def _stamp_launch(
     sleep_mode: bool,
     specs: Iterable[ModelSpec],
 ) -> Path | None:
-    ""
+    """Write each unit's rendered launch back into `fleet.yaml`; return its path.
+
+    None says there was nothing to stamp: the config has no path, no
+    `fleet.yaml` sits there, or no unit block changed. `EmitError` says the
+    config has no path, the fleet cannot be read, or the write failed.
+    """
     if config.path is None:
         raise EmitError("the config has no path, so fleet.yaml cannot be stamped")
     fleet_path = config.path / FLEET_FILENAME
@@ -361,15 +417,22 @@ def _stamp_launch(
 
 
 def _emit(args: argparse.Namespace) -> int:
-    ""
+    """Write one compose file per launch spec for the ladder's units, or check.
+
+    A locked `fleet.yaml` is emitted from what it states; otherwise the units
+    are sized from the recorded scans of the hosts the units' addresses name,
+    and nothing is sized for a host that was never scanned. `--check` writes
+    nothing and reports drift instead; a write pass stamps the launch it
+    rendered back into `fleet.yaml`.
+    """
     try:
         config = load_config(Path(args.config) if args.config else None)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
-    #
-    #
+    # A locked fleet states its own launches, so it is emitted from the fleet
+    # file and never sized from scans.
     try:
         fleet = _locked_fleet(config)
     except (FleetFileError, OSError) as exc:
@@ -384,16 +447,16 @@ def _emit(args: argparse.Namespace) -> int:
     except UnitError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
-    #
-    #
-    #
-    #
+    # Scans are recorded under a rig's id and its hostname, while a unit names
+    # its host in `address`: what the ladder names is resolved onto the scans
+    # here — a local name onto this machine's — before a host is looked for by
+    # name below.
     scans = _resolve_hosts(scans, hosts.values())
 
-    #
-    #
-    #
-    #
+    # An unscanned host is a refusal, not a warning: a unit is sized from
+    # measured free VRAM, RAM and disk, and a launch spec for a machine nobody
+    # measured would be a guess wearing a file name. Every unscanned host is
+    # named, so one run says all there is to scan.
     unscanned = sorted({host for host in hosts.values() if host not in scans})
     if unscanned:
         for host in unscanned:
@@ -405,23 +468,23 @@ def _emit(args: argparse.Namespace) -> int:
             )
         return Exit.REFUSED
 
-    #
-    #
-    #
-    #
-    #
+    # The model specs sizing starts from: what the shipped knowledge records
+    # say about each model, plus the model registry's entries, so a unit is
+    # sized from a known geometry before any host is asked. A table that
+    # cannot be read raises `CapabilityTableError`, caught with the unit
+    # errors below as an error rather than a refusal.
     specs = _model_specs()
     try:
         units = units_for(config, scans, specs=specs, ctx_per_slot=args.ctx_per_slot)
-        #
-        #
-        #
+        # The notes a fit carries are information for the operator, not
+        # refusals: they say what a figure was measured or assumed from, and
+        # the unit is emitted anyway.
         for unit in sorted(units, key=lambda u: u.key.slug):
             for note in unit.fit.notes:
                 print(f"note: {unit.key.slug}: {note}", file=sys.stderr)
-        #
-        #
-        #
+        # Units sharing a host are held together: alternatives where the card
+        # they share cannot sum them all onto it, and a refusal where those
+        # that are up do not fit card or host memory together.
         cut = hold_together(units, scans)
     except UnitError as exc:
         print(f"refused: {exc}", file=sys.stderr)
@@ -431,22 +494,21 @@ def _emit(args: argparse.Namespace) -> int:
         return Exit.ERROR
 
     out = Path(args.out) if args.out else Path.cwd()
-    #
-    #
+    # Sleep mode decides which documents carry the sleep routes, so it is read
+    # from the config once and handed to every render and check below.
     asleep = emit_sleep_mode(config)
 
-    #
-    #
-    #
+    # Being cut into alternatives is a warning, not a refusal: every file is
+    # written, and a person brings up the one they mean and deletes the rest.
     for said in cut:
         print(f"warning: {said}", file=sys.stderr)
 
-    #
-    #
-    #
-    #th
-    #
-    #
+    # `--check` compares what is already under `--out` with what this config
+    # plans and writes nothing: the planned files that drifted, the spec files
+    # the config does not plan, and the names it does plan are what it reports.
+    # A write pass writes every planned file, and then stamps each unit's
+    # rendered launch back into `fleet.yaml`, so the file states what was just
+    # emitted rather than what an older config said.
     if args.check:
         try:
             drifted = check_all(units, root=out, sleep_mode=asleep)
@@ -465,19 +527,20 @@ def _emit(args: argparse.Namespace) -> int:
     try:
         written = emit_all(units, root=out, sleep_mode=asleep)
     except UnitError as exc:
-        #
-        #
-        #
+        # Refused, not failed: the unit set does not fit the rig as measured.
+        # `emit_all` plans and refuses every file before it writes any, so the
+        # output directory is left as it was.
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
     except (EmitError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
-    #
-    #
-    #
-    #
+    # The launch just rendered is stamped back into `fleet.yaml`, so `serve`
+    # and the manager read the launch a unit actually runs rather than deriving
+    # it again, and a block that states its own launch keeps what it states.
+    # A fleet that cannot be read or written is an error, and the files already
+    # written are left as they are.
     try:
         stamped = _stamp_launch(config, units, sleep_mode=asleep, specs=specs)
     except EmitError as exc:
@@ -500,7 +563,12 @@ def _emit(args: argparse.Namespace) -> int:
 
 
 def _locked_fleet(config: Config) -> dict[str, Any] | None:
-    ""
+    """The parsed `fleet.yaml` when it is locked, or None when there is none.
+
+    None when the config has no path, when no `fleet.yaml` sits there, and when
+    no unit in it carries a `unit_id` — a fleet that does not state its own
+    launches is sized from scans instead.
+    """
     if config.path is None:
         return None
     where = config.path / FLEET_FILENAME
@@ -513,7 +581,13 @@ def _locked_fleet(config: Config) -> dict[str, Any] | None:
 def _emit_locked(
     fleet: dict[str, Any], args: argparse.Namespace, setup: Path | None = None
 ) -> int:
-    ""
+    """Write, or check, what a locked fleet states; return an `Exit`.
+
+    `--ctx-per-slot` is refused here: a locked unit serves the window its
+    `launch.argv` states, so there is nothing for the flag to set. `setup` is
+    where the fleet's own files live, read to find a seccomp profile a unit
+    names.
+    """
     if args.ctx_per_slot is not None:
         print(
             "refused: a locked unit serves the window its launch.argv states, "
@@ -545,10 +619,16 @@ def _emit_locked(
 def _report_drift(
     drifted: Sequence[Drift], leftover: Sequence[Path], planned: Sequence[Path]
 ) -> Exit:
-    ""
+    """Report what drifted: `Exit.OK` when nothing did, else `Exit.MISMATCH`.
+
+    `drifted` are planned files whose content differs or that are missing,
+    `leftover` the spec files this config does not plan, and `planned` the
+    names it does — printed when there is nothing to report, so the run says
+    what the rig is served from.
+    """
     if not drifted and not leftover:
-        #
-        #
+        # Nothing differs: naming the files this config plans says what the rig
+        # is served from, which is what an operator ran `--check` to learn.
         for path in planned:
             print(f"{path.name} is what this config emits")
         return Exit.OK
@@ -586,7 +666,12 @@ def _report_drift(
 
 
 def _mcorch_serve(args: argparse.Namespace) -> int:
-    ""
+    """Serve the orchestrator rung as an Anthropic Messages API address.
+
+    Refused unless `orchestrator.type` is mcorch, and for a fleet that is live
+    and not admitted as locked; a role the config leaves unbound is refused too.
+    Binds the facade, serves until interrupted, and closes the socket.
+    """
     from mcgyvr.config import MCORCH
     from mcgyvr.decision import UnboundRoleError
     from mcgyvr.local_pool import SourceUnavailableError
@@ -631,7 +716,7 @@ def _mcorch_serve(args: argparse.Namespace) -> int:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    ""
+    """Register the `serve`, `manage` and `emit` subparsers and their flags."""
 
     srv = sub.add_parser(
         "serve",
@@ -699,11 +784,11 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         metavar="DIR",
         help="where the compose files are written (default: the current directory)",
     )
-    #
-    #
-    #
-    #
-    #
+    # The window per slot this run serves, for units that declare none: the
+    # flag is the product the launch arguments and the cache law are both fed,
+    # so the two cannot disagree. A unit that declares its own `window` is
+    # emitted at that window, and a flag that contradicts the declaration is
+    # refused rather than preferred.
     emi.add_argument(
         "--ctx-per-slot",
         type=int,
@@ -731,7 +816,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
 
 
 def add_mcorch_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    ""
+    """Register the `mcorch` parser and its `serve` subparser."""
 
     mcorch = sub.add_parser(
         "mcorch",

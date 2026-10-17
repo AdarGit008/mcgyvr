@@ -1,4 +1,10 @@
-""
+"""Scan the added text of a change set for credential-shaped lines.
+
+Each pattern carries a stable finding code, a human message, and the compiled
+regex. A matching added line produces one ``Finding`` on that line; nothing is
+read from lines the worker did not add, and non-text changes (binary, deleted,
+symlink) are skipped upstream by ``ChangeSet.text_changes``.
+"""
 
 from __future__ import annotations
 
@@ -20,9 +26,9 @@ def _p(code: str, message: str, pattern: str, flags: int = 0) -> _Pattern:
     return _Pattern(code=code, message=message, regex=re.compile(pattern, flags))
 
 
-#
-#
-#
+# High-signal credential shapes: provider token prefixes and private key
+# headers, plus one conservative assignment heuristic at the end. Order is
+# load-bearing, because a line reports only the first pattern that matches it.
 _PATTERNS: tuple[_Pattern, ...] = (
     _p(
         "private-key",
@@ -41,9 +47,10 @@ _PATTERNS: tuple[_Pattern, ...] = (
         "stripe-secret-key", "Stripe secret key", r"\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\b"
     ),
     _p("openai-key", "OpenAI-style secret key", r"\bsk-[A-Za-z0-9]{20,}\b"),
-    #
-    #
-    #
+    # Broadest rule: a credential-sounding name assigned a quoted literal. It
+    # stays last so a line holding a real token prefix is reported by the
+    # specific pattern above, and it deliberately ignores non-literal values
+    # such as env lookups or attribute references.
     _p(
         "hardcoded-credential",
         "credential-shaped assignment to a literal",
@@ -55,7 +62,12 @@ _PATTERNS: tuple[_Pattern, ...] = (
 
 
 def scan_secrets(changeset: ChangeSet) -> list[Finding]:
-    ""
+    """Return one finding for each added line that looks like a credential.
+
+    Only text changes are examined. For each of them the added lines are read
+    from the working tree, and every line is matched against ``_PATTERNS`` in
+    order, stopping at the first hit so a single line never yields duplicates.
+    """
     findings: list[Finding] = []
     for change in changeset.text_changes():
         added = read_added_text(change, changeset.repo)
@@ -72,5 +84,5 @@ def scan_secrets(changeset: ChangeSet) -> list[Finding]:
                             message=pattern.message,
                         )
                     )
-                    break  #
+                    break  # one finding per line: the most specific pattern wins
     return findings

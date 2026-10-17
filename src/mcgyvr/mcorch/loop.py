@@ -1,4 +1,12 @@
-""
+"""The orchestrator loop behind the mcorch facade.
+
+`respond` serves one Anthropic Messages request from the harness: it classifies
+the request, offers the orchestrator model the harness tools it keeps plus
+mcorch's own authoring tools, answers the calls it keeps for itself inside a
+bounded number of model rounds, and returns the first reply that asks for
+nothing internal, with an account of the turn in `Trace`. A request that offers
+no tools is answered in one plain round by `_side`.
+"""
 
 from __future__ import annotations
 
@@ -13,20 +21,22 @@ from mcgyvr.mcorch.anthropic import MessagesRequest
 from mcgyvr.mcorch.authoring import GATHER, Authoring, Evidenced
 from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungReply, RungToolCall
 
-#
-#
-#
+# How many rounds one request may take. Each round is one call to the
+# orchestrator model, and a call that asks for an internal tool costs a round
+# before its answer can be shown; a reply that asks for nothing internal returns
+# at once, using however much of this budget it needed.
 MAX_ROUNDS = 6
 
-#
-#
+# The most tokens a side request may answer in: a request the harness offers no
+# tools for is not orchestrating anything, so its reply is capped at this.
 SIDE_REPLY_TOKENS = 512
 
-#
-#
+# How many characters of the latest user text the intent question is shown; the
+# remainder of a long request is not put to the question at all.
 REQUEST_CHARS = 2000
 
-#
+# Asked of a plain user request: whether the repository should be changed, or
+# whether the turn is conversation that changes nothing.
 INTENT = Choice(
     "Is this request work for the repository — a change to make, a file to "
     "produce, a bug to fix — or conversation?",
@@ -36,10 +46,10 @@ INTENT = Choice(
     },
 )
 
-#
-#
-#
-#
+# Asked of a run result by `_next`: whether what came back ends the work, calls
+# for another contract, or needs a decision from the user. `_next` is the only
+# place it is asked, and `respond` never calls `_next`, so a traced turn carries
+# no next step.
 NEXT = Choice(
     "A mcgyvr run came to this result. What should the orchestrator do next?",
     options={
@@ -49,14 +59,16 @@ NEXT = Choice(
     },
 )
 
-#
+# The names the two questions above are asked and answered under, both in the
+# question set handed to Jev and in the (name, choice) pairs a trace keeps.
 INTENT_NAME = "intent"
 NEXT_NAME = "next"
 
 
 @dataclass(frozen=True)
 class Limits:
-    ""
+    """What bounds one request: its rounds of the model, and the length of a
+    side reply."""
 
     max_rounds: int = MAX_ROUNDS
     side_reply_tokens: int = SIDE_REPLY_TOKENS
@@ -64,7 +76,12 @@ class Limits:
 
 @dataclass(frozen=True)
 class Trace:
-    ""
+    """What one turn did, written as a row of the transcript.
+
+    `jev` holds every question asked of Jev with the choice taken; the
+    `dropped_*` fields hold what the harness sent that was not passed on to the
+    model; the rest say what the loop made of the replies it got.
+    """
 
     kind: Literal["main", "side"]
     intent: str | None
@@ -74,22 +91,23 @@ class Trace:
     dropped_blocks: tuple[str, ...]
     rounds: int
     internal_calls: tuple[str, ...]
-    #
-    #
+    # The next step that was decided from a run result. Always None from
+    # `respond`, which never asks `_next`.
     next: str | None
-    #
+    # The targets of open contracts that an edit call tried to reach.
     refused_edits: tuple[str, ...] = ()
-    #
-    #
-    #
+    # What became of reading the repository: "used" when a digest stood in for
+    # the read result, "unreadable" when that result was not one whole document,
+    # "asked" when the harness was asked to read, "no-shell" when it offers no
+    # shell tool to read with, or None when no reading was involved.
     evidence: str | None = None
-    #
+    # How many ready contracts that digest proposed.
     contracts: int = 0
 
 
 @dataclass(frozen=True)
 class Turn:
-    ""
+    """One served request: the reply to give the harness, and its trace."""
 
     reply: RungReply
     trace: Trace
@@ -105,7 +123,16 @@ def respond(
     internal: Sequence[Authoring],
     limits: Limits,
 ) -> Turn:
-    ""
+    """Serve one request from the harness.
+
+    A request that offers no tools is answered in a single round by `_side`.
+    Any other is classified, offered the kept harness tools and the internal
+    authoring ones, and looped on: calls mcorch keeps for itself (an internal
+    authoring tool, a call whose arguments are not JSON, an edit aimed at a
+    target whose contract is open) are answered here, and the loop ends at the
+    first reply that keeps none of them. `system` is the prompt sent to the
+    model, with `{jev_notes}` replaced by the Jev answers gathered here.
+    """
     turns, dropped_blocks = anthropic.to_openai_turns(request.messages)
     if not request.tools:
         return _side(request, turns, dropped_blocks, rung=rung, limits=limits)
@@ -118,8 +145,8 @@ def respond(
     asked: list[tuple[str, str]] = []
     notes: list[str] = []
     intent = _intent(request.messages, jev, asked, notes)
-    #
-    #
+    # No next step is decided on this path, so the trace of every turn
+    # `respond` serves records `next` as None.
     following = None
     prompt = system.replace("{jev_notes}", "\n".join(notes))
 
@@ -129,10 +156,10 @@ def respond(
     targets = guard.open_targets(request.messages)
     history = list(turns)
 
-    #
-    #
-    #
-    #
+    # At most one bound authoring strategy reads the repository before it
+    # proposes; pick it out here, since what the loop does with a reading
+    # below depends on it, and a strategy that proposes from the request
+    # alone has nothing to pick.
     evidenced = next((s for s in internal if isinstance(s, Evidenced)), None)
     gathered: str | None = None
     contracts = 0
@@ -160,8 +187,8 @@ def respond(
                 dropped_tools,
                 dropped_blocks,
             )
-        #
-        #
+        # Older reads are replaced by a note, so their stale file contents are
+        # not read as the repository now: the digest above speaks for it.
         for tool_use_id in evidence.read_calls(request.messages):
             if latest is None or tool_use_id != latest.tool_use_id:
                 _replace_tool_turn(history, tool_use_id, _ALREADY_READ)
@@ -298,7 +325,12 @@ def _side(
 def _guarded(
     calls: Sequence[RungToolCall], targets: Mapping[str, str]
 ) -> dict[str, tuple[str, str]]:
-    ""
+    """Map the id of each call that would edit an open contract's target.
+
+    Each entry holds that target and the id of the contract on it. Calls whose
+    arguments are not a JSON object are left out, and are refused as unreadable
+    instead.
+    """
     found: dict[str, tuple[str, str]] = {}
     if not targets:
         return found
@@ -314,7 +346,8 @@ def _guarded(
     return found
 
 
-#
+# The prefix of a ready proposal line in a digest: counting them counts the
+# contracts the reading made ready to write.
 _READY = "ready: contract "
 
 _UNREADABLE = (
@@ -345,7 +378,12 @@ def _gather(
     dropped_tools: Sequence[str],
     dropped_blocks: Sequence[str],
 ) -> Turn:
-    ""
+    """Ask the harness to read the repository for `request_text`.
+
+    The read is one `mcgyvr read` command carried out by the harness through its
+    own shell tool, so its result arrives in the conversation like any other tool
+    result. A harness that offers no shell tool is told so instead.
+    """
     shell = evidence.shell_tool(request.tools)
     if shell is None:
         reply = RungReply(
@@ -431,7 +469,12 @@ def _filter_tools(
 
 
 def _latest_user_text(messages: Sequence[Mapping[str, Any]]) -> str | None:
-    ""
+    """The text of the last message, when that message is a plain request.
+
+    None when the last message is not from the user, carries any tool result, or
+    holds no text block: such a message is an answer or a tool result, and says
+    nothing about what is being asked for.
+    """
     last = messages[-1]
     if last.get("role") != "user":
         return None
@@ -473,7 +516,11 @@ def _intent(
 
 
 def _run_result(messages: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
-    ""
+    """The run result the last message carries, when it carries one.
+
+    A run result is a tool result whose text parses as a JSON object holding the
+    `contract` and `outcome` keys; the first such block is returned.
+    """
     last = messages[-1]
     if last.get("role") != "user" or not isinstance(last.get("content"), list):
         return None
@@ -505,7 +552,12 @@ def _next(
     asked: list[tuple[str, str]],
     notes: list[str],
 ) -> str | None:
-    ""
+    """Ask what should follow the run whose result the last message carries.
+
+    The findings put to the question are those of the result's attempts, or the
+    result's own when no attempt names any. Returns the choice taken, or None when
+    there is no result or Jev answers no choice.
+    """
     result = _run_result(messages)
     if result is None:
         return None

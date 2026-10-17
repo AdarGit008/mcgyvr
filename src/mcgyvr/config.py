@@ -1,4 +1,13 @@
-""
+"""Read mcgyvr's setup: what the units are, what the ladder is, and the policy.
+
+A setup is read from a path or from text, flattened into one mapping, checked
+key by key against `SCHEMA` (an unknown, missing or mis-typed key is refused
+rather than ignored), cross-checked as a whole, and returned as a frozen
+`Config` holding the declared `Unit`s, a `Ladder` and the values that were
+actually written. No credential is ever a value here: the config records the
+*name* of the environment variable that holds a key, and a key-shaped value or
+key name is refused wherever it appears.
+"""
 
 from __future__ import annotations
 
@@ -24,39 +33,42 @@ from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
 
-#
-#ed
-#
+# The three files a setup directory holds. `load()` reads all of them: fleet.yaml
+# is required and carries `units`; policy.yaml and relief.yaml are read as empty
+# text when they are absent.
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
-#
-#
+# The rungs a hub lent you, written whole by `mcgyvr rig rungs sync`.
 RELIEF_FILENAME = "relief.yaml"
+# Names a setup path directly, ahead of the live fleet directory.
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
 
 
 class ConfigError(Exception):
-    ""
+    """Base for every error raised by this module."""
 
 
 class ConfigFileError(ConfigError):
-    ""
+    """A setup file could not be read: an I/O error, or text that is not
+    UTF-8."""
 
 
 class ConfigMissingError(ConfigFileError):
-    ""
+    """No setup is named, and none was found where one was expected."""
 
 
 class ConfigSchemaError(ConfigError):
-    ""
+    """A setup was read but does not hold up: an unknown, missing, mis-typed
+    or cross-invalid key."""
 
 
 class CredentialInConfigError(ConfigSchemaError):
-    ""
+    """A key is named like a credential, or a value is shaped like one, where
+    only the name of the environment variable holding it is allowed."""
 
 
 class UnboundValueError(ConfigError):
-    ""
+    """A key is not bound, or the environment variable it names is not set."""
 
 
 Kind = Literal[
@@ -78,7 +90,8 @@ Kind = Literal[
 
 @dataclass(frozen=True)
 class Field:
-    ""
+    """One declared key: how a value for it is read, checked and defaulted,
+    and the prose an error about it quotes."""
 
     name: str
     kind: Kind
@@ -88,10 +101,10 @@ class Field:
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
     min_value: float | None = None
-    #
-    #
-    #
-    #
+    # Inclusive bounds for the `int` and `float` kinds; `min_value` also floors
+    # each entry of an `int_map`. `choices` closes an `enum`, and `block` names
+    # the fields a `block`, `block_map` or `block_list` holds. `bind_hint` says
+    # how to set the key, quoted by the error that calls it unset.
     max_value: float | None = None
     bind_hint: str = ""
 
@@ -103,13 +116,13 @@ class Field:
     refused, so the config cannot resolve to it."""
 
 
-#
-#
+# Where a relief rung's host model sits against the models on your own rigs, as
+# the hub judges it: shown, never a place on the ladder.
 POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 
-#
-#
-#
+# How a batch of work is placed across units. `none` takes the first rung in
+# ladder order whatever its load; `idle` and `full` take the first rung with a
+# slot free, and `idle` may also ride a relief rung once your own rungs are full.
 FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
 
 SANDBOX_FIELDS: tuple[Field, ...] = (
@@ -217,10 +230,10 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#
-#
-#
-#
+# Keys a config may still carry from an earlier build, mapped from the dotted
+# key to the rest of the refusal it earns. A retired key is refused rather than
+# read as unknown, so the message can name what replaced it, and `_block` looks
+# each key up here before it reports an unknown one.
 _RETIRED_KEYS: dict[str, str] = {
     "delivery.mode": (
         "is retired: no shipped command read it, and `run --commit` committed "
@@ -231,10 +244,10 @@ _RETIRED_KEYS: dict[str, str] = {
     ),
 }
 
-#
-#
-#
-#
+# Where the journal is kept when `journal.dir` says nothing else: one directory
+# under the user's state directory, outside any repository a run works on.
+# A `journal.dir` overrides it, and the `~` that path may carry is expanded by
+# the reader. Nothing on the command line moves it.
 JOURNAL_DIR_DEFAULT = "~/.local/state/mcgyvr/journal"
 
 JOURNAL_FIELDS: tuple[Field, ...] = (
@@ -258,14 +271,14 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#
-#
-#
+# Seconds `budget.request_timeout_s` defaults to, and the figure a local unit's
+# unset `request_timeout_s` is quoted as. A hosted unit waits for its reply
+# however long it takes, so this bound only ever binds a unit on your own rig.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
-#
-#
-#
+# How long `serving.servelib.wait_for` watches a unit come up: at most
+# `HEALTH_POLLS` polls of the models it serves, `HEALTH_INTERVAL_S` seconds
+# apart, so 120 polls of three seconds come to six minutes before it gives up.
 HEALTH_POLLS = 120
 HEALTH_INTERVAL_S = 3.0
 
@@ -469,23 +482,21 @@ SERVING_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#
-#
+# Whether a unit is up whenever its launch spec is (`always-on`), or a swap
+# partner that starts asleep (`sleeps-until-needed`) and wakes when needed.
 ROLE_ALWAYS_ON = "always-on"
 ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
+# The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
+# unit's `output_tokens`: the ceiling a `code` contract's
+# `limits.max_output_tokens` is held to on that unit, hidden reasoning
+# included. A hosted reasoning model spends its reasoning inside the same
+# budget, so the number is sized for a long deliberation rather than a short
+# answer. It is a value written into a file, not a default this module applies:
+# a unit that states its own `output_tokens` keeps it, and a contract's own cap
+# is sent exactly, with a cap above the ceiling refused by name. The doc of a
+# unit's `output_tokens` quotes it.
 API_OUTPUT_TOKENS = 32768
 
 UNIT_FIELDS: tuple[Field, ...] = (
@@ -810,11 +821,11 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#
-#
+# What the bound orchestrator unit is: a `proposer` that drafts contracts for
+# `mcgyvr delegate`, or `mcorch`, which serves it as the agent itself.
 ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer", "mcorch")
 
-#
+# The `orchestrator.type` that serves the bound unit as the conversational agent.
 MCORCH = "mcorch"
 
 ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
@@ -1214,10 +1225,10 @@ SCHEMA: tuple[Field, ...] = (
 )
 
 
-#
-#
-#
-#
+# Key names a config may not use, compared lowercased. A key that names a
+# credential is refused wherever it appears, so no setup can be read as holding
+# a secret value, and the refusal says to name the environment variable that
+# holds it (`api_key_env` on a unit) instead.
 _CREDENTIAL_KEYS = frozenset(
     {
         "access_key",
@@ -1237,9 +1248,10 @@ _CREDENTIAL_KEYS = frozenset(
     }
 )
 
-#
-#by
-#
+# Values shaped like a credential of a known provider: OpenAI/Anthropic-style
+# `sk-` keys, GitHub tokens, AWS access keys, Slack tokens and Google API keys.
+# A text value matching one is refused wherever it appears, so a key pasted in
+# under a neutral key name is caught too.
 _CREDENTIAL_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^sk-[A-Za-z0-9_\-]{16,}$"),
     re.compile(r"^(ghp|gho|ghs|ghu|ghr)_[A-Za-z0-9]{20,}$"),
@@ -1254,7 +1266,9 @@ _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 @dataclass(frozen=True)
 class Unit:
-    ""
+    """One unit as a dispatch sees it: where it answers, what it serves, and
+    how much of it one run may use. A relief rung is built as a `Unit` too,
+    with the fields a relief block states filled in and nothing else."""
 
     name: str
     address: str
@@ -1272,28 +1286,27 @@ class Unit:
     attention_backend: str | None = None
     container: str | None = None
     hf_cache: str | None = None
-    #
-    #
+    # Who states the sampling parameters of a request: `request` sends
+    # `temperature`, `server` sends none because the model fixes its own.
     sampling: str = "request"
-    #
-    #
+    # `always-on`, or `sleeps-until-needed` for a swap partner started on demand.
     role: str = ROLE_ALWAYS_ON
     launch: Mapping[str, Any] = field(default_factory=dict)
-    #
-    #
-    #
-    #
+    # The slots riders from the hub may use on this unit at once, as
+    # `rider_slots.<name>` states it and always below the unit's `width`, so
+    # you keep one. A unit the map does not name shares none, so this is 0.
+    # It is policy, not a fact of the unit, so it never changes its identity.
     rider_slots: int = 0
-    #
-    #
-    #
-    #
+    # True for a rung lent to you through a hub: it is never a step of the
+    # ladder, only ridden under `fanout: idle` when your own rung is full, and
+    # only the facts a relief block states are filled in — `position`,
+    # `hosted_by`, `served_model`, `busy_answers` — not a rig of yours.
     relief: bool = False
     position: str | None = None
     hosted_by: str | None = None
     served_model: str | None = None
-    #
-    #
+    # The `(status, code)` answers that say the rung is full, as `busy_answers`
+    # states them; None when the rung names none.
     busy_answers: tuple[tuple[int, str], ...] | None = None
 
     @property
@@ -1303,7 +1316,8 @@ class Unit:
 
 @dataclass(frozen=True)
 class Ladder:
-    ""
+    """The units work climbs, cheapest first, and the fan-out mode work is
+    placed under."""
 
     names: tuple[str, ...]
     fanout: str = "none"
@@ -1312,30 +1326,41 @@ class Ladder:
         return name if name in self.names else None
 
 
-#
+# The use case served by a raw, un-gated text endpoint rather than scoped edits.
 CHAT = "chat"
 
-#
-#
+# The deployment in which mcgyvr is the backend: a non-chat use case provisions
+# a local orchestrator unit, and chat is the ladder serving text.
 LOCAL_ONLY = "local-only"
 
 
 @dataclass(frozen=True)
 class LocalOrchestrator:
-    ""
+    """What `local_orchestrator` decided: whether an orchestrator unit is
+    provisioned, at what width, and whether a single-user install is flagged."""
 
-    #
+    # True when this install provisions a local orchestrator unit.
     provision: bool
-    #
+    # Slots the orchestrator is served at, one per user; None when it is not
+    # provisioned.
     width: int | None = None
-    #
+    # True for a single-user install, which is flagged rather than refused: the
+    # resident orchestrator consumes the card the ladder would otherwise use.
     flag_single_user: bool = False
 
 
 def local_orchestrator(
     *, use_case: str, local_only: bool, users: int
 ) -> LocalOrchestrator:
-    ""
+    """Whether this install provisions a local orchestrator unit.
+
+    A hybrid deployment provisions none, because an API-tier orchestrator
+    drives it, and neither does `chat`, which is just the ladder serving
+    text. Any other local-only use case provisions one, served at `users`
+    slots with one session per user, and a single user is flagged rather than
+    refused. Raises `ValueError` when `users` is below 1 on that path; the
+    other paths do not look at it.
+    """
     if not local_only:
         return LocalOrchestrator(provision=False)
     if use_case == CHAT:
@@ -1353,7 +1378,9 @@ def local_orchestrator(
 
 @dataclass(frozen=True)
 class Config:
-    ""
+    """A loaded setup: where it came from, the validated policy data, the
+    declared units, the ladder, the values that were actually written and the
+    relief rungs a hub lent you."""
 
     path: Path | None
     data: Mapping[str, Any]
@@ -1364,24 +1391,27 @@ class Config:
 
     @property
     def is_local_only(self) -> bool:
-        ""
+        """True when no unit on the ladder needs a credential, so every rung
+        is one of your own local units."""
         return not any(
             self.units[name].requires_credential for name in self.ladder.names
         )
 
     @property
     def use_case(self) -> str:
-        ""
+        """`use_case` from the config, `coding` when it is not set."""
         return str(self.get("use_case", "coding"))
 
     @property
     def deployment(self) -> str:
-        ""
+        """`deployment` from the config, `hybrid` when it is not set."""
         return str(self.get("deployment", "hybrid"))
 
     @property
     def provisions_local_orchestrator(self) -> bool:
-        ""
+        """Whether this install provisions a local orchestrator unit, as
+        `local_orchestrator` decides it from `use_case`, `deployment` and
+        `users`."""
         return local_orchestrator(
             use_case=self.use_case,
             local_only=self.deployment == LOCAL_ONLY,
@@ -1389,14 +1419,24 @@ class Config:
         ).provision
 
     def get(self, key: str, default: Any = None) -> Any:
-        ""
+        """The value at a dotted `key`, or `default` when no such key is
+        bound.
+
+        A list may be indexed by a numeric part; a key that is not there
+        gives the default rather than an error.
+        """
         try:
             return _dig(self.data, key)
         except KeyError:
             return default
 
     def require(self, key: str) -> Any:
-        ""
+        """The value at a dotted `key`, refused when it is absent or empty.
+
+        `None`, an empty string, an empty tuple and an empty list all count
+        as unbound, and the refusal names the key, the field's own doc and
+        how to bind it.
+        """
         try:
             value = _dig(self.data, key)
         except KeyError as exc:
@@ -1406,7 +1446,12 @@ class Config:
         return value
 
     def secret(self, key: str) -> str:
-        ""
+        """The value of the environment variable that a dotted `key` names.
+
+        Refused when the key is unbound or the variable is unset: the config
+        carries the variable's name, never the secret, so the value comes
+        from the environment and never from the file.
+        """
         var = self.require(key)
         value = os.environ.get(str(var))
         if not value:
@@ -1419,7 +1464,8 @@ class Config:
         return value
 
     def canonical(self) -> str:
-        ""
+        """A canonical dump of the values that were written, which is what a
+        setup's identity is computed from."""
         return _canonical_dump(self.declared)
 
     def _unbound(self, key: str) -> str:
@@ -1436,7 +1482,15 @@ class Config:
 
 
 def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
-    ""
+    """The values a config actually wrote, pruned against the schema's
+    defaults.
+
+    `data` is the validated mapping and `raw` its counterpart straight from
+    the file, so a key the schema filled in with a default is left out and
+    only stated values are declared. Blocks, block maps and block lists
+    recurse; every other kind is declared when it differs from its default,
+    and a non-empty mapping is always declared.
+    """
     out: dict[str, Any] = {}
     raw_map = raw if isinstance(raw, Mapping) else {}
     for spec in fields:
@@ -1449,10 +1503,10 @@ def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
             if block_pruned:
                 out[name] = block_pruned
         elif spec.kind == "block_map":
-            #
-            #
-            #
-            #
+            # Each entry is pruned against the raw entry of the same name, so
+            # a key a block holds only because the schema filled it in is not
+            # declared. The entry itself is kept even when it declares
+            # nothing, so the dump still names every block that was written.
             raw_entries = raw_map.get(name)
             raw_entries = raw_entries if isinstance(raw_entries, Mapping) else {}
             map_pruned: dict[str, Any] = {}
@@ -1482,7 +1536,8 @@ def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
 
 
 def field_at(key: str) -> Field | None:
-    ""
+    """The `Field` a dotted key names, or None when the schema has no such
+    key."""
     return _field_in(SCHEMA, key.split("."))
 
 
@@ -1496,7 +1551,7 @@ def _field_in(fields: tuple[Field, ...], parts: list[str]) -> Field | None:
         if found.kind == "block":
             fields = found.block
         elif found.kind in ("block_map", "block_list"):
-            index += 1  #
+            index += 1  # step past the map or list key, which has no name here
             fields = found.block
         else:
             return found if index == len(parts) else None
@@ -1545,7 +1600,12 @@ def _reject_credential_key(name: str, path: str) -> None:
 
 
 def _reject_credential_anywhere(raw: object, path: str) -> None:
-    ""
+    """Refuse a free-form mapping that holds a credential anywhere in it.
+
+    Walks dicts and lists, checking every key name and every text value, so
+    a mapping field (a unit's `launch`) cannot become a place a key is
+    pasted into.
+    """
     if isinstance(raw, dict):
         for key, item in raw.items():
             if isinstance(key, str):
@@ -1592,7 +1652,7 @@ def _missing(spec: Field, path: str) -> ConfigSchemaError:
 
 def _value(raw: object, spec: Field, path: str) -> Any:
     if spec.kind == "int":
-        #
+        # A bool is an int in Python, so it is excluded by name.
         if not isinstance(raw, int) or isinstance(raw, bool):
             raise ConfigSchemaError(
                 f"{path}: expected a number, found {_typename(raw)}"
@@ -1608,7 +1668,7 @@ def _value(raw: object, spec: Field, path: str) -> Any:
         return raw
 
     if spec.kind == "float":
-        #
+        # An int is a valid value here; a bool is not.
         if not isinstance(raw, (int, float)) or isinstance(raw, bool):
             raise ConfigSchemaError(
                 f"{path}: expected a number, found {_typename(raw)}"
@@ -1745,7 +1805,13 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
 
 
 def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
-    ""
+    """Refuse an address that carries `user:password@` in its URL.
+
+    `name` and `block` say which address it is. The userinfo is refused
+    because a URL is quoted in error messages, probe verdicts and
+    `mcgyvr local_pool`, so a key written there reaches logs and terminals
+    that a key in the environment never does.
+    """
     userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
     if not userinfo:
         return
@@ -1760,7 +1826,14 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
 
 
 def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
-    ""
+    """Resolve each unit's relative `launch.geometry_json` against the
+    config's own directory.
+
+    A relative geometry is the scan filed beside the config file, so `path`
+    is the directory it is read from and a config parsed without one is
+    refused rather than resolved against the process's working directory. A
+    path written in full, or with `~`, is expanded but not joined to it.
+    """
     beside = path.resolve() if path is not None else None
 
     def resolve(owner: str, block: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1799,13 +1872,19 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
 
 
 def named_config_path() -> Path | None:
-    ""
+    """The setup path `MCGYVR_CONFIG` names, or None when it is unset."""
     override = os.environ.get(CONFIG_PATH_ENV)
     return Path(override).expanduser() if override else None
 
 
 def config_path() -> Path:
-    ""
+    """The setup path to load: the one `MCGYVR_CONFIG` names, else the live
+    fleet directory.
+
+    Raises `ConfigFileError` when the live fleet cannot be read, and
+    `ConfigMissingError` when no fleet is live, so the caller is told how to
+    name or make one.
+    """
     override = named_config_path()
     if override is not None:
         return override
@@ -1829,7 +1908,15 @@ def parse(
     path: Path | None = None,
     relief_text: str = "",
 ) -> Config:
-    ""
+    """Parse setup text into a `Config`.
+
+    `fleet_text` is the fleet document, `policy_text` the policy and
+    `relief_text` the relief rungs. With no policy text the fleet text is
+    split first, so one document holding every block is read as a whole
+    setup. `path` is where the setup was loaded from: it is quoted in errors
+    and a relative `launch.geometry_json` resolves beside it. A malformed
+    document is refused as a `ConfigSchemaError`.
+    """
     if not policy_text:
         fleet_text, policy_text, split_relief = _split_setup(fleet_text)
         relief_text = relief_text or split_relief
@@ -1842,14 +1929,19 @@ def parse(
     return _build(fleet, policy, path, relief)
 
 
-#
-#
+# The top-level keys belonging to the fleet and relief documents rather than
+# the policy, used to split a setup written as one document.
 _FLEET_ONLY = frozenset({"units", "rigs", "fleets"})
 _RELIEF_ONLY = frozenset({"relief"})
 
 
 def _split_setup(text: str) -> tuple[str, str, str]:
-    ""
+    """Split one setup document into fleet, policy and relief texts.
+
+    Text that does not parse, or that has no `units` top-level key, is
+    returned unchanged as fleet text, so the fleet reader reports what is
+    wrong with it instead of this split guessing.
+    """
     try:
         raw = yaml.load(text, Loader=strict_loader(ConfigSchemaError))
     except yaml.YAMLError:
@@ -1876,7 +1968,14 @@ def _build(
     path: Path | None,
     relief: Mapping[str, Any] | None = None,
 ) -> Config:
-    ""
+    """Validate the three parsed documents into a `Config`.
+
+    Fleet, policy and relief are merged, `rigs`, `fleets` and each unit's
+    `unit_id` are dropped, and the result is read against `SCHEMA` and then
+    cross-checked. The units become `Unit`s (relief rungs too, flagged as
+    such), the ladder becomes a `Ladder`, and `declared` keeps only the
+    values the config actually wrote.
+    """
     merged: dict[str, Any] = {
         key: value
         for key, value in {**fleet, **policy, **(relief or {})}.items()
@@ -1932,8 +2031,8 @@ def _build(
             position=block["position"],
             hosted_by=block["hosted_by"],
             served_model=block["served_model"],
-            #
-            #
+            # A rung that names no busy answers gets None, which is what a
+            # dispatch reads as a rung that named none.
             busy_answers=tuple(
                 (answer["status"], answer["code"]) for answer in block["busy_answers"]
             )
@@ -1953,7 +2052,14 @@ def _build(
 
 
 def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
-    ""
+    """Check the declared units, ladder and routing maps against each other.
+
+    Every ladder step, `attempts` and `draws` entry must name a declared
+    unit, no name may be used twice, no unit address may carry credentials,
+    the draws a unit would use must be able to differ, and every role must
+    bind a unit that exists. What each check refuses is a setup that could
+    not dispatch, or would dispatch somewhere the file does not say.
+    """
     units: Mapping[str, Any] = data["units"]
     if not units:
         raise ConfigSchemaError(
@@ -1998,11 +2104,11 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"Declared: {', '.join(sorted(units))}"
             )
 
-    #
-    #
-    #
-    #
-    #
+    # More than one draw costs N gate runs, so the draws must be able to
+    # differ: a temperature of 0.0 makes every draw the first draw again, and
+    # a unit with `sampling: server` is sent no temperature at all. Either way
+    # the extra draws would buy nothing, so both are refused rather than
+    # accepted and ignored. A unit with no `draws` entry uses the breadth's.
     breadth = data["breadth"]["draws"]
     temperature = data["breadth"]["temperature"]
     widened = {
@@ -2047,7 +2153,12 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
 
 
 def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    ""
+    """Check what `orchestrator.type: mcorch` needs, and nothing otherwise.
+
+    It needs a local-only deployment, a bound unit that states its `window`
+    (the fact a conversation is budgeted by), an `authoring` strategy, and a
+    bound `jev` unit to answer its typed decisions.
+    """
     orchestrator = data["orchestrator"]
     if orchestrator["type"] != MCORCH:
         return
@@ -2088,7 +2199,13 @@ def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) ->
 
 
 def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    ""
+    """Check `rider_slots`: only your own unit may be shared, and only below
+    its width.
+
+    A relief rung is not yours to share, a unit naming `api_key_env` is a
+    provider's, and a count that is not below the unit's `width` would leave
+    you no slot. A count of 0 shares nothing and passes.
+    """
     for name, shared in (data.get("rider_slots") or {}).items():
         where = f"rider_slots.{name}"
         if name in data["relief"]:
@@ -2121,7 +2238,8 @@ def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) ->
 
 
 def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    ""
+    """Check the relief rungs: no name clashes with a unit of the fleet, since
+    a name is one machine, and no address carries credentials."""
     for name, block in data["relief"].items():
         if name in units:
             raise ConfigSchemaError(
@@ -2132,7 +2250,13 @@ def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) ->
 
 
 def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    ""
+    """Check `manager.fanouts` and `manager.leads`.
+
+    A mode must be one of `FANOUT_CHOICES` and listed once; a lead must be on
+    the ladder and must need no credential, because a unit with `api_key_env`
+    is hosted rather than local and cannot lead the local family. Each lead
+    is listed once too.
+    """
     manager = data["manager"]
 
     seen_modes: set[str] = set()
@@ -2172,7 +2296,13 @@ def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -
 
 
 def _absent_remedy(path: Path | None) -> str:
-    ""
+    """The sentence a missing-setup error ends with.
+
+    It differs by how the setup was named: a path the caller passed means
+    name one that is there, a path `MCGYVR_CONFIG` named means run `mcgyvr
+    setup` or name an existing file, and with nothing named it means set up a
+    fleet or point the variable at one.
+    """
     if path is not None:
         return "Name one that is there."
     if named_config_path() is not None:
@@ -2187,13 +2317,20 @@ def _absent_remedy(path: Path | None) -> str:
 
 
 def load(path: Path | None = None) -> Config:
-    ""
+    """Load the setup at `path`, or at `config_path()` when none is given.
+
+    A path that names a file is read as one setup document; a directory is
+    read as its fleet.yaml, with policy.yaml and relief.yaml read when they
+    are there. Every read error and every schema error carries the path it
+    came from.
+    """
     chosen = path
     where = path if path is not None else config_path()
     if where.is_file():
-        #
-        #
-        #
+        # A file is one setup document: `parse` splits it into fleet, policy
+        # and relief. Only a directory is read as the three files. The file's
+        # own directory is passed as `path`, so a relative geometry resolves
+        # beside it.
         try:
             text = where.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:

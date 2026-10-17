@@ -1,4 +1,12 @@
-""
+"""The rig token this machine keeps: where it lives, and how it is written and read.
+
+A rig token is a secret the hub shows once and the agent needs after every
+restart, so it is kept in a file of its own in the mcgyvr home folder, at mode
+0600 whatever the umask, in a folder created at 0700. `save` writes it whole or
+not at all and `load` refuses a file that is a link, of another user, readable
+or writable by others, or not the shape `save` writes -- each refusal says what
+to do instead. What is shown of a token is its public id, never the secret.
+"""
 
 from __future__ import annotations
 
@@ -12,36 +20,36 @@ from pathlib import Path
 from mcgyvr import atomic
 from mcgyvr.fleet import roots
 
-#
+# The name of the token file inside the mcgyvr home folder.
 CREDENTIALS_FILE = "rig-credentials.json"
-#
+# A token file is a few hundred bytes; anything longer is not one `save` wrote.
 MAX_CREDENTIALS_BYTES = 4096
-#
-#
+# What a token may hold: the characters a request header carries, 1 to 256 of them.
+# A token with anything else could not be sent whole, so `_check` refuses it.
 TOKEN = re.compile(r"[A-Za-z0-9_-]{1,256}")
-#
+# A token as a hub shows it: a public id `mh<letter>_<16 hex digits>` before the secret.
 _TOKEN_ID = re.compile(r"(mh[a-z]_[0-9a-f]{16})_.+")
 
 
 class CredentialsError(Exception):
-    ""
+    "A token file that cannot be trusted, named with what to do about it."
 
 
 @dataclass(frozen=True, kw_only=True)
 class Credentials:
-    ""
+    "What one join gives this machine: the hub's address and the token it was given."
 
     hub: str
     token: str
 
 
 def path() -> Path:
-    ""
+    "The token file, in the same folder the config is looked for."
     return roots.home() / CREDENTIALS_FILE
 
 
 def shown(token: str) -> str:
-    ""
+    "What a token may be printed as: its public id, or else only how long it is."
     match = _TOKEN_ID.fullmatch(token)
     if match:
         return f"{match.group(1)}_…"
@@ -59,7 +67,14 @@ def _check(credentials: Credentials) -> None:
 
 
 def save(credentials: Credentials) -> Path:
-    ""
+    """Write the token file for `credentials`, and say where it went.
+
+    The values are checked first, raising ValueError if either cannot be used.
+    The home folder is created at 0700 only when it is missing; one that exists
+    keeps its own mode. A link in the file's place raises CredentialsError
+    rather than being written through. `atomic.write` puts the JSON in place in
+    one step, at 0600, fsynced.
+    """
     _check(credentials)
     target = path()
     folder = target.parent
@@ -76,7 +91,14 @@ def save(credentials: Credentials) -> Path:
 
 
 def load() -> Credentials | None:
-    ""
+    """Read the token file back, or None when this machine has none.
+
+    The file is opened without following a link and then judged by what is
+    actually open, not by the path: it must be a plain file of this user with no
+    group or other bits, no longer than `MAX_CREDENTIALS_BYTES`, holding the
+    JSON object `save` writes. Anything else raises CredentialsError saying what
+    to do; a file that is absent is not an error.
+    """
     target = path()
     try:
         fd = os.open(target, os.O_RDONLY | os.O_NOFOLLOW)
@@ -126,7 +148,7 @@ def load() -> Credentials | None:
 
 
 def remove() -> bool:
-    ""
+    "Delete the token file, and say whether there was one -- a link counts as one."
     target = path()
     if not target.exists() and not target.is_symlink():
         return False

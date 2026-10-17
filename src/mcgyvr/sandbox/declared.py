@@ -1,4 +1,11 @@
-""
+"""Answer which checker a repository declares, by reading files only.
+
+Every probe here is a static read of the repository root: file names, TOML
+tables in ``pyproject.toml``, INI sections in ``setup.cfg``, and keys in
+``package.json``. Nothing is imported, evaluated, or spawned, so a repository
+whose own modules would explode on import still reports its declaration, and
+the answer never depends on what is installed on the host.
+"""
 
 from __future__ import annotations
 
@@ -12,9 +19,9 @@ PYRIGHT = "pyright"
 ESLINT = "eslint"
 PRETTIER = "prettier"
 
-#
-#
-#
+# Suffixes of a JavaScript/TypeScript module. A config file with one of these
+# is a program the tool imports, so these names are kept apart from the
+# data-format config files below and grouped per tool in CONFIG_MODULES.
 _MODULE_SUFFIXES = (".js", ".cjs", ".mjs", ".ts", ".cts", ".mts")
 CONFIG_MODULES = {
     ESLINT: frozenset(
@@ -27,8 +34,8 @@ CONFIG_MODULES = {
     ),
 }
 
-#
-#
+# Config files the tool parses as data rather than importing, plus the
+# package.json key that carries the same settings inline in _PACKAGE_KEYS.
 _CONFIG_DATA = {
     ESLINT: frozenset(
         {".eslintrc", ".eslintrc.json", ".eslintrc.yaml", ".eslintrc.yml"}
@@ -48,7 +55,10 @@ _PACKAGE_KEYS = {ESLINT: "eslintConfig", PRETTIER: "prettier"}
 
 
 def declared_type_checker(repo: Path) -> str | None:
-    ""
+    """Name the type checker the repository declares, or None if it declares none.
+
+    mypy is preferred when both are declared.
+    """
     if declares_mypy(repo):
         return MYPY
     if declares_pyright(repo):
@@ -57,14 +67,14 @@ def declared_type_checker(repo: Path) -> str | None:
 
 
 def declares_mypy(repo: Path) -> bool:
-    ""
+    """Whether mypy is declared by pyproject.toml, an ini file, or setup.cfg."""
     if has_toml_table(repo / "pyproject.toml", "mypy"):
         return True
     if (repo / "mypy.ini").is_file() or (repo / ".mypy.ini").is_file():
         return True
-    #
-    #
-    #
+    # setup.cfg is INI rather than TOML, so the same declaration appears there
+    # as a [mypy] section instead of a [tool.mypy] table. Bare presence of the
+    # file is not enough: a setup.cfg without that section declares no checker.
     return has_ini_section(repo / "setup.cfg", "mypy")
 
 
@@ -75,7 +85,11 @@ def declares_pyright(repo: Path) -> bool:
 
 
 def declares_js(repo: Path, tool: str) -> bool:
-    ""
+    """Whether the repository configures `tool` (eslint or prettier).
+
+    The dedicated config files are checked first, in both their module and
+    data-format spellings; failing those, the tool's key inside package.json.
+    """
     names = CONFIG_MODULES[tool] | _CONFIG_DATA[tool]
     if any((repo / name).is_file() for name in names):
         return True
@@ -90,26 +104,28 @@ def declares_js(repo: Path, tool: str) -> bool:
 
 
 def has_toml_table(path: Path, name: str) -> bool:
-    ""
+    """Whether `path` is a readable TOML file holding a [tool.<name>] table."""
     if not path.is_file():
         return False
     try:
         with path.open("rb") as handle:
             document = tomllib.load(handle)
     except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
-        #
-        #
-        #
-        #
-        #nd
-        #
+        # A manifest that cannot be read, decoded, or parsed declares nothing.
+        # A broken pyproject.toml is a pre-existing property of the target, not
+        # of the probe, so it is answered in the negative here rather than
+        # raised: locating a command must not fail because the repository is
+        # malformed, and the table lookup below only ever sees a real document.
         return False
     tool = document.get("tool")
     return isinstance(tool, dict) and isinstance(tool.get(name), dict)
 
 
 def has_ini_section(path: Path, name: str) -> bool:
-    ""
+    """Whether `path` is an INI file with a section named `name`.
+
+    A file that cannot be read or parsed is treated as having no such section.
+    """
     if not path.is_file():
         return False
     parser = configparser.ConfigParser()

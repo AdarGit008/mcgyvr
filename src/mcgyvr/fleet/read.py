@@ -1,4 +1,28 @@
-""
+"""Read one rig of a fleet, and file what it says about that rig's units.
+
+The reader on the rig prints whitespace-free `key=value` lines: every container
+up, every compute process on its card, and what each unit's port answers.
+:func:`parse` turns that text into a :class:`Reading`, and :func:`observe` holds
+it to the fleet's layout — which of the fleet's units sit on this rig, what each
+one holds on the card, its container's restart count, what its status page
+reports in flight, its sleep state and, for a vLLM unit, the attention backend
+its log names. A card holder that cannot be attributed to one of the fleet's
+containers is carried as a stranger rather than counted.
+
+:func:`record` is the one entry point: given the machine reading, the reader's
+text and a run id, it observes the rig, runs the lock's harness on each unit
+`--probe` names (through the `measure` callable) and a `WxN` load after each of
+those, judges what it may against the lock's approved figures, and appends one
+row for the rig to ``<journal>/<combination_id>/rig.jsonl`` with each unit's own
+rows beside it in ``<unit_id>.jsonl``. A figure the reader could not read is
+filed as unread, not guessed; a probe on a unit that took work, and every figure
+from a setup's own fleet, are filed without a verdict.
+
+:func:`spawn_read` is how the fleet-level code reaches a rig: it runs the door
+script whose `read` step (:func:`prepare`, :func:`reader_args`, :func:`record`)
+does this work on the other side of the door. :func:`observations` and
+:func:`judged` read the filed rows back for one run.
+"""
 
 from __future__ import annotations
 
@@ -17,24 +41,29 @@ from mcgyvr.fleet import alerts, ids
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.serving.servelib import PROJECT
 
-#
+# The name a container this tool brings up starts with, beside the compose
+# project it runs under.
 OURS_PREFIX = "mcgyvr-"
-#
-#
-#
+# How much of a vLLM unit's log line naming its attention backend is carried in
+# the reading: the line is filed so the journal says what the log said, and the
+# rest of it would only make the row longer.
 BACKEND_LINE_MAX = 400
-#
+# The file a read appends one row per rig to, under the combination's folder; a
+# journal's other `.jsonl` files are one unit's rows, so a reader tells them
+# apart by this name.
 RIG_ROWS = "rig.jsonl"
-#
+# The two figures a read files for every unit it finds up on the rig, in the
+# order `_file_units` handles them.
 UNIT_FIELDS = ("card_mib", "restarts")
-#
-#
-#
-#
+# Engine -> (the path of the page carrying its prompt-token counter, the counter
+# itself): a load's prompt pace is that counter's change over the seconds the
+# load ran. Only vLLM names one; `_pace_counter` answers why llama.cpp does not.
 PACE_COUNTERS: dict[str, tuple[str, str]] = {
     "vllm": ("/metrics", "vllm:prompt_tokens_total"),
 }
-#
+# The pace source a load files for a llama.cpp unit that launches without
+# --metrics: the page it would have to read is not served, and the slot JSON it
+# does answer carries no prompt token count.
 NO_PACE_COUNTER = (
     "none: llama-server answers /metrics 501 unless started with --metrics "
     "(src/mcgyvr/pool.py), and this unit's launch has no --metrics; the slot "
@@ -42,22 +71,25 @@ NO_PACE_COUNTER = (
     "is_processing, and no prompt token count"
 )
 
-#
+# A harness run on the rig: the unit's name and a JSON spec in, the harness's
+# stdout back, or `None` when the run outlasted its timeout. The door's `read`
+# step passes `harness_on_rig`, which runs the lock's harness there over ssh.
 Measure = Callable[[str, str], str | None]
 
 
 class ReadError(Exception):
-    ""
+    """A read cannot be taken or filed: the text is not one the reader prints,
+    the fleet names no such rig or unit, or a lock and journal cannot be read."""
 
 
 @dataclass(frozen=True)
 class Container:
-    ""
+    """One running container on the rig, as the reader lists it."""
 
     name: str
     id: str
     project: str
-    #
+    # docker's RestartCount, or None when the reader could not read it.
     restarts: int | None
 
     @property
@@ -67,39 +99,43 @@ class Container:
 
 @dataclass(frozen=True)
 class Holder:
-    ""
+    """One compute process holding the rig's card, and the container it runs in."""
 
     pid: int
     mib: int | None
-    #
+    # the 64-hex container id its /proc/PID/cgroup names, or None when it sits in
+    # no container
     container: str | None
-    #
+    # whether that cgroup could be read at all: an unread one is never counted as
+    # one of ours
     attributed: bool
     process: str
 
 
 @dataclass
 class Reading:
-    ""
+    """One rig's reading, as the reader printed it: the containers up, the
+    processes on its card, and what each unit's port answers."""
 
-    #
+    # the machine reading rigscan printed, its snapshot among it, attached by
+    # `reading`
     machine: dict[str, Any] = field(default_factory=dict)
     containers: list[Container] = field(default_factory=list)
     holders: list[Holder] = field(default_factory=list)
-    #
-    #
+    # port -> a vLLM unit's own /is_sleeping: True asleep, False awake, and None
+    # for a 404 (no sleep route)
     sleeping: dict[int, bool | None] = field(default_factory=dict)
-    #
-    #
+    # ports whose sleeping row was neither true, false nor none: any other
+    # failed read of /is_sleeping
     sleep_unread: set[int] = field(default_factory=set)
-    #
+    # port -> the unit's in-flight page as served: /metrics for vLLM, /slots
+    # otherwise
     status: dict[int, str] = field(default_factory=dict)
-    #
-    #
-    #
+    # port -> the attention backend a vLLM unit's whole log names, or None when
+    # the log names none: never guessed from the page or from the launch
     backend: dict[int, str | None] = field(default_factory=dict)
-    #
-    #
+    # port -> the first line of that log matching the backend, clipped to
+    # BACKEND_LINE_MAX; absent when the log has no such line
     backend_line: dict[int, str] = field(default_factory=dict)
 
 
@@ -108,7 +144,11 @@ def _digits(value: str) -> int | None:
 
 
 def reading(machine: Mapping[str, Any], text: str) -> Reading:
-    ""
+    """The machine reading and the reader's unit text, parsed together.
+
+    Raises `ReadError` when the machine reading is not one the reader prints,
+    before any of the unit text is looked at.
+    """
     if not isinstance(machine, Mapping) or not isinstance(
         machine.get("snapshot"), Mapping
     ):
@@ -119,7 +159,14 @@ def reading(machine: Mapping[str, Any], text: str) -> Reading:
 
 
 def parse(text: str) -> Reading:
-    ""
+    """Parse the reader's whitespace-free `key=value` lines into a `Reading`.
+
+    Each line is one row: a container, a card holder, a unit's sleeping state,
+    its status page, the attention backend its log names, or the line that named
+    it. A line that is not one key=value, a row of the wrong width, and a line
+    the reader does not print raise `ReadError` quoting the line; a status page
+    or backend line that does not base64-decode raises naming its port.
+    """
     reading = Reading()
     for raw in text.splitlines():
         line = raw.strip()
@@ -195,7 +242,11 @@ def parse(text: str) -> Reading:
 
 @dataclass(frozen=True)
 class Live:
-    ""
+    """A fleet a read runs against: its layout name, the folder its `fleet.yaml`
+    sits in, and that file parsed. `locked` is True for the live fleet, which
+    has a lock record its probe figures are judged against; a fleet named out of
+    a setup is read unlocked, its rows stamped as a setup's and its probe
+    figures filed unjudged."""
 
     name: str
     folder: Path
@@ -203,7 +254,9 @@ class Live:
     locked: bool = True
 
     def slots(self, rig: str) -> list[tuple[str, Mapping[str, Any], str]]:
-        ""
+        """The units the fleet's layout places on `rig`, in layout order: each
+        one's name, its block in `fleet.yaml`, and its state there, `awake` or
+        `asleep`. An empty slot is skipped."""
         layout = self.fleet["fleets"][self.name].get("layout", {})
         units = self.fleet.get("units", {})
         return [
@@ -221,7 +274,9 @@ class Live:
 
 
 def live() -> Live:
-    ""
+    """The live fleet: what `live.json` names, its folder, and that folder's
+    `fleet.yaml`, read as locked. `ReadError` when no fleet is live, or when the
+    file cannot be read or holds no such layout."""
     from mcgyvr.fleet.probe import ProbeError, _live
 
     try:
@@ -244,7 +299,9 @@ def engine_of(unit: Mapping[str, Any]) -> str:
 
 
 def named(fleet_name: str, setup: Path | None) -> Live:
-    ""
+    """The fleet `fleet_name` of a setup, read unlocked from the `fleet.yaml`
+    beside the setup file. `ReadError` when the read ran under no setup, when
+    that file cannot be read, or when it declares no such fleet."""
     from mcgyvr.fleet.files import FleetFileError, load_fleet
 
     if setup is None:
@@ -271,7 +328,14 @@ def prepare(
     fleet_name: str | None = None,
     setup: Path | None = None,
 ) -> Live:
-    ""
+    """The fleet a read of `host` runs against, and the refusals that come first.
+
+    Without `fleet_name` this is the live fleet; with it, that fleet of the
+    setup the read's config was loaded from. `host` must be a rig of the fleet,
+    and every unit `probe` names must be awake on it: a unit the layout leaves
+    asleep has nothing of the fleet's to measure. `load` needs `probe`, and must
+    be a `WxN` spec.
+    """
     if load is not None:
         if not probe:
             raise ReadError(
@@ -294,7 +358,9 @@ def prepare(
 
 
 def reader_args(fleet: Live, host: str) -> list[str]:
-    ""
+    """The `ENGINE:PORT:CONTAINER` arguments the rig's runtime reader takes, one
+    per unit of the fleet on `host`, with the container dropped for a unit the
+    fleet names none for."""
     args: list[str] = []
     for _, unit, _ in fleet.slots(host):
         parts = [engine_of(unit), str(port_of(unit)), str(unit.get("container") or "")]
@@ -304,31 +370,47 @@ def reader_args(fleet: Live, host: str) -> list[str]:
 
 @dataclass
 class Observed:
-    ""
+    """What one rig's reading says about the fleet's units on it, and who else
+    holds its card."""
 
     rig_id: str
-    #
-    #
-    #
+    # unit id -> `asleep`, `awake`, or `unread` for a vLLM unit whose
+    # /is_sleeping could not be read; a container of ours the layout places
+    # nowhere on this rig is carried here under its container name, as awake
     units: dict[str, str]
-    #
+    # the card's holders that are not one of the fleet's containers, each as a
+    # sentence naming its process, pid and MiB
     foreign: list[str]
-    #
+    # unit name -> the MiB its container's processes hold on the card (0 when
+    # none of them does), or None when any holder's memory went unread
     card_mib: dict[str, int | None]
-    #
+    # unit name -> its container's restart count, or None when the reader could
+    # not read it
     restarts: dict[str, int | None]
-    #
+    # unit name -> how many requests its status page reports, read as its engine
+    # names them, or None when the page could not be read
     in_flight: dict[str, int | None]
-    #
+    # unit name -> the id of the container the unit runs in, for each unit found
+    # up
     containers: dict[str, str] = field(default_factory=dict)
-    #
+    # vLLM unit name -> the attention backend its log names, None when it names
+    # none
     backend: dict[str, str | None] = field(default_factory=dict)
-    #
+    # vLLM unit name -> the log line that named it, empty when there is none
     backend_line: dict[str, str] = field(default_factory=dict)
 
 
 def observe(fleet: Live, host: str, reading: Reading) -> Observed:
-    ""
+    """Hold one rig's reading to the fleet's layout.
+
+    Every unit the layout places on `host` gets its in-flight count and, when
+    its container is up, its sleep state, that container's id, the MiB it holds
+    on the card, its restart count and — for a vLLM unit — the attention backend
+    its log names with the line that named it. A container of ours the layout
+    places nowhere on this rig is carried as awake, and every other holder of
+    the card is named as a stranger. The rig id comes from `ids.rig_id`, whose
+    refusal is raised as `ReadError`.
+    """
     from mcgyvr.runner import status_busy
 
     try:
@@ -380,7 +462,9 @@ def observe(fleet: Live, host: str, reading: Reading) -> Observed:
 
 
 def _sleep_state(engine: str, port: int, reading: Reading) -> str:
-    ""
+    """A unit's sleep state from its /is_sleeping page: `asleep` when it says so,
+    `unread` for a vLLM unit whose page said nothing that reads as an answer,
+    and `awake` otherwise."""
     said = reading.sleeping.get(port)
     if said is True:
         return "asleep"
@@ -392,20 +476,22 @@ def _sleep_state(engine: str, port: int, reading: Reading) -> str:
 
 @dataclass
 class Recorded:
-    ""
+    """What one read of one rig measured, judged, passed over and failed to
+    measure."""
 
     observed: Observed
     probed: dict[str, dict[str, float]] = field(default_factory=dict)
-    #
+    # unit name -> the probe figures the harness answered as sample lists, each
+    # list kept whole beside the single figure the lock judges
     samples: dict[str, dict[str, list[float]]] = field(default_factory=dict)
     busy: dict[str, int] = field(default_factory=dict)
     contended: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
     not_read: dict[str, list[str]] = field(default_factory=dict)
     alerts: list[dict[str, Any]] = field(default_factory=list)
-    #
+    # unit name -> the row its load filed
     loads: dict[str, dict[str, Any]] = field(default_factory=dict)
-    #
+    # unit name -> why no load ran on it
     unloaded: dict[str, str] = field(default_factory=dict)
 
 
@@ -420,7 +506,8 @@ def _at(run_id: str) -> str:
 
 
 def load_spec(spec: str) -> tuple[int, int]:
-    ""
+    """The width and window a `--load WxN` names, or `ReadError` when it is not
+    that shape."""
     from mcgyvr.serving.run import LOAD_SPEC
 
     match = LOAD_SPEC.match(spec)
@@ -431,7 +518,8 @@ def load_spec(spec: str) -> tuple[int, int]:
 
 @dataclass
 class _Filing:
-    ""
+    """The journal one read files into, with the stamp every row carries and the
+    run's stamps."""
 
     journal: Path
     stamp: dict[str, str]
@@ -442,7 +530,8 @@ class _Filing:
         return {**self.stamp, "unit_id": unit_id}
 
     def record(self, unit_id: str, values: Mapping[str, Any]) -> None:
-        ""
+        """Append a plain row for one unit: its stamp, the run's stamps and the
+        values."""
         alerts.record(self.journal, self.unit_stamp(unit_id), {**self.stamps, **values})
 
     def check(
@@ -451,7 +540,8 @@ class _Filing:
         observations: Sequence[Mapping[str, Any]],
         approved: Mapping[str, Any],
     ) -> None:
-        ""
+        """Judge observations against an approved table, filing each row and
+        warning once on a trip; the trips are collected on the read's alerts."""
         self.done.alerts.extend(
             alerts.check(
                 observations,
@@ -476,7 +566,15 @@ def record(
     fleet_name: str | None = None,
     setup: Path | None = None,
 ) -> Recorded:
-    ""
+    """Read `host` and file what it says, returning what was measured.
+
+    The machine reading and the reader's text are parsed and observed against
+    the fleet; each unit `probe` names is then measured through `measure`, and,
+    with `load`, loaded after its probe. Every row lands under the journal's
+    combination folder: each unit's rows on its own `<unit_id>.jsonl`, its
+    figures judged where a lock record and a room let them be judged, and one row
+    for the rig itself on `rig.jsonl`.
+    """
     from mcgyvr.fleet.probe import journal_dir
 
     fleet = prepare(host, probe, load, fleet_name=fleet_name, setup=setup)
@@ -492,7 +590,8 @@ def record(
             "rig": host,
             "rig_id": fleet.locked_rig_id(host),
             "combination_id": fleet.combination(host),
-            #
+            # A fleet that is not the live one says so on every row it files, and
+            # names the setup it was read out of.
             **({} if fleet.locked else {"locked": "false", "setup": str(fleet.folder)}),
         },
         stamps={
@@ -545,7 +644,7 @@ def record(
 
 
 def _answer(text: str | None) -> dict[str, Any] | None:
-    ""
+    """A harness answer as a JSON object, or None when it printed none."""
     try:
         answer = json.loads(text or "")
     except ValueError:
@@ -554,7 +653,11 @@ def _answer(text: str | None) -> dict[str, Any] | None:
 
 
 def _file_units(fleet: Live, host: str, filing: _Filing) -> None:
-    ""
+    """File each unit the read found up: its card MiB and its restart count,
+    judged against the room the unit states, and, for a vLLM unit, the attention
+    backend its log names with the line that named it. A figure the reader could
+    not read is filed as unread and named in `not_read`, as is a vLLM unit whose
+    sleep page said nothing readable."""
     observed = filing.done.observed
     for name, unit, _state in fleet.slots(host):
         unit_id = str(unit["unit_id"])
@@ -595,9 +698,9 @@ def _file_units(fleet: Live, host: str, filing: _Filing) -> None:
                     "attention_backend": backend,
                 },
             )
-            #
-            #
-            #
+            # The name is filed with the line it was read from: the row then says
+            # what the log said, and a log with no such line files the empty line
+            # rather than a backend nobody saw.
             said = observed.backend_line.get(name, "")
             filing.record(
                 unit_id,
@@ -612,7 +715,13 @@ def _file_units(fleet: Live, host: str, filing: _Filing) -> None:
 def _measure_probe(
     fleet: Live, name: str, measure: Measure | None, done: Recorded
 ) -> dict[str, Any] | None:
-    ""
+    """Run the harness on the rig for one unit and keep its figures.
+
+    A unit the read saw in flight, a unit with no harness to run, and a harness
+    that printed no answer or an error instead of figures are each named in
+    `failed` with why. The answer's single figures land in `probed` and the ones
+    it gave as sample lists in `samples`.
+    """
     unit = fleet.fleet["units"][name]
     before = done.observed.in_flight.get(name)
     if before is None:
@@ -646,7 +755,14 @@ def _measure_probe(
 def _file_probe(
     fleet: Live, host: str, name: str, answer: Mapping[str, Any], filing: _Filing
 ) -> None:
-    ""
+    """File one probe's figures and samples, judged when they may be.
+
+    A unit that took work over its probe, or whose page after it could not be
+    read, is filed as contended with the figures marked so and no verdict. A
+    setup's fleet has no lock record, so its figures are filed unjudged; a live
+    fleet's are held to the figures its lock approves for the unit's rig and
+    combination, and a lock record that cannot be read fails the unit by name.
+    """
     from mcgyvr.derived import DerivedNumbersError, class_tolerances
     from mcgyvr.fleet.harness import HarnessError
     from mcgyvr.fleet.probe import _approved
@@ -657,7 +773,8 @@ def _file_probe(
     figures = filing.done.probed[name]
     after = status_busy(engine_of(unit), answer.get("after_page"))
     contended = after is None or after > 0
-    #
+    # Every sample list is filed whatever the probe turned out, so a contended
+    # unit still leaves behind the samples its figures were read from.
     for field_name, samples in filing.done.samples.get(name, {}).items():
         values: dict[str, Any] = {"field": field_name, "observed": samples}
         if contended:
@@ -719,7 +836,14 @@ def _measure_load(
     width: int,
     window: int,
 ) -> dict[str, Any] | None:
-    ""
+    """Run a load on the rig for one unit `probe` named, and return its answer.
+
+    A load needs the unit read idle and still idle after its probe, its
+    container up, and a harness to run it; a unit that fails any of those is
+    named in `unloaded` with the reason and left alone. The spec carries the
+    width and window the `WxN` names, the rig's own card reader as the poll, and
+    the page its prompt counter sits on.
+    """
     from mcgyvr.runner import status_busy
     from mcgyvr.serving.run import GATE_SCRIPTS
 
@@ -765,7 +889,15 @@ def _file_load(
     window: int,
     filing: _Filing,
 ) -> None:
-    ""
+    """File one load's row, judged against the room the unit states.
+
+    The peak is the largest MiB the unit's processes held across the load's
+    samples, with the peak before the harness began closing sockets filed beside
+    it; the rest of the row carries the spec, the completions, the restarts
+    either side, the prompt pace and whether the unit read idle after. A load
+    with no peak, no room to judge by, or errors is filed without a verdict; a
+    peak over the room trips, warns once, and is collected on the read's alerts.
+    """
     from mcgyvr.fleet.alerts import _already_alerted, _journal_file, _judge, _warning
     from mcgyvr.fleet.harness import LOAD_LIMIT_S
     from mcgyvr.runner import status_busy
@@ -785,10 +917,12 @@ def _file_load(
             return sum(h.mib or 0 for h in held)
         return None
 
-    #
-    #
-    #
-    #
+    # Each sample is a whole card reading taken during the load, so what the unit
+    # held is read back through the parser the rig's own text goes through, and a
+    # sample that cannot be read leaves no figure rather than a guess.
+    # `samples_before_close` is how many of them were taken before the harness
+    # began closing sockets, so the peak over those is what the unit held under
+    # the load itself, the rest being taken while the card drains.
     mibs = [held_mib(sample) for sample in samples]
     index = body.get("samples_before_close")
     held_before = isinstance(index, int) and 0 <= index <= len(samples)
@@ -858,7 +992,14 @@ def _file_load(
 
 
 def _pace_counter(unit: Mapping[str, Any]) -> tuple[str | None, str | None, str]:
-    ""
+    """The page and counter a load's prompt pace is read from, with the reason
+    that is filed as its source.
+
+    A vLLM unit's `/metrics` carries `vllm:prompt_tokens_total`. A llama.cpp
+    unit launched with `--metrics` serves counters, but no page of them is
+    recorded for a load to read, so it files no pace; one launched without it has
+    no counter on the rig at all.
+    """
     engine = engine_of(unit)
     if engine in PACE_COUNTERS:
         path, name = PACE_COUNTERS[engine]
@@ -876,7 +1017,13 @@ def _pace_counter(unit: Mapping[str, Any]) -> tuple[str | None, str | None, str]
 
 
 def _pace(unit: Mapping[str, Any], body: Mapping[str, Any]) -> tuple[float | None, str]:
-    ""
+    """The prompt tokens a second the load sustained, and how that was read.
+
+    The counter's total on the pages the load read at both ends of its run, over
+    the seconds between them. Anything that leaves no rate — no counter for the
+    unit, a page without the counter, no measurable time, or a total that went
+    backwards — answers None with the reason instead.
+    """
     from mcgyvr.fleet.harness import metric_total
 
     _, counter, source = _pace_counter(unit)
@@ -901,7 +1048,9 @@ def _pace(unit: Mapping[str, Any], body: Mapping[str, Any]) -> tuple[float | Non
 
 
 def observations(journal: Path, run_id: str) -> dict[str, dict[str, Any]]:
-    ""
+    """The rig rows one run filed, by rig, from every combination's `rig.jsonl`
+    under the journal. A row that does not parse, and one of another run, are
+    passed over."""
     found: dict[str, dict[str, Any]] = {}
     if not journal.is_dir():
         return found
@@ -921,7 +1070,8 @@ def observations(journal: Path, run_id: str) -> dict[str, dict[str, Any]]:
 
 
 def judged(journal: Path, run_id: str) -> list[dict[str, Any]]:
-    ""
+    """The rows one run filed that alerted, as their unit id and field, from
+    every journal file but the rig rows."""
     raised: list[dict[str, Any]] = []
     if not journal.is_dir():
         return raised
@@ -941,7 +1091,9 @@ def judged(journal: Path, run_id: str) -> list[dict[str, Any]]:
 
 
 def door_read_argv(host: str, run_id: str, probe: Sequence[str] = ()) -> list[str]:
-    ""
+    """The command that runs the door's `read` of one rig: this interpreter, the
+    door module, the rig, the run's id, and the units to probe when any are
+    named."""
     from mcgyvr.serving.gatelib import DOOR_MODULE
 
     argv = [sys.executable, "-m", DOOR_MODULE, "read"]
@@ -953,7 +1105,8 @@ def door_read_argv(host: str, run_id: str, probe: Sequence[str] = ()) -> list[st
 
 
 def spawn_read(host: str, run_id: str, probe: Sequence[str] = ()) -> int:
-    ""
+    """Run the door's read of one rig, pass what it printed through to our
+    stderr, and give back its exit code."""
     argv = door_read_argv(host, run_id, probe)
     done = subprocess.run(
         argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, check=False

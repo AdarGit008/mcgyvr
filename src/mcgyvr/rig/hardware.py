@@ -1,4 +1,13 @@
-""
+"""The rig's own report of the machine it runs on.
+
+This module holds no detection of its own: the one reader,
+:mod:`mcgyvr.serving.rigscan`, makes the short reading of the machine, and
+:func:`mcgyvr.fleet.ids.rig_id` names it with the ``rig-`` id the hub knows it
+by. :func:`read` turns that reading into a :class:`Report`, and the report
+makes the two frames an agent sends about its hardware, a ``hello`` and a
+``heartbeat``. A reading that fails or that cannot be named is raised as
+:class:`HardwareError` rather than reported as a guess.
+"""
 
 from __future__ import annotations
 
@@ -11,25 +20,38 @@ from mcgyvr.rig import protocol
 
 
 class HardwareError(Exception):
-    ""
+    """The machine could not be read or could not be named, so no report exists."""
 
 
 @dataclass(frozen=True, kw_only=True)
 class Report:
-    ""
+    """One reading of this machine, as the rig reports it to a hub.
+
+    ``machine_id`` is the machine's ``rig-`` id, the RAM figures are MiB, and
+    ``cards`` are the sized cards renumbered from 0, at most as many as the
+    protocol carries. ``notes`` says in prose what a reader left out or could
+    not read, since a figure that was not read is reported as absent or zero
+    and never as a guess.
+    """
 
     machine_id: str
     ram_total_mb: int
     ram_free_mb: int | None
     cards: tuple[protocol.CardReport, ...]
     notes: tuple[str, ...]
-    #
-    #
+    # Which card of the reading each reported card came from, position for
+    # position: its vendor and the reading's own index, since the report
+    # renumbers its cards from 0.
     sources: tuple[tuple[str, int], ...] = ()
 
 
 def read_machine() -> Mapping[str, Any]:
-    ""
+    """The short reading of this machine, as the product's own scanner makes it.
+
+    Rigscan is imported here rather than at import time, and its reading asks
+    for no raised rights: identity, cards and memory, with the fields that
+    could not be read named in it.
+    """
     from mcgyvr.serving import rigscan
 
     return rigscan.read_machine()
@@ -47,7 +69,20 @@ def _mib(gb: float) -> int:
 
 
 def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
-    ""
+    """The report of this machine, from one reading of it.
+
+    The reading comes from ``reader`` when one is given and from
+    :func:`read_machine` otherwise, so a caller can hand in a document instead
+    of touching the machine. A reader that raises ``OSError``, and a reading
+    that :func:`mcgyvr.fleet.ids.rig_id` refuses to name, are raised as
+    :class:`HardwareError`. Cards the reading left unsized are dropped, and
+    cards past :data:`mcgyvr.rig.protocol.MAX_CARDS` are cut with a note. Each
+    kept card is renumbered from 0, its total is held to
+    :data:`mcgyvr.rig.protocol.MAX_MB`, its free VRAM to its total, and free
+    VRAM the reading did not give is reported as 0 with a note. RAM that was
+    not read is reported as 0 MiB total and no free figure, with a note; free
+    RAM the reading gave is held to the total.
+    """
     try:
         reading = (reader or read_machine)()
     except OSError as exc:
@@ -113,7 +148,11 @@ def hello_frame(
     agent_version: str,
     offer: protocol.Offer | None = None,
 ) -> str:
-    ""
+    """The ``hello`` frame this report makes, under ``message_id``.
+
+    It carries the machine id, the agent version, the RAM totals, the cards,
+    and ``offer`` when the agent advertises what it can do.
+    """
     return protocol.hello(
         message_id,
         machine_id=report.machine_id,
@@ -126,7 +165,11 @@ def hello_frame(
 
 
 def heartbeat_frame(report: Report, message_id: str) -> str:
-    ""
+    """The ``heartbeat`` frame this report makes, under ``message_id``.
+
+    A heartbeat carries only what changes: free RAM when the report has it, and
+    each card's index with its free VRAM, so the card list matches the hello's.
+    """
     return protocol.heartbeat(
         message_id,
         ram_free_mb=report.ram_free_mb,

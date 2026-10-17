@@ -1,4 +1,10 @@
-""
+"""The inputs a sizing pass runs on: fleet scans, ladder hosts, and the models to fit.
+
+The rig files in the fleet's rigs folder supply the scans, the config's ladder
+supplies the hostnames a scan may be found under, and the models come from the
+shipped knowledge catalogue and from the capability table, each row turned into
+a `ModelSpec` the placement code can weigh.
+"""
 
 from __future__ import annotations
 
@@ -28,12 +34,17 @@ from mcgyvr.serving import (
     host_of,
 )
 
-if TYPE_CHECKING:  #
+if TYPE_CHECKING:  # pragma: no cover - typing only
     pass
 
 
 def _scans() -> dict[str, Scan]:
-    ""
+    """Every scan the fleet's rig files record, keyed by rig name and by hostname.
+
+    A rigs folder that cannot be resolved gives no scans, and a rig file that
+    cannot be read or parsed is skipped. Both keys of one rig point at the same
+    scan, so a lookup by either name finds it.
+    """
     from mcgyvr.fleet.roots import rigs_dir
     from mcgyvr.serving import rigfile
 
@@ -54,7 +65,11 @@ def _scans() -> dict[str, Scan]:
 
 
 def _hosts_wanted(config: Config) -> dict[str, str]:
-    ""
+    """Each ladder rung mapped to the host its unit's address points at.
+
+    A rung with no unit of that name, or a unit whose address names no host, is
+    a `UnitError` rather than a missing entry.
+    """
     wanted: dict[str, str] = {}
     for name in config.ladder.names:
         unit = config.units.get(name)
@@ -68,7 +83,11 @@ _LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"}
 
 
 def _names_this_machine(name: str) -> bool:
-    ""
+    """Whether a hostname names this machine: a localhost alias, or a local IP address.
+
+    Anything else, including a name that is not an IP address at all, is another
+    host's name as far as this check can tell.
+    """
     lowered = name.strip().lower().rstrip(".")
     if lowered in _LOCAL_NAMES:
         return True
@@ -80,7 +99,11 @@ def _names_this_machine(name: str) -> bool:
 
 
 def _same_host(recorded: str, wanted: str) -> bool:
-    ""
+    """Whether two hostnames name one host, either being the other's full form.
+
+    The comparison ignores case and a trailing dot; an empty name on either side
+    matches nothing.
+    """
     left = recorded.strip().lower().rstrip(".")
     right = wanted.strip().lower().rstrip(".")
     if not left or not right:
@@ -89,7 +112,12 @@ def _same_host(recorded: str, wanted: str) -> bool:
 
 
 def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, Scan]:
-    ""
+    """The scans, plus an entry for each wanted host that no key already names.
+
+    A name for this machine is resolved by the id of the machine it runs on, any
+    other name by the hostnames the rig files recorded. A name that finds no
+    scan, or more than one machine, is left out of the result.
+    """
     resolved = dict(scans)
     local: str | None = None
     for name in wanted:
@@ -107,7 +135,7 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
 
 
 def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
-    ""
+    """The first scan taken on the machine with this id, else none."""
     for recorded in scans.values():
         if recorded.machine.id == os_machine_id:
             return recorded
@@ -115,7 +143,11 @@ def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
 
 
 def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
-    ""
+    """The scan recorded under a hostname naming `name`, or none when ambiguous.
+
+    Several keys can point at one scan, so the matches are counted by machine id:
+    a name matching more than one machine is refused rather than guessed at.
+    """
     matched = [recorded for host, recorded in scans.items() if _same_host(host, name)]
     if len({recorded.machine.id for recorded in matched}) != 1:
         return None
@@ -123,7 +155,11 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
 
 
 def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
-    ""
+    """One table row as a `ModelSpec`, named by the row's id unless told another.
+
+    The row's GiB figures become the spec's GB ones; nothing holds host RAM, no
+    geometry came from a scan, and the KV cache is f16 in both directions.
+    """
     return ModelSpec(
         name=name or model.id,
         vram_gb=model.vram_gb_working / GB_PER_GIB,
@@ -139,7 +175,11 @@ def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
 
 
 def _model_specs() -> tuple[ModelSpec, ...]:
-    ""
+    """Every model a placement may fit: the catalogue's records, then the table's rows.
+
+    A row's `moe` comes from the architecture the table declares for it, and a
+    row that also answers to a second `model_id` is listed under both names.
+    """
     specs: list[ModelSpec] = list(_catalog_specs())
     architectures = _architectures()
     for model in load().models:
@@ -151,7 +191,12 @@ def _model_specs() -> tuple[ModelSpec, ...]:
 
 
 def _catalog_specs() -> tuple[ModelSpec, ...]:
-    ""
+    """One `ModelSpec` per record in the shipped knowledge catalogue.
+
+    Its VRAM is the file's size plus the KV cache a token takes at the whole
+    context the record states, its disk cost the file's size alone. A catalogue
+    that cannot be read is reported as a broken capability table.
+    """
     from mcgyvr.knowledge import store as knowledge_store
     from mcgyvr.knowledge.record import KnowledgeError
 
@@ -180,7 +225,11 @@ def _catalog_specs() -> tuple[ModelSpec, ...]:
 
 
 def _architectures() -> dict[str, str]:
-    ""
+    """Each capability table row's id mapped to the architecture it declares.
+
+    Rows that declare no architecture are absent from the map, which is what
+    leaves them not-MoE. A table that cannot be read is a `CapabilityTableError`.
+    """
     path = table_path()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))

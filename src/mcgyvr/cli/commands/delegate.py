@@ -1,4 +1,14 @@
-""
+"""The `delegate` subcommand: turn a prompt and a repository into contracts.
+
+`_delegate` loads the config the orchestrator role is bound in â€” a bare install,
+with no setup named or found, is refused rather than failed â€” resolves it into a
+`SourceMap`, and picks a proposer from `orchestrator.authoring`. It attaches the
+repository, says once what a sandbox built from it leaves out, builds the index,
+and hands the evidence to `decompose`. The contracts that come back are reported,
+written as `DIR/<id>.json` or printed, and, with `--run`, run one at a time
+through the machinery `run` already has. `add_parser` registers the subcommand
+and its arguments.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +27,7 @@ from mcgyvr.config import (
 from mcgyvr.config import load as load_config
 from mcgyvr.exits import Exit
 
-if TYPE_CHECKING:  #
+if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
 
@@ -27,7 +37,25 @@ from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
 
 def _delegate(args: argparse.Namespace) -> int:
-    ""
+    """Turn one prompt into contracts, and run them when asked to.
+
+    The config is loaded before anything else: `--config` when it is given,
+    otherwise whatever the environment names and discovery finds. A missing
+    setup is a bare install only when nothing named one; a bare install has no
+    orchestrator role to ask, so it is refused, while any other load failure is
+    an error. The config is resolved into a `SourceMap`, and the proposer
+    `orchestrator.authoring` asks for is built, so a role declared but not
+    runnable is reported as a failure and a missing one as a refusal.
+
+    `attach` yields the root every step below reads: a local checkout in place,
+    a clone kept in `--into`, or a clone in a temporary directory removed when
+    the block exits. The sandbox note is printed, the index is built, and
+    `decompose` turns the prompt into contracts from that index, the proposer,
+    the config and `--budget`. The contracts are reported and written, or
+    printed when `--output` is not given, and `--run` runs each of them. The
+    exit code is 0 when that all worked and 1 when attaching, indexing,
+    proposing or running did not.
+    """
 
     from mcgyvr.config import ConfigError
     from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
@@ -53,10 +81,10 @@ def _delegate(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    #
-    #
-    #
-    #
+    # `chosen` is the path `--config` names and `named` is that, or the setup
+    # the environment names, so a None `named` means nothing was named here.
+    # A missing setup is a bare install only when nothing named one: that is
+    # refused as no orchestrator role, while any other load failure is an error.
     bare_install = isinstance(config_error, ConfigMissingError) and named is None
     if config is None and not bare_install:
         print(f"error: {config_error}", file=sys.stderr)
@@ -83,9 +111,9 @@ def _delegate(args: argparse.Namespace) -> int:
     into = Path(args.into) if args.into else None
     try:
         with attach(args.repo, into=into) as repo:
-            #
-            #
-            #
+            # One checkout, read by every step below: a local directory in place,
+            # or a clone kept in `--into` and otherwise removed with this block.
+            # The sandbox note is said once, before the index and `decompose` run.
             _say_what_the_sandbox_leaves_out(repo.root)
             index = build_index(repo.root)
             decomposition = decompose(
@@ -109,14 +137,21 @@ def _delegate(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except (DelegationError, RunnerError, SourceUnavailableError) as exc:
-        #€”
-        #
+        # A delegation, runner or pool failure leaves nothing to run: report it
+        # on stderr and exit 1, the same answer an attach or index failure gets.
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
 
 def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
-    ""
+    """The proposer `orchestrator.authoring` asks for, or None if none can run.
+
+    The prose proposer on the `orchestrator` role is always built. The typed
+    classifier is built only when the strategy is "classifier", and
+    `proposer_by_authoring` then puts it in front of the prose one, which stands
+    in when the classifier declines. A strategy that is not a string is passed
+    as None, which selects prose. None comes back when nothing can propose.
+    """
     from mcgyvr.delegate import (
         classifier_proposer_for,
         proposer_by_authoring,
@@ -133,7 +168,12 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
 
 
 def _report_decomposition(dec: Decomposition) -> None:
-    ""
+    """Report what one decomposition produced, on stderr.
+
+    The contract count and one `id  [task_type] target` line per contract, or
+    "No contracts were emitted." when there are none, then a `refused:` line for
+    each refusal, since a decomposition can hold both.
+    """
     if dec.contracts:
         print(f"{len(dec.contracts)} contract(s) proposed:", file=sys.stderr)
         for contract in dec.contracts:
@@ -148,7 +188,13 @@ def _report_decomposition(dec: Decomposition) -> None:
 
 
 def _write_delegated(dec: Decomposition, output: Path | None) -> list[Path]:
-    ""
+    """Write each emitted document, or print them when no directory is given.
+
+    With no `--output` the documents go to stdout and nothing is written, so the
+    returned list is empty. Otherwise the directory is created, each contract's
+    document is written beside it as `<id>.json`, each path is reported on
+    stderr, and the paths written come back in the proposer's order.
+    """
     if output is None:
         for document in dec.documents:
             print(document)
@@ -169,7 +215,15 @@ def _run_delegated(
     dec: Decomposition,
     written: Sequence[Path],
 ) -> int:
-    ""
+    """Run every emitted contract through `_run`, one at a time.
+
+    Nothing runs when no contract was emitted. Documents already written to
+    `--output` are run in place; when they were printed instead, they are staged
+    into a temporary directory first, so either way every run reads a contract
+    file. The session is resolved from `--orchestrator`, and a failure to resolve
+    it removes the staging and returns 1. Every contract is run even when an
+    earlier one failed, and the last non-zero exit code is returned.
+    """
     if not dec.contracts:
         return 0
 
@@ -220,7 +274,15 @@ def _run_delegated(
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    ""
+    """Register the `delegate` subcommand and its arguments.
+
+    The prompt and the repository are required. `--config` names the setup that
+    binds the orchestrator role doing the proposing, `--into` keeps a clone,
+    `--budget` caps the deterministic read, and `--output` writes the contracts
+    to a directory instead of printing them. The flags `--run`, `--sandbox`,
+    `--commit`, `--branch`, `--record` and `--orchestrator` are handed to each
+    run. The subcommand's `func` is `_delegate`.
+    """
 
     delegate = sub.add_parser(
         "delegate",

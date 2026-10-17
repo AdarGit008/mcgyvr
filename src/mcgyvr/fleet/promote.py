@@ -1,4 +1,20 @@
-""
+"""Promotes a locked dev fleet into a dated live fleet folder, and names a live
+fleet folder live.
+
+`promote` copies the dev fleet `name` out of a dev root into
+`fleets/<name>@<date>`, dated by the lock it was promoted from, and holding the
+fleet and policy trimmed to the units and rigs its layout keeps, beside the lock
+and every combination record the layout pins. It is built in a staging folder
+and renamed into place, so a fleet folder holds a whole fleet or is not there.
+
+`use` names an existing live fleet folder in `live.json`, and reads the fleet
+that was live before it for what the move costs: the rig moves the previous
+fleet's lock lists, or why that move is unmeasured.
+
+`lock_date` reads the date a lock under a root is dated by, and
+`on_a_users_machine` says why a hosted unit's address is a machine of the
+user's rather than a public host.
+"""
 
 from __future__ import annotations
 
@@ -25,8 +41,8 @@ from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import FleetError, layout_sha256, mcorch_units
 
-#
-#
+# Re-exported: the folder a fleet's lock files sit in, which the modules and
+# tests that read or write a lock import from here.
 from mcgyvr.fleet.lock import LOCK_DIR as LOCK_DIR
 from mcgyvr.fleet.lock import OWN_FLEET, approved_on_no_evidence
 from mcgyvr.fleet.roots import (
@@ -42,23 +58,27 @@ from mcgyvr.fleet.roots import (
 )
 from mcgyvr.fleet.spans import SpanError, check_spans
 
-#
-#
+# IPv4 addresses spelled in the short old-style forms `socket.inet_aton` reads
+# and `ipaddress.ip_address` refuses: one to four parts, each decimal or hex, so
+# that `127.1` and `0x7f000001` still name a host to a resolver.
 _OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")
-#
-#
+# The twelve bytes a NAT64 address begins with (64:ff9b::/96), after which its
+# last four bytes spell the IPv4 address it is an IPv6 spelling of.
 _NAT64 = bytes.fromhex("0064ff9b 00000000 00000000")
-#
-#
-#
+# Name suffixes only a local network answers, so an address under one is a
+# machine of the user's and not a public host: `localhost` itself, mDNS's
+# `.local`, RFC 8375's `.home.arpa`, and the `.internal` of private zones.
 LOCAL_SUFFIXES = (".localhost", ".local", ".home.arpa", ".internal")
 
 
 class PromoteRefusedError(Exception):
-    ""
+    """A fleet is not promoted or named live; the message names what failed."""
 
 
 def _read_json(path: Path) -> dict[str, Any]:
+    """The JSON record `path` holds, which must be a mapping, refusing when the
+    file cannot be read or holds something else.
+    """
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -69,6 +89,9 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _read_setup(path: Path, loader: Callable[[str], dict[str, Any]]) -> dict[str, Any]:
+    """The setup file `path`, read and loaded by `loader`, refusing when it cannot
+    be read or does not load as a setup.
+    """
     try:
         return loader(path.read_text(encoding="utf-8"))
     except (OSError, FleetFileError) as exc:
@@ -78,7 +101,13 @@ def _read_setup(path: Path, loader: Callable[[str], dict[str, Any]]) -> dict[str
 def _pinned(
     fleet: dict[str, Any], name: str, lock: dict[str, Any], where: str
 ) -> dict[str, str]:
-    ""
+    """The combination id each rig id of `name`'s layout is pinned to, checked
+    against the layout sha256 the lock records.
+
+    `where` names the setup the layout was read from, for the refusals: a layout
+    that names a unit the setup gives no id, or that no longer hashes to the
+    lock's pin, is refused as needing a re-lock.
+    """
     layout = fleet["fleets"][name].get("layout", {})
     try:
         ids = layout_ids(fleet, layout)
@@ -95,12 +124,19 @@ def _pinned(
 
 
 def _records(ids: dict[str, str]) -> list[Path]:
-    ""
+    """The lock's combination record for each rig of the layout, as a path under
+    a root, in rig id order.
+    """
     return [LOCK_DIR / "rigs" / rig / f"{cmb}.json" for rig, cmb in sorted(ids.items())]
 
 
 def _date_of(root: Path, name: str, records: list[Path]) -> str:
-    ""
+    """The ISO date of the latest `validated_at` among the combination records
+    `records`, read under `root`.
+
+    Refuses a record that is missing, and one that carries no `validated_at`: a
+    fleet is promoted under the date of its lock.
+    """
     latest: datetime | None = None
     for record in records:
         path = root / record
@@ -126,7 +162,9 @@ def _date_of(root: Path, name: str, records: list[Path]) -> str:
 
 
 def _approval_day(name: str, lock: dict[str, Any]) -> str:
-    ""
+    """The ISO date the lock's `approved_at` falls on, which dates a lock
+    approved on no evidence; refuses a lock that carries no such timestamp.
+    """
     stamp = lock.get("approved_at")
     try:
         approved = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
@@ -141,14 +179,23 @@ def _approval_day(name: str, lock: dict[str, Any]) -> str:
 
 
 def _lock_day(root: Path, name: str, lock: dict[str, Any], ids: dict[str, str]) -> str:
-    ""
+    """The ISO date `name`'s lock at `root` is dated by: the day it was approved
+    on when it was approved on no evidence, else the day its latest combination
+    record was validated.
+    """
     if approved_on_no_evidence(lock):
         return _approval_day(name, lock)
     return _date_of(root, name, _records(ids))
 
 
 def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
-    ""
+    """The ISO date that the lock of the fleet `name` under `root` dates the
+    fleet by.
+
+    `fleet` is the setup handed in, whose layout for `name` must still hash to
+    the lock's pin; a fleet the setup does not hold, or one with no lock, is
+    refused.
+    """
     if name not in (fleet.get("fleets") or {}):
         raise PromoteRefusedError(f"{name} is not a fleet of the setup handed in")
     lock_path = root / LOCK_DIR / f"{name}.json"
@@ -160,7 +207,18 @@ def lock_date(root: Path, fleet: dict[str, Any], name: str) -> str:
 
 
 def promote(dev_root: Path, setup: Path, name: str) -> Path:
-    ""
+    """Write the dev fleet `name` of `setup` out as a new live fleet folder, under
+    a date taken from its lock, and return that folder.
+
+    `dev_root` holds the dev lock and the combination records it pins; `setup` is
+    the setup the fleet and policy are read from. The folder is
+    `fleets/<name>@<date>` and carries the fleet and policy trimmed to the units
+    the layout keeps and the rigs it lays out, the lock, and every combination
+    record the layout pins. Refuses a name that already carries a date, a fleet
+    that splits a unit or cannot serve its mcorch policy, a layout that no longer
+    matches its lock, a fleet with no dev lock, and a date whose folder another
+    sampled fleet already takes.
+    """
     if TAG in name:
         raise PromoteRefusedError(
             f"{name!r}: promote takes the plain fleet name; the date in the "
@@ -212,9 +270,9 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
                 "written over or in place of another; a re-lock on a new date is "
                 "a new folder"
             )
-        #
-        #
-        #
+        # The date is taken: a fleet taken live again under the same date — the
+        # user's own, or one locked on no evidence — becomes a new folder beside
+        # the one there, numbered from two on.
         folder = fleets_dir() / tagged(name, f"{day}-{later}")
         later += 1
 
@@ -259,7 +317,12 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
 
 
 def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
-    ""
+    """Write `files` into a staging folder beside `folder` and rename it into
+    place, so the folder holds every file or never appears.
+
+    A staging folder is removed on any failure, and a `folder` that appeared
+    while the fleet was being written is left as it is.
+    """
     fleets_dir().mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{name}.", dir=fleets_dir()))
     try:
@@ -278,7 +341,15 @@ def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
 
 
 def on_a_users_machine(address: str) -> str | None:
-    ""
+    """Why `address` names no host a public network answers to, or None when it
+    names a public host.
+
+    The reasons are what a refusal says of a hosted unit whose address is a
+    machine of the user's: it names no host, spells a name no resolver reads once
+    IDNA has spelled it in ASCII, names a host only a local network answers, or
+    carries a private, loopback or otherwise non-public address — IPv4-mapped and
+    NAT64 spellings of one included.
+    """
     try:
         host = urlsplit(address).hostname
     except ValueError:
@@ -286,8 +357,8 @@ def on_a_users_machine(address: str) -> str | None:
     if not host:
         return "names no host"
     if not host.isascii():
-        #
-        #
+        # A name spelled in another script is spelled in ASCII by IDNA before a
+        # resolver reads it, so it is judged as it is spelled there.
         try:
             host = host.encode("idna").decode("ascii")
         except UnicodeError:
@@ -317,27 +388,36 @@ def on_a_users_machine(address: str) -> str | None:
 
 @dataclass(frozen=True)
 class Switch:
-    ""
+    """What naming a fleet live did: the folder named live, the fleet it replaces,
+    and what the move from that fleet costs.
+    """
 
-    #
+    # The `live.json` that now names the fleet live.
     pointer: Path
-    #
+    # The live fleet folder named, dated tag and all.
     name: str
-    #
+    # The fleet part of the name: the layout the folder holds.
     layout: str
-    #
+    # The fleet that was live before, or None when no fleet was.
     previous: str | None
-    #
+    # Whether the previous fleet's lock lists this layout in its `next`.
     locked: bool
-    #
-    #
+    # The rig moves the previous fleet's lock lists for this switch, each rig's
+    # downtime and wake times; empty when it lists none.
     moves: list[dict[str, Any]] = field(default_factory=list)
-    #
+    # Why the move is not measured, or None when it is measured or when no other
+    # fleet was live.
     unmeasured: str | None = None
 
 
 def _measured(previous: str, layout: str) -> tuple[bool, list[dict[str, Any]], str]:
-    ""
+    """Whether the fleet `previous` measures the switch to `layout`, the moves its
+    lock lists for that switch, and why it does not when it does not.
+
+    `previous` measures the switch when its lock lists `layout` in `next`, and
+    lists the moves of each switch it states; a fleet with no folder or no lock
+    measures nothing, and says so.
+    """
     from_layout = split_name(previous)[0]
     lock_path = fleets_dir() / previous / LOCK_DIR / f"{from_layout}.json"
     if not lock_path.is_file():
@@ -356,7 +436,15 @@ def _measured(previous: str, layout: str) -> tuple[bool, list[dict[str, Any]], s
 
 
 def use(name: str) -> Switch:
-    ""
+    """Name the live fleet folder `name` live in `live.json`, and return what the
+    switch did.
+
+    Refuses a name that cannot name a fleet folder, a folder that is not there, a
+    folder whose fleet is not the fleet its name spells, and a lock that no
+    longer pins the folder's layout. The fleet that was live before is read for
+    what the move from it costs, which is left unmeasured when that fleet's lock
+    lists no switch to this layout.
+    """
     if not is_fleet_name(name):
         raise PromoteRefusedError(f"{name!r} cannot name a fleet folder")
     layout, _tag = split_name(name)
