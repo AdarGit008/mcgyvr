@@ -1235,7 +1235,7 @@ def _word_error_rate(hypothesis: str, reference: str) -> float:
 
     Words are whitespace-separated: the numerator is the Levenshtein distance
     between the two word lists and the denominator the number of reference words,
-    guarded so an empty reference yields 0.0 rather than a division by zero.
+    guarded so an empty reference divides by one rather than zero.
     """
     hyp_words = hypothesis.split()
     ref_words = reference.split()

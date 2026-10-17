@@ -66,8 +66,9 @@ class ParamMutation(StrEnum):
     SKIP = "skip"
 
 
-# Ruff codes demoted from the rejecting ``lint`` axis to ``style`` when the
-# repo's own ruff config drives the run. Both are default rules there: ``UP006``
+# Ruff codes demoted from the rejecting ``lint`` axis to ``style`` under the
+# product's default rule selection — a repo that states no ruff config of its
+# own. Both are default rules there: ``UP006``
 # (``List`` where ``list`` would do) and ``UP035`` (import from a deprecated
 # location). They describe code that runs, in a dialect the project has moved
 # away from, which is an observation rather than a defect. ``UP035`` also covers

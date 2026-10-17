@@ -53,9 +53,10 @@ RUFF = "ruff"
 # or undefined, and W for the warnings it carries; I for import order and
 # grouping; N for pep8-naming; UP for spellings the language has since absorbed;
 # B for the constructs bugbear treats as mistakes; SIM for simplify; and RUF for
-# ruff's own rules. The width and quote style match ruff's own defaults, so a repo
-# that declares nothing is judged against ruff out of the box rather than against
-# settings the gate invented. ``_RUFF_CONFIG_FILES`` names the files ruff searches
+# ruff's own rules. Width and quote style are pinned to ruff's defaults, so a
+# repo that declares nothing is judged against this stated selection — wider than
+# ruff's own default of E4/E7/E9/F — not left to ruff. ``_RUFF_CONFIG_FILES``
+# names the files ruff searches
 # for itself: when one of them is present, or a ``[tool.ruff]`` table exists in
 # ``pyproject.toml``, the gate runs ruff unconfigured and lets the repo's
 # settings stand.

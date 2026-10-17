@@ -19,13 +19,11 @@ from tree_sitter_javascript import language as _js_language
 from tree_sitter_typescript import language_tsx as _tsx_language
 from tree_sitter_typescript import language_typescript as _ts_language
 
-# nd
 # One tree-sitter grammar per language distribution, built once at import time.
 _JS = Language(_js_language())
 _TS = Language(_ts_language())
 _TSX = Language(_tsx_language())
 
-# ch
 # Suffix tuples are grouped per language because str.endswith() takes a tuple;
 # they drive the extension-to-language dispatch in language_of().
 _PYTHON_EXTENSIONS = (".py", ".pyi")

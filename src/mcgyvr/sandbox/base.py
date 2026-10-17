@@ -653,7 +653,7 @@ def holds_a_secret(path: Path) -> bool:
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
-            return True  #
+            return True  # unread is not known clean
         return bool(_RC_LOGIN.search(text)) or scrub(text) != text
     return False
 

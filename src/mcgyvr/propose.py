@@ -22,7 +22,6 @@ API = "api"
 
 # Gigabytes kept free on a local card when a model is checked for fit, so the
 # footprint is not measured against the whole of the memory.
-# ee
 # `propose` declares the figure but does not read it: fit is not judged here.
 DEFAULT_HEADROOM_GB = 2.0
 

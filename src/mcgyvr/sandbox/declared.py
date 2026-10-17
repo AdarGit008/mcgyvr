@@ -55,9 +55,11 @@ _PACKAGE_KEYS = {ESLINT: "eslintConfig", PRETTIER: "prettier"}
 
 
 def declared_type_checker(repo: Path) -> str | None:
-    """Name the type checker the repository declares, or None if it declares none.
+    """The type checker the gate runs for `repo`, or None when it declares none.
 
-    mypy is preferred when both are declared.
+    The order mypy is checked before pyright is arbitrary, not a ranking: mcgyvr
+    does not rank type checkers. A repository that cares which one to run
+    declares the command in its contract, which always wins over a sniff.
     """
     if declares_mypy(repo):
         return MYPY
