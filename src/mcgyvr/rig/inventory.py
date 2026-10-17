@@ -107,6 +107,8 @@ def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo
         n_ctx_train=_count(row, "n_ctx_train", protocol.MAX_COUNT),
         n_embd=_count(row, "n_embd", protocol.MAX_COUNT),
         n_head_kv=_count(row, "n_head_kv", protocol.MAX_COUNT),
+        n_experts=_count(row, "n_expert", protocol.MAX_COUNT),
+        n_experts_active=_count(row, "n_expert_used", protocol.MAX_COUNT),
         kv_bytes_per_token=kv_bytes_per_token(row, pooled.KV_CACHE_TYPE),
         embd_bytes=embd_bytes,
         output_bytes=output_bytes,
