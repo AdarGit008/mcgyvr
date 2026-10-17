@@ -283,7 +283,7 @@ def interactive(
     typed: dict[str, str] | None = None,
 ) -> list[str]:
     """Substitute every step of the interactive setup that reads a machine,
-    open the door onto ``rig``, and answer each ``[y/N]`` by the first key of
+    open the door onto ``rig``, and answer each confirm by the first key of
     ``answers`` its question holds, and each typed question by the first key
     of ``typed`` it holds (Enter, the empty answer, when none does). The
     questions asked, in order."""
@@ -345,4 +345,8 @@ def interactive(
     monkeypatch.setattr(cli.commands.setup, "_ask", ask)
     monkeypatch.setattr(wake, "spawn_door", rig)
     monkeypatch.setattr(cli.commands.setup, "_setup_run_contract", accepted)
+    # The PATH-append offer runs only after a real successful setup; the
+    # flow tests answer the prompts they care about, so keep it from touching
+    # the real login shell rc file.
+    monkeypatch.setattr(cli.commands.setup, "_offer_path_append", lambda: None)
     return asked

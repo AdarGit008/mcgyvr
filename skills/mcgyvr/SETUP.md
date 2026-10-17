@@ -16,19 +16,28 @@ serves in a folder of the run's own, `$MCGYVR_DATA/setup/<run>/` (default
 writes nothing in the working directory. It prints what was decided and
 why, then what is *not* configured and what that costs.
 
-Run at a terminal with no flags, it asks which rigs serve, then the
-use case (`coding`, `chat`, `agent` or `media-gen`; Enter is `coding`),
-whether to dedicate a unit to Jev (Enter is no), and, for `coding` with
-Jev on, whether to run mcorch on a unit (Enter is no): the questions
-`--use-case`, `--jev` and `--mcorch` answer. It plans a model for each
-rig, asks before each download, writes the staged setup once and emits
-its launch specs once, and asks before it starts the serving containers
-through the door. It then samples the fleet: a read of every rig, a
+Run at a terminal with no flags, it asks which rigs serve — `local`,
+`remote` or `both` (Enter is `local`) — and, for `remote` or `both`,
+the ssh host(s) to read. It then asks the use case by letter (`[d]
+coding`, `[c] chat`, `[a] agent`, `[m] media-gen`; Enter or `d` is
+`coding`), whether to dedicate a unit to Jev (Enter is no), and, for
+`coding` with Jev on, whether to run mcorch on a unit (Enter is no):
+the questions `--use-case`, `--jev` and `--mcorch` answer. It plans a
+model for each rig, asks before each download, writes the staged setup
+once and emits its launch specs once, and asks before it starts the
+serving containers through the door. It then samples the fleet: a read
+of every rig, a
 probe and a load of every unit, the use case's sample task (for
 `coding`, a one-function bug fix the deterministic gate must pass) and
 a Jev unit's one typed choice. A green sample is stamped, and on
 `Lock the fleet and name it live? [y/N]` it is locked, promoted and
 named live. A red sample is never locked; its reasons are printed.
+
+When the interactive setup finishes, it offers to append
+`export PATH="$HOME/.local/bin:$PATH"` to the login shell's rc file
+(`~/.bashrc`, `~/.zshrc`, `~/.profile`, or
+`~/.config/fish/config.fish`, by `$SHELL`), once you say yes; a file
+that already carries a `.local/bin` PATH line is left alone.
 
 A fleet that could not be sampled — its containers not started, every
 unit hosted, or `media-gen`, which has no sample yet — is locked

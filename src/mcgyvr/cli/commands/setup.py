@@ -138,10 +138,36 @@ def _parse_setup_rigs(answer: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(rigs))
 
 
-def _ask_setup_rigs(prompt: Callable[[str], str] = input) -> tuple[str, ...]:
-    """Step 1: which rigs serve this setup, defaulting to this machine."""
-    answer = prompt("Which rig(s) should serve this setup? [this machine only] ")
-    return _parse_setup_rigs(answer) or ("localhost",)
+_RIG_CHOICES = ("local", "remote", "both")
+
+
+def _ask_setup_rigs() -> tuple[str, ...]:
+    """Step 1: which rigs serve this setup, defaulting to this machine.
+
+    The first question accepts exactly ``local``, ``remote`` or ``both`` (Enter
+    is ``local``); ``remote`` and ``both`` ask again for the ssh host(s). A
+    stray answer is refused as a rig choice, never swallowed as a hostname.
+    """
+    said = _setup_choose(
+        "Which rig(s) should serve this setup? [local] ",
+        _RIG_CHOICES,
+        "a rig choice",
+    )
+    if said == "local":
+        return ("localhost",)
+    hosts = _ask_remote_rigs()
+    if said == "remote":
+        return hosts
+    return ("localhost", *hosts)
+
+
+def _ask_remote_rigs() -> tuple[str, ...]:
+    """The ssh host(s) ``remote`` or ``both`` names, asked until one is named."""
+    for _ in range(_SETUP_TRIES):
+        hosts = _parse_setup_rigs(_ask("Remote rig(s) (ssh host or user@host): "))
+        if hosts:
+            return hosts
+    raise _SetupInteractiveError("no remote rig was named")
 
 
 def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
@@ -192,20 +218,32 @@ def _setup_use_cases() -> tuple[str, ...]:
     return (CODING_USE_CASE, *(n for n in names if n != CODING_USE_CASE))
 
 
+_USE_CASE_LETTERS = ("d", "c", "a", "m")
+
+
 def _ask_setup_use_case() -> str:
-    """Which use case the setup serves (``--use-case``); Enter is coding."""
+    """Which use case the setup serves (``--use-case``); Enter or ``d`` is coding.
+
+    The letters are fixed to their role — ``d`` coding, ``c`` chat, ``a`` agent,
+    ``m`` media-gen — but the names come from :func:`_setup_use_cases` (coding
+    first), so the catalog stays the source of truth.
+    """
     names = _setup_use_cases()
-    return _setup_choose(
-        f"What is this setup for: {_spoken_or(names)}? [{names[0]}] ",
-        names,
-        "a use case",
+    letters = _USE_CASE_LETTERS[: len(names)]
+    by_letter = dict(zip(letters, names, strict=False))
+    options = ", ".join(
+        f"[{letter}] {name}" + (" (default)" if index == 0 else "")
+        for index, (letter, name) in enumerate(zip(letters, names, strict=False))
     )
+    return by_letter[
+        _setup_choose(f"Use case — {options}: ", letters, "a use-case letter")
+    ]
 
 
-JEV_QUESTION = "Dedicate a unit to Jev, which answers typed decisions? [y/N] "
+JEV_QUESTION = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
 
 
-MCORCH_QUESTION = "Run mcorch, the local orchestrator, on a unit? [y/N] "
+MCORCH_QUESTION = "Run mcorch, the local orchestrator, on a unit? [y/n] "
 
 
 def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
@@ -219,6 +257,76 @@ def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
         units,
         "a unit of this setup",
     )
+
+
+_PATH_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
+
+
+def _shell_rc(shell: str | None, home: Path | None = None) -> Path | None:
+    """The login shell rc file to append ``~/.local/bin`` to, by ``$SHELL``.
+
+    Only the basename decides; ``home`` defaults to the user's home. ``None``
+    for a shell setup does not know, which skips the offer.
+    """
+    if not shell:
+        return None
+    base = os.path.basename(shell)
+    home = home if home is not None else Path.home()
+    if base == "bash":
+        return home / ".bashrc"
+    if base == "zsh":
+        return home / ".zshrc"
+    if base in ("sh", "dash"):
+        return home / ".profile"
+    if base == "fish":
+        return home / ".config" / "fish" / "config.fish"
+    return None
+
+
+def _has_local_bin_path(text: str) -> bool:
+    """Whether ``text`` already carries a ``.local/bin`` PATH line."""
+    return any(".local/bin" in line and "PATH" in line for line in text.splitlines())
+
+
+def _offer_path_append(
+    prompt: Callable[[str], str] = input,
+    shell: str | None = None,
+    home: Path | None = None,
+) -> Path | None:
+    """Offer to append ``~/.local/bin`` to the login shell PATH, after setup.
+
+    Return the rc file appended, or ``None`` when skipped: an unknown shell,
+    a file that already carries a ``.local/bin`` PATH line, or an answer that
+    was not an explicit yes. The append is interactive only, and happens only
+    after :func:`_confirm`.
+    """
+    if shell is None:
+        shell = os.environ.get("SHELL")
+    base = home if home is not None else Path.home()
+    rc = _shell_rc(shell, base)
+    if rc is None:
+        return None
+    try:
+        text = rc.read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    if _has_local_bin_path(text):
+        return None
+    shown = "~/" + str(rc.relative_to(base))
+    question = f"Add ~/.local/bin to your shell PATH in {shown}? [y/n] "
+    if not _confirm(question, prompt):
+        return None
+    try:
+        rc.parent.mkdir(parents=True, exist_ok=True)
+        with rc.open("a", encoding="utf-8") as stream:
+            stream.write(_PATH_EXPORT + "\n")
+    except OSError as exc:
+        print(
+            f"warning: could not add ~/.local/bin to {shown}: {exc}",
+            file=sys.stderr,
+        )
+        return None
+    return rc
 
 
 def _setup_scan_rigs(
@@ -600,6 +708,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
             print("What is NOT configured, and what that costs:")
             for limit in limits:
                 print(f"  - {limit}")
+        _offer_path_append()
         return 0
     except _SetupInteractiveError as exc:
         print(f"error: {exc}", file=sys.stderr)
