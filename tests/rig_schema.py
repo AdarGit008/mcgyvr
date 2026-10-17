@@ -102,8 +102,8 @@ class Pinned:
 PROTOCOL = Pinned(
     hub_name="protocol.schema.json",
     fixture=FIXTURES / "hub_protocol_v1.schema.json",
-    hub_sha256="150dc990e6ef49aaa0b42a6e1dfa8f681a8dfa4f1bfce37567b3978fd252d6de",
-    pinned_sha256="99c2dc1388a8560f13c98555251bbe231b6451c1e55580f66b96f4ec2047de8a",
+    hub_sha256="5c983dc864e7d7e7e675a5729fbf1ded7a5f3132d1ee61801a93f018669677b7",
+    pinned_sha256="f94a302af179a1ecec1f89ebda0426c63923dc6df4404cb4cd253f6db497ddb6",
     env="MCGYVR_HUB_SCHEMA",
 )
 RIDER = Pinned(
