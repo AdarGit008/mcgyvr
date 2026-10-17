@@ -26,6 +26,7 @@ import yaml
 
 from mcgyvr import cli
 from mcgyvr.cli.commands.setup import (
+    _ask_setup_use_case,
     _setup_pick_unit,
     _setup_placements,
     _SetupInteractiveError,
@@ -34,9 +35,9 @@ from mcgyvr.fleet import sampler
 from mcgyvr.fleet.roots import data_home, fleets_dir, live_file
 from tests import setup_door as sd
 
-USE_CASE = "What is this setup for: coding, chat, agent or media-gen? [coding] "
-JEV = "Dedicate a unit to Jev, which answers typed decisions? [y/N] "
-MCORCH = "Run mcorch, the local orchestrator, on a unit? [y/N] "
+USE_CASE = "Use case — [d] coding (default), [c] chat, [a] agent, [m] media-gen: "
+JEV = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
+MCORCH = "Run mcorch, the local orchestrator, on a unit? [y/n] "
 START = "Start the serving containers"
 LOCK = "Lock the fleet and name it live?"
 ACK = "Lock it approved on no evidence? [y/N] "
@@ -94,7 +95,7 @@ def test_chat_is_planned_staged_and_sampled_by_one_completion_of_each_unit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     asked = sd.interactive(
-        monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "chat"}
+        monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "c"}
     )
     completed: list[str] = []
 
@@ -119,7 +120,7 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sd.interactive(
-        monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "agent"}
+        monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "a"}
     )
     ran: list[str] = []
 
@@ -141,7 +142,7 @@ def test_media_gen_cannot_be_sampled_yet_and_goes_to_the_acknowledgment(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], yes: bool
 ) -> None:
     rig = sd.FakeRig()
-    asked = sd.interactive(monkeypatch, rig, {ACK: yes}, typed={USE_CASE: "media-gen"})
+    asked = sd.interactive(monkeypatch, rig, {ACK: yes}, typed={USE_CASE: "m"})
 
     assert cli.main(["setup"]) == 0
 
@@ -212,10 +213,29 @@ def test_a_use_case_that_is_not_one_is_asked_again_then_refused(
 
     assert asked == [USE_CASE] * 3
     err = capsys.readouterr().err
-    assert "poetry" in err and "coding, chat, agent or media-gen" in err
+    assert "poetry" in err and "d, c, a or m" in err
     assert not (data_home() / "setup").exists() or not any(
         (data_home() / "setup").rglob("policy.yaml")
     )
+
+
+@pytest.mark.parametrize(
+    ("letter", "name"),
+    [("d", "coding"), ("c", "chat"), ("a", "agent"), ("m", "media-gen")],
+)
+def test_each_letter_names_its_use_case(
+    monkeypatch: pytest.MonkeyPatch, letter: str, name: str
+) -> None:
+    asked: list[str] = []
+
+    def ask(question: str, prompt: Any = None) -> str:
+        asked.append(question)
+        return letter
+
+    monkeypatch.setattr(cli.commands.setup, "_ask", ask)
+
+    assert _ask_setup_use_case() == name
+    assert asked == [USE_CASE]
 
 
 def test_with_several_units_setup_asks_which_one_and_enter_is_the_first(
