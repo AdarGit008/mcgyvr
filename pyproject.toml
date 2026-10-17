@@ -2,7 +2,7 @@
 name = "mcgyvr"
 # The version is the git tag's (hatch-vcs, `[tool.hatch.version]` below) and
 # is spelled nowhere in the tree: a wheel is built once from a `v*` tag by
-# .github/workflows/release.yml, and `mcgyvr --version` says what was
+# .forgejo/workflows/release.yml, and `mcgyvr --version` says what was
 # installed. A literal here would be a second version that drifts.
 dynamic = ["version"]
 description = "Offload scoped coding work from your agent to a configurable worker ladder"

@@ -3,7 +3,7 @@
 #   1. `gh release create`          → Forgejo API (step `publish the Forgejo release`)
 #   2. PyPI trusted publishing (OIDC) → classic `PYPI_API_TOKEN` repo secret
 # Untested until runners exist. Requires DEFAULT_ACTIONS_URL=github.com on the
-# instance so the pinned `actions/*`, `astral-sh/*` and `pypa/*` actions resolve.
+# instance so the pinned `actions/*` and `astral-sh/*` actions resolve.
 #
 # Artifacts are pinned to v3, not v4+: Forgejo's runner is detected as GHES and
 # `@actions/artifact` v2 (upload-artifact@v4+/download-artifact@v4+) is refused
@@ -20,10 +20,11 @@
 # name, so `ci.yml` publishes nothing (the wheels its tests build go to
 # temporary directories and prove packaging) and this workflow builds exactly
 # once. A tag pushed a second time finds its release already there and is
-# refused by `gh`: a moved tag is not a second product under the first name.
+# refused by the Forgejo release step: a moved tag is not a second product
+# under the first name.
 #
 # The product has two destinations and still one build. `build` makes the
-# distribution, checks it, attaches it to the GitHub release, and uploads it as
+# distribution, checks it, attaches it to the Forgejo release, and uploads it as
 # a workflow artifact; `pypi` downloads that same artifact and publishes it.
 # Two places to install from, one set of files — the arrow is still
 # source -> product -> install with a second head on it, not a second product.
@@ -31,19 +32,10 @@
 # hand-off: a second `uv build` would be the two-products-one-name case above,
 # arrived at from the other end.
 #
-# PyPI is reached by trusted publishing. `pypi` asks GitHub for an OIDC token
-# (`id-token: write`, which is why that job declares its own permissions rather
-# than inheriting `contents: write`) and PyPI trades it for a short-lived
-# upload token, so no API token is stored in this repository or its secrets.
-# The cost is one manual step that cannot be automated: on pypi.org the owner
-# registers a pending trusted publisher for PyPI project `mcgyvr`, owner and
-# repository `AdarGit008/mcgyvr`, workflow file `release.yml`, environment
-# `pypi`. Those four values ARE the credential — renaming this file or the
-# environment below revokes it — and until the publisher exists the `pypi` job
-# fails while the GitHub release still stands.
-#
-# The environment `pypi` is that fourth value, and the seam a required reviewer
-# can later be attached to in repository settings without editing this file.
+# PyPI is reached with a classic API token, not OIDC: the Forgejo runner has
+# no trusted publishing. `pypi` authenticates `uvx twine upload` with
+# `TWINE_PASSWORD`, held in the Forgejo repo secret `PYPI_API_TOKEN` and never
+# written into this file (see the `pypi` job below).
 #
 # The version is the tag's, read by hatch-vcs from git: `fetch-depth: 0`
 # because a checkout without its tags reads as a distance from nothing

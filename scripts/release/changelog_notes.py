@@ -3,11 +3,12 @@
 
     python scripts/release/changelog_notes.py v0.2.0 CHANGELOG.md
 
-The release workflow runs this between the wheel check and `gh release
-create`, and hands what it prints to `--notes-file`. So the notes a reader
-gets from the release are the notes a reader gets from the repository: one
-text, written once, in CHANGELOG.md, rather than a second description of the
-same changes that drifts from the first.
+The release workflow runs this between the wheel check and publishing the
+release, and its output becomes the release body (written to
+`release-notes.md` and handed to the Forgejo release step). So the notes a
+reader gets from the release are the notes a reader gets from the repository:
+one text, written once, in CHANGELOG.md, rather than a second description of
+the same changes that drifts from the first.
 
 Refusing is the point. `--generate-notes` always produced something — the raw
 PR titles of the range — so a release could carry notes nobody wrote and
