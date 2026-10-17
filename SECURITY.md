@@ -9,7 +9,7 @@ Please do not open a public issue for a vulnerability.
 
 ## Threat model
 
-mcgyvr executes model-authored code and contract-declared shell commands
+mcgyvr executes model-authored code and contract-declared commands
 against a repository. Two properties are load-bearing:
 
 1. **Task execution is sandboxed.** By default (`sandbox.mode: docker`) each
