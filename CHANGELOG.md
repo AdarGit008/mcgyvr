@@ -7,6 +7,20 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [0.5.1] - 2026-10-17
+
+### Fixed
+
+- `mcgyvr setup` asks which rigs serve the setup as `local`, `remote` or
+  `both` (Enter is `local`), with a follow-up for `remote`/`both` naming the
+  ssh host(s); a stray answer is refused as a rig choice instead of being
+  swallowed as a hostname (#726).
+- The Jev and mcorch opt-in prompts read `[y/n]` instead of `[y/N]` (#726).
+- The use-case prompt is letter keys — `d` coding (default), `c` chat, `a`
+  agent, `m` media-gen — with no `What is this setup for:` text (#726).
+- `mcgyvr setup` offers to append `~/.local/bin` to the login shell PATH
+  after an explicit yes (#726).
+
 ## [0.5.0] - 2026-10-16
 
 ### Changed (breaking)
