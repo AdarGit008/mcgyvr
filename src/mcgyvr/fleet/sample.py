@@ -23,27 +23,27 @@ from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
 
-# The use cases a sample can judge: a policy's `use_case` names one of them,
-# and each is held to its own task in `_task_reasons`.
+#: The use cases a sample can judge: a policy's `use_case` names one of them,
+#: and each is held to its own task in `_task_reasons`.
 CODING_USE_CASE = "coding"
 AGENT = "agent"
 MEDIA_GEN = "media-gen"
-# A policy that names no use case is judged as a coding fleet.
+#: A policy that names no use case is judged as a coding fleet.
 DEFAULT_USE_CASE = CODING_USE_CASE
-# The checks `mcgyvr.fleet.sampler` runs, as `Outcome.check` names them.
+#: The checks `mcgyvr.fleet.sampler` runs, as `Outcome.check` names them.
 TASK_GATE = "gate"
 TASK_COMPLETION = "completion"
 TASK_GROUNDED = "grounded"
 TASK_SAFETY = "safety"
 TASK_CHOICE = "choice"
 CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
-# Why a unit laid out asleep makes the sample red: it cannot be woken yet.
+#: Why a unit laid out asleep makes the sample red: it cannot be woken yet.
 SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
-# Why the media-gen use case samples red: it has no sample to run yet.
+#: Why the media-gen use case samples red: it has no sample to run yet.
 MEDIA_NOT_BUILT = "the media sample isn't built yet (P11)"
-# The probe figures every awake unit is measured on and read back into evidence.
+#: The probe figures every awake unit is measured on and read back into evidence.
 PROBE_FIELDS = ("warm_decode_tok_s", "prefill_tok_s")
-# The snapshot field that carries the card's reserve, the combination's overhead.
+#: The snapshot field that carries the card's reserve, the combination's overhead.
 RESERVE_FIELD = "gpu_reserve_mib"
 
 

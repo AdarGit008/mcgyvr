@@ -31,21 +31,21 @@ from mcgyvr.lines import parser_lines, terminator
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.sandbox.base import Sandbox
 
-# Ruff exit codes that mean "the run itself succeeded": 0 for a clean result,
-# 1 for findings or would-reformat, which is exactly what `--fix` and `format`
-# report when they have work to do.
+#: Ruff exit codes that mean "the run itself succeeded": 0 for a clean result,
+#: 1 for findings or would-reformat, which is exactly what `--fix` and `format`
+#: report when they have work to do.
 _REPORTING = frozenset({0, 1})
 
-# Ceiling on any single ruff invocation; a run that outlives it is abandoned and
-# recorded as an environment issue instead of stalling the repair.
+#: Ceiling on any single ruff invocation; a run that outlives it is abandoned and
+#: recorded as an environment issue instead of stalling the repair.
 RUFF_TIMEOUT_S = 120.0
 
-# Path prefixes stripped from a dependency's file path when turning it into an
-# importable module name, so `src/pkg/mod.py` indexes as `pkg.mod`.
+#: Path prefixes stripped from a dependency's file path when turning it into an
+#: importable module name, so `src/pkg/mod.py` indexes as `pkg.mod`.
 _SOURCE_ROOTS = ("src/",)
 
-# Pulls the offending name out of ruff's F821 message, which quotes it in
-# backticks: "Undefined name `foo`".
+#: Pulls the offending name out of ruff's F821 message, which quotes it in
+#: backticks: "Undefined name `foo`".
 _UNDEFINED_NAME = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`")
 
 

@@ -32,31 +32,31 @@ from mcgyvr.mcorch.anthropic import ApiError, MessagesRequest
 from mcgyvr.mcorch.loop import Turn
 from mcgyvr.orchestrator.read import estimate_tokens
 
-# The address the facade listens on unless told otherwise: the loopback,
-# so no other machine reaches the rung behind it by accident.
+#: The address the facade listens on unless told otherwise: the loopback,
+#: so no other machine reaches the rung behind it by accident.
 DEFAULT_BIND = "127.0.0.1"
 
-# The port `mcgyvr mcorch serve` listens on when it is not told one.
+#: The port `mcgyvr mcorch serve` listens on when it is not told one.
 FACADE_PORT = 8787
 
-# The most of a request body that will be read: a harness sends whole
-# transcripts, and a body over this is refused rather than read.
+#: The most of a request body that will be read: a harness sends whole
+#: transcripts, and a body over this is refused rather than read.
 MAX_BODY_BYTES = 32 * 1024 * 1024
 
-# How often a turn in flight is looked in on, and so how often a streamed
-# answer gets its ping; each look waits at most this long.
+#: How often a turn in flight is looked in on, and so how often a streamed
+#: answer gets its ping; each look waits at most this long.
 PING_INTERVAL_S = 5.0
 
-# The one model id this server answers as: it is the id in the model
-# documents, the loop behind it never reads the model asked for, and a
-# GET for any other id is a not_found_error.
+#: The one model id this server answers as: it is the id in the model
+#: documents, the loop behind it never reads the model asked for, and a
+#: GET for any other id is a not_found_error.
 MODEL_ID = "mcorch"
 
-# One turn of the loop as the facade calls it: a parsed request in, a Turn out.
+#: One turn of the loop as the facade calls it: a parsed request in, a Turn out.
 type Responder = Callable[[MessagesRequest], Turn]
 
-# Told about each finished turn — its request, the turn, the stop reason,
-# and the seconds it took — once the message has been built.
+#: Told about each finished turn — its request, the turn, the stop reason,
+#: and the seconds it took — once the message has been built.
 type Observer = Callable[[MessagesRequest, Turn, str, float], None]
 
 _MESSAGES = "/v1/messages"

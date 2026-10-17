@@ -16,8 +16,8 @@ import yaml
 
 ErrorFactory = Callable[[str], Exception]
 
-# Bounded repr() for keys quoted in error messages, so an oversized or deeply
-# nested key cannot flood the message.
+#: Bounded repr() for keys quoted in error messages, so an oversized or deeply
+#: nested key cannot flood the message.
 _KEY = reprlib.Repr(
     maxlevel=2, maxdict=4, maxlist=4, maxset=4, maxstring=200, maxlong=200, maxother=200
 )

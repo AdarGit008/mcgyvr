@@ -51,18 +51,18 @@ from mcgyvr.scope import OutsideTreeError, inside
 # every file as added.
 _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-# The lock file `_exclusive` flocks inside the git directory. It sits in
-# `.git` rather than the work tree so it is never picked up as a file the
-# delivery itself made, and it is one name for the whole repository so two
-# deliveries cannot interleave their dirty-tree check, their writes and
-# their commit.
+#: The lock file `_exclusive` flocks inside the git directory. It sits in
+#: `.git` rather than the work tree so it is never picked up as a file the
+#: delivery itself made, and it is one name for the whole repository so two
+#: deliveries cannot interleave their dirty-tree check, their writes and
+#: their commit.
 _LOCK_NAME = "mcgyvr-delivery.lock"
 
 
-# A path that does not exist, used as `core.hooksPath` for every commit this
-# module makes. With it (and `--no-verify` where hooks run) the repository's
-# commit hooks cannot rewrite the index or the message, so what lands is what
-# the gate judged.
+#: A path that does not exist, used as `core.hooksPath` for every commit this
+#: module makes. With it (and `--no-verify` where hooks run) the repository's
+#: commit hooks cannot rewrite the index or the message, so what lands is what
+#: the gate judged.
 _NO_HOOKS = "/nonexistent/mcgyvr-delivery-runs-no-hooks"
 
 
@@ -74,8 +74,8 @@ class Identity:
     email: str
 
 
-# The identity every delivery commit is attributed to, so a commit does not
-# depend on the machine having a git identity configured.
+#: The identity every delivery commit is attributed to, so a commit does not
+#: depend on the machine having a git identity configured.
 IDENTITY = Identity("mcgyvr", "delivery@mcgyvr.invalid")
 
 

@@ -33,13 +33,13 @@ class Session(Protocol):
         """Take an error the hub sent: its code and the text to show."""
 
 
-# One command's handler: the frame as it arrived and the session it came over,
-# returning the frame to send back or None when no answer is due.
+#: One command's handler: the frame as it arrived and the session it came over,
+#: returning the frame to send back or None when no answer is due.
 Handler = Callable[[protocol.Envelope, Session], str | None]
 
-# The code a handler's own exception is answered with. It is not one of the
-# protocol's codes, so the hub reads the answer as this agent failing at the
-# command rather than as a refusal of the frame it sent.
+#: The code a handler's own exception is answered with. It is not one of the
+#: protocol's codes, so the hub reads the answer as this agent failing at the
+#: command rather than as a refusal of the frame it sent.
 FAILED = "failed"
 
 

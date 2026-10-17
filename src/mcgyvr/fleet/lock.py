@@ -55,14 +55,14 @@ from mcgyvr.fleet.spans import (
 )
 from mcgyvr.fleet.tolerance import tolerance_class
 
-# The fleet a setup no dev sample ran on is locked under: the user's own read
-# rigs laid out awake, beside the hosted units the setup also carries.
+#: The fleet a setup no dev sample ran on is locked under: the user's own read
+#: rigs laid out awake, beside the hosted units the setup also carries.
 OWN_FLEET = "own"
-# The command recorded as the approver when a setup is locked on no evidence.
+#: The command recorded as the approver when a setup is locked on no evidence.
 OWN_APPROVER = "mcgyvr setup"
-# The commands whose word approves a lock with no dev run behind it: `mcgyvr
-# setup` writes one today, and `mcgyvr init` wrote one before it was renamed, so
-# a lock either way is the user's own fleet.
+#: The commands whose word approves a lock with no dev run behind it: `mcgyvr
+#: setup` writes one today, and `mcgyvr init` wrote one before it was renamed, so
+#: a lock either way is the user's own fleet.
 OWN_APPROVERS = frozenset({OWN_APPROVER, "mcgyvr init"})
 
 

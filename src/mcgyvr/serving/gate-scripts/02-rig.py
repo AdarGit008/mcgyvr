@@ -43,11 +43,11 @@ from mcgyvr.serving.rigread import held, reading, take_lease
 
 HERE = Path(__file__).resolve().parent
 
-# The runtime reading's two keys that say whether the rig was already busy: the
-# processes holding a card ("pid,process,MiB" each) and the containers up
-# ("<first 12 characters of the id>" each). rigread.held() says "none" for
-# either when it found nothing there, and a key the reading does not carry at
-# all is reported as "(unread)"; only the keys that are not "none" are named.
+#: The runtime reading's two keys that say whether the rig was already busy: the
+#: processes holding a card ("pid,process,MiB" each) and the containers up
+#: ("<first 12 characters of the id>" each). rigread.held() says "none" for
+#: either when it found nothing there, and a key the reading does not carry at
+#: all is reported as "(unread)"; only the keys that are not "none" are named.
 IDLE_KEYS = ("gpu_procs", "containers")
 
 

@@ -43,10 +43,10 @@ SETUP_OVERRIDE_KEY = "sandbox.setup"
 _PYTHON_BASE = "python:3.12-slim"
 _NODE_BASE = "node:22-slim"
 
-# Paths inside the task image: the repository is mounted at `WORKSPACE`,
-# dependencies land in `VENV` (Python) or `NODE_MODULES` (Node), and
-# `TOOL_PATH` is prepended to PATH so a checker installed into either is
-# found by name.
+#: Paths inside the task image: the repository is mounted at `WORKSPACE`,
+#: dependencies land in `VENV` (Python) or `NODE_MODULES` (Node), and
+#: `TOOL_PATH` is prepended to PATH so a checker installed into either is
+#: found by name.
 WORKSPACE = "/workspace"
 VENV = f"{WORKSPACE}/.venv"
 NODE_MODULES = f"{WORKSPACE}/node_modules"

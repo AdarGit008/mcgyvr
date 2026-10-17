@@ -33,12 +33,12 @@ from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
 
-# The three files a setup directory holds. `load()` reads all of them: fleet.yaml
-# is required and carries `units`; policy.yaml and relief.yaml are read as empty
-# text when they are absent.
+#: The three files a setup directory holds. `load()` reads all of them: fleet.yaml
+#: is required and carries `units`; policy.yaml and relief.yaml are read as empty
+#: text when they are absent.
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
-# The rungs a hub lent you, written whole by `mcgyvr rig rungs sync`.
+#: The rungs a hub lent you, written whole by `mcgyvr rig rungs sync`.
 RELIEF_FILENAME = "relief.yaml"
 # Names a setup path directly, ahead of the live fleet directory.
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
@@ -101,10 +101,10 @@ class Field:
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
     min_value: float | None = None
-    # Inclusive bounds for the `int` and `float` kinds; `min_value` also floors
-    # each entry of an `int_map`. `choices` closes an `enum`, and `block` names
-    # the fields a `block`, `block_map` or `block_list` holds. `bind_hint` says
-    # how to set the key, quoted by the error that calls it unset.
+    #: Inclusive bounds for the `int` and `float` kinds; `min_value` also floors
+    #: each entry of an `int_map`. `choices` closes an `enum`, and `block` names
+    #: the fields a `block`, `block_map` or `block_list` holds. `bind_hint` says
+    #: how to set the key, quoted by the error that calls it unset.
     max_value: float | None = None
     bind_hint: str = ""
 
@@ -116,13 +116,13 @@ class Field:
     refused, so the config cannot resolve to it."""
 
 
-# Where a relief rung's host model sits against the models on your own rigs, as
-# the hub judges it: shown, never a place on the ladder.
+#: Where a relief rung's host model sits against the models on your own rigs, as
+#: the hub judges it: shown, never a place on the ladder.
 POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 
-# How a batch of work is placed across units. `none` takes the first rung in
-# ladder order whatever its load; `idle` and `full` take the first rung with a
-# slot free, and `idle` may also ride a relief rung once your own rungs are full.
+#: How a batch of work is placed across units. `none` takes the first rung in
+#: ladder order whatever its load; `idle` and `full` take the first rung with a
+#: slot free, and `idle` may also ride a relief rung once your own rungs are full.
 FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
 
 SANDBOX_FIELDS: tuple[Field, ...] = (
@@ -230,10 +230,10 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# Keys a config may still carry from an earlier build, mapped from the dotted
-# key to the rest of the refusal it earns. A retired key is refused rather than
-# read as unknown, so the message can name what replaced it, and `_block` looks
-# each key up here before it reports an unknown one.
+#: Keys a config may still carry from an earlier build, mapped from the dotted
+#: key to the rest of the refusal it earns. A retired key is refused rather than
+#: read as unknown, so the message can name what replaced it, and `_block` looks
+#: each key up here before it reports an unknown one.
 _RETIRED_KEYS: dict[str, str] = {
     "delivery.mode": (
         "is retired: no shipped command read it, and `run --commit` committed "
@@ -244,10 +244,10 @@ _RETIRED_KEYS: dict[str, str] = {
     ),
 }
 
-# Where the journal is kept when `journal.dir` says nothing else: one directory
-# under the user's state directory, outside any repository a run works on.
-# A `journal.dir` overrides it, and the `~` that path may carry is expanded by
-# the reader. Nothing on the command line moves it.
+#: Where the journal is kept when `journal.dir` says nothing else: one directory
+#: under the user's state directory, outside any repository a run works on.
+#: A `journal.dir` overrides it, and the `~` that path may carry is expanded by
+#: the reader. Nothing on the command line moves it.
 JOURNAL_DIR_DEFAULT = "~/.local/state/mcgyvr/journal"
 
 JOURNAL_FIELDS: tuple[Field, ...] = (
@@ -482,21 +482,21 @@ SERVING_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# Whether a unit is up whenever its launch spec is (`always-on`), or a swap
-# partner that starts asleep (`sleeps-until-needed`) and wakes when needed.
+#: Whether a unit is up whenever its launch spec is (`always-on`), or a swap
+#: partner that starts asleep (`sleeps-until-needed`) and wakes when needed.
 ROLE_ALWAYS_ON = "always-on"
 ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
-# The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
-# unit's `output_tokens`: the ceiling a `code` contract's
-# `limits.max_output_tokens` is held to on that unit, hidden reasoning
-# included. A hosted reasoning model spends its reasoning inside the same
-# budget, so the number is sized for a long deliberation rather than a short
-# answer. It is a value written into a file, not a default this module applies:
-# a unit that states its own `output_tokens` keeps it, and a contract's own cap
-# is sent exactly, with a cap above the ceiling refused by name. The doc of a
-# unit's `output_tokens` quotes it.
+#: The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
+#: unit's `output_tokens`: the ceiling a `code` contract's
+#: `limits.max_output_tokens` is held to on that unit, hidden reasoning
+#: included. A hosted reasoning model spends its reasoning inside the same
+#: budget, so the number is sized for a long deliberation rather than a short
+#: answer. It is a value written into a file, not a default this module applies:
+#: a unit that states its own `output_tokens` keeps it, and a contract's own cap
+#: is sent exactly, with a cap above the ceiling refused by name. The doc of a
+#: unit's `output_tokens` quotes it.
 API_OUTPUT_TOKENS = 32768
 
 UNIT_FIELDS: tuple[Field, ...] = (
@@ -821,11 +821,11 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# What the bound orchestrator unit is: a `proposer` that drafts contracts for
-# `mcgyvr delegate`, or `mcorch`, which serves it as the agent itself.
+#: What the bound orchestrator unit is: a `proposer` that drafts contracts for
+#: `mcgyvr delegate`, or `mcorch`, which serves it as the agent itself.
 ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer", "mcorch")
 
-# The `orchestrator.type` that serves the bound unit as the conversational agent.
+#: The `orchestrator.type` that serves the bound unit as the conversational agent.
 MCORCH = "mcorch"
 
 ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
@@ -1286,27 +1286,27 @@ class Unit:
     attention_backend: str | None = None
     container: str | None = None
     hf_cache: str | None = None
-    # Who states the sampling parameters of a request: `request` sends
-    # `temperature`, `server` sends none because the model fixes its own.
+    #: Who states the sampling parameters of a request: `request` sends
+    #: `temperature`, `server` sends none because the model fixes its own.
     sampling: str = "request"
-    # `always-on`, or `sleeps-until-needed` for a swap partner started on demand.
+    #: `always-on`, or `sleeps-until-needed` for a swap partner started on demand.
     role: str = ROLE_ALWAYS_ON
     launch: Mapping[str, Any] = field(default_factory=dict)
-    # The slots riders from the hub may use on this unit at once, as
-    # `rider_slots.<name>` states it and always below the unit's `width`, so
-    # you keep one. A unit the map does not name shares none, so this is 0.
-    # It is policy, not a fact of the unit, so it never changes its identity.
+    #: The slots riders from the hub may use on this unit at once, as
+    #: `rider_slots.<name>` states it and always below the unit's `width`, so
+    #: you keep one. A unit the map does not name shares none, so this is 0.
+    #: It is policy, not a fact of the unit, so it never changes its identity.
     rider_slots: int = 0
-    # True for a rung lent to you through a hub: it is never a step of the
-    # ladder, only ridden under `fanout: idle` when your own rung is full, and
-    # only the facts a relief block states are filled in — `position`,
-    # `hosted_by`, `served_model`, `busy_answers` — not a rig of yours.
+    #: True for a rung lent to you through a hub: it is never a step of the
+    #: ladder, only ridden under `fanout: idle` when your own rung is full, and
+    #: only the facts a relief block states are filled in — `position`,
+    #: `hosted_by`, `served_model`, `busy_answers` — not a rig of yours.
     relief: bool = False
     position: str | None = None
     hosted_by: str | None = None
     served_model: str | None = None
-    # The `(status, code)` answers that say the rung is full, as `busy_answers`
-    # states them; None when the rung names none.
+    #: The `(status, code)` answers that say the rung is full, as `busy_answers`
+    #: states them; None when the rung names none.
     busy_answers: tuple[tuple[int, str], ...] | None = None
 
     @property
@@ -1326,11 +1326,11 @@ class Ladder:
         return name if name in self.names else None
 
 
-# The use case served by a raw, un-gated text endpoint rather than scoped edits.
+#: The use case served by a raw, un-gated text endpoint rather than scoped edits.
 CHAT = "chat"
 
-# The deployment in which mcgyvr is the backend: a non-chat use case provisions
-# a local orchestrator unit, and chat is the ladder serving text.
+#: The deployment in which mcgyvr is the backend: a non-chat use case provisions
+#: a local orchestrator unit, and chat is the ladder serving text.
 LOCAL_ONLY = "local-only"
 
 
@@ -1339,13 +1339,13 @@ class LocalOrchestrator:
     """What `local_orchestrator` decided: whether an orchestrator unit is
     provisioned, at what width, and whether a single-user install is flagged."""
 
-    # True when this install provisions a local orchestrator unit.
+    #: True when this install provisions a local orchestrator unit.
     provision: bool
-    # Slots the orchestrator is served at, one per user; None when it is not
-    # provisioned.
+    #: Slots the orchestrator is served at, one per user; None when it is not
+    #: provisioned.
     width: int | None = None
-    # True for a single-user install, which is flagged rather than refused: the
-    # resident orchestrator consumes the card the ladder would otherwise use.
+    #: True for a single-user install, which is flagged rather than refused: the
+    #: resident orchestrator consumes the card the ladder would otherwise use.
     flag_single_user: bool = False
 
 
@@ -1929,8 +1929,8 @@ def parse(
     return _build(fleet, policy, path, relief)
 
 
-# The top-level keys belonging to the fleet and relief documents rather than
-# the policy, used to split a setup written as one document.
+#: The top-level keys belonging to the fleet and relief documents rather than
+#: the policy, used to split a setup written as one document.
 _FLEET_ONLY = frozenset({"units", "rigs", "fleets"})
 _RELIEF_ONLY = frozenset({"relief"})
 

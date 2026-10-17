@@ -35,10 +35,10 @@ from mcgyvr.serving.gatelib import (
 )
 from mcgyvr.serving.rigread import snapshot
 
-# The card and daemon keys gate 7 holds a run to: gate 2 read them before the
-# step and gate 7 reads them again after it, so a key that differs is the rig
-# having moved under the run — filed as `rig_moved` in the end record, said in
-# one line on stderr, and the run is not green.
+#: The card and daemon keys gate 7 holds a run to: gate 2 read them before the
+#: step and gate 7 reads them again after it, so a key that differs is the rig
+#: having moved under the run — filed as `rig_moved` in the end record, said in
+#: one line on stderr, and the run is not green.
 COMPARED = (
     "uptime_since",
     "cpu_max_mhz",

@@ -31,33 +31,33 @@ from mcgyvr.gate.findings import Finding
 if TYPE_CHECKING:
     from mcgyvr.gate.runner import InconclusiveRung
 
-# The media kinds a `media_valid` contract may declare, one word each; the
-# kind decides which formats count as a valid output.
+#: The media kinds a `media_valid` contract may declare, one word each; the
+#: kind decides which formats count as a valid output.
 MEDIA_IMAGE = "image"
 MEDIA_AUDIO = "audio"
 MEDIA_VIDEO = "video"
 MEDIA_KINDS = (MEDIA_IMAGE, MEDIA_AUDIO, MEDIA_VIDEO)
 
-# Names of the output checks, declared in a contract's evidence names.
+#: Names of the output checks, declared in a contract's evidence names.
 MEDIA_VALID = "media_valid"
 
-# The two tool-backed checks: `safety_pass` asks the safety classifier about
-# the artifact, and `asr_wer` compares a whisper transcription of the
-# artifact against the transcript the contract states.
+#: The two tool-backed checks: `safety_pass` asks the safety classifier about
+#: the artifact, and `asr_wer` compares a whisper transcription of the
+#: artifact against the transcript the contract states.
 SAFETY_PASS = "safety_pass"
 ASR_WER = "asr_wer"
 
-# RIFF form codes, the four bytes at offset 8 of a RIFF file. WEBP, WAVE and
-# AVI share the `RIFF` magic at offset 0, so the form is what tells the three
-# media kinds apart.
+#: RIFF form codes, the four bytes at offset 8 of a RIFF file. WEBP, WAVE and
+#: AVI share the `RIFF` magic at offset 0, so the form is what tells the three
+#: media kinds apart.
 _RIFF_FORMS = {b"WEBP": MEDIA_IMAGE, b"WAVE": MEDIA_AUDIO, b"AVI ": MEDIA_VIDEO}
 
-# Magic-byte prefixes per kind: the cheap first test in _is_kind, which
-# accepts a head that starts with one of its kind's prefixes.
-# MP3 lists one prefix per accepted frame sync (0xFFFB, 0xFFF3, 0xFFF2 and
-# 0xFFFA) because a first frame may start with any of them. MP4 is absent on
-# purpose: its `ftyp` box sits at offset 4, so _MP4_FTYP matches it, and a
-# bare `ftyp` head cannot appear at offset 0.
+#: Magic-byte prefixes per kind: the cheap first test in _is_kind, which
+#: accepts a head that starts with one of its kind's prefixes.
+#: MP3 lists one prefix per accepted frame sync (0xFFFB, 0xFFF3, 0xFFF2 and
+#: 0xFFFA) because a first frame may start with any of them. MP4 is absent on
+#: purpose: its `ftyp` box sits at offset 4, so _MP4_FTYP matches it, and a
+#: bare `ftyp` head cannot appear at offset 0.
 _PREFIXES: dict[str, tuple[bytes, ...]] = {
     MEDIA_IMAGE: (
         b"\x89PNG\r\n\x1a\n",
@@ -78,8 +78,8 @@ _PREFIXES: dict[str, tuple[bytes, ...]] = {
     MEDIA_VIDEO: (b"\x1a\x45\xdf\xa3",),
 }
 
-# The box type that opens an MP4 at offset 4, which `_is_kind` reads to spot
-# an ISO base media file before `_mp4_findings` walks its boxes.
+#: The box type that opens an MP4 at offset 4, which `_is_kind` reads to spot
+#: an ISO base media file before `_mp4_findings` walks its boxes.
 _MP4_FTYP = b"ftyp"
 
 

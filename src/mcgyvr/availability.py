@@ -66,12 +66,12 @@ class AvailabilityVerdict:
     reason: str
     how: str
     elapsed_s: float
-    # The model ids the endpoint listed, when the body could be read and held
-    # at least one. `None` when no list was read: the source is down, the body
-    # did not parse, or the status skipped the body. `not_serving` needs it to
-    # tell a source holding the wrong weights from one whose list says nothing,
-    # and only where a list was read can the absence of a model be held against
-    # the source.
+    #: The model ids the endpoint listed, when the body could be read and held
+    #: at least one. `None` when no list was read: the source is down, the body
+    #: did not parse, or the status skipped the body. `not_serving` needs it to
+    #: tell a source holding the wrong weights from one whose list says nothing,
+    #: and only where a list was read can the absence of a model be held against
+    #: the source.
     models: tuple[str, ...] | None = None
 
 

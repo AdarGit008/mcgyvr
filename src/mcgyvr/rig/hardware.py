@@ -39,9 +39,9 @@ class Report:
     ram_free_mb: int | None
     cards: tuple[protocol.CardReport, ...]
     notes: tuple[str, ...]
-    # Which card of the reading each reported card came from, position for
-    # position: its vendor and the reading's own index, since the report
-    # renumbers its cards from 0.
+    #: Which card of the reading each reported card came from, position for
+    #: position: its vendor and the reading's own index, since the report
+    #: renumbers its cards from 0.
     sources: tuple[tuple[str, int], ...] = ()
 
 

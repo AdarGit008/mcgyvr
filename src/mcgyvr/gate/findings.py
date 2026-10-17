@@ -17,11 +17,11 @@ class Finding:
     line: int | None = None
     code: str | None = None
 
-    # Some findings are keyed by something that is not a path in the tree — an
-    # acceptance command's label, or a nested git entry — and printing that
-    # token in the file position would read as a file the change touches. This
-    # flag says whether ``path`` can be shown as one, and ``for_model`` is what
-    # is honouring it when the path is dropped from the line.
+    #: Some findings are keyed by something that is not a path in the tree — an
+    #: acceptance command's label, or a nested git entry — and printing that
+    #: token in the file position would read as a file the change touches. This
+    #: flag says whether ``path`` can be shown as one, and ``for_model`` is what
+    #: is honouring it when the path is dropped from the line.
     names_a_file: bool = True
 
     def __str__(self) -> str:

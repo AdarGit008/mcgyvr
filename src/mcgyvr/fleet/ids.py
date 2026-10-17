@@ -84,13 +84,13 @@ def digest(prefix: str, fields: dict[str, Any]) -> str:
     return prefix + hashlib.sha256(raw).hexdigest()
 
 
-# Longest reason quoted back from the reader, in characters, and a field path
-# naming one whole card such as card.nvidia.0 rather than one of its attributes.
+#: Longest reason quoted back from the reader, in characters, and a field path
+#: naming one whole card such as card.nvidia.0 rather than one of its attributes.
 _WHY_MAX = 300
 _CARD_WHOLE = re.compile(r"card\.[^.]+\.[0-9]+", re.ASCII)
 
-# Remedy reported for each refused field: what was not read, and what would let
-# the machine be read again.
+#: Remedy reported for each refused field: what was not read, and what would let
+#: the machine be read again.
 _REMEDY_MACHINE_ID = (
     "no machine id was read: the machine needs a machine-id file or a host name "
     "the reader can read"

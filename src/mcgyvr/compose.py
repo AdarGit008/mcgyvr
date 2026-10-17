@@ -27,9 +27,9 @@ from mcgyvr.propose import Proposal
 if TYPE_CHECKING:
     from mcgyvr.initialize import ApiUnit
 
-# What each candidate is offered as in the `Choice` the model answers: one
-# description per candidate name, saying where the work runs and what it costs,
-# read against the priority and the measured machine that make up the state.
+#: What each candidate is offered as in the `Choice` the model answers: one
+#: description per candidate name, saying where the work runs and what it costs,
+#: read against the priority and the measured machine that make up the state.
 OWN_DESCRIPTION = (
     "run only on the machine(s) already listed, with no hosted unit: no API "
     "spend and no key to export"

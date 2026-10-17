@@ -36,8 +36,8 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, Literal, Protocol, overload
 
-# The word every real run carries as argv[1]; anything else is refused as a
-# usage error before a spec is read.
+#: The word every real run carries as argv[1]; anything else is refused as a
+#: usage error before a spec is read.
 HARNESS_WORD = "mcgyvr-harness"
 
 _SHORT_TEXT = "Write a Python function that reverses a singly linked list in place.\n"
@@ -48,11 +48,11 @@ _LONG_BLOCK = (
     "table of tensor name, shape, and byte size for every tensor that has an "
     "expert dimension. Be complete and correct.\n\n"
 )
-# vLLM is asked in chat messages: the short prompt as one user turn, the long
-# prefill prompt as the long block repeated 28 times.
+#: vLLM is asked in chat messages: the short prompt as one user turn, the long
+#: prefill prompt as the long block repeated 28 times.
 VLLM_SHORT: list[dict[str, str]] = [{"role": "user", "content": _SHORT_TEXT}]
 VLLM_LONG = _LONG_BLOCK * 28
-# llama.cpp takes the same two texts as a bare prompt string instead.
+#: llama.cpp takes the same two texts as a bare prompt string instead.
 LLAMA_SHORT_PROMPT = _SHORT_TEXT
 LLAMA_LONG_PROMPT = (_LONG_BLOCK * 28).strip()
 
@@ -61,25 +61,25 @@ DECODE_TOKENS = 256
 PREFILL_TOKENS = 16
 DECODE_SAMPLES = 5
 PREFILL_SAMPLES = 3
-# Naming the model is a quick read; a completion may take the minutes a long
-# prefill needs.
+#: Naming the model is a quick read; a completion may take the minutes a long
+#: prefill needs.
 MODELS_TIMEOUT_S = 10.0
 REQUEST_TIMEOUT_S = 900.0
-# The page each engine publishes its in-flight count on.
+#: The page each engine publishes its in-flight count on.
 STATUS_PATHS = {"vllm": "/metrics", "llama.cpp": "/slots"}
-# The two vLLM metrics that together are the requests it holds in flight.
+#: The two vLLM metrics that together are the requests it holds in flight.
 VLLM_RUNNING = "vllm:num_requests_running"
 VLLM_WAITING = "vllm:num_requests_waiting"
-# How much of the unit's window a load leaves for generation: each request's
-# prompt fills the window less these tokens, so the load keeps decoding while it
-# runs.
+#: How much of the unit's window a load leaves for generation: each request's
+#: prompt fills the window less these tokens, so the load keeps decoding while it
+#: runs.
 LOAD_OUTPUT_TOKENS = 64
-# Seconds between two samples of the rig's card: during the load, and after the
-# close while the unit is waited on for idle.
+#: Seconds between two samples of the rig's card: during the load, and after the
+#: close while the unit is waited on for idle.
 LOAD_SAMPLE_S = 0.5
-# The most a load runs (owner ruling NB5): at thirty seconds every unfinished
-# request's connection is closed, and the wait for an idle status page takes
-# over with no limit of its own.
+#: The most a load runs (owner ruling NB5): at thirty seconds every unfinished
+#: request's connection is closed, and the wait for an idle status page takes
+#: over with no limit of its own.
 LOAD_LIMIT_S = 30
 
 
@@ -108,17 +108,17 @@ class LoadTransport(Protocol):
         long as it takes."""
 
 
-# What reading a reply from a server that answers badly raises: no connection or
-# a broken socket (OSError, which urllib.error.URLError is), a body cut short or
-# a status line that is not one (http.client.HTTPException), bytes that are not
-# UTF-8 or not JSON (ValueError, which json.JSONDecodeError and
-# UnicodeDecodeError are), and a document nested deeper than the JSON reader
-# follows (RecursionError). Each is a reply that did not arrive properly.
+#: What reading a reply from a server that answers badly raises: no connection or
+#: a broken socket (OSError, which urllib.error.URLError is), a body cut short or
+#: a status line that is not one (http.client.HTTPException), bytes that are not
+#: UTF-8 or not JSON (ValueError, which json.JSONDecodeError and
+#: UnicodeDecodeError are), and a document nested deeper than the JSON reader
+#: follows (RecursionError). Each is a reply that did not arrive properly.
 _UNREADABLE_REPLY = (OSError, ValueError, http.client.HTTPException, RecursionError)
 
-# How many characters of a bad reply's repr an error quotes back, so a server
-# answering with megabytes cannot flood the message: a longer repr keeps its first
-# and last half, joined by " ... ".
+#: How many characters of a bad reply's repr an error quotes back, so a server
+#: answering with megabytes cannot flood the message: a longer repr keeps its first
+#: and last half, joined by " ... ".
 REPLY_QUOTED_AT_MOST = 200
 
 

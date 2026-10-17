@@ -49,26 +49,26 @@ from mcgyvr.fleet.roots import (
 from mcgyvr.fleet.spans import Span, SpanError, spans
 from mcgyvr.fleet.tolerance import CLASS_VLLM, tolerance_class
 
-# The subfolder of the journal directory the fleet's own rows are filed under.
+#: The subfolder of the journal directory the fleet's own rows are filed under.
 JOURNAL_SUBDIR = "fleet"
 
-# How each engine's approved figures were timed, named in the reason a reading
-# is filed without being judged. Both harnesses time inside the rig on
-# 127.0.0.1, which an off-the-rig timing of the same engine cannot match.
+#: How each engine's approved figures were timed, named in the reason a reading
+#: is filed without being judged. Both harnesses time inside the rig on
+#: 127.0.0.1, which an off-the-rig timing of the same engine cannot match.
 VLLM_HARNESS = "the lock's vLLM harness"
 LLAMA_HARNESS = "the lock's llama.cpp harness"
 
-# The fields only the rig itself can answer for: the MiB the unit's cards have
-# room for and how often the unit has restarted are not on any HTTP reply an
-# off-the-rig probe can ask for.
+#: The fields only the rig itself can answer for: the MiB the unit's cards have
+#: room for and how often the unit has restarted are not on any HTTP reply an
+#: off-the-rig probe can ask for.
 NOT_READ_ON_THE_RIG: tuple[str, ...] = ("card_mib", "restarts")
 NOT_READ_REASON = (
     "read on the rig, and a rig is reached only behind the door "
     "(python -m mcgyvr.serving.run; tests/test_one_door.py)"
 )
-# Why a vLLM figure timed from off the rig is recorded and not judged: the
-# lock's figure was timed on the rig over loopback, and wall clock around a
-# request over the network is not the same measurement.
+#: Why a vLLM figure timed from off the rig is recorded and not judged: the
+#: lock's figure was timed on the rig over loopback, and wall clock around a
+#: request over the network is not the same measurement.
 OFF_THE_RIG_REASON = (
     "timed by wall clock from off the rig, over the network at {address}, "
     "while the lock timed on the rig at 127.0.0.1 ({harness})"
@@ -85,23 +85,23 @@ class ProbeError(Exception):
 class Report:
     """What one probe of the live fleet found, unit by unit and link by link."""
 
-    # unit name -> the figures measured for it, by field name.
+    #: unit name -> the figures measured for it, by field name.
     probed: dict[str, dict[str, float]] = field(default_factory=dict)
-    # unit name -> the in-flight count that made the probe leave it alone.
+    #: unit name -> the in-flight count that made the probe leave it alone.
     busy: dict[str, int] = field(default_factory=dict)
-    # units that took work while being measured: their figures are filed, not judged.
+    #: units that took work while being measured: their figures are filed, not judged.
     contended: list[str] = field(default_factory=list)
-    # unit name -> why measuring it failed.
+    #: unit name -> why measuring it failed.
     failed: dict[str, str] = field(default_factory=dict)
-    # unit name -> (the fields the rig could not read, why it could not).
+    #: unit name -> (the fields the rig could not read, why it could not).
     not_read: dict[str, tuple[tuple[str, ...], str]] = field(default_factory=dict)
-    # unit name -> (the fields timed from off the rig, why they are not judged).
+    #: unit name -> (the fields timed from off the rig, why they are not judged).
     off_the_rig: dict[str, tuple[tuple[str, ...], str]] = field(default_factory=dict)
-    # every alert this run raised, as `alerts.judged` reports one.
+    #: every alert this run raised, as `alerts.judged` reports one.
     alerts: list[dict[str, Any]] = field(default_factory=list)
-    # link class -> the one line the fitted link says about itself.
+    #: link class -> the one line the fitted link says about itself.
     links: dict[str, str] = field(default_factory=dict)
-    # link key -> why timing that link was refused.
+    #: link key -> why timing that link was refused.
     links_failed: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -219,20 +219,20 @@ def _live(units: Sequence[str] | None) -> tuple[str, Path, dict[str, Any]]:
     return layout, folder, fleet
 
 
-# Times the transfers between the two ends of a link and answers with
-# (bytes, seconds) samples; the real one runs inside the rigs while the probe
-# stays off them (`linkread.door_timer`).
+#: Times the transfers between the two ends of a link and answers with
+#: (bytes, seconds) samples; the real one runs inside the rigs while the probe
+#: stays off them (`linkread.door_timer`).
 LinkReader = Callable[[LinkEnds], Sequence[tuple[int, float]]]
-# Filed with every link reading as how that reading was taken.
+#: Filed with every link reading as how that reading was taken.
 LINK_HOW = "mcgyvr fleet probe"
-# Reaches one rig behind the door: (rig, run id, units to probe) -> the exit
-# code of the door's read. `read.spawn_read` is the real one.
+#: Reaches one rig behind the door: (rig, run id, units to probe) -> the exit
+#: code of the door's read. `read.spawn_read` is the real one.
 Reader = Callable[[str, str, Sequence[str]], int]
-# Why a rig left no row for the run: the door's read of it exited with a code
-# and filed no reading.
+#: Why a rig left no row for the run: the door's read of it exited with a code
+#: and filed no reading.
 UNREAD_RIG_REASON = "the door's read of {rig} exited {code} and filed no reading"
-# Why fields went unread on a rig that did file a row: the reader on the rig
-# names them as the fields it could not read there.
+#: Why fields went unread on a rig that did file a row: the reader on the rig
+#: names them as the fields it could not read there.
 UNREAD_BY_THE_READER = "the door's reader on the rig could not read them"
 
 

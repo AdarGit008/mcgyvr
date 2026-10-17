@@ -13,21 +13,21 @@ import re
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
-# Filename suffixes treated as model weight files, used by is_model to strip
-# the extension off a served model reference before comparing the base name
-# with the declared model id. ".bin" and ".pt" appear only in this list,
-# since models_in scans for ".gguf" and ".safetensors" alone.
+#: Filename suffixes treated as model weight files, used by is_model to strip
+#: the extension off a served model reference before comparing the base name
+#: with the declared model id. ".bin" and ".pt" appear only in this list,
+#: since models_in scans for ".gguf" and ".safetensors" alone.
 WEIGHTS_SUFFIXES = (".gguf", ".safetensors", ".bin", ".pt")
 
-# Split checkpoints put a shard counter before the extension, for example
-# "model-00001-of-00002.safetensors". This pattern matches that trailing
-# "-00001-of-00002" so the counter can be removed and the sharded file still
-# compares equal to the unsuffixed declared model id.
+#: Split checkpoints put a shard counter before the extension, for example
+#: "model-00001-of-00002.safetensors". This pattern matches that trailing
+#: "-00001-of-00002" so the counter can be removed and the sharded file still
+#: compares equal to the unsuffixed declared model id.
 _SHARD = re.compile(r"-\d{1,5}-of-\d{1,5}$")
 
-# Quantization tag in a GGUF filename, e.g. "q4_k_m", "Q8_0", "BF16", "F32" or
-# "MXFP4_MOE": a separator (or underscore variant) followed by the tag and the
-# ".gguf" extension.
+#: Quantization tag in a GGUF filename, e.g. "q4_k_m", "Q8_0", "BF16", "F32" or
+#: "MXFP4_MOE": a separator (or underscore variant) followed by the tag and the
+#: ".gguf" extension.
 _GGUF_QUANT = re.compile(
     r"[-_.]((?:I?Q\d+(?:_[A-Z0-9]+)*)|BF16|FP16|F16|F32|MXFP4(?:_MOE)?)\.gguf$",
     re.IGNORECASE,

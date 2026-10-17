@@ -46,79 +46,79 @@ COPY_MIB_TIGHT = 64
 TIGHT_RAM_GB = 2.0
 
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
-# Machine identity sources, in order: the first machine-id file holding a value,
-# then the host name.
+#: Machine identity sources, in order: the first machine-id file holding a value,
+#: then the host name.
 MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
 HOSTNAME_FILE = "/proc/sys/kernel/hostname"
 DRM = "/sys/class/drm"
 
-# What one tool call may take: seconds before it is killed, and bytes of output kept.
+#: What one tool call may take: seconds before it is killed, and bytes of output kept.
 BOUND_S = 20.0
 BYTES_MAX = 262144
-# What text read from a file or a tool may take: one line's length, and how many
-# lines a whole card list may run to.
+#: What text read from a file or a tool may take: one line's length, and how many
+#: lines a whole card list may run to.
 LINE_MAX = 4096
 LINES_MAX = 4096
-# Longest printed name taken as a name.
+#: Longest printed name taken as a name.
 NAME_MAX = 256
-# Longest run of digits taken as a size: is_size caps a size at 10**18.
+#: Longest run of digits taken as a size: is_size caps a size at 10**18.
 DIGITS_MAX = 18
 
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
 SECONDS_VARIABLE = "MCGYVR_TEST_TOOL_SECONDS"
 
-# Quantisation tag closing a GGUF file name, as in Q4_K_M.gguf or BF16.gguf.
+#: Quantisation tag closing a GGUF file name, as in Q4_K_M.gguf or BF16.gguf.
 GGUF_QUANT = re.compile(
     r"[-_.]((?:I?Q\d+(?:_[A-Z0-9]+)*)|BF16|FP16|F16|F32|MXFP4(?:_MOE)?)\.gguf$",
     re.IGNORECASE,
 )
 
-# The NVIDIA tool is asked for one line per card with a fixed field list, in that
-# order, comma separated, with no header and no units, so each line is split back
-# out by position. Its answer also settles whether this machine has an NVIDIA card
-# at all: a tool that runs and prints no row is reported as left over from a
-# machine whose card is gone, while a tool that is absent or fails leaves the card
-# list unread, with the tool's own reason kept.
+#: The NVIDIA tool is asked for one line per card with a fixed field list, in that
+#: order, comma separated, with no header and no units, so each line is split back
+#: out by position. Its answer also settles whether this machine has an NVIDIA card
+#: at all: a tool that runs and prints no row is reported as left over from a
+#: machine whose card is gone, while a tool that is absent or fails leaves the card
+#: list unread, with the tool's own reason kept.
 FIRST_TOOL = "nvidia-smi"
 FIRST_QUERY = "index,memory.total,memory.used,memory.free,name"
-# The snapshot asks again for the fields the short reading does not carry: the
-# slot, the compute capability, the driver and the reserved memory. Tools that do
-# not know memory.reserved are asked the shorter query instead.
+#: The snapshot asks again for the fields the short reading does not carry: the
+#: slot, the compute capability, the driver and the reserved memory. Tools that do
+#: not know memory.reserved are asked the shorter query instead.
 SNAPSHOT_QUERY = "index,pci.bus_id,compute_cap,driver_version,memory.reserved"
 SNAPSHOT_QUERY_OLD = "index,pci.bus_id,compute_cap,driver_version"
-# The AMD tool prints one JSON object keyed by card name, with the VRAM total and
-# used memory in bytes, which are divided down to MiB to match the NVIDIA rows.
-# The keys, not the arguments to the tool, decide which cards are reported, so a
-# machine with no AMD card simply yields no member.
+#: The AMD tool prints one JSON object keyed by card name, with the VRAM total and
+#: used memory in bytes, which are divided down to MiB to match the NVIDIA rows.
+#: The keys, not the arguments to the tool, decide which cards are reported, so a
+#: machine with no AMD card simply yields no member.
 SECOND_TOOL = "rocm-smi"
 SECOND_ARGS = ("--showproductname", "--showmeminfo", "vram", "--json")
-# sysfs names a card's vendor by PCI id; the first map turns that id into the
-# vendor label used everywhere else, and the second says which tool reads it.
+#: sysfs names a card's vendor by PCI id; the first map turns that id into the
+#: vendor label used everywhere else, and the second says which tool reads it.
 PCI_VENDORS = {"0x10de": "nvidia", "0x1002": "amd", "0x8086": "intel"}
 VENDOR_TOOLS = {"nvidia": FIRST_TOOL, "amd": SECOND_TOOL}
 
-# A template that makes `docker version` print the daemon's version and nothing else.
+#: A template that makes `docker version` print the daemon's version and nothing else.
 DOCKER_VERSION_FORMAT = "{{.Server.Version}}"
-# ssh sets SSH_CONNECTION to "client_ip client_port server_ip server_port" in the
-# session's environment, so its third field is the address this machine was reached at.
+#: ssh sets SSH_CONNECTION to "client_ip client_port server_ip server_port" in the
+#: session's environment, so its third field is the address this machine was reached at.
 SSH_CONNECTION_ENV = "SSH_CONNECTION"
-# Arguments that make `ip` list the IPv4 addresses, one interface per line.
+#: Arguments that make `ip` list the IPv4 addresses, one interface per line.
 IP_ADDR_ARGS = ("-4", "-o", "addr", "show")
 
-# Note text for a card list that could not be read: the first is used when the
-# NVIDIA tool never answered, so nothing at all is known about the cards; the
-# second when it answered but one row was unreadable and that card is left out.
+#: Note text for a card list that could not be read: the first is used when the
+#: NVIDIA tool never answered, so nothing at all is known about the cards; the
+#: second when it answered but one row was unreadable and that card is left out.
 GPU_NOT_DETERMINED = "GPU: not determined"
 GPU_ROW_UNREAD = "GPU: nvidia-smi printed a row this could not read"
 
-# The snapshot is the part of the reading that a later visit is compared against:
-# flat text tokens, one per key, in the order below. Every value is folded to a
-# single token so a difference is a string difference and not a difference of
-# spacing; a value that could not be read is left out of the map and named in the
-# reading's unread list instead, so a key that is absent means "not read" and
-# never "zero".
-# The card keys describe the first NVIDIA card alone; the further cards are folded
-# into one token each, so a card arriving or leaving still shows as a change.
+#: The snapshot is the part of the reading that a later visit is compared against:
+#: flat text tokens, one per key, in the order below. Every value is folded to a
+#: single token so a difference is a string difference and not a difference of
+#: spacing; a value that could not be read is left out of the map and named in the
+#: reading's unread list instead, so a key that is absent means "not read" and
+#: never "zero".
+#: The card keys describe the first NVIDIA card alone; the further cards are folded
+#: into one token each, so a card arriving or leaving still shows as a change.
 SNAPSHOT_KEYS = (
     "uptime_since",
     "cpu_max_mhz",
@@ -145,8 +145,8 @@ SNAPSHOT_KEYS = (
     "nproc",
     "hostname",
 )
-# The part of the snapshot that comes from the GPU state: when the card reading
-# fails, every one of these keys is reported unread with the same reason.
+#: The part of the snapshot that comes from the GPU state: when the card reading
+#: fails, every one of these keys is reported unread with the same reason.
 SNAPSHOT_CARD_KEYS = (
     "gpu_name",
     "gpu_vram_mib",
@@ -355,8 +355,8 @@ class _Reading:
         self.sources: list[str] = []
         self.covered: set[str] = set()
         self.printed: dict[str, int] = {}
-        # Set once the NVIDIA tool runs and answers at all, whatever it printed;
-        # _gpus uses it to tell "no NVIDIA card here" from "no answer to read".
+        #: Set once the NVIDIA tool runs and answers at all, whatever it printed;
+        #: _gpus uses it to tell "no NVIDIA card here" from "no answer to read".
         self.first_answered = False
 
     def note(self, field: str, why: str) -> None:

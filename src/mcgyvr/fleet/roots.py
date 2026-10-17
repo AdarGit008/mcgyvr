@@ -19,47 +19,47 @@ import re
 from datetime import date
 from pathlib import Path
 
-# The variable that moves the config folder, and the folder it names when
-# nothing does.
+#: The variable that moves the config folder, and the folder it names when
+#: nothing does.
 HOME_ENV = "MCGYVR_HOME"
 HOME_DIR = "~/.mcgyvr"
-# The variable that moves the data folder, the convention's variable for state,
-# the folder taken under it, and the folder named when neither of the two is
-# set.
+#: The variable that moves the data folder, the convention's variable for state,
+#: the folder taken under it, and the folder named when neither of the two is
+#: set.
 DATA_ENV = "MCGYVR_DATA"
 STATE_ENV = "XDG_STATE_HOME"
 DATA_NAME = "mcgyvr"
 DATA_DIR = f"~/.local/state/{DATA_NAME}"
-# The config folder's own folder of promoted fleets, one folder per fleet.
+#: The config folder's own folder of promoted fleets, one folder per fleet.
 FLEETS_DIR = "fleets"
-# The folder a setup or a fleet folder holds its locks in, one JSON file per
-# layout.
+#: The folder a setup or a fleet folder holds its locks in, one JSON file per
+#: layout.
 LOCK_DIR = Path("lock")
-# The data folder's staging area, where ``mcgyvr setup`` writes the run it is
-# sampling before any of it is locked.
+#: The data folder's staging area, where ``mcgyvr setup`` writes the run it is
+#: sampling before any of it is locked.
 SETUPS_DIR = "setup"
-# The pointer in the config folder that names the one fleet that is live.
+#: The pointer in the config folder that names the one fleet that is live.
 LIVE_FILE = "live.json"
-# Those same places as help text names them: the variable that moves the config
-# folder, and the default it falls back to.
+#: Those same places as help text names them: the variable that moves the config
+#: folder, and the default it falls back to.
 FLEETS_SHOWN = f"${HOME_ENV}/{FLEETS_DIR} (default {HOME_DIR}/{FLEETS_DIR})"
 LIVE_FILE_SHOWN = f"${HOME_ENV}/{LIVE_FILE} (default {HOME_DIR}/{LIVE_FILE})"
-# The staging area as help text names it: the data folder, by variable and by
-# default, and the run's own folder under it.
+#: The staging area as help text names it: the data folder, by variable and by
+#: default, and the run's own folder under it.
 STAGING_SHOWN = (
     f"${DATA_ENV}/{SETUPS_DIR}/<run> (default {DATA_DIR}/{SETUPS_DIR}/<run>)"
 )
-# The variable that moves the user's rig files, and the folder inside the
-# config folder they sit in when nothing does.
+#: The variable that moves the user's rig files, and the folder inside the
+#: config folder they sit in when nothing does.
 RIGS_ENV = "MCGYVR_RIGS"
 RIGS_DIR = "rigs"
-# The rig folder as help text names it: the variable, and the config folder's
-# own folder it defaults to.
+#: The rig folder as help text names it: the variable, and the config folder's
+#: own folder it defaults to.
 RIGS_SHOWN = f"${RIGS_ENV} (default ${HOME_ENV}/{RIGS_DIR})"
-# What a fleet folder's name puts between the layout and the lock's date.
+#: What a fleet folder's name puts between the layout and the lock's date.
 TAG = "@"
-# A lock date, with the count a later lock of the same day takes:
-# ``2026-10-15``, then ``2026-10-15-2``, ``2026-10-15-3``, and up.
+#: A lock date, with the count a later lock of the same day takes:
+#: ``2026-10-15``, then ``2026-10-15-2``, ``2026-10-15-3``, and up.
 _TAG_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:-[2-9]|-[1-9]\d+)?$")
 
 

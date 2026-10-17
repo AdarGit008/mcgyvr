@@ -19,11 +19,11 @@ from typing import Any
 
 from mcgyvr.orchestrator.index import Index, IndexAssembler, index_source
 
-# The names a harness offers a shell under (Claude Code `Bash`, pi `bash`),
-# listed in the order `shell_tool` prefers them.
+#: The names a harness offers a shell under (Claude Code `Bash`, pi `bash`),
+#: listed in the order `shell_tool` prefers them.
 SHELL_TOOLS = ("Bash", "bash")
 
-# The flag that makes `mcgyvr read` print the document instead of a summary.
+#: The flag that makes `mcgyvr read` print the document instead of a summary.
 JSON_FLAG = "--json"
 
 _READ = "mcgyvr read "
@@ -58,8 +58,8 @@ class Document:
     root: str
     files: tuple[tuple[str, str], ...]
     candidates: tuple[str, ...]
-    # The repository's type-checker argv per language adapter name; empty when
-    # the document carried none.
+    #: The repository's type-checker argv per language adapter name; empty when
+    #: the document carried none.
     located: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 

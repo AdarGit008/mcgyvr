@@ -22,11 +22,11 @@ class FleetFileError(Exception):
     the wrong shape where a block, a list or a name was expected."""
 
 
-# The keys a unit block may carry in `fleet.yaml`: one process at one address,
-# with every fact about what it is and what it can physically do. The loader
-# accepts exactly these and refuses anything else, so a consumer that reads a
-# named field off a loaded unit can never see a key the parser ignored.
-# `unit_id` is the lock's identity field — authored here, read by the lock.
+#: The keys a unit block may carry in `fleet.yaml`: one process at one address,
+#: with every fact about what it is and what it can physically do. The loader
+#: accepts exactly these and refuses anything else, so a consumer that reads a
+#: named field off a loaded unit can never see a key the parser ignored.
+#: `unit_id` is the lock's identity field — authored here, read by the lock.
 _UNIT_KEYS = frozenset(
     {
         "rig",
@@ -51,11 +51,11 @@ _UNIT_KEYS = frozenset(
     }
 )
 
-# The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
-# it may do — fanout, attempts, draws, escalations, timeouts, the window
-# fraction, breadth, cleanup, users — the units a job goes to (orchestrator,
-# verifier, jev, manager), what the gate refuses, and how a run is sandboxed,
-# delivered, served and journaled.
+#: The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
+#: it may do — fanout, attempts, draws, escalations, timeouts, the window
+#: fraction, breadth, cleanup, users — the units a job goes to (orchestrator,
+#: verifier, jev, manager), what the gate refuses, and how a run is sandboxed,
+#: delivered, served and journaled.
 _POLICY_KEYS = frozenset(
     {
         "use_case",
@@ -84,21 +84,21 @@ _POLICY_KEYS = frozenset(
     }
 )
 
-# The top-level keys `fleet.yaml` may carry; a policy setting, a `relief` block
-# or anything else at that level is refused rather than carried along unseen.
+#: The top-level keys `fleet.yaml` may carry; a policy setting, a `relief` block
+#: or anything else at that level is refused rather than carried along unseen.
 _FLEET_KEYS = frozenset({"units", "rigs", "fleets"})
 
-# What a `fleets` entry may say: `layout` (rig -> slots) and `next` (the fleets
-# this one may switch to).
+#: What a `fleets` entry may say: `layout` (rig -> slots) and `next` (the fleets
+#: this one may switch to).
 _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
 
-# The one key `relief.yaml` may carry. Its units are lent through a hub and
-# written whole by `mcgyvr rig rungs sync`, so they are read as units marked
-# `relief` and never join `units` or the ladder.
+#: The one key `relief.yaml` may carry. Its units are lent through a hub and
+#: written whole by `mcgyvr rig rungs sync`, so they are read as units marked
+#: `relief` and never join `units` or the ladder.
 _RELIEF_FILE_KEYS = frozenset({"relief"})
 
-# Words a file may no longer use, each mapped to what replaced it, so a refusal
-# can name the term to write instead of only saying the key is unknown.
+#: Words a file may no longer use, each mapped to what replaced it, so a refusal
+#: can name the term to write instead of only saying the key is unknown.
 _RETIRED_WORDS = {
     "sources": "name what serves under `units` — a unit is the one term",
     "source": "a unit is the one term",

@@ -34,9 +34,9 @@ class FileChange:
     status: str  # Single status letter from `--name-status`, e.g. "A", "M" or "D".
     added_lines: frozenset[int]
     is_binary: bool
-    # True when the working-tree path is a symlink; never set for deletions.
-    # Git tracks symlinks as text and shows the target as an added line, but a
-    # target is not source code, so the flag keeps it out of text analysis.
+    #: True when the working-tree path is a symlink; never set for deletions.
+    #: Git tracks symlinks as text and shows the target as an added line, but a
+    #: target is not source code, so the flag keeps it out of text analysis.
     is_link: bool = False
 
     @property

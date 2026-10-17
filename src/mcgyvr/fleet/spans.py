@@ -26,8 +26,8 @@ from typing import Any
 
 from mcgyvr.fleet.layout import FleetError
 
-# The only keys a shard may state: the rig its card is on, that card's index,
-# the room the card must hold for it in MiB, and the address a worker binds.
+#: The only keys a shard may state: the rig its card is on, that card's index,
+#: the room the card must hold for it in MiB, and the address a worker binds.
 _SHARD_KEYS = frozenset({"rig", "gpu", "room_mib", "bind"})
 
 
@@ -52,11 +52,11 @@ class Shard:
 
     rig: str
     gpu: int
-    # The MiB this card must hold for the shard, rounded up from what was
-    # stated; None where the shard states no room of its own.
+    #: The MiB this card must hold for the shard, rounded up from what was
+    #: stated; None where the shard states no room of its own.
     room_mib: int | None
-    # The IPv4 address a worker on this shard listens on; None where nobody
-    # named one.
+    #: The IPv4 address a worker on this shard listens on; None where nobody
+    #: named one.
     bind: str | None
 
 
@@ -69,8 +69,8 @@ class Span:
     """
 
     unit: str
-    # The rig the unit is declared on, ``units.<unit>.rig``, which its first
-    # shard must be on.
+    #: The rig the unit is declared on, ``units.<unit>.rig``, which its first
+    #: shard must be on.
     head: str
     shards: tuple[Shard, ...]
 

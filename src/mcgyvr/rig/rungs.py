@@ -51,41 +51,41 @@ from mcgyvr.config import (
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
 
-# The hub's rider API path, taken on the hub's own address and not on a rung's.
+#: The hub's rider API path, taken on the hub's own address and not on a rung's.
 RUNGS_PATH = "/api/v1/me/rungs"
-# The variable name a sync reads the rider's personal hub key from.
+#: The variable name a sync reads the rider's personal hub key from.
 KEY_ENV = "MCGYVR_HUB_API_KEY"
-# What the address check names as the credential that would travel in clear.
+#: What the address check names as the credential that would travel in clear.
 CARRYING = "your personal hub key"
-# Seconds one request to the hub may take before it counts as unreachable.
+#: Seconds one request to the hub may take before it counts as unreachable.
 FETCH_TIMEOUT_S = 15.0
-# Most bytes of the hub's answer that are read; one more is read to tell an
-# overrun from an answer that fills the mark exactly.
+#: Most bytes of the hub's answer that are read; one more is read to tell an
+#: overrun from an answer that fills the mark exactly.
 MAX_ANSWER_BYTES = 256 * 1024
-# Most relief rungs one answer may list.
+#: Most relief rungs one answer may list.
 MAX_RUNGS = 64
-# Longest host handle or served model an answer may name.
+#: Longest host handle or served model an answer may name.
 MAX_TEXT = 256
-# Longest privacy warning the hub may send, which a sync prints as it reads it.
+#: Longest privacy warning the hub may send, which a sync prints as it reads it.
 MAX_PRIVACY = 2000
-# Longest rung address an answer may carry.
+#: Longest rung address an answer may carry.
 MAX_ADDRESS = 2048
-# Widest a rung may say it takes at once, which becomes its width in relief.yaml.
+#: Widest a rung may say it takes at once, which becomes its width in relief.yaml.
 MAX_RUNG_WIDTH = 1024
-# What a relief rung's name in relief.yaml starts with: the hub's rung id follows.
+#: What a relief rung's name in relief.yaml starts with: the hub's rung id follows.
 NAME_PREFIX = "hitchhike-"
-# Most rungs a reported ladder may have: the hub takes 1 to this many.
+#: Most rungs a reported ladder may have: the hub takes 1 to this many.
 MAX_LADDER_RUNGS = 64
-# What a reported rung's model must match: 1 to 128 characters, and no spaces.
+#: What a reported rung's model must match: 1 to 128 characters, and no spaces.
 _LADDER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@/:-]{0,127}")
-# The answers that say a relief rung cannot take a request now: an HTTP status
-# and the error code its body carries. `render` writes them all into every
-# rung's `busy_answers`, in the sorted order below: the hub has not yet
-# matched this host to work (503 `hitchhike_not_served_yet`), the host's
-# machine is away (503 `hitchhike_host_away`), and the hub names no host
-# running the model asked for (404 `model_not_found`). A busy answer is a
-# full rung, passed over at no cost; an answer not listed here is read as on
-# any rung.
+#: The answers that say a relief rung cannot take a request now: an HTTP status
+#: and the error code its body carries. `render` writes them all into every
+#: rung's `busy_answers`, in the sorted order below: the hub has not yet
+#: matched this host to work (503 `hitchhike_not_served_yet`), the host's
+#: machine is away (503 `hitchhike_host_away`), and the hub names no host
+#: running the model asked for (404 `model_not_found`). A busy answer is a
+#: full rung, passed over at no cost; an answer not listed here is read as on
+#: any rung.
 BUSY: tuple[tuple[int, str], ...] = tuple(
     sorted(
         {
@@ -95,8 +95,8 @@ BUSY: tuple[tuple[int, str], ...] = tuple(
         }
     )
 )
-# Seconds before a failed sync is tried again, whatever the hub last asked for:
-# a failure leaves no refresh interval behind to wait by.
+#: Seconds before a failed sync is tried again, whatever the hub last asked for:
+#: a failure leaves no refresh interval behind to wait by.
 RETRY_S = 60.0
 
 _ID = re.compile(r"[0-9a-f]{32}")

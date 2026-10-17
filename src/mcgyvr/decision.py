@@ -29,19 +29,19 @@ from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for, request_timeout
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
 
-# Labels a Choice reply may use, in order: upper case letters, then lower
-# case ones, then digits. A Choice with more options than there are labels
-# has no single-token label per option, which labels_for refuses.
+#: Labels a Choice reply may use, in order: upper case letters, then lower
+#: case ones, then digits. A Choice with more options than there are labels
+#: has no single-token label per option, which labels_for refuses.
 _CHOICE_LABELS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
 
-# Labels a Noul reply may use, in order: index 0 is Yes, index 1 is No.
+#: Labels a Noul reply may use, in order: index 0 is Yes, index 1 is No.
 _YES_LABELS = ("Yes", "No")
 
-# Ceiling on how many alternatives a request asks the endpoint for per position.
+#: Ceiling on how many alternatives a request asks the endpoint for per position.
 _MAX_TOP_LOGPROBS = 20
 
-# Role that answers every decision once a unit is bound to it: the judge of
-# every verdict. classify_for prefers it over the role its caller names.
+#: Role that answers every decision once a unit is bound to it: the judge of
+#: every verdict. classify_for prefers it over the role its caller names.
 JEV_ROLE = "jev"
 
 

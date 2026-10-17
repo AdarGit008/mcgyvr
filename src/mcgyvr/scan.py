@@ -250,11 +250,11 @@ class Scan:
     models_on_disk: tuple[ModelOnDisk, ...] = ()
     notes: _Notes = ()
     facts: _Facts = ()
-    # The docker CLI's version string, None when there is no docker here or
-    # its daemon gave no answer; ``notes`` says which of those it was.
+    #: The docker CLI's version string, None when there is no docker here or
+    #: its daemon gave no answer; ``notes`` says which of those it was.
     docker: str | None = None
-    # The address this machine was reached at, and the addresses its
-    # interfaces hold; None when the reading carried no network section.
+    #: The address this machine was reached at, and the addresses its
+    #: interfaces hold; None when the reading carried no network section.
     network: Network | None = None
 
     @property

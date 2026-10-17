@@ -20,8 +20,8 @@ from typing import Any
 from mcgyvr.fleet.admit import LiveRefusedError, Plan, admit_live
 from mcgyvr.fleet.promote import on_a_users_machine
 
-# Runs one rig's read: rig name, run id, and any probe arguments; returns the
-# door's exit code, 0 when the read went through. `read.spawn_read` in practice.
+#: Runs one rig's read: rig name, run id, and any probe arguments; returns the
+#: door's exit code, 0 when the read went through. `read.spawn_read` in practice.
 Reader = Callable[[str, str, Sequence[str]], int]
 
 

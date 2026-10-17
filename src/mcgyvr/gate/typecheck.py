@@ -37,20 +37,20 @@ from mcgyvr.gate.findings import Finding
 if TYPE_CHECKING:  # type-only: the adapter imports this module at runtime
     from mcgyvr.gate.adapters.python import PythonAdapter
 
-# The check name attached to every finding this rung produces.
+#: The check name attached to every finding this rung produces.
 CHECK = "typecheck"
 
-# Findings land on one of two axes: ``structure`` faults reject the work and
-# send it back, ``style`` faults are printed as observations and leave the
-# verdict alone.
+#: Findings land on one of two axes: ``structure`` faults reject the work and
+#: send it back, ``style`` faults are printed as observations and leave the
+#: verdict alone.
 CORRECTNESS = "structure"
 
-# The observational axis. A finding filed here is real and line-attributed but
-# never rejects the work, so a worker is not charged a rung of the ladder for a
-# prose-level preference.
+#: The observational axis. A finding filed here is real and line-attributed but
+#: never rejects the work, so a worker is not charged a rung of the ladder for a
+#: prose-level preference.
 STYLE = "style"
 
-# Code shared by every parameter-mutation finding, whichever axis it lands on.
+#: Code shared by every parameter-mutation finding, whichever axis it lands on.
 PARAM_MUTATION = "PARAM-MUTATION"
 
 
@@ -66,49 +66,49 @@ class ParamMutation(StrEnum):
     SKIP = "skip"
 
 
-# Ruff codes demoted from the rejecting ``lint`` axis to ``style`` under the
-# product's default rule selection — a repo that states no ruff config of its
-# own. Both are default rules there: ``UP006``
-# (``List`` where ``list`` would do) and ``UP035`` (import from a deprecated
-# location). They describe code that runs, in a dialect the project has moved
-# away from, which is an observation rather than a defect. ``UP035`` also covers
-# a fault that is not a spelling: ``from collections import Mapping`` stops
-# importing on 3.10, where the re-export shim was removed. That line is a
-# compliance finding (see :func:`unimportable_lines`), and the lint path
-# re-promotes it rather than demoting it with the rest of the code.
+#: Ruff codes demoted from the rejecting ``lint`` axis to ``style`` under the
+#: product's default rule selection — a repo that states no ruff config of its
+#: own. Both are default rules there: ``UP006``
+#: (``List`` where ``list`` would do) and ``UP035`` (import from a deprecated
+#: location). They describe code that runs, in a dialect the project has moved
+#: away from, which is an observation rather than a defect. ``UP035`` also covers
+#: a fault that is not a spelling: ``from collections import Mapping`` stops
+#: importing on 3.10, where the re-export shim was removed. That line is a
+#: compliance finding (see :func:`unimportable_lines`), and the lint path
+#: re-promotes it rather than demoting it with the rest of the code.
 STYLE_LINT_CODES = frozenset({"UP006", "UP035"})
 
-# Wall-clock budget for a single checker invocation. Exceeding it is an
-# environment fault, not a finding against the worker's code.
+#: Wall-clock budget for a single checker invocation. Exceeding it is an
+#: environment fault, not a finding against the worker's code.
 TYPECHECK_TIMEOUT_S = 300.0
 
-# Exit codes that mean "the checker ran and this is its report": 0 for a clean
-# pass, 1 for diagnostics found. Any other code is a broken tool, and
-# :func:`trusted_stdout` raises instead of reading a verdict out of it.
+#: Exit codes that mean "the checker ran and this is its report": 0 for a clean
+#: pass, 1 for diagnostics found. Any other code is a broken tool, and
+#: :func:`trusted_stdout` raises instead of reading a verdict out of it.
 _REPORTING = (0, 1)
 
-# ``path:line[:col[:end]]: severity: message`` — the format mypy and other
-# compiler-style tools print. The line is what a finding is attributed to; up to
-# three extra numeric segments (column, end line, end column) may follow it.
+#: ``path:line[:col[:end]]: severity: message`` — the format mypy and other
+#: compiler-style tools print. The line is what a finding is attributed to; up to
+#: three extra numeric segments (column, end line, end column) may follow it.
 _DIAGNOSTIC = re.compile(
     r"^(?P<path>[^:]+):(?P<line>\d+)(?::\d+){0,3}: "
     r"(?P<severity>error|warning|note): (?P<message>.*)$"
 )
 
-# pyright's format: ``path:line:col - severity: message``. It needs its own
-# pattern because the column is mandatory, a spaced hyphen separates location from
-# severity, and pyright says ``information`` where the others say ``note``.
+#: pyright's format: ``path:line:col - severity: message``. It needs its own
+#: pattern because the column is mandatory, a spaced hyphen separates location from
+#: severity, and pyright says ``information`` where the others say ``note``.
 _PYRIGHT_DIAGNOSTIC = re.compile(
     r"^\s*(?P<path>[^:]+):(?P<line>\d+):\d+ - "
     r"(?P<severity>error|warning|information): (?P<message>.*)$"
 )
 
-# The code a checker appends to its message: ruff and mypy use ``[code]``,
-# pyright uses ``(reportRule)``.
+#: The code a checker appends to its message: ruff and mypy use ``[code]``,
+#: pyright uses ``(reportRule)``.
 _CODE = re.compile(r"\s+(?:\[([a-z0-9-]+)\]|\((report[A-Za-z]+)\))$")
 
-# Only ``error`` rejects. ``warning``, ``note`` and ``information`` come out of
-# the same parsers but describe code that still runs, so they are never collected.
+#: Only ``error`` rejects. ``warning``, ``note`` and ``information`` come out of
+#: the same parsers but describe code that still runs, so they are never collected.
 _REJECTING = frozenset({"error"})
 
 
@@ -386,8 +386,8 @@ def _relative_to_repo(path: str, repo: Path) -> str:
 # rebinding, shadowing and scope boundary. A mutation is only a fault while the
 # name really does reach the caller's object.
 
-# Methods that change their receiver in place. Called on an ``owned`` name, they
-# mutate data the caller is still holding.
+#: Methods that change their receiver in place. Called on an ``owned`` name, they
+#: mutate data the caller is still holding.
 _MUTATING_METHODS = frozenset(
     {
         "append",
@@ -406,30 +406,30 @@ _MUTATING_METHODS = frozenset(
     }
 )
 
-# The contract is the escape hatch. When the task asks for a parameter to be
-# changed in place, mutating it is what was requested, and the rule stands down for
-# the whole file: prose is the only statement of intent available, and it routinely
-# says "mutate the list you are given" for exactly the case this rule would
-# otherwise reject. The ask is read from that prose rather than a marker because the
-# contract is written by a model; the pattern is narrow, and a negation among the
-# few words before the match ("do not mutate") turns it off.
+#: The contract is the escape hatch. When the task asks for a parameter to be
+#: changed in place, mutating it is what was requested, and the rule stands down for
+#: the whole file: prose is the only statement of intent available, and it routinely
+#: says "mutate the list you are given" for exactly the case this rule would
+#: otherwise reject. The ask is read from that prose rather than a marker because the
+#: contract is written by a model; the pattern is narrow, and a negation among the
+#: few words before the match ("do not mutate") turns it off.
 _INPLACE_ASK = re.compile(r"\bin[- ]place\b|\bmutat(?:e|es|ion|ing)\b", re.IGNORECASE)
 
-# Words that turn an in-place request into a prohibition. Only the words just
-# before the match are inspected, which is where English puts the negation.
+#: Words that turn an in-place request into a prohibition. Only the words just
+#: before the match are inspected, which is where English puts the negation.
 _NEGATION = frozenset(
     {"not", "no", "never", "without", "don't", "dont", "cannot", "can't", "cant"}
 )
 
-# ``self`` and ``cls`` are not caller-owned: mutating them is how a method does
-# its work.
+#: ``self`` and ``cls`` are not caller-owned: mutating them is how a method does
+#: its work.
 _NOT_CALLER_OWNED = frozenset({"self", "cls"})
 
-# The abstract base classes ``collections`` re-exported from ``collections.abc`` as
-# a compatibility shim through 3.9, plus the deprecated ``ByteString``. Importing
-# any of them from ``collections`` raises ImportError on every interpreter this
-# project supports — on 3.10 and later because the shim is gone — so a line that
-# does it cannot run.
+#: The abstract base classes ``collections`` re-exported from ``collections.abc`` as
+#: a compatibility shim through 3.9, plus the deprecated ``ByteString``. Importing
+#: any of them from ``collections`` raises ImportError on every interpreter this
+#: project supports — on 3.10 and later because the shim is gone — so a line that
+#: does it cannot run.
 _MOVED_TO_COLLECTIONS_ABC = frozenset(
     {
         "AsyncGenerator",
@@ -460,11 +460,11 @@ _MOVED_TO_COLLECTIONS_ABC = frozenset(
     }
 )
 
-# Deprecated spellings and the form to use instead: the abstract base classes that
-# live in ``collections.abc``, the builtin containers, and the stdlib types that
-# replaced the rest. A deprecated spelling still runs, so a hit here is style. The
-# same names imported from ``collections`` do not run at all, and
-# :func:`unimportable_lines` reports those on the structure axis.
+#: Deprecated spellings and the form to use instead: the abstract base classes that
+#: live in ``collections.abc``, the builtin containers, and the stdlib types that
+#: replaced the rest. A deprecated spelling still runs, so a hit here is style. The
+#: same names imported from ``collections`` do not run at all, and
+#: :func:`unimportable_lines` reports those on the structure axis.
 _DEPRECATED_TYPING: dict[str, str] = {
     # The abstract base classes live in collections.abc; the collections module
     # only re-exported them, and stopped doing so in 3.10.

@@ -28,27 +28,27 @@ class Recording:
     path: Path
     orchestrator: str
     run: str = ""
-    # `session_file` is the transcript of the session that typed the command, so
-    # a row can be followed back to the conversation that produced it:
-    # `observe` writes it into the row's identity, and `None` means no session
-    # named one.
+    #: `session_file` is the transcript of the session that typed the command, so
+    #: a row can be followed back to the conversation that produced it:
+    #: `observe` writes it into the row's identity, and `None` means no session
+    #: named one.
     session_file: Path | None = None
-    # `mirrors` are further directories this run's record is written into, for a
-    # caller that asked for a copy — `--record DIR` when it is not the journal
-    # directory itself. They are copies and not sinks: the record under `path`
-    # is written first and is complete whatever happens here, so a mirror that
-    # cannot be written is reported through `copy_failed` and the run goes on.
-    # Empty on almost every run, which is what makes a non-empty `copy_errors`
-    # worth reading.
+    #: `mirrors` are further directories this run's record is written into, for a
+    #: caller that asked for a copy — `--record DIR` when it is not the journal
+    #: directory itself. They are copies and not sinks: the record under `path`
+    #: is written first and is complete whatever happens here, so a mirror that
+    #: cannot be written is reported through `copy_failed` and the run goes on.
+    #: Empty on almost every run, which is what makes a non-empty `copy_errors`
+    #: worth reading.
     mirrors: tuple[Path, ...] = ()
-    # `copy_errors` is the mirrors that could not be written, keyed by the
-    # mirror directory and holding `"<ExcType>: <message>"`. It is filled by
-    # `copy_failed` when a copy raises, and never raised from here. `compare`
-    # of `False` keeps it out of equality: a copy that failed does not make this
-    # a different recording of the same run, and comparing a dict a caller can
-    # still fill would compare state rather than identity. Empty on almost every
-    # run; the CLI copies it into the result file and says each failure on
-    # stderr, so a lost copy is neither silent nor a reason to stop.
+    #: `copy_errors` is the mirrors that could not be written, keyed by the
+    #: mirror directory and holding `"<ExcType>: <message>"`. It is filled by
+    #: `copy_failed` when a copy raises, and never raised from here. `compare`
+    #: of `False` keeps it out of equality: a copy that failed does not make this
+    #: a different recording of the same run, and comparing a dict a caller can
+    #: still fill would compare state rather than identity. Empty on almost every
+    #: run; the CLI copies it into the result file and says each failure on
+    #: stderr, so a lost copy is neither silent nor a reason to stop.
     copy_errors: dict[Path, str] = field(default_factory=dict, compare=False)
 
     def copy_failed(self, mirror: Path, exc: BaseException) -> None:

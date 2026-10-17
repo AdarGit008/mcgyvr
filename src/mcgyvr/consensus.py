@@ -63,11 +63,11 @@ class Consensus:
     chosen: int
     gates: tuple[GateResult, ...]
     unusable: tuple[str, ...] = ()
-    # Which dispatch each candidate came from, parallel to ``draws`` and
-    # ``gates``: the sampler is called with a draw index while ``chosen``
-    # counts candidates, and the two part company as soon as one draw is
-    # refused. Empty means nothing was refused and the draws ran in order —
-    # but a round that did refuse one must say so, or the index is a guess.
+    #: Which dispatch each candidate came from, parallel to ``draws`` and
+    #: ``gates``: the sampler is called with a draw index while ``chosen``
+    #: counts candidates, and the two part company as soon as one draw is
+    #: refused. Empty means nothing was refused and the draws ran in order —
+    #: but a round that did refuse one must say so, or the index is a guess.
     indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:

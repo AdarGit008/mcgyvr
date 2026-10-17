@@ -24,10 +24,10 @@ from typing import Protocol
 from mcgyvr.fleet.links import PCIE, link_class
 from mcgyvr.serving import linktime
 
-# How long a started link run may hold before `_Started.wait` kills it and
-# answers 124: the timer's whole bound, and a minute of slack for the spawn.
+#: How long a started link run may hold before `_Started.wait` kills it and
+#: answers 124: the timer's whole bound, and a minute of slack for the spawn.
 DOOR_WAIT_S = linktime.WHOLE_S + 60.0
-# The most transfers one answer may carry; a longer list is refused, not read.
+#: The most transfers one answer may carry; a longer list is refused, not read.
 MOST_TRANSFERS = 64
 
 
@@ -70,8 +70,8 @@ class LinkEnds:
         return f"{self.host_a} -> {self.host_b}"
 
 
-# What `door_timer` answers and what a probe holds as its link reader: one link
-# in, the transfers its timer measured out.
+#: What `door_timer` answers and what a probe holds as its link reader: one link
+#: in, the transfers its timer measured out.
 LinkTimer = Callable[[LinkEnds], Sequence[tuple[int, float]]]
 
 

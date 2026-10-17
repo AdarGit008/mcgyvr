@@ -47,41 +47,41 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.gate import GateResult
     from mcgyvr.local_pool import Rung, SourceMap
 
-# The role a `verifier:` unit is bound under. The typed verdict, the typed JEV
-# checks and the prose dispatch all ask for it by this name, so a config that
-# binds the role gets one model behind all three.
+#: The role a `verifier:` unit is bound under. The typed verdict, the typed JEV
+#: checks and the prose dispatch all ask for it by this name, so a config that
+#: binds the role gets one model behind all three.
 VERIFIER_ROLE = "verifier"
 
-# The family name of rungs served on the operator's own machine. It is read in
-# the two places that decide who may review: only a local rung is picked
-# unprompted by `reviewer_rung`, and a stand-in is taken from anywhere in this
-# family but from a hosted family only below a hosted `verifier.unit`.
+#: The family name of rungs served on the operator's own machine. It is read in
+#: the two places that decide who may review: only a local rung is picked
+#: unprompted by `reviewer_rung`, and a stand-in is taken from anywhere in this
+#: family but from a hosted family only below a hosted `verifier.unit`.
 LOCAL_FAMILY = "local"
-# How a reviewer is asked in prose: one prompt in, one reply out. A seam that
-# cannot reach its reviewer raises rather than returning nothing.
+#: How a reviewer is asked in prose: one prompt in, one reply out. A seam that
+#: cannot reach its reviewer raises rather than returning nothing.
 type Ask = Callable[[str], str]
 
-# How a reviewer is asked for a typed decision instead of prose: it takes the
-# state built by `verdict_state` (or the JEV state) and returns the answers read
-# from next-token probabilities. A `DecisionError` from it means the model
-# answered something unreadable, not that it was unreachable.
+#: How a reviewer is asked for a typed decision instead of prose: it takes the
+#: state built by `verdict_state` (or the JEV state) and returns the answers read
+#: from next-token probabilities. A `DecisionError` from it means the model
+#: answered something unreadable, not that it was unreachable.
 type Decide = Callable[[Any], Decision]
 
-# The one key a typed verdict fills, and the yes/no question that fills it. A
-# missing or non-boolean answer under this key is not read as an approval.
+#: The one key a typed verdict fills, and the yes/no question that fills it. A
+#: missing or non-boolean answer under this key is not read as an approval.
 VERDICT_KEY = "verdict"
 VERDICT_QUESTION = Noul(
     "Should this change be approved against the contract it was written for?"
 )
 
-# The errors that mean "the reviewer answered, but not in a form that can be
-# read" — an endpoint with no choices, no logprobs, or none of the expected
-# labels in its top tokens. They are kept apart from a transport or binding
-# failure on purpose: `_typed_verdict` catches these and falls back to a prose
-# prompt on the same reviewer, while anything else is reported as the reviewer
-# being unreachable. `_TypedMemory` adds to the tuple at run time by making a
-# reviewer's first such refusal stick, so a model that already failed one typed
-# question is never asked another.
+#: The errors that mean "the reviewer answered, but not in a form that can be
+#: read" — an endpoint with no choices, no logprobs, or none of the expected
+#: labels in its top tokens. They are kept apart from a transport or binding
+#: failure on purpose: `_typed_verdict` catches these and falls back to a prose
+#: prompt on the same reviewer, while anything else is reported as the reviewer
+#: being unreachable. `_TypedMemory` adds to the tuple at run time by making a
+#: reviewer's first such refusal stick, so a model that already failed one typed
+#: question is never asked another.
 _NOT_TYPED: tuple[type[Exception], ...] = (DecisionError,)
 
 
@@ -158,8 +158,8 @@ _TOKENS: tuple[tuple[ReviewOutcome, re.Pattern[str]], ...] = tuple(
     for outcome in sorted(ReviewOutcome, key=lambda o: -len(o.value))
 )
 
-# What may sit between the outcome token and the notes on the same line:
-# blanks, punctuation and dashes. Everything else after the token is notes.
+#: What may sit between the outcome token and the notes on the same line:
+#: blanks, punctuation and dashes. Everything else after the token is notes.
 _NOTE_SEPARATORS = " \t:;.,-—\u2013"
 
 
@@ -703,8 +703,8 @@ class NoReviewer:
     reason: str
 
 
-# Choose a reviewer per builder rung name; the choice is memoised by the callers
-# of `reviewers_for`, so this is asked once per builder.
+#: Choose a reviewer per builder rung name; the choice is memoised by the callers
+#: of `reviewers_for`, so this is asked once per builder.
 type Reviewers = Callable[[str], Reviewer | NoReviewer]
 
 

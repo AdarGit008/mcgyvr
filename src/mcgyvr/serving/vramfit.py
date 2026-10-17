@@ -30,65 +30,65 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-# Bytes one cached element costs, by llama.cpp cache type. f32/f16/bf16 are
-# their widths; q8_0 spends 34 bytes on a block of 32 elements (a
-# half-precision scale and offset each), so it is 17/32 of an f16 cache.
+#: Bytes one cached element costs, by llama.cpp cache type. f32/f16/bf16 are
+#: their widths; q8_0 spends 34 bytes on a block of 32 elements (a
+#: half-precision scale and offset each), so it is 17/32 of an f16 cache.
 CACHE_ELEM_BYTES = {"f32": 4.0, "f16": 2.0, "bf16": 2.0, "q8_0": 34.0 / 32.0}
 
-# The allowance, in MiB, that `allowance_mib` returns when it has no reading
-# for the architecture it was asked about, or none for the ubatch: what the
-# engine and the driver hold beyond the weights and the caches -- the CUDA
-# context, the compute buffers, and the allocations that move with a batch.
-# The scan cannot state this figure; the engine's own allocator decides it,
-# which is why the architectures in `MEASURED_SCRATCH_MIB` were read off a
-# load on a rig. An unmeasured model is gated on this number rather than on
-# nothing, so its prediction still leaves the card room for what llama.cpp
-# will allocate next to the tensors. It is a default, not a ceiling: no load
-# here was measured against it. `Placement.allowance_mib` carries the result
-# beside the predicted bytes, and `Placement.required_mib` sums the two, so a
-# caller comparing a placement with free VRAM compares against the tensors,
-# the caches they sit in, and this headroom together rather than the tensors
-# alone. A caller that wants the figure for one architecture at one batch
-# asks `allowance_mib`; this constant is only what it returns on a miss, and
-# 768 MiB is that answer, not a measurement of any particular model.
+#: The allowance, in MiB, that `allowance_mib` returns when it has no reading
+#: for the architecture it was asked about, or none for the ubatch: what the
+#: engine and the driver hold beyond the weights and the caches -- the CUDA
+#: context, the compute buffers, and the allocations that move with a batch.
+#: The scan cannot state this figure; the engine's own allocator decides it,
+#: which is why the architectures in `MEASURED_SCRATCH_MIB` were read off a
+#: load on a rig. An unmeasured model is gated on this number rather than on
+#: nothing, so its prediction still leaves the card room for what llama.cpp
+#: will allocate next to the tensors. It is a default, not a ceiling: no load
+#: here was measured against it. `Placement.allowance_mib` carries the result
+#: beside the predicted bytes, and `Placement.required_mib` sums the two, so a
+#: caller comparing a placement with free VRAM compares against the tensors,
+#: the caches they sit in, and this headroom together rather than the tensors
+#: alone. A caller that wants the figure for one architecture at one batch
+#: asks `allowance_mib`; this constant is only what it returns on a miss, and
+#: 768 MiB is that answer, not a measurement of any particular model.
 SCRATCH_AND_CONTEXT_MIB = 768
 
-# The scratch allowance measured on a rig, in MiB, filed under the ubatch it
-# was read at: what that load actually held beyond the weights, the KV cache
-# and the recurrent state that `kv_bytes` and `rs_bytes` predict. Each figure
-# is the gap left by the engine's allocator summary (`--verbose`, whose second
-# loader pass is the real one) cross-checked against `nvidia-smi`, and that
-# gap carries the CUDA context, the compute buffers, and whatever else the
-# engine allocates beside the tensors. It differs by architecture -- the
-# kernels and per-layer buffers are the model's own -- and it grows with the
-# ubatch, which is why a reading is filed under the batch it was taken at as
-# well as under the arch. `allowance_mib` reads this table and nothing else
-# derives from it: a hit returns the measured figure, a miss on the
-# architecture or on the ubatch returns `SCRATCH_AND_CONTEXT_MIB`. Neither the
-# entries nor the gaps between them are averaged or interpolated, because a
-# value computed between two readings would be a guess written down as a
-# measurement; a new placement batch means a new reading. The arch name is the
-# one the scan writes, so `qwen35moe` and `gptoss` are spellings of an
-# architecture family and not of a checkpoint: two quantizations of one arch
-# share a row, since the quant changes the tensors and not the buffers the
-# engine allocates around them. A row says nothing about slots or context:
-# those are in the cache figures, not in the gap. A reading missing for an
-# arch, or for the batch a placement runs at, is a reading to take, not a
-# value to carry over from the neighbouring entry -- keying by ubatch says
-# that the buffer sizes it describes are not interchangeable between
-# batches.
+#: The scratch allowance measured on a rig, in MiB, filed under the ubatch it
+#: was read at: what that load actually held beyond the weights, the KV cache
+#: and the recurrent state that `kv_bytes` and `rs_bytes` predict. Each figure
+#: is the gap left by the engine's allocator summary (`--verbose`, whose second
+#: loader pass is the real one) cross-checked against `nvidia-smi`, and that
+#: gap carries the CUDA context, the compute buffers, and whatever else the
+#: engine allocates beside the tensors. It differs by architecture -- the
+#: kernels and per-layer buffers are the model's own -- and it grows with the
+#: ubatch, which is why a reading is filed under the batch it was taken at as
+#: well as under the arch. `allowance_mib` reads this table and nothing else
+#: derives from it: a hit returns the measured figure, a miss on the
+#: architecture or on the ubatch returns `SCRATCH_AND_CONTEXT_MIB`. Neither the
+#: entries nor the gaps between them are averaged or interpolated, because a
+#: value computed between two readings would be a guess written down as a
+#: measurement; a new placement batch means a new reading. The arch name is the
+#: one the scan writes, so `qwen35moe` and `gptoss` are spellings of an
+#: architecture family and not of a checkpoint: two quantizations of one arch
+#: share a row, since the quant changes the tensors and not the buffers the
+#: engine allocates around them. A row says nothing about slots or context:
+#: those are in the cache figures, not in the gap. A reading missing for an
+#: arch, or for the batch a placement runs at, is a reading to take, not a
+#: value to carry over from the neighbouring entry -- keying by ubatch says
+#: that the buffer sizes it describes are not interchangeable between
+#: batches.
 MEASURED_SCRATCH_MIB = {
     "deepseek2": {256: 259.5},
     "gptoss": {256: 302.1},
     "qwen35moe": {256: 302.7, 512: 316.57},
     "nemotron_h_moe": {256: 521.2},
-    # qwen3next's reading is at ubatch 512 (829.0 MiB), not 256 like the rest, so
-    # it is filed under the batch the load actually ran with.
+    #: qwen3next's reading is at ubatch 512 (829.0 MiB), not 256 like the rest, so
+    #: it is filed under the batch the load actually ran with.
     "qwen3next": {512: 829.0},
 }
 
-# Cell granule llama.cpp pads the sliding-window cache to: the engine rounds
-# its SWA cell count up to a multiple of 256, so a partial chunk costs a whole.
+#: Cell granule llama.cpp pads the sliding-window cache to: the engine rounds
+#: its SWA cell count up to a multiple of 256, so a partial chunk costs a whole.
 SWA_PAD = 256
 
 

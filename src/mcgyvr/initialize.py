@@ -67,10 +67,10 @@ if TYPE_CHECKING:
 
 COMMENT_WIDTH = 78
 
-# Said in a setup that binds listed models: init knows only what a server
-# listed, so there is no estimate behind a unit's size. The notice states that
-# a unit is sized from the shipped table only when its model name equals a row,
-# and that anything declared for the unit in fleet.yaml wins over that row.
+#: Said in a setup that binds listed models: init knows only what a server
+#: listed, so there is no estimate behind a unit's size. The notice states that
+#: a unit is sized from the shipped table only when its model name equals a row,
+#: and that anything declared for the unit in fleet.yaml wins over that row.
 NO_ESTIMATE_NOTICE = (
     "No estimate was matched to a unit bound from a server's listing: mcgyvr "
     "cannot yet match an estimate to a model by its weights. Until it can, "
@@ -79,10 +79,10 @@ NO_ESTIMATE_NOTICE = (
     "example under `launch` or as `room_mib`, wins over that row."
 )
 
-# Said when the ladder has rungs: init orders them by where it found them —
-# `--host` order, then the fixed probe order of `PORT_CONVENTIONS`, then each
-# server's own listing order — and the notice says that this is discovery
-# order, no judgement of cost or quality, and that policy.yaml sets the climb.
+#: Said when the ladder has rungs: init orders them by where it found them —
+#: `--host` order, then the fixed probe order of `PORT_CONVENTIONS`, then each
+#: server's own listing order — and the notice says that this is discovery
+#: order, no judgement of cost or quality, and that policy.yaml sets the climb.
 LISTED_ORDER_NOTICE = (
     "The ladder is written in the order init found the models: the machines "
     "in the order `--host` named them (this one when none was named), then on "
@@ -93,9 +93,9 @@ LISTED_ORDER_NOTICE = (
     "climbed cheapest first, and that order is yours to set in policy.yaml."
 )
 
-# The words `mcgyvr setup --priority` accepts. A priority is handed to the Jev
-# decision as the state it chooses under; it does not order the ladder, which
-# policy.yaml sets.
+#: The words `mcgyvr setup --priority` accepts. A priority is handed to the Jev
+#: decision as the state it chooses under; it does not order the ladder, which
+#: policy.yaml sets.
 PRIORITIES = ("throughput", "quality", "cost")
 
 # `_scalar` writes a string bare only when it matches this and is not one of
@@ -116,11 +116,11 @@ class ApiSpecError(Exception):
     spells what a hosted unit may say."""
 
 
-# The `key=value` fields one `--api` unit must state, in the order the error
-# messages and the usage example list them.
+#: The `key=value` fields one `--api` unit must state, in the order the error
+#: messages and the usage example list them.
 API_SPEC_KEYS: tuple[str, ...] = ("model", "address", "api_key_env")
 
-# The one field `--api` accepts and does not require.
+#: The one field `--api` accepts and does not require.
 API_SPEC_OPTIONAL_KEYS: tuple[str, ...] = ("output_tokens",)
 
 
@@ -459,8 +459,8 @@ def _render_list_item(
 
 
 FLEET_FIELDS: tuple[Field, ...] = tuple(f for f in SCHEMA if f.name == "units")
-# The schema split across the two files: fleet.yaml is the `units` block, and
-# policy.yaml is every other field except `relief`, which the loader derives.
+#: The schema split across the two files: fleet.yaml is the `units` block, and
+#: policy.yaml is every other field except `relief`, which the loader derives.
 POLICY_FIELDS: tuple[Field, ...] = tuple(
     f for f in SCHEMA if f.name not in ("units", "relief")
 )
@@ -499,7 +499,7 @@ def render_fleet(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-# The extra comment `render_policy` puts on `sandbox.mode` when no daemon answered.
+#: The extra comment `render_policy` puts on `sandbox.mode` when no daemon answered.
 NO_DAEMON_MODE_NOTE = (
     "No Docker daemon answered when init ran, so this is `tempdir`: the "
     "explicitly weaker mode, in which a contract's acceptance commands run on "
@@ -519,7 +519,7 @@ def render_policy(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-# The extra comment `render_policy` puts on `sandbox.sessions` when no daemon answered.
+#: The extra comment `render_policy` puts on `sandbox.sessions` when no daemon answered.
 NO_DAEMON_SESSIONS_NOTE = (
     "No Docker daemon answered when init ran, so a chat or agent run is "
     "refused until one does, unless `allow_fallback` is on. `sessions: "

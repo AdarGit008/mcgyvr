@@ -71,14 +71,14 @@ ENGINE_IMAGES = {
 # the host's layout or against the container's.
 MOUNT = "/models"
 
-# vLLM's sleep spelling: the launch flag that turns sleep mode on, and the
-# env var that registers the development routes `/sleep` and `/wake_up`
-# live on. `SLEEP_MODE_NOTICE` states what exposing those routes costs.
+#: vLLM's sleep spelling: the launch flag that turns sleep mode on, and the
+#: env var that registers the development routes `/sleep` and `/wake_up`
+#: live on. `SLEEP_MODE_NOTICE` states what exposing those routes costs.
 VLLM_SLEEP_FLAG = "--enable-sleep-mode"
 VLLM_DEV_ROUTES = "VLLM_SERVER_DEV_MODE"
 
-# Heads every compose document rendered with sleep mode on: the routes
-# sleep needs are unauthenticated, so the file says so in its first lines.
+#: Heads every compose document rendered with sleep mode on: the routes
+#: sleep needs are unauthenticated, so the file says so in its first lines.
 SLEEP_MODE_NOTICE = """\
 # serving.enable_sleep_wake is on, so every vLLM unit below runs with
 # --enable-sleep-mode and VLLM_SERVER_DEV_MODE=1. That registers vLLM's
@@ -206,9 +206,9 @@ class Drift:
     """One planned file whose content on disk is not what this config renders."""
 
     path: Path
-    # What this config renders for the file.
+    #: What this config renders for the file.
     emitted: str
-    # What the file holds on disk, or None when there is no file there.
+    #: What the file holds on disk, or None when there is no file there.
     found: str | None
 
     @property
@@ -382,10 +382,10 @@ def _sequence_on_one_card(
             services[ahead]["healthcheck"] = _healthcheck(port)
 
 
-# How long a service may take to answer its first healthcheck. Loading a
-# big GGUF's weights off disk takes minutes, and a start period that expired
-# early would mark a service that is merely slow as unhealthy -- and every
-# unit waiting on it, through `depends_on`, would wait for a never-met condition.
+#: How long a service may take to answer its first healthcheck. Loading a
+#: big GGUF's weights off disk takes minutes, and a start period that expired
+#: early would mark a service that is merely slow as unhealthy -- and every
+#: unit waiting on it, through `depends_on`, would wait for a never-met condition.
 _HEALTH_START_PERIOD_S = 600
 
 

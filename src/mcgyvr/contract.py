@@ -186,20 +186,20 @@ class Field:
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
     min_value: float | None = None
-    # Numeric bounds. A value outside them is refused by name rather than
-    # clamped: a contract that quietly did something other than what it says
-    # would be worse than one that fails, so the two ends are stated as data
-    # here and enforced by `_int` and `_float`.
+    #: Numeric bounds. A value outside them is refused by name rather than
+    #: clamped: a contract that quietly did something other than what it says
+    #: would be worse than one that fails, so the two ends are stated as data
+    #: here and enforced by `_int` and `_float`.
     max_value: float | None = None
     worker_facing: bool = False
     hint: str = ""
     choices_from: Callable[[], tuple[str, ...]] | None = None
-    # Retired enum values, mapped to the spelling that replaced them, so an old
-    # contract is answered with what to write instead of a bare "not valid".
+    #: Retired enum values, mapped to the spelling that replaced them, so an old
+    #: contract is answered with what to write instead of a bare "not valid".
     retired: Mapping[str, str] | None = None
-    # True for a key a chat or agent session may leave out. A session writes no
-    # file, so `target` and `scope.allow` are not required of it; `_for_sessions`
-    # rewrites the schema from this flag, and only for a session's task type.
+    #: True for a key a chat or agent session may leave out. A session writes no
+    #: file, so `target` and `scope.allow` are not required of it; `_for_sessions`
+    #: rewrites the schema from this flag, and only for a session's task type.
     session_optional: bool = False
 
     def valid_choices(self) -> tuple[str, ...]:
@@ -641,10 +641,10 @@ class Limits:
 
     max_output_tokens: int | None
     attempts: int
-    # The contract's own share of the model's window: the assembled prompt plus
-    # `max_output_tokens`, over the whole window. `None` records that the contract
-    # declared none, which is not the same as 1.0 — the run's own cap still applies
-    # on top, and the stricter of the two wins.
+    #: The contract's own share of the model's window: the assembled prompt plus
+    #: `max_output_tokens`, over the whole window. `None` records that the contract
+    #: declared none, which is not the same as 1.0 — the run's own cap still applies
+    #: on top, and the stricter of the two wins.
     max_window_fraction: float | None = None
 
 
@@ -678,11 +678,11 @@ class Contract:
     rename: Rename = Rename()
     no_semantic_change: bool = False
     type_check: bool = False
-    # The text of each entry in `sources`, in that order, filled in when the
-    # contract is dispatched against a workspace rather than parsed from a
-    # document. It is empty, or of another length, when the sources were never
-    # read: `worker_view` then reports no content and the worker reads each file
-    # from the tree it is given.
+    #: The text of each entry in `sources`, in that order, filled in when the
+    #: contract is dispatched against a workspace rather than parsed from a
+    #: document. It is empty, or of another length, when the sources were never
+    #: read: `worker_view` then reports no content and the worker reads each file
+    #: from the tree it is given.
     source_content: tuple[str, ...] = ()
 
     @property

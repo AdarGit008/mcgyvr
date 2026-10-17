@@ -42,19 +42,19 @@ from mcgyvr.serving import (
     vramfit,
 )
 
-# Usage profiles the CLI accepts; only PLACEMENT_PROFILE gets a placement.
+#: Usage profiles the CLI accepts; only PLACEMENT_PROFILE gets a placement.
 PROFILES = ("coding", "chatting", "media_gen", "other")
 PLACEMENT_PROFILE = "coding"
 
-# The tail appended to a quoted model-store directory to list the .gguf files
-# sitting directly in it; `gatelib` admits exactly the `find '<dir>'` command
-# shape this completes, which is what keeps discovery read-only on a rig.
+#: The tail appended to a quoted model-store directory to list the .gguf files
+#: sitting directly in it; `gatelib` admits exactly the `find '<dir>'` command
+#: shape this completes, which is what keeps discovery read-only on a rig.
 _DISCOVER_SUFFIX = " -maxdepth 1 -name '*.gguf' -print"
 
-# The launch flags every llama.cpp candidate starts from: offload all layers,
-# turn flash attention on, and pin both the ubatch and the batch to
-# `DEFAULT_UBATCH` so the launch matches the geometry the fit check sized.
-# `_llamacpp_flags` layers `--model`, the MTP head and `--parallel` on top.
+#: The launch flags every llama.cpp candidate starts from: offload all layers,
+#: turn flash attention on, and pin both the ubatch and the batch to
+#: `DEFAULT_UBATCH` so the launch matches the geometry the fit check sized.
+#: `_llamacpp_flags` layers `--model`, the MTP head and `--parallel` on top.
 _LLAMACPP_FLAGS = {
     "-ngl": "99",
     "-fa": "on",

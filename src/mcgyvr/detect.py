@@ -116,16 +116,16 @@ def targets_for(
 DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = targets_for()
 
 
-# Note prefix for a card nvidia-smi named but whose total memory could
-# not be read: the card is still listed, with no size, and VRAM for it is
-# bound by hand instead.
+#: Note prefix for a card nvidia-smi named but whose total memory could
+#: not be read: the card is still listed, with no size, and VRAM for it is
+#: bound by hand instead.
 GPU_SIZE_UNDETERMINED = "GPU: memory size not determined"
-# Note prefix for a printed nvidia-smi row that could not be read as a
-# card, and for the tool itself failing after some rows were still read.
+#: Note prefix for a printed nvidia-smi row that could not be read as a
+#: card, and for the tool itself failing after some rows were still read.
 GPU_ROW_NOT_READ = "GPU: nvidia-smi printed a row that could not be read as a card"
-# Longest repr() of a machine-produced string kept whole inside a note,
-# so unexpected output cannot flood the message with a wall of text.
-# Longer strings are shortened in the middle by _quoted, keeping both ends.
+#: Longest repr() of a machine-produced string kept whole inside a note,
+#: so unexpected output cannot flood the message with a wall of text.
+#: Longer strings are shortened in the middle by _quoted, keeping both ends.
 ROW_QUOTED_AT_MOST = 200
 
 
@@ -172,12 +172,12 @@ class Backend:
     how: str
     host: str = DEFAULT_HOST
     kind: str = ""  # Left empty to mean "same as name"; filled by __post_init__.
-    # Context window the server advertises for its models, in tokens, as read
-    # from the endpoint that WINDOW_SOURCES lists for this kind.
-    # None when the kind has no known window source, when the extra request
-    # failed, or when the payload carried no usable positive number - so None
-    # means "not learned here", never "unbounded".
-    # Set during probing by _served_window, and left None everywhere else.
+    #: Context window the server advertises for its models, in tokens, as read
+    #: from the endpoint that WINDOW_SOURCES lists for this kind.
+    #: None when the kind has no known window source, when the extra request
+    #: failed, or when the payload carried no usable positive number - so None
+    #: means "not learned here", never "unbounded".
+    #: Set during probing by _served_window, and left None everywhere else.
     window: int | None = None
 
     def __post_init__(self) -> None:
@@ -297,12 +297,12 @@ def _models_from(payload: Any, api: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(found))  # De-duplicate, keeping the server's order.
 
 
-# Per-kind recipe for learning the served context window: the path to GET
-# and the key path down into the JSON that path answers with.
-# "/v1/models" reuses the listing the probe already fetched; every other
-# path is a second request made only after a target has answered.
-# The key path drops one element per nesting level and ends at a positive
-# int; a list met on the way is reduced to the smallest value found.
+#: Per-kind recipe for learning the served context window: the path to GET
+#: and the key path down into the JSON that path answers with.
+#: "/v1/models" reuses the listing the probe already fetched; every other
+#: path is a second request made only after a target has answered.
+#: The key path drops one element per nesting level and ends at a positive
+#: int; a list met on the way is reduced to the smallest value found.
 WINDOW_SOURCES: Mapping[str, tuple[str, tuple[str, ...]]] = {
     "vllm": ("/v1/models", ("data", "max_model_len")),
     "llama-server": ("/props", ("default_generation_settings", "n_ctx")),

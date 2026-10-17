@@ -198,9 +198,9 @@ def trusted_stdout(
     raise ToolFailedError(tool, proc.returncode, _first_complaint(proc.stderr))
 
 
-# How much of a tool's own complaint is kept when it is attached to an error:
-# enough for a message a reader can act on, short enough to sit in a report or
-# in a line of a model's context.
+#: How much of a tool's own complaint is kept when it is attached to an error:
+#: enough for a message a reader can act on, short enough to sit in a report or
+#: in a line of a model's context.
 _DETAIL_LIMIT = 200
 
 
@@ -232,10 +232,10 @@ def _first_complaint(stderr: str) -> str:
     return ""
 
 
-# Variables that ask a tool for colour whatever its output is attached to. They
-# are removed from a checker's environment rather than set to "0" — some tools
-# read any value as wanting colour — and `NO_COLOR` is set in their place, so
-# nothing a checker prints carries ANSI escapes into a finding's message.
+#: Variables that ask a tool for colour whatever its output is attached to. They
+#: are removed from a checker's environment rather than set to "0" — some tools
+#: read any value as wanting colour — and `NO_COLOR` is set in their place, so
+#: nothing a checker prints carries ANSI escapes into a finding's message.
 _COLOUR_FORCING = ("FORCE_COLOR", "CLICOLOR_FORCE")
 
 

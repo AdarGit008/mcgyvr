@@ -25,8 +25,8 @@ API = "api"
 # `propose` declares the figure but does not read it: fit is not judged here.
 DEFAULT_HEADROOM_GB = 2.0
 
-# What `propose` puts in `notes` when it was handed no sources at all, so an
-# empty proposal can say why it is empty and what the caller can do about it.
+#: What `propose` puts in `notes` when it was handed no sources at all, so an
+#: empty proposal can say why it is empty and what the caller can do about it.
 NO_BACKEND_NOTE = (
     "No local backend is reachable, so the local ladder is empty. "
     "Bind an API source, start a backend and re-run, or name the "

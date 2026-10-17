@@ -23,10 +23,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 2
 
-# Task types the catalog no longer declares, mapped to what to ask for instead.
-# `Catalog.require` reads this so a contract naming one is answered with the
-# replacement it should use rather than a bare "unknown task type" — the values
-# are the surviving spellings, keyed by the retired names.
+#: Task types the catalog no longer declares, mapped to what to ask for instead.
+#: `Catalog.require` reads this so a contract naming one is answered with the
+#: replacement it should use rather than a bare "unknown task type" — the values
+#: are the surviving spellings, keyed by the retired names.
 RETIRED_TASK_TYPES: dict[str, str] = {
     "format": "'code' with operation: format",
     "import_sort": "'code' with operation: import_sort",
@@ -99,24 +99,24 @@ class TaskType:
     required_evidence: tuple[Evidence, ...]
     warrant: str
     doc: str
-    # Set only on entries of `deterministic_operations`: the task type a
-    # contract asks for this operation under (`task_type: code` with
-    # `operation: <name>`). Empty on task types themselves.
+    #: Set only on entries of `deterministic_operations`: the task type a
+    #: contract asks for this operation under (`task_type: code` with
+    #: `operation: <name>`). Empty on task types themselves.
     task_type: str = ""
-    # True when the contract's own contents decide the evidence rather than
-    # the catalog listing it: the gate always, plus failing_test_first for a
-    # demonstration, tests_pass for acceptance commands, no_semantic_change
-    # and type_check for the matching flags. Callers then describe that
-    # derivation instead of a fixed list, so the model is told it never
-    # chooses evidence itself. Declared per entry in the JSON and False when
-    # the entry leaves the key out.
+    #: True when the contract's own contents decide the evidence rather than
+    #: the catalog listing it: the gate always, plus failing_test_first for a
+    #: demonstration, tests_pass for acceptance commands, no_semantic_change
+    #: and type_check for the matching flags. Callers then describe that
+    #: derivation instead of a fixed list, so the model is told it never
+    #: chooses evidence itself. Declared per entry in the JSON and False when
+    #: the entry leaves the key out.
     evidence_derived: bool = False
-    # True for a task type asked for a reply, not a change to the tree. It
-    # has no target and no scope, so nothing is written: the answer is
-    # returned in the result file's `answer` and kept in the session log, and no
-    # acceptance bar is met. Being a session type also exempts it from the
-    # output cap a judged, model-written change must state, and `mcgyvr inspect`
-    # prints it as a session type.
+    #: True for a task type asked for a reply, not a change to the tree. It
+    #: has no target and no scope, so nothing is written: the answer is
+    #: returned in the result file's `answer` and kept in the session log, and no
+    #: acceptance bar is met. Being a session type also exempts it from the
+    #: output cap a judged, model-written change must state, and `mcgyvr inspect`
+    #: prints it as a session type.
     session: bool = False
 
     @property

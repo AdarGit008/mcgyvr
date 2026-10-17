@@ -19,20 +19,20 @@ from pathlib import Path, PurePosixPath
 
 from mcgyvr.knowledge.record import ModelRecord, Number, Weights
 
-# The hub used when HF_ENDPOINT is unset or empty.
+#: The hub used when HF_ENDPOINT is unset or empty.
 HUB = "https://huggingface.co"
-# The command `ssh` runs on the host: the payload arrives on stdin and
-# "mcgyvr-fetch" is argv[0] of the `python3 -` process.
+#: The command `ssh` runs on the host: the payload arrives on stdin and
+#: "mcgyvr-fetch" is argv[0] of the `python3 -` process.
 REMOTE_COMMAND = "python3 - mcgyvr-fetch"
-# The fetcher's own source, embedded in the payload so the host needs no
-# installed mcgyvr.
+#: The fetcher's own source, embedded in the payload so the host needs no
+#: installed mcgyvr.
 FETCHER = Path(__file__).resolve().parent / "fetcher.py"
-# The variable a Hugging Face token is read from when --hf-token-env is not given.
+#: The variable a Hugging Face token is read from when --hf-token-env is not given.
 DEFAULT_TOKEN_ENV = "HF_TOKEN"
-# The variable that replaces HUB, e.g. with a mirror.
+#: The variable that replaces HUB, e.g. with a mirror.
 ENDPOINT_ENV = "HF_ENDPOINT"
-# The largest fetch list `read` accepts, so a wrong --weights file is refused
-# without holding it whole in memory.
+#: The largest fetch list `read` accepts, so a wrong --weights file is refused
+#: without holding it whole in memory.
 MAX_LIST_BYTES = 1024 * 1024
 
 _KEYS = ("repo", "revision", "file", "sha256", "bytes", "name")

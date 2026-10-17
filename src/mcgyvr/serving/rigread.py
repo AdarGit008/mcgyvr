@@ -38,8 +38,8 @@ from mcgyvr.serving.gatelib import (
 )
 from mcgyvr.serving.rigscan import SNAPSHOT_CARD_KEYS
 
-# The gate scripts beside this module: rig-units.sh is read from here, whole, and
-# sent to the rig.
+#: The gate scripts beside this module: rig-units.sh is read from here, whole, and
+#: sent to the rig.
 _GATE_SCRIPTS = Path(__file__).resolve().parent / "gate-scripts"
 
 

@@ -29,16 +29,16 @@ from mcgyvr.fleet.links import LINK_CLASSES
 from mcgyvr.fleet.tolerance import CLASSES
 from mcgyvr.strict_yaml import strict_loader
 
-# The shipped estimates' file name, in the package's data folder and a checkout's.
+#: The shipped estimates' file name, in the package's data folder and a checkout's.
 NUMBERS_FILENAME = "numbers.json"
-# The user's own numbers: the layer that answers before the shipped estimates.
+#: The user's own numbers: the layer that answers before the shipped estimates.
 OVERRIDES_FILENAME = "numbers.yaml"
-# The schema of the shipped file that this code reads, stated in the file itself.
+#: The schema of the shipped file that this code reads, stated in the file itself.
 NUMBERS_SCHEMA = 1
-# Where a checkout keeps the shipped file: the repository root's data folder.
+#: Where a checkout keeps the shipped file: the repository root's data folder.
 CHECKOUT_DATA = Path(__file__).resolve().parents[2] / "data"
 
-# Where an answer came from: the user's own setting, or the estimate shipped.
+#: Where an answer came from: the user's own setting, or the estimate shipped.
 Source = Literal["override", "estimate"]
 
 
@@ -55,16 +55,16 @@ def _engine_choices() -> tuple[str, ...]:
     raise AssertionError("the config schema names no engine field")
 
 
-# The keys a number may be stated under, named by the ``key`` field of its entry:
-# the tolerance classes, the config schema's engines, and the link classes, each
-# read from the module that defines it rather than spelled again here.
+#: The keys a number may be stated under, named by the ``key`` field of its entry:
+#: the tolerance classes, the config schema's engines, and the link classes, each
+#: read from the module that defines it rather than spelled again here.
 KEY_SPACES: dict[str, tuple[str, ...]] = {
     "tolerance_class": CLASSES,
     "engine": _engine_choices(),
     "link_class": LINK_CLASSES,
 }
 
-# Each unit, with the test a value in it passes and the words a refusal names it by.
+#: Each unit, with the test a value in it passes and the words a refusal names it by.
 _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
     "percent": (lambda value: 0.0 < value < 100.0, "above 0 and below 100"),
     "GiB": (lambda value: value >= 0.0, "0 or more"),
@@ -74,16 +74,16 @@ _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
 UNITS: tuple[str, ...] = tuple(_BOUNDS)
 
 
-# The kinds a number written in mcgyvr's code can be, as the ``constants`` block
-# of the shipped file names each one: a fact about the world or the package, a
-# choice of mcgyvr's that a setting may change, or an estimate still waiting for
-# an id in the ``numbers`` block. The file is written in these words and this
-# module keeps them, so a reader of the one and of the other meets one spelling;
-# no number of the ``numbers`` block is anything but an estimate.
+#: The kinds a number written in mcgyvr's code can be, as the ``constants`` block
+#: of the shipped file names each one: a fact about the world or the package, a
+#: choice of mcgyvr's that a setting may change, or an estimate still waiting for
+#: an id in the ``numbers`` block. The file is written in these words and this
+#: module keeps them, so a reader of the one and of the other meets one spelling;
+#: no number of the ``numbers`` block is anything but an estimate.
 NUMBER_KINDS: tuple[str, ...] = ("fact", "choice", "estimate")
 
-# The reasons an entry of the file may give for calling a constant a fact: each
-# names what settles the value, so that mcgyvr is not the one choosing it.
+#: The reasons an entry of the file may give for calling a constant a fact: each
+#: names what settles the value, so that mcgyvr is not the one choosing it.
 FACT_REASONS: tuple[str, ...] = (
     "a definition or arithmetic",
     "the specification of a format, protocol or tool",
@@ -91,16 +91,16 @@ FACT_REASONS: tuple[str, ...] = (
     "the layout of the package or its checkout",
 )
 
-# The sources a setting may come from, as the first word of a ``set_by`` of the
-# shipped file: a setting in the config, a unit's contract, or a launch flag.
-# A choice whose value no setting changes carries no ``set_by`` at all.
+#: The sources a setting may come from, as the first word of a ``set_by`` of the
+#: shipped file: a setting in the config, a unit's contract, or a launch flag.
+#: A choice whose value no setting changes carries no ``set_by`` at all.
 SETTING_SOURCES: tuple[str, ...] = ("config", "contract", "flag")
 
-# The reason a ``choice`` entry gives when it only repeats another entry's value.
+#: The reason a ``choice`` entry gives when it only repeats another entry's value.
 DUPLICATE_REASON = "a duplicate of another entry"
 
-# Why a ``choice`` entry may be a choice: mcgyvr made the call, since nothing
-# outside it settles the value; a duplicate of another entry is stated as one.
+#: Why a ``choice`` entry may be a choice: mcgyvr made the call, since nothing
+#: outside it settles the value; a duplicate of another entry is stated as one.
 CHOICE_REASONS: tuple[str, ...] = (
     "a protocol or tool default",
     "a code or version other programs or files read",
@@ -117,29 +117,29 @@ CHOICE_REASONS: tuple[str, ...] = (
 )
 
 
-# The host memory a llama.cpp server holds beyond the experts it keeps in host
-# memory, and the engine key it is stated under: charged only to such a unit, and
-# never to a unit of another engine.
+#: The host memory a llama.cpp server holds beyond the experts it keeps in host
+#: memory, and the engine key it is stated under: charged only to such a unit, and
+#: never to a unit of another engine.
 RUNTIME_RESIDENT = "runtime_resident_gb"
 RUNTIME_RESIDENT_KEY = "llama.cpp"
 
-# The card memory each shard of a tensor split holds beyond its share of the
-# weights and its cache, stated for each engine.
+#: The card memory each shard of a tensor split holds beyond its share of the
+#: weights and its cache, stated for each engine.
 SHARD_ALLOWANCE = "shard_allowance_gib"
 
-# The two numbers of a link, stated for the class of link the traffic crosses.
+#: The two numbers of a link, stated for the class of link the traffic crosses.
 LINK_GIB_S = "link_gib_s"
 LINK_LATENCY_US = "link_latency_us"
 
-# The engines whose host memory figure is read off the model's geometry instead
-# of being shipped as a number: their entry of ``RUNTIME_RESIDENT`` is never
-# asked for, so a user's setting of it is reported unused and not priced in.
+#: The engines whose host memory figure is read off the model's geometry instead
+#: of being shipped as a number: their entry of ``RUNTIME_RESIDENT`` is never
+#: asked for, so a user's setting of it is reported unused and not priced in.
 RUNTIME_RESIDENT_READ: tuple[str, ...] = ("vllm",)
 
 
-# How much of a value a refusal spells: ``reprlib`` cut to two levels and a few
-# entries a collection, 60 characters of any one string, number or other value, so
-# a refusal stays about the size of the file that caused it.
+#: How much of a value a refusal spells: ``reprlib`` cut to two levels and a few
+#: entries a collection, 60 characters of any one string, number or other value, so
+#: a refusal stays about the size of the file that caused it.
 _SHOWN = reprlib.Repr(
     maxlevel=2, maxdict=4, maxlist=4, maxset=4, maxstring=60, maxlong=60, maxother=60
 )
@@ -216,17 +216,17 @@ def overrides_path() -> Path:
     return roots.home() / OVERRIDES_FILENAME
 
 
-# What ``json.loads`` raises on text it cannot read, besides the refusal this
-# module makes itself through its hooks: a document that is not JSON, and the
-# recursion limit reached on text nested too deep to be built.
+#: What ``json.loads`` raises on text it cannot read, besides the refusal this
+#: module makes itself through its hooks: a document that is not JSON, and the
+#: recursion limit reached on text nested too deep to be built.
 _UNREADABLE_JSON: tuple[type[Exception], ...] = (ValueError, RecursionError)
 
-# What ``yaml.load`` with the strict loader may raise on a file that is not the
-# mapping of number names to keys and values this module reads: a malformed
-# document, an error while building a value the document asks for (a lookup, an
-# attribute or a type that is not there), and the recursion a file of nested
-# aliases runs into. The strict loader's own refusal is a ``DerivedNumbersError``
-# caught on its own, so these are the errors YAML raises around it.
+#: What ``yaml.load`` with the strict loader may raise on a file that is not the
+#: mapping of number names to keys and values this module reads: a malformed
+#: document, an error while building a value the document asks for (a lookup, an
+#: attribute or a type that is not there), and the recursion a file of nested
+#: aliases runs into. The strict loader's own refusal is a ``DerivedNumbersError``
+#: caught on its own, so these are the errors YAML raises around it.
 _UNREADABLE_YAML: tuple[type[Exception], ...] = (
     yaml.YAMLError,
     ValueError,
@@ -541,8 +541,8 @@ def user_setting(number: str, key: str, *, path: Path | None = None) -> Path | N
     return where if (number, key) in settings else None
 
 
-# The two tolerance numbers, by the unit field each one judges: how far, in percent,
-# a healthy unit's speed of that field may fall from one start of the unit to the next.
+#: The two tolerance numbers, by the unit field each one judges: how far, in percent,
+#: a healthy unit's speed of that field may fall from one start of the unit to the next.
 CLASS_PCT_ENTRIES: dict[str, str] = {
     "warm_decode_tok_s": "warm_decode_class_pct",
     "prefill_tok_s": "prefill_class_pct",

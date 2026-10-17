@@ -35,9 +35,9 @@ from mcgyvr.orchestrator.symbols import _grammar_for, _node_text, _walk, languag
 class Verdict(StrEnum):
     """What one spelling of the name means for the rename at hand."""
 
-    # it is the symbol being renamed: safe to rewrite
+    #: it is the symbol being renamed: safe to rewrite
     RENAME = "rename"
-    # same spelling, another symbol or undecidable: left exactly as it is
+    #: same spelling, another symbol or undecidable: left exactly as it is
     OTHER = "other"
 
 
@@ -130,8 +130,8 @@ def resolve(
 
 # Bytes that may continue an identifier: letters, digits, underscore, and non-ASCII.
 
-# `_token` wraps the escaped name in these lookarounds, so `foo` is not part of
-# `foobar`.
+#: `_token` wraps the escaped name in these lookarounds, so `foo` is not part of
+#: `foobar`.
 _IDENT_BYTE = rb"A-Za-z0-9_\x80-\xff"
 
 
@@ -173,7 +173,7 @@ def _parse_python(source: bytes) -> ast.Module | None:
         return None
 
 
-# Blocks that open no scope: a def inside one of them is still module level.
+#: Blocks that open no scope: a def inside one of them is still module level.
 _MODULE_BLOCKS = (
     ast.If,
     ast.Try,
@@ -1124,7 +1124,7 @@ def _specifier(statement: Node) -> str:
     return ""
 
 
-# The leaves whose text can spell a name: identifiers, type names, properties.
+#: The leaves whose text can spell a name: identifiers, type names, properties.
 _LEAF_TYPES = frozenset(
     {
         "identifier",

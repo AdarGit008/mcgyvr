@@ -20,20 +20,20 @@ from dataclasses import dataclass
 
 from mcgyvr.rig import sessionwire
 
-# The narrowest tunnel network allowed: a /30, the smallest that still holds
-# two host addresses.
+#: The narrowest tunnel network allowed: a /30, the smallest that still holds
+#: two host addresses.
 NARROWEST_PREFIX = 30
-# ioctl requests for an interface's IPv4 address and its netmask.
+#: ioctl requests for an interface's IPv4 address and its netmask.
 _SIOCGIFADDR = 0x8915
 _SIOCGIFNETMASK = 0x891B
-# The buffer an ifreq ioctl is handed, the room the interface's name takes in
-# it, and where the address sits in the buffer the ioctl hands back.
+#: The buffer an ifreq ioctl is handed, the room the interface's name takes in
+#: it, and where the address sits in the buffer the ioctl hands back.
 _IFREQ_BYTES = 256
 _IFNAME_BYTES = 16
 _SOCKADDR_ADDRESS = slice(20, 24)
-# Interface names starting with these are this machine's own plumbing, not a
-# LAN to offer a peer: loopback, container and VM bridges and their pairs,
-# cluster and overlay networks, and other tunnels.
+#: Interface names starting with these are this machine's own plumbing, not a
+#: LAN to offer a peer: loopback, container and VM bridges and their pairs,
+#: cluster and overlay networks, and other tunnels.
 VIRTUAL_PREFIXES = (
     "lo",
     "docker",
@@ -61,8 +61,8 @@ class RefusedError(Exception):
         self.message = message
 
 
-# The path a reachable peer is reported on: one found on this LAN is "lan",
-# one reached at a public or reflexive address is "direct".
+#: The path a reachable peer is reported on: one found on this LAN is "lan",
+#: one reached at a public or reflexive address is "direct".
 PATHS = {"lan": "lan", "public": "direct", "reflexive": "direct"}
 
 

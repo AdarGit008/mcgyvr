@@ -21,22 +21,22 @@ from mcgyvr.mcorch.anthropic import MessagesRequest
 from mcgyvr.mcorch.authoring import GATHER, Authoring, Evidenced
 from mcgyvr.mcorch.wire import Jev, Rung, RungCall, RungReply, RungToolCall
 
-# How many rounds one request may take. Each round is one call to the
-# orchestrator model, and a call that asks for an internal tool costs a round
-# before its answer can be shown; a reply that asks for nothing internal returns
-# at once, using however much of this budget it needed.
+#: How many rounds one request may take. Each round is one call to the
+#: orchestrator model, and a call that asks for an internal tool costs a round
+#: before its answer can be shown; a reply that asks for nothing internal returns
+#: at once, using however much of this budget it needed.
 MAX_ROUNDS = 6
 
-# The most tokens a side request may answer in: a request the harness offers no
-# tools for is not orchestrating anything, so its reply is capped at this.
+#: The most tokens a side request may answer in: a request the harness offers no
+#: tools for is not orchestrating anything, so its reply is capped at this.
 SIDE_REPLY_TOKENS = 512
 
-# How many characters of the latest user text the intent question is shown; the
-# remainder of a long request is not put to the question at all.
+#: How many characters of the latest user text the intent question is shown; the
+#: remainder of a long request is not put to the question at all.
 REQUEST_CHARS = 2000
 
-# Asked of a plain user request: whether the repository should be changed, or
-# whether the turn is conversation that changes nothing.
+#: Asked of a plain user request: whether the repository should be changed, or
+#: whether the turn is conversation that changes nothing.
 INTENT = Choice(
     "Is this request work for the repository — a change to make, a file to "
     "produce, a bug to fix — or conversation?",
@@ -46,10 +46,10 @@ INTENT = Choice(
     },
 )
 
-# Asked of a run result by `_next`: whether what came back ends the work, calls
-# for another contract, or needs a decision from the user. `_next` is the only
-# place it is asked, and `respond` never calls `_next`, so a traced turn carries
-# no next step.
+#: Asked of a run result by `_next`: whether what came back ends the work, calls
+#: for another contract, or needs a decision from the user. `_next` is the only
+#: place it is asked, and `respond` never calls `_next`, so a traced turn carries
+#: no next step.
 NEXT = Choice(
     "A mcgyvr run came to this result. What should the orchestrator do next?",
     options={
@@ -59,8 +59,8 @@ NEXT = Choice(
     },
 )
 
-# The names the two questions above are asked and answered under, both in the
-# question set handed to Jev and in the (name, choice) pairs a trace keeps.
+#: The names the two questions above are asked and answered under, both in the
+#: question set handed to Jev and in the (name, choice) pairs a trace keeps.
 INTENT_NAME = "intent"
 NEXT_NAME = "next"
 
@@ -91,17 +91,17 @@ class Trace:
     dropped_blocks: tuple[str, ...]
     rounds: int
     internal_calls: tuple[str, ...]
-    # The next step that was decided from a run result. Always None from
-    # `respond`, which never asks `_next`.
+    #: The next step that was decided from a run result. Always None from
+    #: `respond`, which never asks `_next`.
     next: str | None
-    # The targets of open contracts that an edit call tried to reach.
+    #: The targets of open contracts that an edit call tried to reach.
     refused_edits: tuple[str, ...] = ()
-    # What became of reading the repository: "used" when a digest stood in for
-    # the read result, "unreadable" when that result was not one whole document,
-    # "asked" when the harness was asked to read, "no-shell" when it offers no
-    # shell tool to read with, or None when no reading was involved.
+    #: What became of reading the repository: "used" when a digest stood in for
+    #: the read result, "unreadable" when that result was not one whole document,
+    #: "asked" when the harness was asked to read, "no-shell" when it offers no
+    #: shell tool to read with, or None when no reading was involved.
     evidence: str | None = None
-    # How many ready contracts that digest proposed.
+    #: How many ready contracts that digest proposed.
     contracts: int = 0
 
 
@@ -346,8 +346,8 @@ def _guarded(
     return found
 
 
-# The prefix of a ready proposal line in a digest: counting them counts the
-# contracts the reading made ready to write.
+#: The prefix of a ready proposal line in a digest: counting them counts the
+#: contracts the reading made ready to write.
 _READY = "ready: contract "
 
 _UNREADABLE = (

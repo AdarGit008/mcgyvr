@@ -39,14 +39,14 @@ from mcgyvr.local_pool import SourceMap
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
 
-# Name every finding and environment issue this check produces carries.
+#: Name every finding and environment issue this check produces carries.
 CHECK = "jev"
 
-# The questions every judged file is put to, keyed by the name each answer is
-# stored under on the Decision and copied onto the finding's code. Two are
-# yes/no — does the change satisfy the task, and is it within scope — and one
-# rates regression risk on the low/medium/high scale, where the answer's level
-# is the expected index of a level on a 0..2 scale.
+#: The questions every judged file is put to, keyed by the name each answer is
+#: stored under on the Decision and copied onto the finding's code. Two are
+#: yes/no — does the change satisfy the task, and is it within scope — and one
+#: rates regression risk on the low/medium/high scale, where the answer's level
+#: is the expected index of a level on a 0..2 scale.
 JEV_QUESTIONS: Mapping[str, Question] = {
     "satisfies_task": Noul(
         "Does the added change satisfy the contract's task, as stated?"
@@ -58,13 +58,13 @@ JEV_QUESTIONS: Mapping[str, Question] = {
     ),
 }
 
-# Expected regression level, on that 0..2 scale, at which a rating is reported:
-# medium and above are objections, low is not.
+#: Expected regression level, on that 0..2 scale, at which a rating is reported:
+#: medium and above are objections, low is not.
 _REGRESSION_LEVEL = 1.0
 
-# Seam that turns a state into a Decision. It is injected rather than built
-# here, so a caller can wrap it — with a wake, or a reviewer's remembered
-# refusal — and a test can answer without a wire.
+#: Seam that turns a state into a Decision. It is injected rather than built
+#: here, so a caller can wrap it — with a wake, or a reviewer's remembered
+#: refusal — and a test can answer without a wire.
 type Decide = Callable[[Any], Decision]
 
 

@@ -26,38 +26,38 @@ import sys
 import time
 from typing import Any
 
-# Command word and mode names main() insists on before doing any work.
+#: Command word and mode names main() insists on before doing any work.
 LINK_WORD = "mcgyvr-linktime"
-# Accepted modes, also joined into the usage message main() raises.
+#: Accepted modes, also joined into the usage message main() raises.
 MODES = ("peer", "sink", "send")
-# Default TCP port for the sink and send modes. main() takes the port from
-# argv, so this is the value callers are expected to pass on both ends.
+#: Default TCP port for the sink and send modes. main() takes the port from
+#: argv, so this is the value callers are expected to pass on both ends.
 LINK_PORT = 50151
 
-# Copy sizes in bytes for the peer mode (64 KiB, 1 MiB, 8 MiB); each is timed
-# REPEATS times, after one untimed warm-up copy of the smallest size.
+#: Copy sizes in bytes for the peer mode (64 KiB, 1 MiB, 8 MiB); each is timed
+#: REPEATS times, after one untimed warm-up copy of the smallest size.
 PEER_PAYLOADS = (1 << 16, 1 << 20, 1 << 23)
-# Message sizes in bytes for the send and sink modes (4 KiB, 256 KiB, 4 MiB).
+#: Message sizes in bytes for the send and sink modes (4 KiB, 256 KiB, 4 MiB).
 NETWORK_PAYLOADS = (1 << 12, 1 << 18, 1 << 22)
-# Timed messages per payload size, in every mode.
+#: Timed messages per payload size, in every mode.
 REPEATS = 3
-# Free memory each card must still hold once the peer mode has allocated its
-# largest buffer, so the timer never leaves a GPU at the edge of its memory.
+#: Free memory each card must still hold once the peer mode has allocated its
+#: largest buffer, so the timer never leaves a GPU at the edge of its memory.
 HEADROOM_BYTES = 256 << 20
-# Most payload the sink will accept over one connection: one warm-up message
-# plus REPEATS timed messages of every network payload, plus a little slack.
+#: Most payload the sink will accept over one connection: one warm-up message
+#: plus REPEATS timed messages of every network payload, plus a little slack.
 SINK_MOST_BYTES = (sum(NETWORK_PAYLOADS) * (REPEATS + 1)) + 64
-# Handshake bounds in seconds: how long the sink waits for its one client to
-# connect, and how long the sender keeps retrying a failed connect.
+#: Handshake bounds in seconds: how long the sink waits for its one client to
+#: connect, and how long the sender keeps retrying a failed connect.
 ACCEPT_S = 60.0
 CONNECT_S = 30.0
-# Per-call socket timeout, so a silent peer fails instead of hanging.
+#: Per-call socket timeout, so a silent peer fails instead of hanging.
 IDLE_S = 15.0
-# Wall-clock bound on a whole run; running past it is reported as an error.
+#: Wall-clock bound on a whole run; running past it is reported as an error.
 WHOLE_S = 120.0
 
-# Big-endian 8-byte length prefix on every message; a length of zero ends the
-# exchange.
+#: Big-endian 8-byte length prefix on every message; a length of zero ends the
+#: exchange.
 _HEADER = struct.Struct(">Q")
 
 

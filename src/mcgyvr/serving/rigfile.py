@@ -37,20 +37,20 @@ from typing import Any
 from mcgyvr.fleet.roots import FolderError, rigs_dir
 from mcgyvr.scan import ModelOnDisk, Network, Scan
 
-# A rig is named as ssh names it, so the name is a plain one: letters, digits,
-# '.', '_' and '-', not starting with '.', which is also a file name.
+#: A rig is named as ssh names it, so the name is a plain one: letters, digits,
+#: '.', '_' and '-', not starting with '.', which is also a file name.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
-# The command a refusal names to write the rig file it wanted: a read-only ssh
-# scan of the rig, its name filled in.
+#: The command a refusal names to write the rig file it wanted: a read-only ssh
+#: scan of the rig, its name filled in.
 MAKE = "mcgyvr scan --rig {rig}"
-# The rig name a scan of this machine is filed under when no host was named.
+#: The rig name a scan of this machine is filed under when no host was named.
 LOCAL = "localhost"
-# The snapshot tokens compared as text, one token each: the CPU's model and max
-# MHz, the measured DDR speed, the power limits, the first card's compute
-# capability and slot, the further cards' names, the driver and the kernel. They
-# are read from the reading's own snapshot rather than from the parsed Scan, so a
-# token the reader could not fill is absent here, and a key the file never held
-# says nothing about the machine.
+#: The snapshot tokens compared as text, one token each: the CPU's model and max
+#: MHz, the measured DDR speed, the power limits, the first card's compute
+#: capability and slot, the further cards' names, the driver and the kernel. They
+#: are read from the reading's own snapshot rather than from the parsed Scan, so a
+#: token the reader could not fill is absent here, and a key the file never held
+#: says nothing about the machine.
 RECORDED = (
     "cpu_model",
     "cpu_max_mhz",
@@ -63,11 +63,11 @@ RECORDED = (
     "driver",
     "kernel",
 )
-# The fields whose change is a change of the rig's hardware rather than of what
-# runs on it: RAM, cores, threads, and the measured memory bandwidth. The cards
-# are compared card by card under names like "card 0", so they are not listed.
-# Bandwidth is a measurement, so it has moved only past this fraction of the
-# figure the file recorded; a figure either reading lacked is not compared.
+#: The fields whose change is a change of the rig's hardware rather than of what
+#: runs on it: RAM, cores, threads, and the measured memory bandwidth. The cards
+#: are compared card by card under names like "card 0", so they are not listed.
+#: Bandwidth is a measurement, so it has moved only past this fraction of the
+#: figure the file recorded; a figure either reading lacked is not compared.
 HARDWARE = ("ram_total_gb", "cpu_cores", "cpu_threads", "bandwidth_gbps")
 BANDWIDTH_TOLERANCE = 0.15
 
@@ -386,9 +386,9 @@ class Saved:
     now: Rig
     before: Rig | None
     path: Path
-    # Whether the rig file that was there was left untouched: it knew its cards
-    # and this reading could not read them, so replacing it would lose the record
-    # of cards the machine has.
+    #: Whether the rig file that was there was left untouched: it knew its cards
+    #: and this reading could not read them, so replacing it would lose the record
+    #: of cards the machine has.
     kept: bool
 
 

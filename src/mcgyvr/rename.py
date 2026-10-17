@@ -28,13 +28,13 @@ from mcgyvr.orchestrator.references import (
 from mcgyvr.orchestrator.symbols import language_of
 from mcgyvr.scope import OutsideTreeError, Scope, inside
 
-# The only shape a rename may write: a plain ASCII identifier. The rewrite is a byte
-# splice rather than a re-parse, so anything else — an expression, a dotted path, a
-# space — would leave text that does not parse while the exit code claims success.
+#: The only shape a rename may write: a plain ASCII identifier. The rewrite is a byte
+#: splice rather than a re-parse, so anything else — an expression, a dotted path, a
+#: space — would leave text that does not parse while the exit code claims success.
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-# A star import (Python) or star export (JS/TS) can bring the old name into a file
-# without ever spelling it, so a file holding one is still judged as a reference site.
+#: A star import (Python) or star export (JS/TS) can bring the old name into a file
+#: without ever spelling it, so a file holding one is still judged as a reference site.
 _STAR = {
     "python": re.compile(r"\bimport\s+\*"),
     "js/ts": re.compile(r"\bexport\s*\*"),

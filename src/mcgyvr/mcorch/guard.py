@@ -22,16 +22,16 @@ from typing import Any
 
 from mcgyvr import contract
 
-# The harness tool names that write or edit a file: the capitalized and the
-# lower-case spellings, plus MultiEdit.
+#: The harness tool names that write or edit a file: the capitalized and the
+#: lower-case spellings, plus MultiEdit.
 WRITE_TOOLS = frozenset({"Write", "write", "Edit", "edit", "MultiEdit"})
 
-# The keys a write or edit call may carry the file it touches under, in the
-# order they are tried; the first one holding a non-empty string is the path.
+#: The keys a write or edit call may carry the file it touches under, in the
+#: order they are tried; the first one holding a non-empty string is the path.
 PATH_KEYS = ("file_path", "path", "filePath")
 
-# The keys every `mcgyvr run` result document carries. A tool result missing
-# either of them is not a run result, so it closes no contract.
+#: The keys every `mcgyvr run` result document carries. A tool result missing
+#: either of them is not a run result, so it closes no contract.
 RESULT_KEYS = ("contract", "outcome")
 
 

@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import re
 
-# The three terminators CPython's line accounting recognises. `\n`, `\r\n` and
-# `\r` all advance the parser's line number by one, so the cut must agree with
-# them; a cut that knew only `\n` would sit one line off per CR-terminated line
-# and a splice at that index would move the file. Longer alternatives come first
-# so `\r\n` is one terminator rather than two.
+#: The three terminators CPython's line accounting recognises. `\n`, `\r\n` and
+#: `\r` all advance the parser's line number by one, so the cut must agree with
+#: them; a cut that knew only `\n` would sit one line off per CR-terminated line
+#: and a splice at that index would move the file. Longer alternatives come first
+#: so `\r\n` is one terminator rather than two.
 LINE_END = re.compile(r"\r\n|\r|\n")
 
 

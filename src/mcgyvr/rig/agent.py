@@ -30,35 +30,35 @@ from typing import Protocol
 from mcgyvr.rig import commands, hardware, protocol, websocket
 from mcgyvr.rig.outbox import Outbox
 
-# How often a heartbeat goes out when the hub's ack named no interval of its
-# own; the hub sets an interval per rig, and this is only the fallback.
+#: How often a heartbeat goes out when the hub's ack named no interval of its
+#: own; the hub sets an interval per rig, and this is only the fallback.
 DEFAULT_HEARTBEAT_S = 15
-# Seconds the hello may wait for its ack before the channel is given up as dead.
+#: Seconds the hello may wait for its ack before the channel is given up as dead.
 HELLO_ACK_TIMEOUT_S = 15.0
-# Heartbeats that may go unanswered before the agent gives up on the channel;
-# one ack clears them all, since the hub acks as it reads rather than one by one.
+#: Heartbeats that may go unanswered before the agent gives up on the channel;
+#: one ack clears them all, since the hub acks as it reads rather than one by one.
 MISSED_ACKS = 3
-# Frames this agent may send per second, half of the protocol's ceiling.
+#: Frames this agent may send per second, half of the protocol's ceiling.
 FRAMES_PER_SECOND = protocol.MAX_FRAMES_PER_SECOND // 2
-# Seconds one receive may wait while the outbox is empty, so the loop still
-# wakes often enough to notice a stop request or a heartbeat falling due.
+#: Seconds one receive may wait while the outbox is empty, so the loop still
+#: wakes often enough to notice a stop request or a heartbeat falling due.
 RECEIVE_SLICE_S = 1.0
-# A shorter receive slice while frames wait in the outbox, so they leave early.
+#: A shorter receive slice while frames wait in the outbox, so they leave early.
 OUTBOX_SLICE_S = 0.01
-# Longest text ``shown`` returns; anything longer is cut with an ellipsis.
+#: Longest text ``shown`` returns; anything longer is cut with an ellipsis.
 SHOWN_MAX = 200
-# Ceiling on the reconnect delay while ``hurry`` says a person is waiting, so a
-# hub that is coming back is rejoined in seconds rather than by backoff.
+#: Ceiling on the reconnect delay while ``hurry`` says a person is waiting, so a
+#: hub that is coming back is rejoined in seconds rather than by backoff.
 HURRY_S = 2.0
-# Seconds a heartbeat asked for by ``beat_soon`` waits after the one before it,
-# so an early beat does not put two beats back to back on the hub.
+#: Seconds a heartbeat asked for by ``beat_soon`` waits after the one before it,
+#: so an early beat does not put two beats back to back on the hub.
 EARLY_BEAT_S = 1.0
-# Seconds before a heartbeat falls due that its reading is started, never more
-# than one interval: the read runs on a side thread, so the beat carries what
-# was newest when it went out and a slow machine delays no beat.
+#: Seconds before a heartbeat falls due that its reading is started, never more
+#: than one interval: the read runs on a side thread, so the beat carries what
+#: was newest when it went out and a slow machine delays no beat.
 READ_AHEAD_S = 5.0
 
-# What a person is told for each error the hub can refuse a rig for good with.
+#: What a person is told for each error the hub can refuse a rig for good with.
 _REFUSALS = {
     protocol.ErrorCode.REVOKED: (
         "the hub revoked this rig's token (the rig was deleted, or its token "
@@ -175,8 +175,8 @@ class _Session:
         self._told = acked
         self._errors = errors
         self.acked: set[str] = set()
-        # The rig id and the heartbeat interval arrive with an ack, and the last
-        # error is kept so a close can be explained by what the hub said first.
+        #: The rig id and the heartbeat interval arrive with an ack, and the last
+        #: error is kept so a close can be explained by what the hub said first.
         self.rig_id: str | None = None
         self.interval: int | None = None
         self.last_error: protocol.Error | None = None

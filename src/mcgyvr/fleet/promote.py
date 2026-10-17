@@ -58,16 +58,16 @@ from mcgyvr.fleet.roots import (
 )
 from mcgyvr.fleet.spans import SpanError, check_spans
 
-# IPv4 addresses spelled in the short old-style forms `socket.inet_aton` reads
-# and `ipaddress.ip_address` refuses: one to four parts, each decimal or hex, so
-# that `127.1` and `0x7f000001` still name a host to a resolver.
+#: IPv4 addresses spelled in the short old-style forms `socket.inet_aton` reads
+#: and `ipaddress.ip_address` refuses: one to four parts, each decimal or hex, so
+#: that `127.1` and `0x7f000001` still name a host to a resolver.
 _OLD_IPV4 = re.compile(r"^(?:0x[0-9a-f]*|\d+)(?:\.(?:0x[0-9a-f]*|\d+)){0,3}$")
-# The twelve bytes a NAT64 address begins with (64:ff9b::/96), after which its
-# last four bytes spell the IPv4 address it is an IPv6 spelling of.
+#: The twelve bytes a NAT64 address begins with (64:ff9b::/96), after which its
+#: last four bytes spell the IPv4 address it is an IPv6 spelling of.
 _NAT64 = bytes.fromhex("0064ff9b 00000000 00000000")
-# Name suffixes only a local network answers, so an address under one is a
-# machine of the user's and not a public host: `localhost` itself, mDNS's
-# `.local`, RFC 8375's `.home.arpa`, and the `.internal` of private zones.
+#: Name suffixes only a local network answers, so an address under one is a
+#: machine of the user's and not a public host: `localhost` itself, mDNS's
+#: `.local`, RFC 8375's `.home.arpa`, and the `.internal` of private zones.
 LOCAL_SUFFIXES = (".localhost", ".local", ".home.arpa", ".internal")
 
 
@@ -392,21 +392,21 @@ class Switch:
     and what the move from that fleet costs.
     """
 
-    # The `live.json` that now names the fleet live.
+    #: The `live.json` that now names the fleet live.
     pointer: Path
-    # The live fleet folder named, dated tag and all.
+    #: The live fleet folder named, dated tag and all.
     name: str
-    # The fleet part of the name: the layout the folder holds.
+    #: The fleet part of the name: the layout the folder holds.
     layout: str
-    # The fleet that was live before, or None when no fleet was.
+    #: The fleet that was live before, or None when no fleet was.
     previous: str | None
-    # Whether the previous fleet's lock lists this layout in its `next`.
+    #: Whether the previous fleet's lock lists this layout in its `next`.
     locked: bool
-    # The rig moves the previous fleet's lock lists for this switch, each rig's
-    # downtime and wake times; empty when it lists none.
+    #: The rig moves the previous fleet's lock lists for this switch, each rig's
+    #: downtime and wake times; empty when it lists none.
     moves: list[dict[str, Any]] = field(default_factory=list)
-    # Why the move is not measured, or None when it is measured or when no other
-    # fleet was live.
+    #: Why the move is not measured, or None when it is measured or when no other
+    #: fleet was live.
     unmeasured: str | None = None
 
 

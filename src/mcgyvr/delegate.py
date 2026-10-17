@@ -37,13 +37,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.local_pool import SourceMap
 
-# The role whose bound unit turns a prompt into contracts: `proposer_for`
-# dispatches the prose prompt there, `classifier_proposer_for` asks the typed
-# questions there. No binding means nothing here can propose.
+#: The role whose bound unit turns a prompt into contracts: `proposer_for`
+#: dispatches the prose prompt there, `classifier_proposer_for` asks the typed
+#: questions there. No binding means nothing here can propose.
 ORCHESTRATOR_ROLE = "orchestrator"
 
-# Printed, with a refusal exit, when no orchestrator unit is bound and so no
-# prompt can be turned into contracts: the text names the ways forward.
+#: Printed, with a refusal exit, when no orchestrator unit is bound and so no
+#: prompt can be turned into contracts: the text names the ways forward.
 NO_ORCHESTRATOR_ROLE = (
     "the orchestrator role is not configured, so a prompt cannot be turned "
     "into contracts here. Bind `orchestrator.unit` and `orchestrator.model` "
@@ -389,17 +389,17 @@ def proposer_for(
     return propose
 
 
-# The confidence a typed answer must reach for its proposal to be trusted. A
-# classifier answering below it counts as having declined to choose: nothing is
-# proposed, and the caller can fall back to the prose proposer.
+#: The confidence a typed answer must reach for its proposal to be trusted. A
+#: classifier answering below it counts as having declined to choose: nothing is
+#: proposed, and the caller can fall back to the prose proposer.
 MIN_CONFIDENCE = 0.5
 
-# The option that picks no symbol, because the whole file is the work.
+#: The option that picks no symbol, because the whole file is the work.
 _NO_SYMBOL = ""
 
-# One typed question carries at most 62 options: the single-token labels read
-# back are A-Z, a-z and 0-9. Targets are truncated to this, and the symbol
-# question keeps one slot back for the "no specific symbol" option.
+#: One typed question carries at most 62 options: the single-token labels read
+#: back are A-Z, a-z and 0-9. Targets are truncated to this, and the symbol
+#: question keeps one slot back for the "no specific symbol" option.
 _MAX_CHOICE_OPTIONS = 62
 
 

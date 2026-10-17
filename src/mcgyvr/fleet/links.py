@@ -9,11 +9,11 @@ do not make it another machine.
 
 from __future__ import annotations
 
-# The class of a link whose two cards sit in one machine and talk over its bus.
+#: The class of a link whose two cards sit in one machine and talk over its bus.
 PCIE = "pcie"
-# The class of a link whose two cards sit in two machines and talk over the network.
+#: The class of a link whose two cards sit in two machines and talk over the network.
 NETWORK = "network"
-# Every class a link can be in, in the order they are offered and named in messages.
+#: Every class a link can be in, in the order they are offered and named in messages.
 LINK_CLASSES: tuple[str, ...] = (PCIE, NETWORK)
 
 

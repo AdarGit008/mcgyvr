@@ -37,8 +37,8 @@ _COMMAND_NOT_EXECUTABLE = 126
 
 _HOME_PREFIX = "mcgyvr-home-"
 
-# Variables whose values point into a home directory. The host's values are
-# dropped, so a command resolves them against the throwaway HOME instead.
+#: Variables whose values point into a home directory. The host's values are
+#: dropped, so a command resolves them against the throwaway HOME instead.
 _HOME_DERIVED = frozenset(
     {"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"}
 )

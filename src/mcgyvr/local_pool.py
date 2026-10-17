@@ -85,56 +85,56 @@ class Endpoint:
     protocol: Protocol
     max_parallel: int
     credential_env: str | None
-    # NAME of the environment variable holding this endpoint's key. `None`
-    # means no key is sent, which is how a local backend that checks nothing
-    # is asked. The value never lives here: a key that is needed and missing
-    # raises rather than sending an unauthenticated request.
-    # `requires_credential` says whether a key is needed; `credential`
-    # resolves it.
+    #: NAME of the environment variable holding this endpoint's key. `None`
+    #: means no key is sent, which is how a local backend that checks nothing
+    #: is asked. The value never lives here: a key that is needed and missing
+    #: raises rather than sending an unauthenticated request.
+    #: `requires_credential` says whether a key is needed; `credential`
+    #: resolves it.
     context_window: int | None = None
-    # Tokens this endpoint serves in one request, as the unit states them,
-    # prompt and reply together; `None` means the unit says nothing. The
-    # prompt is budgeted from this number: what it may claim is this window
-    # less the room reserved for the reply, and a `code` contract with
-    # neither this nor `output_tokens` behind it is refused rather than
-    # guessed at. It limits the whole request, where `output_tokens` limits
-    # the reply alone.
+    #: Tokens this endpoint serves in one request, as the unit states them,
+    #: prompt and reply together; `None` means the unit says nothing. The
+    #: prompt is budgeted from this number: what it may claim is this window
+    #: less the room reserved for the reply, and a `code` contract with
+    #: neither this nor `output_tokens` behind it is refused rather than
+    #: guessed at. It limits the whole request, where `output_tokens` limits
+    #: the reply alone.
     output_tokens: int | None = None
-    # Room a reply on this endpoint is given, hidden reasoning included, as
-    # the unit states it. It is a ceiling a contract's
-    # `limits.max_output_tokens` is held to, never a replacement for it: the
-    # contract's cap is what is sent. `None` means the unit states no room,
-    # and the ceiling is then whatever the window leaves.
-    # It is kept apart from `context_window` because one is room one reply is
-    # given and the other is room the whole request is served in, and where
-    # both are stated the smaller one holds.
+    #: Room a reply on this endpoint is given, hidden reasoning included, as
+    #: the unit states it. It is a ceiling a contract's
+    #: `limits.max_output_tokens` is held to, never a replacement for it: the
+    #: contract's cap is what is sent. `None` means the unit states no room,
+    #: and the ceiling is then whatever the window leaves.
+    #: It is kept apart from `context_window` because one is room one reply is
+    #: given and the other is room the whole request is served in, and where
+    #: both are stated the smaller one holds.
     output_ceiling: int | None = None
-    # The reply room of the rung this one stands in for, set on relief
-    # rungs alone by `source_map`: a lent rung answers as one of yours
-    # would, so a contract's cap is checked against this ceiling.
+    #: The reply room of the rung this one stands in for, set on relief
+    #: rungs alone by `source_map`: a lent rung answers as one of yours
+    #: would, so a contract's cap is checked against this ceiling.
     request_timeout_s: float | None = None
-    # Seconds one dispatched request to this endpoint may take before the
-    # transport gives up. `None` means nothing is stated here and the
-    # caller's default holds, which differs between a hosted and a local
-    # endpoint. It is kept unresolved rather than filled in, so that an
-    # unstated timeout and a stated one stay different facts and a caller
-    # can tell which one applies.
+    #: Seconds one dispatched request to this endpoint may take before the
+    #: transport gives up. `None` means nothing is stated here and the
+    #: caller's default holds, which differs between a hosted and a local
+    #: endpoint. It is kept unresolved rather than filled in, so that an
+    #: unstated timeout and a stated one stay different facts and a caller
+    #: can tell which one applies.
     engine: str | None = None
-    # The server program behind the address, as the unit declares it;
-    # `None` means llama.cpp. Read where a request or a status poll has to
-    # speak the engine's own API rather than the one path they share.
+    #: The server program behind the address, as the unit declares it;
+    #: `None` means llama.cpp. Read where a request or a status poll has to
+    #: speak the engine's own API rather than the one path they share.
     relief: bool = False
-    # Whether this endpoint is a rung lent through a hub rather than one
-    # of your own. A relief rung is never a step of the ladder.
+    #: Whether this endpoint is a rung lent through a hub rather than one
+    #: of your own. A relief rung is never a step of the ladder.
     served_model: str | None = None
-    # What the host says its unit runs, for people to read; it is not what
-    # is asked for. On a relief rung it is what a reply's own model is
-    # checked against, and a mismatch passes the rung over as full.
+    #: What the host says its unit runs, for people to read; it is not what
+    #: is asked for. On a relief rung it is what a reply's own model is
+    #: checked against, and a mismatch passes the rung over as full.
     busy_answers: frozenset[tuple[int, str]] | None = None
-    # The (status, code) answers that say this endpoint cannot take a
-    # request now. On a relief rung one of them raises
-    # `ReliefUnavailableError`, which is what makes a full lent rung cost
-    # nothing to pass over; elsewhere an answer is read as any other.
+    #: The (status, code) answers that say this endpoint cannot take a
+    #: request now. On a relief rung one of them raises
+    #: `ReliefUnavailableError`, which is what makes a full lent rung cost
+    #: nothing to pass over; elsewhere an answer is read as any other.
     sampling: str = "request"
 
     @property

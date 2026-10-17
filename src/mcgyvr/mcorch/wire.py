@@ -52,11 +52,11 @@ class RungReply:
     output_tokens: int | None = None
 
 
-# One turn sent to the orchestrator's unit: a `RungCall` in, its `RungReply` out.
-# `bind` builds it over `dispatch_role` on `ORCHESTRATOR_ROLE`.
+#: One turn sent to the orchestrator's unit: a `RungCall` in, its `RungReply` out.
+#: `bind` builds it over `dispatch_role` on `ORCHESTRATOR_ROLE`.
 type Rung = Callable[[RungCall], RungReply]
 
-# One typed ask of the jev unit: the state to decide on and the questions keyed by
-# the name each is asked under, answered with a `Decision` keyed the same way.
-# `bind` builds it over `classify_role` on `JEV_ROLE`.
+#: One typed ask of the jev unit: the state to decide on and the questions keyed by
+#: the name each is asked under, answered with a `Decision` keyed the same way.
+#: `bind` builds it over `classify_role` on `JEV_ROLE`.
 type Jev = Callable[[Any, Mapping[str, Question]], Decision]

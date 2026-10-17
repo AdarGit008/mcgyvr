@@ -26,16 +26,16 @@ from mcgyvr.serving.sharding import (
     Target,
 )
 
-# Every process is told to number its cards by PCI bus, so the order the
-# driver would otherwise pick cannot move a plan's card onto another device.
+#: Every process is told to number its cards by PCI bus, so the order the
+#: driver would otherwise pick cannot move a plan's card onto another device.
 DEVICE_ORDER_ENV = "CUDA_DEVICE_ORDER"
 DEVICE_ORDER_BUS = "PCI_BUS_ID"
-# vLLM takes the layers of each pipeline stage from this variable, so the
-# plan's per-card layer counts are stated in it.
+#: vLLM takes the layers of each pipeline stage from this variable, so the
+#: plan's per-card layer counts are stated in it.
 PIPELINE_PARTITION_ENV = "VLLM_PP_LAYER_PARTITION"
-# A worker holds one card, which is device 0 of the process it runs in.
+#: A worker holds one card, which is device 0 of the process it runs in.
 RPC_DEVICE = "CUDA0"
-# A vLLM node other than the first is started with this trailing switch.
+#: A vLLM node other than the first is started with this trailing switch.
 HEADLESS_SWITCH = "--headless"
 
 

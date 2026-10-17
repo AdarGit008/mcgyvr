@@ -40,26 +40,26 @@ from mcgyvr.sandbox.declared import has_toml_table as _has_toml_table
 
 _EXTENSIONS = (".py", ".pyi")
 
-# The adapter shells out to ``ruff`` for both lint and format. The binary is
-# resolved through ``require_tool``, so a missing one is an environment fault
-# rather than a finding against the change. The constants below pin the
-# configuration used when the repo declares none of its own.
+#: The adapter shells out to ``ruff`` for both lint and format. The binary is
+#: resolved through ``require_tool``, so a missing one is an environment fault
+#: rather than a finding against the change. The constants below pin the
+#: configuration used when the repo declares none of its own.
 RUFF = "ruff"
 
-# The fallback rule set, used only when the repo says nothing about ruff (see
-# ``declares_ruff_config``). Families are named instead of individual rules so
-# the adapter picks up the ones ruff grows inside them: E4, E7 and E9 for import
-# and statement layout plus runtime errors; F for the names pyflakes finds unused
-# or undefined, and W for the warnings it carries; I for import order and
-# grouping; N for pep8-naming; UP for spellings the language has since absorbed;
-# B for the constructs bugbear treats as mistakes; SIM for simplify; and RUF for
-# ruff's own rules. Width and quote style are pinned to ruff's defaults, so a
-# repo that declares nothing is judged against this stated selection — wider than
-# ruff's own default of E4/E7/E9/F — not left to ruff. ``_RUFF_CONFIG_FILES``
-# names the files ruff searches
-# for itself: when one of them is present, or a ``[tool.ruff]`` table exists in
-# ``pyproject.toml``, the gate runs ruff unconfigured and lets the repo's
-# settings stand.
+#: The fallback rule set, used only when the repo says nothing about ruff (see
+#: ``declares_ruff_config``). Families are named instead of individual rules so
+#: the adapter picks up the ones ruff grows inside them: E4, E7 and E9 for import
+#: and statement layout plus runtime errors; F for the names pyflakes finds unused
+#: or undefined, and W for the warnings it carries; I for import order and
+#: grouping; N for pep8-naming; UP for spellings the language has since absorbed;
+#: B for the constructs bugbear treats as mistakes; SIM for simplify; and RUF for
+#: ruff's own rules. Width and quote style are pinned to ruff's defaults, so a
+#: repo that declares nothing is judged against this stated selection — wider than
+#: ruff's own default of E4/E7/E9/F — not left to ruff. ``_RUFF_CONFIG_FILES``
+#: names the files ruff searches
+#: for itself: when one of them is present, or a ``[tool.ruff]`` table exists in
+#: ``pyproject.toml``, the gate runs ruff unconfigured and lets the repo's
+#: settings stand.
 DEFAULT_RUFF_SELECT: tuple[str, ...] = (
     "E4",
     "E7",
@@ -469,9 +469,9 @@ def _read_or_empty(path: Path) -> str:
     return _read(path) or ""
 
 
-# Source is read with ``errors="surrogateescape"``, which turns each undecodable
-# byte into the lone surrogate U+DC80..U+DCFF (the byte plus 0xDC00). Subtracting
-# this base recovers the original byte value for the error message.
+#: Source is read with ``errors="surrogateescape"``, which turns each undecodable
+#: byte into the lone surrogate U+DC80..U+DCFF (the byte plus 0xDC00). Subtracting
+#: this base recovers the original byte value for the error message.
 _SURROGATE_BASE = 0xDC00
 
 

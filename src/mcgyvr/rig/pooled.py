@@ -27,74 +27,75 @@ from pathlib import Path
 from mcgyvr.rig.sessionwire import WIREGUARD_KEY
 from mcgyvr.sandbox.image import DockerResult, DockerRunner, subprocess_runner
 
-# Docker labels on every container this module starts; `owned` reads them back.
+#: Docker labels on every container this module starts; `owned` reads them back.
 LABEL = "mcgyvr.pool"
 LABEL_SESSION = "mcgyvr.pool.session"
 LABEL_AGENT = "mcgyvr.pool.agent"
 LABEL_PART = "mcgyvr.pool.part"
 
-# Seccomp profile for the worker and head containers, beside this module.
+#: Seccomp profile for the worker and head containers, beside this module.
 SECCOMP_PROFILE = Path(__file__).with_name("pooled-seccomp.json")
 
-# The tunnel image: a pinned alpine digest with wireguard-go, wg, nft and
-# iproute2, plus python3 for the probe loops. Pool builds it when it is missing.
+#: The tunnel image: a pinned alpine digest with wireguard-go, wg, nft and
+#: iproute2, plus python3 for the probe loops. Pool builds it when it is missing.
 TUNNEL_DOCKERFILE = (
     "FROM alpine:3.22@sha256:"
     "5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8\n"
     "RUN apk add --no-cache wireguard-go wireguard-tools-wg nftables "
     "iproute2-minimal python3\n"
 )
-# Repository name the tunnel image is tagged with; the tag is a digest of the file.
+#: Repository name the tunnel image is tagged with; the tag is a digest of the file.
 TUNNEL_REPOSITORY = "mcgyvr-tunnel"
 
-# Port llama-server listens on inside the head; api_port is published onto it.
+#: Port llama-server listens on inside the head; api_port is published onto it.
 HEAD_API_PORT = 8080
-# Where a worker's cache volume and the rig's model folder are mounted.
+#: Where a worker's cache volume and the rig's model folder are mounted.
 CACHE_MOUNT = "/rpc-cache"
 MODELS_MOUNT = "/models"
-# KV cache type for llama-server: -ctk and -ctv both get this value.
+#: KV cache type for llama-server: -ctk and -ctv both get this value.
 KV_CACHE_TYPE = "q8_0"
-# Touched by Pool.renew_lease; the entrypoint exits once its mtime lags by lease_s.
+#: Touched by Pool.renew_lease; the entrypoint exits once its mtime lags by lease_s.
 LEASE_FILE = "/run/mcgyvr/lease"
-# Where the detached STUN keep-alive writes its pid, so the next TUNNEL_SCRIPT can
-# kill it before it rebinds the listen port.
+#: Where the detached STUN keep-alive writes its pid, so the next TUNNEL_SCRIPT can
+#: kill it before it rebinds the listen port.
 KEEPER_PID_FILE = "/run/mcgyvr/stun.pid"
-# Interpreter in the tunnel container; run_python and start_python exec it with -I.
+#: Interpreter in the tunnel container; run_python and start_python exec it with -I.
 TUNNEL_PYTHON = "python3"
 
-# --pids-limit per container: the tunnel runs wireguard-go and the probe loops,
-# a worker one rpc server under the guard script, and a head one llama-server.
+#: --pids-limit per container: the tunnel runs wireguard-go and the probe loops,
+#: a worker one rpc server under the guard script, and a head one llama-server.
 TUNNEL_PIDS = 64
 WORKER_PIDS = 256
 HEAD_PIDS = 512
-# Memory limit for the tunnel container, in MiB; --memory-swap is the same number,
-# so the container cannot swap above it. That budget has to hold wireguard-go, nft,
-# wg and the probe loops, which is why the Go runtime below is capped at a fraction.
+#: Memory limit for the tunnel container, in MiB; --memory-swap is the same number,
+#: so the container cannot swap above it. That budget has to hold wireguard-go, nft,
+#: wg and the probe loops, which is why the Go runtime below is capped at a fraction.
 TUNNEL_MEMORY_MB = 1024
-# GOMEMLIMIT for wireguard-go in MiB: three quarters of the container's memory, which
-# leaves a quarter for the Go runtime's non-heap overhead, nft, wg and the probes.
+#: GOMEMLIMIT for wireguard-go in MiB: three quarters of the container's memory, which
+#: leaves a quarter for the Go runtime's non-heap overhead, nft, wg and the probes.
 TUNNEL_GO_MEMORY_MB = TUNNEL_MEMORY_MB * 3 // 4
-# MTU of the wg0 interface, set by TUNNEL_ENTRY with `ip link`. It is the largest
-# inner packet the tunnel carries; wireguard adds its own headers on top of it. The
-# probes read it back from /sys/class/net/wg0/mtu and ping TUNNEL_MTU minus
-# PING_HEADERS bytes, so a path that carries small packets can be told from one that
-# carries a full-size payload; a peer that fails that ping makes the session too narrow.
+#: MTU of the wg0 interface, set by TUNNEL_ENTRY with `ip link`. It is the largest
+#: inner packet the tunnel carries; wireguard adds its own headers on top of it. The
+#: probes read it back from /sys/class/net/wg0/mtu and ping TUNNEL_MTU minus
+#: PING_HEADERS bytes, so a path that carries small packets can be told from one that
+#: carries a full-size payload; a peer that fails that ping makes the session too
+#: narrow.
 TUNNEL_MTU = 1200
-# Bytes ICMP adds to a ping payload: the 20-byte IP header and the 8-byte ICMP header.
-# PING_SCRIPT subtracts it from the wg0 MTU to get the payload that fills a tunnel
-# packet; the MTU is read inside the container, so the probe follows the live value.
+#: Bytes ICMP adds to a ping payload: the 20-byte IP header and the 8-byte ICMP header.
+#: PING_SCRIPT subtracts it from the wg0 MTU to get the payload that fills a tunnel
+#: packet; the MTU is read inside the container, so the probe follows the live value.
 PING_HEADERS = 28
-# Full-size pings PING_SCRIPT sends; one reply makes ping succeed, so "full ok" means
-# at least one of them came back and "full lost" means none did.
+#: Full-size pings PING_SCRIPT sends; one reply makes ping succeed, so "full ok" means
+#: at least one of them came back and "full lost" means none did.
 FULL_PINGS = 3
-# Writable tmpfs over each read-only root: /run in the tunnel, /tmp (HOME) in engines.
+#: Writable tmpfs over each read-only root: /run in the tunnel, /tmp (HOME) in engines.
 TUNNEL_TMPFS = "/run:rw,nosuid,nodev,noexec,size=1m"
 ENGINE_TMPFS = "/tmp:rw,nosuid,nodev,noexec,size=64m"
 
-# Entrypoint of the tunnel container (`sh -c` with TUNNEL_ENTRY, the listen port and
-# the lease seconds): install an nft table inet mcgyvr whose input, output and forward
-# policies drop everything but loopback and the rules the later scripts add, start
-# wireguard-go on wg0, print public-key, address, gateway and ready, watch the lease.
+#: Entrypoint of the tunnel container (`sh -c` with TUNNEL_ENTRY, the listen port and
+#: the lease seconds): install an nft table inet mcgyvr whose input, output and forward
+#: policies drop everything but loopback and the rules the later scripts add, start
+#: wireguard-go on wg0, print public-key, address, gateway and ready, watch the lease.
 TUNNEL_ENTRY = (
     r"""set -eu
 umask 077
@@ -153,9 +154,9 @@ exit 4
 """
 )
 
-# Open the tunnel's UDP listen port to the given STUN servers: flush the stun chains,
-# then allow, in both directions on eth0, that port against each server address and
-# port pair (host, port, host, port, ...). The STUN probe binds the port after this.
+#: Open the tunnel's UDP listen port to the given STUN servers: flush the stun chains,
+#: then allow, in both directions on eth0, that port against each server address and
+#: port pair (host, port, host, port, ...). The STUN probe binds the port after this.
 STUN_SCRIPT = r"""set -eu
 port="$1"
 shift
@@ -173,17 +174,17 @@ udp sport $2 udp dport $port accept"
 echo "open"
 """
 
-# Bring the tunnel up. The arguments are what TunnelPlan.script_args() returns: the
-# interface address in CIDR form, the listen port, and five words per peer: its public
-# key, endpoint host or "-", endpoint port, keepalive seconds and allowed-ips.
-# It first stops any keep-alive loop left by an earlier run, whose pid it finds in
-# KEEPER_PID_FILE and which holds the listen port, then rewrites the whole table:
-# flush the stun and wg chains, allow the wireguard port to each peer's endpoint on
-# eth0, allow ICMP inside the tunnel between this address and each allowed network,
-# set the listen port, add the address to wg0, and point each peer at its endpoint
-# (leaving it unaimed when the host is "-") with its allowed-ips and keepalive.
-# It prints "up" once all of that is in place; PATH_SCRIPT re-aims peers later.
-# These rules match the peer's address and the listen port, not its source port.
+#: Bring the tunnel up. The arguments are what TunnelPlan.script_args() returns: the
+#: interface address in CIDR form, the listen port, and five words per peer: its public
+#: key, endpoint host or "-", endpoint port, keepalive seconds and allowed-ips.
+#: It first stops any keep-alive loop left by an earlier run, whose pid it finds in
+#: KEEPER_PID_FILE and which holds the listen port, then rewrites the whole table:
+#: flush the stun and wg chains, allow the wireguard port to each peer's endpoint on
+#: eth0, allow ICMP inside the tunnel between this address and each allowed network,
+#: set the listen port, add the address to wg0, and point each peer at its endpoint
+#: (leaving it unaimed when the host is "-") with its allowed-ips and keepalive.
+#: It prints "up" once all of that is in place; PATH_SCRIPT re-aims peers later.
+#: These rules match the peer's address and the listen port, not its source port.
 TUNNEL_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
@@ -234,14 +235,14 @@ done
 echo "up"
 """
 
-# Move peers to the candidate addresses the walkers are testing. The arguments are the
-# listen port, then five words per peer: public key, host or "-", port, a mode word
-# and a moved flag, the same shape TUNNEL_SCRIPT takes. Only the wg chains are
-# rewritten: flush them, then for each peer allow the listen port to and from its aim
-# on eth0, matching the aim's own port too when the mode is "exact" and any port from
-# that host when it is not (a peer aimed at "-" gets no rule at all). The wireguard
-# endpoint is set to the aim only when the moved flag is "1", so a peer that is merely
-# being tested keeps the endpoint it had. It prints "aimed" once nft has them.
+#: Move peers to the candidate addresses the walkers are testing. The arguments are the
+#: listen port, then five words per peer: public key, host or "-", port, a mode word
+#: and a moved flag, the same shape TUNNEL_SCRIPT takes. Only the wg chains are
+#: rewritten: flush them, then for each peer allow the listen port to and from its aim
+#: on eth0, matching the aim's own port too when the mode is "exact" and any port from
+#: that host when it is not (a peer aimed at "-" gets no rule at all). The wireguard
+#: endpoint is set to the aim only when the moved flag is "1", so a peer that is merely
+#: being tested keeps the endpoint it had. It prints "aimed" once nft has them.
 PATH_SCRIPT = r"""set -eu
 port="$1"
 shift
@@ -275,10 +276,10 @@ done
 echo "aimed"
 """
 
-# Poke each given host with one ping so wireguard handshakes happen, then print the
-# epoch time and one line per peer for `wg show wg0 latest-handshakes` and `wg show
-# wg0 endpoints`, prefixed "handshake " and "endpoint " so read_peers can tell them
-# apart. A peer that answers nothing still appears, with a zero handshake and "(none)".
+#: Poke each given host with one ping so wireguard handshakes happen, then print the
+#: epoch time and one line per peer for `wg show wg0 latest-handshakes` and `wg show
+#: wg0 endpoints`, prefixed "handshake " and "endpoint " so read_peers can tell them
+#: apart. A peer that answers nothing still appears, with a zero handshake and "(none)".
 PEERS_SCRIPT = r"""for host in "$@"; do
   ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
 done
@@ -288,8 +289,8 @@ wg show wg0 latest-handshakes | sed 's/^/handshake /'
 wg show wg0 endpoints | sed 's/^/endpoint /'
 """
 
-# Open a worker's RPC port to the tunnel: for each peer network, allow TCP from wg0 to
-# this address and port, and the replies back out, so the head can reach the server.
+#: Open a worker's RPC port to the tunnel: for each peer network, allow TCP from wg0 to
+#: this address and port, and the replies back out, so the head can reach the server.
 OPEN_WORKER_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
@@ -303,13 +304,13 @@ done | nft -f -
 echo "open"
 """
 
-# Open the head's side of the tunnel. The arguments are this rig's tunnel address, the
-# container gateway and one host/port pair per remote rpc device. On eth0 it allows the
-# gateway to reach the head's API port, which is how the published port gets in. On wg0
-# it allows the head to open TCP to each rpc device's address and port, and allows the
-# replies to come back to the head's address on any port of the local ephemeral range
-# the kernel picks for those outgoing connections
-# (/proc/sys/net/ipv4/ip_local_port_range). It prints "open" once nft takes them.
+#: Open the head's side of the tunnel. The arguments are this rig's tunnel address, the
+#: container gateway and one host/port pair per remote rpc device. On eth0 it allows the
+#: gateway to reach the head's API port, which is how the published port gets in. On wg0
+#: it allows the head to open TCP to each rpc device's address and port, and allows the
+#: replies to come back to the head's address on any port of the local ephemeral range
+#: the kernel picks for those outgoing connections
+#: (/proc/sys/net/ipv4/ip_local_port_range). It prints "open" once nft takes them.
 OPEN_HEAD_SCRIPT = r"""set -eu
 self="$1"
 gateway="$2"
@@ -333,24 +334,24 @@ tcp sport $2 tcp dport $low-$high accept"
 echo "open"
 """
 
-# Does the given address and port already have a listening TCP socket? Both are turned
-# into the hex form /proc/net/tcp uses and matched on an entry in state 0A (LISTEN).
+#: Does the given address and port already have a listening TCP socket? Both are turned
+#: into the hex form /proc/net/tcp uses and matched on an entry in state 0A (LISTEN).
 LISTENING_SCRIPT = r"""set -eu
 hex=$(echo "$1" | awk -F. '{printf "%02X%02X%02X%02X", $4, $3, $2, $1}')
 port=$(printf '%04X' "$2")
 grep -q " $hex:$port 00000000:0000 0A " /proc/net/tcp
 """
 
-# Probe one peer host from inside the tunnel; the host is the only argument. A single
-# ping must be answered or the script gives up (set -e), which tells a dead path from a
-# slow one; then five pings at 0.2 s print the average round-trip time in milliseconds,
-# the fourth field of ping's round-trip min/avg/max line once it is split on "/".
-# The rest of the script asks whether the path carries a full-size tunnel packet: the
-# payload is the wg0 MTU less PING_HEADERS, it is pinged FULL_PINGS times, and the
-# script prints "full ok <size>" if at least one reply comes back and "full lost
-# <size>" if none does. read_ping reports both parts, and PingSeen.narrow is the case
-# that matters: small pings get through and a full-size one does not. A host that
-# answers no small ping at all makes the script exit non-zero.
+#: Probe one peer host from inside the tunnel; the host is the only argument. A single
+#: ping must be answered or the script gives up (set -e), which tells a dead path from a
+#: slow one; then five pings at 0.2 s print the average round-trip time in milliseconds,
+#: the fourth field of ping's round-trip min/avg/max line once it is split on "/".
+#: The rest of the script asks whether the path carries a full-size tunnel packet: the
+#: payload is the wg0 MTU less PING_HEADERS, it is pinged FULL_PINGS times, and the
+#: script prints "full ok <size>" if at least one reply comes back and "full lost
+#: <size>" if none does. read_ping reports both parts, and PingSeen.narrow is the case
+#: that matters: small pings get through and a full-size one does not. A host that
+#: answers no small ping at all makes the script exit non-zero.
 PING_SCRIPT = (
     r"""set -eu
 ping -c 1 -W 2 -q "$1" >/dev/null
@@ -365,11 +366,11 @@ fi
 """
 )
 
-# Poke each given host with one ping so the peers on the other side have something to
-# answer, then print `wg show wg0 transfer`: one line per peer with its public key and
-# the bytes it received and sent.
-# The pings go out in parallel and are waited for, and no ping's status matters;
-# read_transfer and read_sent read the two counters out of the lines that parse.
+#: Poke each given host with one ping so the peers on the other side have something to
+#: answer, then print `wg show wg0 transfer`: one line per peer with its public key and
+#: the bytes it received and sent.
+#: The pings go out in parallel and are waited for, and no ping's status matters;
+#: read_transfer and read_sent read the two counters out of the lines that parse.
 TRANSFER_SCRIPT = r"""for host in "$@"; do
   ping -c 1 -W 1 -q "$host" >/dev/null 2>&1 &
 done
@@ -377,7 +378,7 @@ wait
 wg show wg0 transfer
 """
 
-# Run the server; kill it on TERM/INT or when wg0 is gone (exit 70); return its status.
+#: Run the server; kill it on TERM/INT or when wg0 is gone (exit 70); return its status.
 GUARD_SCRIPT = r""""$@" &
 child=$!
 trap 'kill "$child" 2>/dev/null' TERM INT
@@ -393,10 +394,10 @@ wait "$child"
 """
 
 _NAME_DIGEST = 12
-# Longest run of digits accepted for a counter, a handshake time or a bare rtt line.
+#: Longest run of digits accepted for a counter, a handshake time or a bare rtt line.
 _COUNT_DIGITS = 20
 _TUNNEL_LINE = re.compile(r"(public-key|address|gateway) (\S+)")
-# A `wg show wg0 transfer` line: the peer key, then its received and sent byte counts.
+#: A `wg show wg0 transfer` line: the peer key, then its received and sent byte counts.
 _TRANSFER_LINE = re.compile(
     rf"({WIREGUARD_KEY.pattern})\t(\d{{1,{_COUNT_DIGITS}}})\t(\d{{1,{_COUNT_DIGITS}}})"
 )

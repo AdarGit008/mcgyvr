@@ -52,10 +52,10 @@ from mcgyvr.weights import is_model
 # `None` — a hosted reply is then waited for however long it takes.
 GENERATE_TIMEOUT_S = DEFAULT_REQUEST_TIMEOUT_S
 
-# Seconds allowed to reach an address when the dispatch states no overall
-# timeout: it bounds the connect and the writing of the request, and nothing
-# after that. With no overall timeout there is no read deadline either, so a
-# reply that is slow to start is waited for rather than failed.
+#: Seconds allowed to reach an address when the dispatch states no overall
+#: timeout: it bounds the connect and the writing of the request, and nothing
+#: after that. With no overall timeout there is no read deadline either, so a
+#: reply that is slow to start is waited for rather than failed.
 HOSTED_CONNECT_TIMEOUT_S = 30.0
 
 # How much of a backend's error body is quoted in a raised message. An error
@@ -68,9 +68,9 @@ _ERROR_BODY_CHARS = 400
 # backend holds the reply to.
 _RESPONSE_SCHEMA_NAME = "reply"
 
-# The sentence carried by a reply from a path that cannot back a quality
-# measurement. It is put in a `Completion`'s notes, and is quoted when a
-# quality-sensitive request is refused on such a path rather than answered.
+#: The sentence carried by a reply from a path that cannot back a quality
+#: measurement. It is put in a `Completion`'s notes, and is quoted when a
+#: quality-sensitive request is refused on such a path rather than answered.
 CAVEAT_NOTE = (
     "Served by a path this build marks as unable to carry a quality "
     "measurement. Usable for work, not for measuring a model."
@@ -150,12 +150,12 @@ class Hangup:
             self._open.discard(sock)
 
 
-# The dispatches in force on this thread: a hangup entered as a context manager
-# is on this stack, and any request made while it is there is recorded under it.
+#: The dispatches in force on this thread: a hangup entered as a context manager
+#: is on this stack, and any request made while it is there is recorded under it.
 _dispatching = threading.local()
 
-# The hangup every dispatch is under, on every thread, so `hang_up_all` reaches
-# requests no per-thread hangup would.
+#: The hangup every dispatch is under, on every thread, so `hang_up_all` reaches
+#: requests no per-thread hangup would.
 _every = Hangup()
 
 
@@ -196,8 +196,8 @@ class ModelUnplacedError(SlotUnavailableError):
     the rung unavailable for now rather than misconfigured."""
 
 
-# The answer that says the hub behind a rung cannot place the rung's model right
-# now. It is read as width being unavailable, not as a broken rung.
+#: The answer that says the hub behind a rung cannot place the rung's model right
+#: now. It is read as width being unavailable, not as a broken rung.
 MODEL_UNPLACED: tuple[int, str] = (503, "model_unplaced")
 
 
@@ -206,9 +206,9 @@ class UnknownModelError(SlotUnavailableError):
     `model` is wrong, and the rung is passed over with a note saying so."""
 
 
-# The answer that says the address was asked for a model it does not know. It is
-# a mistake in the rung's `model`, so the rung is passed over and a note is
-# printed; asking again would put the same unknown name to the same address.
+#: The answer that says the address was asked for a model it does not know. It is
+#: a mistake in the rung's `model`, so the rung is passed over and a note is
+#: printed; asking again would put the same unknown name to the same address.
 UNKNOWN_MODEL: tuple[int, str] = (404, "model_not_found")
 
 
@@ -239,18 +239,18 @@ class StopReason(StrEnum):
     COMPLETE = "complete"
     TRUNCATED = "truncated"
     FILTERED = "filtered"
-    # The model stopped to ask for tool calls rather than to finish. It is a stop
-    # reason of its own, so such a reply is not read as done.
+    #: The model stopped to ask for tool calls rather than to finish. It is a stop
+    #: reason of its own, so such a reply is not read as done.
     TOOL_CALLS = "tool_calls"
     UNKNOWN = "unknown"
 
 
-# The `sampling` value a unit states when the server behind it fixes the
-# sampling parameters itself and refuses the ones a request names. A request to
-# such a unit carries no `temperature` at all, because sending one is answered
-# with an error. Any other value (the default is `request`) means the endpoint
-# takes the temperature the request states, which is what a deterministic first
-# draw needs of a local unit.
+#: The `sampling` value a unit states when the server behind it fixes the
+#: sampling parameters itself and refuses the ones a request names. A request to
+#: such a unit carries no `temperature` at all, because sending one is answered
+#: with an error. Any other value (the default is `request`) means the endpoint
+#: takes the temperature the request states, which is what a deterministic first
+#: draw needs of a local unit.
 SERVER_SAMPLED = "server"
 
 _STOP_REASONS: dict[str, StopReason] = {
@@ -358,22 +358,22 @@ class Completion:
     prefill_source: str | None = None
     in_flight: int | None = None
     in_flight_source: str | None = None
-    # Measured rates, each with a label saying where the number came from,
-    # because a backend's own timing and a figure derived from wall-clock latency
-    # are not the same fact: `decode_tok_s` is output tokens per second,
-    # `prefill_tok_s` input tokens per second of prefill, and `in_flight` how many
-    # requests the unit carried, this one included.
+    #: Measured rates, each with a label saying where the number came from,
+    #: because a backend's own timing and a figure derived from wall-clock latency
+    #: are not the same fact: `decode_tok_s` is output tokens per second,
+    #: `prefill_tok_s` input tokens per second of prefill, and `in_flight` how many
+    #: requests the unit carried, this one included.
     draft_n: int | None = None
     draft_n_accepted: int | None = None
-    # The tool calls the model asked for, in the order it asked for them, each
-    # naming a function and carrying its arguments as unparsed JSON text.
+    #: The tool calls the model asked for, in the order it asked for them, each
+    #: naming a function and carrying its arguments as unparsed JSON text.
     tool_calls: tuple[ToolCall, ...] = ()
-    # Hidden reasoning tokens the backend reported, where it reports them: they
-    # count towards `output_tokens`, so a cap can be spent entirely on them and
-    # leave no visible text.
+    #: Hidden reasoning tokens the backend reported, where it reports them: they
+    #: count towards `output_tokens`, so a cap can be spent entirely on them and
+    #: leave no visible text.
     reasoning_tokens: int | None = None
-    # What the cap was derived from, as the caller stated it, so a record can say
-    # why the reply had the room it had.
+    #: What the cap was derived from, as the caller stated it, so a record can say
+    #: why the reply had the room it had.
     cap_basis: str = ""
 
     @property
@@ -417,21 +417,21 @@ class _Parsed:
     raw_stop_reason: str
     input_tokens: int | None
     output_tokens: int | None
-    # The model the backend said it answered with, as it named itself, and `None`
-    # where it named none. It is what the runner checks against the model it asked
-    # for, so a rung pointed at other weights is caught before the reply is used.
+    #: The model the backend said it answered with, as it named itself, and `None`
+    #: where it named none. It is what the runner checks against the model it asked
+    #: for, so a rung pointed at other weights is caught before the reply is used.
     served_model: str | None
-    # The backend's own timing figures, where it reports them (llama.cpp's
-    # `timings` block does); a backend without them leaves these unknown.
+    #: The backend's own timing figures, where it reports them (llama.cpp's
+    #: `timings` block does); a backend without them leaves these unknown.
     decode_tok_s: float | None = None
     prefill_tok_s: float | None = None
-    # Speculative-decoding counters from the same block: drafts made, and drafts
-    # accepted.
+    #: Speculative-decoding counters from the same block: drafts made, and drafts
+    #: accepted.
     draft_n: int | None = None
     draft_n_accepted: int | None = None
-    # Tool calls the model asked for, already checked into `ToolCall`s.
+    #: Tool calls the model asked for, already checked into `ToolCall`s.
     tool_calls: tuple[ToolCall, ...] = ()
-    # Hidden reasoning tokens, where the usage block reports them.
+    #: Hidden reasoning tokens, where the usage block reports them.
     reasoning_tokens: int | None = None
 
 
@@ -885,11 +885,11 @@ def dispatch_role(
 
 # Measured figures, and where each one came from.
 
-# The labels carried beside a measured figure on a `Completion`: the backend's own
-# `timings` block, usage over wall-clock latency, a TTFT counter delta, or the
-# unit's slots page against its Prometheus metrics. Each label says where one
-# number came from, so a figure this build derived is never read as the backend's
-# own.
+#: The labels carried beside a measured figure on a `Completion`: the backend's own
+#: `timings` block, usage over wall-clock latency, a TTFT counter delta, or the
+#: unit's slots page against its Prometheus metrics. Each label says where one
+#: number came from, so a figure this build derived is never read as the backend's
+#: own.
 DECODE_FROM_TIMINGS = "timings"
 DECODE_FROM_USAGE_LATENCY = "usage_latency"
 PREFILL_FROM_TIMINGS = "timings"
@@ -897,12 +897,12 @@ PREFILL_FROM_METRICS_TTFT = "metrics_ttft"
 IN_FLIGHT_FROM_SLOTS = "slots"
 IN_FLIGHT_FROM_VLLM_METRICS = "vllm_metrics"
 
-# The status pages a dispatch polls around a request, and the bounds a poll is
-# given. vLLM reports through Prometheus metrics, llama.cpp through its slots
-# page. A poll never fails a dispatch — an unreadable page only leaves the figures
-# unknown — so its timeout and its read size are small and fixed. The TTFT metric
-# is summed and counted across instances, which is what makes a delta between two
-# polls a rate.
+#: The status pages a dispatch polls around a request, and the bounds a poll is
+#: given. vLLM reports through Prometheus metrics, llama.cpp through its slots
+#: page. A poll never fails a dispatch — an unreadable page only leaves the figures
+#: unknown — so its timeout and its read size are small and fixed. The TTFT metric
+#: is summed and counted across instances, which is what makes a delta between two
+#: polls a rate.
 SLOTS_PATH = "/slots"
 METRICS_PATH = "/metrics"
 STATUS_TIMEOUT_S = 10.0
@@ -919,8 +919,8 @@ class _Status:
 
     busy: int
     source: str
-    # Cumulative time-to-first-token seconds and the number of requests behind it,
-    # kept as a pair so two polls can be differenced into a prefill rate.
+    #: Cumulative time-to-first-token seconds and the number of requests behind it,
+    #: kept as a pair so two polls can be differenced into a prefill rate.
     ttft: tuple[float, int] | None = None
 
 
@@ -1076,8 +1076,8 @@ def _get_text(url: str, timeout: float) -> str | None:
 # The transport one dispatch is carried over.
 
 
-# How many bytes one read of a reply body asks for: an event at a time, so a
-# streamed reply is assembled as it arrives rather than buffered whole.
+#: How many bytes one read of a reply body asks for: an event at a time, so a
+#: streamed reply is assembled as it arrives rather than buffered whole.
 _READ_BYTES = 64 * 1024
 
 

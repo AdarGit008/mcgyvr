@@ -20,8 +20,8 @@ from mcgyvr.config import MCORCH
 from mcgyvr.mcorch.loop import Trace
 from mcgyvr.result import run_stamp
 
-# The sub-folder of the journal directory an mcorch transcript is filed under,
-# next to the run rows, results and blobs of the run that wrote it.
+#: The sub-folder of the journal directory an mcorch transcript is filed under,
+#: next to the run rows, results and blobs of the run that wrote it.
 FOLDER = "mcorch"
 
 

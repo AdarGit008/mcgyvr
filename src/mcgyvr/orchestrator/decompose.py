@@ -86,9 +86,9 @@ class Proposal:
     allow: tuple[str, ...] = ()
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
-    # What the reply to this unit of work is worth, in output tokens. A
-    # model-written contract that is judged by evidence must state one, so
-    # `_emit` refuses such a proposal while this is None.
+    #: What the reply to this unit of work is worth, in output tokens. A
+    #: model-written contract that is judged by evidence must state one, so
+    #: `_emit` refuses such a proposal while this is None.
     max_output_tokens: int | None = None
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()

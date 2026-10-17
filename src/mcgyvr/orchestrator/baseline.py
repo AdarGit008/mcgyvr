@@ -27,14 +27,14 @@ from pathlib import Path
 from mcgyvr.gate.adapters import JavaScriptAdapter
 from mcgyvr.gate.typecheck import TYPECHECK_TIMEOUT_S
 
-# Observing runs the suite once over the whole repository, so it is given the
-# same wall-clock budget as a checker invocation: a run past it is an environment
-# fault rather than something to report as a finding.
+#: Observing runs the suite once over the whole repository, so it is given the
+#: same wall-clock budget as a checker invocation: a run past it is an environment
+#: fault rather than something to report as a finding.
 OBSERVE_TIMEOUT_S = TYPECHECK_TIMEOUT_S
 
-# The summary lines ``pytest -rA`` prints per test: ``FAILED id - reason``,
-# ``ERROR id - reason``, ``PASSED id - reason``. The reason tail is optional, so
-# the id is everything up to it.
+#: The summary lines ``pytest -rA`` prints per test: ``FAILED id - reason``,
+#: ``ERROR id - reason``, ``PASSED id - reason``. The reason tail is optional, so
+#: the id is everything up to it.
 _FAILED = re.compile(r"^(?:FAILED|ERROR)\s+(?P<id>[^\n]+?)(?:\s+-\s+.*)?$")
 _PASSED = re.compile(r"^PASSED\s+(?P<id>[^\n]+?)(?:\s+-\s+.*)?$")
 

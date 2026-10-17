@@ -28,21 +28,21 @@ LLAMACPP_ENGINE = "llama.cpp"
 VLLM_ENGINE = "vllm"
 ENGINES = (LLAMACPP_ENGINE, VLLM_ENGINE)
 
-# The two --split-mode values llama.cpp offers for a server; llama.cpp's "row"
-# mode is handled below as a refusal rather than a split.
+#: The two --split-mode values llama.cpp offers for a server; llama.cpp's "row"
+#: mode is handled below as a refusal rather than a split.
 SPLIT_LAYER = "layer"
 SPLIT_TENSOR = "tensor"
 SPLITS = (SPLIT_LAYER, SPLIT_TENSOR)
-# Split modes the planner rejects before planning, with the reason it reports.
+#: Split modes the planner rejects before planning, with the reason it reports.
 REFUSED_SPLITS = {
     "row": (
         "llama.cpp's --split-mode row needs the backend's split buffers, which "
         "the CUDA backend no longer has, so the server throws at load"
     ),
 }
-# Architectures whose llama.cpp graph cannot run a tensor split
-# (llm_arch_supports_sm_tensor is false for them), as spelled by the scan's
-# `arch` field. On one of these, split: tensor is refused and split: layer used.
+#: Architectures whose llama.cpp graph cannot run a tensor split
+#: (llm_arch_supports_sm_tensor is false for them), as spelled by the scan's
+#: `arch` field. On one of these, split: tensor is refused and split: layer used.
 LLAMA_TENSOR_REFUSED_ARCHS = frozenset(
     {
         "grok",
@@ -77,25 +77,25 @@ LLAMA_TENSOR_REFUSED_ARCHS = frozenset(
         "qwen3tts",
     }
 )
-# The extra tensor-table keys a llama.cpp tensor split reads: the bytes each
-# block's weights lose when divided, the same for the output projection, and the
-# tensors the scan refused to place on llama.cpp's partial axis.
+#: The extra tensor-table keys a llama.cpp tensor split reads: the bytes each
+#: block's weights lose when divided, the same for the output projection, and the
+#: tensors the scan refused to place on llama.cpp's partial axis.
 LLAMA_TENSOR_KEYS = (
     "bytes_tensor_split_by_block",
     "bytes_output_tensor_split",
     "tensor_split_refused",
 )
 
-# Width in bytes of one activation element per engine, i.e. its compute dtype;
-# the payload a link carries per token is n_embd times this.
+#: Width in bytes of one activation element per engine, i.e. its compute dtype;
+#: the payload a link carries per token is n_embd times this.
 ACTIVATION_BYTES = {LLAMACPP_ENGINE: 4, VLLM_ENGINE: 2}
 
-# All-reduces a tensor-parallel block performs per token: one over the attention
-# output projection and one over the MLP down projection.
+#: All-reduces a tensor-parallel block performs per token: one over the attention
+#: output projection and one over the MLP down projection.
 ALL_REDUCES_PER_BLOCK = 2
 
-# Bytes per KV cache element for each --kv-cache-dtype spelling that vLLM sizing
-# accepts; a dtype outside this table is refused rather than guessed at.
+#: Bytes per KV cache element for each --kv-cache-dtype spelling that vLLM sizing
+#: accepts; a dtype outside this table is refused rather than guessed at.
 VLLM_CACHE_ELEM_BYTES = {
     "float16": 2.0,
     "bfloat16": 2.0,
@@ -104,9 +104,9 @@ VLLM_CACHE_ELEM_BYTES = {
     "fp8_e5m2": 1.0,
 }
 
-# The tensor-table keys every scan must carry for a split to be summed per card:
-# block counts, hidden width, weight bytes per block and for the matrices, the
-# embedding/output bytes, and the per-layer KV rows.
+#: The tensor-table keys every scan must carry for a split to be summed per card:
+#: block counts, hidden width, weight bytes per block and for the matrices, the
+#: embedding/output bytes, and the per-layer KV rows.
 TABLE_KEYS = (
     "n_layer",
     "n_embd",
@@ -210,8 +210,8 @@ class Plan:
     links: tuple[Link, ...]
     slots: int
     ctx_per_slot: int
-    # The machine the launch is driven from, taken from the first target; link
-    # crossings per token are counted against it.
+    #: The machine the launch is driven from, taken from the first target; link
+    #: crossings per token are counted against it.
     head: str
 
     @property

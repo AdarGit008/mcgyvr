@@ -24,8 +24,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.local_pool import SourceMap
 
-# The one question a judgment puts: a `Noul`, so the answer's value is true when
-# the task reads as too hard for the fast resident model and the API alike.
+#: The one question a judgment puts: a `Noul`, so the answer's value is true when
+#: the task reads as too hard for the fast resident model and the API alike.
 INSTRUCTIONS = (
     "Is this task hard enough that the smarter resident rung should be woken "
     "to try it, instead of the fast resident model or the API?"

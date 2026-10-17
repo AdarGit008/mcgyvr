@@ -95,8 +95,8 @@ class Assurance(StrEnum):
     UNCHECKED = "unchecked"
 
 
-# Why a change was accepted without a reviewer, as a sentence rather than a
-# flag: it lands in a judgement's detail, where the user reads it.
+#: Why a change was accepted without a reviewer, as a sentence rather than a
+#: flag: it lands in a judgement's detail, where the user reads it.
 NO_REVIEWER = "no reviewer is configured — set `verifier.unit`"
 
 
@@ -229,8 +229,8 @@ class Judgement:
     reviewer_failed: bool = False
     retry: RetryNotes | None = None
     detail: str = ""
-    # `draw` is the dispatch this judgement is about, `draws` the breadth
-    # the attempt asked for, and `rows` how many draws left a record.
+    #: `draw` is the dispatch this judgement is about, `draws` the breadth
+    #: the attempt asked for, and `rows` how many draws left a record.
     draw: int = 0
     draws: int = 1
     rows: int = 1
@@ -449,9 +449,9 @@ class Entry:
     rung: str
     machine: Machine = field(repr=False, compare=False)
     capacity: Capacity = field(repr=False, compare=False)
-    # `relief` says the rung is a lent one, outside the ladder. Machine and
-    # capacity are out of repr and equality: a printed entry names no
-    # machine, and two claims on the same rung compare equal.
+    #: `relief` says the rung is a lent one, outside the ladder. Machine and
+    #: capacity are out of repr and equality: a printed entry names no
+    #: machine, and two claims on the same rung compare equal.
     relief: bool = False
 
     def release(self) -> None:
@@ -771,14 +771,14 @@ class DispatchRaisedError(Exception):
         draw: int | None = None,
     ) -> None:
         super().__init__(str(cause))
-        # The exception itself, kept so an attempt record can name its type
-        # in the sentence it reports.
+        #: The exception itself, kept so an attempt record can name its type
+        #: in the sentence it reports.
         self.cause = cause
-        # The breadth this attempt asked for: independent dispatches of one try.
+        #: The breadth this attempt asked for: independent dispatches of one try.
         self.draws = draws
-        # How many of those draws left a journal row: 0 when none did.
+        #: How many of those draws left a journal row: 0 when none did.
         self.rows = rows
-        # Which draw raised, or None when no single dispatch caused it.
+        #: Which draw raised, or None when no single dispatch caused it.
         self.draw = draw
 
 

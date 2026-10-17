@@ -42,24 +42,24 @@ from dataclasses import dataclass, field
 from mcgyvr.rig import commands, protocol, sessionwire, udpwire
 from mcgyvr.rig.sessionwire import SessionCode
 
-# How many probes this rig keeps open at once; one more open is refused busy.
+#: How many probes this rig keeps open at once; one more open is refused busy.
 MAX_OPEN = 4
-# How long each STUN attempt waits for the hub's responder to answer.
+#: How long each STUN attempt waits for the hub's responder to answer.
 STUN_WAIT_S = 0.5
-# Most bytes one bulk datagram carries: a full-size probe packet.
+#: Most bytes one bulk datagram carries: a full-size probe packet.
 BULK_BYTES = udpwire.PROBE_PACKET_MAX_BYTES
-# A peer pings from each of its candidates once per round, so this is the most
-# pings one peer can send in a run; the guard never cuts a run short.
+#: A peer pings from each of its candidates once per round, so this is the most
+#: pings one peer can send in a run; the guard never cuts a run short.
 MAX_PONGS_PER_PEER = sessionwire.MAX_PROBE_COUNT * sessionwire.MAX_ENDPOINTS
-# Pongs all probes together give out in a second, so none amplifies a flood.
+#: Pongs all probes together give out in a second, so none amplifies a flood.
 MAX_PONGS_PER_S = 500
-# Most packets one bulk train may hold: the bound a train's packet count and
-# its sequence numbers are read against.
+#: Most packets one bulk train may hold: the bound a train's packet count and
+#: its sequence numbers are read against.
 MAX_TRAIN = -(-sessionwire.MAX_PROBE_BULK_BYTES // udpwire.PROBE_PACKET_MIN_BYTES)
-# How long each pass of a probe's loop waits for datagrams before the next.
+#: How long each pass of a probe's loop waits for datagrams before the next.
 SLICE_S = 0.05
-# How long release waits for a probe's thread to close its socket and free the
-# port a session is about to take.
+#: How long release waits for a probe's thread to close its socket and free the
+#: port a session is about to take.
 RELEASE_WAIT_S = 2.0
 
 

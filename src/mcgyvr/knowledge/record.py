@@ -24,25 +24,26 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-# The version of the document format these readers accept. A document that
-# states any other version is refused rather than read on a guess.
+#: The version of the document format these readers accept. A document that
+#: states any other version is refused rather than read on a guess.
 SCHEMA_VERSION = 2
 
-# The closed list of kinds a number may claim: a fact stated by the source it
-# names, an estimate the model card makes about itself, or a reading taken on a machine.
+#: The closed list of kinds a number may claim: a fact stated by the source it
+#: names, an estimate the model card makes about itself, or a reading taken on a
+#: machine.
 KINDS: tuple[str, ...] = ("fact", "estimate", "reading")
-# A reading, and the origin a reading alone comes from: a machine of the user's.
+#: A reading, and the origin a reading alone comes from: a machine of the user's.
 KIND_READING = "reading"
 MEASURED = "measured"
-# An estimate, and the origin that is always self-reported: the model card.
+#: An estimate, and the origin that is always self-reported: the model card.
 KIND_ESTIMATE = "estimate"
 SELF_REPORTED = "model-card"
-# The origin of a score: the leaderboard whose published figures it was read from.
+#: The origin of a score: the leaderboard whose published figures it was read from.
 BOARD = "board"
 
-# Every origin a number's source may name, with what a number from that
-# origin is a reading of. A source is `<origin>:<where>`, so what follows the colon
-# says where at that origin the number was read, and is never empty.
+#: Every origin a number's source may name, with what a number from that
+#: origin is a reading of. A source is `<origin>:<where>`, so what follows the colon
+#: says where at that origin the number was read, and is never empty.
 SOURCES: Mapping[str, str] = {
     "hub-api": (
         "the Hugging Face Hub model API (/api/models/<repo>), at the revision "
@@ -80,7 +81,7 @@ class Board:
     format: str
 
 
-# The boards a score may name, each with the one metric its rows carry.
+#: The boards a score may name, each with the one metric its rows carry.
 BOARDS: tuple[Board, ...] = (
     Board(
         id="lmarena-text",
@@ -144,7 +145,7 @@ BOARDS: tuple[Board, ...] = (
     ),
 )
 
-# The use cases no public board ranks, and, per use case, what ranks them instead.
+#: The use cases no public board ranks, and, per use case, what ranks them instead.
 UNRANKED: Mapping[str, str] = {
     "tts": (
         "no public board publishes data; ranked by mcgyvr's own ASR-WER gate "
@@ -189,14 +190,14 @@ class Weights:
     sha256: str
 
 
-# The whole-number fields of a record, each held as a `Number`.
+#: The whole-number fields of a record, each held as a `Number`.
 _INT_FIELDS: tuple[str, ...] = (
     "size_bytes",
     "context_length",
     "kv_bytes_per_token",
     "recurrent_bytes_per_slot",
 )
-# Of those fields, the two that must be strictly positive; the others may be zero.
+#: Of those fields, the two that must be strictly positive; the others may be zero.
 _POSITIVE = frozenset({"context_length", "kv_bytes_per_token"})
 _RECORD_KEYS = frozenset(
     {"model_id", "quant", "engines", "weights", "scores", *_INT_FIELDS}

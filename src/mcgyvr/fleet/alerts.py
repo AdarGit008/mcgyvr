@@ -40,9 +40,9 @@ class AllPulledError(Exception):
     """Live has nowhere to route: every combination its units work on is pulled."""
 
 
-# Field -> (the direction a trip runs, how its bound is read): "pct" is a
-# percentage below a locked figure, "abs" an absolute rise above one, "s" a
-# rise in seconds, and "room" the room a unit declares for its card.
+#: Field -> (the direction a trip runs, how its bound is read): "pct" is a
+#: percentage below a locked figure, "abs" an absolute rise above one, "s" a
+#: rise in seconds, and "room" the room a unit declares for its card.
 _JUDGED: dict[str, tuple[str, str]] = {
     "warm_decode_tok_s": ("down", "pct"),
     "prefill_tok_s": ("down", "pct"),
@@ -50,11 +50,11 @@ _JUDGED: dict[str, tuple[str, str]] = {
     "card_peak_mib": ("up", "abs"),
     "l2_wake_s": ("up", "s"),
     "downtime_s": ("up", "s"),
-    # The card a rig reads and the peak a load holds carry no locked figure:
-    # each is held to the ``room_mib`` its unit states, going over it a trip.
+    #: The card a rig reads and the peak a load holds carry no locked figure:
+    #: each is held to the ``room_mib`` its unit states, going over it a trip.
     "card_mib": ("up", "room"),
-    # A load peak is filed under that same rule, so a load that outgrows the
-    # room trips as loudly as the card read itself.
+    #: A load peak is filed under that same rule, so a load that outgrows the
+    #: room trips as loudly as the card read itself.
     "load_peak_mib": ("up", "room"),
 }
 
@@ -95,8 +95,8 @@ def _plain_hit(
     return None
 
 
-# A run id carries its start as ``run-YYYYMMDDTHHMMSS``; a row filed from a run
-# with no time of its own takes that start, written as ``YYYY-MM-DDTHH:MM:SS``.
+#: A run id carries its start as ``run-YYYYMMDDTHHMMSS``; a row filed from a run
+#: with no time of its own takes that start, written as ``YYYY-MM-DDTHH:MM:SS``.
 _RUN_AT = re.compile(r"run-(\d{8}T\d{6})")
 
 

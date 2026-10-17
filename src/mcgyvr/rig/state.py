@@ -19,7 +19,7 @@ from pathlib import Path
 from mcgyvr import atomic
 from mcgyvr.fleet import roots
 
-# The file's name under the data home; the whole document lives in this one file.
+#: The file's name under the data home; the whole document lives in this one file.
 STATE_FILE = "rig-state.json"
 
 
@@ -37,9 +37,9 @@ class State:
     hub: str
     pid: int
     connected: bool
-    # What the hub last told the agent: the rig it is bound to, the heartbeat
-    # interval it asked for, and when its last ack arrived. All three are None
-    # until the hub acks the hello.
+    #: What the hub last told the agent: the rig it is bound to, the heartbeat
+    #: interval it asked for, and when its last ack arrived. All three are None
+    #: until the hub acks the hello.
     rig_id: str | None
     heartbeat_s: int | None
     last_ack_at: float | None

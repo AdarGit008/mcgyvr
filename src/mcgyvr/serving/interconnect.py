@@ -22,26 +22,26 @@ from typing import Any
 from mcgyvr import atomic, derived
 from mcgyvr.fleet import links, roots
 
-# The name of the file, under the data home, that holds the user's own readings.
+#: The name of the file, under the data home, that holds the user's own readings.
 READINGS_FILENAME = "links.json"
-# The schema number a readings file must state; a file stating another is refused.
+#: The schema number a readings file must state; a file stating another is refused.
 READINGS_SCHEMA = 1
-# Bytes in a GiB, and microseconds in a second, for turning a fitted slope and
-# intercept (seconds per byte, seconds) into GiB/s and microseconds.
+#: Bytes in a GiB, and microseconds in a second, for turning a fitted slope and
+#: intercept (seconds per byte, seconds) into GiB/s and microseconds.
 _BYTES_PER_GIB = 2**30
 _MICROSECONDS_PER_SECOND = 1_000_000.0
 
-# The layers a number can come from: the user's own setting, the user's own
-# reading, and the estimate shipped with mcgyvr, in that order, strongest first.
+#: The layers a number can come from: the user's own setting, the user's own
+#: reading, and the estimate shipped with mcgyvr, in that order, strongest first.
 OVERRIDE = "override"
 READING = "reading"
 ESTIMATE = "estimate"
 _LAYERS: tuple[str, ...] = (OVERRIDE, READING, ESTIMATE)
 
-# One timed transfer: a payload in bytes and the seconds it took.
+#: One timed transfer: a payload in bytes and the seconds it took.
 Transfer = tuple[int, float]
-# Times each transfer between two named hosts: a payload in bytes and its
-# seconds, at least two distinct payload sizes, the way a link is read.
+#: Times each transfer between two named hosts: a payload in bytes and its
+#: seconds, at least two distinct payload sizes, the way a link is read.
 LinkReader = Callable[[str, str], Sequence[Transfer]]
 
 

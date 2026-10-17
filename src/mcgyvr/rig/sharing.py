@@ -20,32 +20,32 @@ from mcgyvr import atomic
 from mcgyvr.fleet import roots
 from mcgyvr.rig import hardware, protocol, sessionwire
 
-# The settings file's name inside the rig's home folder; `path()` joins the two.
+#: The settings file's name inside the rig's home folder; `path()` joins the two.
 SHARING_FILE = "rig-sharing.json"
-# A file larger than this is refused unread, so a stray file cannot be parsed.
+#: A file larger than this is refused unread, so a stray file cannot be parsed.
 MAX_SHARING_BYTES = 16384
-# The first tunnel port, and the one named when the settings name no other.
+#: The first tunnel port, and the one named when the settings name no other.
 DEFAULT_LISTEN_PORT = 51820
-# The tunnel ports a rig may take, one per session it reports at once.
-# A range that would pass the last port stops at it instead.
+#: The tunnel ports a rig may take, one per session it reports at once.
+#: A range that would pass the last port stops at it instead.
 TUNNEL_PORTS = protocol.MAX_SESSIONS_REPORTED
-# The memory a container is given when the settings name no other figure.
+#: The memory a container is given when the settings name no other figure.
 DEFAULT_CONTAINER_MB = 8192
-# How large the tensor cache may grow when the settings name no other size.
+#: How large the tensor cache may grow when the settings name no other size.
 DEFAULT_CACHE_MAX_MB = 16384
-# The binaries a head and a worker start inside the engine image.
+#: The binaries a head and a worker start inside the engine image.
 DEFAULT_HEAD_BINARY = "/app/llama-server"
 DEFAULT_WORKER_BINARY = "/app/ggml-rpc-server"
-# Only a card read from this vendor is lent, and it is lent by the vendor's own
-# index rather than by its place in the report.
+#: Only a card read from this vendor is lent, and it is lent by the vendor's own
+#: index rather than by its place in the report.
 LENT_VENDOR = "nvidia"
-# The lowest port the settings may name: below it a port needs privilege to take.
+#: The lowest port the settings may name: below it a port needs privilege to take.
 LOWEST_PORT = 1024
-# The shape of a binary path inside the image: absolute, plain segments, no "..".
+#: The shape of a binary path inside the image: absolute, plain segments, no "..".
 BINARY = re.compile(r"/[A-Za-z0-9._+-]+(/[A-Za-z0-9._+-]+)*")
-# Settings that once parsed and no longer do, each with the note shown in its
-# place. A file naming one still loads, and the note travels on `notes` so that
-# `rig share` can say what became of the setting.
+#: Settings that once parsed and no longer do, each with the note shown in its
+#: place. A file naming one still loads, and the note travels on `notes` so that
+#: `rig share` can say what became of the setting.
 RETIRED = {
     "max_vram_mb": "max_vram_mb: no longer a setting; a lent card is lent whole",
 }

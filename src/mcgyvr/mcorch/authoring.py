@@ -34,16 +34,16 @@ from mcgyvr.orchestrator.decompose import (
     decompose,
 )
 
-# The names `authoring_for` accepts: "direct" authors from the request alone,
-# the other two propose from a reading of the repository.
+#: The names `authoring_for` accepts: "direct" authors from the request alone,
+#: the other two propose from a reading of the repository.
 STRATEGIES = ("direct", "prose", "classifier")
 
-# The key the readiness question is asked under, and read back from the decision.
+#: The key the readiness question is asked under, and read back from the decision.
 READY_QUESTION = "ready_to_run"
 
-# The one question asked of every contract before it is handed to the model: it
-# must name a single target, carry a task a worker can do from the fields alone,
-# and give the gate something to judge the result by.
+#: The one question asked of every contract before it is handed to the model: it
+#: must name a single target, carry a task a worker can do from the fields alone,
+#: and give the gate something to judge the result by.
 READY = Noul(
     "Is this contract ready to run as written: one target, a task a worker can "
     "carry out from the fields alone, and a way to judge the result?"
@@ -55,8 +55,8 @@ class AuthoringUnavailableError(RuntimeError):
     and the server was bound without one."""
 
 
-# Prefix `Evidenced.handle` puts in front of a gather request; the loop strips it
-# and serves the rest as a `mcgyvr read` before the model is asked again.
+#: Prefix `Evidenced.handle` puts in front of a gather request; the loop strips it
+#: and serves the rest as a `mcgyvr read` before the model is asked again.
 GATHER = "gather:"
 
 

@@ -32,26 +32,26 @@ SESSIONS_DIR = "sessions"
 class AttemptResult:
     """One try at one rung, as the result file reports it."""
 
-    # The rung this try ran on and its number there, the verdict it came to
-    # (`passed`, `failed`, `declined`, `error`) with `detail` and `findings`
-    # behind it, and `attempt_id`, the journal row it was recorded as.
+    #: The rung this try ran on and its number there, the verdict it came to
+    #: (`passed`, `failed`, `declined`, `error`) with `detail` and `findings`
+    #: behind it, and `attempt_id`, the journal row it was recorded as.
     rung: str
     attempt: int
     verdict: str
     detail: str = ""
     findings: list[str] = field(default_factory=list)
     attempt_id: str | None = None
-    # An attempt can spend several draws: independent dispatches of the same
-    # try, so breadth buys more than one answer to choose between. `draw` is
-    # the one this entry is about, and `None` when no single dispatch caused
-    # the error it reports — `rows` of `0` means it raised before dispatching
-    # at all, and any more means it raised past draw `rows - 1`.
+    #: An attempt can spend several draws: independent dispatches of the same
+    #: try, so breadth buys more than one answer to choose between. `draw` is
+    #: the one this entry is about, and `None` when no single dispatch caused
+    #: the error it reports — `rows` of `0` means it raised before dispatching
+    #: at all, and any more means it raised past draw `rows - 1`.
     draw: int | None = 0
-    # `draws` is the breadth the attempt asked for — `breadth.draws`, or this
-    # rung's entry under `draws` — whatever the verdict turned out to be.
+    #: `draws` is the breadth the attempt asked for — `breadth.draws`, or this
+    #: rung's entry under `draws` — whatever the verdict turned out to be.
     draws: int = 1
-    # `rows` is how many of those draws left a journal row: `draws` unless the
-    # attempt raised part-way, and `0` for a try that declined before dispatch.
+    #: `rows` is how many of those draws left a journal row: `draws` unless the
+    #: attempt raised part-way, and `0` for a try that declined before dispatch.
     rows: int = 1
 
 
@@ -63,59 +63,59 @@ class RunResult:
     task_type: str
     target: str
     orchestrator: str
-    # `run` is this run's stamp, the id its journal rows and result file share;
-    # `journal` is the directory it was recorded under.
+    #: `run` is this run's stamp, the id its journal rows and result file share;
+    #: `journal` is the directory it was recorded under.
     run: str = ""
     session_file: str | None = None
     journal: str | None = None
     outcome: str = "error"
-    # `outcome` is one word for what the run came to — `accepted`, `rejected`,
-    # `nothing_to_change`, `delivery_refused`, one of the ceilings that stopped
-    # the climb (`ladder_spent`, `escalation_ceiling`, `attempt_ceiling`,
-    # `nothing_to_run`, `declined_throughout`), or `error` when nothing was
-    # judged at all — and `detail` says it in a sentence.
+    #: `outcome` is one word for what the run came to — `accepted`, `rejected`,
+    #: `nothing_to_change`, `delivery_refused`, one of the ceilings that stopped
+    #: the climb (`ladder_spent`, `escalation_ceiling`, `attempt_ceiling`,
+    #: `nothing_to_run`, `declined_throughout`), or `error` when nothing was
+    #: judged at all — and `detail` says it in a sentence.
     detail: str = ""
-    # `delivery` is where the work went: the commit, the fact that the change
-    # was left in the tree uncommitted, or why the write to it was refused —
-    # the same sentence `detail` carries for a refused delivery. Empty on a run
-    # that never reached delivery, which is every rejected one: those stop at
-    # the gate, with the change still in the sandbox and nothing written.
+    #: `delivery` is where the work went: the commit, the fact that the change
+    #: was left in the tree uncommitted, or why the write to it was refused —
+    #: the same sentence `detail` carries for a refused delivery. Empty on a run
+    #: that never reached delivery, which is every rejected one: those stop at
+    #: the gate, with the change still in the sandbox and nothing written.
     delivery: str = ""
-    # `rung` is the rung the accepted change came from, `assurance` what
-    # accepting it rests on, and `attempts` every try in the order they were made.
+    #: `rung` is the rung the accepted change came from, `assurance` what
+    #: accepting it rests on, and `attempts` every try in the order they were made.
     rung: str | None = None
     assurance: str | None = None
     attempts: list[AttemptResult] = field(default_factory=list)
-    # `findings` is why a change was refused, one line per reason; `committed`,
-    # `commit`, `branch` and `handoff` are the commit as fields.
+    #: `findings` is why a change was refused, one line per reason; `committed`,
+    #: `commit`, `branch` and `handoff` are the commit as fields.
     findings: list[str] = field(default_factory=list)
     committed: bool = False
     commit: str = ""
     branch: str = ""
     handoff: str = ""
-    # `answer` is a `chat`, `agent` or `media` reply — the prose the run
-    # produced and never wrote to the tree; empty for one that changed files.
+    #: `answer` is a `chat`, `agent` or `media` reply — the prose the run
+    #: produced and never wrote to the tree; empty for one that changed files.
     answer: str = ""
-    # `session_record` is where a session's record landed under `sessions/`, so
-    # the question and answer can be read back without the result file;
-    # `exit_code` is what the process returned for this run.
+    #: `session_record` is where a session's record landed under `sessions/`, so
+    #: the question and answer can be read back without the result file;
+    #: `exit_code` is what the process returned for this run.
     session_record: str | None = None
     exit_code: int | None = None
-    # `copy_errors` is a `--record DIR` copy that could not be written, keyed by
-    # the mirror directory it was meant for and holding the reason it was not.
-    # A copy is not a sink: mcgyvr's own record under `journal` is complete
-    # whatever this says, and a copy going missing must not turn a run that
-    # reached an answer into an error — so the failure is said on stderr, the
-    # run goes on, and the result file names it here. Empty on almost every
-    # run, which is what makes a non-empty one worth reading.
+    #: `copy_errors` is a `--record DIR` copy that could not be written, keyed by
+    #: the mirror directory it was meant for and holding the reason it was not.
+    #: A copy is not a sink: mcgyvr's own record under `journal` is complete
+    #: whatever this says, and a copy going missing must not turn a run that
+    #: reached an answer into an error — so the failure is said on stderr, the
+    #: run goes on, and the result file names it here. Empty on almost every
+    #: run, which is what makes a non-empty one worth reading.
     copy_errors: dict[str, str] = field(default_factory=dict)
-    # `notes` is what the run said in passing and the result would otherwise
-    # lose: the uncommitted and untracked paths the sandbox of HEAD left out,
-    # what a tool printed as it worked, and what an acceptance baseline left
-    # behind before cleanup took it away. `started` and `finished` are epoch
-    # stamps — `started` when the run began, `finished` when this file was
-    # written — kept as numbers so a caller can measure a run without parsing
-    # the ISO times beside them in a session record.
+    #: `notes` is what the run said in passing and the result would otherwise
+    #: lose: the uncommitted and untracked paths the sandbox of HEAD left out,
+    #: what a tool printed as it worked, and what an acceptance baseline left
+    #: behind before cleanup took it away. `started` and `finished` are epoch
+    #: stamps — `started` when the run began, `finished` when this file was
+    #: written — kept as numbers so a caller can measure a run without parsing
+    #: the ISO times beside them in a session record.
     notes: list[str] = field(default_factory=list)
     started: float = field(default_factory=time.time)
     finished: float | None = None
@@ -149,29 +149,29 @@ class SessionRecord:
     the times at both ends, and where the run's own result and journal are.
     """
 
-    # `session` is `<contract id>-<run stamp>`, the name it is filed under.
+    #: `session` is `<contract id>-<run stamp>`, the name it is filed under.
     session: str
     task_type: str
     contract: SessionContract
-    # `question` is the contract's task verbatim, kept with the contract's bytes
-    # above so the record still reads as a question after the file changes.
+    #: `question` is the contract's task verbatim, kept with the contract's bytes
+    #: above so the record still reads as a question after the file changes.
     question: str
-    # `answer` is the reply a session contract produced; where there is none it
-    # is empty and `detail` says why.
+    #: `answer` is the reply a session contract produced; where there is none it
+    #: is empty and `detail` says why.
     answer: str
-    # `unit` is the rung that answered; the outcome, assurance and detail are its.
+    #: `unit` is the rung that answered; the outcome, assurance and detail are its.
     unit: str | None
     outcome: str
     assurance: str | None
     detail: str
     attempt_id: str | None
-    # `orchestrator` is who typed the session, and `session_file` its transcript.
+    #: `orchestrator` is who typed the session, and `session_file` its transcript.
     orchestrator: str
     session_file: str | None
-    # `result` and `journal` are the run's result file and its journal, as paths.
+    #: `result` and `journal` are the run's result file and its journal, as paths.
     result: str
     journal: str
-    # `started` and `finished` are ISO 8601 UTC stamps ending in `Z`.
+    #: `started` and `finished` are ISO 8601 UTC stamps ending in `Z`.
     started: str
     finished: str
 

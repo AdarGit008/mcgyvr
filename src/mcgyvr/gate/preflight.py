@@ -225,14 +225,14 @@ def check_contract_fits(
     )
 
 
-# Which declaration may hold a contract to a share of the rung's window. The
-# contract's own `limits.max_window_fraction` and the run's
-# `max_window_fraction` from config both apply, the stricter one wins, and a
-# refusal names whichever declared it, so the number can be traced back to the
-# document that set it and raised there.
+#: Which declaration may hold a contract to a share of the rung's window. The
+#: contract's own `limits.max_window_fraction` and the run's
+#: `max_window_fraction` from config both apply, the stricter one wins, and a
+#: refusal names whichever declared it, so the number can be traced back to the
+#: document that set it and raised there.
 CONTRACT_SHARE = "the contract's own `limits.max_window_fraction`"
 RUN_SHARE = "the run's `max_window_fraction` (config)"
-# Equal values name both, since raising either one alone would change nothing.
+#: Equal values name both, since raising either one alone would change nothing.
 BOTH_SHARES = f"{CONTRACT_SHARE} and {RUN_SHARE}"
 
 

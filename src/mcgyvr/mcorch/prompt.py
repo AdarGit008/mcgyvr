@@ -18,11 +18,11 @@ from mcgyvr import contract
 from mcgyvr.docgen import _contract_section, _contract_table
 from mcgyvr.worker.bundle import strip_provenance
 
-# Slot the loop fills with Jev's notes after rendering; render leaves it intact.
+#: Slot the loop fills with Jev's notes after rendering; render leaves it intact.
 NOTES_SLOT = "{jev_notes}"
-# Slot render fills with the vocabulary table built from contract.SCHEMA.
+#: Slot render fills with the vocabulary table built from contract.SCHEMA.
 VOCABULARY_SLOT = "{vocabulary}"
-# Slots render fills with the writer id and the authoring strategy in force.
+#: Slots render fills with the writer id and the authoring strategy in force.
 _WRITER_SLOT = "{writer}"
 _AUTHORING_SLOT = "{authoring}"
 

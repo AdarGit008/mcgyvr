@@ -27,15 +27,15 @@ from mcgyvr.knowledge.record import (
     parse_document,
 )
 
-# The catalog file the package ships; every shipped record is read from it.
+#: The catalog file the package ships; every shipped record is read from it.
 MODEL_CATALOG_FILENAME = "model-catalog.json"
-# The folder under the mcgyvr home that holds one file per cached record.
+#: The folder under the mcgyvr home that holds one file per cached record.
 CACHE_DIR = "knowledge"
-# A cache file stem keeps these characters as they are; every other one becomes "_".
-# Model ids and quantisations carry spaces and "+", so names are flattened,
-# not used raw.
+#: A cache file stem keeps these characters as they are; every other one becomes "_".
+#: Model ids and quantisations carry spaces and "+", so names are flattened,
+#: not used raw.
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
-# The origin a Known record reports: CACHE for a cache file, SHIPPED for the catalog.
+#: The origin a Known record reports: CACHE for a cache file, SHIPPED for the catalog.
 CACHE = "cache"
 SHIPPED = "shipped"
 

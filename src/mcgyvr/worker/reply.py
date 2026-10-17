@@ -32,11 +32,11 @@ MEDIA_ARTIFACT = "media_artifact"
 # which is unwrapped before its text is judged.
 _ENVELOPE_FIELD = "content"
 
-# FENCE_OPEN matches a line that opens a fence: at most three leading spaces, three
-# or more backticks, then an optional info string containing no backtick. The match
-# records the backtick count, which is the width a closing fence must reach, and the
-# info string, whose first word is kept as the language tag. Because closing needs at
-# least as many backticks, a wider outer fence carries an inner one through as content.
+#: FENCE_OPEN matches a line that opens a fence: at most three leading spaces, three
+#: or more backticks, then an optional info string containing no backtick. The match
+#: records the backtick count, which is the width a closing fence must reach, and the
+#: info string, whose first word is kept as the language tag. Because closing needs at
+#: least as many backticks, a wider outer fence carries an inner one through as content.
 FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([^`]*)$")
 
 

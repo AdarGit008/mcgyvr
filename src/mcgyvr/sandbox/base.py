@@ -73,17 +73,17 @@ _KNOWN_CREDENTIAL_VARS = frozenset(
 )
 
 
-# The exit code a command is reported with when the sandbox killed it at the
-# timeout: negative, so it cannot be mistaken for a status the command itself
-# chose to exit with.
+#: The exit code a command is reported with when the sandbox killed it at the
+#: timeout: negative, so it cannot be mistaken for a status the command itself
+#: chose to exit with.
 TIMEOUT_EXIT = -1
 
-# The timeout a command gets when the caller names none, in seconds: a command
-# that outlives it is killed and reported as timed out, with `TIMEOUT_EXIT` as
-# its exit code. Fifteen minutes is long enough for a build or a test suite and
-# short enough that a hung command still ends while the task can report it;
-# both backends resolve a `None` timeout through `command_timeout`, so this one
-# number governs each of them.
+#: The timeout a command gets when the caller names none, in seconds: a command
+#: that outlives it is killed and reported as timed out, with `TIMEOUT_EXIT` as
+#: its exit code. Fifteen minutes is long enough for a build or a test suite and
+#: short enough that a hung command still ends while the task can report it;
+#: both backends resolve a `None` timeout through `command_timeout`, so this one
+#: number governs each of them.
 DEFAULT_COMMAND_TIMEOUT_S = 900.0
 
 
@@ -594,8 +594,8 @@ def _archive_into(source: Path, workspace: Path, base: str) -> None:
         raise SandboxError(f"could not extract archive into {workspace}: {detail}")
 
 
-# A source that is not a git repository is copied rather than archived, so the
-# files that hold secrets have to be recognised by name: these names are refused.
+#: A source that is not a git repository is copied rather than archived, so the
+#: files that hold secrets have to be recognised by name: these names are refused.
 _SECRET_FILES = (
     ".env",
     ".env.*",
@@ -616,20 +616,20 @@ _SECRET_FILES = (
     "id_ed25519",
 )
 
-# Directories that hold credentials as a whole, refused whenever they are a
-# directory.
+#: Directories that hold credentials as a whole, refused whenever they are a
+#: directory.
 _SECRET_DIRS = frozenset({".aws", ".gcloud", ".azure", ".ssh", ".gnupg", ".kube"})
 
-# Directories where only named children hold credentials, the rest being
-# ordinary configuration: `.docker/config.json` holds registry logins, and
-# `.config/gcloud` and `.config/gh` hold theirs.
+#: Directories where only named children hold credentials, the rest being
+#: ordinary configuration: `.docker/config.json` holds registry logins, and
+#: `.config/gcloud` and `.config/gh` hold theirs.
 _SECRET_UNDER = {
     ".docker": frozenset({"config.json"}),
     ".config": frozenset({"gcloud", "gh"}),
 }
 
-# Login files that are only secret when they carry something: `holds_a_secret`
-# reads them and looks for a token, password or auth entry.
+#: Login files that are only secret when they carry something: `holds_a_secret`
+#: reads them and looks for a token, password or auth entry.
 _LOGIN_RC = frozenset({".npmrc", ".pypirc", ".yarnrc", ".yarnrc.yml"})
 
 _RC_LOGIN = re.compile(r"(auth|token|password|passwd|secret)\w*\s*[=:]", re.IGNORECASE)
@@ -921,9 +921,9 @@ _NO_DAEMON_REFUSAL = (
     "it whenever no daemon answers."
 )
 
-# The networks a task may be given. The container backend honours both; the
-# tempdir backend runs on this host and cannot take the network away, so it
-# refuses anything but `bridge`.
+#: The networks a task may be given. The container backend honours both; the
+#: tempdir backend runs on this host and cannot take the network away, so it
+#: refuses anything but `bridge`.
 NETWORKS = ("bridge", "none")
 
 

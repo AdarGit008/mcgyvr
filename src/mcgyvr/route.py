@@ -293,19 +293,19 @@ class Result:
 
     verdict: Verdict
     detail: str = ""
-    # `findings` is why a failure was refused, one line per reason, and is empty
-    # on anything no gate refused: a passed or a declined result has no gate's
-    # reasons behind it to carry.
+    #: `findings` is why a failure was refused, one line per reason, and is empty
+    #: on anything no gate refused: a passed or a declined result has no gate's
+    #: reasons behind it to carry.
     findings: tuple[str, ...] = ()
-    # `draws` is the breadth this attempt asked for — from `draws_for`, which is
-    # the rung's `draws` entry over `breadth.draws` — whatever the verdict turned
-    # out to be. `rows` is how many of those draws left a record, so it is
-    # `draws` for a result that saw every candidate it asked for and `0` for one
-    # that declined before dispatching.
-    # `draw` is the draw this result is about, an index into `draws`. A row that
-    # is about no single draw says so by widening the type, which is what
-    # `Attempted.draw` does; the `0` kept here is the first draw and not a
-    # missing one.
+    #: `draws` is the breadth this attempt asked for — from `draws_for`, which is
+    #: the rung's `draws` entry over `breadth.draws` — whatever the verdict turned
+    #: out to be. `rows` is how many of those draws left a record, so it is
+    #: `draws` for a result that saw every candidate it asked for and `0` for one
+    #: that declined before dispatching.
+    #: `draw` is the draw this result is about, an index into `draws`. A row that
+    #: is about no single draw says so by widening the type, which is what
+    #: `Attempted.draw` does; the `0` kept here is the first draw and not a
+    #: missing one.
     draw: int = 0
     draws: int = 1
     rows: int = 1
@@ -354,27 +354,27 @@ class Attempted:
     verdict: Verdict
     detail: str = ""
     findings: tuple[str, ...] = ()
-    # `draw` is the draw this try is about — an index into `draws` — and is
-    # `int | None` here where `Result.draw` is a bare `int`, because a try that
-    # raised may be about no single draw: `escalate` records `None` there.
-    # `0` is the field's default and means the first draw, so `None` is the only
-    # way to say "no particular one". Which draw a raise happened in is what
-    # `rows` says: it counts the draws that left a row, so the raise came at
-    # draw `rows - 1` or later, and with `rows` of `0` it came before anything
-    # was sent.
+    #: `draw` is the draw this try is about — an index into `draws` — and is
+    #: `int | None` here where `Result.draw` is a bare `int`, because a try that
+    #: raised may be about no single draw: `escalate` records `None` there.
+    #: `0` is the field's default and means the first draw, so `None` is the only
+    #: way to say "no particular one". Which draw a raise happened in is what
+    #: `rows` says: it counts the draws that left a row, so the raise came at
+    #: draw `rows - 1` or later, and with `rows` of `0` it came before anything
+    #: was sent.
     draw: int | None = 0
-    # `draws` is the breadth the try asked for, whatever it came to: this
-    # rung's `draws` entry over `breadth.draws`, read by `draws_for`.
+    #: `draws` is the breadth the try asked for, whatever it came to: this
+    #: rung's `draws` entry over `breadth.draws`, read by `draws_for`.
     draws: int = 1
-    # `rows` is how many of those draws left a row of their own: `draws`, unless
-    # the attempt raised part-way. It is `0` for a decline and `0` for a raise
-    # that happened before anything was sent, which is what `raised` is there to
-    # tell apart.
+    #: `rows` is how many of those draws left a row of their own: `draws`, unless
+    #: the attempt raised part-way. It is `0` for a decline and `0` for a raise
+    #: that happened before anything was sent, which is what `raised` is there to
+    #: tell apart.
     rows: int = 1
-    # `raised` is set on a row built from an exception rather than from a
-    # `Result`: the row reads `FAILED` with the cause in `detail`, and no gate
-    # ever saw it. It is the one field here that is about the machinery instead
-    # of about the work.
+    #: `raised` is set on a row built from an exception rather than from a
+    #: `Result`: the row reads `FAILED` with the cause in `detail`, and no gate
+    #: ever saw it. It is the one field here that is about the machinery instead
+    #: of about the work.
     raised: bool = False
 
 

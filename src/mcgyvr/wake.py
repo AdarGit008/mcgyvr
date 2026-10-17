@@ -56,9 +56,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # in `put_down` depends on is the one the gate scripts themselves return.
 from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE
 
-# The answer of whatever is being sent through `Waker.dispatching`: a draw or a
-# read, sent again after a wake, and always of the type it would have been
-# without the wake, since the caller is handed the send's own value back.
+#: The answer of whatever is being sent through `Waker.dispatching`: a draw or a
+#: read, sent again after a wake, and always of the type it would have been
+#: without the wake, since the caller is handed the send's own value back.
 Answer = TypeVar("Answer")
 
 
@@ -134,8 +134,8 @@ class Wake:
     seconds: float
     predicted_s: float | None
     code: int
-    # The ports of the rungs the run acted on: every rung of the card, or only
-    # the ones named with --unit, and what the resting marks are kept by.
+    #: The ports of the rungs the run acted on: every rung of the card, or only
+    #: the ones named with --unit, and what the resting marks are kept by.
     ports: tuple[int, ...] = ()
 
     @property
@@ -332,10 +332,10 @@ def _all_vllm(config: Config, card: Card) -> bool:
     )
 
 
-# The engines whose units can be acted on one at a time: vLLM keeps its
-# process through a level-2 sleep, and a llama.cpp unit is a container of its
-# own that `serve down --unit` stops without touching its neighbours. Any other
-# engine is acted on only with the whole card.
+#: The engines whose units can be acted on one at a time: vLLM keeps its
+#: process through a level-2 sleep, and a llama.cpp unit is a container of its
+#: own that `serve down --unit` stops without touching its neighbours. Any other
+#: engine is acted on only with the whole card.
 _ALONE_ENGINES = ("vllm", DEFAULT_ENGINE)
 
 
@@ -607,18 +607,18 @@ class Waker:
     def __init__(self, config: Config) -> None:
         self._config = config
         self._cards = cards(config)
-        # The answer of each card's last wake, with the clock reading the run
-        # ended at: whether it worked, and when. The key is the card's host, or
-        # `host:rung` on a card whose units switch one at a time, so one unit's
-        # wake does not answer for its neighbour. Written under that card's own
-        # lock, taken below.
+        #: The answer of each card's last wake, with the clock reading the run
+        #: ended at: whether it worked, and when. The key is the card's host, or
+        #: `host:rung` on a card whose units switch one at a time, so one unit's
+        #: wake does not answer for its neighbour. Written under that card's own
+        #: lock, taken below.
         self._woken: dict[str, tuple[bool, float]] = {}
-        # `_lock` guards `_card_locks` and nothing else, and is held only long
-        # enough to take out one card's lock; the door run itself happens under
-        # that card's lock. A second draw refused by the same card therefore
-        # waits for the run already happening instead of starting another, and
-        # finds the card awake when it is let in. Two different cards never wait
-        # on each other.
+        #: `_lock` guards `_card_locks` and nothing else, and is held only long
+        #: enough to take out one card's lock; the door run itself happens under
+        #: that card's lock. A second draw refused by the same card therefore
+        #: waits for the run already happening instead of starting another, and
+        #: finds the card awake when it is let in. Two different cards never wait
+        #: on each other.
         self._lock = threading.Lock()
         self._card_locks: dict[str, threading.Lock] = {}
 

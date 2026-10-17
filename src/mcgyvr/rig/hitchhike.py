@@ -38,18 +38,18 @@ from mcgyvr.rig.sessionwire import SessionCode
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
 
-# The least time between two adverts: a change found sooner after
-# the last one is left to the check after it rather than sent now.
+#: The least time between two adverts: a change found sooner after
+#: the last one is left to the check after it rather than sent now.
 ADVERT_GAP_S = 1.0
-# How often the ticker ticks, and so the least time between two
-# checks: a tick less than this after the last check does nothing.
+#: How often the ticker ticks, and so the least time between two
+#: checks: a tick less than this after the last check does nothing.
 POLL_S = 0.25
-# How many hex digits of the name's digest a made-up id keeps.
+#: How many hex digits of the name's digest a made-up id keeps.
 _DIGEST_DIGITS = 16
 
 _NOT_ID = re.compile(r"[^A-Za-z0-9_-]")
 _ALNUM = re.compile(r"[A-Za-z0-9]")
-# The longest an id made from a name may be: the width of a message id.
+#: The longest an id made from a name may be: the width of a message id.
 _MAX_ID = 64
 
 

@@ -28,18 +28,18 @@ import urllib.parse
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-# The longest the server's answer to the upgrade may run to, in bytes, before it is
-# refused as too long
+#: The longest the server's answer to the upgrade may run to, in bytes, before it is
+#: refused as too long
 MAX_HANDSHAKE_BYTES = 16 * 1024
-# The GUID the protocol appends to a client key before hashing it into the answer
+#: The GUID the protocol appends to a client key before hashing it into the answer
 _GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-# The most bytes a control frame's payload may hold
+#: The most bytes a control frame's payload may hold
 _MAX_CONTROL = 125
-# The seconds a close may spend: writing the frame, then waiting for the peer's
+#: The seconds a close may spend: writing the frame, then waiting for the peer's
 CLOSE_WAIT_S = 1.0
 
-# The token characters a header name must be, and the field-value characters a header
-# value and a whole URL must be, or the request cannot carry either
+#: The token characters a header name must be, and the field-value characters a header
+#: value and a whole URL must be, or the request cannot carry either
 _TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
 _VALUE = re.compile(r"[\t\x20-\x7e]*")
 
@@ -62,9 +62,9 @@ class Close(enum.IntEnum):
     PROTOCOL_ERROR = 1002
     INVALID_DATA = 1007
     TOO_BIG = 1009
-    # Never sent: reported for a close from the peer that carried no status code
+    #: Never sent: reported for a close from the peer that carried no status code
     NO_STATUS = 1005
-    # Never sent: reported for a connection that dropped before any close frame
+    #: Never sent: reported for a connection that dropped before any close frame
     ABNORMAL = 1006
 
 

@@ -28,9 +28,9 @@ import types
 
 from mcgyvr.serving.gatelib import door_required, need, root
 
-# How long a signalled step is given to run its own INT/TERM trap and exit
-# before its whole process group is SIGKILLed: gate 7 must not read the rig
-# over a step that is still cleaning up.
+#: How long a signalled step is given to run its own INT/TERM trap and exit
+#: before its whole process group is SIGKILLed: gate 7 must not read the rig
+#: over a step that is still cleaning up.
 GRACE_S = 20.0
 
 FORWARDED = (signal.SIGINT, signal.SIGTERM)

@@ -26,12 +26,12 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-# Magic prefixes identifying each packet family on the wire.
+#: Magic prefixes identifying each packet family on the wire.
 VERSION = 1
 STUN_MAGIC = b"MCGS"
 PROBE_MAGIC = b"MCGP"
 RELAY_MAGIC = b"MCGR"
-# Size floors and ceilings in bytes; RELAY_MAX_PACKET_BYTES caps one relay packet.
+#: Size floors and ceilings in bytes; RELAY_MAX_PACKET_BYTES caps one relay packet.
 STUN_REQUEST_MIN_BYTES = 64
 STUN_REQUEST_MAX_BYTES = 512
 PROBE_PACKET_MIN_BYTES = 36
@@ -41,19 +41,19 @@ RELAY_BIND_MAX_BYTES = 512
 RELAY_MAX_PACKET_BYTES = 2048
 TOKEN_BYTES = 16
 TXID_BYTES = 12
-# Probe kinds carried in the packet's kind byte.
+#: Probe kinds carried in the packet's kind byte.
 PING = 1
 PONG = 2
 BULK = 3
-# Relay refusal reasons carried in a refusal's last byte.
+#: Relay refusal reasons carried in a refusal's last byte.
 BAD_TICKET = 1
 EXPIRED = 2
 FULL = 3
 RATE_LIMITED = 4
-# Shape a relay ticket must have: 22 to 256 URL-safe base64 characters.
+#: Shape a relay ticket must have: 22 to 256 URL-safe base64 characters.
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
-# Buffer size for recvfrom, large enough to hold any single UDP datagram.
-# Every receive path uses it, so a datagram is never read in pieces.
+#: Buffer size for recvfrom, large enough to hold any single UDP datagram.
+#: Every receive path uses it, so a datagram is never read in pieces.
 RECEIVE_BYTES = 65535
 
 _REQUEST = 1
@@ -65,10 +65,10 @@ _PROBE_HEAD = struct.Struct(f"!4sBBH{TOKEN_BYTES}sIQ")
 _RELAY_HEAD = struct.Struct("!4sBBH")
 _RELAY_REFUSED = struct.Struct("!4sBBB")
 _FAMILIES = {4: 4, 6: 16}
-# Request/answer rounds to try per server before treating it as silent;
-# the stun subcommand is handed this count by its caller.
+#: Request/answer rounds to try per server before treating it as silent;
+#: the stun subcommand is handed this count by its caller.
 STUN_ATTEMPTS = 3
-# Largest value the 32-bit seq and 64-bit stamp header fields can hold.
+#: Largest value the 32-bit seq and 64-bit stamp header fields can hold.
 MAX_SEQ = (1 << 32) - 1
 MAX_STAMP = (1 << 64) - 1
 

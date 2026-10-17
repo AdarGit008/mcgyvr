@@ -211,8 +211,8 @@ def actions(
     return out
 
 
-# A rig move: the rig, the combination it starts from, and the verbs it runs,
-# as (verb, unit) pairs.
+#: A rig move: the rig, the combination it starts from, and the verbs it runs,
+#: as (verb, unit) pairs.
 Move = tuple[str, str, tuple[tuple[str, str], ...]]
 
 

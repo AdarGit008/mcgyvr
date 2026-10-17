@@ -17,27 +17,27 @@ from typing import Any
 CLASS_VLLM = "vllm"
 CLASS_LLAMACPP = "llamacpp"
 CLASS_CPU_EXPERTS = "cpu_experts"
-# A llama.cpp unit that drafts with the GGUF's own grafted MTP head: it launches
-# `--spec-type draft-mtp`, or declares `speculative: mtp`, which is the same
-# declaration stated in the fleet file instead of in the flags and the argv.
+#: A llama.cpp unit that drafts with the GGUF's own grafted MTP head: it launches
+#: `--spec-type draft-mtp`, or declares `speculative: mtp`, which is the same
+#: declaration stated in the fleet file instead of in the flags and the argv.
 CLASS_MTP = "mtp"
-# Every class, in the order the per-class tolerance tables are asked for.
+#: Every class, in the order the per-class tolerance tables are asked for.
 CLASSES: tuple[str, ...] = (CLASS_VLLM, CLASS_LLAMACPP, CLASS_CPU_EXPERTS, CLASS_MTP)
 
-# The llama.cpp flags that keep expert blocks in host memory: `--cpu-moe` keeps
-# them all off the card, and `--n-cpu-moe n` keeps the first n blocks' worth.
+#: The llama.cpp flags that keep expert blocks in host memory: `--cpu-moe` keeps
+#: them all off the card, and `--n-cpu-moe n` keeps the first n blocks' worth.
 _CPU_MOE = "--cpu-moe"
 _N_CPU_MOE = "--n-cpu-moe"
 _CPU_EXPERT_FLAGS = frozenset({_CPU_MOE, _N_CPU_MOE})
-# The flag that names the draft type, and the draft type the MTP head runs as.
+#: The flag that names the draft type, and the draft type the MTP head runs as.
 _SPEC_TYPE = "--spec-type"
 _DRAFT_MTP = "draft-mtp"
-# The same flag and value as one token, which is how a launch may spell it.
+#: The same flag and value as one token, which is how a launch may spell it.
 _SPEC_TYPE_DRAFT_MTP = f"{_SPEC_TYPE}={_DRAFT_MTP}"
-# The `speculative` value a llama.cpp unit declares when it runs that head;
-# `none`, the default, drafts with nothing. Its argv spelling above is the same
-# declaration written as a flag, so a launch that says either one is of the MTP
-# class.
+#: The `speculative` value a llama.cpp unit declares when it runs that head;
+#: `none`, the default, drafts with nothing. Its argv spelling above is the same
+#: declaration written as a flag, so a launch that says either one is of the MTP
+#: class.
 _SPECULATIVE_MTP = "mtp"
 
 

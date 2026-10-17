@@ -29,22 +29,22 @@ from mcgyvr import atomic
 from mcgyvr.knowledge import store
 from mcgyvr.knowledge.record import KnowledgeError, Weights, _text
 
-# The geometry document format this code reads and writes; a document of any
-# other version is refused rather than read.
+#: The geometry document format this code reads and writes; a document of any
+#: other version is refused rather than read.
 SCHEMA_VERSION = 1
-# The folder, under the knowledge cache, holding one document per weights file.
+#: The folder, under the knowledge cache, holding one document per weights file.
 GEOMETRY_DIR = "geometry"
-# The data file shipping the catalog's own rows, looked for in the package and
-# then in the checkout's data directory.
+#: The data file shipping the catalog's own rows, looked for in the package and
+#: then in the checkout's data directory.
 SHIPPED_FILENAME = "model-geometry.json"
-# The reading every row is: a GGUF header fetched by byte ranges, which is what
-# a row's source starts with and what its source must say.
+#: The reading every row is: a GGUF header fetched by byte ranges, which is what
+#: a row's source starts with and what its source must say.
 SOURCE = "gguf-header-range"
 # A geometry is a reading of the file rather than an estimate, so its one kind
 # is a fact.
 KIND = "fact"
-# Characters a document's name may not hold: repo slashes become ``--``, and
-# every other one becomes ``_``.
+#: Characters a document's name may not hold: repo slashes become ``--``, and
+#: every other one becomes ``_``.
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 _FILE_KEYS = ("repo", "revision", "file")
 _DOCUMENT_KEYS = frozenset({"schema_version", "weights", "geometry"})

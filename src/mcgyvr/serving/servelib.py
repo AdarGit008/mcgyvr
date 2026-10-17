@@ -29,8 +29,8 @@ from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
 from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.serving.gatelib import door_required, need, ssh
 
-# The compose project every file is brought up under, passed as `-p`, so a
-# container's project is this tool; fleet read calls such a container ours.
+#: The compose project every file is brought up under, passed as `-p`, so a
+#: container's project is this tool; fleet read calls such a container ours.
 PROJECT = "mcgyvr"
 
 
@@ -59,12 +59,12 @@ class Service:
     name: str
     container: str
     port: int
-    # The `device_ids` the service reserves under deploy.resources.reservations,
-    # in file order; rigfile reads them as the card indexes the unit takes.
+    #: The `device_ids` the service reserves under deploy.resources.reservations,
+    #: in file order; rigfile reads them as the card indexes the unit takes.
     devices: tuple[str, ...] = ()
-    # A service written under a compose profile, so a plain `docker compose up`
-    # leaves it down: that is how the swap partner that starts asleep is declared.
-    # A whole `serve up` does not wait for it; a whole `serve down` names it.
+    #: A service written under a compose profile, so a plain `docker compose up`
+    #: leaves it down: that is how the swap partner that starts asleep is declared.
+    #: A whole `serve up` does not wait for it; a whole `serve down` names it.
     asleep: bool = False
 
 
@@ -261,8 +261,8 @@ def models_served(host: str, port: int) -> list[str] | None:
     return ids
 
 
-# What `sleeping` answers when the unit's sleep state could not be read: an
-# answer of its own, so a failed probe reads neither as awake nor as asleep.
+#: What `sleeping` answers when the unit's sleep state could not be read: an
+#: answer of its own, so a failed probe reads neither as awake nor as asleep.
 SLEEP_UNREAD = "unread"
 
 
@@ -302,10 +302,10 @@ class SleepLevelError(ValueError):
     """A sleep level this fleet does not issue was asked for, and nothing dialled."""
 
 
-# The host RAM a level-1 sleep surrenders and never gives back — a later
-# level-2 sleep does not release it, only a container restart does — measured
-# in GiB on this fleet, and carried here for one purpose: the refusal in
-# `sleep` states the number rather than only naming the ban.
+#: The host RAM a level-1 sleep surrenders and never gives back — a later
+#: level-2 sleep does not release it, only a container restart does — measured
+#: in GiB on this fleet, and carried here for one purpose: the refusal in
+#: `sleep` states the number rather than only naming the ban.
 _LEVEL_ONE_RAM_GIB = 13.46
 
 

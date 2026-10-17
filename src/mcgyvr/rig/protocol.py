@@ -22,51 +22,51 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-# The version this agent writes in ``v`` and the only one it reads: another
-# number is refused as ``unsupported_version``.
+#: The version this agent writes in ``v`` and the only one it reads: another
+#: number is refused as ``unsupported_version``.
 PROTOCOL_VERSION = 1
-# Largest frame, in bytes of UTF-8, that this agent reads or writes.
+#: Largest frame, in bytes of UTF-8, that this agent reads or writes.
 MAX_MESSAGE_BYTES = 64 * 1024
-# Frames per second one agent may send over its channel.
-# The agent paces itself at half this, so it stays well inside the limit.
+#: Frames per second one agent may send over its channel.
+#: The agent paces itself at half this, so it stays well inside the limit.
 MAX_FRAMES_PER_SECOND = 100
-# Most cards one hello or one heartbeat may report.
+#: Most cards one hello or one heartbeat may report.
 MAX_CARDS = 16
-# Highest card index a report may name; indexes start at 0 and no card may be
-# reported twice in one frame.
+#: Highest card index a report may name; indexes start at 0 and no card may be
+#: reported twice in one frame.
 MAX_CARD_INDEX = 63
-# Longest card name, in characters, a report may carry.
+#: Longest card name, in characters, a report may carry.
 CARD_NAME_MAX = 128
-# Upper bound on any RAM or VRAM figure in a frame, counted in MiB.
+#: Upper bound on any RAM or VRAM figure in a frame, counted in MiB.
 MAX_MB = 1 << 30
-# Longest error text, in characters: a longer one is cut to this before it is
-# sent, and a received one longer than this is refused.
+#: Longest error text, in characters: a longer one is cut to this before it is
+#: sent, and a received one longer than this is refused.
 MAX_ERROR_TEXT = 500
-# The seconds a hub may set as the heartbeat interval in an ack.
+#: The seconds a hub may set as the heartbeat interval in an ack.
 HEARTBEAT_INTERVAL_S = (1, 3600)
-# Most models a hello may name.
+#: Most models a hello may name.
 MAX_MODELS = 64
-# Most live session ids a hello may list.
+#: Most live session ids a hello may list.
 MAX_SESSIONS_REPORTED = 4
-# Upper bound on a model file's size, and on the bytes one of its tensors takes.
+#: Upper bound on a model file's size, and on the bytes one of its tensors takes.
 MAX_MODEL_BYTES = 1 << 50
-# Upper bound on a model's layer count.
-# Upper bound on a model's context length and on its embedding and head counts.
+#: Upper bound on a model's layer count.
+#: Upper bound on a model's context length and on its embedding and head counts.
 MAX_LAYERS = 4096
 MAX_COUNT = 1 << 20
-# Upper bound on the key and value cache a model spends per token.
+#: Upper bound on the key and value cache a model spends per token.
 MAX_KV_BYTES_PER_TOKEN = 1 << 30
 
-# The shapes the envelope's own fields take: message ids, type tags (which also
-# serve as error codes, endpoint kinds and feature names), machine ids and
-# agent versions.
+#: The shapes the envelope's own fields take: message ids, type tags (which also
+#: serve as error codes, endpoint kinds and feature names), machine ids and
+#: agent versions.
 MESSAGE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 TAG = re.compile(r"[a-z][a-z0-9_]{0,63}")
 MACHINE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 AGENT_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}")
-# A card name is text a hub may show, so it excludes control characters,
-# C1 controls, the bidi embedding and override marks and the bidi isolates: a
-# name from a driver cannot reorder or hide what a hub draws around it.
+#: A card name is text a hub may show, so it excludes control characters,
+#: C1 controls, the bidi embedding and override marks and the bidi isolates: a
+#: name from a driver cannot reorder or hide what a hub draws around it.
 CARD_NAME = re.compile("[^\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]+")
 
 
@@ -186,9 +186,9 @@ class ModelInfo:
     n_head: int | None = None
     n_head_kv: int | None = None
     kv_bytes_per_token: int | None = None
-    # The bytes the token embedding tensor and the output tensor take. A model
-    # whose output tensor is tied to its embedding has no output tensor of its
-    # own and carries 0 here, while a header that names neither leaves both None.
+    #: The bytes the token embedding tensor and the output tensor take. A model
+    #: whose output tensor is tied to its embedding has no output tensor of its
+    #: own and carries 0 here, while a header that names neither leaves both None.
     embd_bytes: int | None = None
     output_bytes: int | None = None
 
@@ -377,18 +377,18 @@ def _bounded(value: int | None, low: int, high: int, field: str) -> None:
     )
 
 
-# The shapes of what an offer names: model names, digests, architectures,
-# runtimes and endpoint hosts, at the patterns the hub's schema holds.
+#: The shapes of what an offer names: model names, digests, architectures,
+#: runtimes and endpoint hosts, at the patterns the hub's schema holds.
 MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 SHORT_TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}")
 RUNTIME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}")
 ENDPOINT_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.:-]{0,252}")
-# The roles an agent may offer, and the most it may offer at once.
+#: The roles an agent may offer, and the most it may offer at once.
 ROLES = ("head", "worker")
-# Most endpoints one offer may name.
+#: Most endpoints one offer may name.
 MAX_ENDPOINTS = 8
-# Most features one offer may name.
+#: Most features one offer may name.
 MAX_FEATURES = 16
 
 

@@ -32,15 +32,15 @@ LABEL_REPO = "mcgyvr.repo"
 LABEL_KEY = "mcgyvr.cache-key"
 LABEL_BASE_DIGEST = "mcgyvr.base-digest"
 
-# Version of the Dockerfile layout :func:`render_dockerfile` produces. It is
-# hashed into the cache key, so changing how images are built changes the tags
-# instead of silently reusing images built the old way. Bump it whenever that
-# rendering changes in a way existing images cannot serve.
+#: Version of the Dockerfile layout :func:`render_dockerfile` produces. It is
+#: hashed into the cache key, so changing how images are built changes the tags
+#: instead of silently reusing images built the old way. Bump it whenever that
+#: rendering changes in a way existing images cannot serve.
 IMAGE_LAYOUT = 2
 
-# Workspace-relative folders an install fills inside the image (.venv,
-# node_modules). The container mounts an anonymous volume over each one it
-# finds populated, so writes land in the volume, not in the host checkout.
+#: Workspace-relative folders an install fills inside the image (.venv,
+#: node_modules). The container mounts an anonymous volume over each one it
+#: finds populated, so writes land in the volume, not in the host checkout.
 SEEDABLE = tuple(path.removeprefix(f"{WORKSPACE}/") for path in (VENV, NODE_MODULES))
 
 # How many images :func:`prune` keeps when the caller does not say: room for a

@@ -59,12 +59,12 @@ def _default_lock_dir() -> Path:
 class Fullness:
     """One bound's occupancy: what this capacity counts, and what the server says."""
 
-    # Dispatches in flight on the bound, plus reservations not yet taken up by
-    # one.
+    #: Dispatches in flight on the bound, plus reservations not yet taken up by
+    #: one.
     load: int
-    # Dispatches the backend reports in flight, or `None` where it was not read.
+    #: Dispatches the backend reports in flight, or `None` where it was not read.
     server: int | None
-    # The bound itself: the most this capacity admits.
+    #: The bound itself: the most this capacity admits.
     width: int
 
     @property

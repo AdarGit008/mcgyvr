@@ -15,19 +15,19 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-# The most one event may hold before it counts as one that never ended: a chat
-# completion's events are far smaller, so reaching this means the blank line
-# separating events never arrived. `feed` raises rather than buffer without
-# end.
+#: The most one event may hold before it counts as one that never ended: a chat
+#: completion's events are far smaller, so reaching this means the blank line
+#: separating events never arrived. `feed` raises rather than buffer without
+#: end.
 MAX_EVENT_BYTES = 64 * 1024
-# The content type of an answer dumped back as one JSON body.
+#: The content type of an answer dumped back as one JSON body.
 JSON_TYPE = "application/json; charset=utf-8"
-# The media type a chat completion is streamed as.
+#: The media type a chat completion is streamed as.
 EVENT_STREAM = "text/event-stream"
 
-# The chunk keys not carried into the answer verbatim: the choices are joined
-# across events, the object is restated as a non-streamed completion's, and the
-# usage is held aside to be added after the choices.
+#: The chunk keys not carried into the answer verbatim: the choices are joined
+#: across events, the object is restated as a non-streamed completion's, and the
+#: usage is held aside to be added after the choices.
 _ASSEMBLED = frozenset({"choices", "object", "usage"})
 
 

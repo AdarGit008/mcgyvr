@@ -27,20 +27,20 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-# Environment variable that, when set, names the weights directory instead of
-# the default below.
+#: Environment variable that, when set, names the weights directory instead of
+#: the default below.
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
-# Appended to the final path to name the partially downloaded file; it is
-# renamed onto the final path once the bytes are verified.
+#: Appended to the final path to name the partially downloaded file; it is
+#: renamed onto the final path once the bytes are verified.
 PART = ".part"
-# Read and download block size: 8 MiB per read from disk or from the socket.
+#: Read and download block size: 8 MiB per read from disk or from the socket.
 CHUNK_BYTES = 8 << 20
-# Seconds urllib may spend on the request to the Hub, both while connecting and
-# on each blocking read of the response.
+#: Seconds urllib may spend on the request to the Hub, both while connecting and
+#: on each blocking read of the response.
 TIMEOUT_S = 60.0
 
-# State of one file after the attempt; GOOD is the set of states in which the
-# verified file is sitting at its destination.
+#: State of one file after the attempt; GOOD is the set of states in which the
+#: verified file is sitting at its destination.
 PRESENT = "present"
 FETCHED = "fetched"
 RESUMED = "resumed"

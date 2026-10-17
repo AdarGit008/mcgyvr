@@ -52,17 +52,17 @@ from mcgyvr.fleet.sample import (
     Sample,
 )
 
-# The one fleet a staged setup holds, laid out, sampled and journaled under.
+#: The one fleet a staged setup holds, laid out, sampled and journaled under.
 FLEET = OWN_FLEET
-# The bundled sample each use case's task is taken from, in the package's folder.
+#: The bundled sample each use case's task is taken from, in the package's folder.
 SAMPLES = {CODING_USE_CASE: "coding.yaml", AGENT: "agent.yaml"}
-# Who the sample's own `mcgyvr run` is journaled as, so its rows are told apart
-# from the rows of whatever orchestrator is running setup.
+#: Who the sample's own `mcgyvr run` is journaled as, so its rows are told apart
+#: from the rows of whatever orchestrator is running setup.
 ORCHESTRATOR = "mcgyvr-setup"
-# The one-word ask a chat sample puts to each awake unit, and its reply cap.
+#: The one-word ask a chat sample puts to each awake unit, and its reply cap.
 CHAT_PROMPT = "Reply with the single word: ready."
 CHAT_TOKENS = 16
-# The typed choice the Jev unit answers, and what each of its labels means.
+#: The typed choice the Jev unit answers, and what each of its labels means.
 JEV_INSTRUCTIONS = "Is a fleet whose every unit answered ready to serve?"
 JEV_OPTIONS = {"ready": "every unit answered", "not_ready": "a unit did not"}
 
@@ -259,7 +259,7 @@ def _repository(where: Path, files: Mapping[str, str]) -> Path:
     return repo
 
 
-# One `mcgyvr run`, reached by the argv to run and answered with its exit code.
+#: One `mcgyvr run`, reached by the argv to run and answered with its exit code.
 RunContract = Callable[[list[str]], int]
 
 

@@ -261,17 +261,17 @@ def render_reference() -> str:
 
 # SETUP.md alone: the constants its prose and its notes are built from.
 
-# The three keys SETUP.md lists as the levers, whose effect `mcgyvr local_pool`
-# prints. Each bullet's text is the key's own schema doc, so the list cannot
-# drift from the field it describes; a name here that `SCHEMA` does not declare
-# raises `KeyError` at render time instead of printing a bullet with nothing
-# after it.
+#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr local_pool`
+#: prints. Each bullet's text is the key's own schema doc, so the list cannot
+#: drift from the field it describes; a name here that `SCHEMA` does not declare
+#: raises `KeyError` at render time instead of printing a bullet with nothing
+#: after it.
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
-# Paragraphs appended after a top-level block's section in SETUP.md, keyed by
-# that block's name: measurements and rulings a reader needs that the schema doc
-# of a single key has no room for. A block with no entry here ends at its own
-# tables; `_SETUP_NOTES` is only consulted for top-level fields with keys.
+#: Paragraphs appended after a top-level block's section in SETUP.md, keyed by
+#: that block's name: measurements and rulings a reader needs that the schema doc
+#: of a single key has no room for. A block with no entry here ends at its own
+#: tables; `_SETUP_NOTES` is only consulted for top-level fields with keys.
 _SETUP_NOTES: dict[str, tuple[str, ...]] = {
     "jev": (
         "The measured recommendation for the unit is Qwen3.5-4B (Q4_K_M, about "
@@ -540,7 +540,7 @@ def examples() -> dict[str, str]:
     return dict(_EXAMPLE_TEMPLATES)
 
 
-# The example contracts, materialised once at import time by `examples()`.
+#: The example contracts, materialised once at import time by `examples()`.
 EXAMPLES: dict[str, str] = examples()
 
 
@@ -877,15 +877,15 @@ def _keys(fields: Sequence[Field], prefix: str = "") -> list[str]:
     return out
 
 
-# Reading a rendered document back, so its own text can be checked against the
-# schema it came from. `_HEADING` matches the heading `_section` emits: a level
-# of `#`s, a space, and a backticked key path. A heading of any other shape names
-# no section here; it only bounds one, which is how `_sections` finds where a
-# body ends.
+#: Reading a rendered document back, so its own text can be checked against the
+#: schema it came from. `_HEADING` matches the heading `_section` emits: a level
+#: of `#`s, a space, and a backticked key path. A heading of any other shape names
+#: no section here; it only bounds one, which is how `_sections` finds where a
+#: body ends.
 _HEADING = re.compile(r"^#+ +`([A-Za-z0-9_.]+)`\s*$", re.MULTILINE)
 
-# The heading the top-level key table sits under, matched as text rather than by
-# the key-path pattern because it names no key.
+#: The heading the top-level key table sits under, matched as text rather than by
+#: the key-path pattern because it names no key.
 _TOP_LEVEL = "## Top-level keys"
 
 

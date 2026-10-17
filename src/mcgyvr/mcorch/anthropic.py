@@ -22,11 +22,11 @@ from mcgyvr.mcorch import guard
 from mcgyvr.mcorch.wire import RungReply
 from mcgyvr.orchestrator.read import estimate_tokens
 
-# The only roles a message may carry; `system` is a separate field.
+#: The only roles a message may carry; `system` is a separate field.
 _ROLES = frozenset({"user", "assistant"})
 
-# The block types carried across to the OpenAI shape; every other type is
-# dropped from a message block and recorded by name, never forwarded.
+#: The block types carried across to the OpenAI shape; every other type is
+#: dropped from a message block and recorded by name, never forwarded.
 _TEXT = "text"
 _TOOL_USE = "tool_use"
 _TOOL_RESULT = "tool_result"
@@ -441,5 +441,5 @@ def sse(event: str, data: Mapping[str, Any] | str) -> bytes:
     return f"event: {event}\ndata: {payload}\n\n".encode()
 
 
-# The keep-alive `serve` writes while a turn is still running.
+#: The keep-alive `serve` writes while a turn is still running.
 PING = sse("ping", {"type": "ping"})

@@ -23,21 +23,21 @@ from mcgyvr.serving import vramfit
 # and the llama.cpp argument list are all written for this engine.
 DEFAULT_ENGINE = "llama.cpp"
 
-# Every engine this module will size and render a unit for: the two with
-# a launch spec (llama.cpp, vllm) and the three media engines, sized from
-# declared figures. fit() refuses any other engine by name.
+#: Every engine this module will size and render a unit for: the two with
+#: a launch spec (llama.cpp, vllm) and the three media engines, sized from
+#: declared figures. fit() refuses any other engine by name.
 KNOWN_ENGINES = ("llama.cpp", "vllm", "diffusers", "tts", "comfyui")
 
-# Engines whose server is their container image's entrypoint, so no
-# argument list is built for them here: fit() sizes them from the spec's
-# vram_gb, ram_gb, disk_gb and cpu_only rather than from a geometry,
-# adding vae_decode_gb as a decode spike for diffusers alone.
+#: Engines whose server is their container image's entrypoint, so no
+#: argument list is built for them here: fit() sizes them from the spec's
+#: vram_gb, ram_gb, disk_gb and cpu_only rather than from a geometry,
+#: adding vae_decode_gb as a decode spike for diffusers alone.
 MEDIA_ENGINES = ("diffusers", "tts", "comfyui")
 
-# Media engines this build cannot actually render. Empty today, and read
-# as a gate: emit.py refuses a unit listed here rather than write a
-# service it has no default image or command for. It stays a named
-# tuple so an engine whose wiring is pulled is disabled in one place.
+#: Media engines this build cannot actually render. Empty today, and read
+#: as a gate: emit.py refuses a unit listed here rather than write a
+#: service it has no default image or command for. It stays a named
+#: tuple so an engine whose wiring is pulled is disabled in one place.
 MEDIA_ENGINES_NOT_WIRED: tuple[str, ...] = ()
 
 # The llama.cpp micro-batch (-ub) and physical batch (-b) every unit is
@@ -68,10 +68,10 @@ DEFAULT_PORT = 8080
 # looks a host's files up by them.
 COMPOSE_PREFIX = "compose."
 COMPOSE_SUFFIX = ".yml"
-# The compose profile a service is put under when its unit starts
-# asleep: emit.py writes `profiles: [asleep]` for it, so `serve up`
-# leaves it down until something names the profile. This is how the
-# `sleeps-until-needed` role reaches the rendered file.
+#: The compose profile a service is put under when its unit starts
+#: asleep: emit.py writes `profiles: [asleep]` for it, so `serve up`
+#: leaves it down until something names the profile. This is how the
+#: `sleeps-until-needed` role reaches the rendered file.
 SLEEPER_PROFILE = "asleep"
 
 # Every character a host or model name may not carry into a file name:
@@ -145,41 +145,41 @@ HF_CACHE_MOUNT = "/root/.cache/huggingface"
 # disagreement is gigabytes, not half a hundredth of one.
 SIZE_TOLERANCE_GB = 0.005
 
-# The values units.<unit>.launch.speculative may take. `none` is the
-# default and means no draft head; `mtp` is llama.cpp's --spec-type
-# draft-mtp, which runs the MTP head grafted into the GGUF itself as the
-# draft. Anything else is refused by ModelSpec, so neither a vLLM
-# speculative config nor a name nobody scanned can be expressed here.
-# The choice is read by _placement() to budget the head's bytes on the
-# card and by unit_for() to write --spec-type, and _sharded_units()
-# refuses it outright for a unit split across cards.
+#: The values units.<unit>.launch.speculative may take. `none` is the
+#: default and means no draft head; `mtp` is llama.cpp's --spec-type
+#: draft-mtp, which runs the MTP head grafted into the GGUF itself as the
+#: draft. Anything else is refused by ModelSpec, so neither a vLLM
+#: speculative config nor a name nobody scanned can be expressed here.
+#: The choice is read by _placement() to budget the head's bytes on the
+#: card and by unit_for() to write --spec-type, and _sharded_units()
+#: refuses it outright for a unit split across cards.
 SPECULATIVE_NONE = "none"
 SPECULATIVE_MTP = "mtp"
 SPECULATIVE_CHOICES = (SPECULATIVE_NONE, SPECULATIVE_MTP)
-# The --spec-draft-n-max a unit is launched with when nothing states one:
-# how many tokens the grafted MTP head drafts per step.
+#: The --spec-draft-n-max a unit is launched with when nothing states one:
+#: how many tokens the grafted MTP head drafts per step.
 DEFAULT_SPEC_DRAFT_N_MAX = 2
 
 _BYTES_PER_GIB = 1024**3
 
-# The process roles a unit's parts can carry: the process that answers,
-# llama.cpp's rpc-server workers and vLLM's headless ranks. emit.py
-# checks that an engine has the role it is asked to render.
+#: The process roles a unit's parts can carry: the process that answers,
+#: llama.cpp's rpc-server workers and vLLM's headless ranks. emit.py
+#: checks that an engine has the role it is asked to render.
 ROLE_SERVE = "serve"
 ROLE_RPC = "rpc"
 ROLE_HEADLESS = "headless"
 ROLES = (ROLE_SERVE, ROLE_RPC, ROLE_HEADLESS)
 
-# The launch key that splits one unit across cards: a list of {rig, gpu}
-# entries, the first on the host the unit's address points at.
+#: The launch key that splits one unit across cards: a list of {rig, gpu}
+#: entries, the first on the host the unit's address points at.
 SHARDS_KEY = "shards"
-# The port a llama.cpp rpc-server worker listens on when a unit's launch
-# block states no rpc_port. Workers on one host take successive ports
-# from it, and the head's --rpc list names each of them.
+#: The port a llama.cpp rpc-server worker listens on when a unit's launch
+#: block states no rpc_port. Workers on one host take successive ports
+#: from it, and the head's --rpc list names each of them.
 RPC_DEFAULT_PORT = 50052
-# The rendezvous port a vLLM launch uses when no master_port is stated.
-# It is handed to every rank as --master-port and must differ from the
-# serving port on the head's machine.
+#: The rendezvous port a vLLM launch uses when no master_port is stated.
+#: It is handed to every rank as --master-port and must differ from the
+#: serving port on the head's machine.
 VLLM_MASTER_PORT = 29501
 
 
@@ -264,22 +264,22 @@ class Width:
     how: str
 
 
-# What a Fit's notes say about host memory beyond the weights for an
-# engine whose runtime-resident figure is not read here: the number is
-# not measured on this machine, so none of it is charged to the sizing.
-# The two sentences below are appended to it when a figure the operator
-# might expect to be in play turns out not to be.
+#: What a Fit's notes say about host memory beyond the weights for an
+#: engine whose runtime-resident figure is not read here: the number is
+#: not measured on this machine, so none of it is charged to the sizing.
+#: The two sentences below are appended to it when a figure the operator
+#: might expect to be in play turns out not to be.
 HOST_FIGURE_NOT_READ = (
     "vLLM host memory beyond the weights: not read on this machine; "
     "none is charged for it"
 )
 
-# Appended when the operator's own numbers file sets the runtime-resident
-# figure for this engine: the sizing does not read that setting.
+#: Appended when the operator's own numbers file sets the runtime-resident
+#: figure for this engine: the sizing does not read that setting.
 HOST_FIGURE_SETTING_NOT_USED = "your setting in {where} is not used by the sizing"
 
-# Appended when whether the figure came from the operator cannot be read
-# at all: the derived-numbers error says why in place of an answer.
+#: Appended when whether the figure came from the operator cannot be read
+#: at all: the derived-numbers error says why in place of an answer.
 HOST_FIGURE_SETTING_UNKNOWN = "whether your own numbers set it is not known: {why}"
 
 
@@ -291,47 +291,47 @@ class Fit:
     fits: bool
     headroom_gb: float
     why: str
-    # The VRAM the unit takes on its card, in GiB: vramfit's prediction at
-    # the offload and slot count the placement chose, or the spec's own
-    # vram_gb when there is no geometry to price it from. 0.0 on a fit that
-    # failed, and for a unit that runs on the CPU.
+    #: The VRAM the unit takes on its card, in GiB: vramfit's prediction at
+    #: the offload and slot count the placement chose, or the spec's own
+    #: vram_gb when there is no geometry to price it from. 0.0 on a fit that
+    #: failed, and for a unit that runs on the CPU.
     vram_gb: float = 0.0
-    # The host RAM the unit holds, in GiB, charged as the loading mode it
-    # was sized for reads it: placed.ram_gb of spilled experts when the
-    # blob is read through, the whole disk_gb when it stays mapped, and
-    # 0.0 when no expert block left the card, since llama.cpp then holds
-    # nothing beyond the runtime this machine did not read. A media unit
-    # carries the spec's own ram_gb, and a split unit's RAM is not
-    # recorded at all. hold_together() sums this across the units that are
-    # up on one host and refuses a set that fits only one at a time, which
-    # is why the figure is the RAM actually allocated rather than the size
-    # of the file.
+    #: The host RAM the unit holds, in GiB, charged as the loading mode it
+    #: was sized for reads it: placed.ram_gb of spilled experts when the
+    #: blob is read through, the whole disk_gb when it stays mapped, and
+    #: 0.0 when no expert block left the card, since llama.cpp then holds
+    #: nothing beyond the runtime this machine did not read. A media unit
+    #: carries the spec's own ram_gb, and a split unit's RAM is not
+    #: recorded at all. hold_together() sums this across the units that are
+    #: up on one host and refuses a set that fits only one at a time, which
+    #: is why the figure is the RAM actually allocated rather than the size
+    #: of the file.
     ram_gb: float = 0.0
-    # `none` when the unit was priced as reading its blob through instead
-    # of mapping it, and None when it keeps llama.cpp's default mapping.
-    # _sized() sets it only after comparing both modes against the host's
-    # available RAM, and unit_for() writes --load-mode into the argv when
-    # it is set. A media unit never carries one.
+    #: `none` when the unit was priced as reading its blob through instead
+    #: of mapping it, and None when it keeps llama.cpp's default mapping.
+    #: _sized() sets it only after comparing both modes against the host's
+    #: available RAM, and unit_for() writes --load-mode into the argv when
+    #: it is set. A media unit never carries one.
     load_mode: str | None = None
-    # The free VRAM the card had when the unit was sized, in GiB, as the
-    # scan reported it. alternate() and hold_together() sum units' vram_gb
-    # against it to decide whether two units can share one card, and
-    # _card_free_gb() takes the smallest figure across a group of units, or
-    # the largest when one of them claims its card before the others are
-    # sized, since those others were then sized from a scan reduced by that
-    # claim and would otherwise be counted free against it. It is 0.0 when
-    # the scan read no card and for a unit that runs on the CPU, and
-    # _card_free_gb() treats a group with no positive figure as unjudgeable,
-    # which _co_resident() reads as fitting. A CPU-only media unit carries
-    # 0.0 too, which is what keeps such a unit out of the card arithmetic
-    # without a branch at every call site, and a vLLM unit carries the free
-    # VRAM of the card it was placed on like any other.
+    #: The free VRAM the card had when the unit was sized, in GiB, as the
+    #: scan reported it. alternate() and hold_together() sum units' vram_gb
+    #: against it to decide whether two units can share one card, and
+    #: _card_free_gb() takes the smallest figure across a group of units, or
+    #: the largest when one of them claims its card before the others are
+    #: sized, since those others were then sized from a scan reduced by that
+    #: claim and would otherwise be counted free against it. It is 0.0 when
+    #: the scan read no card and for a unit that runs on the CPU, and
+    #: _card_free_gb() treats a group with no positive figure as unjudgeable,
+    #: which _co_resident() reads as fitting. A CPU-only media unit carries
+    #: 0.0 too, which is what keeps such a unit out of the card arithmetic
+    #: without a branch at every call site, and a vLLM unit carries the free
+    #: VRAM of the card it was placed on like any other.
     card_free_gb: float = 0.0
-    # Sentences about host memory that belong beside the fit rather than in
-    # it, from _host_figure_notes(): an engine whose host figure is not read
-    # says so here, with what the operator's own setting for it did and did
-    # not do. They are repeated inside why as well, so a caller that prints
-    # only the reason still shows them.
+    #: Sentences about host memory that belong beside the fit rather than in
+    #: it, from _host_figure_notes(): an engine whose host figure is not read
+    #: says so here, with what the operator's own setting for it did and did
+    #: not do. They are repeated inside why as well, so a caller that prints
+    #: only the reason still shows them.
     notes: tuple[str, ...] = ()
 
 
@@ -366,38 +366,38 @@ class Unit:
     fit: Fit
     port: int = DEFAULT_PORT
     rungs: tuple[str, ...] = ()
-    # The container image to run, when the unit's own config states one.
-    # emit.py falls back to the engine's default image and refuses where it
-    # has none, so this is the way in for a media server or a locally built
-    # llama.cpp with rpc support.
+    #: The container image to run, when the unit's own config states one.
+    #: emit.py falls back to the engine's default image and refuses where it
+    #: has none, so this is the way in for a media server or a locally built
+    #: llama.cpp with rpc support.
     image: str | None = None
     extra: tuple[str, ...] = ()
-    # True when the model runs on the CPU rather than on a card: a media
-    # unit then lands with gpu -1 and claims no VRAM, and alternate()
-    # refuses to pair a CPU unit with anything else on its host.
+    #: True when the model runs on the CPU rather than on a card: a media
+    #: unit then lands with gpu -1 and claims no VRAM, and alternate()
+    #: refuses to pair a CPU unit with anything else on its host.
     cpu_only: bool = False
-    # The VRAM the orchestrator unit claims on its host before anything
-    # else there is sized: units_for() places it first, hands its fit to
-    # _remaining_scan() so later units on that host see what is left, and
-    # records the figure here so the claim is visible on the unit itself.
+    #: The VRAM the orchestrator unit claims on its host before anything
+    #: else there is sized: units_for() places it first, hands its fit to
+    #: _remaining_scan() so later units on that host see what is left, and
+    #: records the figure here so the claim is visible on the unit itself.
     resident_claim_gb: float = 0.0
-    # Every card the unit holds, for a split head that spans several of
-    # them; empty for a unit on one card, where gpu names it. The cards
-    # property reads this first and falls back to (gpu,), so callers never
-    # branch on which kind of unit they have.
+    #: Every card the unit holds, for a split head that spans several of
+    #: them; empty for a unit on one card, where gpu names it. The cards
+    #: property reads this first and falls back to (gpu,), so callers never
+    #: branch on which kind of unit they have.
     gpus: tuple[int, ...] = ()
-    # What this process does in a split: `serve` for the process that
-    # answers, `rpc` for a llama.cpp rpc-server worker, `headless` for a
-    # vLLM rank that is not the first. emit.py checks an engine can render
-    # the role, and a worker's serve_args are withheld from an rpc-server.
+    #: What this process does in a split: `serve` for the process that
+    #: answers, `rpc` for a llama.cpp rpc-server worker, `headless` for a
+    #: vLLM rank that is not the first. emit.py checks an engine can render
+    #: the role, and a worker's serve_args are withheld from an rpc-server.
     role: str = ROLE_SERVE
-    # Environment this process needs set for it, such as the device order
-    # that keeps a card's index stable across processes.
+    #: Environment this process needs set for it, such as the device order
+    #: that keeps a card's index stable across processes.
     env: Mapping[str, str] = field(default_factory=dict)
-    # True when the unit starts asleep: emit.py puts its service under the
-    # sleeper profile so `serve up` does not start it, and launch_specs()
-    # leaves it out of the set that has to fit the card together. Only a
-    # llama.cpp unit on one card can be told to.
+    #: True when the unit starts asleep: emit.py puts its service under the
+    #: sleeper profile so `serve up` does not start it, and launch_specs()
+    #: leaves it out of the set that has to fit the card together. Only a
+    #: llama.cpp unit on one card can be told to.
     asleep: bool = False
 
     @property
@@ -874,13 +874,13 @@ def units_for(
     models: dict[UnitKey, ModelSpec] = {}
     widths: dict[UnitKey, int] = {}
     images: dict[UnitKey, str | None] = {}
-    # The context windows declared per process, by key: a window is
-    # stated per unit, so two units behind one address that state
-    # different ones are an error rather than a silent choice.
+    #: The context windows declared per process, by key: a window is
+    #: stated per unit, so two units behind one address that state
+    #: different ones are an error rather than a silent choice.
     windows: dict[UnitKey, dict[int, list[str]]] = {}
-    # The launch block of any unit that splits its process across cards.
+    #: The launch block of any unit that splits its process across cards.
     splits: dict[UnitKey, dict[str, Any]] = {}
-    # The roles declared per process, so one process stating two is caught.
+    #: The roles declared per process, so one process stating two is caught.
     roles: dict[UnitKey, dict[str, list[str]]] = {}
 
     users = config.get("users", 1)
@@ -1586,26 +1586,26 @@ class Card:
     """What the compose directory holds for one host, and the rungs served on it."""
 
     host: str
-    # The whole-host compose file, compose.<host>.yml, built from
-    # serving.compose_dir when the config states one: the file `serve up`
-    # takes to bring up everything the host serves at once. It is None
-    # when no directory is stated, so nothing here claims a file was
-    # written. Paths are built rather than read, and whether a file of
-    # that name is on disk is what the specs below report, so a caller
-    # checks before taking this as the host's own launch. wake.py does
-    # exactly that: it reads a file here only when it is in specs, and
-    # otherwise asks which of the alternatives to use.
+    #: The whole-host compose file, compose.<host>.yml, built from
+    #: serving.compose_dir when the config states one: the file `serve up`
+    #: takes to bring up everything the host serves at once. It is None
+    #: when no directory is stated, so nothing here claims a file was
+    #: written. Paths are built rather than read, and whether a file of
+    #: that name is on disk is what the specs below report, so a caller
+    #: checks before taking this as the host's own launch. wake.py does
+    #: exactly that: it reads a file here only when it is in specs, and
+    #: otherwise asks which of the alternatives to use.
     compose_file: Path | None
-    # The per-model alternatives found in that directory:
-    # compose.<host>.<model>.yml, one per alternative launch spec, taken
-    # as the file to use when the whole-host one is absent.
+    #: The per-model alternatives found in that directory:
+    #: compose.<host>.<model>.yml, one per alternative launch spec, taken
+    #: as the file to use when the whole-host one is absent.
     specs: tuple[Path, ...] = ()
-    # The ladder rungs whose unit's address points at this host, sorted:
-    # several rungs can be served by one process on one machine, and they
-    # are what a wake or sleep here acts on.
+    #: The ladder rungs whose unit's address points at this host, sorted:
+    #: several rungs can be served by one process on one machine, and they
+    #: are what a wake or sleep here acts on.
     rungs: tuple[str, ...] = ()
-    # The same names as a set, for the callers that want the units behind
-    # this host's card once each rather than in ladder order.
+    #: The same names as a set, for the callers that want the units behind
+    #: this host's card once each rather than in ladder order.
     sources: tuple[str, ...] = ()
 
 
@@ -1700,8 +1700,8 @@ def _declared_draft_width(name: str, stated: object) -> int:
     return stated
 
 
-# The keys a ggufscan row must carry to be sized from: everything vramfit
-# reads to price expert blocks, the cache, the recurrent state and the head.
+#: The keys a ggufscan row must carry to be sized from: everything vramfit
+#: reads to price expert blocks, the cache, the recurrent state and the head.
 _GEOMETRY_KEYS = (
     "file",
     "size_bytes",
@@ -1900,7 +1900,7 @@ class _Placement:
     vram_gb: float
     ram_gb: float
     headroom_gb: float
-    # Bytes the grafted MTP head holds on the card, 0 when there is no head.
+    #: Bytes the grafted MTP head holds on the card, 0 when there is no head.
     head_bytes: int = 0
 
 

@@ -29,17 +29,17 @@ PI_SESSION_VAR = "PI_SESSION_FILE"
 
 CLAUDE = "claude"
 PI = "pi"
-# An orchestrator is named `<tool>-<id>`, and the id is the journal's file name:
-# `claude-<session id>`, `pi-<session id>`, or `mcorch-<stamp>`. The first two
-# are traced back to the tool's own transcript on disk; an mcorch writer's
-# transcript lives under the journal directory and is attached by
-# `with_mcorch_transcript` once that directory is known. Claude Code exports its
-# session id and config root; a Pi transcript path has to be exported by
-# something, and nothing shipped here does.
+#: An orchestrator is named `<tool>-<id>`, and the id is the journal's file name:
+#: `claude-<session id>`, `pi-<session id>`, or `mcorch-<stamp>`. The first two
+#: are traced back to the tool's own transcript on disk; an mcorch writer's
+#: transcript lives under the journal directory and is attached by
+#: `with_mcorch_transcript` once that directory is known. Claude Code exports its
+#: session id and config root; a Pi transcript path has to be exported by
+#: something, and nothing shipped here does.
 
-# Every id this module accepts, and every file name it composes one into: a set
-# with no `.`/`..` and no path separator, so an id can never reach outside the
-# transcript directory it is looked up in.
+#: Every id this module accepts, and every file name it composes one into: a set
+#: with no `.`/`..` and no path separator, so an id can never reach outside the
+#: transcript directory it is looked up in.
 _ID = re.compile(r"^[A-Za-z0-9._-]+$")
 
 

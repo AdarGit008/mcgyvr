@@ -18,9 +18,9 @@ import struct
 import sys
 from typing import Any
 
-# Bytes per element for the dtypes the size checks below accept; an unlisted
-# F8_* variant is sized at one byte by dtype_size(), and any other name is
-# refused there rather than given a guessed width.
+#: Bytes per element for the dtypes the size checks below accept; an unlisted
+#: F8_* variant is sized at one byte by dtype_size(), and any other name is
+#: refused there rather than given a guessed width.
 _DTYPE_BYTES: dict[str, int] = {
     "F64": 8,
     "F32": 4,
@@ -39,12 +39,12 @@ _DTYPE_BYTES: dict[str, int] = {
     "F8_E5M2": 1,
 }
 
-# The two config.json layer_types values whose KV cache this scanner models.
+#: The two config.json layer_types values whose KV cache this scanner models.
 _FULL = "full_attention"
 _SLIDING = "sliding_attention"
 
-# Width of the little-endian u64 that opens a safetensors file and gives the
-# header length.
+#: Width of the little-endian u64 that opens a safetensors file and gives the
+#: header length.
 _LENGTH_FIELD = struct.calcsize("<Q")
 
 
@@ -161,9 +161,9 @@ def _block_of(name: str) -> int | None:
     return None
 
 
-# Tensor names holding multimodal tower weights: a segment that starts with one
-# of these prefixes, or that is one of _TOWER_PARTS, marks weights outside the
-# decoder stack, which go to bytes_tower instead of a block or an embedding sum.
+#: Tensor names holding multimodal tower weights: a segment that starts with one
+#: of these prefixes, or that is one of _TOWER_PARTS, marks weights outside the
+#: decoder stack, which go to bytes_tower instead of a block or an embedding sum.
 _TOWER_STARTS = ("vision", "visual", "audio", "image")
 _TOWER_PARTS = frozenset(
     {"multi_modal_projector", "mm_projector", "embed_vision", "embed_audio"}

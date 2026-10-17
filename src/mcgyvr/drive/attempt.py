@@ -94,8 +94,8 @@ class _Dispatches:
             self.rows += 1
 
 
-# The target a session contract's reply is written to: a chat or an agent run
-# aims at no file of its own, so its reply is parsed into this fixed name.
+#: The target a session contract's reply is written to: a chat or an agent run
+#: aims at no file of its own, so its reply is parsed into this fixed name.
 SESSION_REPLY = ".mcgyvr-session-reply.txt"
 
 

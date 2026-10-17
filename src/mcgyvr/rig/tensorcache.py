@@ -24,28 +24,28 @@ import time
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
-# FNV-1a 64-bit: the offset basis, prime multiplier and the mask that keeps
+#: FNV-1a 64-bit: the offset basis, prime multiplier and the mask that keeps
 FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 _MASK = (1 << 64) - 1
-# Exactly what a cache file may be called: 16 lowercase hex digits.
+#: Exactly what a cache file may be called: 16 lowercase hex digits.
 NAME = re.compile(r"[0-9a-f]{16}")
-# Bytes read per iteration when streaming a file through the hash.
+#: Bytes read per iteration when streaming a file through the hash.
 CHUNK = 1 << 22
-# Hashing runs in child processes, so a large tensor never competes with the
-# agent's interpreter; this bounds how many of them run at once.
+#: Hashing runs in child processes, so a large tensor never competes with the
+#: agent's interpreter; this bounds how many of them run at once.
 HASHERS = max(1, min(4, (os.cpu_count() or 1) // 2))
-# Seconds between polls for a finished hasher child.
+#: Seconds between polls for a finished hasher child.
 HASHER_POLL_S = 0.01
 
-# Identifies the current boot: a ledger written in another boot is discarded.
+#: Identifies the current boot: a ledger written in another boot is discarded.
 BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
-# Ledger format version, and the largest ledger file this code will read.
+#: Ledger format version, and the largest ledger file this code will read.
 SAVED_VERSION = 1
 MAX_SAVED_BYTES = 64 << 20
 
-# Device, inode, size, mtime and ctime in nanoseconds: what a cached hash is
-# trusted against, rechecked before the file is used.
+#: Device, inode, size, mtime and ctime in nanoseconds: what a cached hash is
+#: trusted against, rechecked before the file is used.
 Identity = tuple[int, int, int, int, int]
 
 

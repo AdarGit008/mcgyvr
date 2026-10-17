@@ -28,11 +28,11 @@ from mcgyvr.exits import Exit
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
 
-# The path on a hub under which an agent is given its channel.
+#: The path on a hub under which an agent is given its channel.
 AGENT_PATH = "/api/v1/agent"
-# How long opening the hub's websocket may take, in seconds.
+#: How long opening the hub's websocket may take, in seconds.
 CONNECT_TIMEOUT_S = 15.0
-# The uid and gid containers take as root: the unprivileged nobody account.
+#: The uid and gid containers take as root: the unprivileged nobody account.
 NOBODY = 65534
 
 _SCHEMES = {"http": "ws", "https": "wss", "ws": "ws", "wss": "wss"}

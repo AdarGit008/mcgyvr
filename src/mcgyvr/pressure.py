@@ -45,8 +45,8 @@ _SLUG = re.compile(r"[^A-Za-z0-9.-]+")
 
 # The one file name a manager publishes its answer under, in the directory.
 _BOARD = "pipeline.json"
-# A staging file left behind by a write: `<name>.<pid>.<n>.tmp`. The pid is
-# captured so a sweep can tell whether the process that made it is still alive.
+#: A staging file left behind by a write: `<name>.<pid>.<n>.tmp`. The pid is
+#: captured so a sweep can tell whether the process that made it is still alive.
 _SCRATCH = re.compile(r"^.+\.(\d+)\.\d+\.tmp$")
 
 # Numbers handed out per process, under a lock, so that two marks made by

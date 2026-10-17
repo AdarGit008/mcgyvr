@@ -23,8 +23,8 @@ from typing import Any, Literal
 from mcgyvr.rig import protocol
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 
-# Bounds on the fields read below: how many of each may appear and how
-# far they may go.
+#: Bounds on the fields read below: how many of each may appear and how
+#: far they may go.
 MAX_ENDPOINTS = protocol.MAX_ENDPOINTS
 MAX_PEERS = 15
 MAX_ALLOWED_IPS = 4
@@ -35,15 +35,15 @@ MAX_CTX = 1 << 20
 MIN_CTX = 256
 MAX_TENSOR_SHARE = 1 << 20
 MAX_GPU_LAYERS = 4096
-# Slots are a unit's concurrency budget, one session per slot: MAX_SLOTS is
-# the most a head may ask for and DEFAULT_SLOTS is what a start request
-# gets when it leaves the field out.
+#: Slots are a unit's concurrency budget, one session per slot: MAX_SLOTS is
+#: the most a head may ask for and DEFAULT_SLOTS is what a start request
+#: gets when it leaves the field out.
 MAX_SLOTS = 16
 DEFAULT_SLOTS = 1
-# Units advertise themselves so other rigs know what they may ride: an
-# advert repeats every UNIT_ADVERT_INTERVAL_S and is stale after
-# UNIT_ADVERT_STALE_S. Keepalives and the GPU layer default follow, next to
-# the port, log excerpt and relay bounds the ends of a session share.
+#: Units advertise themselves so other rigs know what they may ride: an
+#: advert repeats every UNIT_ADVERT_INTERVAL_S and is stale after
+#: UNIT_ADVERT_STALE_S. Keepalives and the GPU layer default follow, next to
+#: the port, log excerpt and relay bounds the ends of a session share.
 MAX_UNITS = 16
 UNIT_ADVERT_INTERVAL_S = 60
 UNIT_ADVERT_STALE_S = 180
@@ -58,15 +58,15 @@ RELAY_MAX_RESPONSE_BYTES = 64 << 20
 RELAY_MAX_WINDOW = 64
 RELAY_MAX_TIMEOUT_S = 3600
 RELAY_MAX_SEQ = 1 << 31
-# The most prompt or completion tokens a relayed call may report at its end.
+#: The most prompt or completion tokens a relayed call may report at its end.
 RELAY_MAX_TOKENS = 1 << 31
 MAX_CONTENT_TYPE = 128
-# Longest base64 text that still decodes to one relay chunk, rounded up to
-# whole four-character groups.
+#: Longest base64 text that still decodes to one relay chunk, rounded up to
+#: whole four-character groups.
 RELAY_MAX_CHUNK_B64 = 4 * -(-RELAY_MAX_CHUNK_BYTES // 3)
-# STUN-assisted probes: how many STUN endpoints one end may offer, how long
-# a probe stays open, how many echoes it sends and how far apart, and the
-# bulk payload and overall deadline used to measure throughput.
+#: STUN-assisted probes: how many STUN endpoints one end may offer, how long
+#: a probe stays open, how many echoes it sends and how far apart, and the
+#: bulk payload and overall deadline used to measure throughput.
 MAX_STUN_ENDPOINTS = 2
 MIN_PROBE_TTL_S = 5
 MAX_PROBE_TTL_S = 120
@@ -85,8 +85,8 @@ MAX_CONNECT_TIMEOUT_S = 300
 MAX_RATE_KBPS = 100_000_000
 MAX_PCT = 100
 
-# Shapes of the string fields these bodies carry; the ones the rest of the
-# protocol already defines are reused as they are.
+#: Shapes of the string fields these bodies carry; the ones the rest of the
+#: protocol already defines are reused as they are.
 SESSION_ID = protocol.MESSAGE_ID
 MODEL_NAME = protocol.MODEL_NAME
 DIGEST = protocol.DIGEST
@@ -98,14 +98,14 @@ CONTENT_TYPE = re.compile(
     r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(; ?[A-Za-z0-9_-]+=[A-Za-z0-9_.-]+)?"
 )
 BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
-# A 16-byte traversal token, sent as hex in the STUN binding requests.
+#: A 16-byte traversal token, sent as hex in the STUN binding requests.
 TOKEN = re.compile(r"[0-9a-f]{32}")
-# The ticket a relay grant carries, which binds a tunnel with the relay.
+#: The ticket a relay grant carries, which binds a tunnel with the relay.
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
 
 Role = Literal["head", "worker"]
 ROLES = protocol.ROLES
-# Session states a status may report, and the outcomes a relayed call ends with.
+#: Session states a status may report, and the outcomes a relayed call ends with.
 STATES = (
     "absent",
     "preparing",
@@ -118,8 +118,8 @@ STATES = (
     "stopped",
 )
 RELAY_OUTCOMES = ("complete", "error", "cancelled", "timeout", "too_large")
-# The endpoints a relayed request may name on the wire, mapped to the path
-# the relay fetches upstream.
+#: The endpoints a relayed request may name on the wire, mapped to the path
+#: the relay fetches upstream.
 RELAY_PATHS = {"chat_completions": "/v1/chat/completions"}
 
 
@@ -141,10 +141,10 @@ class SessionCode:
     MODEL_MISMATCH = "model_mismatch"
     NO_PATH = "no_path"
     UNKNOWN_UNIT = "unknown_unit"
-    # The load stopped moving bytes for long enough that the head gave up.
+    #: The load stopped moving bytes for long enough that the head gave up.
     LOAD_STALLED = "load_stalled"
-    # A path to the peer does exist, but it lost every full-size packet: its
-    # MTU is too small to carry the tunnel.
+    #: A path to the peer does exist, but it lost every full-size packet: its
+    #: MTU is too small to carry the tunnel.
     PATH_TOO_NARROW = "path_too_narrow"
 
 

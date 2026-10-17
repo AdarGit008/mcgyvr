@@ -20,13 +20,13 @@ from typing import Any
 
 TABLE_FILENAME = "capability-table.json"
 
-# The version of the table's format this code reads. A document whose
-# `schema_version` is not this exact integer is refused by name, before its
-# shape or its rows are looked at.
+#: The version of the table's format this code reads. A document whose
+#: `schema_version` is not this exact integer is refused by name, before its
+#: shape or its rows are looked at.
 SCHEMA_VERSION = 4
 
-# Printed above a listing of the table, so that no figure in it is taken as a
-# reading of the card or machine in front of the reader.
+#: Printed above a listing of the table, so that no figure in it is taken as a
+#: reading of the card or machine in front of the reader.
 ESTIMATES_NOTICE = "Estimates; none is a reading of your machine."
 
 # How many decimal gigabytes make one GiB (1024**3 / 1000**3). The table states
@@ -92,23 +92,23 @@ class CapabilityTable:
         ]
 
 
-# Every key the table may carry, by the level of the document it sits at: the
-# table, a row of `models`, the `backends` block, and each backend's block.
-# A level is closed: a key it does not declare is refused by name, and the
-# refusal lists the keys declared for it. So no figure — a quality score, a
-# benchmark reading, a reading of a card — enters the table without first
-# being declared here, where a reviewer reads it. A row states what a model
-# costs to serve, and these keys are the only terms it can state that in.
-# The `backends block` level declares only `_doc`, the block's own prose:
-# what sits under `backends` is a mapping whose keys name servers, not facts,
-# so that level is open where each backend under it is closed.
-# `active_params_b` and `architecture` are declared and checked but not
-# carried into `Model`: `architecture` is read from the raw document by the
-# sizing seam, and `active_params_b` is checked as a number and unread.
-# A row's media fields state its modality's own work: `resolution` as text,
-# the rest as numbers, `cpu_only` as a marker for a rung that needs no card.
-# A declared key that is not a container holds a single value; an object
-# under it would carry keys of no level (see `CONTAINER_KEYS`).
+#: Every key the table may carry, by the level of the document it sits at: the
+#: table, a row of `models`, the `backends` block, and each backend's block.
+#: A level is closed: a key it does not declare is refused by name, and the
+#: refusal lists the keys declared for it. So no figure — a quality score, a
+#: benchmark reading, a reading of a card — enters the table without first
+#: being declared here, where a reviewer reads it. A row states what a model
+#: costs to serve, and these keys are the only terms it can state that in.
+#: The `backends block` level declares only `_doc`, the block's own prose:
+#: what sits under `backends` is a mapping whose keys name servers, not facts,
+#: so that level is open where each backend under it is closed.
+#: `active_params_b` and `architecture` are declared and checked but not
+#: carried into `Model`: `architecture` is read from the raw document by the
+#: sizing seam, and `active_params_b` is checked as a number and unread.
+#: A row's media fields state its modality's own work: `resolution` as text,
+#: the rest as numbers, `cpu_only` as a marker for a rung that needs no card.
+#: A declared key that is not a container holds a single value; an object
+#: under it would carry keys of no level (see `CONTAINER_KEYS`).
 DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "table": frozenset(
@@ -150,8 +150,8 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
 )
 
 
-# The keys whose value holds entries, by level. Every other declared key holds
-# a single value, so an object under it is refused (`_values`).
+#: The keys whose value holds entries, by level. Every other declared key holds
+#: a single value, so an object under it is refused (`_values`).
 CONTAINER_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         **{level: frozenset[str]() for level in DECLARED_KEYS},
@@ -236,7 +236,7 @@ def _number(value: Any) -> bool:
     )
 
 
-# What a row must state or be refused: without these it has no name and no cost.
+#: What a row must state or be refused: without these it has no name and no cost.
 _MODEL_REQUIRED = ("id", "family", "params_b", "vram_gb_working", "weights_gb")
 _MODEL_NUMBERS = (
     "params_b",
@@ -255,7 +255,7 @@ _MODEL_NUMBERS = (
     "rtf",
 )
 
-# Flags a row may set, each checked as true or false when present.
+#: Flags a row may set, each checked as true or false when present.
 _MODEL_BOOLEANS = ("cpu_only",)
 
 

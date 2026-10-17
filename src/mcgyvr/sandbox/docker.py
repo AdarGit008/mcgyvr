@@ -47,8 +47,8 @@ from mcgyvr.sandbox.stack import detect_stack
 # extra-host entry that makes it resolve to the host's gateway.
 HOST_ALIAS = "host.docker.internal"
 
-# Where the task's workspace is mounted inside the container. Container-side
-# paths under it map back onto the host workspace in `host_path`.
+#: Where the task's workspace is mounted inside the container. Container-side
+#: paths under it map back onto the host workspace in `host_path`.
 CONTAINER_WORKSPACE = PurePosixPath("/workspace")
 
 # Carries the task's endpoint URLs into the container as one comma-separated

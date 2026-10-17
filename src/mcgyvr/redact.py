@@ -16,9 +16,9 @@ from __future__ import annotations
 import re
 import urllib.parse
 
-# What a removed userinfo is replaced with. Bracketed and spelled out rather
-# than emptied, so a reader of a message can see that something was dropped and
-# can still read the host, port and path that were kept.
+#: What a removed userinfo is replaced with. Bracketed and spelled out rather
+#: than emptied, so a reader of a message can see that something was dropped and
+#: can still read the host, port and path that were kept.
 REDACTED = "<redacted>"
 
 
@@ -46,11 +46,11 @@ def safe_url(url: str) -> str:
     )
 
 
-# Every ``scheme://userinfo@`` in free text: the scheme is the RFC 3986 shape
-# and must start at a word boundary, and the userinfo runs up to the next ``@``,
-# ``/`` or whitespace, so a match cannot run past the authority into the path.
-# A pattern rather than a parse, because the URL being redacted is a fragment of
-# a sentence, a log line or a JSON string and there is nothing to parse around.
+#: Every ``scheme://userinfo@`` in free text: the scheme is the RFC 3986 shape
+#: and must start at a word boundary, and the userinfo runs up to the next ``@``,
+#: ``/`` or whitespace, so a match cannot run past the authority into the path.
+#: A pattern rather than a parse, because the URL being redacted is a fragment of
+#: a sentence, a log line or a JSON string and there is nothing to parse around.
 _URL_WITH_USERINFO = re.compile(r"\b([a-zA-Z][a-zA-Z0-9+.-]*://)([^\s/@]+)@")
 
 

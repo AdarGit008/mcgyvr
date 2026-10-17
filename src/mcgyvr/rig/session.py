@@ -57,7 +57,7 @@ from mcgyvr.rig import (
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.rig.sessionwire import SessionCode
 
-# The session state machine, which ``_move`` enforces: the states a session may enter.
+#: The session state machine, which ``_move`` enforces: the states a session may enter.
 TRANSITIONS: dict[str, frozenset[str]] = {
     "preparing": frozenset({"prepared", "failed", "stopped"}),
     "prepared": frozenset({"tunnel_up", "starting", "failed", "stopped"}),
@@ -68,33 +68,33 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     "failed": frozenset({"stopped"}),
     "stopped": frozenset(),
 }
-# The states in which a session still holds its cards, ports and containers.
+#: The states in which a session still holds its cards, ports and containers.
 LIVE = frozenset(TRANSITIONS) - {"failed", "stopped"}
-# How many ended sessions stay in the table, so a late query still reads theirs.
+#: How many ended sessions stay in the table, so a late query still reads theirs.
 ENDED_KEPT = 16
-# How many ids of the frames this agent sent are remembered, so a hub error
-# that names one can be traced back to the session the frame was about.
+#: How many ids of the frames this agent sent are remembered, so a hub error
+#: that names one can be traced back to the session the frame was about.
 SAID_KEPT = 64
-# How many tail lines of a container's log are kept as the excerpt of a failure.
+#: How many tail lines of a container's log are kept as the excerpt of a failure.
 LOG_LINES = 60
-# How many bytes of a head's model file are hashed before the lease is renewed again.
+#: How many bytes of a head's model file are hashed before the lease is renewed again.
 DIGEST_CHUNK = 1 << 22
-# How long the head's ``/health`` request may take before the head counts as down.
+#: How long the head's ``/health`` request may take before the head counts as down.
 HEALTH_TIMEOUT_S = 2.0
-# How many rounds teardown lists and removes the session's containers in.
+#: How many rounds teardown lists and removes the session's containers in.
 TEARDOWN_ROUNDS = 3
-# The feature that says this rig advertises the units it shares, with their slots,
-# in ``unit_advert`` frames; a rig names it even when it lends no session.
+#: The feature that says this rig advertises the units it shares, with their slots,
+#: in ``unit_advert`` frames; a rig names it even when it lends no session.
 HITCHHIKE_FEATURE = "hitchhike_units"
-# The feature that says this rig runs one session per card, never two on one card.
-# A rig that names it may hold several sessions at once, one per card.
+#: The feature that says this rig runs one session per card, never two on one card.
+#: A rig that names it may hold several sessions at once, one per card.
 MULTI_SESSION_FEATURE = "multi_session"
-# Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
-# ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
-# ``head_slots``: it reads the slots of the head it runs,
-# and the hitchhike units and the several sessions a card rig holds.
-# ``offer`` names only ``HITCHHIKE_FEATURE`` for a rig that lends nothing.
-# The hub publishes these names, so a name it does not publish refuses the hello.
+#: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
+#: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
+#: ``head_slots``: it reads the slots of the head it runs,
+#: and the hitchhike units and the several sessions a card rig holds.
+#: ``offer`` names only ``HITCHHIKE_FEATURE`` for a rig that lends nothing.
+#: The hub publishes these names, so a name it does not publish refuses the hello.
 FEATURES = (
     "probe",
     "traversal",
@@ -102,32 +102,32 @@ FEATURES = (
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
 )
-# How many sessions a rig runs at once: one per tunnel port, each with its own.
-# The live session count and the tunnel port count are the same number.
+#: How many sessions a rig runs at once: one per tunnel port, each with its own.
+#: The live session count and the tunnel port count are the same number.
 MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
-# How many attempts of time is kept back for a peer's relay by ``candidate_time``.
+#: How many attempts of time is kept back for a peer's relay by ``candidate_time``.
 RELAY_ATTEMPTS = 2
-# How many free loopback ports are drawn for a head's API before a head is
-# refused: a port another session holds is drawn again, and a drawn port is
-# free now, since ``free_port`` binds and closes a kernel-chosen port.
+#: How many free loopback ports are drawn for a head's API before a head is
+#: refused: a port another session holds is drawn again, and a drawn port is
+#: free now, since ``free_port`` binds and closes a kernel-chosen port.
 API_PORT_TRIES = 8
-# The traversal timings: how long one STUN attempt waits for its answer, in ms,
-# how often the keepalive sends a packet to hold the NAT binding open, in seconds,
-# and how long that keepalive keeps sending before it stops, in seconds.
+#: The traversal timings: how long one STUN attempt waits for its answer, in ms,
+#: how often the keepalive sends a packet to hold the NAT binding open, in seconds,
+#: and how long that keepalive keeps sending before it stops, in seconds.
 STUN_WAIT_MS = 500
 KEEP_EVERY_S = 15
 KEEP_FOR_S = 600
-# The warm-up request: this many words of filler, answered with this many tokens,
-# so the head loads its weights and its cache before the session says ready.
+#: The warm-up request: this many words of filler, answered with this many tokens,
+#: so the head loads its weights and its cache before the session says ready.
 WARM_UP_WORDS = 600
 WARM_UP_TOKENS = 32
-# The warm-up prompt is kept to this share of the head's context, less the tokens
-# asked for, so a warm-up never fills the head's window; a smaller one gets a word.
+#: The warm-up prompt is kept to this share of the head's context, less the tokens
+#: asked for, so a warm-up never fills the head's window; a smaller one gets a word.
 WARM_UP_CONTEXT_SHARE = 4
-# How many bytes the tunnel must send a head's workers within ``stall_s`` for the
-# load to count as moving: fewer fails it as ``load_stalled``, naming the bytes
-# sent, the time they took, and the longest stretch without moving; the tunnel's
-# own transfer counts decide, so a thinking head is told from a stopped one.
+#: How many bytes the tunnel must send a head's workers within ``stall_s`` for the
+#: load to count as moving: fewer fails it as ``load_stalled``, naming the bytes
+#: sent, the time they took, and the longest stretch without moving; the tunnel's
+#: own transfer counts decide, so a thinking head is told from a stopped one.
 LOAD_STALL_BYTES = 1 << 20
 
 

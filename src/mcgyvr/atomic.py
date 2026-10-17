@@ -14,11 +14,11 @@ import stat
 import threading
 from pathlib import Path
 
-# Mode for a file whose contents belong to its owner alone: read and write, and
-# nothing for group or other.
+#: Mode for a file whose contents belong to its owner alone: read and write, and
+#: nothing for group or other.
 _PRIVATE = stat.S_IRUSR | stat.S_IWUSR
-# Baseline mode for a shared file: owner read and write plus group and other
-# read and write, narrowed by whatever umask the writing process runs under.
+#: Baseline mode for a shared file: owner read and write plus group and other
+#: read and write, narrowed by whatever umask the writing process runs under.
 _ORDINARY = _PRIVATE | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
 
 

@@ -75,21 +75,21 @@ BLOB_DIR = "blobs"
 # be compared with a measurement taken under another condition.
 STOCK = "stock"
 
-# The environment variable naming a JSON object of tags to stamp on every row
-# this process writes.
+#: The environment variable naming a JSON object of tags to stamp on every row
+#: this process writes.
 RUN_TAGS_ENV = "MCGYVR_RUN_TAGS"
 
-# The key the tags land under. Nested under one key rather than spread over the
-# row, so a tag can never stand in for a field this module writes itself, and so
-# a reader can tell what the product measured from what its caller asserted.
+#: The key the tags land under. Nested under one key rather than spread over the
+#: row, so a tag can never stand in for a field this module writes itself, and so
+#: a reader can tell what the product measured from what its caller asserted.
 RUN_TAGS_KEY = "run_tags"
 
-# The limit on the raw variable, in bytes: the object is copied onto every row,
-# so it is held to something a row can afford to carry.
+#: The limit on the raw variable, in bytes: the object is copied onto every row,
+#: so it is held to something a row can afford to carry.
 RUN_TAGS_MAX_BYTES = 4096
 
-# The largest magnitude a numeric tag may have, set so a reader that models
-# JSON numbers as doubles reads back exactly the number that was written.
+#: The largest magnitude a numeric tag may have, set so a reader that models
+#: JSON numbers as doubles reads back exactly the number that was written.
 RUN_TAGS_MAX_INT = 2**53
 
 type TagValue = str | int | float | bool
@@ -608,9 +608,9 @@ def _since(started: float) -> float:
     return round(time.monotonic() - started, 6)
 
 
-# What ``on_copy_error`` receives when a copy fails: the mirror directory and
-# the exception. Left as None, a failed copy propagates; given a handler, that
-# handler decides and the remaining mirrors are still written.
+#: What ``on_copy_error`` receives when a copy fails: the mirror directory and
+#: the exception. Left as None, a failed copy propagates; given a handler, that
+#: handler decides and the remaining mirrors are still written.
 type CopyError = Callable[[Path, BaseException], None]
 
 

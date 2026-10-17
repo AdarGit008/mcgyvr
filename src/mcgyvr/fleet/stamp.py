@@ -25,13 +25,13 @@ from pathlib import Path
 from mcgyvr.fleet.roots import FolderError, data_home, is_live
 from mcgyvr.fleet.sample import Sample, SampleError, judge
 
-# The data folder's subfolder of stamps, one folder per fleet and sample run.
+#: The data folder's subfolder of stamps, one folder per fleet and sample run.
 STAMPS_DIR = "stamps"
-# The stamp's copy of the staged setup, holding the two setup files below.
+#: The stamp's copy of the staged setup, holding the two setup files below.
 SETUP_DIR = "setup"
-# The dev-run evidence the sample's verdict built, which the lock is read from.
+#: The dev-run evidence the sample's verdict built, which the lock is read from.
 EVIDENCE_FILE = "evidence.json"
-# What a stamp copies out of `Sample.setup`, by the names the setup is read by.
+#: What a stamp copies out of `Sample.setup`, by the names the setup is read by.
 SETUP_FILES = ("fleet.yaml", "policy.yaml")
 
 
@@ -44,9 +44,9 @@ class Stamp:
     """
 
     fleet: str
-    # The stamp folder once it is written, or ``None`` when nothing was written.
+    #: The stamp folder once it is written, or ``None`` when nothing was written.
     folder: Path | None = None
-    # Why the sample was not stamped; empty for a green stamp.
+    #: Why the sample was not stamped; empty for a green stamp.
     why: tuple[str, ...] = ()
 
     @property

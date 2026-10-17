@@ -28,15 +28,15 @@ from mcgyvr.sandbox.base import CommandResult, Restored, Sandbox
 # The check name stamped on the findings this rung raises.
 CHECK = "acceptance"
 
-# Exit codes that mean the command never ran at all: 126 is "found but not
-# executable", 127 is "no such program".
-# The sandbox runs argv directly, with no shell, so a `VAR=value cmd` spelling
-# is looked up as the program name and lands on 127 as well, and either code
-# makes the outcome an environment issue: the command produced no result, so
-# nothing about the change is judged and the worker is not charged with a
-# failure.
-# A timeout is classified before the exit code is consulted, and a command
-# that ran and exited non-zero on its own is a plain failure.
+#: Exit codes that mean the command never ran at all: 126 is "found but not
+#: executable", 127 is "no such program".
+#: The sandbox runs argv directly, with no shell, so a `VAR=value cmd` spelling
+#: is looked up as the program name and lands on 127 as well, and either code
+#: makes the outcome an environment issue: the command produced no result, so
+#: nothing about the change is judged and the worker is not charged with a
+#: failure.
+#: A timeout is classified before the exit code is consulted, and a command
+#: that ran and exited non-zero on its own is a plain failure.
 DID_NOT_RUN = frozenset({126, 127})
 
 # 127 on its own, checked by name where a report explains that the command
@@ -77,9 +77,9 @@ class AcceptanceReport:
 
     findings: tuple[Finding, ...] = ()
     environment_issues: tuple[str, ...] = ()
-    # Cleanup remarks in the order the commands ran: what a command left
-    # behind, which was put back, and why that is not charged. They are
-    # reported beside the verdict, not as part of it.
+    #: Cleanup remarks in the order the commands ran: what a command left
+    #: behind, which was put back, and why that is not charged. They are
+    #: reported beside the verdict, not as part of it.
     notes: tuple[str, ...] = ()
 
 
@@ -179,8 +179,8 @@ class Acceptance:
         return _Ran(_classify(result), result)
 
 
-# The two moments a command is run, quoted in cleanup notes and compared to
-# decide whether a restored file counts as an alteration.
+#: The two moments a command is run, quoted in cleanup notes and compared to
+#: decide whether a restored file counts as an alteration.
 _AT_BASELINE = "baseline"
 _AT_GATE = "gate"
 

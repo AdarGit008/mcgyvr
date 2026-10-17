@@ -44,9 +44,9 @@ from pathlib import Path
 
 from mcgyvr.serving.gatelib import door_required, need, refuse, ssh
 
-# The timer as text: linktime.py sits beside this gate's folder (parents[1] is
-# src/mcgyvr/serving), and the file read here is the source that is shipped to
-# the rig, never a copy already on the rig.
+#: The timer as text: linktime.py sits beside this gate's folder (parents[1] is
+#: src/mcgyvr/serving), and the file read here is the source that is shipped to
+#: the rig, never a copy already on the rig.
 TIMER = Path(__file__).resolve().parents[1] / "linktime.py"
 
 

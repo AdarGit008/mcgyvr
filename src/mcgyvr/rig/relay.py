@@ -39,25 +39,25 @@ from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
 
-# The default cap on the relays this rig runs at once. A session's relays are
-# held to its head's slot count or this, whichever is lower; the rides on all
-# of the rig's shared units together are held to this. Past either, the hub is
-# answered ``busy`` in the frame that ends the relay, never queued behind it:
-# every relay is a thread and a connection to a server already at work.
+#: The default cap on the relays this rig runs at once. A session's relays are
+#: held to its head's slot count or this, whichever is lower; the rides on all
+#: of the rig's shared units together are held to this. Past either, the hub is
+#: answered ``busy`` in the frame that ends the relay, never queued behind it:
+#: every relay is a thread and a connection to a server already at work.
 MAX_ACTIVE = sessionwire.MAX_SLOTS
-# How many request ids last taken are remembered, so a hub that repeats one is
-# told ``duplicate`` rather than given a second relay of the same id.
+#: How many request ids last taken are remembered, so a hub that repeats one is
+#: told ``duplicate`` rather than given a second relay of the same id.
 REMEMBERED_IDS = 4096
-# Seconds one frame of a relay may wait for room in the channel before the
-# relay counts as cancelled: the hub is gone or too far behind to answer.
+#: Seconds one frame of a relay may wait for room in the channel before the
+#: relay counts as cancelled: the hub is gone or too far behind to answer.
 SEND_WAIT_S = 30.0
-# The path of the status page on which a head reports each of its slots: read
-# on the API the relay posts to, and only to say what a leave had made.
+#: The path of the status page on which a head reports each of its slots: read
+#: on the API the relay posts to, and only to say what a leave had made.
 SLOTS_PATH = "/slots"
-# Seconds that page has to connect and arrive, on a thread of the relay's own,
-# so that a leave is never held up by a head that does not answer.
+#: Seconds that page has to connect and arrive, on a thread of the relay's own,
+#: so that a leave is never held up by a head that does not answer.
 REPORT_WAIT_S = 1.0
-# The most the page may be; a longer one is read as no page at all.
+#: The most the page may be; a longer one is read as no page at all.
 MAX_PAGE_BYTES = 1 << 20
 
 

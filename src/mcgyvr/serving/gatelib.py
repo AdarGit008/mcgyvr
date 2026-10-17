@@ -33,24 +33,24 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
 
-# The door's command line as every refusal here spells it out for a person who
-# started a script by hand: the three verbs, and the host they all take.
+#: The door's command line as every refusal here spells it out for a person who
+#: started a script by hand: the three verbs, and the host they all take.
 DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 
-# How a process is recognized as the door while its ancestors' command lines are
-# walked: the file the door is, and the module that `-m` names. Both are spelled
-# here so the rest of the tree does not spell the door's path again.
+#: How a process is recognized as the door while its ancestors' command lines are
+#: walked: the file the door is, and the module that `-m` names. Both are spelled
+#: here so the rest of the tree does not spell the door's path again.
 DOOR_FILE = "mcgyvr/serving/run.py"
 DOOR_MODULE = "mcgyvr.serving.run"
 
-# The status a `sleep` step answers with when one of its units has no sleep
-# route: nothing was asked of any unit and the card can only be stopped. It sits
-# here, rather than in the gate that returns it, so the caller that reads it as
-# proof a card is not asleep compares against one number.
+#: The status a `sleep` step answers with when one of its units has no sleep
+#: route: nothing was asked of any unit and the card can only be stopped. It sits
+#: here, rather than in the gate that returns it, so the caller that reads it as
+#: proof a card is not asleep compares against one number.
 NO_SLEEP_ROUTE = 3
 
-# The single-letter ssh flags that take the next argument as their value, which
-# `_ssh_options()` must know to tell an option's value from the host it ends at.
+#: The single-letter ssh flags that take the next argument as their value, which
+#: `_ssh_options()` must know to tell an option's value from the host it ends at.
 SSH_TAKES_VALUE = frozenset("bcDeEFiIJlLmoOpPQRSwW")
 
 
@@ -106,11 +106,11 @@ def root() -> Path:
     return Path(need("RUN_ROOT"))
 
 
-# The mode a person's run is recorded under: gate 5 writes `USER_MODE` into the
-# header of the envelope it mints, beside the command and the compose file the
-# person ran.
+#: The mode a person's run is recorded under: gate 5 writes `USER_MODE` into the
+#: header of the envelope it mints, beside the command and the compose file the
+#: person ran.
 USER_MODE = "user"
-# The directory under the data home that holds the door's envelopes, by run date.
+#: The directory under the data home that holds the door's envelopes, by run date.
 DOOR_LOG = "door"
 
 
@@ -271,13 +271,13 @@ def ssh(
     )
 
 
-# A read-only command ships the reader's own source, base64-encoded, and decodes
-# it into python3 on the rig, so the rig runs the file this checkout has and
-# nothing has to be installed there. `_SCAN_READ_SUFFIX` is that tail for the
-# scanner, run isolated (`-I`) and without writing bytecode (`-B`) on the rig.
+#: A read-only command ships the reader's own source, base64-encoded, and decodes
+#: it into python3 on the rig, so the rig runs the file this checkout has and
+#: nothing has to be installed there. `_SCAN_READ_SUFFIX` is that tail for the
+#: scanner, run isolated (`-I`) and without writing bytecode (`-B`) on the rig.
 _SCAN_READ_SUFFIX = " | base64 -d | python3 -I -B -"
 
-# The same tail for the header reader, which is followed by the path it reads.
+#: The same tail for the header reader, which is followed by the path it reads.
 _HEADER_READ_MIDDLE = " | base64 -d | python3 - "
 
 
@@ -529,24 +529,24 @@ def release(out_dir: Path, run_id: str) -> None:
 # two live runs off one rig. The holder is named by pid and that process's start
 # time, so a recycled pid is not mistaken for the run that took the lease.
 
-# Where the lease lives on the rig, spelled for the shell that reads and writes
-# it: a directory the lease scripts make when it is missing, and the file inside
-# it.
+#: Where the lease lives on the rig, spelled for the shell that reads and writes
+#: it: a directory the lease scripts make when it is missing, and the file inside
+#: it.
 LEASE_DIR = "~/.mcgyvr"
 LEASE_FILE = f"{LEASE_DIR}/lease"
-# What one field of a lease line may hold: one plain token, since a lease line is
-# shipped to the rig inside a quoted shell command.
+#: What one field of a lease line may hold: one plain token, since a lease line is
+#: shipped to the rig inside a quoted shell command.
 LEASE_TOKEN = re.compile(r"[A-Za-z0-9._@:+/-]+")
-# The variable a run's lease is handed down to it in, so a step releases the rig
-# from what the door exported instead of reading the lease back off the rig.
+#: The variable a run's lease is handed down to it in, so a step releases the rig
+#: from what the door exported instead of reading the lease back off the rig.
 LEASE_VAR = "RUN_LEASE"
-# How every lease operation reaches the rig: bash reads the script from stdin and
-# `lease` becomes argv[0], so a process listing on the rig says what the shell is
-# for.
+#: How every lease operation reaches the rig: bash reads the script from stdin and
+#: `lease` becomes argv[0], so a process listing on the rig says what the shell is
+#: for.
 LEASE_SHELL = "bash -s -- lease"
 
-# What a lease operation is sent through in place of ssh: the host and the script
-# for its stdin, answering with the finished call.
+#: What a lease operation is sent through in place of ssh: the host and the script
+#: for its stdin, answering with the finished call.
 Transport = Callable[[str, str, "str | None"], "subprocess.CompletedProcess[str]"]
 
 
@@ -751,13 +751,13 @@ def _lease_script(
         )
 
 
-# The lease scripts, run on the rig as `bash -s -- lease` with their fields
-# filled in. Each answers with its status: 0 the lease now reads as this run
-# wrote it, 3 the lease is not the one expected, 4 no lease directory.
+#: The lease scripts, run on the rig as `bash -s -- lease` with their fields
+#: filled in. Each answers with its status: 0 the lease now reads as this run
+#: wrote it, 3 the lease is not the one expected, 4 no lease directory.
 _READ = f"cat {LEASE_FILE} 2>/dev/null || true\n"
 _TAKE_FREE = "mkdir -p {dir} || exit 4\nset -C\nprintf '%s\\n' '{line}' > {file}\n"
-# Replacing a lease is the same write behind a check: it only goes through while
-# the file still holds the lease the caller was told about, or holds nothing.
+#: Replacing a lease is the same write behind a check: it only goes through while
+#: the file still holds the lease the caller was told about, or holds nothing.
 _TAKE_STALE = (
     "mkdir -p {dir} || exit 4\nf={file}\n"
     "if [ -z '{held}' ]; then grep -qs -- '[^[:space:]]' \"$f\" && exit 3; "
@@ -939,10 +939,10 @@ def ssh_target(argv: list[str]) -> str | None:
     return argv[index].rpartition("@")[2]
 
 
-# What would carry an ssh connection somewhere other than the host on the command
-# line: the flags themselves (`-J`, `-W`, `-F`, `-S`, ...), and the `-o` keys that
-# name a proxy, a jump, another host name, another config file, a control socket
-# or a forward. A shim refuses a command line carrying any of them.
+#: What would carry an ssh connection somewhere other than the host on the command
+#: line: the flags themselves (`-J`, `-W`, `-F`, `-S`, ...), and the `-o` keys that
+#: name a proxy, a jump, another host name, another config file, a control socket
+#: or a forward. A shim refuses a command line carrying any of them.
 SSH_REDIRECT_FLAGS = frozenset("JWFSLRDG")
 SSH_REDIRECT_KEYS = frozenset(
     k.lower()

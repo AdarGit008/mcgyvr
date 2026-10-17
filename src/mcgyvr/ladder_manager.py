@@ -40,20 +40,20 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.pressure import Gauge, Reading
 
-# The names of the three questions a tick may put to Jev. Each name keys the
-# question in ``questions``, its answer in ``answers``, and its streak of answers.
+#: The names of the three questions a tick may put to Jev. Each name keys the
+#: question in ``questions``, its answer in ``answers``, and its streak of answers.
 ASK_LADDER = "ladder"
 ASK_FANOUT = "fanout"
 ASK_LEAD = "lead"
 
-# The rendezvous lock name ``mcgyvr manage`` takes before it manages anything, so
-# two managers on one host cannot sleep and wake the same cards. It is held for
-# the whole run, because every sleep and wake is a side effect on shared hardware.
+#: The rendezvous lock name ``mcgyvr manage`` takes before it manages anything, so
+#: two managers on one host cannot sleep and wake the same cards. It is held for
+#: the whole run, because every sleep and wake is a side effect on shared hardware.
 MANAGER_LOCK = "ladder-manager"
 
-# The key of the move that changes nothing, always offered so the ladder question
-# has a way to leave the ladder alone; and the answer that leaves the ladder's own
-# order as the lead.
+#: The key of the move that changes nothing, always offered so the ladder question
+#: has a way to leave the ladder alone; and the answer that leaves the ladder's own
+#: order as the lead.
 HOLD = "hold"
 KEEP_ORDER = "ladder"
 
@@ -95,8 +95,8 @@ class Cooling(Protocol):
     def worked(self, rung: str) -> None: ...
 
 
-# The decision seam: state and questions in, a decision out. A test passes a plain
-# function; ``mcgyvr manage`` passes ``decide_on(...)``, which asks Jev.
+#: The decision seam: state and questions in, a decision out. A test passes a plain
+#: function; ``mcgyvr manage`` passes ``decide_on(...)``, which asks Jev.
 Decide = Callable[
     [Mapping[str, Any], Mapping[str, decision.Question]], decision.Decision
 ]
@@ -277,15 +277,15 @@ class Manager:
             ASK_LEAD: _Streak(),
         }
         self._last_switch: float | None = None
-        # What each resident rung was last seen to be doing. A rung that wakes or
-        # goes down without the manager — a task, or a person running ``mcgyvr
-        # serve`` — is found here, counts as a switch, and starts the dwell.
+        #: What each resident rung was last seen to be doing. A rung that wakes or
+        #: goes down without the manager — a task, or a person running ``mcgyvr
+        #: serve`` — is found here, counts as a switch, and starts the dwell.
         self._expected: dict[str, bool] = {}
-        # When each resident rung was first seen awake and idle, so ``dwell_s`` of
-        # idleness has to pass before it is put to sleep.
+        #: When each resident rung was first seen awake and idle, so ``dwell_s`` of
+        #: idleness has to pass before it is put to sleep.
         self._idle_since: dict[str, float] = {}
-        # The units each woken rung needed asleep for its room, to wake back when
-        # that rung sleeps.
+        #: The units each woken rung needed asleep for its room, to wake back when
+        #: that rung sleeps.
         self._room: dict[str, tuple[str, ...]] = {}
         self._fanout = view.fanout
         self._lead = KEEP_ORDER
@@ -917,8 +917,8 @@ class ForTask:
     gauge: Gauge | None = None
     presence: Callable[[str], AbstractContextManager[object]] | None = None
     note: str | None = None
-    # Where the task's cooldown writes its holds, so the manager's cooling and
-    # every other process on the host read the same record of what is cooling.
+    #: Where the task's cooldown writes its holds, so the manager's cooling and
+    #: every other process on the host read the same record of what is cooling.
     held: SharedHold | None = None
 
 

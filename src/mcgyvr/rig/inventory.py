@@ -20,13 +20,14 @@ from typing import Any
 from mcgyvr.rig import pooled, protocol
 from mcgyvr.serving import ggufscan
 
-# How many folders below the models folder the walk descends; nothing deeper is read.
+#: How many folders below the models folder the walk descends; nothing deeper is read.
 MAX_DEPTH = 4
-# A split model's first part carries this in its name; the parts after it are not named.
+#: A split model's first part carries this in its name; the parts after it are
+#: not named.
 _SPLIT_FIRST = "-00001-of-"
 
-# The ggml type id of each KV cache type a head can be run with, looked up in the
-# reader's table of block elements and block bytes.
+#: The ggml type id of each KV cache type a head can be run with, looked up in the
+#: reader's table of block elements and block bytes.
 _KV_TYPES = {"f16": 1, "q8_0": 8}
 
 Scan = Callable[[str], Mapping[str, Any]]

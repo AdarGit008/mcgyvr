@@ -41,29 +41,29 @@ from mcgyvr.fleet import alerts, ids
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.serving.servelib import PROJECT
 
-# The name a container this tool brings up starts with, beside the compose
-# project it runs under.
+#: The name a container this tool brings up starts with, beside the compose
+#: project it runs under.
 OURS_PREFIX = "mcgyvr-"
-# How much of a vLLM unit's log line naming its attention backend is carried in
-# the reading: the line is filed so the journal says what the log said, and the
-# rest of it would only make the row longer.
+#: How much of a vLLM unit's log line naming its attention backend is carried in
+#: the reading: the line is filed so the journal says what the log said, and the
+#: rest of it would only make the row longer.
 BACKEND_LINE_MAX = 400
-# The file a read appends one row per rig to, under the combination's folder; a
-# journal's other `.jsonl` files are one unit's rows, so a reader tells them
-# apart by this name.
+#: The file a read appends one row per rig to, under the combination's folder; a
+#: journal's other `.jsonl` files are one unit's rows, so a reader tells them
+#: apart by this name.
 RIG_ROWS = "rig.jsonl"
-# The two figures a read files for every unit it finds up on the rig, in the
-# order `_file_units` handles them.
+#: The two figures a read files for every unit it finds up on the rig, in the
+#: order `_file_units` handles them.
 UNIT_FIELDS = ("card_mib", "restarts")
-# Engine -> (the path of the page carrying its prompt-token counter, the counter
-# itself): a load's prompt pace is that counter's change over the seconds the
-# load ran. Only vLLM names one; `_pace_counter` answers why llama.cpp does not.
+#: Engine -> (the path of the page carrying its prompt-token counter, the counter
+#: itself): a load's prompt pace is that counter's change over the seconds the
+#: load ran. Only vLLM names one; `_pace_counter` answers why llama.cpp does not.
 PACE_COUNTERS: dict[str, tuple[str, str]] = {
     "vllm": ("/metrics", "vllm:prompt_tokens_total"),
 }
-# The pace source a load files for a llama.cpp unit that launches without
-# --metrics: the page it would have to read is not served, and the slot JSON it
-# does answer carries no prompt token count.
+#: The pace source a load files for a llama.cpp unit that launches without
+#: --metrics: the page it would have to read is not served, and the slot JSON it
+#: does answer carries no prompt token count.
 NO_PACE_COUNTER = (
     "none: llama-server answers /metrics 501 unless started with --metrics "
     "(src/mcgyvr/pool.py), and this unit's launch has no --metrics; the slot "
@@ -71,9 +71,9 @@ NO_PACE_COUNTER = (
     "is_processing, and no prompt token count"
 )
 
-# A harness run on the rig: the unit's name and a JSON spec in, the harness's
-# stdout back, or `None` when the run outlasted its timeout. The door's `read`
-# step passes `harness_on_rig`, which runs the lock's harness there over ssh.
+#: A harness run on the rig: the unit's name and a JSON spec in, the harness's
+#: stdout back, or `None` when the run outlasted its timeout. The door's `read`
+#: step passes `harness_on_rig`, which runs the lock's harness there over ssh.
 Measure = Callable[[str, str], str | None]
 
 
@@ -89,7 +89,7 @@ class Container:
     name: str
     id: str
     project: str
-    # docker's RestartCount, or None when the reader could not read it.
+    #: docker's RestartCount, or None when the reader could not read it.
     restarts: int | None
 
     @property
@@ -103,11 +103,11 @@ class Holder:
 
     pid: int
     mib: int | None
-    # the 64-hex container id its /proc/PID/cgroup names, or None when it sits in
-    # no container
+    #: the 64-hex container id its /proc/PID/cgroup names, or None when it sits in
+    #: no container
     container: str | None
-    # whether that cgroup could be read at all: an unread one is never counted as
-    # one of ours
+    #: whether that cgroup could be read at all: an unread one is never counted as
+    #: one of ours
     attributed: bool
     process: str
 
@@ -117,25 +117,25 @@ class Reading:
     """One rig's reading, as the reader printed it: the containers up, the
     processes on its card, and what each unit's port answers."""
 
-    # the machine reading rigscan printed, its snapshot among it, attached by
-    # `reading`
+    #: the machine reading rigscan printed, its snapshot among it, attached by
+    #: `reading`
     machine: dict[str, Any] = field(default_factory=dict)
     containers: list[Container] = field(default_factory=list)
     holders: list[Holder] = field(default_factory=list)
-    # port -> a vLLM unit's own /is_sleeping: True asleep, False awake, and None
-    # for a 404 (no sleep route)
+    #: port -> a vLLM unit's own /is_sleeping: True asleep, False awake, and None
+    #: for a 404 (no sleep route)
     sleeping: dict[int, bool | None] = field(default_factory=dict)
-    # ports whose sleeping row was neither true, false nor none: any other
-    # failed read of /is_sleeping
+    #: ports whose sleeping row was neither true, false nor none: any other
+    #: failed read of /is_sleeping
     sleep_unread: set[int] = field(default_factory=set)
-    # port -> the unit's in-flight page as served: /metrics for vLLM, /slots
-    # otherwise
+    #: port -> the unit's in-flight page as served: /metrics for vLLM, /slots
+    #: otherwise
     status: dict[int, str] = field(default_factory=dict)
-    # port -> the attention backend a vLLM unit's whole log names, or None when
-    # the log names none: never guessed from the page or from the launch
+    #: port -> the attention backend a vLLM unit's whole log names, or None when
+    #: the log names none: never guessed from the page or from the launch
     backend: dict[int, str | None] = field(default_factory=dict)
-    # port -> the first line of that log matching the backend, clipped to
-    # BACKEND_LINE_MAX; absent when the log has no such line
+    #: port -> the first line of that log matching the backend, clipped to
+    #: BACKEND_LINE_MAX; absent when the log has no such line
     backend_line: dict[int, str] = field(default_factory=dict)
 
 
@@ -374,29 +374,29 @@ class Observed:
     holds its card."""
 
     rig_id: str
-    # unit id -> `asleep`, `awake`, or `unread` for a vLLM unit whose
-    # /is_sleeping could not be read; a container of ours the layout places
-    # nowhere on this rig is carried here under its container name, as awake
+    #: unit id -> `asleep`, `awake`, or `unread` for a vLLM unit whose
+    #: /is_sleeping could not be read; a container of ours the layout places
+    #: nowhere on this rig is carried here under its container name, as awake
     units: dict[str, str]
-    # the card's holders that are not one of the fleet's containers, each as a
-    # sentence naming its process, pid and MiB
+    #: the card's holders that are not one of the fleet's containers, each as a
+    #: sentence naming its process, pid and MiB
     foreign: list[str]
-    # unit name -> the MiB its container's processes hold on the card (0 when
-    # none of them does), or None when any holder's memory went unread
+    #: unit name -> the MiB its container's processes hold on the card (0 when
+    #: none of them does), or None when any holder's memory went unread
     card_mib: dict[str, int | None]
-    # unit name -> its container's restart count, or None when the reader could
-    # not read it
+    #: unit name -> its container's restart count, or None when the reader could
+    #: not read it
     restarts: dict[str, int | None]
-    # unit name -> how many requests its status page reports, read as its engine
-    # names them, or None when the page could not be read
+    #: unit name -> how many requests its status page reports, read as its engine
+    #: names them, or None when the page could not be read
     in_flight: dict[str, int | None]
-    # unit name -> the id of the container the unit runs in, for each unit found
-    # up
+    #: unit name -> the id of the container the unit runs in, for each unit found
+    #: up
     containers: dict[str, str] = field(default_factory=dict)
-    # vLLM unit name -> the attention backend its log names, None when it names
-    # none
+    #: vLLM unit name -> the attention backend its log names, None when it names
+    #: none
     backend: dict[str, str | None] = field(default_factory=dict)
-    # vLLM unit name -> the log line that named it, empty when there is none
+    #: vLLM unit name -> the log line that named it, empty when there is none
     backend_line: dict[str, str] = field(default_factory=dict)
 
 
@@ -481,17 +481,17 @@ class Recorded:
 
     observed: Observed
     probed: dict[str, dict[str, float]] = field(default_factory=dict)
-    # unit name -> the probe figures the harness answered as sample lists, each
-    # list kept whole beside the single figure the lock judges
+    #: unit name -> the probe figures the harness answered as sample lists, each
+    #: list kept whole beside the single figure the lock judges
     samples: dict[str, dict[str, list[float]]] = field(default_factory=dict)
     busy: dict[str, int] = field(default_factory=dict)
     contended: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
     not_read: dict[str, list[str]] = field(default_factory=dict)
     alerts: list[dict[str, Any]] = field(default_factory=list)
-    # unit name -> the row its load filed
+    #: unit name -> the row its load filed
     loads: dict[str, dict[str, Any]] = field(default_factory=dict)
-    # unit name -> why no load ran on it
+    #: unit name -> why no load ran on it
     unloaded: dict[str, str] = field(default_factory=dict)
 
 

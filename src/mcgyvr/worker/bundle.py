@@ -78,23 +78,23 @@ _LANGUAGE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "js/ts": ("javascript.md", BundleStanding.MEASURED_NO_EFFECT),
 }
 
-# Use-case bundles, keyed by the contract's use case. Neither file has been
-# swept, so both ship `UNMEASURED`; `chat` has no entry because it is a raw
-# pass-through and a system prompt would bias it.
+#: Use-case bundles, keyed by the contract's use case. Neither file has been
+#: swept, so both ship `UNMEASURED`; `chat` has no entry because it is a raw
+#: pass-through and a system prompt would bias it.
 _USE_CASE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "agent": ("agent.md", BundleStanding.UNMEASURED),
     "media-gen": ("media-gen.md", BundleStanding.UNMEASURED),
 }
 
-# Both key kinds in one registry. The namespaces do not collide today, and
-# `load_bundle` names the whole sorted set when a key is missing.
+#: Both key kinds in one registry. The namespaces do not collide today, and
+#: `load_bundle` names the whole sorted set when a key is missing.
 _BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     **_LANGUAGE_BUNDLES,
     **_USE_CASE_BUNDLES,
 }
 
-# The use case whose bundle is chosen by the target's language; every other use
-# case carries a single bundle.
+#: The use case whose bundle is chosen by the target's language; every other use
+#: case carries a single bundle.
 CODING = "coding"
 
 _DEFAULT_ADAPTERS: tuple[LanguageAdapter, ...] = (PythonAdapter(), JavaScriptAdapter())

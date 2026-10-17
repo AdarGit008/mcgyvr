@@ -20,14 +20,15 @@ from pathlib import Path
 from mcgyvr import atomic
 from mcgyvr.fleet import roots
 
-# The name of the token file inside the mcgyvr home folder.
+#: The name of the token file inside the mcgyvr home folder.
 CREDENTIALS_FILE = "rig-credentials.json"
-# A token file is a few hundred bytes; anything longer is not one `save` wrote.
+#: A token file is a few hundred bytes; anything longer is not one `save` wrote.
 MAX_CREDENTIALS_BYTES = 4096
-# What a token may hold: the characters a request header carries, 1 to 256 of them.
-# A token with anything else could not be sent whole, so `_check` refuses it.
+#: What a token may hold: the characters a request header carries, 1 to 256 of them.
+#: A token with anything else could not be sent whole, so `_check` refuses it.
 TOKEN = re.compile(r"[A-Za-z0-9_-]{1,256}")
-# A token as a hub shows it: a public id `mh<letter>_<16 hex digits>` before the secret.
+#: A token as a hub shows it: a public id `mh<letter>_<16 hex digits>` before the
+#: secret.
 _TOKEN_ID = re.compile(r"(mh[a-z]_[0-9a-f]{16})_.+")
 
 

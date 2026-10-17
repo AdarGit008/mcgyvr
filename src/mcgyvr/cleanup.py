@@ -31,18 +31,18 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     from mcgyvr.gate import GateResult
 
-# A formatter is a child process reading a pipe, so it can hang or outlive its
-# usefulness with no verdict to show for it. The run is bounded instead, and a
-# timeout arrives as "nothing to apply" like every other failure.
+#: A formatter is a child process reading a pipe, so it can hang or outlive its
+#: usefulness with no verdict to show for it. The run is bounded instead, and a
+#: timeout arrives as "nothing to apply" like every other failure.
 _FORMAT_TIMEOUT_S = 30.0
 
-# The checks a rewrite is allowed to answer. ``format`` is the only one whose
-# finding is about the bytes the worker wrote rather than about what they mean,
-# so it is the only one a deterministic tool can clear; any other name in a
-# verdict means the change goes back to the worker untouched. The set holds
-# check names because that is what a finding carries, and the one name here is
-# the string ``Gate.run`` files in ``findings`` for a formatting problem, so the
-# split the caller sees and the split this module trusts are the same split.
+#: The checks a rewrite is allowed to answer. ``format`` is the only one whose
+#: finding is about the bytes the worker wrote rather than about what they mean,
+#: so it is the only one a deterministic tool can clear; any other name in a
+#: verdict means the change goes back to the worker untouched. The set holds
+#: check names because that is what a finding carries, and the one name here is
+#: the string ``Gate.run`` files in ``findings`` for a formatting problem, so the
+#: split the caller sees and the split this module trusts are the same split.
 _FORMATTER_CHECKS = frozenset({"format"})
 
 
@@ -139,11 +139,11 @@ def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
     return done.stdout.decode("utf-8", "surrogateescape")
 
 
-# One deterministic cleaner per suffix: the caller's target decides which
-# language's formatter answers, and a suffix absent here is one no rewrite is
-# registered for. Every entry takes the same arguments as ``_ruff_format`` and
-# follows the same contract — ``None`` for "nothing to apply", and no exception
-# for any reason.
+#: One deterministic cleaner per suffix: the caller's target decides which
+#: language's formatter answers, and a suffix absent here is one no rewrite is
+#: registered for. Every entry takes the same arguments as ``_ruff_format`` and
+#: follows the same contract — ``None`` for "nothing to apply", and no exception
+#: for any reason.
 _CLEANERS: dict[str, Callable[[str, str, Path | None], str | None]] = {
     ".py": _ruff_format,
     ".pyi": _ruff_format,

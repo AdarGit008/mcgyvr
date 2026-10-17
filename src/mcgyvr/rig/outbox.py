@@ -17,10 +17,10 @@ import time
 from collections import deque
 from collections.abc import Callable
 
-# How many frames the queue holds before `put` waits for the sender to make room.
+#: How many frames the queue holds before `put` waits for the sender to make room.
 CAPACITY = 256
 
-# A queued frame: text ready to send, or a thunk rendered when the sender takes it.
+#: A queued frame: text ready to send, or a thunk rendered when the sender takes it.
 type Frame = str | Callable[[], str]
 
 
